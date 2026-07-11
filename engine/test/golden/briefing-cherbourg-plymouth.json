@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "snapshot_id": "20260712T060000Z_44d2cd5f_5046ef1a",
+  "sections": [
+    {
+      "id": "route_impact",
+      "title": "Route impact, leg by leg",
+      "register_plain": "What the forecast means for each stretch of your passage:",
+      "register_pro": "Per-leg conditions evaluated hourly across each leg's ETA occupancy window (slow/nominal/fast scenarios), course-relative.",
+      "evidence_ids": [],
+      "per_leg": [
+        {
+          "leg_id": "L1",
+          "register_plain": "Cherbourg, Passe de l'Ouest → Off Omonville-la-Rogue: moderate winds while you are on this stretch (Sun 12 Jul 06:00–Sun 12 Jul 07:45 UTC).",
+          "register_pro": "L1 Cherbourg, Passe de l'Ouest → Off Omonville-la-Rogue (7.91 nm, 294.8°T): sustained 14–15 kt, gusts to 25 kt across the ETA window Sun 12 Jul 06:00–Sun 12 Jul 07:45 UTC.",
+          "evidence_ids": [
+            "E1"
+          ]
+        },
+        {
+          "leg_id": "L2",
+          "register_plain": "Off Omonville-la-Rogue → NW of Cap de la Hague: fresh winds while you are on this stretch (Sun 12 Jul 07:13–Sun 12 Jul 09:48 UTC).",
+          "register_pro": "L2 Off Omonville-la-Rogue → NW of Cap de la Hague (9.26 nm, 293°T): sustained 19–20 kt, gusts to 25 kt across the ETA window Sun 12 Jul 07:13–Sun 12 Jul 09:48 UTC.",
+          "evidence_ids": [
+            "E2",
+            "E3"
+          ]
+        },
+        {
+          "leg_id": "L3",
+          "register_plain": "NW of Cap de la Hague → Casquets TSS crossing: strong winds while you are on this stretch (Sun 12 Jul 08:38–Sun 12 Jul 17:03 UTC). 51 of 51 forecast scenarios exceed your 28 kt gust limit around Sun 12 Jul 16:00 UTC.",
+          "register_pro": "L3 NW of Cap de la Hague → Casquets TSS crossing (32.6 nm, 288.6°T): sustained 20–25 kt, gusts to 32 kt across the ETA window Sun 12 Jul 08:38–Sun 12 Jul 17:03 UTC. Ensemble (ecmwf_ifs025 ensemble): 51 of 51 forecast scenarios exceed your 28 kt gust limit at 2026-07-12T16:00:00Z (raw scenario fraction — not a calibrated probability).",
+          "evidence_ids": [
+            "E4",
+            "E5",
+            "E6",
+            "E7"
+          ]
+        },
+        {
+          "leg_id": "L4",
+          "register_plain": "Casquets TSS crossing → Mid-Channel: strong winds while you are on this stretch (Sun 12 Jul 13:39–Sun 12 Jul 22:34 UTC). 51 of 51 forecast scenarios exceed your 28 kt gust limit around Sun 12 Jul 19:00 UTC.",
+          "register_pro": "L4 Casquets TSS crossing → Mid-Channel (24.83 nm, 291.5°T): sustained 19–27 kt, gusts to 35 kt across the ETA window Sun 12 Jul 13:39–Sun 12 Jul 22:34 UTC. Ensemble (ecmwf_ifs025 ensemble): 51 of 51 forecast scenarios exceed your 28 kt gust limit at 2026-07-12T19:00:00Z (raw scenario fraction — not a calibrated probability).",
+          "evidence_ids": [
+            "E8",
+            "E9",
+            "E10",
+            "E11"
+          ]
+        },
+        {
+          "leg_id": "L5",
+          "register_plain": "Mid-Channel → Plymouth approach (E of Eddystone): fresh winds while you are on this stretch (Sun 12 Jul 17:28–Mon 13 Jul 04:04 UTC). 51 of 51 forecast scenarios exceed your 28 kt gust limit around Sun 12 Jul 17:00 UTC.",
+          "register_pro": "L5 Mid-Channel → Plymouth approach (E of Eddystone) (24.77 nm, 291.6°T): sustained 17–20 kt, gusts to 34 kt across the ETA window Sun 12 Jul 17:28–Mon 13 Jul 04:04 UTC. Ensemble (ecmwf_ifs025 ensemble): 51 of 51 forecast scenarios exceed your 28 kt gust limit at 2026-07-12T17:00:00Z (raw scenario fraction — not a calibrated probability).",
+          "evidence_ids": [
+            "E12",
+            "E13",
+            "E14"
+          ]
+        },
+        {
+          "leg_id": "L6",
+          "register_plain": "Plymouth approach (E of Eddystone) → Plymouth breakwater, western entrance: moderate winds while you are on this stretch (Sun 12 Jul 21:17–Mon 13 Jul 05:37 UTC). 28 of 51 forecast scenarios exceed your 28 kt gust limit around Mon 13 Jul 05:00 UTC.",
+          "register_pro": "L6 Plymouth approach (E of Eddystone) → Plymouth breakwater, western entrance (6.92 nm, 316.2°T): sustained 12–15 kt, gusts to 27 kt across the ETA window Sun 12 Jul 21:17–Mon 13 Jul 05:37 UTC. Ensemble (ecmwf_ifs025 ensemble): 28 of 51 forecast scenarios exceed your 28 kt gust limit at 2026-07-13T05:00:00Z (raw scenario fraction — not a calibrated probability).",
+          "evidence_ids": [
+            "E15",
+            "E16"
+          ]
+        }
+      ],
+      "glossary_terms": [
+        "gust",
+        "ensemble",
+        "ETA window"
+      ]
+    },
+    {
+      "id": "decision",
+      "title": "Against your declared limits",
+      "register_plain": "Forecast conditions go beyond the limits you declared for this departure. The main signal: 51 of 51 forecast scenarios exceed your 28 kt limit on NW of Cap de la Hague → Casquets TSS crossing around Sun 12 Jul 16:00 UTC.",
+      "register_pro": "At least one condition-hour exceeds a declared threshold in the deterministic run. Driver: W-GUST-03 on L3 at 2026-07-12T16:00:00Z — 51/51 members > 28 kt.",
+      "evidence_ids": [
+        "E6"
+      ]
+    },
+    {
+      "id": "what_could_change",
+      "title": "What could change",
+      "register_plain": "Forecasts update several times a day. Check again after the next model run (expected around Sat 11 Jul 20:00 UTC) — especially if you are close to your limits.",
+      "register_pro": "Next ecmwf_ifs025 cycle expected ~2026-07-11T20:00:00Z. Model run ids in this analysis are inferred from publication schedules until the prepared-run pipeline provides authoritative cycles. Agreement between runs is not proof of accuracy.",
+      "evidence_ids": [],
+      "glossary_terms": [
+        "model run"
+      ]
+    },
+    {
+      "id": "unsupported",
+      "title": "Not assessed by this analysis",
+      "register_plain": "This briefing does NOT cover: sea state / waves, convective / squalls, fog / visibility, tidal currents & gates, official marine warnings, tropical systems, ice. No warning here does not mean no risk.",
+      "register_pro": "Unassessed hazard classes: sea state / waves; convective / squalls; fog / visibility; tidal currents & gates; official marine warnings; tropical systems; ice. Absence of a flag must not be read as absence of risk (brief §5).",
+      "evidence_ids": []
+    }
+  ],
+  "next_runs": [
+    {
+      "model": "ecmwf_ifs025",
+      "expected_at": "2026-07-11T20:00:00Z"
+    }
+  ]
+}

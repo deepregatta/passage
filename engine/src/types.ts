@@ -97,6 +97,11 @@ export interface LegHour {
     sustained: 'ok' | 'approaching' | 'exceeded' | 'unknown';
     gust: 'ok' | 'approaching' | 'exceeded' | 'unknown';
   };
+  /** raw ensemble scenario-exceedance counts vs declared limits (M2+) */
+  exceedance?: {
+    sustained: { exceed: number; total: number } | null;
+    gust: { exceed: number; total: number } | null;
+  };
 }
 
 export interface LegFinding {

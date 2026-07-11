@@ -49,6 +49,7 @@ export interface OpenMeteoOptions {
 }
 
 const HOURLY_VARS = ['wind_speed_10m', 'wind_gusts_10m', 'wind_direction_10m'] as const;
+const ENSEMBLE_VARS = ['wind_speed_10m', 'wind_gusts_10m'] as const;
 const DEFAULT_MODEL = 'ecmwf_ifs025';
 
 import { fnv1a64Hex } from '../hash.js';
@@ -63,14 +64,12 @@ export class MemoryCacheStore implements CacheStore {
   }
 }
 
-export async function fetchPointForecasts(
-  points: Array<{ lat: number; lon: number }>,
-  startDate: string,
-  endDate: string,
-  options: OpenMeteoOptions = {},
-): Promise<{ forecasts: PointForecast[]; meta: ForecastRequestMeta }> {
-  const model = options.model ?? DEFAULT_MODEL;
-  const baseUrl = options.baseUrl ?? 'https://api.open-meteo.com/v1/forecast';
+/** Shared fetch with cell cache + exponential backoff on 429/5xx. */
+async function fetchCachedWithBackoff(
+  url: string,
+  cachePrefix: string,
+  options: OpenMeteoOptions,
+): Promise<{ raw: string; cached: boolean; digest: string }> {
   const fetchFn = options.fetchFn ?? fetch;
   const cache = options.cache ?? new MemoryCacheStore();
   const now = options.now ?? Date.now;
@@ -79,6 +78,58 @@ export async function fetchPointForecasts(
   const sleep = options.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
   const cacheMaxAgeMs = options.cacheMaxAgeMs ?? 3 * 3600_000;
 
+  const digest = fnv1a64Hex(url);
+  const cacheKey = `${cachePrefix}_${digest}`;
+
+  const cachedEntry = await cache.get(cacheKey);
+  if (cachedEntry) {
+    try {
+      const entry = JSON.parse(cachedEntry) as { fetched_at: string; body: unknown };
+      if (now() - Date.parse(entry.fetched_at) < cacheMaxAgeMs) {
+        return { raw: JSON.stringify(entry.body), cached: true, digest };
+      }
+    } catch {
+      // fall through to live fetch
+    }
+  }
+
+  let lastError: Error | null = null;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    if (attempt > 0) await sleep(baseDelayMs * 2 ** (attempt - 1));
+    let response: Response;
+    try {
+      response = await fetchFn(url);
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      continue;
+    }
+    if (response.status === 429 || response.status >= 500) {
+      lastError = new Error(`Open-Meteo HTTP ${response.status}`);
+      continue;
+    }
+    if (!response.ok) {
+      throw new Error(`Open-Meteo HTTP ${response.status}: ${await response.text()}`);
+    }
+    const raw = await response.text();
+    await cache.set(
+      cacheKey,
+      JSON.stringify({ fetched_at: new Date(now()).toISOString(), body: JSON.parse(raw) }),
+    );
+    return { raw, cached: false, digest };
+  }
+  throw lastError ?? new Error('Open-Meteo fetch failed');
+}
+
+export async function fetchPointForecasts(
+  points: Array<{ lat: number; lon: number }>,
+  startDate: string,
+  endDate: string,
+  options: OpenMeteoOptions = {},
+): Promise<{ forecasts: PointForecast[]; meta: ForecastRequestMeta }> {
+  const model = options.model ?? DEFAULT_MODEL;
+  const baseUrl = options.baseUrl ?? 'https://api.open-meteo.com/v1/forecast';
+  const now = options.now ?? Date.now;
+
   const lats = points.map((p) => p.lat.toFixed(2));
   const lons = points.map((p) => p.lon.toFixed(2));
   const url =
@@ -86,53 +137,7 @@ export async function fetchPointForecasts(
     `&hourly=${HOURLY_VARS.join(',')}&models=${model}` +
     `&wind_speed_unit=kn&timezone=UTC&start_date=${startDate}&end_date=${endDate}`;
 
-  const digest = fnv1a64Hex(url);
-  const cacheKey = `om-forecast_${model}_${digest}`;
-
-  let raw: string | null = null;
-  let cached = false;
-  const cachedEntry = await cache.get(cacheKey);
-  if (cachedEntry) {
-    try {
-      const entry = JSON.parse(cachedEntry) as { fetched_at: string; body: unknown };
-      if (now() - Date.parse(entry.fetched_at) < cacheMaxAgeMs) {
-        raw = JSON.stringify(entry.body);
-        cached = true;
-      }
-    } catch {
-      raw = null;
-    }
-  }
-
-  if (raw === null) {
-    let lastError: Error | null = null;
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      if (attempt > 0) await sleep(baseDelayMs * 2 ** (attempt - 1));
-      let response: Response;
-      try {
-        response = await fetchFn(url);
-      } catch (error) {
-        lastError = error instanceof Error ? error : new Error(String(error));
-        continue;
-      }
-      if (response.status === 429 || response.status >= 500) {
-        lastError = new Error(`Open-Meteo HTTP ${response.status}`);
-        continue;
-      }
-      if (!response.ok) {
-        throw new Error(`Open-Meteo HTTP ${response.status}: ${await response.text()}`);
-      }
-      raw = await response.text();
-      break;
-    }
-    if (raw === null) {
-      throw lastError ?? new Error('Open-Meteo fetch failed');
-    }
-    await cache.set(
-      cacheKey,
-      JSON.stringify({ fetched_at: new Date(now()).toISOString(), body: JSON.parse(raw) }),
-    );
-  }
+  const { raw, cached, digest } = await fetchCachedWithBackoff(url, `om-forecast_${model}`, options);
 
   const parsed = JSON.parse(raw) as unknown;
   const locations = Array.isArray(parsed) ? parsed : [parsed];
@@ -168,6 +173,97 @@ export async function fetchPointForecasts(
       points: points.length,
     },
   };
+}
+
+export interface EnsemblePointForecast {
+  lat: number;
+  lon: number;
+  times: string[];
+  /** [member][timeIdx], member 0 = control */
+  wind_kt_members: Array<Array<number | null>>;
+  gust_kt_members: Array<Array<number | null>>;
+}
+
+export interface EnsembleRequestMeta {
+  api: 'ensemble';
+  model: string;
+  members: number;
+  request_digest: string;
+  fetched_at: string;
+  run_inferred: string;
+  cached: boolean;
+  points: number;
+}
+
+/**
+ * Ensemble forecast (ECMWF ENS via Open-Meteo): 51 members (control + 50) with
+ * wind speed AND gusts (verified live 2026-07-11). Used for raw scenario-exceedance
+ * fractions — never presented as calibrated probabilities (brief §6).
+ */
+export async function fetchEnsembleForecasts(
+  points: Array<{ lat: number; lon: number }>,
+  startDate: string,
+  endDate: string,
+  options: OpenMeteoOptions = {},
+): Promise<{ forecasts: EnsemblePointForecast[]; meta: EnsembleRequestMeta }> {
+  const model = options.model ?? DEFAULT_MODEL;
+  const baseUrl = options.baseUrl ?? 'https://ensemble-api.open-meteo.com/v1/ensemble';
+  const now = options.now ?? Date.now;
+
+  const lats = points.map((p) => p.lat.toFixed(2));
+  const lons = points.map((p) => p.lon.toFixed(2));
+  const url =
+    `${baseUrl}?latitude=${lats.join(',')}&longitude=${lons.join(',')}` +
+    `&hourly=${ENSEMBLE_VARS.join(',')}&models=${model}` +
+    `&wind_speed_unit=kn&timezone=UTC&start_date=${startDate}&end_date=${endDate}`;
+
+  const { raw, cached, digest } = await fetchCachedWithBackoff(url, `om-ensemble_${model}`, options);
+
+  const parsed = JSON.parse(raw) as unknown;
+  const locations = Array.isArray(parsed) ? parsed : [parsed];
+  if (locations.length !== points.length) {
+    throw new Error(
+      `Open-Meteo ensemble returned ${locations.length} locations for ${points.length} points`,
+    );
+  }
+
+  let memberCount = 0;
+  const forecasts: EnsemblePointForecast[] = locations.map((loc: any, i: number) => {
+    const hourly = loc?.hourly;
+    if (!hourly?.time) throw new Error(`Ensemble response missing hourly block (point ${i})`);
+    const windKeys = memberKeys(hourly, 'wind_speed_10m');
+    const gustKeys = memberKeys(hourly, 'wind_gusts_10m');
+    memberCount = Math.max(memberCount, windKeys.length);
+    return {
+      lat: points[i]!.lat,
+      lon: points[i]!.lon,
+      times: (hourly.time as string[]).map((t) => (t.endsWith('Z') ? t : `${t}:00Z`)),
+      wind_kt_members: windKeys.map((k) => hourly[k] ?? []),
+      gust_kt_members: gustKeys.map((k) => hourly[k] ?? []),
+    };
+  });
+
+  return {
+    forecasts,
+    meta: {
+      api: 'ensemble',
+      model,
+      members: memberCount,
+      request_digest: digest,
+      fetched_at: new Date(now()).toISOString(),
+      run_inferred: inferEcmwfCycle(now()),
+      cached,
+      points: points.length,
+    },
+  };
+}
+
+/** Member series keys in stable order: base (control), then _member01.._memberNN. */
+function memberKeys(hourly: Record<string, unknown>, base: string): string[] {
+  const members = Object.keys(hourly)
+    .filter((k) => k.startsWith(`${base}_member`))
+    .sort();
+  return hourly[base] !== undefined ? [base, ...members] : members;
 }
 
 /**

@@ -11,10 +11,12 @@ import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ENGINE_VERSION } from './index.js';
 import { assembleFindings } from './findings.js';
+import { renderBriefing } from './briefing.js';
+import { buildPlume, writeSnapshot } from './snapshot.js';
 import { deriveLegs, legMidpoints } from './route.js';
 import { computeSchedules, parseUtc, toIso } from './eta.js';
-import { fetchPointForecasts } from './fetch/openMeteo.js';
-import { FsCacheStore } from './io/node.js';
+import { fetchEnsembleForecasts, fetchPointForecasts } from './fetch/openMeteo.js';
+import { FsCacheStore, NodeFsSnapshotStore } from './io/node.js';
 import type { LimitsProfile, Route } from './types.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -61,24 +63,39 @@ async function runCommand(args: Map<string, string>): Promise<number> {
   const endDate = toIso(endMs).slice(0, 10);
 
   const cache = new FsCacheStore(join(REPO_ROOT, 'data', 'cache', 'openmeteo'));
-  const { forecasts, meta } = await fetchPointForecasts(
-    midpoints.map((p) => ({ lat: p.lat, lon: p.lon })),
-    startDate,
-    endDate,
-    { cache },
-  );
+  const points = midpoints.map((p) => ({ lat: p.lat, lon: p.lon }));
+  const [det, ens] = await Promise.all([
+    fetchPointForecasts(points, startDate, endDate, { cache }),
+    fetchEnsembleForecasts(points, startDate, endDate, { cache }),
+  ]);
 
+  const nowMs = Date.now();
   const findings = assembleFindings({
     route,
     profile,
     departureUtc: departure,
-    legForecasts: forecasts,
-    requestMeta: [meta],
+    legForecasts: det.forecasts,
+    requestMeta: [det.meta],
+    legEnsembles: ens.forecasts,
+    ensembleMeta: ens.meta,
     engineVersion: ENGINE_VERSION,
-    nowMs: Date.now(),
+    nowMs,
   });
 
-  console.log(JSON.stringify(findings, null, 2));
+  if (args.get('no-snapshot') !== undefined || args.has('print')) {
+    console.log(JSON.stringify(findings, null, 2));
+    return 0;
+  }
+
+  const briefing = renderBriefing(findings);
+  const plume = buildPlume(findings, ens.forecasts, profile.max_gust_kt);
+  const store = new NodeFsSnapshotStore(join(REPO_ROOT, 'data', 'processed', 'snapshots'));
+  const { snapshot_id } = await writeSnapshot(store, findings, briefing, { route, plume }, nowMs);
+
+  console.log(`snapshot: ${snapshot_id}`);
+  console.log(`verdict:  ${findings.verdict.state}`);
+  const decision = briefing.sections.find((s) => s.id === 'decision');
+  if (decision) console.log(`\n${decision.register_plain}`);
   return 0;
 }
 
@@ -90,4 +107,9 @@ async function main(): Promise<number> {
   return 1;
 }
 
-main().then((code) => process.exit(code));
+main()
+  .then((code) => process.exit(code))
+  .catch((error) => {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  });
