@@ -9,20 +9,9 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ENGINE_VERSION } from './index.js';
-import { assembleFindings } from './findings.js';
-import { renderBriefing } from './briefing.js';
-import { buildPlume, writeSnapshot } from './snapshot.js';
-import { deriveLegs, legMidpoints } from './route.js';
-import { computeSchedules, parseUtc, toIso } from './eta.js';
-import {
-  fetchEnsembleForecasts,
-  fetchMarineForecasts,
-  fetchMultiModelForecasts,
-  fetchPointForecasts,
-} from './fetch/openMeteo.js';
+import { runAnalysis, persistSnapshot } from './analyze.js';
 import { FsCacheStore, NodeFsSnapshotStore } from './io/node.js';
-import type { LimitsProfile, Route } from './types.js';
+import type { LimitsProfile, Route, WarningsInput } from './types.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '..', '..');
@@ -60,46 +49,17 @@ async function runCommand(args: Map<string, string>): Promise<number> {
 
   const route = JSON.parse(readFileSync(routePath, 'utf8')) as Route;
   const profile = JSON.parse(readFileSync(profilePath, 'utf8')) as LimitsProfile;
-  if (!route.speeds_kt) {
-    console.error('Route has no speeds_kt');
-    return 1;
-  }
-
-  const legs = deriveLegs(route);
-  const midpoints = legMidpoints(legs);
-  const schedules = computeSchedules(legs, route.speeds_kt, departure);
-
-  // window: departure day .. slow-arrival day (+1 day margin)
-  const startMs = parseUtc(departure);
-  const endMs = parseUtc(schedules[schedules.length - 1]!.exit.slow) + 24 * 3600_000;
-  const startDate = toIso(startMs).slice(0, 10);
-  const endDate = toIso(endMs).slice(0, 10);
-
-  const points = midpoints.map((p) => ({ lat: p.lat, lon: p.lon }));
 
   // fixture mode: responses come from files; file-URL bases make request digests
   // (and therefore snapshot ids) unique per fixture directory
   const fixtureDir = args.get('fixture-dir') ? userPath(args.get('fixture-dir')!) : undefined;
-  const baseOpts: Record<string, unknown> = fixtureDir
-    ? {
-        fetchFn: (async (url: string | URL) => {
-          const path = String(url).split('?')[0]!.replace('file://', '');
-          return new Response(readFileSync(path, 'utf8'), { status: 200 });
-        }) as unknown as typeof fetch,
-      }
-    : { cache: new FsCacheStore(join(REPO_ROOT, 'data', 'cache', 'openmeteo')) };
-  const base = (api: string) =>
-    fixtureDir ? { ...baseOpts, baseUrl: `file://${fixtureDir}/${api}.json` } : baseOpts;
-
-  const [det, ens, marine, multi] = await Promise.all([
-    fetchPointForecasts(points, startDate, endDate, base('forecast')),
-    fetchEnsembleForecasts(points, startDate, endDate, base('ensemble')),
-    fetchMarineForecasts(points, startDate, endDate, base('marine')),
-    fetchMultiModelForecasts(points, startDate, endDate, base('multimodel')),
-  ]);
+  const fileFetch = (async (url: string | URL) => {
+    const path = String(url).split('?')[0]!.replace('file://', '');
+    return new Response(readFileSync(path, 'utf8'), { status: 200 });
+  }) as unknown as typeof fetch;
 
   // warnings: explicit path (scenarios), or data/processed/warnings/latest.json when present
-  let warnings;
+  let warnings: WarningsInput | undefined;
   const warningsPath = args.get('warnings')
     ? userPath(args.get('warnings')!)
     : fixtureDir && existsSync(join(fixtureDir, 'warnings.json'))
@@ -107,9 +67,7 @@ async function runCommand(args: Map<string, string>): Promise<number> {
       : join(REPO_ROOT, 'data', 'processed', 'warnings', 'latest.json');
   if (existsSync(warningsPath)) {
     const doc = JSON.parse(readFileSync(warningsPath, 'utf8'));
-    const zones = JSON.parse(
-      readFileSync(join(REPO_ROOT, 'config', 'route-zones.json'), 'utf8'),
-    );
+    const zones = JSON.parse(readFileSync(join(REPO_ROOT, 'config', 'route-zones.json'), 'utf8'));
     const zoneEntry = zones.routes?.[route.route_id];
     const routeZoneIds = [
       ...(zoneEntry?.fr_zones ?? []).map((z: { zone_id: string }) => z.zone_id),
@@ -118,36 +76,35 @@ async function runCommand(args: Map<string, string>): Promise<number> {
     warnings = { doc, routeZoneIds, ref: warningsPath };
   }
 
-  const nowMs = Date.now();
-  const findings = assembleFindings({
+  const result = await runAnalysis({
     route,
     profile,
     departureUtc: departure,
-    legForecasts: det.forecasts,
-    requestMeta: [det.meta],
-    legEnsembles: ens.forecasts,
-    ensembleMeta: ens.meta,
-    legMarine: marine.forecasts,
-    marineMeta: marine.meta,
-    multiModel: multi,
-    warnings,
-    engineVersion: ENGINE_VERSION,
-    nowMs,
+    ...(warnings ? { warnings } : {}),
+    ...(fixtureDir
+      ? {
+          fetchFn: fileFetch,
+          baseUrls: {
+            forecast: `file://${fixtureDir}/forecast.json`,
+            ensemble: `file://${fixtureDir}/ensemble.json`,
+            marine: `file://${fixtureDir}/marine.json`,
+            multimodel: `file://${fixtureDir}/multimodel.json`,
+          },
+        }
+      : { cache: new FsCacheStore(join(REPO_ROOT, 'data', 'cache', 'openmeteo')) }),
   });
 
   if (args.get('no-snapshot') !== undefined || args.has('print')) {
-    console.log(JSON.stringify(findings, null, 2));
+    console.log(JSON.stringify(result.findings, null, 2));
     return 0;
   }
 
-  const briefing = renderBriefing(findings);
-  const plume = buildPlume(findings, ens.forecasts, profile.max_gust_kt, multi.byModel);
   const store = new NodeFsSnapshotStore(join(REPO_ROOT, 'data', 'processed', 'snapshots'));
-  const { snapshot_id } = await writeSnapshot(store, findings, briefing, { route, plume }, nowMs);
+  const snapshotId = await persistSnapshot(store, result, route, Date.now());
 
-  console.log(`snapshot: ${snapshot_id}`);
-  console.log(`verdict:  ${findings.verdict.state}`);
-  const decision = briefing.sections.find((s) => s.id === 'decision');
+  console.log(`snapshot: ${snapshotId}`);
+  console.log(`verdict:  ${result.findings.verdict.state}`);
+  const decision = result.briefing.sections.find((s) => s.id === 'decision');
   if (decision) console.log(`\n${decision.register_plain}`);
   return 0;
 }

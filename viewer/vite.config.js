@@ -117,6 +117,27 @@ function dataMiddleware() {
           return;
         }
 
+        if (requestPath === '/data/routes/index.json') {
+          const routesDir = path.join(dataRoot, 'routes');
+          const routes = fs.existsSync(routesDir)
+            ? fs
+                .readdirSync(routesDir)
+                .filter((f) => f.endsWith('.json'))
+                .map((f) => {
+                  try {
+                    const r = JSON.parse(fs.readFileSync(path.join(routesDir, f), 'utf8'));
+                    return { route_id: r.route_id, name: r.name, mode: r.mode, file: f };
+                  } catch {
+                    return null;
+                  }
+                })
+                .filter(Boolean)
+            : [];
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ routes }));
+          return;
+        }
+
         // read-only view of repo config (providers, profiles, routes) for the UI
         const configRoot = path.resolve(__dirname, '../config');
         const relativePath = decodeURIComponent(requestPath.slice(6));

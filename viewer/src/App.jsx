@@ -1,5 +1,6 @@
 import { useApp } from './stores/appStore.js';
 import Snapshots from './pages/Snapshots.jsx';
+import Planner from './pages/Planner.jsx';
 import Briefing from './pages/Briefing.jsx';
 import Evidence from './pages/Evidence.jsx';
 import Settings from './pages/Settings.jsx';
@@ -7,8 +8,8 @@ import EvidenceInspector from './components/EvidenceInspector.jsx';
 import clsx from 'clsx';
 
 const NAV = [
+  { id: 'planner', label: 'Planner', ready: true },
   { id: 'snapshots', label: 'Analyses', ready: true },
-  { id: 'planner', label: 'Planner', ready: false },
   { id: 'briefing', label: 'Briefing', ready: true },
   { id: 'evidence', label: 'Evidence', ready: true },
   { id: 'changes', label: 'Changes', ready: false },
@@ -16,7 +17,13 @@ const NAV = [
   { id: 'settings', label: 'Settings', ready: true },
 ];
 
-const PAGES = { snapshots: Snapshots, briefing: Briefing, evidence: Evidence, settings: Settings };
+const PAGES = {
+  snapshots: Snapshots,
+  planner: Planner,
+  briefing: Briefing,
+  evidence: Evidence,
+  settings: Settings,
+};
 
 export default function App() {
   const page = useApp((s) => s.page);
