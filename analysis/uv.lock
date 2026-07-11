@@ -335,6 +335,7 @@ name = "deepweather-analysis"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "global-land-mask" },
     { name = "matplotlib" },
     { name = "numpy" },
     { name = "orjson" },
@@ -369,6 +370,7 @@ requires-dist = [
     { name = "eccodes", marker = "extra == 'environment'", specifier = ">=2.37" },
     { name = "eccodeslib", marker = "(platform_machine == 'aarch64' and extra == 'environment') or (platform_machine == 'x86_64' and extra == 'environment')", specifier = ">=2.45" },
     { name = "ecmwf-opendata", marker = "extra == 'environment'", specifier = ">=0.3,<1.0" },
+    { name = "global-land-mask", specifier = ">=1.0,<2.0" },
     { name = "matplotlib", specifier = ">=3.8,<4.0" },
     { name = "netcdf4", marker = "extra == 'environment'", specifier = ">=1.6,<2.0" },
     { name = "numpy", specifier = ">=1.26,<3.0" },
@@ -516,6 +518,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/10/a1/ae4e3e5003468d6391d2c77b6fa1cd73bd5d13511d81c642d7b28ac90ed4/fsspec-2026.6.0.tar.gz", hash = "sha256:f5bac145310fe30e16e1471bd6840b2d990d609e872251d7e674241822abf01a", size = 313646, upload-time = "2026-06-16T01:57:28.105Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e5/22/4222d7ddf3da30f363edaa98e329c2bce6c65497c9cb2810931c8b2c0fbc/fsspec-2026.6.0-py3-none-any.whl", hash = "sha256:02e0b71817df9b2169dc30a16832045764def1191b43dcff5bb85bdee212d2a1", size = 203949, upload-time = "2026-06-16T01:57:26.358Z" },
+]
+
+[[package]]
+name = "global-land-mask"
+version = "1.0.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/6e/cd/d06fe252cbe41b85c7a1a54e4d4214c79b770eb5d6c6fa3b03e56371a6da/global-land-mask-1.0.0.tar.gz", hash = "sha256:956bf02e8b05bfc9f3a29cbc6e97d5ba4151c0732504acc73c2db9ea325ecff3", size = 1825546, upload-time = "2020-10-05T13:15:30.119Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e6/e9/eaac67e39b68f64828a164f8dbfcf13baccd7382704ea120152af475f520/global_land_mask-1.0.0-py3-none-any.whl", hash = "sha256:07751fbb4e3834ee508a84ea64d9bd5340fbd0a8c951e24b43c323fcc670bb62", size = 1836944, upload-time = "2020-10-05T13:15:20.322Z" },
 ]
 
 [[package]]

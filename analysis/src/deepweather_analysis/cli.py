@@ -49,6 +49,17 @@ def cmd_fetch_currents(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_prepare_run(args: argparse.Namespace) -> int:
+    from .synoptic_prep import prepare_synoptic
+
+    summary = prepare_synoptic(cycle=args.cycle, force=args.force)
+    print(f"prepared run {summary.get('run_id')}")
+    for key in ("systems", "charts", "publication_lag_min"):
+        if key in summary:
+            print(f"  {key}: {summary[key]}")
+    return 0
+
+
 def cmd_fetch_warnings(args: argparse.Namespace) -> int:
     from .warnings_mf import fetch_warnings
 
@@ -106,6 +117,13 @@ def main(argv: list[str] | None = None) -> int:
         "--force", action="store_true", help="re-fetch even if a fresh cache exists"
     )
     currents_parser.set_defaults(func=cmd_fetch_currents)
+
+    prepare_parser = subparsers.add_parser(
+        "prepare-run", help="ECMWF cycle -> synoptic features + charts + wind grid + manifest"
+    )
+    prepare_parser.add_argument("--cycle", default=None, help="e.g. 20260712T00Z (default latest)")
+    prepare_parser.add_argument("--force", action="store_true")
+    prepare_parser.set_defaults(func=cmd_prepare_run)
 
     warnings_parser = subparsers.add_parser(
         "fetch-warnings", help="marine warnings -> data/processed/warnings/latest.json"

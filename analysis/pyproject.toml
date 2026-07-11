@@ -10,6 +10,7 @@ dependencies = [
     "matplotlib>=3.8,<4.0",
     "requests>=2.31,<3.0",
     "orjson>=3.9,<4.0",
+    "global-land-mask>=1.0,<2.0",
 ]
 
 [project.optional-dependencies]

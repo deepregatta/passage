@@ -1,0 +1,14 @@
+{
+  "polars": [
+    {
+      "polar_id": "sigma-38",
+      "label": "SIGMA 38",
+      "source_kind": "orc_vpp"
+    },
+    {
+      "polar_id": "sun-fast-3200",
+      "label": "SUN FAST 3200",
+      "source_kind": "orc_vpp"
+    }
+  ]
+}

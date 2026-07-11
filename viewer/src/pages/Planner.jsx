@@ -2,10 +2,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { deriveLegs, totalDistanceNm, parseGpx } from '@deepweather/engine';
+import { deriveLegs, totalDistanceNm, parseGpx, computeRoute } from '@deepweather/engine';
 import { useApp } from '../stores/appStore.js';
 import { analyzeInBrowser, saveRoute } from '../lib/browserAnalysis.js';
 import { Panel } from '../components/common.jsx';
+import clsx from 'clsx';
+
+async function loadJson(url) {
+  const res = await fetch(url);
+  return res.ok ? res.json() : null;
+}
 
 // ink-navy waypoint dots instead of Leaflet's default blue pin
 const waypointIcon = L.divIcon({
@@ -31,7 +37,12 @@ export default function Planner() {
   const profileDefaults = useApp((s) => s.profileDefaults);
   const loadConfig = useApp((s) => s.loadConfig);
 
+  const [mode, setMode] = useState('draw'); // draw | compute
   const [waypoints, setWaypoints] = useState([]);
+  const [computed, setComputed] = useState(null); // RoutingResult
+  const [endpoints, setEndpoints] = useState([]); // [start, finish] in compute mode
+  const [polars, setPolars] = useState([]);
+  const [polarId, setPolarId] = useState(null);
   const [name, setName] = useState('My passage');
   const [speeds, setSpeeds] = useState({ slow: 4.5, nominal: 5.5, fast: 6.5 });
   const [departureLocal, setDepartureLocal] = useState(defaultDeparture);
@@ -41,9 +52,15 @@ export default function Planner() {
 
   useEffect(() => {
     loadConfig();
+    loadJson('/data/config/polars/index.json').then((idx) => {
+      const list = idx?.polars ?? [];
+      setPolars(list);
+      if (list.length) setPolarId(list[0].polar_id);
+    });
   }, [loadConfig]);
 
   const route = useMemo(() => {
+    if (mode === 'compute') return computed?.route ?? null;
     if (waypoints.length < 2) return null;
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'route';
     return {
@@ -58,7 +75,7 @@ export default function Planner() {
       })),
       speeds_kt: { ...speeds },
     };
-  }, [waypoints, name, speeds]);
+  }, [mode, computed, waypoints, name, speeds]);
 
   const distance = useMemo(() => {
     if (!route) return null;
@@ -66,9 +83,51 @@ export default function Planner() {
   }, [route]);
   const passageHours = distance ? Math.round(distance / speeds.nominal) : null;
 
-  const addWaypoint = useCallback((latlng) => {
-    setWaypoints((wps) => [...wps, latlng]);
-  }, []);
+  const addWaypoint = useCallback(
+    (latlng) => {
+      if (mode === 'compute') {
+        setComputed(null);
+        setEndpoints((eps) => (eps.length >= 2 ? [latlng] : [...eps, latlng]));
+      } else {
+        setWaypoints((wps) => [...wps, latlng]);
+      }
+    },
+    [mode],
+  );
+
+  const runRouting = async () => {
+    if (endpoints.length !== 2 || !polarId) return;
+    setBusy('computing route');
+    setError(null);
+    try {
+      const [latest, polar] = await Promise.all([
+        loadJson('/data/runs/latest.json'),
+        loadJson(`/data/config/polars/${polarId}.json`),
+      ]);
+      if (!latest?.artifacts?.wind_grid) {
+        throw new Error('No prepared wind grid — run deepweather-analysis prepare-run first');
+      }
+      const [windGrid, currentGrid, landMask] = await Promise.all([
+        loadJson(`/data/${latest.artifacts.wind_grid}`),
+        latest.artifacts.current_grid ? loadJson(`/data/${latest.artifacts.current_grid}`) : null,
+        latest.artifacts.land_mask ? loadJson(`/data/${latest.artifacts.land_mask}`) : null,
+      ]);
+      const result = computeRoute({
+        start: { lat: endpoints[0].lat, lon: endpoints[0].lng, name: 'Start' },
+        finish: { lat: endpoints[1].lat, lon: endpoints[1].lng, name: 'Finish' },
+        departureUtc: `${departureLocal}:00Z`,
+        polar,
+        windGrid,
+        currentGrid: currentGrid ?? undefined,
+        landMask: landMask ?? undefined,
+      });
+      setComputed(result);
+      setBusy(null);
+    } catch (e) {
+      setBusy(null);
+      setError(e.message);
+    }
+  };
 
   const onGpx = async (event) => {
     const file = event.target.files?.[0];
@@ -132,54 +191,130 @@ export default function Planner() {
               attribution='&copy; OpenStreetMap contributors'
             />
             <ClickCapture onClick={addWaypoint} />
-            {waypoints.map((wp, i) => (
-              <Marker
-                key={i}
-                position={wp}
-                icon={waypointIcon}
-                draggable
-                eventHandlers={{
-                  dragend: (e) => {
-                    const next = [...waypoints];
-                    next[i] = e.target.getLatLng();
-                    setWaypoints(next);
-                  },
-                }}
-              />
-            ))}
-            {waypoints.length >= 2 && (
+            {mode === 'draw' &&
+              waypoints.map((wp, i) => (
+                <Marker
+                  key={i}
+                  position={wp}
+                  icon={waypointIcon}
+                  draggable
+                  eventHandlers={{
+                    dragend: (e) => {
+                      const next = [...waypoints];
+                      next[i] = e.target.getLatLng();
+                      setWaypoints(next);
+                    },
+                  }}
+                />
+              ))}
+            {mode === 'draw' && waypoints.length >= 2 && (
               <Polyline positions={waypoints} pathOptions={{ color: '#16283E', weight: 2.5, dashArray: '6 4' }} />
+            )}
+            {mode === 'compute' &&
+              endpoints.map((p, i) => <Marker key={`ep${i}`} position={p} icon={waypointIcon} />)}
+            {mode === 'compute' && computed && (
+              <Polyline
+                positions={computed.route.waypoints.map((wp) => [wp.lat, wp.lon])}
+                pathOptions={{ color: '#2F6E4F', weight: 3 }}
+              />
             )}
           </MapContainer>
         </div>
 
         <Panel title="Passage">
           <div className="space-y-3 font-sans text-sm">
-            <label className="block">
-              <span className="eyebrow block mb-1">Name</span>
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full bg-white/60 border hairline rounded-sm px-2 py-1.5"
-              />
-            </label>
-
-            <div>
-              <span className="eyebrow block mb-1">Boat speed (kt) — slow / usual / fast</span>
-              <div className="flex gap-2">
-                {['slow', 'nominal', 'fast'].map((k) => (
-                  <input
-                    key={k}
-                    type="number"
-                    step="0.5"
-                    value={speeds[k]}
-                    onChange={(e) => setSpeeds({ ...speeds, [k]: Number(e.target.value) })}
-                    className="w-full bg-white/60 border hairline rounded-sm px-2 py-1.5 font-mono"
-                    aria-label={`${k} speed`}
-                  />
-                ))}
-              </div>
+            <div className="flex gap-1.5" role="tablist" aria-label="Route mode">
+              {[
+                ['draw', 'Draw my route'],
+                ['compute', 'Compute a route'],
+              ].map(([m, label]) => (
+                <button
+                  key={m}
+                  type="button"
+                  role="tab"
+                  aria-selected={mode === m}
+                  onClick={() => setMode(m)}
+                  className={clsx(
+                    'px-2.5 py-1 border rounded-sm text-[13px]',
+                    mode === m ? 'bg-ink text-paper border-ink' : 'border-line text-ink-soft hover:border-ink-soft',
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
+
+            {mode === 'draw' && (
+              <label className="block">
+                <span className="eyebrow block mb-1">Name</span>
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full bg-white/60 border hairline rounded-sm px-2 py-1.5"
+                />
+              </label>
+            )}
+
+            {mode === 'draw' && (
+              <div>
+                <span className="eyebrow block mb-1">Boat speed (kt) — slow / usual / fast</span>
+                <div className="flex gap-2">
+                  {['slow', 'nominal', 'fast'].map((k) => (
+                    <input
+                      key={k}
+                      type="number"
+                      step="0.5"
+                      value={speeds[k]}
+                      onChange={(e) => setSpeeds({ ...speeds, [k]: Number(e.target.value) })}
+                      className="w-full bg-white/60 border hairline rounded-sm px-2 py-1.5 font-mono"
+                      aria-label={`${k} speed`}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {mode === 'compute' && (
+              <>
+                <label className="block">
+                  <span className="eyebrow block mb-1">Your boat (ORC polar)</span>
+                  <select
+                    value={polarId ?? ''}
+                    onChange={(e) => setPolarId(e.target.value)}
+                    className="w-full bg-white/60 border hairline rounded-sm px-2 py-1.5"
+                  >
+                    {polars.map((p) => (
+                      <option key={p.polar_id} value={p.polar_id}>
+                        {p.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <p className="text-[12px] text-ink-soft">
+                  Click the chart twice: start, then finish. The route is computed from forecast
+                  wind, currents and your polar — then audited like any other route.
+                </p>
+                <button
+                  type="button"
+                  onClick={runRouting}
+                  disabled={endpoints.length !== 2 || !polarId || busy !== null}
+                  className="w-full border border-ink/50 rounded-sm px-3 py-2 hover:bg-white/50 disabled:opacity-40"
+                >
+                  Compute route
+                </button>
+                {computed && (
+                  <p className="text-[13px]">
+                    <span className="font-mono">{computed.distance_nm} nm</span> ·{' '}
+                    <span className="font-mono">{computed.duration_h} h</span> · arrives{' '}
+                    <span className="font-mono">{computed.arrival_utc.slice(11, 16)} UTC</span> · avg{' '}
+                    <span className="font-mono">{computed.avg_sog_kt} kt</span>
+                    <span className="block text-[11px] text-ink-soft mt-0.5">
+                      computed route — inherits polar uncertainty; audited below like any route
+                    </span>
+                  </p>
+                )}
+              </>
+            )}
 
             <label className="block">
               <span className="eyebrow block mb-1">Departure (UTC)</span>
@@ -193,8 +328,8 @@ export default function Planner() {
 
             <div className="flex items-center justify-between border-t hairline pt-3">
               <span className="text-ink-soft">
-                {waypoints.length} waypoints
-                {distance !== null && (
+                {mode === 'draw' ? `${waypoints.length} waypoints` : `${endpoints.length}/2 endpoints`}
+                {mode === 'draw' && distance !== null && (
                   <>
                     {' · '}
                     <span className="font-mono">{distance} nm</span>
@@ -206,33 +341,39 @@ export default function Planner() {
               <span className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => setWaypoints((w) => w.slice(0, -1))}
-                  disabled={!waypoints.length}
-                  className="underline text-ink-soft hover:text-ink disabled:opacity-40"
+                  onClick={() =>
+                    mode === 'draw' ? setWaypoints((w) => w.slice(0, -1)) : setEndpoints((e) => e.slice(0, -1))
+                  }
+                  className="underline text-ink-soft hover:text-ink"
                 >
                   undo
                 </button>
                 <button
                   type="button"
-                  onClick={() => setWaypoints([])}
-                  disabled={!waypoints.length}
-                  className="underline text-ink-soft hover:text-ink disabled:opacity-40"
+                  onClick={() => {
+                    setWaypoints([]);
+                    setEndpoints([]);
+                    setComputed(null);
+                  }}
+                  className="underline text-ink-soft hover:text-ink"
                 >
                   clear
                 </button>
               </span>
             </div>
 
-            <div className="flex gap-2 items-center">
-              <button
-                type="button"
-                onClick={() => fileRef.current?.click()}
-                className="border border-ink/40 rounded-sm px-3 py-1.5 hover:bg-white/50"
-              >
-                Import GPX…
-              </button>
-              <input ref={fileRef} type="file" accept=".gpx" onChange={onGpx} className="hidden" />
-            </div>
+            {mode === 'draw' && (
+              <div className="flex gap-2 items-center">
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  className="border border-ink/40 rounded-sm px-3 py-1.5 hover:bg-white/50"
+                >
+                  Import GPX…
+                </button>
+                <input ref={fileRef} type="file" accept=".gpx" onChange={onGpx} className="hidden" />
+              </div>
+            )}
 
             <button
               type="button"
