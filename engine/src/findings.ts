@@ -6,9 +6,13 @@
  * rule id, model, run, leg, hour, value, limit, source kind.
  */
 
+import { assessDisagreement } from './disagreement.js';
 import { computeSchedules, parseUtc } from './eta.js';
 import { countExceedance, fraction } from './exceedance.js';
 import { contentHash } from './hash.js';
+import { squallPotential } from './hazards/convective.js';
+import { evaluateMinVisibility, fogRisk, visibilityNm } from './hazards/visibility.js';
+import { assessCrossSea, steepness, windAgainstSwell } from './hazards/waves.js';
 import {
   approachingRatio,
   evaluateAgainstLimit,
@@ -22,7 +26,11 @@ import type {
   EnsemblePointForecast,
   EnsembleRequestMeta,
   ForecastRequestMeta,
+  HazardPointForecast,
+  MarineRequestMeta,
+  MultiModelRequestMeta,
   PointForecast,
+  WavePointForecast,
 } from './fetch/openMeteo.js';
 import type {
   Evidence,
@@ -39,15 +47,19 @@ export const RULES = {
   GUST: 'W-GUST-01',
   SUSTAINED_ENSEMBLE: 'W-SUST-03',
   GUST_ENSEMBLE: 'W-GUST-03',
+  WAVE_HEIGHT: 'S-WAVE-01',
+  STEEPNESS: 'S-STEEP-01',
+  CROSS_SEA: 'S-CROSS-01',
+  WIND_AGAINST_SWELL: 'S-WAS-01',
+  SQUALL: 'C-CAPE-01',
+  VISIBILITY: 'V-VIS-01',
+  DIVERGENCE: 'D-DIVERGE-01',
 } as const;
 
 const DEFAULT_SCENARIO_FLOOR = 0.3;
 
-/** Hazards this analysis did NOT assess — stated in every report (brief §5/§6). */
-const UNSUPPORTED_M1 = [
-  'sea state / waves',
-  'convective / squalls',
-  'fog / visibility',
+/** Hazards still NOT assessed after M3 — stated in every report (brief §5/§6). */
+const UNSUPPORTED = [
   'tidal currents & gates',
   'official marine warnings',
   'tropical systems',
@@ -64,14 +76,29 @@ export interface AssembleOptions {
   /** ensemble forecasts per leg midpoint (M2+); index-aligned with legs */
   legEnsembles?: EnsemblePointForecast[];
   ensembleMeta?: EnsembleRequestMeta;
+  /** wave forecasts per leg midpoint (M3+) */
+  legMarine?: WavePointForecast[];
+  marineMeta?: MarineRequestMeta;
+  /** multi-model deterministic forecasts for hazards + disagreement (M3+) */
+  multiModel?: { byModel: Record<string, HazardPointForecast[]>; meta: MultiModelRequestMeta };
   engineVersion: string;
   /** injected clock (ms) for byte-stable goldens */
   nowMs: number;
 }
 
 export function assembleFindings(options: AssembleOptions): Findings {
-  const { route, profile, departureUtc, legForecasts, requestMeta, legEnsembles, ensembleMeta } =
-    options;
+  const {
+    route,
+    profile,
+    departureUtc,
+    legForecasts,
+    requestMeta,
+    legEnsembles,
+    ensembleMeta,
+    legMarine,
+    marineMeta,
+    multiModel,
+  } = options;
   if (!route.speeds_kt) {
     throw new Error(`Route ${route.route_id} has no speeds_kt (polar-based ETA lands at M11)`);
   }
@@ -95,11 +122,22 @@ export function assembleFindings(options: AssembleOptions): Findings {
   let anyExceeded = false;
   let anyApproaching = false;
   let scenarioFractionAboveFloor = false;
+  let insufficientConfidence = false;
 
   const model = requestMeta[0]?.model ?? null;
   const run = requestMeta[0]?.run_inferred ?? null;
   const ensembleModel = ensembleMeta ? `${ensembleMeta.model} ensemble` : null;
   const ensembleRun = ensembleMeta?.run_inferred ?? null;
+  const marineModel = marineMeta ? `marine ${marineMeta.model}` : null;
+  /** visibility source order: ICON-EU (EU high-res) then GFS — ECMWF has no visibility */
+  const VIS_MODELS = ['icon_eu', 'gfs_global'];
+
+  const nextEvidence = (partial: Omit<Evidence, 'evidence_id'>): Evidence => {
+    evidenceCounter += 1;
+    const e = { evidence_id: `E${evidenceCounter}`, ...partial };
+    evidence.push(e);
+    return e;
+  };
 
   const legFindings: LegFinding[] = legs.map((leg, i) => {
     const schedule = schedules[i]!;
@@ -111,6 +149,22 @@ export function assembleFindings(options: AssembleOptions): Findings {
     const ensembleTimeIndex = new Map<number, number>();
     ensemble?.times.forEach((t, idx) => ensembleTimeIndex.set(parseUtc(t), idx));
 
+    const marine = legMarine?.[i] ?? null;
+    const marineTimeIndex = new Map<number, number>();
+    marine?.times.forEach((t, idx) => marineTimeIndex.set(parseUtc(t), idx));
+
+    const modelIndexes: Array<{ model: string; fc: HazardPointForecast; index: Map<number, number> }> =
+      [];
+    if (multiModel) {
+      for (const [m, forecasts] of Object.entries(multiModel.byModel)) {
+        const fc = forecasts[i];
+        if (!fc) continue;
+        const index = new Map<number, number>();
+        fc.times.forEach((t, idx) => index.set(parseUtc(t), idx));
+        modelIndexes.push({ model: m, fc, index });
+      }
+    }
+
     const hours: LegHour[] = [];
     let worstSustained: { hour: LegHour; limit: number; ratio: number } | null = null;
     let worstGust: { hour: LegHour; ratio: number } | null = null;
@@ -120,6 +174,17 @@ export function assembleFindings(options: AssembleOptions): Findings {
       count: { exceed: number; total: number };
       limit: number;
     } | null = null;
+    let worstWave: { hour: LegHour; ratio: number } | null = null;
+    let worstSteepness: { hour: LegHour; ratio: number } | null = null;
+    let worstVisibility: { hour: LegHour } | null = null;
+    let maxCape: { hour: LegHour; level: 'elevated' | 'high' } | null = null;
+    let crossSeaHour: LegHour | null = null;
+    let windAgainstSwellHour: LegHour | null = null;
+    const disagreementInput: Array<{
+      valid_time: string;
+      byModel: Record<string, number | null>;
+      sustained_limit_kt: number;
+    }> = [];
     const exceededWindows: string[] = [];
 
     for (const validTime of schedule.occupancy_hours) {
@@ -144,6 +209,121 @@ export function assembleFindings(options: AssembleOptions): Findings {
         point_of_sail: pos,
         limit_status: { sustained: sustainedStatus, gust: gustStatus },
       };
+
+      // ---- sea state (M3, deterministic wave model only) ----
+      if (marine) {
+        const mIdx = marineTimeIndex.get(parseUtc(validTime));
+        if (mIdx !== undefined) {
+          const hs = marine.hs_m[mIdx] ?? null;
+          const period = marine.period_s[mIdx] ?? null;
+          const st = hs !== null && period !== null ? steepness(hs, period) : null;
+          const crossSea = assessCrossSea(
+            marine.wind_wave_h_m[mIdx] ?? null,
+            marine.wind_wave_dir_deg[mIdx] ?? null,
+            marine.swell_h_m[mIdx] ?? null,
+            marine.swell_dir_deg[mIdx] ?? null,
+          );
+          const was = windAgainstSwell(
+            windDir,
+            wind,
+            marine.swell_dir_deg[mIdx] ?? null,
+            marine.swell_h_m[mIdx] ?? null,
+          );
+          hour.waves = {
+            hs_m: hs,
+            period_s: period,
+            steepness: st !== null ? Math.round(st * 10000) / 10000 : null,
+            wind_wave_h_m: marine.wind_wave_h_m[mIdx] ?? null,
+            swell_h_m: marine.swell_h_m[mIdx] ?? null,
+            cross_sea_deg: crossSea?.angle_deg ?? null,
+            cross_sea_significant: crossSea?.significant ?? false,
+            wind_against_swell: was,
+          };
+          if (profile.max_wave_height_m !== undefined) {
+            const status = evaluateAgainstLimit(hs, profile.max_wave_height_m, ratio);
+            hour.limit_status.wave = status;
+            if (status === 'exceeded') anyExceeded = true;
+            if (status === 'approaching') anyApproaching = true;
+            if (hs !== null && (status === 'exceeded' || status === 'approaching')) {
+              const r = hs / profile.max_wave_height_m;
+              if (!worstWave || r > worstWave.ratio) worstWave = { hour, ratio: r };
+            }
+          }
+          if (profile.max_steepness !== undefined && st !== null) {
+            const status = evaluateAgainstLimit(st, profile.max_steepness, ratio);
+            hour.limit_status.steepness = status;
+            if (status === 'exceeded') anyExceeded = true;
+            if (status === 'approaching') anyApproaching = true;
+            if (status === 'exceeded' || status === 'approaching') {
+              const r = st / profile.max_steepness;
+              if (!worstSteepness || r > worstSteepness.ratio) worstSteepness = { hour, ratio: r };
+            }
+          }
+          if (profile.cross_sea_flag && crossSea?.significant && !crossSeaHour) crossSeaHour = hour;
+          if (was && !windAgainstSwellHour) windAgainstSwellHour = hour;
+        }
+      }
+
+      // ---- convective screening + visibility/fog + model disagreement (M3) ----
+      if (modelIndexes.length > 0) {
+        const primary = modelIndexes.find((m) => m.model === model) ?? modelIndexes[0]!;
+        const pIdx = primary.index.get(parseUtc(validTime));
+        if (pIdx !== undefined) {
+          const cape = primary.fc.cape_jkg[pIdx] ?? null;
+          hour.cape_jkg = cape;
+          hour.squall_potential = squallPotential(cape);
+          if (hour.squall_potential === 'high') {
+            anyApproaching = true;
+            if (!maxCape || (cape ?? 0) > (maxCape.hour.cape_jkg ?? 0)) {
+              maxCape = { hour, level: 'high' };
+            }
+          } else if (hour.squall_potential === 'elevated' && !maxCape) {
+            maxCape = { hour, level: 'elevated' };
+          }
+          hour.fog_risk = fogRisk(
+            primary.fc.temp_c[pIdx] ?? null,
+            primary.fc.dew_point_c[pIdx] ?? null,
+            wind,
+          );
+        }
+        for (const vm of VIS_MODELS) {
+          const src = modelIndexes.find((m) => m.model === vm);
+          const vIdx = src?.index.get(parseUtc(validTime));
+          const visM = vIdx !== undefined ? (src!.fc.visibility_m[vIdx] ?? null) : null;
+          if (visM !== null) {
+            hour.visibility_nm = visibilityNm(visM);
+            break;
+          }
+        }
+        const visStatus = evaluateMinVisibility(
+          hour.visibility_nm ?? null,
+          profile.min_visibility_nm,
+        );
+        hour.limit_status.visibility = visStatus;
+        if (visStatus === 'exceeded') {
+          anyExceeded = true;
+          if (!worstVisibility || (hour.visibility_nm ?? 99) < (worstVisibility.hour.visibility_nm ?? 99)) {
+            worstVisibility = { hour };
+          }
+        }
+        if (visStatus === 'approaching') anyApproaching = true;
+
+        const byModelWind: Record<string, number | null> = {};
+        for (const m of modelIndexes) {
+          const idx2 = m.index.get(parseUtc(validTime));
+          byModelWind[m.model] = idx2 !== undefined ? (m.fc.wind_kt[idx2] ?? null) : null;
+        }
+        const windVals = Object.values(byModelWind).filter((v): v is number => v !== null);
+        hour.model_spread_kt =
+          windVals.length >= 2
+            ? Math.round((Math.max(...windVals) - Math.min(...windVals)) * 10) / 10
+            : null;
+        disagreementInput.push({
+          valid_time: validTime,
+          byModel: byModelWind,
+          sustained_limit_kt: sustainedLimit,
+        });
+      }
 
       // ensemble scenario exceedance for this hour (direction for the POS limit comes
       // from the deterministic run — members carry speed/gusts only; documented in §6 layer)
@@ -266,6 +446,139 @@ export function assembleFindings(options: AssembleOptions): Findings {
         ratio: fraction(worstEnsembleSustained.count) / scenarioFloor,
       });
     }
+    // ---- M3 hazard evidence ----
+    if (worstWave) {
+      const e = nextEvidence({
+        rule_id: RULES.WAVE_HEIGHT,
+        model: marineModel,
+        run: null,
+        leg_id: leg.leg_id,
+        valid_time: worstWave.hour.valid_time,
+        value: worstWave.hour.waves?.hs_m ?? null,
+        limit: profile.max_wave_height_m ?? null,
+        units: 'm',
+        source_kind: 'deterministic',
+      });
+      verdictCandidates.push({ evidence: e, ratio: worstWave.ratio });
+    }
+    if (worstSteepness) {
+      const e = nextEvidence({
+        rule_id: RULES.STEEPNESS,
+        model: marineModel,
+        run: null,
+        leg_id: leg.leg_id,
+        valid_time: worstSteepness.hour.valid_time,
+        value: worstSteepness.hour.waves?.steepness ?? null,
+        limit: profile.max_steepness ?? null,
+        units: 'H/L',
+        source_kind: 'deterministic',
+      });
+      verdictCandidates.push({ evidence: e, ratio: worstSteepness.ratio });
+    }
+    if (crossSeaHour) {
+      const e = nextEvidence({
+        rule_id: RULES.CROSS_SEA,
+        model: marineModel,
+        run: null,
+        leg_id: leg.leg_id,
+        valid_time: crossSeaHour.valid_time,
+        value: crossSeaHour.waves?.cross_sea_deg ?? null,
+        limit: 45,
+        units: 'deg',
+        source_kind: 'deterministic',
+      });
+      events.push({
+        kind: 'cross_sea',
+        leg_id: leg.leg_id,
+        window: { from: crossSeaHour.valid_time, to: crossSeaHour.valid_time },
+        refs: [e.evidence_id],
+      });
+    }
+    if (windAgainstSwellHour) {
+      const e = nextEvidence({
+        rule_id: RULES.WIND_AGAINST_SWELL,
+        model: marineModel,
+        run: null,
+        leg_id: leg.leg_id,
+        valid_time: windAgainstSwellHour.valid_time,
+        value: windAgainstSwellHour.waves?.swell_h_m ?? null,
+        limit: null,
+        units: 'm',
+        source_kind: 'deterministic',
+      });
+      events.push({
+        kind: 'wind_against_swell',
+        leg_id: leg.leg_id,
+        window: { from: windAgainstSwellHour.valid_time, to: windAgainstSwellHour.valid_time },
+        refs: [e.evidence_id],
+      });
+    }
+    if (maxCape) {
+      const e = nextEvidence({
+        rule_id: RULES.SQUALL,
+        model,
+        run,
+        leg_id: leg.leg_id,
+        valid_time: maxCape.hour.valid_time,
+        value: maxCape.hour.cape_jkg ?? null,
+        limit: maxCape.level === 'high' ? 1000 : 300,
+        units: 'J/kg',
+        source_kind: 'deterministic',
+      });
+      events.push({
+        kind: 'squall_potential',
+        leg_id: leg.leg_id,
+        window: { from: maxCape.hour.valid_time, to: maxCape.hour.valid_time },
+        refs: [e.evidence_id],
+      });
+    }
+    if (worstVisibility) {
+      nextEvidence({
+        rule_id: RULES.VISIBILITY,
+        model: 'icon_eu/gfs_global',
+        run,
+        leg_id: leg.leg_id,
+        valid_time: worstVisibility.hour.valid_time,
+        value: worstVisibility.hour.visibility_nm ?? null,
+        limit: profile.min_visibility_nm ?? null,
+        units: 'nm (minimum)',
+        source_kind: 'deterministic',
+      });
+    }
+
+    // ---- model disagreement (M3) ----
+    let divergentHours: LegFinding['divergent_hours'];
+    if (disagreementInput.length > 0) {
+      const result = assessDisagreement(disagreementInput);
+      if (result.divergent_hours.length > 0) {
+        divergentHours = result.divergent_hours;
+        const worstDivergence = result.divergent_hours.reduce((a, b) =>
+          b.spread_kt > a.spread_kt ? b : a,
+        );
+        const e = nextEvidence({
+          rule_id: RULES.DIVERGENCE,
+          model: Object.keys(worstDivergence.values).join(','),
+          run,
+          leg_id: leg.leg_id,
+          valid_time: worstDivergence.valid_time,
+          value: worstDivergence.values,
+          limit: null,
+          units: 'kt spread',
+          source_kind: 'deterministic',
+        });
+        events.push({
+          kind: 'model_divergence',
+          leg_id: leg.leg_id,
+          window: {
+            from: result.divergent_hours[0]!.valid_time,
+            to: result.divergent_hours[result.divergent_hours.length - 1]!.valid_time,
+          },
+          refs: [e.evidence_id],
+        });
+      }
+      if (result.insufficient) insufficientConfidence = true;
+    }
+
     if (exceededWindows.length > 0) {
       events.push({
         kind: 'limit_exceeded',
@@ -288,6 +601,7 @@ export function assembleFindings(options: AssembleOptions): Findings {
       sog_kt: schedule.sog_kt,
       hours,
       sample_point: { lat: midpoints[i]!.lat, lon: midpoints[i]!.lon },
+      ...(divergentHours ? { divergent_hours: divergentHours } : {}),
     };
   });
 
@@ -297,6 +611,7 @@ export function assembleFindings(options: AssembleOptions): Findings {
     anyExceeded,
     anyApproaching,
     scenarioFractionAboveFloor,
+    insufficientConfidence,
     driverEvidenceId: worst?.evidence.evidence_id ?? null,
   });
 
@@ -304,6 +619,8 @@ export function assembleFindings(options: AssembleOptions): Findings {
   const profileHash = contentHash(profile);
   const allMeta: Array<Record<string, unknown>> = requestMeta.map((m) => ({ ...m }));
   if (ensembleMeta) allMeta.push({ ...ensembleMeta });
+  if (marineMeta) allMeta.push({ ...marineMeta });
+  if (multiModel) allMeta.push({ ...multiModel.meta });
   const inputs = {
     prepared_run_id: null,
     openmeteo: allMeta,
@@ -320,6 +637,8 @@ export function assembleFindings(options: AssembleOptions): Findings {
     digests: [
       ...requestMeta.map((m) => m.request_digest),
       ...(ensembleMeta ? [ensembleMeta.request_digest] : []),
+      ...(marineMeta ? [marineMeta.request_digest] : []),
+      ...(multiModel ? [multiModel.meta.request_digest] : []),
     ],
   }).slice(0, 8)}`;
 
@@ -336,7 +655,7 @@ export function assembleFindings(options: AssembleOptions): Findings {
     events,
     verdict,
     evidence,
-    unsupported_hazards: UNSUPPORTED_M1,
+    unsupported_hazards: UNSUPPORTED,
   };
 }
 

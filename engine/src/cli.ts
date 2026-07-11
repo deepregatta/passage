@@ -15,7 +15,12 @@ import { renderBriefing } from './briefing.js';
 import { buildPlume, writeSnapshot } from './snapshot.js';
 import { deriveLegs, legMidpoints } from './route.js';
 import { computeSchedules, parseUtc, toIso } from './eta.js';
-import { fetchEnsembleForecasts, fetchPointForecasts } from './fetch/openMeteo.js';
+import {
+  fetchEnsembleForecasts,
+  fetchMarineForecasts,
+  fetchMultiModelForecasts,
+  fetchPointForecasts,
+} from './fetch/openMeteo.js';
 import { FsCacheStore, NodeFsSnapshotStore } from './io/node.js';
 import type { LimitsProfile, Route } from './types.js';
 
@@ -64,9 +69,11 @@ async function runCommand(args: Map<string, string>): Promise<number> {
 
   const cache = new FsCacheStore(join(REPO_ROOT, 'data', 'cache', 'openmeteo'));
   const points = midpoints.map((p) => ({ lat: p.lat, lon: p.lon }));
-  const [det, ens] = await Promise.all([
+  const [det, ens, marine, multi] = await Promise.all([
     fetchPointForecasts(points, startDate, endDate, { cache }),
     fetchEnsembleForecasts(points, startDate, endDate, { cache }),
+    fetchMarineForecasts(points, startDate, endDate, { cache }),
+    fetchMultiModelForecasts(points, startDate, endDate, { cache }),
   ]);
 
   const nowMs = Date.now();
@@ -78,6 +85,9 @@ async function runCommand(args: Map<string, string>): Promise<number> {
     requestMeta: [det.meta],
     legEnsembles: ens.forecasts,
     ensembleMeta: ens.meta,
+    legMarine: marine.forecasts,
+    marineMeta: marine.meta,
+    multiModel: multi,
     engineVersion: ENGINE_VERSION,
     nowMs,
   });

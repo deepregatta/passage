@@ -86,6 +86,20 @@ export interface Evidence {
   member_fraction?: { exceed: number; total: number };
 }
 
+export type ConditionStatus = 'ok' | 'approaching' | 'exceeded' | 'unknown';
+
+export interface WaveHour {
+  hs_m: number | null;
+  period_s: number | null;
+  /** H/L with deep-water L = gT²/2π (brief §5 correction) */
+  steepness: number | null;
+  wind_wave_h_m: number | null;
+  swell_h_m: number | null;
+  cross_sea_deg: number | null;
+  cross_sea_significant: boolean;
+  wind_against_swell: boolean;
+}
+
 export interface LegHour {
   valid_time: string;
   wind_kt: number | null;
@@ -94,14 +108,25 @@ export interface LegHour {
   twa_deg: number | null;
   point_of_sail: PointOfSail | null;
   limit_status: {
-    sustained: 'ok' | 'approaching' | 'exceeded' | 'unknown';
-    gust: 'ok' | 'approaching' | 'exceeded' | 'unknown';
+    sustained: ConditionStatus;
+    gust: ConditionStatus;
+    wave?: ConditionStatus;
+    steepness?: ConditionStatus;
+    visibility?: ConditionStatus;
   };
   /** raw ensemble scenario-exceedance counts vs declared limits (M2+) */
   exceedance?: {
     sustained: { exceed: number; total: number } | null;
     gust: { exceed: number; total: number } | null;
   };
+  /** sea state (M3+, deterministic wave model only — no wave ensembles) */
+  waves?: WaveHour | null;
+  cape_jkg?: number | null;
+  squall_potential?: 'low' | 'elevated' | 'high' | null;
+  visibility_nm?: number | null;
+  fog_risk?: boolean;
+  /** max-min sustained wind across deterministic models, kt (M3+) */
+  model_spread_kt?: number | null;
 }
 
 export interface LegFinding {
@@ -115,6 +140,8 @@ export interface LegFinding {
   hours: LegHour[];
   /** where conditions were sampled (leg midpoint in M1) — traceability */
   sample_point: { lat: number; lon: number };
+  /** hours where deterministic models diverge beyond tolerance (M3+) */
+  divergent_hours?: Array<{ valid_time: string; values: Record<string, number>; spread_kt: number }>;
 }
 
 export interface FindingsEvent {

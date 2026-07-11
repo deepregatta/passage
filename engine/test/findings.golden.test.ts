@@ -15,6 +15,8 @@ import { renderBriefing } from '../src/briefing.js';
 import { buildPlume } from '../src/snapshot.js';
 import {
   fetchEnsembleForecasts,
+  fetchMarineForecasts,
+  fetchMultiModelForecasts,
   fetchPointForecasts,
   MemoryCacheStore,
 } from '../src/fetch/openMeteo.js';
@@ -40,18 +42,34 @@ async function computePipeline() {
     readFileSync(join(REPO, 'config', 'profiles', 'default-limits.json'), 'utf8'),
   ) as LimitsProfile;
 
-  const forecastBody = readFileSync(FIXTURE, 'utf8');
-  const ensembleBody = readFileSync(ENSEMBLE_FIXTURE, 'utf8');
-  const fakeFetch = (async (url: string | URL) =>
-    new Response(String(url).includes('ensemble') ? ensembleBody : forecastBody, {
-      status: 200,
-    })) as unknown as typeof fetch;
+  const bodies: Record<string, string> = {
+    ensemble: readFileSync(ENSEMBLE_FIXTURE, 'utf8'),
+    marine: readFileSync(join(HERE, 'fixtures', 'openmeteo-marine-cherbourg-plymouth.json'), 'utf8'),
+    multimodel: readFileSync(
+      join(HERE, 'fixtures', 'openmeteo-multimodel-cherbourg-plymouth.json'),
+      'utf8',
+    ),
+    forecast: readFileSync(FIXTURE, 'utf8'),
+  };
+  const fakeFetch = (async (url: string | URL) => {
+    const u = String(url);
+    const body = u.includes('ensemble-api')
+      ? bodies.ensemble
+      : u.includes('marine-api')
+        ? bodies.marine
+        : u.includes('models=ecmwf_ifs025,')
+          ? bodies.multimodel
+          : bodies.forecast;
+    return new Response(body, { status: 200 });
+  }) as unknown as typeof fetch;
 
   const midpoints = legMidpoints(deriveLegs(route));
   const points = midpoints.map((p) => ({ lat: p.lat, lon: p.lon }));
   const opts = { fetchFn: fakeFetch, cache: new MemoryCacheStore(), now: () => FIXED_NOW };
   const det = await fetchPointForecasts(points, '2026-07-12', '2026-07-14', opts);
   const ens = await fetchEnsembleForecasts(points, '2026-07-12', '2026-07-14', opts);
+  const marine = await fetchMarineForecasts(points, '2026-07-12', '2026-07-14', opts);
+  const multi = await fetchMultiModelForecasts(points, '2026-07-12', '2026-07-14', opts);
 
   const findings = assembleFindings({
     route,
@@ -61,6 +79,9 @@ async function computePipeline() {
     requestMeta: [det.meta],
     legEnsembles: ens.forecasts,
     ensembleMeta: ens.meta,
+    legMarine: marine.forecasts,
+    marineMeta: marine.meta,
+    multiModel: multi,
     engineVersion: ENGINE_VERSION,
     nowMs: FIXED_NOW,
   });
@@ -155,11 +176,14 @@ describe('findings golden (Cherbourg → Plymouth, recorded fixture)', () => {
       expect(leg.hours.length).toBeGreaterThan(0);
     }
     for (const e of findings.evidence) {
-      expect(e.rule_id).toMatch(/^W-/);
-      expect(e.model).toMatch(/^ecmwf_ifs025( ensemble)?$/);
+      expect(e.rule_id).toMatch(/^[WSCVD]-[A-Z]+-\d\d$/);
+      expect(e.model).toBeTruthy();
       expect(e.leg_id).toMatch(/^L\d$/);
       expect(e.value).not.toBeNull();
-      expect(e.limit).not.toBeNull();
+      // limit may be null only for informational rules (wind-against-swell, divergence)
+      if (!['S-WAS-01', 'D-DIVERGE-01'].includes(e.rule_id)) {
+        expect(e.limit).not.toBeNull();
+      }
     }
     if (findings.verdict.state === 'exceeds' || findings.verdict.state === 'approaching') {
       expect(findings.verdict.driver_evidence_id).not.toBeNull();

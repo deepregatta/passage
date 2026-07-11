@@ -98,6 +98,20 @@ export function renderBriefing(findings: Findings): Briefing {
       plain = `${leg.name}: no forecast data available for this stretch.`;
       pro = `${leg.leg_id}: no forecast samples within the occupancy window.`;
     }
+    const hsMax = numericMax(leg.hours.map((h) => h.waves?.hs_m ?? null));
+    if (hsMax !== null) {
+      const hsMaxExact = Math.max(
+        ...leg.hours.map((h) => h.waves?.hs_m ?? 0),
+      );
+      pro += ` Seas to ${hsMaxExact.toFixed(1)} m significant (deterministic wave model — no wave ensembles exist).`;
+      if (leg.hours.some((h) => h.waves?.wind_against_swell)) {
+        plain += ' Wind against swell here — expect steeper, more uncomfortable seas.';
+        pro += ' Wind-against-swell flagged.';
+      }
+    }
+    if (leg.divergent_hours && leg.divergent_hours.length > 0) {
+      pro += ` Models diverge on ${leg.divergent_hours.length} h of this leg (max spread ${Math.max(...leg.divergent_hours.map((d) => d.spread_kt))} kt) — agreement is not proof, divergence says wait for the next run.`;
+    }
     if (worstEns?.member_fraction) {
       const phrase = phraseExceedance(
         worstEns.member_fraction,
