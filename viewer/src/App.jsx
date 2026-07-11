@@ -1,54 +1,67 @@
-import { useEffect, useState } from 'react';
+import { useApp } from './stores/appStore.js';
+import Snapshots from './pages/Snapshots.jsx';
+import Briefing from './pages/Briefing.jsx';
+import Evidence from './pages/Evidence.jsx';
+import Settings from './pages/Settings.jsx';
+import EvidenceInspector from './components/EvidenceInspector.jsx';
+import clsx from 'clsx';
 
-// M0 shell: nav skeleton + snapshot manifest readout proving the /data middleware works.
-// Real pages (Planner, Briefing, Evidence, Changes, Verification, Settings) land at M4+.
-const NAV = ['Planner', 'Briefing', 'Evidence', 'Changes', 'Verification', 'Snapshots', 'Settings'];
+const NAV = [
+  { id: 'snapshots', label: 'Analyses', ready: true },
+  { id: 'planner', label: 'Planner', ready: false },
+  { id: 'briefing', label: 'Briefing', ready: true },
+  { id: 'evidence', label: 'Evidence', ready: true },
+  { id: 'changes', label: 'Changes', ready: false },
+  { id: 'verification', label: 'Verification', ready: false },
+  { id: 'settings', label: 'Settings', ready: true },
+];
+
+const PAGES = { snapshots: Snapshots, briefing: Briefing, evidence: Evidence, settings: Settings };
 
 export default function App() {
-  const [manifest, setManifest] = useState(null);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    fetch('/data/snapshots/manifest.json')
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
-      .then(setManifest)
-      .catch((e) => setError(e.message));
-  }, []);
+  const page = useApp((s) => s.page);
+  const setPage = useApp((s) => s.setPage);
+  const snapshotId = useApp((s) => s.snapshotId);
+  const Page = PAGES[page] ?? Snapshots;
 
   return (
     <div className="min-h-screen flex">
-      <nav className="w-48 bg-ink-deep text-chart-paper p-4 flex flex-col gap-1">
-        <div className="font-serif text-xl tracking-wide mb-6">deepweather</div>
-        {NAV.map((item) => (
-          <div key={item} className="px-3 py-2 rounded text-sm opacity-70 hover:opacity-100 cursor-default">
-            {item}
+      <nav className="w-44 shrink-0 bg-ink-deep text-paper flex flex-col">
+        <div className="px-4 py-5">
+          <div className="font-chart text-xl tracking-wide">deepweather</div>
+          <div className="font-mono text-[10px] uppercase tracking-[0.18em] opacity-50 mt-0.5">
+            passage risk audit
           </div>
+        </div>
+        {NAV.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            disabled={!item.ready || (['briefing', 'evidence'].includes(item.id) && !snapshotId)}
+            onClick={() => setPage(item.id)}
+            className={clsx(
+              'text-left px-4 py-2 font-sans text-sm transition-colors',
+              page === item.id
+                ? 'bg-paper text-ink font-medium'
+                : item.ready
+                  ? 'text-paper/75 hover:text-paper hover:bg-white/5'
+                  : 'text-paper/30 cursor-default',
+            )}
+          >
+            {item.label}
+            {!item.ready && <span className="font-mono text-[9px] ml-1.5 opacity-60">soon</span>}
+          </button>
         ))}
-        <div className="mt-auto text-xs opacity-50">local prototype</div>
+        <div className="mt-auto px-4 py-4 font-sans text-[11px] leading-relaxed text-paper/45">
+          Decision aid — never says GO. Official marine forecasts remain the authority of record.
+        </div>
       </nav>
-      <main className="flex-1 p-10">
-        <h1 className="font-serif text-3xl mb-2">Passage risk audit</h1>
-        <p className="text-ink-soft mb-8 max-w-xl">
-          Decision aid — it never says GO. Official marine forecasts remain the authority of record.
-        </p>
-        <section className="border border-chart-line rounded p-4 bg-white/50 max-w-xl">
-          <h2 className="font-semibold mb-2 text-sm uppercase tracking-wider text-ink-soft">
-            Snapshots
-          </h2>
-          {error && <p className="text-verdict-exceeds text-sm">manifest error: {error}</p>}
-          {manifest && manifest.snapshots.length === 0 && (
-            <p className="text-sm text-ink-soft">No analyses yet.</p>
-          )}
-          {manifest &&
-            manifest.snapshots.map((s) => (
-              <div key={s.snapshot_id} className="text-sm py-1 border-b border-chart-line last:border-0">
-                <span className="font-mono">{s.snapshot_id}</span>
-                <span className="ml-2 text-ink-soft">{s.route_id}</span>
-                {s.verdict_state && <span className="ml-2">{s.verdict_state}</span>}
-              </div>
-            ))}
-        </section>
+
+      <main className="flex-1 min-w-0">
+        <Page />
       </main>
+
+      <EvidenceInspector />
     </div>
   );
 }

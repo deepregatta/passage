@@ -117,8 +117,12 @@ function dataMiddleware() {
           return;
         }
 
+        // read-only view of repo config (providers, profiles, routes) for the UI
+        const configRoot = path.resolve(__dirname, '../config');
         const relativePath = decodeURIComponent(requestPath.slice(6));
-        const filePath = safeResolve(dataRoot, relativePath);
+        const filePath = relativePath.startsWith('config/')
+          ? safeResolve(configRoot, relativePath.slice('config/'.length))
+          : safeResolve(dataRoot, relativePath);
         if (!filePath) {
           res.statusCode = 403;
           res.end('Forbidden');

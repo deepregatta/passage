@@ -6,7 +6,7 @@
  */
 
 import type { Briefing } from './briefing.js';
-import type { EnsemblePointForecast } from './fetch/openMeteo.js';
+import type { EnsemblePointForecast, HazardPointForecast } from './fetch/openMeteo.js';
 import type { Findings, Route } from './types.js';
 
 export interface SnapshotStore {
@@ -23,6 +23,9 @@ export interface PlumeLeg {
   /** [member][timeIdx], rounded 0.1 kt */
   gust_members: Array<Array<number | null>>;
   wind_members: Array<Array<number | null>>;
+  /** per deterministic model: sustained wind series aligned to `deterministic_times` */
+  deterministic?: Record<string, Array<number | null>>;
+  deterministic_times?: string[];
 }
 
 export interface Plume {
@@ -36,19 +39,35 @@ export function buildPlume(
   findings: Findings,
   legEnsembles: EnsemblePointForecast[] | undefined,
   gustLimitKt: number,
+  multiModelByLeg?: Record<string, HazardPointForecast[]>,
 ): Plume {
   const legs: PlumeLeg[] = [];
   if (legEnsembles) {
     findings.legs.forEach((leg, i) => {
       const ensemble = legEnsembles[i];
       if (!ensemble) return;
-      legs.push({
+      const plumeLeg: PlumeLeg = {
         leg_id: leg.leg_id,
         times: ensemble.times,
         gust_limit_kt: gustLimitKt,
         gust_members: ensemble.gust_kt_members.map((s) => s.map(round1)),
         wind_members: ensemble.wind_kt_members.map((s) => s.map(round1)),
-      });
+      };
+      if (multiModelByLeg) {
+        const deterministic: Record<string, Array<number | null>> = {};
+        let times: string[] | undefined;
+        for (const [model, forecasts] of Object.entries(multiModelByLeg)) {
+          const fc = forecasts[i];
+          if (!fc) continue;
+          deterministic[model] = fc.wind_kt.map(round1);
+          times = times ?? fc.times;
+        }
+        if (times) {
+          plumeLeg.deterministic = deterministic;
+          plumeLeg.deterministic_times = times;
+        }
+      }
+      legs.push(plumeLeg);
     });
   }
   const ensembleInput = findings.inputs.openmeteo.find((m) => m.api === 'ensemble');

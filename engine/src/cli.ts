@@ -98,7 +98,7 @@ async function runCommand(args: Map<string, string>): Promise<number> {
   }
 
   const briefing = renderBriefing(findings);
-  const plume = buildPlume(findings, ens.forecasts, profile.max_gust_kt);
+  const plume = buildPlume(findings, ens.forecasts, profile.max_gust_kt, multi.byModel);
   const store = new NodeFsSnapshotStore(join(REPO_ROOT, 'data', 'processed', 'snapshots'));
   const { snapshot_id } = await writeSnapshot(store, findings, briefing, { route, plume }, nowMs);
 
