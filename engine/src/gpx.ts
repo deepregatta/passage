@@ -6,7 +6,9 @@
 
 import type { Route, SpeedsKt, Waypoint } from './types.js';
 
-const POINT_RE = /<(rtept|trkpt|wpt)\b[^>]*\blat="([-\d.]+)"[^>]*\blon="([-\d.]+)"[^>]*>([\s\S]*?)<\/\1>|<(rtept|trkpt|wpt)\b[^>]*\blat="([-\d.]+)"[^>]*\blon="([-\d.]+)"[^>]*\/>/g;
+const TAG_RE = /<(rtept|trkpt|wpt)\b([^>]*?)(\/?)>/g;
+const LAT_RE = /\blat="([-\d.]+)"/;
+const LON_RE = /\blon="([-\d.]+)"/;
 const NAME_RE = /<name>([\s\S]*?)<\/name>/;
 
 export function parseGpx(
@@ -16,15 +18,23 @@ export function parseGpx(
   const found: Array<{ kind: string; wp: Waypoint }> = [];
   let match: RegExpExecArray | null;
   let counter = 0;
-  POINT_RE.lastIndex = 0;
-  while ((match = POINT_RE.exec(gpxText)) !== null) {
-    const kind = match[1] ?? match[5]!;
-    const lat = Number(match[2] ?? match[6]);
-    const lon = Number(match[3] ?? match[7]);
+  TAG_RE.lastIndex = 0;
+  while ((match = TAG_RE.exec(gpxText)) !== null) {
+    const kind = match[1]!;
+    const attrs = match[2]!;
+    const selfClosing = match[3] === '/' || attrs.trimEnd().endsWith('/');
+    const lat = Number(LAT_RE.exec(attrs)?.[1]);
+    const lon = Number(LON_RE.exec(attrs)?.[1]);
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
     counter += 1;
-    const inner = match[4] ?? '';
-    const name = NAME_RE.exec(inner)?.[1]?.trim();
+    let name: string | undefined;
+    if (!selfClosing) {
+      const close = gpxText.indexOf(`</${kind}>`, TAG_RE.lastIndex);
+      if (close !== -1) {
+        name = NAME_RE.exec(gpxText.slice(TAG_RE.lastIndex, close))?.[1]?.trim();
+        TAG_RE.lastIndex = close; // never scan the same inner content twice
+      }
+    }
     found.push({ kind, wp: { id: `wp${counter}`, ...(name ? { name } : {}), lat, lon } });
   }
 
