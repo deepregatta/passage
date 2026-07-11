@@ -49,6 +49,23 @@ def cmd_fetch_currents(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_fetch_warnings(args: argparse.Namespace) -> int:
+    from .warnings_mf import fetch_warnings
+
+    path = fetch_warnings(gale_zone=args.gale, paste_file=args.paste)
+    doc = __import__("json").loads(path.read_text())
+    print(f"wrote {path} — feed_status={doc['feed_status']}, bulletins={len(doc['bulletins'])}")
+    return 0
+
+
+def cmd_tides(args: argparse.Namespace) -> int:
+    from .tides import prepare_tides
+
+    path = prepare_tides(start_iso=args.start, hours=args.hours)
+    print(f"wrote {path} (SYNTHETIC constituents — badged emulated downstream)")
+    return 0
+
+
 def cmd_scenario(args: argparse.Namespace) -> int:
     from .scenarios import SCENARIOS, generate_all, generate_scenario
 
@@ -89,6 +106,20 @@ def main(argv: list[str] | None = None) -> int:
         "--force", action="store_true", help="re-fetch even if a fresh cache exists"
     )
     currents_parser.set_defaults(func=cmd_fetch_currents)
+
+    warnings_parser = subparsers.add_parser(
+        "fetch-warnings", help="marine warnings -> data/processed/warnings/latest.json"
+    )
+    warnings_parser.add_argument("--gale", help="synthetic mode: inject a gale bulletin for ZONE")
+    warnings_parser.add_argument("--paste", help="manual mode: parse a pasted bulletin text file")
+    warnings_parser.set_defaults(func=cmd_fetch_warnings)
+
+    tides_parser = subparsers.add_parser(
+        "tides", help="HW/LW predictions at reference ports (synthetic harmonics)"
+    )
+    tides_parser.add_argument("--start", default=None, help="window start ISO UTC (default now)")
+    tides_parser.add_argument("--hours", type=int, default=96)
+    tides_parser.set_defaults(func=cmd_tides)
 
     scenario_parser = subparsers.add_parser(
         "scenario", help="generate synthetic scenario bundles (verdict-state harness)"

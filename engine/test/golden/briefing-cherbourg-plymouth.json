@@ -107,8 +107,8 @@
     {
       "id": "unsupported",
       "title": "Not assessed by this analysis",
-      "register_plain": "This briefing does NOT cover: tidal gates & HW/LW heights, tropical systems, ice, tidal currents (no prepared current grid), official marine warnings (no feed configured). No warning here does not mean no risk.",
-      "register_pro": "Unassessed hazard classes: tidal gates & HW/LW heights; tropical systems; ice; tidal currents (no prepared current grid); official marine warnings (no feed configured). Absence of a flag must not be read as absence of risk (brief §5).",
+      "register_plain": "This briefing does NOT cover: tropical systems, ice, tidal currents (no prepared current grid), official marine warnings (no feed configured), tidal gates & HW/LW heights (no tide data). No warning here does not mean no risk.",
+      "register_pro": "Unassessed hazard classes: tropical systems; ice; tidal currents (no prepared current grid); official marine warnings (no feed configured); tidal gates & HW/LW heights (no tide data). Absence of a flag must not be read as absence of risk (brief §5).",
       "evidence_ids": []
     }
   ],

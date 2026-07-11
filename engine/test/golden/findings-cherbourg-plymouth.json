@@ -2841,10 +2841,10 @@
     }
   ],
   "unsupported_hazards": [
-    "tidal gates & HW/LW heights",
     "tropical systems",
     "ice",
     "tidal currents (no prepared current grid)",
-    "official marine warnings (no feed configured)"
+    "official marine warnings (no feed configured)",
+    "tidal gates & HW/LW heights (no tide data)"
   ]
 }

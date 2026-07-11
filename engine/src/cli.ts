@@ -90,12 +90,26 @@ async function runCommand(args: Map<string, string>): Promise<number> {
     }
   }
 
+  // tides + gates (skipped in fixture mode — scenario bundles carry their own story)
+  let tides;
+  let gates;
+  if (!fixtureDir) {
+    const tidesPath = join(REPO_ROOT, 'data', 'processed', 'tides', 'channel.json');
+    const gatesPath = join(REPO_ROOT, 'config', 'gates.json');
+    if (existsSync(tidesPath) && existsSync(gatesPath)) {
+      tides = JSON.parse(readFileSync(tidesPath, 'utf8'));
+      gates = JSON.parse(readFileSync(gatesPath, 'utf8')).gates;
+    }
+  }
+
   const result = await runAnalysis({
     route,
     profile,
     departureUtc: departure,
     ...(warnings ? { warnings } : {}),
     ...(currentGrid ? { currentGrid } : {}),
+    ...(tides ? { tides } : {}),
+    ...(gates ? { gates } : {}),
     ...(fixtureDir
       ? {
           fetchFn: fileFetch,

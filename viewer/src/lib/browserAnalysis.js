@@ -33,10 +33,49 @@ async function loadCurrentGrid() {
   }
 }
 
+async function loadJson(url) {
+  try {
+    const res = await fetch(url);
+    return res.ok ? await res.json() : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function analyzeInBrowser({ route, profile, departureUtc, onProgress }) {
-  onProgress?.('loading prepared currents');
-  const currentGrid = await loadCurrentGrid();
-  const result = await runAnalysis({ route, profile, departureUtc, onProgress, currentGrid });
+  onProgress?.('loading prepared data');
+  const [currentGrid, tides, gatesDoc, warningsDoc, zonesDoc] = await Promise.all([
+    loadCurrentGrid(),
+    loadJson('/data/tides/channel.json'),
+    loadJson('/data/config/gates.json'),
+    loadJson('/data/warnings/latest.json'),
+    loadJson('/data/config/route-zones.json'),
+  ]);
+  let warnings;
+  if (warningsDoc) {
+    const zoneEntry = zonesDoc?.routes?.[route.route_id];
+    const routeZoneIds = [
+      ...(zoneEntry?.fr_zones ?? []).map((z) => z.zone_id),
+      ...(zoneEntry?.uk_zones ?? []).map((z) => z.zone_id),
+    ];
+    // user-drawn routes have no zone mapping yet: warn against ALL active zones
+    // (conservative — a false authority banner beats a missed one)
+    const zoneIds = routeZoneIds.length
+      ? routeZoneIds
+      : warningsDoc.bulletins.map((b) => b.zone_id);
+    warnings = { doc: warningsDoc, routeZoneIds: zoneIds, ref: '/data/warnings/latest.json' };
+  }
+
+  const result = await runAnalysis({
+    route,
+    profile,
+    departureUtc,
+    onProgress,
+    currentGrid,
+    tides,
+    gates: gatesDoc?.gates,
+    warnings,
+  });
   onProgress?.('saving immutable snapshot');
   const snapshotId = await persistSnapshot(new HttpSnapshotStore(), result, route, Date.now());
   return { snapshotId, result };

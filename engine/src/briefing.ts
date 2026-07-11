@@ -157,12 +157,27 @@ export function renderBriefing(findings: Findings): Briefing {
       decisionPro += ` Driver: ${driver.rule_id} on ${driver.leg_id} at ${driver.valid_time} — ${driver.value} ${driver.units} vs declared ${driver.limit} ${driver.units}.`;
     }
   }
+  // tidal gates shape the decision (M10)
+  const gateEvidence = findings.evidence.filter((e) => e.rule_id === 'T-GATE-01');
+  for (const gate of findings.gates ?? []) {
+    const badge = gate.rule_text.includes('unverified') ? ' (timing rule unverified)' : '';
+    if (gate.status === 'conflict') {
+      decisionPlain += ` The ${gate.name} gate does not fit this departure: you would reach it ${fmtTime(gate.transit.from)}–${fmtTime(gate.transit.to)} UTC, outside the favorable stream (${gate.rule_text.split(' — ')[0]}). Shifting departure may fix this.`;
+      decisionPro += ` Gate ${gate.gate_id} on ${gate.leg_id}: transit window entirely outside favorable interval; ${gate.rule_text}${badge}.`;
+    } else if (gate.status === 'marginal') {
+      decisionPlain += ` The ${gate.name} gate only partly fits: aim for the ${gate.reference_port}-referenced window (${gate.rule_text.split(' — ')[0]}).`;
+      decisionPro += ` Gate ${gate.gate_id} on ${gate.leg_id}: partial overlap with favorable interval; ${gate.rule_text}${badge}.`;
+    } else {
+      decisionPro += ` Gate ${gate.gate_id} (${gate.name}) fits: transit inside ${gate.rule_text}${badge}.`;
+    }
+  }
+
   sections.push({
     id: 'decision',
     title: 'Against your declared limits',
     register_plain: decisionPlain,
     register_pro: decisionPro,
-    evidence_ids: driver ? [driver.evidence_id] : [],
+    evidence_ids: [...(driver ? [driver.evidence_id] : []), ...gateEvidence.map((e) => e.evidence_id)],
   });
 
   // 4. what could change

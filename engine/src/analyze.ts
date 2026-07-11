@@ -27,6 +27,9 @@ export interface AnalyzeOptions {
   warnings?: WarningsInput;
   /** prepared CMEMS current grid (loaded by the caller: fs in CLI, /data fetch in browser) */
   currentGrid?: import('./grids.js').RegionGrid;
+  /** HW/LW predictions + named tidal gates (M10) */
+  tides?: import('./hazards/tides.js').TidesDoc;
+  gates?: import('./hazards/tides.js').GateDef[];
   /** injected transport (tests/fixtures); defaults to live Open-Meteo */
   fetchFn?: typeof fetch;
   cache?: CacheStore;
@@ -87,6 +90,8 @@ export async function runAnalysis(options: AnalyzeOptions): Promise<AnalyzeResul
     multiModel: multi,
     ...(options.warnings ? { warnings: options.warnings } : {}),
     ...(options.currentGrid ? { currentGrid: options.currentGrid } : {}),
+    ...(options.tides ? { tides: options.tides } : {}),
+    ...(options.gates ? { gates: options.gates } : {}),
     engineVersion: ENGINE_VERSION,
     nowMs,
   });

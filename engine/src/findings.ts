@@ -20,6 +20,7 @@ import {
 import { contentHash } from './hash.js';
 import { interpolatePosition, wrap180 } from './geo.js';
 import { squallPotential } from './hazards/convective.js';
+import { assessGates, type GateDef, type TidesDoc } from './hazards/tides.js';
 import { evaluateMinVisibility, fogRisk, visibilityNm } from './hazards/visibility.js';
 import { assessCrossSea, steepness, windAgainstSwell } from './hazards/waves.js';
 import {
@@ -70,10 +71,11 @@ export const RULES = {
 
 const DEFAULT_SCENARIO_FLOOR = 0.3;
 
-/** Hazards NOT assessed — stated in every report (brief §5/§6); currents drop out when a grid is supplied. */
-const UNSUPPORTED_BASE = ['tidal gates & HW/LW heights', 'tropical systems', 'ice'];
+/** Hazards NOT assessed — stated in every report (brief §5/§6); entries drop out as inputs appear. */
+const UNSUPPORTED_BASE = ['tropical systems', 'ice'];
 const UNSUPPORTED_NO_CURRENTS = 'tidal currents (no prepared current grid)';
 const UNSUPPORTED_NO_WARNINGS = 'official marine warnings (no feed configured)';
+const UNSUPPORTED_NO_TIDES = 'tidal gates & HW/LW heights (no tide data)';
 
 export interface AssembleOptions {
   route: Route;
@@ -94,6 +96,9 @@ export interface AssembleOptions {
   warnings?: WarningsInput;
   /** prepared CMEMS surface-current region grid (M7+) */
   currentGrid?: RegionGrid;
+  /** tidal gates (M10): HW/LW predictions + named-gate timing rules */
+  tides?: TidesDoc;
+  gates?: GateDef[];
   engineVersion: string;
   /** injected clock (ms) for byte-stable goldens */
   nowMs: number;
@@ -678,6 +683,32 @@ export function assembleFindings(options: AssembleOptions): Findings {
     };
   });
 
+  // ---- tidal gates (M10): transit timing vs favorable windows ----
+  const gateAssessments =
+    options.tides && options.gates
+      ? assessGates(options.gates, options.tides, legs, schedules)
+      : [];
+  for (const gate of gateAssessments) {
+    const e = nextEvidence({
+      rule_id: 'T-GATE-01',
+      model: options.tides!.source.mode === 'synthetic' ? 'synthetic harmonics' : 'tide tables',
+      run: null,
+      leg_id: gate.leg_id,
+      valid_time: gate.transit.from,
+      value: `${gate.name}: transit ${gate.transit.from}–${gate.transit.to} vs ${gate.rule_text}`,
+      limit: null,
+      units: null,
+      source_kind: options.tides!.source.mode === 'synthetic' ? 'emulated' : 'tides',
+    });
+    events.push({
+      kind: `gate_${gate.status}`,
+      leg_id: gate.leg_id,
+      window: gate.transit,
+      refs: [e.evidence_id],
+    });
+    if (gate.status === 'conflict' || gate.status === 'marginal') anyApproaching = true;
+  }
+
   // ---- official warnings: authority override (brief §7) ----
   // A bulletin covering a route zone and overlapping the passage window forces the
   // authority state. It never claims a numeric limit was exceeded.
@@ -776,10 +807,12 @@ export function assembleFindings(options: AssembleOptions): Findings {
     events,
     verdict,
     evidence,
+    ...(gateAssessments.length ? { gates: gateAssessments } : {}),
     unsupported_hazards: [
       ...UNSUPPORTED_BASE,
       ...(grid ? [] : [UNSUPPORTED_NO_CURRENTS]),
       ...(options.warnings ? [] : [UNSUPPORTED_NO_WARNINGS]),
+      ...(options.tides && options.gates ? [] : [UNSUPPORTED_NO_TIDES]),
       ...(grid?.under_resolved_note ? [`under-resolved: ${grid.under_resolved_note}`] : []),
     ],
   };

@@ -188,6 +188,18 @@ export interface FindingsEvent {
   refs: string[];
 }
 
+export interface GateResult {
+  gate_id: string;
+  name: string;
+  leg_id: string;
+  distance_nm: number;
+  reference_port: string;
+  transit: { from: string; to: string };
+  favorable: Array<{ from: string; to: string }>;
+  status: 'ok' | 'marginal' | 'conflict';
+  rule_text: string;
+}
+
 export interface Findings {
   schema_version: number;
   snapshot_id: string;
@@ -211,5 +223,7 @@ export interface Findings {
     warning_override: { active: boolean; bulletin_ref: string | null };
   };
   evidence: Evidence[];
+  /** named tidal-gate assessments (M10+) */
+  gates?: GateResult[];
   unsupported_hazards: string[];
 }

@@ -21,6 +21,8 @@ export { MemoryCacheStore } from './fetch/openMeteo.js';
 export type { CacheStore } from './fetch/openMeteo.js';
 export { GridSampler, alongCourseKt, currentSetDeg, currentSpeedKt } from './grids.js';
 export type { RegionGrid, GridSample } from './grids.js';
+export { assessGates } from './hazards/tides.js';
+export type { TidesDoc, GateDef, GateAssessment } from './hazards/tides.js';
 export { diffFindings } from './diff.js';
 export type { Changes, ChangeEntry } from './diff.js';
 export { scanDepartures, candidateDepartures } from './window.js';
