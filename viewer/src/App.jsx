@@ -3,6 +3,7 @@ import Snapshots from './pages/Snapshots.jsx';
 import Planner from './pages/Planner.jsx';
 import Briefing from './pages/Briefing.jsx';
 import Evidence from './pages/Evidence.jsx';
+import Changes from './pages/Changes.jsx';
 import Settings from './pages/Settings.jsx';
 import EvidenceInspector from './components/EvidenceInspector.jsx';
 import clsx from 'clsx';
@@ -12,7 +13,7 @@ const NAV = [
   { id: 'snapshots', label: 'Analyses', ready: true },
   { id: 'briefing', label: 'Briefing', ready: true },
   { id: 'evidence', label: 'Evidence', ready: true },
-  { id: 'changes', label: 'Changes', ready: false },
+  { id: 'changes', label: 'Changes', ready: true },
   { id: 'verification', label: 'Verification', ready: false },
   { id: 'settings', label: 'Settings', ready: true },
 ];
@@ -22,6 +23,7 @@ const PAGES = {
   planner: Planner,
   briefing: Briefing,
   evidence: Evidence,
+  changes: Changes,
   settings: Settings,
 };
 

@@ -9,7 +9,16 @@
 import { assessDisagreement } from './disagreement.js';
 import { computeSchedules, parseUtc } from './eta.js';
 import { countExceedance, fraction } from './exceedance.js';
+import {
+  GridSampler,
+  alongCourseKt,
+  crossCourseKt,
+  currentSetDeg,
+  currentSpeedKt,
+  type RegionGrid,
+} from './grids.js';
 import { contentHash } from './hash.js';
+import { interpolatePosition, wrap180 } from './geo.js';
 import { squallPotential } from './hazards/convective.js';
 import { evaluateMinVisibility, fogRisk, visibilityNm } from './hazards/visibility.js';
 import { assessCrossSea, steepness, windAgainstSwell } from './hazards/waves.js';
@@ -48,6 +57,7 @@ export const RULES = {
   GUST: 'W-GUST-01',
   SUSTAINED_ENSEMBLE: 'W-SUST-03',
   GUST_ENSEMBLE: 'W-GUST-03',
+  WIND_AGAINST_CURRENT: 'T-WAC-01',
   WAVE_HEIGHT: 'S-WAVE-01',
   STEEPNESS: 'S-STEEP-01',
   CROSS_SEA: 'S-CROSS-01',
@@ -60,13 +70,10 @@ export const RULES = {
 
 const DEFAULT_SCENARIO_FLOOR = 0.3;
 
-/** Hazards still NOT assessed after M3 — stated in every report (brief §5/§6). */
-const UNSUPPORTED = [
-  'tidal currents & gates',
-  'official marine warnings',
-  'tropical systems',
-  'ice',
-];
+/** Hazards NOT assessed — stated in every report (brief §5/§6); currents drop out when a grid is supplied. */
+const UNSUPPORTED_BASE = ['tidal gates & HW/LW heights', 'tropical systems', 'ice'];
+const UNSUPPORTED_NO_CURRENTS = 'tidal currents (no prepared current grid)';
+const UNSUPPORTED_NO_WARNINGS = 'official marine warnings (no feed configured)';
 
 export interface AssembleOptions {
   route: Route;
@@ -85,6 +92,8 @@ export interface AssembleOptions {
   multiModel?: { byModel: Record<string, HazardPointForecast[]>; meta: MultiModelRequestMeta };
   /** official marine warnings (M5 seam; live/synthetic feed lands at M9) */
   warnings?: WarningsInput;
+  /** prepared CMEMS surface-current region grid (M7+) */
+  currentGrid?: RegionGrid;
   engineVersion: string;
   /** injected clock (ms) for byte-stable goldens */
   nowMs: number;
@@ -115,7 +124,12 @@ export function assembleFindings(options: AssembleOptions): Findings {
     throw new Error(`Expected ${legs.length} leg ensembles, got ${legEnsembles.length}`);
   }
   const midpoints = legMidpoints(legs);
-  const schedules = computeSchedules(legs, route.speeds_kt, departureUtc);
+  const grid = options.currentGrid;
+  const gridSampler = grid ? new GridSampler(grid) : null;
+  const currentSampler = gridSampler
+    ? (lat: number, lon: number, timeMs: number) => gridSampler.sample(lat, lon, timeMs)
+    : undefined;
+  const schedules = computeSchedules(legs, route.speeds_kt, departureUtc, currentSampler);
   const ratio = approachingRatio(profile);
   const scenarioFloor = profile.scenario_fraction_floor ?? DEFAULT_SCENARIO_FLOOR;
 
@@ -169,7 +183,9 @@ export function assembleFindings(options: AssembleOptions): Findings {
       }
     }
 
+    const midpointPos = interpolatePosition(leg.from, leg.to, 0.5);
     const hours: LegHour[] = [];
+    let worstWac: { hour: LegHour; opposition: number } | null = null;
     let worstSustained: { hour: LegHour; limit: number; ratio: number } | null = null;
     let worstGust: { hour: LegHour; ratio: number } | null = null;
     let worstEnsembleGust: { hour: LegHour; count: { exceed: number; total: number } } | null = null;
@@ -213,6 +229,36 @@ export function assembleFindings(options: AssembleOptions): Findings {
         point_of_sail: pos,
         limit_status: { sustained: sustainedStatus, gust: gustStatus },
       };
+
+      // ---- surface current at this hour (M7, CMEMS region grid) ----
+      if (gridSampler) {
+        const sample = gridSampler.sample(midpointPos.lat, midpointPos.lon, parseUtc(validTime));
+        if (sample) {
+          const speed = currentSpeedKt(sample);
+          const set = currentSetDeg(sample);
+          // wind-against-current: water moving INTO the wind (set ≈ wind-from direction)
+          // steepens the sea — the Alderney Race effect. Needs real current + real wind.
+          const opposition =
+            windDir !== null && wind !== null && speed >= 1 && wind >= 12
+              ? 180 - Math.abs(wrap180(set - windDir))
+              : null;
+          const wac = opposition !== null && opposition > 135;
+          hour.current = {
+            u_kt: sample.u_kt,
+            v_kt: sample.v_kt,
+            speed_kt: speed,
+            set_deg: Math.round(set),
+            along_kt: alongCourseKt(sample, leg.bearing_deg_true),
+            cross_kt: crossCourseKt(sample, leg.bearing_deg_true),
+            wind_against_current: wac,
+          };
+          if (wac && (!worstWac || speed > (worstWac.hour.current?.speed_kt ?? 0))) {
+            worstWac = { hour, opposition: opposition! };
+          }
+        } else {
+          hour.current = null;
+        }
+      }
 
       // ---- sea state (M3, deterministic wave model only) ----
       if (marine) {
@@ -450,6 +496,29 @@ export function assembleFindings(options: AssembleOptions): Findings {
         ratio: fraction(worstEnsembleSustained.count) / scenarioFloor,
       });
     }
+    // ---- M7: wind-against-current (steep breaking seas — Alderney Race effect) ----
+    if (worstWac) {
+      const c = worstWac.hour.current!;
+      const e = nextEvidence({
+        rule_id: RULES.WIND_AGAINST_CURRENT,
+        model: grid?.source.dataset_id ?? 'cmems',
+        run: grid?.run_id ?? null,
+        leg_id: leg.leg_id,
+        valid_time: worstWac.hour.valid_time,
+        value: `${c.speed_kt} kt set ${c.set_deg}° vs wind ${worstWac.hour.wind_kt} kt from ${worstWac.hour.wind_dir_deg}°`,
+        limit: null,
+        units: null,
+        source_kind: grid?.source.mode === 'synthetic' ? 'emulated' : 'currents',
+      });
+      events.push({
+        kind: 'wind_against_current',
+        leg_id: leg.leg_id,
+        window: { from: worstWac.hour.valid_time, to: worstWac.hour.valid_time },
+        refs: [e.evidence_id],
+      });
+      anyApproaching = true; // steep breaking seas deserve at least a look
+    }
+
     // ---- M3 hazard evidence ----
     if (worstWave) {
       const e = nextEvidence({
@@ -661,6 +730,17 @@ export function assembleFindings(options: AssembleOptions): Findings {
   if (ensembleMeta) allMeta.push({ ...ensembleMeta });
   if (marineMeta) allMeta.push({ ...marineMeta });
   if (multiModel) allMeta.push({ ...multiModel.meta });
+  if (grid) {
+    allMeta.push({
+      api: 'cmems-current-grid',
+      model: grid.source.dataset_id ?? 'cmems',
+      run: grid.run_id,
+      mode: grid.source.mode,
+      fetched_at: grid.source.fetched_at ?? grid.generated_at,
+      resolution_deg: grid.source.resolution_deg ?? null,
+      request_digest: contentHash({ run: grid.run_id, kind: grid.kind }),
+    });
+  }
   const inputs = {
     prepared_run_id: null,
     openmeteo: allMeta,
@@ -679,6 +759,7 @@ export function assembleFindings(options: AssembleOptions): Findings {
       ...(ensembleMeta ? [ensembleMeta.request_digest] : []),
       ...(marineMeta ? [marineMeta.request_digest] : []),
       ...(multiModel ? [multiModel.meta.request_digest] : []),
+      ...(grid ? [grid.run_id] : []),
     ],
   }).slice(0, 8)}`;
 
@@ -695,7 +776,12 @@ export function assembleFindings(options: AssembleOptions): Findings {
     events,
     verdict,
     evidence,
-    unsupported_hazards: UNSUPPORTED,
+    unsupported_hazards: [
+      ...UNSUPPORTED_BASE,
+      ...(grid ? [] : [UNSUPPORTED_NO_CURRENTS]),
+      ...(options.warnings ? [] : [UNSUPPORTED_NO_WARNINGS]),
+      ...(grid?.under_resolved_note ? [`under-resolved: ${grid.under_resolved_note}`] : []),
+    ],
   };
 }
 

@@ -25,6 +25,8 @@ export interface AnalyzeOptions {
   profile: LimitsProfile;
   departureUtc: string;
   warnings?: WarningsInput;
+  /** prepared CMEMS current grid (loaded by the caller: fs in CLI, /data fetch in browser) */
+  currentGrid?: import('./grids.js').RegionGrid;
   /** injected transport (tests/fixtures); defaults to live Open-Meteo */
   fetchFn?: typeof fetch;
   cache?: CacheStore;
@@ -84,6 +86,7 @@ export async function runAnalysis(options: AnalyzeOptions): Promise<AnalyzeResul
     marineMeta: marine.meta,
     multiModel: multi,
     ...(options.warnings ? { warnings: options.warnings } : {}),
+    ...(options.currentGrid ? { currentGrid: options.currentGrid } : {}),
     engineVersion: ENGINE_VERSION,
     nowMs,
   });

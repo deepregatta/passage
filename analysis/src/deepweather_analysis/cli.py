@@ -26,6 +26,29 @@ def cmd_providers(_args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_fetch_currents(args: argparse.Namespace) -> int:
+    from .grids_prep import prepare_current_grid
+
+    bounds = None
+    if args.bounds:
+        try:
+            min_lat, max_lat, min_lon, max_lon = (float(v) for v in args.bounds.split(","))
+        except ValueError:
+            print("--bounds must be 'min_lat,max_lat,min_lon,max_lon'")
+            return 1
+        bounds = {
+            "min_lat": min_lat,
+            "max_lat": max_lat,
+            "min_lon": min_lon,
+            "max_lon": max_lon,
+        }
+    path = prepare_current_grid(
+        bounds=bounds, start=args.start, end=args.end, force=args.force
+    )
+    print(f"published {path}")
+    return 0
+
+
 def cmd_scenario(args: argparse.Namespace) -> int:
     from .scenarios import SCENARIOS, generate_all, generate_scenario
 
@@ -47,6 +70,25 @@ def main(argv: list[str] | None = None) -> int:
 
     providers_parser = subparsers.add_parser("providers", help="show provider modes")
     providers_parser.set_defaults(func=cmd_providers)
+
+    currents_parser = subparsers.add_parser(
+        "fetch-currents", help="CMEMS forecast currents -> region grid artifact"
+    )
+    currents_parser.add_argument(
+        "--start", default=None, help="window start ISO UTC (default: now)"
+    )
+    currents_parser.add_argument(
+        "--end", default=None, help="window end ISO UTC (default: start + 72h)"
+    )
+    currents_parser.add_argument(
+        "--bounds",
+        default=None,
+        help="override box as 'min_lat,max_lat,min_lon,max_lon' (default: Channel window)",
+    )
+    currents_parser.add_argument(
+        "--force", action="store_true", help="re-fetch even if a fresh cache exists"
+    )
+    currents_parser.set_defaults(func=cmd_fetch_currents)
 
     scenario_parser = subparsers.add_parser(
         "scenario", help="generate synthetic scenario bundles (verdict-state harness)"

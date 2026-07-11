@@ -21,8 +21,22 @@ class HttpSnapshotStore {
   }
 }
 
+async function loadCurrentGrid() {
+  try {
+    const latest = await fetch('/data/runs/latest.json').then((r) => (r.ok ? r.json() : null));
+    const rel = latest?.artifacts?.current_grid;
+    if (!rel) return undefined;
+    const grid = await fetch(`/data/${rel}`).then((r) => (r.ok ? r.json() : null));
+    return grid ?? undefined;
+  } catch {
+    return undefined; // analysis still runs; currents listed as unsupported
+  }
+}
+
 export async function analyzeInBrowser({ route, profile, departureUtc, onProgress }) {
-  const result = await runAnalysis({ route, profile, departureUtc, onProgress });
+  onProgress?.('loading prepared currents');
+  const currentGrid = await loadCurrentGrid();
+  const result = await runAnalysis({ route, profile, departureUtc, onProgress, currentGrid });
   onProgress?.('saving immutable snapshot');
   const snapshotId = await persistSnapshot(new HttpSnapshotStore(), result, route, Date.now());
   return { snapshotId, result };

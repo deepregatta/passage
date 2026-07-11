@@ -154,6 +154,16 @@ export interface LegHour {
   fog_risk?: boolean;
   /** max-min sustained wind across deterministic models, kt (M3+) */
   model_spread_kt?: number | null;
+  /** surface current at the leg midpoint (M7+, CMEMS region grid) */
+  current?: {
+    u_kt: number;
+    v_kt: number;
+    speed_kt: number;
+    set_deg: number;
+    along_kt: number;
+    cross_kt: number;
+    wind_against_current: boolean;
+  } | null;
 }
 
 export interface LegFinding {
