@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://deepweather.local/contracts/changes.schema.json",
+  "title": "Change ledger — previous vs latest analysis (mockup 3)",
+  "type": "object",
+  "required": ["schema_version", "snapshot_id", "previous_snapshot_id", "entries"],
+  "properties": {
+    "schema_version": { "type": "integer" },
+    "snapshot_id": { "type": "string" },
+    "previous_snapshot_id": { "type": ["string", "null"] },
+    "verdict_transition": {
+      "type": "object",
+      "properties": {
+        "from": { "type": ["string", "null"] },
+        "to": { "type": "string" }
+      }
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "description"],
+        "properties": {
+          "kind": { "enum": ["event_shifted", "value_changed", "event_new", "event_gone", "verdict_changed", "source_updated"] },
+          "description": { "type": "string" },
+          "previous": {},
+          "latest": {},
+          "evidence_pair": { "type": "array", "items": { "type": "string" }, "maxItems": 2 }
+        }
+      }
+    }
+  }
+}

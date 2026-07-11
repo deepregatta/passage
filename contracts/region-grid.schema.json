@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://deepweather.local/contracts/region-grid.schema.json",
+  "title": "Region grid — regular lat/lon u/v field, hourly. TS does bilinear + time interpolation only; fetching/decoding/gap-filling stays in Python.",
+  "type": "object",
+  "required": ["schema_version", "kind", "run_id", "generated_at", "lat0", "lon0", "dlat", "dlon", "nlat", "nlon", "time_axis", "u_kt", "v_kt", "source"],
+  "properties": {
+    "schema_version": { "type": "integer" },
+    "kind": { "enum": ["wind10m", "surface_current"] },
+    "run_id": { "type": "string" },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "lat0": { "type": "number" },
+    "lon0": { "type": "number" },
+    "dlat": { "type": "number", "exclusiveMinimum": 0 },
+    "dlon": { "type": "number", "exclusiveMinimum": 0 },
+    "nlat": { "type": "integer", "minimum": 2 },
+    "nlon": { "type": "integer", "minimum": 2 },
+    "time_axis": { "type": "array", "items": { "type": "string", "format": "date-time" } },
+    "u_kt": { "type": "array", "items": { "type": ["number", "null"] }, "description": "flat array, index = (t*nlat + i)*nlon + j; land gap-filled where possible" },
+    "v_kt": { "type": "array", "items": { "type": ["number", "null"] } },
+    "under_resolved_note": { "type": ["string", "null"] },
+    "source": {
+      "type": "object",
+      "required": ["mode"],
+      "properties": {
+        "mode": { "enum": ["live", "fixture", "synthetic"] },
+        "dataset_id": { "type": ["string", "null"] },
+        "resolution_deg": { "type": ["number", "null"] },
+        "fetched_at": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

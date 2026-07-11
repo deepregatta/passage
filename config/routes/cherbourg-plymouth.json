@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "route_id": "cherbourg-plymouth-v1",
+  "name": "Cherbourg → Plymouth",
+  "mode": "fixed",
+  "comment": "Canonical test route (~105 nm, ~19 h at 5.5 kt). Legs and sample points are derived deterministically by the engine from these waypoints.",
+  "waypoints": [
+    { "id": "wp1", "name": "Cherbourg, Passe de l'Ouest", "lat": 49.665, "lon": -1.645 },
+    { "id": "wp2", "name": "Off Omonville-la-Rogue", "lat": 49.72, "lon": -1.83 },
+    { "id": "wp3", "name": "NW of Cap de la Hague", "lat": 49.78, "lon": -2.05 },
+    { "id": "wp4", "name": "Casquets TSS crossing", "lat": 49.95, "lon": -2.85 },
+    { "id": "wp5", "name": "Mid-Channel", "lat": 50.1, "lon": -3.45 },
+    { "id": "wp6", "name": "Plymouth approach (E of Eddystone)", "lat": 50.25, "lon": -4.05 },
+    { "id": "wp7", "name": "Plymouth breakwater, western entrance", "lat": 50.333, "lon": -4.175 }
+  ],
+  "speeds_kt": { "slow": 4.5, "nominal": 5.5, "fast": 6.5 }
+}

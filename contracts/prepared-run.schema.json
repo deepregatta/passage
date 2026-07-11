@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://deepweather.local/contracts/prepared-run.schema.json",
+  "title": "Prepared run manifest — shared per-model-run artifacts",
+  "type": "object",
+  "required": ["schema_version", "run_id", "model", "cycle", "generated_at", "bounds", "valid_until", "artifacts", "sources"],
+  "properties": {
+    "schema_version": { "type": "integer" },
+    "run_id": { "type": "string", "pattern": "^[a-z0-9]+-[a-z0-9]+-\\d{8}T\\d{2}Z$", "description": "e.g. ecmwf-ifs025-20260715T00Z" },
+    "model": { "type": "string" },
+    "cycle": { "type": "string" },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "steps_h": { "type": "array", "items": { "type": "integer", "minimum": 0 } },
+    "bounds": {
+      "type": "object",
+      "required": ["min_lat", "max_lat", "min_lon", "max_lon"],
+      "properties": {
+        "min_lat": { "type": "number" },
+        "max_lat": { "type": "number" },
+        "min_lon": { "type": "number" },
+        "max_lon": { "type": "number" }
+      }
+    },
+    "valid_until": { "type": "string", "format": "date-time" },
+    "artifacts": {
+      "type": "object",
+      "properties": {
+        "synoptic_features": { "type": "string" },
+        "synoptic_charts": { "type": "array", "items": { "type": "string" } },
+        "wind_grid": { "type": "string" },
+        "current_grid": { "type": "string" },
+        "land_mask": { "type": "string" },
+        "tides": { "type": "string" }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "mode", "fetched_at"],
+        "properties": {
+          "kind": { "type": "string" },
+          "mode": { "enum": ["live", "fixture", "synthetic"] },
+          "dataset_id": { "type": ["string", "null"] },
+          "fetched_at": { "type": "string", "format": "date-time" },
+          "checksum_sha256": { "type": ["string", "null"] },
+          "licence": { "type": ["string", "null"] }
+        }
+      }
+    }
+  }
+}

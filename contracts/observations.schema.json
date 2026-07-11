@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://deepweather.local/contracts/observations.schema.json",
+  "title": "Buoy/station observations for verification (brief §9)",
+  "type": "object",
+  "required": ["schema_version", "generated_at", "source", "stations"],
+  "properties": {
+    "schema_version": { "type": "integer" },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "source": {
+      "type": "object",
+      "required": ["mode"],
+      "properties": {
+        "mode": { "enum": ["live", "fixture", "synthetic"] },
+        "name": { "type": "string" }
+      }
+    },
+    "stations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["station_id", "lat", "lon", "records"],
+        "properties": {
+          "station_id": { "type": "string" },
+          "name": { "type": "string" },
+          "lat": { "type": "number" },
+          "lon": { "type": "number" },
+          "quality_flags": { "type": "array", "items": { "type": "string" } },
+          "records": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["time"],
+              "properties": {
+                "time": { "type": "string", "format": "date-time" },
+                "wind_kt": { "type": ["number", "null"] },
+                "gust_kt": { "type": ["number", "null"] },
+                "wind_dir_deg": { "type": ["number", "null"] },
+                "pressure_hpa": { "type": ["number", "null"] },
+                "hs_m": { "type": ["number", "null"] }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

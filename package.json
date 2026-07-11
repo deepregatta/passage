@@ -1,0 +1,15 @@
+{
+  "name": "deepweather",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Explainable passage-weather risk audit for sailors — local prototype",
+  "workspaces": [
+    "engine",
+    "viewer"
+  ],
+  "scripts": {
+    "test": "npm run test -w engine && npm run test -w viewer --if-present",
+    "dev": "npm run dev -w viewer",
+    "build": "npm run build -w engine && npm run build -w viewer"
+  }
+}

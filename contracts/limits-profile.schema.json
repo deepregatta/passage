@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://deepweather.local/contracts/limits-profile.schema.json",
+  "title": "Declared limits profile (brief §7)",
+  "type": "object",
+  "required": ["schema_version", "profile_id", "label", "declared", "max_gust_kt", "max_sustained_kt"],
+  "properties": {
+    "schema_version": { "type": "integer" },
+    "profile_id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+    "label": { "type": "string" },
+    "declared": { "const": true, "description": "Profiles are declared operational limits, not sailor categories." },
+    "max_sustained_kt": {
+      "type": "object",
+      "required": ["default"],
+      "properties": {
+        "default": { "type": "number", "exclusiveMinimum": 0 },
+        "upwind": { "type": "number", "exclusiveMinimum": 0 },
+        "reach": { "type": "number", "exclusiveMinimum": 0 },
+        "downwind": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "max_gust_kt": { "type": "number", "exclusiveMinimum": 0 },
+    "max_wave_height_m": { "type": "number", "exclusiveMinimum": 0 },
+    "max_steepness": { "type": "number", "exclusiveMinimum": 0 },
+    "cross_sea_flag": { "type": "boolean" },
+    "min_visibility_nm": { "type": ["number", "null"] },
+    "night_ok": { "type": "boolean" },
+    "scenario_fraction_floor": { "type": "number", "minimum": 0, "maximum": 1 },
+    "approaching_ratio": { "type": "number", "minimum": 0, "maximum": 1 }
+  }
+}

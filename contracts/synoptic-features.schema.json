@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://deepweather.local/contracts/synoptic-features.schema.json",
+  "title": "Synoptic features — detected systems, front-like transitions, named regimes",
+  "type": "object",
+  "required": ["schema_version", "run_id", "generated_at", "systems", "route_transitions", "regimes"],
+  "properties": {
+    "schema_version": { "type": "integer" },
+    "run_id": { "type": "string" },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "systems": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["system_id", "kind", "track"],
+        "properties": {
+          "system_id": { "type": "string" },
+          "kind": { "enum": ["low", "high"] },
+          "track": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["step_h", "valid_time", "lat", "lon", "center_hpa"],
+              "properties": {
+                "step_h": { "type": "integer" },
+                "valid_time": { "type": "string", "format": "date-time" },
+                "lat": { "type": "number" },
+                "lon": { "type": "number" },
+                "center_hpa": { "type": "number" },
+                "closed_contour": { "type": "boolean" }
+              }
+            }
+          },
+          "deepening_hpa_per_24h": { "type": ["number", "null"] },
+          "motion": { "type": ["object", "null"] }
+        }
+      }
+    },
+    "route_transitions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["transition_id", "label", "corroboration"],
+        "properties": {
+          "transition_id": { "type": "string" },
+          "label": { "const": "front-like transition", "description": "Never a front type unless corroborated (brief §4.1)" },
+          "corroboration": { "enum": ["none", "official"] },
+          "window": { "type": "object" },
+          "signatures": { "type": "object" },
+          "confidence_note": { "type": "string" }
+        }
+      }
+    },
+    "regimes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["regime_id", "rule_id"],
+        "properties": {
+          "regime_id": { "enum": ["mistral", "tramontane"] },
+          "rule_id": { "type": "string" },
+          "window": { "type": "object" },
+          "pattern_evidence": { "type": "object" }
+        }
+      }
+    },
+    "chart_captions": { "type": "array", "items": { "type": "object" } }
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "comment": "Named tidal gates. Timing rules are expressed relative to HW at a reference port. Values are placeholder pilot-book approximations to be verified at M10 — flagged 'unverified' until then.",
+  "gates": [
+    {
+      "gate_id": "alderney-race",
+      "name": "Alderney Race (Raz Blanchard)",
+      "lat": 49.73,
+      "lon": -2.11,
+      "reference_port": "st-helier",
+      "favorable_sw_going": { "from_hw_h": -1.5, "to_hw_h": 4.5 },
+      "note": "SW-going stream begins ~HW St Helier −1h30. Spring rates can exceed 9 kt; wind-against-current raises dangerous seas.",
+      "verified": false
+    },
+    {
+      "gate_id": "cap-de-la-hague",
+      "name": "Cap de la Hague inshore passage",
+      "lat": 49.72,
+      "lon": -1.94,
+      "reference_port": "cherbourg",
+      "favorable_sw_going": { "from_hw_h": -2.0, "to_hw_h": 4.0 },
+      "note": "Adjacent to the Alderney Race; strong west-going ebb.",
+      "verified": false
+    },
+    {
+      "gate_id": "raz-de-sein",
+      "name": "Raz de Sein",
+      "lat": 48.04,
+      "lon": -4.74,
+      "reference_port": "brest",
+      "slack_offset_h": -0.5,
+      "note": "Slack ≈ HW Brest −0h30; pass at slack in any wind against tide.",
+      "verified": false
+    }
+  ]
+}

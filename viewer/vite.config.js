@@ -1,0 +1,179 @@
+// Data middleware pattern vendored from coachregatta viewer2/vite.config.js (2026-07-11),
+// adapted for deepweather: snapshots manifest instead of race index, .png artifacts allowed,
+// and dev-only POST endpoints so the in-browser engine can persist routes and snapshots.
+// In production the same paths are served from R2 (GET) and Supabase/Functions (POST).
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import path from 'path';
+import fs from 'fs';
+
+const SNAPSHOTS_MANIFEST_PATH = '/data/snapshots/manifest.json';
+
+function buildSnapshotsManifest(dataRoot) {
+  const snapshotsRoot = path.join(dataRoot, 'snapshots');
+  const snapshots = [];
+
+  if (fs.existsSync(snapshotsRoot)) {
+    const entries = fs
+      .readdirSync(snapshotsRoot, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory() && !entry.name.startsWith('.'))
+      .sort((a, b) => b.name.localeCompare(a.name)); // newest first (ids start with departure date)
+
+    for (const entry of entries) {
+      const manifestPath = path.join(snapshotsRoot, entry.name, 'snapshot.json');
+      if (!fs.existsSync(manifestPath)) continue;
+      try {
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+        snapshots.push({
+          snapshot_id: manifest.snapshot_id ?? entry.name,
+          created_at: manifest.created_at,
+          route_id: manifest.route_id,
+          profile_id: manifest.profile_id,
+          departure_utc: manifest.departure_utc,
+          verdict_state: manifest.verdict_state ?? null,
+        });
+      } catch (error) {
+        console.warn(`[data-middleware] Skipping invalid ${manifestPath}: ${error.message}`);
+      }
+    }
+  }
+
+  return { generated_at: new Date().toISOString(), snapshots };
+}
+
+function readBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on('data', (c) => chunks.push(c));
+    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    req.on('error', reject);
+  });
+}
+
+function safeResolve(root, relativePath) {
+  const filePath = path.resolve(root, relativePath);
+  if (!filePath.startsWith(root + path.sep) && filePath !== root) return null;
+  return filePath;
+}
+
+function dataMiddleware() {
+  const dataRoot = path.resolve(__dirname, '../data/processed');
+
+  return {
+    name: 'data-middleware',
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        const requestPath = req.url?.split('?')[0] || '';
+        if (!requestPath.startsWith('/data/')) return next();
+
+        // ---- dev-only persistence for the in-browser engine ----
+        if (req.method === 'POST') {
+          const writable = [
+            { prefix: '/data/routes/', root: path.join(dataRoot, 'routes') },
+            { prefix: '/data/snapshots/', root: path.join(dataRoot, 'snapshots') },
+          ].find((w) => requestPath.startsWith(w.prefix));
+
+          if (!writable) {
+            res.statusCode = 403;
+            res.end('Forbidden');
+            return;
+          }
+
+          const relative = decodeURIComponent(requestPath.slice(writable.prefix.length));
+          const filePath = safeResolve(writable.root, relative);
+          if (!filePath || !filePath.endsWith('.json')) {
+            res.statusCode = 403;
+            res.end('Forbidden');
+            return;
+          }
+
+          // snapshots are immutable: never overwrite an existing artifact
+          if (requestPath.startsWith('/data/snapshots/') && fs.existsSync(filePath)) {
+            res.statusCode = 409;
+            res.end('Snapshot artifacts are write-once');
+            return;
+          }
+
+          try {
+            const body = await readBody(req);
+            JSON.parse(body); // must be valid JSON
+            fs.mkdirSync(path.dirname(filePath), { recursive: true });
+            fs.writeFileSync(filePath, body);
+            res.statusCode = 201;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ ok: true }));
+          } catch (error) {
+            res.statusCode = 400;
+            res.end(`Bad request: ${error.message}`);
+          }
+          return;
+        }
+
+        // ---- reads ----
+        if (requestPath === SNAPSHOTS_MANIFEST_PATH) {
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          res.end(JSON.stringify(buildSnapshotsManifest(dataRoot)));
+          return;
+        }
+
+        const relativePath = decodeURIComponent(requestPath.slice(6));
+        const filePath = safeResolve(dataRoot, relativePath);
+        if (!filePath) {
+          res.statusCode = 403;
+          res.end('Forbidden');
+          return;
+        }
+
+        const contentTypes = {
+          '.json': 'application/json',
+          '.geojson': 'application/geo+json',
+          '.png': 'image/png',
+          '.svg': 'image/svg+xml',
+        };
+        const ext = path.extname(filePath).toLowerCase();
+        if (!contentTypes[ext]) {
+          res.statusCode = 403;
+          res.end('Forbidden');
+          return;
+        }
+
+        if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+          res.setHeader('Content-Type', contentTypes[ext]);
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          res.end(fs.readFileSync(filePath));
+          return;
+        }
+
+        res.statusCode = 404;
+        res.end('Not found');
+      });
+    },
+  };
+}
+
+export default defineConfig(({ mode }) => ({
+  plugins: [react(), dataMiddleware()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
+  server: {
+    port: 5174,
+    strictPort: true,
+  },
+  build: {
+    outDir: 'dist',
+    sourcemap: mode !== 'production',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-echarts': ['echarts', 'echarts-for-react'],
+          'vendor-leaflet': ['leaflet', 'react-leaflet'],
+        },
+      },
+    },
+  },
+}));

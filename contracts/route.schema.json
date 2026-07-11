@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://deepweather.local/contracts/route.schema.json",
+  "title": "Route",
+  "type": "object",
+  "required": ["schema_version", "route_id", "name", "mode", "waypoints"],
+  "properties": {
+    "schema_version": { "type": "integer" },
+    "route_id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+    "name": { "type": "string" },
+    "mode": { "enum": ["fixed", "user", "computed"] },
+    "waypoints": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "required": ["id", "lat", "lon"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "lat": { "type": "number", "minimum": -90, "maximum": 90 },
+          "lon": { "type": "number", "minimum": -180, "maximum": 180 }
+        }
+      }
+    },
+    "speeds_kt": {
+      "type": "object",
+      "required": ["slow", "nominal", "fast"],
+      "properties": {
+        "slow": { "type": "number", "exclusiveMinimum": 0 },
+        "nominal": { "type": "number", "exclusiveMinimum": 0 },
+        "fast": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "polar_ref": { "type": "string", "description": "config/polars/<slug>.json — alternative to speeds_kt" },
+    "polar_scaling": { "type": "number", "exclusiveMinimum": 0 },
+    "provenance": {
+      "type": "object",
+      "description": "Required when mode=computed: routing engine version, request, polar used.",
+      "properties": {
+        "engine_version": { "type": "string" },
+        "routing_request": { "type": "object" },
+        "polar_ref": { "type": "string" },
+        "computed_at": { "type": "string", "format": "date-time" }
+      }
+    }
+  },
+  "anyOf": [
+    { "required": ["speeds_kt"] },
+    { "required": ["polar_ref"] }
+  ]
+}

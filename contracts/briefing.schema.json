@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://deepweather.local/contracts/briefing.schema.json",
+  "title": "Briefing — two-register templated narrative",
+  "type": "object",
+  "required": ["schema_version", "snapshot_id", "sections"],
+  "properties": {
+    "schema_version": { "type": "integer" },
+    "snapshot_id": { "type": "string" },
+    "sections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "register_plain", "register_pro", "evidence_ids"],
+        "properties": {
+          "id": { "enum": ["warnings", "synoptic_story", "route_impact", "decision", "what_could_change", "unsupported", "emulated_disclosure"] },
+          "title": { "type": "string" },
+          "register_plain": { "type": "string", "description": "No jargon, action-oriented; never states probabilities for raw scenario fractions" },
+          "register_pro": { "type": "string" },
+          "evidence_ids": { "type": "array", "items": { "type": "string" } },
+          "per_leg": { "type": "array", "items": { "type": "object" } },
+          "glossary_terms": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "next_runs": { "type": "array", "items": { "type": "object" } }
+  }
+}

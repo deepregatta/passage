@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://deepweather.local/contracts/calibration.schema.json",
+  "title": "Calibration record — never displayed without sample size (brief §9)",
+  "type": "object",
+  "required": ["schema_version", "generated_at", "records"],
+  "properties": {
+    "schema_version": { "type": "integer" },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "records": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["variable", "lead_band_h", "area", "n_pairs", "coverage_classes"],
+        "properties": {
+          "variable": { "type": "string" },
+          "lead_band_h": { "type": "array", "items": { "type": "integer" }, "minItems": 2, "maxItems": 2 },
+          "area": { "type": "string" },
+          "n_pairs": { "type": "integer", "minimum": 0 },
+          "coverage_classes": {
+            "type": "object",
+            "description": "counts per class: verified_near_observation | partially_observed | reanalysis_referenced | not_independently_observed | emulated",
+            "additionalProperties": { "type": "integer" }
+          },
+          "bias": { "type": ["number", "null"] },
+          "spread": { "type": ["number", "null"] }
+        }
+      }
+    }
+  }
+}

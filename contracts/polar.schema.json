@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://deepweather.local/contracts/polar.schema.json",
+  "title": "Boat polar — extracted from vendored ORC db or user override",
+  "type": "object",
+  "required": ["schema_version", "polar_id", "label", "tws_kt", "twa_deg", "speeds_kt", "source"],
+  "properties": {
+    "schema_version": { "type": "integer" },
+    "polar_id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+    "label": { "type": "string" },
+    "tws_kt": { "type": "array", "items": { "type": "number" }, "minItems": 2 },
+    "twa_deg": { "type": "array", "items": { "type": "number" }, "minItems": 2 },
+    "speeds_kt": {
+      "type": "array",
+      "description": "speeds_kt[i][j] = boat speed at tws_kt[i], twa_deg[j]",
+      "items": { "type": "array", "items": { "type": "number" } }
+    },
+    "source": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": { "enum": ["orc_vpp", "user_override", "community", "generic"] },
+        "match_type": { "type": ["string", "null"] },
+        "matched_value": { "type": ["string", "null"] },
+        "detail": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

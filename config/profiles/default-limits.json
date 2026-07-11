@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "profile_id": "coastal-cruising-cautious",
+  "label": "Coastal cruising — cautious",
+  "declared": true,
+  "comment": "Presets only pre-fill editable declared limits (brief §7). No preset relaxes squall/storm tolerance.",
+  "max_sustained_kt": { "default": 22, "upwind": 18, "reach": 25, "downwind": 25 },
+  "max_gust_kt": 28,
+  "max_wave_height_m": 2.5,
+  "max_steepness": 0.045,
+  "cross_sea_flag": true,
+  "min_visibility_nm": 2,
+  "night_ok": true,
+  "scenario_fraction_floor": 0.3,
+  "approaching_ratio": 0.75
+}

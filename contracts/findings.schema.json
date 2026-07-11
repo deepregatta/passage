@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://deepweather.local/contracts/findings.schema.json",
+  "title": "Findings — evidence-bearing engine output",
+  "type": "object",
+  "required": ["schema_version", "snapshot_id", "route_id", "profile_id", "departure_utc", "engine_version", "inputs", "legs", "verdict", "evidence", "unsupported_hazards"],
+  "properties": {
+    "schema_version": { "type": "integer" },
+    "snapshot_id": { "type": "string" },
+    "route_id": { "type": "string" },
+    "profile_id": { "type": "string" },
+    "departure_utc": { "type": "string", "format": "date-time" },
+    "engine_version": { "type": "string" },
+    "inputs": {
+      "type": "object",
+      "description": "Everything that produced this analysis: prepared run id, API request digests, route/profile hashes, warnings ref.",
+      "required": ["route_hash", "profile_hash"],
+      "properties": {
+        "prepared_run_id": { "type": ["string", "null"] },
+        "openmeteo": { "type": "array", "items": { "type": "object" } },
+        "warnings_ref": { "type": ["string", "null"] },
+        "route_hash": { "type": "string" },
+        "profile_hash": { "type": "string" }
+      }
+    },
+    "legs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["leg_id", "eta_range", "hours"],
+        "properties": {
+          "leg_id": { "type": "string" },
+          "eta_range": {
+            "type": "object",
+            "required": ["slow", "nominal", "fast"],
+            "properties": {
+              "slow": { "type": "string", "format": "date-time" },
+              "nominal": { "type": "string", "format": "date-time" },
+              "fast": { "type": "string", "format": "date-time" }
+            }
+          },
+          "sog_kt": { "type": "object" },
+          "hours": { "type": "array", "items": { "type": "object" } }
+        }
+      }
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "refs"],
+        "properties": {
+          "kind": { "type": "string" },
+          "leg_id": { "type": "string" },
+          "window": { "type": "object" },
+          "refs": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "verdict": {
+      "type": "object",
+      "required": ["state"],
+      "properties": {
+        "state": { "enum": ["within", "approaching", "exceeds", "insufficient", "warning_active"] },
+        "driver_evidence_id": { "type": ["string", "null"] },
+        "warning_override": {
+          "type": "object",
+          "properties": {
+            "active": { "type": "boolean" },
+            "bulletin_ref": { "type": ["string", "null"] }
+          }
+        }
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["evidence_id", "rule_id", "source_kind"],
+        "properties": {
+          "evidence_id": { "type": "string" },
+          "rule_id": { "type": "string", "description": "e.g. W-GUST-03" },
+          "model": { "type": ["string", "null"] },
+          "run": { "type": ["string", "null"] },
+          "leg_id": { "type": ["string", "null"] },
+          "valid_time": { "type": ["string", "null"] },
+          "value": {},
+          "limit": {},
+          "units": { "type": ["string", "null"] },
+          "source_kind": { "enum": ["deterministic", "ensemble", "currents", "tides", "warning", "synoptic", "emulated"] },
+          "member_fraction": {
+            "type": "object",
+            "required": ["exceed", "total"],
+            "properties": {
+              "exceed": { "type": "integer", "minimum": 0 },
+              "total": { "type": "integer", "minimum": 1 }
+            }
+          }
+        }
+      }
+    },
+    "unsupported_hazards": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Stated in every report — absence of a warning is never absence of risk."
+    }
+  }
+}

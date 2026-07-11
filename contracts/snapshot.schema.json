@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://deepweather.local/contracts/snapshot.schema.json",
+  "title": "Snapshot manifest — immutable analysis record (brief §9)",
+  "type": "object",
+  "required": ["schema_version", "snapshot_id", "created_at", "engine_version", "route_id", "profile_id", "departure_utc", "artifacts"],
+  "properties": {
+    "schema_version": { "type": "integer" },
+    "snapshot_id": { "type": "string" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "engine_version": { "type": "string" },
+    "route_id": { "type": "string" },
+    "profile_id": { "type": "string" },
+    "departure_utc": { "type": "string", "format": "date-time" },
+    "verdict_state": { "enum": ["within", "approaching", "exceeds", "insufficient", "warning_active"] },
+    "artifacts": {
+      "type": "object",
+      "description": "Relative paths inside the snapshot dir. Mutable inputs are COPIED in, not referenced.",
+      "required": ["findings"],
+      "properties": {
+        "findings": { "type": "string" },
+        "briefing": { "type": "string" },
+        "plume": { "type": "string" },
+        "changes": { "type": "string" },
+        "route": { "type": "string" },
+        "warnings": { "type": "string" },
+        "tides": { "type": "string" },
+        "prepared": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "input_hashes": { "type": "object" }
+  }
+}

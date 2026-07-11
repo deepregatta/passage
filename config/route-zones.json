@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "comment": "Marine forecast zone coverage per route. FR zones: Météo-France côte/large. UK zones: shipping forecast areas — modeled but not fetched live (warnings_uk provider is synthetic).",
+  "routes": {
+    "cherbourg-plymouth-v1": {
+      "fr_zones": [
+        { "zone_id": "casquets", "zone_name": "Casquets (large)", "kind": "large" },
+        { "zone_id": "hague-barfleur", "zone_name": "De la Hague à la pointe de Barfleur (côte)", "kind": "cote" }
+      ],
+      "uk_zones": [
+        { "zone_id": "portland", "zone_name": "Portland", "kind": "shipping", "fetched": false },
+        { "zone_id": "plymouth", "zone_name": "Plymouth", "kind": "shipping", "fetched": false }
+      ]
+    }
+  }
+}

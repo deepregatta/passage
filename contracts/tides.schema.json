@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://deepweather.local/contracts/tides.schema.json",
+  "title": "Tidal predictions at reference ports (HW/LW series)",
+  "type": "object",
+  "required": ["schema_version", "generated_at", "source", "ports"],
+  "properties": {
+    "schema_version": { "type": "integer" },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "source": {
+      "type": "object",
+      "required": ["mode"],
+      "properties": {
+        "mode": { "enum": ["live", "fixture", "synthetic"] },
+        "constituents": { "type": "array", "items": { "type": "string" } },
+        "note": { "type": "string" }
+      }
+    },
+    "ports": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["port_id", "name", "events"],
+        "properties": {
+          "port_id": { "type": "string" },
+          "name": { "type": "string" },
+          "lat": { "type": "number" },
+          "lon": { "type": "number" },
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["kind", "time", "height_m"],
+              "properties": {
+                "kind": { "enum": ["HW", "LW"] },
+                "time": { "type": "string", "format": "date-time" },
+                "height_m": { "type": "number" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
