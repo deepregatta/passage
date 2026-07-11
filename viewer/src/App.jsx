@@ -4,6 +4,7 @@ import Planner from './pages/Planner.jsx';
 import Briefing from './pages/Briefing.jsx';
 import Evidence from './pages/Evidence.jsx';
 import Changes from './pages/Changes.jsx';
+import Verification from './pages/Verification.jsx';
 import Settings from './pages/Settings.jsx';
 import EvidenceInspector from './components/EvidenceInspector.jsx';
 import clsx from 'clsx';
@@ -14,7 +15,7 @@ const NAV = [
   { id: 'briefing', label: 'Briefing', ready: true },
   { id: 'evidence', label: 'Evidence', ready: true },
   { id: 'changes', label: 'Changes', ready: true },
-  { id: 'verification', label: 'Verification', ready: false },
+  { id: 'verification', label: 'Verification', ready: true },
   { id: 'settings', label: 'Settings', ready: true },
 ];
 
@@ -24,6 +25,7 @@ const PAGES = {
   briefing: Briefing,
   evidence: Evidence,
   changes: Changes,
+  verification: Verification,
   settings: Settings,
 };
 
