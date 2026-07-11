@@ -2,7 +2,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { deriveLegs, totalDistanceNm, parseGpx, computeRoute } from '@deepweather/engine';
+import {
+  deriveLegs,
+  totalDistanceNm,
+  parseGpx,
+  computeRoute,
+  scanDepartures,
+  candidateDepartures,
+} from '@deepweather/engine';
+import { VerdictChip } from '../components/common.jsx';
+import { fmtTime } from '../lib/format.js';
 import { useApp } from '../stores/appStore.js';
 import { analyzeInBrowser, saveRoute } from '../lib/browserAnalysis.js';
 import { Panel } from '../components/common.jsx';
@@ -144,6 +153,30 @@ export default function Planner() {
       setError(e.message);
     } finally {
       if (fileRef.current) fileRef.current.value = '';
+    }
+  };
+
+  const [scan, setScan] = useState(null);
+
+  const runScan = async () => {
+    if (!route) return;
+    setBusy('scanning departures');
+    setError(null);
+    setScan(null);
+    try {
+      const profileDraft = localStorage.getItem('deepweather.profile-draft');
+      const profile = profileDraft ? JSON.parse(profileDraft) : profileDefaults;
+      const departures = candidateDepartures(Date.parse(`${departureLocal}:00Z`), 48, 6);
+      const partial = [];
+      const result = await scanDepartures({ route, profile }, departures, (c) => {
+        partial.push(c);
+        setBusy(`scanning departures ${partial.length}/${departures.length}`);
+      });
+      setScan(result);
+      setBusy(null);
+    } catch (e) {
+      setBusy(null);
+      setError(e.message);
     }
   };
 
@@ -383,7 +416,37 @@ export default function Planner() {
             >
               {busy ? `${busy}…` : 'Check this passage against my limits'}
             </button>
+            <button
+              type="button"
+              onClick={runScan}
+              disabled={!route || busy !== null}
+              className="w-full border border-ink/50 rounded-sm px-3 py-2 hover:bg-white/50 disabled:opacity-40"
+            >
+              Compare departure times (next 48 h)
+            </button>
             {error && <p className="text-verdict-exceeds text-[13px]">{error}</p>}
+            {scan && (
+              <div className="border-t hairline pt-2">
+                <span className="eyebrow">Departure comparison</span>
+                <ul className="mt-1 space-y-1">
+                  {scan.candidates.map((c, i) => (
+                    <li
+                      key={c.departure_utc}
+                      className={clsx(
+                        'flex items-center justify-between gap-2 text-[12px] px-1.5 py-1 rounded-sm',
+                        i === scan.best_index && 'bg-shoal/50 border hairline',
+                      )}
+                    >
+                      <span className="font-mono">{fmtTime(c.departure_utc)}</span>
+                      <VerdictChip state={c.verdict} small />
+                      {i === scan.best_index && (
+                        <span className="text-ink-soft">least exposure — your call</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <p className="text-[12px] text-ink-soft">
               Runs in your browser · forecasts fetched live · saved as an immutable snapshot.
             </p>
