@@ -1,0 +1,6 @@
+{
+ "scenario": "calm",
+ "departure": "2026-07-20T06:00:00Z",
+ "expected_verdict": "within",
+ "synthetic": true
+}

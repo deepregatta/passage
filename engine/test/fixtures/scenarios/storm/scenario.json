@@ -1,0 +1,6 @@
+{
+ "scenario": "storm",
+ "departure": "2026-07-20T06:00:00Z",
+ "expected_verdict": "exceeds",
+ "synthetic": true
+}

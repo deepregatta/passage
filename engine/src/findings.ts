@@ -40,6 +40,7 @@ import type {
   LegHour,
   LimitsProfile,
   Route,
+  WarningsInput,
 } from './types.js';
 
 export const RULES = {
@@ -54,6 +55,7 @@ export const RULES = {
   SQUALL: 'C-CAPE-01',
   VISIBILITY: 'V-VIS-01',
   DIVERGENCE: 'D-DIVERGE-01',
+  AUTHORITY: 'A-WARN-01',
 } as const;
 
 const DEFAULT_SCENARIO_FLOOR = 0.3;
@@ -81,6 +83,8 @@ export interface AssembleOptions {
   marineMeta?: MarineRequestMeta;
   /** multi-model deterministic forecasts for hazards + disagreement (M3+) */
   multiModel?: { byModel: Record<string, HazardPointForecast[]>; meta: MultiModelRequestMeta };
+  /** official marine warnings (M5 seam; live/synthetic feed lands at M9) */
+  warnings?: WarningsInput;
   engineVersion: string;
   /** injected clock (ms) for byte-stable goldens */
   nowMs: number;
@@ -605,6 +609,40 @@ export function assembleFindings(options: AssembleOptions): Findings {
     };
   });
 
+  // ---- official warnings: authority override (brief §7) ----
+  // A bulletin covering a route zone and overlapping the passage window forces the
+  // authority state. It never claims a numeric limit was exceeded.
+  const departureMs = parseUtc(departureUtc);
+  const slowArrivalMs = parseUtc(schedules[schedules.length - 1]!.exit.slow);
+  let warningActive = false;
+  let warningBulletinRef: string | null = null;
+  if (options.warnings) {
+    const { doc, routeZoneIds } = options.warnings;
+    for (const bulletin of doc.bulletins) {
+      if (!routeZoneIds.includes(bulletin.zone_id)) continue;
+      if (parseUtc(bulletin.valid_from) >= slowArrivalMs) continue;
+      if (parseUtc(bulletin.valid_to) <= departureMs) continue;
+      warningActive = true;
+      warningBulletinRef = `${bulletin.zone_id}:${bulletin.kind}:${bulletin.valid_from}`;
+      nextEvidence({
+        rule_id: RULES.AUTHORITY,
+        model: doc.source.name ?? 'official bulletin',
+        run: null,
+        leg_id: null,
+        valid_time: bulletin.valid_from,
+        value: `${bulletin.kind} — ${bulletin.zone_name ?? bulletin.zone_id}`,
+        limit: null,
+        units: null,
+        source_kind: doc.source.mode === 'synthetic' ? 'emulated' : 'warning',
+      });
+      events.push({
+        kind: 'official_warning',
+        window: { from: bulletin.valid_from, to: bulletin.valid_to },
+        refs: [evidence[evidence.length - 1]!.evidence_id],
+      });
+    }
+  }
+
   const worst = worstEvidence(verdictCandidates);
   const verdict = decideVerdict({
     worstRatio: worst?.ratio ?? null,
@@ -612,6 +650,8 @@ export function assembleFindings(options: AssembleOptions): Findings {
     anyApproaching,
     scenarioFractionAboveFloor,
     insufficientConfidence,
+    warningActive,
+    warningBulletinRef,
     driverEvidenceId: worst?.evidence.evidence_id ?? null,
   });
 
@@ -624,7 +664,7 @@ export function assembleFindings(options: AssembleOptions): Findings {
   const inputs = {
     prepared_run_id: null,
     openmeteo: allMeta,
-    warnings_ref: null,
+    warnings_ref: options.warnings?.ref ?? null,
     route_hash: routeHash,
     profile_hash: profileHash,
   };

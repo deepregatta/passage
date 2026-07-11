@@ -26,6 +26,20 @@ def cmd_providers(_args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_scenario(args: argparse.Namespace) -> int:
+    from .scenarios import SCENARIOS, generate_all, generate_scenario
+
+    if args.name == "all":
+        for path in generate_all(args.departure):
+            print(f"generated {path}")
+    elif args.name in SCENARIOS:
+        print(f"generated {generate_scenario(args.name, args.departure)}")
+    else:
+        print(f"unknown scenario '{args.name}' — choose from: all, {', '.join(SCENARIOS)}")
+        return 1
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="deepweather-analysis")
     parser.add_argument("--version", action="version", version=__version__)
@@ -33,6 +47,15 @@ def main(argv: list[str] | None = None) -> int:
 
     providers_parser = subparsers.add_parser("providers", help="show provider modes")
     providers_parser.set_defaults(func=cmd_providers)
+
+    scenario_parser = subparsers.add_parser(
+        "scenario", help="generate synthetic scenario bundles (verdict-state harness)"
+    )
+    scenario_parser.add_argument("name", help="scenario name or 'all'")
+    scenario_parser.add_argument(
+        "--departure", default="2026-07-20T06:00:00Z", help="departure ISO UTC"
+    )
+    scenario_parser.set_defaults(func=cmd_scenario)
 
     args = parser.parse_args(argv)
     if not hasattr(args, "func"):

@@ -1,0 +1,6 @@
+{
+ "scenario": "warning",
+ "departure": "2026-07-20T06:00:00Z",
+ "expected_verdict": "warning_active",
+ "synthetic": true
+}

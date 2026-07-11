@@ -6,7 +6,7 @@
  *     --profile ../config/profiles/default-limits.json --departure 2026-07-12T06:00:00Z
  */
 
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ENGINE_VERSION } from './index.js';
@@ -26,6 +26,10 @@ import type { LimitsProfile, Route } from './types.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '..', '..');
+/** npm workspace scripts chdir into engine/; user-supplied relative paths are
+ *  relative to where the user actually invoked npm (INIT_CWD). */
+const USER_CWD = process.env.INIT_CWD ?? process.cwd();
+const userPath = (p: string) => resolve(USER_CWD, p);
 
 function parseArgs(argv: string[]): Map<string, string> {
   const args = new Map<string, string>();
@@ -42,8 +46,12 @@ function parseArgs(argv: string[]): Map<string, string> {
 }
 
 async function runCommand(args: Map<string, string>): Promise<number> {
-  const routePath = resolve(args.get('route') ?? join(REPO_ROOT, 'config/routes/cherbourg-plymouth.json'));
-  const profilePath = resolve(args.get('profile') ?? join(REPO_ROOT, 'config/profiles/default-limits.json'));
+  const routePath = args.get('route')
+    ? userPath(args.get('route')!)
+    : join(REPO_ROOT, 'config/routes/cherbourg-plymouth.json');
+  const profilePath = args.get('profile')
+    ? userPath(args.get('profile')!)
+    : join(REPO_ROOT, 'config/profiles/default-limits.json');
   const departure = args.get('departure');
   if (!departure) {
     console.error('Missing --departure <ISO UTC>');
@@ -67,14 +75,48 @@ async function runCommand(args: Map<string, string>): Promise<number> {
   const startDate = toIso(startMs).slice(0, 10);
   const endDate = toIso(endMs).slice(0, 10);
 
-  const cache = new FsCacheStore(join(REPO_ROOT, 'data', 'cache', 'openmeteo'));
   const points = midpoints.map((p) => ({ lat: p.lat, lon: p.lon }));
+
+  // fixture mode: responses come from files; file-URL bases make request digests
+  // (and therefore snapshot ids) unique per fixture directory
+  const fixtureDir = args.get('fixture-dir') ? userPath(args.get('fixture-dir')!) : undefined;
+  const baseOpts: Record<string, unknown> = fixtureDir
+    ? {
+        fetchFn: (async (url: string | URL) => {
+          const path = String(url).split('?')[0]!.replace('file://', '');
+          return new Response(readFileSync(path, 'utf8'), { status: 200 });
+        }) as unknown as typeof fetch,
+      }
+    : { cache: new FsCacheStore(join(REPO_ROOT, 'data', 'cache', 'openmeteo')) };
+  const base = (api: string) =>
+    fixtureDir ? { ...baseOpts, baseUrl: `file://${fixtureDir}/${api}.json` } : baseOpts;
+
   const [det, ens, marine, multi] = await Promise.all([
-    fetchPointForecasts(points, startDate, endDate, { cache }),
-    fetchEnsembleForecasts(points, startDate, endDate, { cache }),
-    fetchMarineForecasts(points, startDate, endDate, { cache }),
-    fetchMultiModelForecasts(points, startDate, endDate, { cache }),
+    fetchPointForecasts(points, startDate, endDate, base('forecast')),
+    fetchEnsembleForecasts(points, startDate, endDate, base('ensemble')),
+    fetchMarineForecasts(points, startDate, endDate, base('marine')),
+    fetchMultiModelForecasts(points, startDate, endDate, base('multimodel')),
   ]);
+
+  // warnings: explicit path (scenarios), or data/processed/warnings/latest.json when present
+  let warnings;
+  const warningsPath = args.get('warnings')
+    ? userPath(args.get('warnings')!)
+    : fixtureDir && existsSync(join(fixtureDir, 'warnings.json'))
+      ? join(fixtureDir, 'warnings.json')
+      : join(REPO_ROOT, 'data', 'processed', 'warnings', 'latest.json');
+  if (existsSync(warningsPath)) {
+    const doc = JSON.parse(readFileSync(warningsPath, 'utf8'));
+    const zones = JSON.parse(
+      readFileSync(join(REPO_ROOT, 'config', 'route-zones.json'), 'utf8'),
+    );
+    const zoneEntry = zones.routes?.[route.route_id];
+    const routeZoneIds = [
+      ...(zoneEntry?.fr_zones ?? []).map((z: { zone_id: string }) => z.zone_id),
+      ...(zoneEntry?.uk_zones ?? []).map((z: { zone_id: string }) => z.zone_id),
+    ];
+    warnings = { doc, routeZoneIds, ref: warningsPath };
+  }
 
   const nowMs = Date.now();
   const findings = assembleFindings({
@@ -88,6 +130,7 @@ async function runCommand(args: Map<string, string>): Promise<number> {
     legMarine: marine.forecasts,
     marineMeta: marine.meta,
     multiModel: multi,
+    warnings,
     engineVersion: ENGINE_VERSION,
     nowMs,
   });
@@ -118,8 +161,11 @@ async function main(): Promise<number> {
 }
 
 main()
-  .then((code) => process.exit(code))
+  .then((code) => {
+    // exitCode (not process.exit) lets large stdout writes flush completely
+    process.exitCode = code;
+  })
   .catch((error) => {
     console.error(error instanceof Error ? error.message : String(error));
-    process.exit(1);
+    process.exitCode = 1;
   });

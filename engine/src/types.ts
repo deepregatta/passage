@@ -72,6 +72,33 @@ export type SourceKind =
   | 'synoptic'
   | 'emulated';
 
+/** contracts/warnings.schema.json */
+export interface WarningsDoc {
+  schema_version: number;
+  fetched_at: string;
+  source: { mode: 'live' | 'fixture' | 'synthetic'; name?: string };
+  feed_status: 'ok' | 'unavailable' | 'parse-degraded';
+  bulletins: Array<{
+    zone_id: string;
+    zone_name?: string;
+    kind: string;
+    severity?: string | null;
+    valid_from: string;
+    valid_to: string;
+    raw_text: string;
+    parse_confidence?: number;
+  }>;
+  coverage_note?: string;
+}
+
+export interface WarningsInput {
+  doc: WarningsDoc;
+  /** marine-zone ids this route crosses (config/route-zones.json) */
+  routeZoneIds: string[];
+  /** reference recorded in findings.inputs (path or feed id) */
+  ref: string;
+}
+
 export interface Evidence {
   evidence_id: string;
   rule_id: string;
