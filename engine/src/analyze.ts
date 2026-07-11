@@ -5,7 +5,7 @@
  */
 
 import { assembleFindings } from './findings.js';
-import { renderBriefing, type Briefing } from './briefing.js';
+import { renderBriefing, type Briefing, type SynopticFeatures } from './briefing.js';
 import { buildPlume, writeSnapshot, type Plume, type SnapshotStore } from './snapshot.js';
 import { deriveLegs, legMidpoints } from './route.js';
 import { computeSchedules, parseUtc, toIso } from './eta.js';
@@ -30,6 +30,8 @@ export interface AnalyzeOptions {
   /** HW/LW predictions + named tidal gates (M10) */
   tides?: import('./hazards/tides.js').TidesDoc;
   gates?: import('./hazards/tides.js').GateDef[];
+  /** synoptic features from the prepared run (M8) — powers the weather story */
+  synoptic?: SynopticFeatures;
   /** injected transport (tests/fixtures); defaults to live Open-Meteo */
   fetchFn?: typeof fetch;
   cache?: CacheStore;
@@ -95,7 +97,7 @@ export async function runAnalysis(options: AnalyzeOptions): Promise<AnalyzeResul
     engineVersion: ENGINE_VERSION,
     nowMs,
   });
-  const briefing = renderBriefing(findings);
+  const briefing = renderBriefing(findings, options.synoptic);
   const plume = buildPlume(findings, ens.forecasts, profile.max_gust_kt, multi.byModel);
   return { findings, briefing, plume };
 }

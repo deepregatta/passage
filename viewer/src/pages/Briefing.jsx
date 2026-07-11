@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useApp } from '../stores/appStore.js';
 import VerdictBanner from '../components/VerdictBanner.jsx';
 import RouteTimeline from '../components/RouteTimeline.jsx';
@@ -33,13 +33,7 @@ export default function Briefing() {
 
         <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
           <Panel title="Synoptic situation" className="xl:col-span-2">
-            <div className="h-full flex flex-col items-center justify-center text-center py-10 bg-shoal/30 border border-dashed hairline rounded-sm">
-              <p className="font-chart text-lg text-ink-soft">Synoptic chart</p>
-              <p className="font-sans text-sm text-ink-soft mt-1 max-w-[26ch]">
-                Rendered from gridded pressure fields by the prepared-run pipeline — arrives with
-                the synoptic engine.
-              </p>
-            </div>
+            <SynopticPanel />
           </Panel>
 
           <Panel title="The weather story" className="xl:col-span-3">
@@ -123,6 +117,68 @@ function StorySection({ section }) {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function SynopticPanel() {
+  const [state, setState] = useState(null);
+  const [step, setStep] = useState(0);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const latest = await fetch('/data/runs/latest.json').then((r) => (r.ok ? r.json() : null));
+        const charts = latest?.artifacts?.synoptic_charts;
+        if (!charts?.length) return setState({ missing: true });
+        const features = latest.artifacts.synoptic_features
+          ? await fetch(`/data/${latest.artifacts.synoptic_features}`).then((r) => (r.ok ? r.json() : null))
+          : null;
+        setState({ charts, captions: features?.chart_captions ?? [], run: latest.run_id });
+      } catch {
+        setState({ missing: true });
+      }
+    })();
+  }, []);
+
+  if (!state) return <p className="font-sans text-sm text-ink-soft">Loading chart…</p>;
+  if (state.missing) {
+    return (
+      <div className="text-center py-10 bg-shoal/30 border border-dashed hairline rounded-sm">
+        <p className="font-chart text-lg text-ink-soft">Synoptic chart</p>
+        <p className="font-sans text-sm text-ink-soft mt-1">
+          Run <span className="font-mono text-[12px]">deepweather-analysis prepare-run</span> to
+          render it from the latest model cycle.
+        </p>
+      </div>
+    );
+  }
+
+  const chart = state.charts[step];
+  const file = chart.split('/').pop();
+  const caption = state.captions.find((c) => c.file === file || chart.endsWith(c.file ?? ''))?.caption;
+  return (
+    <div>
+      <div className="flex gap-1.5 mb-2">
+        {state.charts.map((c, i) => (
+          <button
+            key={c}
+            type="button"
+            onClick={() => setStep(i)}
+            className={
+              'font-mono text-[11px] px-2 py-0.5 border rounded-sm ' +
+              (i === step ? 'bg-ink text-paper border-ink' : 'border-line text-ink-soft hover:border-ink-soft')
+            }
+          >
+            T+{(c.match(/t(\d+)\.png/)?.[1] ?? '0').replace(/^0+(?=\d)/, '')}
+          </button>
+        ))}
+      </div>
+      <img src={`/data/${chart}`} alt={`Synoptic chart ${file}`} className="w-full border hairline rounded-sm" />
+      {caption && <p className="font-sans text-[13px] text-ink-soft mt-2 leading-relaxed">{caption}</p>}
+      <p className="font-mono text-[10px] text-ink-soft mt-1">
+        {state.run} · MSLP isobars · contains modified ECMWF open data (CC-BY-4.0)
+      </p>
     </div>
   );
 }

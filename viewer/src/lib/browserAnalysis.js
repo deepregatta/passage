@@ -44,8 +44,12 @@ async function loadJson(url) {
 
 export async function analyzeInBrowser({ route, profile, departureUtc, onProgress }) {
   onProgress?.('loading prepared data');
-  const [currentGrid, tides, gatesDoc, warningsDoc, zonesDoc] = await Promise.all([
+  const latest = await loadJson('/data/runs/latest.json');
+  const [currentGrid, synoptic, tides, gatesDoc, warningsDoc, zonesDoc] = await Promise.all([
     loadCurrentGrid(),
+    latest?.artifacts?.synoptic_features
+      ? loadJson(`/data/${latest.artifacts.synoptic_features}`)
+      : undefined,
     loadJson('/data/tides/channel.json'),
     loadJson('/data/config/gates.json'),
     loadJson('/data/warnings/latest.json'),
@@ -72,6 +76,7 @@ export async function analyzeInBrowser({ route, profile, departureUtc, onProgres
     departureUtc,
     onProgress,
     currentGrid,
+    synoptic,
     tides,
     gates: gatesDoc?.gates,
     warnings,

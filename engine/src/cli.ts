@@ -76,17 +76,20 @@ async function runCommand(args: Map<string, string>): Promise<number> {
     warnings = { doc, routeZoneIds, ref: warningsPath };
   }
 
-  // prepared current grid: data/processed/runs/latest.json -> artifact (skipped in fixture mode)
+  // prepared artifacts: data/processed/runs/latest.json -> current grid + synoptic (skipped in fixture mode)
   let currentGrid;
+  let synoptic;
   if (!fixtureDir) {
     const latestPath = join(REPO_ROOT, 'data', 'processed', 'runs', 'latest.json');
     if (existsSync(latestPath)) {
       const latest = JSON.parse(readFileSync(latestPath, 'utf8'));
-      const gridRel = latest.artifacts?.current_grid;
-      if (gridRel) {
-        const gridPath = join(REPO_ROOT, 'data', 'processed', gridRel);
-        if (existsSync(gridPath)) currentGrid = JSON.parse(readFileSync(gridPath, 'utf8'));
-      }
+      const load = (rel?: string) => {
+        if (!rel) return undefined;
+        const p = join(REPO_ROOT, 'data', 'processed', rel);
+        return existsSync(p) ? JSON.parse(readFileSync(p, 'utf8')) : undefined;
+      };
+      currentGrid = load(latest.artifacts?.current_grid);
+      synoptic = load(latest.artifacts?.synoptic_features);
     }
   }
 
@@ -108,6 +111,7 @@ async function runCommand(args: Map<string, string>): Promise<number> {
     departureUtc: departure,
     ...(warnings ? { warnings } : {}),
     ...(currentGrid ? { currentGrid } : {}),
+    ...(synoptic ? { synoptic } : {}),
     ...(tides ? { tides } : {}),
     ...(gates ? { gates } : {}),
     ...(fixtureDir

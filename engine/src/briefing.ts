@@ -60,9 +60,51 @@ const VERDICT_LABEL: Record<string, { plain: string; pro: string }> = {
   },
 };
 
-export function renderBriefing(findings: Findings): Briefing {
+export interface SynopticFeatures {
+  run_id: string;
+  systems: Array<{
+    system_id: string;
+    kind: 'low' | 'high';
+    track: Array<{ valid_time: string; lat: number; lon: number; center_hpa: number }>;
+    deepening_hpa_per_24h?: number | null;
+    motion?: { dir_deg: number; speed_kt: number } | null;
+  }>;
+  regimes: Array<{ regime_id: string; rule_id: string }>;
+}
+
+export function renderBriefing(findings: Findings, synoptic?: SynopticFeatures): Briefing {
   const sections: BriefingSection[] = [];
   const evidenceById = new Map(findings.evidence.map((e) => [e.evidence_id, e]));
+
+  // synoptic story (route-independent facts from the prepared run)
+  if (synoptic && synoptic.systems.length > 0) {
+    const lows = synoptic.systems.filter((s) => s.kind === 'low').slice(0, 2);
+    const highs = synoptic.systems.filter((s) => s.kind === 'high').slice(0, 1);
+    const describe = (s: SynopticFeatures['systems'][number]) => {
+      const first = s.track[0]!;
+      const trend =
+        s.deepening_hpa_per_24h == null
+          ? ''
+          : s.deepening_hpa_per_24h < -1
+            ? `, deepening ${Math.abs(Math.round(s.deepening_hpa_per_24h))} hPa/24h`
+            : s.deepening_hpa_per_24h > 1
+              ? `, filling ${Math.round(s.deepening_hpa_per_24h)} hPa/24h`
+              : ', steady';
+      const motion = s.motion ? `, moving ${compass(s.motion.dir_deg)} ${Math.round(s.motion.speed_kt)} kt` : '';
+      return `${s.system_id} (${Math.round(first.center_hpa)} hPa near ${Math.abs(first.lat).toFixed(0)}°${first.lat >= 0 ? 'N' : 'S'} ${Math.abs(first.lon).toFixed(0)}°${first.lon >= 0 ? 'E' : 'W'})${trend}${motion}`;
+    };
+    const plainLow = lows[0];
+    sections.push({
+      id: 'synoptic_story',
+      title: 'The weather system driving this',
+      register_plain: plainLow
+        ? `A ${plainLow.deepening_hpa_per_24h != null && plainLow.deepening_hpa_per_24h < -1 ? 'strengthening ' : ''}low-pressure system sits ${positionPhrase(plainLow.track[0]!)} — that is what sets the wind pattern over your route. The chart panels show how it moves over the next days.`
+        : 'High pressure dominates the picture — expect the pattern to evolve slowly.',
+      register_pro: `Detected systems (${synoptic.run_id}): lows ${lows.map(describe).join('; ') || 'none'}; highs ${highs.map(describe).join('; ') || 'none'}.${synoptic.regimes.length ? ` Named regime active: ${synoptic.regimes.map((r) => r.regime_id).join(', ')}.` : ''} Front-type labels withheld pending corroboration (§4.1).`,
+      evidence_ids: [],
+      glossary_terms: ['model run'],
+    });
+  }
 
   // 1. warnings — always first when active (authority state)
   if (findings.verdict.warning_override.active) {
@@ -265,6 +307,17 @@ export function fmtTime(iso: string): string {
 
 function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function compass(deg: number): string {
+  const points = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+  return points[Math.round(((deg % 360) + 360) % 360 / 22.5) % 16]!;
+}
+
+function positionPhrase(p: { lat: number; lon: number }): string {
+  const ns = p.lat >= 52 ? 'to the north' : p.lat <= 47 ? 'to the south' : 'at your latitude';
+  const ew = p.lon <= -12 ? 'far out in the Atlantic' : p.lon <= -6 ? 'west of the approaches' : 'near your waters';
+  return `${ew}, ${ns}`;
 }
 
 /** Next ECMWF cycle expected on Open-Meteo (cycle cadence 6 h, ~8 h publication lag). */
