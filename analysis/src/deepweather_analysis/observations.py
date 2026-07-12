@@ -26,9 +26,24 @@ RECORD_STEP_MIN = 10
 
 # Fixed synthetic station set (Channel verification geometry).
 STATIONS: tuple[Dict[str, Any], ...] = (
-    {"station_id": "casquets-buoy", "name": "Casquets Buoy (synthetic)", "lat": 49.72, "lon": -2.34},
-    {"station_id": "mid-channel", "name": "Mid-Channel Buoy (synthetic)", "lat": 49.95, "lon": -3.0},
-    {"station_id": "plymouth-approach", "name": "Plymouth Approach (synthetic)", "lat": 50.25, "lon": -4.1},
+    {
+        "station_id": "casquets-buoy",
+        "name": "Casquets Buoy (synthetic)",
+        "lat": 49.72,
+        "lon": -2.34,
+    },
+    {
+        "station_id": "mid-channel",
+        "name": "Mid-Channel Buoy (synthetic)",
+        "lat": 49.95,
+        "lon": -3.0,
+    },
+    {
+        "station_id": "plymouth-approach",
+        "name": "Plymouth Approach (synthetic)",
+        "lat": 50.25,
+        "lon": -4.1,
+    },
 )
 
 # Fields a base_series may carry (per-station hourly truth-ish arrays).

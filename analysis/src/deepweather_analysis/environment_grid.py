@@ -41,9 +41,7 @@ logger = logging.getLogger(__name__)
 # Large vectorized queries can be slow in xarray; chunk to keep interpolation responsive.
 INTERP_BATCH_SIZE = int(os.getenv("DEEPWEATHER_INTERP_BATCH_SIZE", "250"))
 # Build coastal-fill wet masks in small time chunks to avoid loading full current cubes.
-COASTAL_FILL_TIME_CHUNK = max(
-    1, int(os.getenv("DEEPWEATHER_COASTAL_FILL_TIME_CHUNK", "4"))
-)
+COASTAL_FILL_TIME_CHUNK = max(1, int(os.getenv("DEEPWEATHER_COASTAL_FILL_TIME_CHUNK", "4")))
 
 
 # Maximum distance (in km) to search for nearest wet cell for coastal gap fill
@@ -185,9 +183,7 @@ class EnvironmentGrid:
                         )
                         ds.close()
                 except Exception as e:
-                    logger.warning(
-                        "Failed to load currents.nc for %s: %s", self.fetch_id, e
-                    )
+                    logger.warning("Failed to load currents.nc for %s: %s", self.fetch_id, e)
 
         # Build wet cell index for coastal gap fill
         self._wet_kdtree: Any | None = None
@@ -242,9 +238,7 @@ class EnvironmentGrid:
             wet_lon = lon_grid[wet_mask]
 
             if len(wet_lat) == 0:
-                logger.warning(
-                    "No wet cells found in currents data for %s", self.fetch_id
-                )
+                logger.warning("No wet cells found in currents data for %s", self.fetch_id)
                 return
 
             # Build KDTree with (lat, lon) coordinates
@@ -270,9 +264,7 @@ class EnvironmentGrid:
             )
 
         except Exception as e:
-            logger.warning(
-                "Failed to build wet cell index for %s: %s", self.fetch_id, e
-            )
+            logger.warning("Failed to build wet cell index for %s: %s", self.fetch_id, e)
             self._wet_kdtree = None
 
     def _build_chunked_wet_mask(
@@ -308,9 +300,7 @@ class EnvironmentGrid:
         """Return a 2D boolean mask ordered as (lat, lon)."""
         mask = np.isfinite(np.asarray(var.values))
         reduce_axes = tuple(
-            axis
-            for axis, dim in enumerate(var.dims)
-            if dim not in {lat_coord, lon_coord}
+            axis for axis, dim in enumerate(var.dims) if dim not in {lat_coord, lon_coord}
         )
         if reduce_axes:
             mask = np.any(mask, axis=reduce_axes)
@@ -321,9 +311,7 @@ class EnvironmentGrid:
             return mask
         if spatial_dims == [lon_coord, lat_coord]:
             return mask.T
-        raise ValueError(
-            f"Could not reduce variable dims {var.dims} to ({lat_coord}, {lon_coord})"
-        )
+        raise ValueError(f"Could not reduce variable dims {var.dims} to ({lat_coord}, {lon_coord})")
 
     @property
     def has_currents(self) -> bool:
@@ -521,9 +509,7 @@ class EnvironmentGrid:
                 lon_values = np.asarray(ds[lon_coord].values)
                 time_values = np.asarray(ds[time_coord].values)
                 time_targets = (
-                    times_dt
-                    if np.issubdtype(time_values.dtype, np.datetime64)
-                    else times
+                    times_dt if np.issubdtype(time_values.dtype, np.datetime64) else times
                 )
 
                 lat_idx = self._nearest_indices(lat_values, lats)
@@ -550,9 +536,7 @@ class EnvironmentGrid:
             return np.full_like(lats, np.nan)
 
     @staticmethod
-    def _normalize_batch_result(
-        values: np.ndarray, lats: np.ndarray, var_name: str
-    ) -> np.ndarray:
+    def _normalize_batch_result(values: np.ndarray, lats: np.ndarray, var_name: str) -> np.ndarray:
         arr = np.asarray(values)
         if arr.shape == lats.shape:
             return arr
@@ -592,9 +576,7 @@ class EnvironmentGrid:
             return arr.astype("datetime64[ns]")
         return arr.astype("datetime64[s]").astype("datetime64[ns]")
 
-    def get_current(
-        self, lat: float, lon: float, time: datetime
-    ) -> Optional[Tuple[float, float]]:
+    def get_current(self, lat: float, lon: float, time: datetime) -> Optional[Tuple[float, float]]:
         """
         Get interpolated current at location and time.
 
@@ -639,12 +621,8 @@ class EnvironmentGrid:
             nan = np.full_like(lats, np.nan)
             return nan, nan
 
-        uo = self._interpolate_variable_batch(
-            self._currents_ds, "uo", lats, lons, times
-        )
-        vo = self._interpolate_variable_batch(
-            self._currents_ds, "vo", lats, lons, times
-        )
+        uo = self._interpolate_variable_batch(self._currents_ds, "uo", lats, lons, times)
+        vo = self._interpolate_variable_batch(self._currents_ds, "vo", lats, lons, times)
 
         # Apply coastal gap fill for NaN values
         if self.has_coastal_fill:
@@ -742,15 +720,11 @@ class EnvironmentGrid:
 
         if self._wet_kdtree is None:
             # No wet cell index available
-            self._coastal_fill_metrics.points_unfilled += int(
-                np.count_nonzero(nan_mask)
-            )
+            self._coastal_fill_metrics.points_unfilled += int(np.count_nonzero(nan_mask))
             return uo, vo
 
         if self._wet_lats is None or self._wet_lons is None:
-            self._coastal_fill_metrics.points_unfilled += int(
-                np.count_nonzero(nan_mask)
-            )
+            self._coastal_fill_metrics.points_unfilled += int(np.count_nonzero(nan_mask))
             return uo, vo
 
         # Get indices of NaN points
@@ -784,12 +758,8 @@ class EnvironmentGrid:
 
             # Sample currents at wet cell locations using nearest-neighbor
             # (linear interpolation would return NaN due to adjacent masked cells)
-            filled_uo = self._sample_wet_cells_nearest(
-                "uo", wet_lats, wet_lons, fill_times
-            )
-            filled_vo = self._sample_wet_cells_nearest(
-                "vo", wet_lats, wet_lons, fill_times
-            )
+            filled_uo = self._sample_wet_cells_nearest("uo", wet_lats, wet_lons, fill_times)
+            filled_vo = self._sample_wet_cells_nearest("vo", wet_lats, wet_lons, fill_times)
 
             # Apply fills where we got valid values
             valid_fills = np.isfinite(filled_uo) & np.isfinite(filled_vo)
@@ -801,9 +771,7 @@ class EnvironmentGrid:
 
             # Update metrics
             self._coastal_fill_metrics.points_filled += len(actual_fill_indices)
-            self._coastal_fill_metrics.fill_distances_km.extend(
-                actual_distances.tolist()
-            )
+            self._coastal_fill_metrics.fill_distances_km.extend(actual_distances.tolist())
 
             # Count unfilled (beyond threshold or failed lookup)
             unfilled_count = len(nan_indices) - len(actual_fill_indices)

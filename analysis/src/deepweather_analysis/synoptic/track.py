@@ -86,16 +86,16 @@ def track_systems(
         detections = list(detections)
         if t == 0:
             for det in detections:
-                tracks.append({"kind": det["kind"], "points": [{"step_idx": 0, **det}], "open": True})
+                tracks.append(
+                    {"kind": det["kind"], "points": [{"step_idx": 0, **det}], "open": True}
+                )
             continue
 
         dt_h = float(step_hours[t] - step_hours[t - 1])
         gate_deg = max_displacement_deg_per_3h * (dt_h / 3.0)
 
         # Only tracks whose last point is at the previous step may continue.
-        active = [
-            tr for tr in tracks if tr["open"] and tr["points"][-1]["step_idx"] == t - 1
-        ]
+        active = [tr for tr in tracks if tr["open"] and tr["points"][-1]["step_idx"] == t - 1]
         # Greedy: all (track, detection) pairs of matching kind, nearest first.
         pairs = []
         for ti, tr in enumerate(active):
@@ -122,7 +122,9 @@ def track_systems(
                 tr["open"] = False
         for di, det in enumerate(detections):
             if di not in used_dets:
-                tracks.append({"kind": det["kind"], "points": [{"step_idx": t, **det}], "open": True})
+                tracks.append(
+                    {"kind": det["kind"], "points": [{"step_idx": t, **det}], "open": True}
+                )
 
     survivors = [tr for tr in tracks if len(tr["points"]) >= min_track_steps]
 
@@ -145,9 +147,7 @@ def track_systems(
                 }
                 for p in points
             ]
-            dt_last = float(
-                step_hours[points[-1]["step_idx"]] - step_hours[points[-2]["step_idx"]]
-            )
+            dt_last = float(step_hours[points[-1]["step_idx"]] - step_hours[points[-2]["step_idx"]])
             results.append(
                 {
                     "system_id": f"{prefix}{n}",

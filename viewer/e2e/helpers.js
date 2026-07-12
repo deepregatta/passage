@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test';
 
-export const SNAPSHOT_ID = '20260720T060000Z_44d2cd5f_f0703423';
+export const SNAPSHOT_ID = '20260720T060000Z_44d2cd5f_862f314f';
 
 export async function openAuditedSnapshot(page) {
   // the app lands on Plan a passage; briefings live one subview over

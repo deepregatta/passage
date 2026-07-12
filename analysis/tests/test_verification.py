@@ -87,9 +87,7 @@ class TestObservations:
 
     def test_station_set_and_cadence(self):
         doc = generate_observations(WINDOW_START, WINDOW_END)
-        assert [s["station_id"] for s in doc["stations"]] == [
-            s["station_id"] for s in STATIONS
-        ]
+        assert [s["station_id"] for s in doc["stations"]] == [s["station_id"] for s in STATIONS]
         records = doc["stations"][0]["records"]
         # 3 h window at 10-min cadence, both ends inclusive.
         assert len(records) == 19
@@ -97,9 +95,7 @@ class TestObservations:
         assert records[-1]["time"] == WINDOW_END
 
     def test_base_series_followed_with_bounded_noise(self):
-        base = {
-            s["station_id"]: {"wind_kt": [20.0, 20.0, 20.0, 20.0]} for s in STATIONS
-        }
+        base = {s["station_id"]: {"wind_kt": [20.0, 20.0, 20.0, 20.0]} for s in STATIONS}
         doc = generate_observations(WINDOW_START, WINDOW_END, base_series=base)
         for st in doc["stations"]:
             for record in st["records"]:
@@ -318,7 +314,11 @@ class TestCalibration:
         assert record["n_pairs"] == 2
 
     def test_emulated_documents_are_excluded_from_skill_claims(self, tmp_path):
-        doc = {"snapshot_id": "demo", "observation_source": "emulated", "pairs": [cal_pair(6.0, 99.0)]}
+        doc = {
+            "snapshot_id": "demo",
+            "observation_source": "emulated",
+            "pairs": [cal_pair(6.0, 99.0)],
+        }
         out = accumulate_calibration([doc], path=tmp_path / "calibration.json")
         assert out["records"] == []
         assert out["skipped_pairs"] == 1

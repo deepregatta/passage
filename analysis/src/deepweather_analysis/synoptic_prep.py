@@ -222,8 +222,7 @@ def prepare_synoptic(
 
     # a) detection per step -> tracking; regimes on the analysis step.
     per_step = [
-        detect_systems(_mslp_hpa(ds["msl"].sel(step=step_h).values), lats, lons)
-        for step_h in steps
+        detect_systems(_mslp_hpa(ds["msl"].sel(step=step_h).values), lats, lons) for step_h in steps
     ]
     systems = track_systems(per_step, steps)
 
@@ -279,12 +278,15 @@ def prepare_synoptic(
         "cycle": cycle_label,
         "generated_at": _iso_z(datetime.now(timezone.utc)),
         "steps_h": steps,
-        "bounds": dict(meta.get("window") or {
-            "min_lat": float(lats.min()),
-            "max_lat": float(lats.max()),
-            "min_lon": float(lons.min()),
-            "max_lon": float(lons.max()),
-        }),
+        "bounds": dict(
+            meta.get("window")
+            or {
+                "min_lat": float(lats.min()),
+                "max_lat": float(lats.max()),
+                "min_lon": float(lons.min()),
+                "max_lon": float(lons.max()),
+            }
+        ),
         "valid_until": _iso_z(cycle_time + timedelta(hours=VALID_HOURS)),
         "artifacts": {
             "synoptic_features": features_rel,

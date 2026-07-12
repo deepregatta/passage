@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import findings from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_f0703423/findings.json';
-import synoptic from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_f0703423/synoptic.json';
-import route from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_f0703423/route.json';
+import findings from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_862f314f/findings.json';
+import synoptic from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_862f314f/synoptic.json';
+import route from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_862f314f/route.json';
 import { frameForCursor } from '../src/stores/playbackStore.js';
 
 describe('causal playback frame selector', () => {

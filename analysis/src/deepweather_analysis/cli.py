@@ -42,9 +42,7 @@ def cmd_fetch_currents(args: argparse.Namespace) -> int:
             "min_lon": min_lon,
             "max_lon": max_lon,
         }
-    path = prepare_current_grid(
-        bounds=bounds, start=args.start, end=args.end, force=args.force
-    )
+    path = prepare_current_grid(bounds=bounds, start=args.start, end=args.end, force=args.force)
     print(f"published {path}")
     return 0
 
@@ -83,7 +81,9 @@ def cmd_corpus(args: argparse.Namespace) -> int:
     case_ids = args.cases.split(",") if args.cases else None
     summary = run_corpus(case_ids=case_ids, fetch=not args.no_fetch)
     print(f"corpus review: {summary.get('review_sheet')}")
-    print(f"  pass={summary.get('pass')} fail={summary.get('fail')} pending={summary.get('pending')}")
+    print(
+        f"  pass={summary.get('pass')} fail={summary.get('fail')} pending={summary.get('pending')}"
+    )
     return 0
 
 
@@ -217,7 +217,9 @@ def main(argv: list[str] | None = None) -> int:
     verify_parser = subparsers.add_parser(
         "verify", help="match a snapshot against observations -> coverage classes + calibration"
     )
-    verify_parser.add_argument("--snapshot", default=None, help="snapshot id substring (default latest)")
+    verify_parser.add_argument(
+        "--snapshot", default=None, help="snapshot id substring (default latest)"
+    )
     verify_parser.set_defaults(func=cmd_verify)
 
     extract_parser = subparsers.add_parser(

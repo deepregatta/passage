@@ -149,9 +149,9 @@ def evaluate_expectations(case: Dict[str, Any], detections: Dict[str, Any]) -> D
         # Judge position on lows meeting the depth criterion when one is
         # given, so a shallow nearby low can't stand in for the storm.
         threshold = expectations.get("min_center_hpa_below")
-        candidates = (
-            [low for low in lows if threshold is None or low["center_hpa"] < float(threshold)] or lows
-        )
+        candidates = [
+            low for low in lows if threshold is None or low["center_hpa"] < float(threshold)
+        ] or lows
         if candidates:
             position_error_deg = round(
                 min(
@@ -376,9 +376,7 @@ def _detected_summary(result: Dict[str, Any]) -> str:
     ]
     if result.get("position_error_deg") is not None:
         parts.append(f"position error {result['position_error_deg']}°")
-    regime_check = next(
-        (c for c in result.get("checks", []) if c["name"] == "expect_regime"), None
-    )
+    regime_check = next((c for c in result.get("checks", []) if c["name"] == "expect_regime"), None)
     if regime_check:
         parts.append(regime_check["detail"])
     return "; ".join(parts)

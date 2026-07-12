@@ -95,25 +95,15 @@ _RESOLVED_REGIONAL_DATASETS: Dict[str, ResolvedDataset] = {}
 
 # Currents downsampling defaults (auto-applied for large areas)
 COARSE_CURRENTS_ENABLED = os.getenv("DEEPWEATHER_CURRENTS_COARSE", "1") != "0"
-COARSE_CURRENTS_AREA_DEG2 = float(
-    os.getenv("DEEPWEATHER_CURRENTS_COARSE_AREA_DEG2", "250")
-)
-COARSE_CURRENTS_TARGET_RES_DEG = float(
-    os.getenv("DEEPWEATHER_CURRENTS_COARSE_RES_DEG", "0.1")
-)
-COARSE_CURRENTS_TARGET_TIME_HOURS = int(
-    os.getenv("DEEPWEATHER_CURRENTS_COARSE_TIME_HOURS", "3")
-)
-CURRENTS_MAX_REQUEST_POINTS = int(
-    os.getenv("DEEPWEATHER_CURRENTS_MAX_REQUEST_POINTS", "100000000")
-)
+COARSE_CURRENTS_AREA_DEG2 = float(os.getenv("DEEPWEATHER_CURRENTS_COARSE_AREA_DEG2", "250"))
+COARSE_CURRENTS_TARGET_RES_DEG = float(os.getenv("DEEPWEATHER_CURRENTS_COARSE_RES_DEG", "0.1"))
+COARSE_CURRENTS_TARGET_TIME_HOURS = int(os.getenv("DEEPWEATHER_CURRENTS_COARSE_TIME_HOURS", "3"))
+CURRENTS_MAX_REQUEST_POINTS = int(os.getenv("DEEPWEATHER_CURRENTS_MAX_REQUEST_POINTS", "100000000"))
 
 MAX_CURRENTS_RETRIES = int(os.getenv("DEEPWEATHER_CURRENTS_RETRIES", "2"))
 CURRENTS_FETCH_DELAY = float(os.getenv("DEEPWEATHER_CURRENTS_DELAY_S", "2.0"))
 # Minimum overlap fraction to consider a regional model a good fit.
-REGION_OVERLAP_THRESHOLD = float(
-    os.getenv("DEEPWEATHER_CURRENTS_REGION_OVERLAP", "0.25")
-)
+REGION_OVERLAP_THRESHOLD = float(os.getenv("DEEPWEATHER_CURRENTS_REGION_OVERLAP", "0.25"))
 
 # Forecast products update at least twice daily; cached fetches expire after this.
 CACHE_VALIDITY_HOURS = float(os.getenv("DEEPWEATHER_CURRENTS_CACHE_HOURS", "12"))
@@ -508,9 +498,7 @@ def _open_nc_robust(path: Path) -> Any:
     raise last_exc
 
 
-def _validate_currents_file(
-    path: Path, allow_daily: bool = False
-) -> tuple[bool, Optional[str]]:
+def _validate_currents_file(path: Path, allow_daily: bool = False) -> tuple[bool, Optional[str]]:
     if not path.exists():
         return False, "missing currents.nc"
     if not _check_xarray():
@@ -637,9 +625,7 @@ def _resolve_regional_dataset(region_code: str) -> Optional[ResolvedDataset]:
             return resolved
 
     if not _check_copernicusmarine():
-        logger.error(
-            "copernicusmarine not installed. Run: pip install copernicusmarine"
-        )
+        logger.error("copernicusmarine not installed. Run: pip install copernicusmarine")
         return None
 
     import copernicusmarine  # type: ignore[import-untyped]
@@ -684,9 +670,7 @@ def _resolve_regional_dataset(region_code: str) -> Optional[ResolvedDataset]:
     def candidate_score(candidate: ResolvedDataset) -> tuple[int, int, int, str]:
         forecast_score = 1 if _dataset_is_forecast(candidate.dataset_id) else 0
         temporal_score = 2 if candidate.temporal_resolution == "hourly" else 1
-        looks_like_currents = (
-            1 if _dataset_id_looks_like_currents(candidate.dataset_id) else 0
-        )
+        looks_like_currents = 1 if _dataset_id_looks_like_currents(candidate.dataset_id) else 0
         return (forecast_score, temporal_score, looks_like_currents, candidate.dataset_id)
 
     candidates.sort(key=candidate_score, reverse=True)
@@ -735,9 +719,7 @@ def fetch_regional_currents(
         return None
 
     if not _check_copernicusmarine():
-        logger.error(
-            "copernicusmarine not installed. Run: pip install copernicusmarine"
-        )
+        logger.error("copernicusmarine not installed. Run: pip install copernicusmarine")
         return {"status": "unavailable", "error": "copernicusmarine missing"}
 
     model = REGIONAL_MODELS[region]
@@ -837,9 +819,7 @@ def fetch_regional_currents(
             resolution_deg = model.resolution_deg
             temporal_resolution = resolved.temporal_resolution
             if downsample_info:
-                resolution_deg = downsample_info.get(
-                    "result_resolution_deg", resolution_deg
-                )
+                resolution_deg = downsample_info.get("result_resolution_deg", resolution_deg)
                 temporal_resolution = _format_temporal_resolution(
                     downsample_info.get("result_time_hours"),
                     temporal_resolution,
@@ -891,16 +871,12 @@ def fetch_regional_currents(
 
 def _bounds_fetch_id(region: str, bounds: Dict[str, float]) -> str:
     """Deterministic cache key for a region + bounding box."""
-    key = json.dumps(
-        {k: round(float(bounds[k]), 3) for k in sorted(bounds)}, sort_keys=True
-    )
+    key = json.dumps({k: round(float(bounds[k]), 3) for k in sorted(bounds)}, sort_keys=True)
     digest = hashlib.sha256(key.encode("utf-8")).hexdigest()[:8]
     return f"{region.lower()}-{digest}"
 
 
-def _metadata_expired(
-    metadata: CurrentsMetadata, now: Optional[datetime] = None
-) -> bool:
+def _metadata_expired(metadata: CurrentsMetadata, now: Optional[datetime] = None) -> bool:
     """True if the cached fetch is past its valid_until expiry."""
     if now is None:
         now = datetime.now(timezone.utc)
@@ -990,8 +966,7 @@ def fetch_forecast_currents(
             existing = None
         if existing and _extent_changed(existing, bounds, start_time, end_time):
             logger.info(
-                "Requested extent (bounds/time window) changed since last fetch "
-                "for %s; refetching",
+                "Requested extent (bounds/time window) changed since last fetch for %s; refetching",
                 fetch_id,
             )
             existing = None
@@ -1020,9 +995,7 @@ def fetch_forecast_currents(
         },
     )
 
-    currents_result = fetch_regional_currents(
-        region, bounds, start_time, end_time, currents_path
-    )
+    currents_result = fetch_regional_currents(region, bounds, start_time, end_time, currents_path)
     metadata.currents = currents_result or {
         "status": "failed",
         "error": "Current fetch returned None",

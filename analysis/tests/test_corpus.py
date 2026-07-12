@@ -25,7 +25,13 @@ def low(lat: float, lon: float, center_hpa: float) -> dict:
 
 
 def high(lat: float, lon: float, center_hpa: float) -> dict:
-    return {"kind": "high", "lat": lat, "lon": lon, "center_hpa": center_hpa, "closed_contour": True}
+    return {
+        "kind": "high",
+        "lat": lat,
+        "lon": lon,
+        "center_hpa": center_hpa,
+        "closed_contour": True,
+    }
 
 
 def storm_case(**expectations) -> dict:

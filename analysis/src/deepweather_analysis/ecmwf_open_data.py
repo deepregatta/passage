@@ -48,6 +48,7 @@ def steps_for_cycle(cycle_time: datetime) -> list[int]:
     """The step list a given cycle publishes (00Z/12Z reach 240 h)."""
     return STEPS_LONG if cycle_time.hour in (0, 12) else STEPS_SHORT
 
+
 # North Atlantic crop window (route-independent synoptic board).
 WINDOW: Dict[str, float] = {
     "min_lat": 35.0,

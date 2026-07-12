@@ -162,7 +162,9 @@ def match_snapshot(
 
     coverage_summary: Dict[str, int] = {}
     for pair in pairs:
-        coverage_summary[pair["coverage_class"]] = coverage_summary.get(pair["coverage_class"], 0) + 1
+        coverage_summary[pair["coverage_class"]] = (
+            coverage_summary.get(pair["coverage_class"], 0) + 1
+        )
     if uncovered:
         coverage_summary["not_independently_observed"] = len(uncovered)
 
