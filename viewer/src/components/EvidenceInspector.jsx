@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useApp } from '../stores/appStore.js';
 import { fmtTime, runAge } from '../lib/format.js';
 import { SourceKindChip } from './common.jsx';
@@ -8,19 +8,34 @@ import { SourceKindChip } from './common.jsx';
  * Every claim in the product resolves here. "Agreement is not proof." stays pinned.
  */
 export default function EvidenceInspector() {
-  const evidenceId = useApp((s) => s.inspectorEvidenceId);
-  const evidence = useApp((s) => s.evidenceById(s.inspectorEvidenceId));
+  const evidenceId = useApp((s) => s.selectedEvidenceId);
+  const open = useApp((s) => s.inspectorOpen);
+  const evidence = useApp((s) => s.evidenceById(s.selectedEvidenceId));
   const findings = useApp((s) => s.findings);
   const close = useApp((s) => s.closeInspector);
   const nowMs = useApp((s) => s.nowMs);
+  const dialogRef = useRef(null);
+  const returnFocus = useRef(null);
 
   useEffect(() => {
-    const onKey = (e) => e.key === 'Escape' && close();
+    if (!open) return undefined;
+    returnFocus.current = document.activeElement;
+    dialogRef.current?.focus();
+    const onKey = (e) => {
+      if (e.key === 'Escape') close();
+      if (e.key === 'Tab') {
+        const focusable = [...(dialogRef.current?.querySelectorAll('button, a, input, [tabindex]:not([tabindex="-1"])') ?? [])];
+        if (!focusable.length) return;
+        const first = focusable[0], last = focusable.at(-1);
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [close]);
+    return () => { window.removeEventListener('keydown', onKey); returnFocus.current?.focus?.(); };
+  }, [close, open]);
 
-  if (!evidenceId || !evidence) return null;
+  if (!open || !evidenceId || !evidence) return null;
 
   const legName = findings?.legs.find((l) => l.leg_id === evidence.leg_id)?.name;
   const sourceMeta = findings?.inputs.openmeteo.find(
@@ -40,6 +55,8 @@ export default function EvidenceInspector() {
         aria-hidden
       />
       <aside
+        ref={dialogRef}
+        tabIndex={-1}
         className="fixed right-0 top-0 h-full w-[24rem] max-w-full bg-paper z-50 border-l border-ink/40 overflow-y-auto"
         role="dialog"
         aria-label="Evidence inspector"

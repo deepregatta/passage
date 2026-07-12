@@ -1,4 +1,4 @@
-import ReactECharts from 'echarts-for-react';
+import ReactECharts from './lazy/EChartsLazy.jsx';
 import { useMemo } from 'react';
 import { useApp } from '../stores/appStore.js';
 import { fmtHour } from '../lib/format.js';

@@ -1,7 +1,8 @@
-import ReactECharts from 'echarts-for-react';
+import ReactECharts from './lazy/EChartsLazy.jsx';
 import { useMemo } from 'react';
 import { useApp } from '../stores/appStore.js';
 import { STATUS_HEX, hourStatus, fmtHour } from '../lib/format.js';
+import { usePlayback } from '../stores/playbackStore.js';
 
 /**
  * Passage timeline, mockup style: three labeled rows (wind / gust / waves),
@@ -9,7 +10,8 @@ import { STATUS_HEX, hourStatus, fmtHour } from '../lib/format.js';
  */
 export default function RouteTimeline() {
   const findings = useApp((s) => s.findings);
-  const option = useMemo(() => (findings ? buildOption(findings) : null), [findings]);
+  const cursor = usePlayback((state) => state.cursorHours);
+  const option = useMemo(() => (findings ? buildOption(findings, cursor) : null), [findings, cursor]);
   if (!option) return null;
   return (
     <div>
@@ -28,8 +30,14 @@ export default function RouteTimeline() {
           the limit you set
         </span>
       </div>
+      <TimelineTable findings={findings} />
     </div>
   );
+}
+
+function TimelineTable({ findings }) {
+  const rows = findings.legs.flatMap((leg) => leg.hours.filter((_, index) => index % 3 === 0).map((hour) => ({ leg: leg.leg_id, ...hour })));
+  return <details className="mt-3 border-t hairline pt-2"><summary className="font-instrument text-xs cursor-pointer">Table alternative for route timeline</summary><div className="overflow-x-auto max-h-64 mt-2"><table className="w-full font-mono text-[10px]"><thead><tr className="text-left"><th>UTC</th><th>leg</th><th>wind kt</th><th>gust kt</th><th>waves m</th><th>status</th></tr></thead><tbody>{rows.map((row) => <tr key={`${row.leg}-${row.valid_time}`} className="border-t hairline"><td className="py-1">{fmtHour(row.valid_time)}</td><td>{row.leg}</td><td>{row.wind_kt ?? '—'}</td><td>{row.gust_kt ?? '—'}</td><td>{row.waves?.hs_m ?? 'not assessed'}</td><td>{hourStatus(row)}</td></tr>)}</tbody></table></div></details>;
 }
 
 const EVENT_LABEL = {
@@ -41,7 +49,7 @@ const EVENT_LABEL = {
   squall_potential: 'squalls?',
 };
 
-function buildOption(findings) {
+function buildOption(findings, cursorHours = 0) {
   const rows = [];
   for (const leg of findings.legs) {
     const enter = Date.parse(leg.enter_range.nominal);
@@ -56,6 +64,7 @@ function buildOption(findings) {
   const gustLimit = findings.evidence.find(
     (e) => e.rule_id === 'W-GUST-01' || e.rule_id === 'W-GUST-03',
   )?.limit;
+  const cursorTime = Date.parse(findings.departure_utc) + cursorHours * 3600_000;
 
   const wind = rows.map((r) => [r.t, r.hour.wind_kt]);
   const gust = rows.map((r) => [r.t, r.hour.gust_kt]);
@@ -188,7 +197,7 @@ function buildOption(findings) {
           ? {
               silent: true,
               symbol: 'none',
-              data: [{ yAxis: gustLimit }],
+              data: [{ yAxis: gustLimit }, { xAxis: cursorTime, label: { formatter: 'NOW', color: '#176B87' }, lineStyle: { color: '#176B87', type: 'solid', width: 1 } }],
               lineStyle: { color: '#A87718', type: 'dashed', width: 1.6 },
               label: {
                 formatter: `${gustLimit} kt\nyour limit`,

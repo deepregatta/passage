@@ -15,10 +15,15 @@ export const useApp = create((set, get) => ({
   findings: null,
   briefing: null,
   plume: null,
+  snapshot: null,
+  warnings: null,
+  synoptic: null,
+  route: null,
   loadError: null,
   loading: false,
 
-  inspectorEvidenceId: null,
+  selectedEvidenceId: null,
+  inspectorOpen: false,
   selectedLegId: null,
 
   providers: null,
@@ -50,13 +55,17 @@ export const useApp = create((set, get) => ({
   },
 
   openSnapshot: async (snapshotId) => {
-    set({ loading: true, loadError: null, snapshotId, inspectorEvidenceId: null });
+    set({ loading: true, loadError: null, snapshotId, inspectorOpen: false });
     try {
       const base = `/data/snapshots/${snapshotId}`;
-      const [findings, briefing, plume] = await Promise.all([
+      const [snapshot, findings, briefing, plume, warnings, synoptic, route] = await Promise.all([
+        fetchJson(`${base}/snapshot.json`).catch(() => null),
         fetchJson(`${base}/findings.json`),
         fetchJson(`${base}/briefing.json`),
         fetchJson(`${base}/plume.json`).catch(() => null),
+        fetchJson(`${base}/warnings.json`).catch(() => null),
+        fetchJson(`${base}/synoptic.json`).catch(() => null),
+        fetchJson(`${base}/route.json`).catch(() => null),
       ]);
       const worstLeg =
         findings.evidence.find((e) => e.evidence_id === findings.verdict.driver_evidence_id)
@@ -65,9 +74,15 @@ export const useApp = create((set, get) => ({
         findings,
         briefing,
         plume,
+        snapshot,
+        warnings,
+        synoptic,
+        route,
         loading: false,
         page: 'briefing',
         selectedLegId: worstLeg ?? null,
+        selectedEvidenceId: findings.verdict.driver_evidence_id ??
+          findings.evidence.find((item) => item.member_fraction)?.evidence_id ?? null,
         nowMs: Date.now(),
       });
     } catch (error) {
@@ -75,8 +90,9 @@ export const useApp = create((set, get) => ({
     }
   },
 
-  openEvidence: (evidenceId) => set({ inspectorEvidenceId: evidenceId }),
-  closeInspector: () => set({ inspectorEvidenceId: null }),
+  selectEvidence: (evidenceId) => set({ selectedEvidenceId: evidenceId }),
+  openEvidence: (evidenceId) => set({ selectedEvidenceId: evidenceId, inspectorOpen: true }),
+  closeInspector: () => set({ inspectorOpen: false }),
   selectLeg: (legId) => set({ selectedLegId: legId }),
 
   evidenceById: (evidenceId) => {

@@ -2,8 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face { font-family: 'Source Serif 4'; src: url('./assets/fonts/SourceSerif4.woff2') format('woff2'); font-weight: 200 900; font-display: swap; }
+@font-face { font-family: 'Archivo Narrow'; src: url('./assets/fonts/ArchivoNarrow.woff2') format('woff2'); font-weight: 400 700; font-display: swap; }
+@font-face { font-family: 'JetBrains Mono'; src: url('./assets/fonts/JetBrainsMono.woff2') format('woff2'); font-weight: 100 800; font-display: swap; }
+
+html { overflow-x: hidden; }
+
 body {
-  @apply bg-paper text-ink antialiased;
+  @apply bg-paper text-ink antialiased font-instrument;
+  overflow-x: hidden;
 }
 
 /* Evidence chain: every provenance-bearing value is a dotted-underline mono link.
@@ -28,17 +35,23 @@ body {
 }
 
 .eyebrow {
-  @apply text-[11px] uppercase tracking-[0.18em] text-ink-soft font-sans;
+  @apply text-[11px] uppercase tracking-[0.18em] text-ink-soft font-instrument;
 }
 
 .hairline {
   @apply border-line;
 }
 
-/* EMULATED stamp — unmissable, dashed chart-magenta, never subtle */
+/* Synthetic data is conspicuous but never receives authority magenta. */
 .stamp-emulated {
-  @apply font-mono text-[10px] uppercase tracking-[0.14em] text-authority border border-dashed border-authority px-1.5 py-0.5 rounded-sm bg-authority/5;
+  @apply font-mono text-[10px] uppercase tracking-[0.14em] text-ink border border-dashed border-ink px-1.5 py-0.5 bg-shoal;
+  background-image: repeating-linear-gradient(135deg, rgba(22,40,62,.08) 0 4px, transparent 4px 8px);
 }
+
+.chart-frame { box-shadow: inset 0 0 0 3px rgba(243,238,227,.9), inset 0 0 0 4px rgba(22,40,62,.28); }
+.section-rule { @apply border-t border-ink/40 pt-3; }
+
+button { touch-action: manipulation; }
 
 button:focus-visible,
 a:focus-visible,

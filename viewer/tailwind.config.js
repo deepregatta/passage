@@ -18,11 +18,14 @@ export default {
           insufficient: '#5A6B82',
         },
         authority: '#9E2B63',
+        event: '#176B87',
       },
       fontFamily: {
-        chart: ['Iowan Old Style', 'Palatino Linotype', 'Palatino', 'P052', 'Georgia', 'serif'],
-        sans: ['system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
-        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace'],
+        story: ['Source Serif 4', 'Georgia', 'serif'],
+        chart: ['Source Serif 4', 'Georgia', 'serif'],
+        instrument: ['Archivo Narrow', 'Arial Narrow', 'sans-serif'],
+        sans: ['Archivo Narrow', 'Arial Narrow', 'sans-serif'],
+        mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
       },
       boxShadow: {
         panel: '0 1px 0 rgba(22,40,62,0.08), 0 2px 8px rgba(22,40,62,0.06)',

@@ -22,16 +22,13 @@ export const GLOSSARY = {
     'A passage you must transit while the stream is fair (or slack). Miss the window and you fight a foul current — or worse seas.',
 };
 
-/** inline teaching tooltip — gray dotted underline, native title (dotted NAVY = evidence) */
+/** Keyboard- and touch-focusable teaching popover. */
 export function Term({ children, term }) {
   const def = GLOSSARY[term ?? String(children).toLowerCase()];
   if (!def) return children;
-  return (
-    <abbr
-      title={def}
-      className="no-underline border-b border-dotted border-ink-soft/60 cursor-help"
-    >
-      {children}
-    </abbr>
-  );
+  const id = `term-${String(term ?? children).toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+  return <span className="relative inline-block group">
+    <button type="button" aria-describedby={id} className="border-b border-dotted border-ink-soft/60 cursor-help leading-inherit">{children}</button>
+    <span id={id} role="tooltip" className="hidden group-focus-within:block group-hover:block absolute z-20 left-0 top-full mt-1 w-64 bg-ink-deep text-paper p-2 font-instrument text-xs leading-relaxed shadow-lg">{def}</span>
+  </span>;
 }
