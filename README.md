@@ -37,6 +37,38 @@ npm test
 npm run dev            # viewer at http://localhost:5174, /data/* served from data/processed
 ```
 
+## Product flow
+
+The viewer follows the passage cycle rather than the implementation layers:
+
+- **Plan** — draw or compute a route, compare departure windows, manage saved briefings and declared limits.
+- **Brief** — read the causal system → route intersection → consequence story, scrub the shared time cursor, then inspect the exact ensemble claim.
+- **Watch** — compare frozen runs through an edited three-item change story; the complete ledger remains available underneath.
+- **Verify** — see real-case corpus counts, calibration sample sizes, and printable frozen-forecast case studies.
+
+URL hashes preserve stage/subview deep links, for example `#brief/story`, `#brief/evidence`, and `#watch/changes`. On screens below 768 px the permanent rail is replaced by a four-tab bottom bar.
+
+## Deterministic reference demo
+
+```bash
+node scripts/build-demo-snapshots.mjs
+VITE_DW_FIXTURE=demo npm run dev -w viewer
+```
+
+The builder runs the engine CLI twice with a fixed clock and rebuilds the committed previous/latest snapshot pair in `viewer/test/fixtures/demo/`. It includes archived synthetic bulletin text, synoptic tracks/charts, the `23 of 51` gust claim, a six-hour/four-hPa before/after low, a changes artifact, and an explicitly emulated verification case. Re-running it must leave the fixture byte-identical.
+
+## Verification commands
+
+```bash
+npm test                                      # engine + viewer unit/contract suites
+npm run build                                 # TypeScript + production Vite chunks
+cd viewer && npx playwright test              # 1568×1003 + 390×844 visual/core-flow suite
+cd analysis && uv run pytest                  # factory + verification tests
+cd analysis && uv run deepweather-analysis corpus --no-fetch
+```
+
+The full corpus command without `--no-fetch` uses CDS credentials and may be slow. Calibration excludes every record whose `observation_source` or coverage class is `emulated`; demo cases are displayed but never contribute to skill claims.
+
 ## Safety framing
 
 This is a decision *aid*: it never says "GO", official warnings override the personal-limit summary,

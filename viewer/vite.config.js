@@ -119,6 +119,12 @@ function dataMiddleware() {
           return;
         }
 
+        if (requestPath === '/data/runs/latest.json' && !fs.existsSync(path.join(dataRoot, 'runs', 'latest.json'))) {
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ run_id: null, artifacts: {} }));
+          return;
+        }
+
         if (requestPath === '/data/routes/index.json') {
           const routesDir = path.join(dataRoot, 'routes');
           const routes = fs.existsSync(routesDir)

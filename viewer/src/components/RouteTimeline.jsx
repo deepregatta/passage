@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { useApp } from '../stores/appStore.js';
 import { STATUS_HEX, hourStatus, fmtHour } from '../lib/format.js';
 import { usePlayback } from '../stores/playbackStore.js';
+import useViewport from '../hooks/useViewport.js';
 
 /**
  * Passage timeline, mockup style: three labeled rows (wind / gust / waves),
@@ -11,7 +12,8 @@ import { usePlayback } from '../stores/playbackStore.js';
 export default function RouteTimeline() {
   const findings = useApp((s) => s.findings);
   const cursor = usePlayback((state) => state.cursorHours);
-  const option = useMemo(() => (findings ? buildOption(findings, cursor) : null), [findings, cursor]);
+  const mobile = useViewport();
+  const option = useMemo(() => (findings ? buildOption(findings, cursor, mobile) : null), [findings, cursor, mobile]);
   if (!option) return null;
   return (
     <div>
@@ -49,7 +51,7 @@ const EVENT_LABEL = {
   squall_potential: 'squalls?',
 };
 
-function buildOption(findings, cursorHours = 0) {
+function buildOption(findings, cursorHours = 0, mobile = false) {
   const rows = [];
   for (const leg of findings.legs) {
     const enter = Date.parse(leg.enter_range.nominal);
@@ -141,8 +143,8 @@ function buildOption(findings, cursorHours = 0) {
     },
   });
 
-  const GRID_L = 88;
-  const GRID_R = 96;
+  const GRID_L = mobile ? 44 : 88;
+  const GRID_R = mobile ? 34 : 96;
 
   return {
     backgroundColor: 'transparent',
@@ -169,9 +171,9 @@ function buildOption(findings, cursorHours = 0) {
           : { show: false },
     })),
     yAxis: [
-      { type: 'value', gridIndex: 0, ...axisBase, ...rowName('Wind', 'knots') },
-      { type: 'value', gridIndex: 1, ...axisBase, ...rowName('Gusts', 'knots') },
-      { type: 'value', gridIndex: 2, ...axisBase, ...rowName('Waves', 'metres') },
+      { type: 'value', gridIndex: 0, ...axisBase, ...rowName('Wind', mobile ? 'kt' : 'knots') },
+      { type: 'value', gridIndex: 1, ...axisBase, ...rowName('Gusts', mobile ? 'kt' : 'knots') },
+      { type: 'value', gridIndex: 2, ...axisBase, ...rowName('Waves', mobile ? 'm' : 'metres') },
     ],
     series: [
       {

@@ -208,10 +208,10 @@ function buildStory(
   }).sort((a, b) => b.score - a.score || a.index - b.index).slice(0, 3);
   const changed = transition.from !== transition.to;
   const headlinePlain = changed
-    ? `The passage assessment changed from ${transition.from} to ${transition.to}.`
+    ? `The passage assessment changed from ${verdictLabel(transition.from)} to ${verdictLabel(transition.to)}.`
     : scored.length
-      ? `The assessment is still ${transition.to}, but the timing or magnitude changed.`
-      : `The new run keeps the same ${transition.to} assessment.`;
+      ? `The assessment is still ${verdictLabel(transition.to)}, but the timing or magnitude changed.`
+      : `The new run keeps the same ${verdictLabel(transition.to)} assessment.`;
   return {
     headline_plain: headlinePlain,
     headline_pro: `${entries.length} ledger entries ranked deterministically; ${scored.length} material changes promoted.`,
@@ -224,6 +224,10 @@ function buildStory(
     })),
     next_run: nextRun(latest.generated_at),
   };
+}
+
+function verdictLabel(state: string) {
+  return ({ within: 'within your limits', approaching: 'close to your limits', exceeds: 'beyond your limits', insufficient: 'too uncertain to assess', warning_active: 'warning active' } as Record<string, string>)[state] ?? state.replaceAll('_', ' ');
 }
 
 function humanizeChange(entry: ChangeEntry, latest: Findings): string {
