@@ -1,7 +1,7 @@
 /**
  * Region-grid sampling (contracts/region-grid.schema.json): bilinear in space,
- * linear in time. The ONLY spatial interpolation in the engine — fetching,
- * decoding, regridding and coastal gap-filling all live in the Python factory.
+ * linear in time. Prepared grids can come from the Python factory; browser
+ * routing can also build small route-local grids from live point forecasts.
  * Land cells are null; sampling falls back to the nearest non-null corner.
  */
 

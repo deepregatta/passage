@@ -385,6 +385,14 @@ export interface MarineRequestMeta {
   note: string;
 }
 
+export interface CurrentPointForecast {
+  lat: number;
+  lon: number;
+  times: string[];
+  current_kt: Array<number | null>;
+  current_dir_deg: Array<number | null>;
+}
+
 const MARINE_VARS = [
   'wave_height',
   'wave_period',
@@ -449,6 +457,51 @@ export async function fetchMarineForecasts(
       cached,
       points: points.length,
       note: 'deterministic wave model only — no wave ensembles available',
+    },
+  };
+}
+
+/** Ocean currents. Direction follows the flow (0° north, 90° east). */
+export async function fetchCurrentForecasts(
+  points: Array<{ lat: number; lon: number }>,
+  startDate: string,
+  endDate: string,
+  options: OpenMeteoOptions = {},
+): Promise<{ forecasts: CurrentPointForecast[]; meta: MarineRequestMeta }> {
+  const baseUrl = options.baseUrl ?? 'https://marine-api.open-meteo.com/v1/marine';
+  const now = options.now ?? Date.now;
+  const lats = points.map((p) => p.lat.toFixed(2));
+  const lons = points.map((p) => p.lon.toFixed(2));
+  const url =
+    `${baseUrl}?latitude=${lats.join(',')}&longitude=${lons.join(',')}` +
+    '&hourly=ocean_current_velocity,ocean_current_direction' +
+    `&wind_speed_unit=kn&cell_selection=sea&timezone=UTC&start_date=${startDate}&end_date=${endDate}`;
+  const { raw, cached, digest } = await fetchCachedWithBackoff(url, 'om-current', options);
+  const parsed = JSON.parse(raw) as unknown;
+  const locations = Array.isArray(parsed) ? parsed : [parsed];
+  if (locations.length !== points.length) {
+    throw new Error(`Marine currents returned ${locations.length} locations for ${points.length}`);
+  }
+  return {
+    forecasts: locations.map((loc: any, i: number) => {
+      const hourly = loc?.hourly;
+      if (!hourly?.time) throw new Error(`Marine currents missing hourly (point ${i})`);
+      return {
+        lat: points[i]!.lat,
+        lon: points[i]!.lon,
+        times: (hourly.time as string[]).map((t) => (t.endsWith('Z') ? t : `${t}:00Z`)),
+        current_kt: hourly.ocean_current_velocity ?? [],
+        current_dir_deg: hourly.ocean_current_direction ?? [],
+      };
+    }),
+    meta: {
+      api: 'marine',
+      model: 'best_match',
+      request_digest: digest,
+      fetched_at: new Date(now()).toISOString(),
+      cached,
+      points: points.length,
+      note: 'ocean-current direction follows the flow',
     },
   };
 }

@@ -10,6 +10,8 @@
   "scripts": {
     "test": "npm run test -w engine && npm run test -w viewer --if-present",
     "dev": "npm run dev -w viewer",
-    "build": "npm run build -w engine && npm run build -w viewer"
+    "build": "npm run build -w engine && npm run build -w viewer",
+    "build:pages": "npm run build && node scripts/build-pages.mjs",
+    "publish:polars": "node scripts/publish-polars.mjs"
   }
 }

@@ -9,7 +9,7 @@ Explainable passage-weather risk audit for sailors. Local prototype — see [PRO
 | Part | Role | Future deployment |
 |---|---|---|
 | `analysis/` | Python factory: everything **route-independent, authenticated or gridded** — ECMWF open-data GRIBs, synoptic feature detection, CMEMS forecast currents, warnings, tides, verification. Publishes compact JSON artifacts per model run. | Scheduled shared-prep job (Cloud Run / GH Actions), once per model run for all users, publishing to R2 |
-| `engine/` | TypeScript pure library: everything **per-user** — route geometry, ETA ranges, limits, ensemble exceedance, verdicts, briefing text, isochrone routing. Zero DOM deps; runs in Node CLI today. | Runs unchanged **in the user's browser** (no per-user server compute) |
+| `engine/` | TypeScript pure library: everything **per-user** — route geometry, live route-local routing grids, ETA ranges, limits, ensemble exceedance, verdicts, briefing text, isochrone routing. Zero DOM deps. | Runs unchanged **in the user's browser** (no per-user server compute) |
 | `viewer/` | React + Vite showroom. Dev middleware serves `/data/*` from `../data/processed`. | Cloudflare Pages; `/data/*` = R2 |
 | `data/` | Git-ignored warehouse: caches, prepared runs, immutable snapshots. | R2 bucket, same layout |
 | `contracts/` | JSON Schemas — the treaty between Python and TypeScript. | The API between the shared job and every browser |
@@ -68,6 +68,11 @@ cd analysis && uv run deepweather-analysis corpus --no-fetch
 ```
 
 The full corpus command without `--no-fetch` uses CDS credentials and may be slow. Calibration excludes every record whose `observation_source` or coverage class is `emulated`; demo cases are displayed but never contribute to skill claims.
+
+After regenerating the ORC database with `build-polar-db`, publish it into the
+static viewer with `npm run publish:polars`. Cloudflare Pages uses
+`npm run build:pages`, which merges deployment data into Vite's output and
+keeps a real `404.html` for missing data artifacts.
 
 ## Safety framing
 
