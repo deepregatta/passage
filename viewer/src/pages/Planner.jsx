@@ -135,39 +135,47 @@ export default function Planner() {
     [mode],
   );
 
+  // shared by Compute route and the per-departure scan routing
+  const loadRoutingInputs = async () => {
+    const [latest, polar] = await Promise.all([
+      loadJson('/data/runs/latest.json'),
+      // full published db first; the two curated config polars remain a fallback
+      loadJson(`/data/polars/boats/${polarId}.json`).then(
+        (doc) => doc ?? loadJson(`/data/config/polars/${polarId}.json`),
+      ),
+    ]);
+    if (!latest?.artifacts?.wind_grid) {
+      throw new Error('No prepared wind grid — run deepweather-analysis prepare-run first');
+    }
+    if (!polar) {
+      throw new Error(`Boat polar “${polarId}” not found — run deepweather-analysis build-polar-db`);
+    }
+    const [windGrid, currentGrid, landMask] = await Promise.all([
+      loadJson(`/data/${latest.artifacts.wind_grid}`),
+      latest.artifacts.current_grid ? loadJson(`/data/${latest.artifacts.current_grid}`) : null,
+      latest.artifacts.land_mask ? loadJson(`/data/${latest.artifacts.land_mask}`) : null,
+    ]);
+    return { polar, windGrid, currentGrid, landMask };
+  };
+
+  const routeForDeparture = (inputs, departureUtc) =>
+    computeRoute({
+      start: { lat: endpoints[0].lat, lon: endpoints[0].lng, name: 'Start' },
+      finish: { lat: endpoints[1].lat, lon: endpoints[1].lng, name: 'Finish' },
+      departureUtc,
+      polar: inputs.polar,
+      windGrid: inputs.windGrid,
+      currentGrid: inputs.currentGrid ?? undefined,
+      landMask: inputs.landMask ?? undefined,
+    });
+
   const runRouting = async () => {
     if (endpoints.length !== 2 || !polarId) return;
     setBusy('computing route');
     setError(null);
     try {
-      const [latest, polar] = await Promise.all([
-        loadJson('/data/runs/latest.json'),
-        // full published db first; the two curated config polars remain a fallback
-        loadJson(`/data/polars/boats/${polarId}.json`).then(
-          (doc) => doc ?? loadJson(`/data/config/polars/${polarId}.json`),
-        ),
-      ]);
-      if (!latest?.artifacts?.wind_grid) {
-        throw new Error('No prepared wind grid — run deepweather-analysis prepare-run first');
-      }
-      if (!polar) {
-        throw new Error(`Boat polar “${polarId}” not found — run deepweather-analysis build-polar-db`);
-      }
-      const [windGrid, currentGrid, landMask] = await Promise.all([
-        loadJson(`/data/${latest.artifacts.wind_grid}`),
-        latest.artifacts.current_grid ? loadJson(`/data/${latest.artifacts.current_grid}`) : null,
-        latest.artifacts.land_mask ? loadJson(`/data/${latest.artifacts.land_mask}`) : null,
-      ]);
-      const result = computeRoute({
-        start: { lat: endpoints[0].lat, lon: endpoints[0].lng, name: 'Start' },
-        finish: { lat: endpoints[1].lat, lon: endpoints[1].lng, name: 'Finish' },
-        departureUtc: `${departureLocal}:00Z`,
-        polar,
-        windGrid,
-        currentGrid: currentGrid ?? undefined,
-        landMask: landMask ?? undefined,
-      });
-      setComputed(result);
+      const inputs = await loadRoutingInputs();
+      setComputed(routeForDeparture(inputs, `${departureLocal}:00Z`));
       setBusy(null);
     } catch (e) {
       setBusy(null);
@@ -203,12 +211,24 @@ export default function Planner() {
       const profileDraft = localStorage.getItem('deepweather.profile-draft');
       const profile = profileDraft ? JSON.parse(profileDraft) : profileDefaults;
       const departures = candidateDepartures(Date.parse(`${departureLocal}:00Z`), 120, 6);
+      // weather-dependent routing: in compute mode every candidate departure
+      // gets its own route through its own wind field
+      const routes = {};
+      let routeFor;
+      if (mode === 'compute' && endpoints.length === 2 && polarId) {
+        const inputs = await loadRoutingInputs();
+        routeFor = (departureUtc) => {
+          const result = routeForDeparture(inputs, departureUtc);
+          routes[departureUtc] = result;
+          return result.route;
+        };
+      }
       const partial = [];
-      const result = await scanDepartures({ route, profile }, departures, (c) => {
+      const result = await scanDepartures({ route, profile, routeFor }, departures, (c) => {
         partial.push(c);
         setBusy(`scanning departures ${partial.length}/${departures.length}`);
       });
-      setScan(result);
+      setScan({ ...result, routes, rerouted: Boolean(routeFor), requested: departures.length });
       setBusy(null);
     } catch (e) {
       setBusy(null);
@@ -251,7 +271,7 @@ export default function Planner() {
   };
 
   return (
-    <div className="px-6 py-5 max-w-6xl">
+    <div className="px-6 py-5 max-w-[1600px]">
       <h1 className="font-chart text-3xl mb-1">Plan a passage</h1>
       <p className="font-sans text-sm text-ink-soft mb-4">
         Click the chart to drop waypoints (drag to adjust), or import a GPX file. The analysis
@@ -500,58 +520,10 @@ export default function Planner() {
               Compare departure times (next 5 days)
             </button>
             {error && <p className="text-verdict-exceeds text-[13px]">{error}</p>}
-            {scan && scan.candidates.length === 0 && (
-              <div className="border-t hairline pt-2">
-                <span className="eyebrow">Departure comparison</span>
-                <p className="text-[13px] text-ink-soft mt-1">
-                  None of the candidate departures could be assessed — either the live forecast
-                  doesn't reach that far ahead, or the forecast service was unreachable. Try a
-                  departure within the next few days, or check your connection.
-                </p>
-              </div>
-            )}
             {scan && scan.candidates.length > 0 && (
-              <div className="border-t hairline pt-2">
-                <span className="eyebrow">Departure comparison</span>
-                <ul className="mt-1 space-y-1">
-                  {scan.candidates.map((c, i) => (
-                    <li key={c.departure_utc}>
-                      <button
-                        type="button"
-                        onClick={() => setDepartureLocal(c.departure_utc.slice(0, 16))}
-                        title="Use this departure time"
-                        className={clsx(
-                          'w-full flex items-center justify-between gap-2 text-[12px] px-1.5 py-1.5 rounded-sm text-left hover:bg-white/60',
-                          i === scan.best_index && 'bg-shoal/50 border hairline',
-                          `${departureLocal}:00Z` === c.departure_utc && 'outline outline-1 outline-ink/50',
-                        )}
-                      >
-                        <span className="font-mono">{fmtTime(c.departure_utc)}</span>
-                        <span
-                          className="px-1.5 py-0.5 rounded-sm text-white text-[10px] font-medium whitespace-nowrap"
-                          style={{ backgroundColor: (VERDICT[c.verdict] ?? VERDICT.insufficient).hex }}
-                        >
-                          {SCAN_VERDICT[c.verdict] ?? c.verdict}
-                        </span>
-                        {i === scan.best_index && (
-                          <span className="text-ink-soft">least exposure — your call</span>
-                        )}
-                        {c.avoids_event_key && <span className="text-event">avoids {c.avoids_event_key}</span>}
-                        {c.delta && i > 0 && <span className="font-mono text-[10px] text-ink-soft">gust {c.delta.peak_gust_kt > 0 ? '+' : ''}{c.delta.peak_gust_kt} kt · {c.delta.hours_over_limit > 0 ? '+' : ''}{c.delta.hours_over_limit} h over</span>}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-                <p className="text-[12px] text-ink-soft mt-1.5">
-                  Click a time to use it, then “Check this passage against my limits” for the
-                  full briefing.
-                  {scan.candidates.length > 0 && scan.candidates.every((c) => c.verdict === 'insufficient') && (
-                    <> Right now the forecast models disagree near your limits across this whole
-                    window — a briefing will show you which models and when, and the next update
-                    time.</>
-                  )}
-                </p>
-              </div>
+              <p className="text-[12px] text-ink-soft border-t hairline pt-2">
+                Departure comparison ready — see the full-width calendar below the chart.
+              </p>
             )}
             <p className="text-[12px] text-ink-soft">
               Runs in your browser · forecasts fetched live · saved as an immutable snapshot.
@@ -559,6 +531,129 @@ export default function Planner() {
           </div>
         </Panel>
       </div>
+
+      {scan && (
+        <DepartureComparison
+          scan={scan}
+          departureLocal={departureLocal}
+          onPick={(candidate) => {
+            setDepartureLocal(candidate.departure_utc.slice(0, 16));
+            const rerouted = scan.routes?.[candidate.departure_utc];
+            if (rerouted) setComputed(rerouted);
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+/**
+ * Full-width departure calendar: days across, one colored cell per candidate
+ * (same verdict colors as everywhere else). Click a cell to adopt that
+ * departure — in compute mode the cell also carries its own weather-routed track.
+ */
+function DepartureComparison({ scan, departureLocal, onPick }) {
+  if (scan.candidates.length === 0) {
+    return (
+      <section className="mt-6 border-t border-ink/40 pt-3">
+        <h2 className="font-instrument font-semibold uppercase tracking-wider">Departure comparison</h2>
+        <p className="font-sans text-sm text-ink-soft mt-2 max-w-[70ch]">
+          None of the candidate departures could be assessed — either the live forecast doesn't
+          reach that far ahead, or the forecast service was unreachable. Try a departure within
+          the next few days, or check your connection.
+        </p>
+      </section>
+    );
+  }
+
+  const days = [];
+  for (const [i, c] of scan.candidates.entries()) {
+    const stamp = fmtTime(c.departure_utc); // "Mon 13 Jul 06:00"
+    const day = stamp.slice(0, -6);
+    if (days.at(-1)?.day !== day) days.push({ day, cells: [] });
+    days.at(-1).cells.push({ ...c, index: i, hhmm: stamp.slice(-5) });
+  }
+  const best = scan.best_index !== null ? scan.candidates[scan.best_index] : null;
+  const baseline = scan.candidates[0];
+  const allInsufficient = scan.candidates.every((c) => c.verdict === 'insufficient');
+
+  return (
+    <section className="mt-6 border-t border-ink/40 pt-3" aria-label="Departure comparison">
+      <div className="flex justify-between items-baseline flex-wrap gap-2">
+        <h2 className="font-instrument font-semibold uppercase tracking-wider">
+          Departure comparison · next 5 days
+        </h2>
+        <span className="eyebrow">
+          {scan.rerouted ? 'each departure sails its own computed route' : 'same route, different weather'}
+        </span>
+      </div>
+
+      <div className="flex flex-wrap gap-x-5 gap-y-3 mt-3">
+        {days.map((d) => (
+          <div key={d.day}>
+            <p className="font-instrument text-[11px] uppercase tracking-wider text-ink-soft mb-1">{d.day}</p>
+            <div className="flex gap-1.5">
+              {d.cells.map((c) => {
+                const v = VERDICT[c.verdict] ?? VERDICT.insufficient;
+                const parts = [SCAN_VERDICT[c.verdict] ?? c.verdict];
+                if (c.passage_h) parts.push(`≈${Math.round(c.passage_h)} h passage`);
+                if (c.delta && c.index > 0) {
+                  parts.push(`gusts ${c.delta.peak_gust_kt > 0 ? '+' : ''}${Math.round(c.delta.peak_gust_kt)} kt vs first option`);
+                  parts.push(`${c.delta.hours_over_limit > 0 ? '+' : ''}${c.delta.hours_over_limit} h over your limit`);
+                }
+                return (
+                  <button
+                    key={c.departure_utc}
+                    type="button"
+                    onClick={() => onPick(c)}
+                    title={`${fmtTime(c.departure_utc)} UTC — ${parts.join(' · ')}`}
+                    className={clsx(
+                      'w-[66px] h-[54px] rounded-sm text-white flex flex-col items-center justify-center gap-0.5',
+                      `${departureLocal}:00Z` === c.departure_utc && 'outline outline-2 outline-ink outline-offset-1',
+                    )}
+                    style={{ backgroundColor: v.hex }}
+                  >
+                    <span className="font-mono text-[12px] font-semibold">{c.hhmm}</span>
+                    <span className="text-[11px]" aria-hidden>{c.index === scan.best_index ? '◎' : v.glyph}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {scan.requested > scan.candidates.length && (
+        <p className="font-sans text-[12px] text-ink-soft mt-2">
+          {scan.requested - scan.candidates.length} of {scan.requested} departure times could not
+          be assessed — they fall beyond the {scan.rerouted ? 'prepared routing-wind' : 'forecast'}{' '}
+          horizon — and are not shown. No cell does not mean fine.
+        </p>
+      )}
+      <div className="flex flex-wrap items-baseline justify-between gap-2 mt-3">
+        <p className="font-sans text-[13px] max-w-[80ch]">
+          {best && (
+            <>
+              <span className="font-medium">◎ Least exposure this window: {fmtTime(best.departure_utc)} UTC</span>
+              {' — '}your call, as always.{' '}
+            </>
+          )}
+          Click a time to use it{scan.rerouted ? ' (its route appears on the chart)' : ''}, then
+          “Check this passage against my limits” for the full briefing.
+          {allInsufficient && (
+            <> Right now the forecast models disagree near your limits across this whole window —
+            a briefing will show you which models and when, and the next update time.</>
+          )}
+        </p>
+        <span className="flex gap-4 font-sans text-[11px] text-ink-soft">
+          {['within', 'approaching', 'exceeds', 'insufficient'].map((s) => (
+            <span key={s} className="flex items-center gap-1.5">
+              <span className="w-3.5 h-2.5 inline-block rounded-[2px]" style={{ backgroundColor: VERDICT[s].hex }} />
+              {SCAN_VERDICT[s]}
+            </span>
+          ))}
+        </span>
+      </div>
+    </section>
   );
 }
