@@ -39,6 +39,24 @@ export interface AnalyzeOptions {
   /** per-API base URL overrides (fixture mode) */
   baseUrls?: Partial<Record<'forecast' | 'ensemble' | 'marine' | 'multimodel', string>>;
   onProgress?: (step: string) => void;
+  /**
+   * Widen the fetch window to at least this range (ISO dates). A departure scan
+   * passes one window covering every candidate so all candidates share the same
+   * request URLs and hit the scan-wide cache instead of Open-Meteo's quota.
+   */
+  dateWindow?: { startDate: string; endDate: string };
+}
+
+/**
+ * Audit sampling cell: leg-midpoint forecasts snap to this grid so that
+ * near-identical routes (departure-scan candidates re-routed per departure)
+ * resolve to the same sample coordinates and share cached responses.
+ * 0.25° is the native ECMWF IFS resolution — snapping loses no model detail.
+ */
+const AUDIT_CELL_DEG = 0.25;
+
+function snapToAuditCell(value: number): number {
+  return Math.round(value / AUDIT_CELL_DEG) * AUDIT_CELL_DEG;
 }
 
 export interface AnalyzeResult {
@@ -60,11 +78,23 @@ export async function runAnalysis(options: AnalyzeOptions): Promise<AnalyzeResul
   const legs = deriveLegs(route);
   const midpoints = legMidpoints(legs);
   const schedules = computeSchedules(legs, route.speeds_kt, departureUtc);
-  const startDate = toIso(parseUtc(departureUtc)).slice(0, 10);
-  const endDate = toIso(
+  const derivedStart = toIso(parseUtc(departureUtc)).slice(0, 10);
+  const derivedEnd = toIso(
     parseUtc(schedules[schedules.length - 1]!.exit.slow) + 24 * 3600_000,
   ).slice(0, 10);
-  const points = midpoints.map((p) => ({ lat: p.lat, lon: p.lon }));
+  // ISO dates compare lexicographically; the override may only widen the window
+  const startDate =
+    options.dateWindow && options.dateWindow.startDate < derivedStart
+      ? options.dateWindow.startDate
+      : derivedStart;
+  const endDate =
+    options.dateWindow && options.dateWindow.endDate > derivedEnd
+      ? options.dateWindow.endDate
+      : derivedEnd;
+  const points = midpoints.map((p) => ({
+    lat: snapToAuditCell(p.lat),
+    lon: snapToAuditCell(p.lon),
+  }));
 
   const opts = (api: keyof NonNullable<AnalyzeOptions['baseUrls']>): OpenMeteoOptions => ({
     ...(options.fetchFn ? { fetchFn: options.fetchFn } : {}),

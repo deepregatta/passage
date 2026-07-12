@@ -201,16 +201,28 @@ export default function Planner() {
       // gets its own route through its own wind field
       const routes = {};
       let routeFor;
+      let scanPassageHours = passageHours ?? 48;
       if (mode === 'compute' && endpoints.length === 2 && polarId) {
         const inputs = await loadRoutingInputs(true);
+        scanPassageHours = inputs.maxHours;
         routeFor = (departureUtc) => {
           const result = { ...routeForDeparture(inputs, departureUtc), notes: inputs.notes };
           routes[departureUtc] = result;
           return result.route;
         };
       }
+      // one shared fetch window covering every candidate: identical request URLs
+      // let candidates reuse the scan cache instead of burning Open-Meteo quota
+      const scanEndMs = Math.min(
+        Date.parse(departures[departures.length - 1]) + (scanPassageHours + 24) * 3600_000,
+        Date.now() + 9 * 24 * 3600_000, // ensemble forecast horizon
+      );
+      const dateWindow = {
+        startDate: departures[0].slice(0, 10),
+        endDate: new Date(Math.max(scanEndMs, Date.parse(departures[0]))).toISOString().slice(0, 10),
+      };
       const partial = [];
-      const result = await scanDepartures({ route, profile, routeFor }, departures, (c) => {
+      const result = await scanDepartures({ route, profile, routeFor, dateWindow }, departures, (c) => {
         partial.push(c);
         setBusy(`scanning departures ${partial.length}/${departures.length}`);
       });
