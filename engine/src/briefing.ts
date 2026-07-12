@@ -11,6 +11,7 @@
  */
 
 import { fraction, phraseExceedance } from './exceedance.js';
+import { plainValueVsLimit } from './plainLanguage.js';
 import type { Evidence, Findings, SynopticFeatures } from './types.js';
 
 export interface BriefingSection {
@@ -139,7 +140,8 @@ export function renderBriefing(findings: Findings, synoptic?: SynopticFeatures):
     if (windRange) {
       const strength = describeWind(windRange.max);
       plain = `${leg.name}: ${strength} while you are on this stretch (${window} UTC).`;
-      pro = `${leg.leg_id} ${leg.name} (${leg.distance_nm} nm, ${leg.bearing_deg_true}°T): sustained ${windRange.min}–${windRange.max} kt${gustMax !== null ? `, gusts to ${gustMax} kt` : ''} across the ETA window ${window} UTC.`;
+      const sustained = windRange.min === windRange.max ? `${windRange.max}` : `${windRange.min}–${windRange.max}`;
+      pro = `${leg.leg_id} ${leg.name} (${leg.distance_nm} nm, ${leg.bearing_deg_true}°T): sustained ${sustained} kt${gustMax !== null ? `, gusts to ${gustMax} kt` : ''} across the ETA window ${window} UTC.`;
     } else {
       plain = `${leg.name}: no forecast data available for this stretch.`;
       pro = `${leg.leg_id}: no forecast samples within the occupancy window.`;
@@ -198,8 +200,8 @@ export function renderBriefing(findings: Findings, synoptic?: SynopticFeatures):
     if (driver.member_fraction) {
       decisionPlain += ` The main signal: ${phraseExceedance(driver.member_fraction, `your ${driver.limit} kt limit`)} on ${legName} around ${fmtTime(driver.valid_time!)} UTC.`;
       decisionPro += ` Driver: ${driver.rule_id} on ${driver.leg_id} at ${driver.valid_time} — ${driver.member_fraction.exceed}/${driver.member_fraction.total} members > ${driver.limit} ${driver.units}.`;
-    } else {
-      decisionPlain += ` The main signal: ${driver.value} ${driver.units} against your ${driver.limit} ${driver.units} limit on ${legName} around ${fmtTime(driver.valid_time!)} UTC.`;
+    } else if (typeof driver.value === 'number' && typeof driver.limit === 'number') {
+      decisionPlain += ` The main signal: ${plainValueVsLimit(driver.rule_id, driver.value, driver.limit, driver.units)} on ${legName} around ${fmtTime(driver.valid_time!)} UTC.`;
       decisionPro += ` Driver: ${driver.rule_id} on ${driver.leg_id} at ${driver.valid_time} — ${driver.value} ${driver.units} vs declared ${driver.limit} ${driver.units}.`;
     }
   }

@@ -49,6 +49,8 @@ export default function Planner() {
   const openSnapshot = useApp((s) => s.openSnapshot);
   const profileDefaults = useApp((s) => s.profileDefaults);
   const loadConfig = useApp((s) => s.loadConfig);
+  const manifest = useApp((s) => s.manifest);
+  const loadManifest = useApp((s) => s.loadManifest);
 
   // working state survives stage switches — see plannerStore.js
   const mode = usePlanner((s) => s.mode);
@@ -78,6 +80,10 @@ export default function Planner() {
   useEffect(() => {
     loadConfig();
   }, [loadConfig]);
+  useEffect(() => {
+    if (!manifest) loadManifest();
+  }, [manifest, loadManifest]);
+  const demoSnapshot = manifest?.snapshots?.find((s) => s.demo);
 
   const route = useMemo(() => {
     if (mode === 'compute') return computed?.route ?? null;
@@ -195,6 +201,16 @@ export default function Planner() {
     }
   };
 
+  // arriving from a briefing's "Find a departure that fits": run the scan once, then clear the flag
+  const autoScan = usePlanner((s) => s.autoScan);
+  useEffect(() => {
+    if (autoScan && route && !busy) {
+      patch({ autoScan: false });
+      runScan();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoScan, route]);
+
   const run = async () => {
     if (!route) return;
     setBusy('starting');
@@ -225,6 +241,19 @@ export default function Planner() {
       <p className="font-sans text-sm text-ink-soft mb-4">
         Click the chart to drop waypoints (drag to adjust), or import a GPX file. The analysis
         runs right here in your browser.
+        {demoSnapshot && waypoints.length === 0 && !computed && (
+          <>
+            {' '}First time here?{' '}
+            <button
+              type="button"
+              className="underline underline-offset-2 text-ink hover:text-ink-deep"
+              onClick={() => openSnapshot(demoSnapshot.snapshot_id)}
+            >
+              See an example briefing
+            </button>
+            .
+          </>
+        )}
       </p>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -442,7 +471,17 @@ export default function Planner() {
               Compare departure times (next 48 h)
             </button>
             {error && <p className="text-verdict-exceeds text-[13px]">{error}</p>}
-            {scan && (
+            {scan && scan.candidates.length === 0 && (
+              <div className="border-t hairline pt-2">
+                <span className="eyebrow">Departure comparison</span>
+                <p className="text-[13px] text-ink-soft mt-1">
+                  None of the candidate departures could be assessed — either the live forecast
+                  doesn't reach that far ahead, or the forecast service was unreachable. Try a
+                  departure within the next few days, or check your connection.
+                </p>
+              </div>
+            )}
+            {scan && scan.candidates.length > 0 && (
               <div className="border-t hairline pt-2">
                 <span className="eyebrow">Departure comparison</span>
                 <ul className="mt-1 space-y-1">

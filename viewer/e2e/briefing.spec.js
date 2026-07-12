@@ -26,6 +26,16 @@ test('playback scrub synchronizes the story phase and evidence focus', async ({ 
     element.dispatchEvent(new Event('input', { bubbles: true }));
     element.dispatchEvent(new Event('change', { bubbles: true }));
   });
-  await expect(page.getByText(/phase · interception/i)).toBeVisible();
+  await expect(page.getByText(/while you are out there/i)).toBeVisible();
   await expect(page.getByText(/system L1 · boat L/i)).toBeVisible();
+});
+
+test('decision band answers can-I-go before any chart', async ({ page }) => {
+  await openAuditedSnapshot(page);
+  const band = page.getByTestId('decision-band');
+  await expect(band.getByRole('heading', { name: /official warning active/i })).toBeVisible();
+  await expect(band.getByRole('button', { name: /find a departure that fits/i })).toBeVisible();
+  const bandBox = await band.boundingBox();
+  const heroBox = await page.getByRole('button', { name: 'Full screen' }).boundingBox();
+  expect(bandBox.y).toBeLessThan(heroBox.y);
 });

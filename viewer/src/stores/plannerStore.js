@@ -20,6 +20,7 @@ const initial = () => ({
   polarId: 'sun-fast-3200',
   polarLabel: 'SUN FAST 3200',
   scan: null,
+  autoScan: false, // set by the briefing's "Find a departure that fits" — Planner runs one scan and clears it
 });
 
 export const usePlanner = create((set) => ({

@@ -5,7 +5,9 @@ export const SNAPSHOT_ID = '20260720T060000Z_44d2cd5f_f0703423';
 export async function openAuditedSnapshot(page) {
   // the app lands on Plan a passage; briefings live one subview over
   await page.goto('/#plan/briefings');
-  await page.getByRole('button', { name: /cherbourg-plymouth-v1.*warning active/i }).first().click();
+  await page.getByRole('button', { name: /cherbourg plymouth.*official warning/i }).first().click();
   await expect(page.getByText(/EMULATED WARNING SCENARIO/i).first()).toBeVisible();
-  await page.waitForFunction(() => document.querySelectorAll('div[_echarts_instance_]').length > 0);
+  // the decision band is the first-screen contract; charts render lazily behind it
+  await page.getByTestId('decision-band').waitFor();
+  await page.getByTestId('condition-strip').waitFor();
 }

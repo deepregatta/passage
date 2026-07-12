@@ -1,7 +1,16 @@
 import { useEffect } from 'react';
 import { useApp } from '../stores/appStore.js';
 import { VerdictChip } from '../components/common.jsx';
-import { fmtTime } from '../lib/format.js';
+import { capitalize, fmtTime } from '../lib/format.js';
+
+/** "cherbourg-plymouth-v1" / "my-passage-5wp" → "Cherbourg plymouth" / "My passage" */
+function routeName(routeId) {
+  const words = routeId
+    .replace(/-(v\d+|\d+wp)$/i, '')
+    .split('-')
+    .filter(Boolean);
+  return capitalize(words.join(' ')) || routeId;
+}
 
 export default function Snapshots() {
   const manifest = useApp((s) => s.manifest);
@@ -44,16 +53,27 @@ export default function Snapshots() {
               type="button"
               disabled={loading}
               onClick={() => openSnapshot(s.snapshot_id)}
-              className="w-full text-left bg-white/40 border hairline rounded-sm shadow-panel px-4 py-3 hover:border-ink-soft flex items-center justify-between gap-4 flex-wrap"
+              title={s.snapshot_id}
+              className="w-full text-left bg-white/40 border hairline rounded-sm shadow-panel px-4 py-3 hover:border-ink-soft flex items-center gap-4"
             >
-              <span>
-                <span className="font-sans font-medium">{s.route_id}</span>
-                <span className="font-mono text-[12px] text-ink-soft block mt-0.5">
-                  departure {fmtTime(s.departure_utc)} UTC · created {fmtTime(s.created_at)} ·{' '}
-                  {s.snapshot_id}
+              <span className="min-w-0 flex-1">
+                <span className="font-sans font-medium">
+                  {routeName(s.route_id)}
+                  {s.demo && (
+                    <span className="ml-2 font-mono text-[10px] uppercase tracking-[0.14em] text-ink-soft border border-line px-1.5 py-0.5 rounded-sm align-middle">
+                      example
+                    </span>
+                  )}
+                </span>
+                <span className="font-sans text-[13px] text-ink-soft block mt-0.5">
+                  departing {fmtTime(s.departure_utc)} UTC · made {fmtTime(s.created_at)}
                 </span>
               </span>
-              {s.verdict_state && <VerdictChip state={s.verdict_state} small />}
+              {s.verdict_state && (
+                <span className="shrink-0">
+                  <VerdictChip state={s.verdict_state} small />
+                </span>
+              )}
             </button>
           </li>
         ))}

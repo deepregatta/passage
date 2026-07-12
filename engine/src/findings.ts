@@ -8,7 +8,8 @@
 
 import { assessDisagreement } from './disagreement.js';
 import { computeSchedules, parseUtc } from './eta.js';
-import { countExceedance, fraction } from './exceedance.js';
+import { countExceedance, fraction, phraseExceedance } from './exceedance.js';
+import { hazardNoun, plainValueVsLimit } from './plainLanguage.js';
 import {
   GridSampler,
   alongCourseKt,
@@ -970,11 +971,12 @@ function deriveCausalEvents(
           ? point.center_hpa < best.center_hpa ? point : best
           : point.center_hpa > best.center_hpa ? point : best,
       );
-      const value = typeof strongest.value === 'number' ? `${strongest.value} ${strongest.units ?? ''}`.trim() : String(strongest.value);
-      const limit = typeof strongest.limit === 'number' ? ` against your ${strongest.limit} ${strongest.units ?? ''} limit` : '';
+      const limitLabel = `your ${strongest.limit} ${strongest.units ?? ''} limit`.replace(/\s+/g, ' ').trim();
       const fractionText = strongest.member_fraction
-        ? `${strongest.member_fraction.exceed} of ${strongest.member_fraction.total} forecast scenarios cross your ${strongest.limit} ${strongest.units ?? ''} limit`
-        : `${value}${limit}`;
+        ? `${phraseExceedance(strongest.member_fraction, limitLabel)} (${hazardNoun(strongest.rule_id)})`
+        : typeof strongest.value === 'number' && typeof strongest.limit === 'number'
+          ? plainValueVsLimit(strongest.rule_id, strongest.value, strongest.limit, strongest.units)
+          : `${String(strongest.value)} ${strongest.units ?? ''}`.trim();
       causal.push({
         event_id: `CE${causal.length + 1}`,
         name: `${system.kind === 'low' ? 'Low' : 'High'} ${system.system_id}`,
@@ -989,7 +991,7 @@ function deriveCausalEvents(
           ),
         },
         consequence: {
-          register_plain: `${fractionText} while ${system.kind === 'low' ? 'the low' : 'the high'} intersects ${leg.name}.`,
+          register_plain: `${fractionText.charAt(0).toUpperCase()}${fractionText.slice(1)} while ${system.kind === 'low' ? 'the low' : 'the high'} crosses ${leg.name}.`,
           register_pro: `${system.system_id} (${Math.round(pressure.center_hpa)} hPa) is within the conservative route-attribution radius during ${new Date(start).toISOString()}–${new Date(end).toISOString()}; only same-leg evidence inside that window is attributed.`,
           evidence_ids: attributed.map((item) => item.evidence_id),
         },

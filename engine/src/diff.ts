@@ -109,7 +109,7 @@ export function diffFindings(previous: Findings | null, latest: Findings): Chang
       if (Math.abs(delta) >= VALUE_DELTA_MIN) {
         entries.push({
           kind: 'value_changed',
-          description: `${ruleLabel(e.rule_id)} ${subject(e, latest)}: ${p.value} → ${e.value} ${e.units ?? ''} (${delta > 0 ? '+' : ''}${Math.round(delta * 10) / 10}).`,
+          description: `${ruleLabel(e.rule_id)} ${subject(e, latest)}: ${Math.round(p.value)} → ${Math.round(e.value)} ${e.units ?? ''} (${delta > 0 ? 'up' : 'down'} ${Math.abs(Math.round(delta))}).`,
           previous: p.value,
           latest: e.value,
           evidence_pair: [p.evidence_id, e.evidence_id],

@@ -1,38 +1,144 @@
 import ReactECharts from './lazy/EChartsLazy.jsx';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useApp } from '../stores/appStore.js';
 import { STATUS_HEX, hourStatus, fmtHour } from '../lib/format.js';
 import { usePlayback } from '../stores/playbackStore.js';
 import useViewport from '../hooks/useViewport.js';
 
 /**
- * Passage timeline, mockup style: three labeled rows (wind / gust / waves),
- * limit line labeled at the right, amber/red status bands, event flags.
+ * Passage timeline. Default = one glanceable condition strip (worst status per
+ * hour vs your limits); the three labeled charts (wind / gust / waves) live
+ * behind "Show detailed charts".
  */
 export default function RouteTimeline() {
   const findings = useApp((s) => s.findings);
   const cursor = usePlayback((state) => state.cursorHours);
   const mobile = useViewport();
-  const option = useMemo(() => (findings ? buildOption(findings, cursor, mobile) : null), [findings, cursor, mobile]);
-  if (!option) return null;
+  const [detailed, setDetailed] = useState(false);
+  const option = useMemo(
+    () => (findings && detailed ? buildOption(findings, cursor, mobile) : null),
+    [findings, cursor, mobile, detailed],
+  );
+  if (!findings) return null;
   return (
     <div>
-      <ReactECharts option={option} style={{ height: 330 }} notMerge lazyUpdate opts={{ renderer: 'svg' }} />
-      <div className="flex gap-5 justify-end font-sans text-[11px] text-ink-soft pr-2 -mt-1">
-        <span className="flex items-center gap-1.5">
-          <span className="w-3.5 h-2.5 inline-block rounded-[2px]" style={{ background: 'rgba(168,119,24,0.35)' }} />
-          close to your limits
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="w-3.5 h-2.5 inline-block rounded-[2px]" style={{ background: 'rgba(166,59,42,0.35)' }} />
-          beyond your limits
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="w-4 border-t-2 border-dashed inline-block" style={{ borderColor: '#A87718' }} />
-          the limit you set
-        </span>
-      </div>
+      <ConditionStrip findings={findings} cursor={cursor} />
+      <button
+        type="button"
+        onClick={() => setDetailed(!detailed)}
+        aria-expanded={detailed}
+        className="mt-2 font-sans text-[13px] text-ink-soft hover:text-ink underline underline-offset-2 min-h-11"
+      >
+        {detailed ? 'Hide detailed charts ▴' : 'Show detailed charts — wind · gusts · waves ▾'}
+      </button>
+      {detailed && option && (
+        <>
+          <ReactECharts option={option} style={{ height: 330 }} notMerge lazyUpdate opts={{ renderer: 'svg' }} />
+          <div className="flex gap-5 justify-end font-sans text-[11px] text-ink-soft pr-2 -mt-1">
+            <span className="flex items-center gap-1.5">
+              <span className="w-3.5 h-2.5 inline-block rounded-[2px]" style={{ background: 'rgba(168,119,24,0.35)' }} />
+              close to your limits
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-3.5 h-2.5 inline-block rounded-[2px]" style={{ background: 'rgba(166,59,42,0.35)' }} />
+              beyond your limits
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-4 border-t-2 border-dashed inline-block" style={{ borderColor: '#A87718' }} />
+              the limit you set
+            </span>
+          </div>
+        </>
+      )}
       <TimelineTable findings={findings} />
+    </div>
+  );
+}
+
+const STRIP_LABEL = { ok: 'fine', approaching: 'close to your limits', exceeded: 'beyond your limits', unknown: 'not assessed' };
+
+/** One glanceable bar: each stretch of the passage colored by its worst condition status. */
+function ConditionStrip({ findings, cursor }) {
+  const rows = collectRows(findings);
+  if (!rows.length) return null;
+  const t0 = rows[0].t;
+  const t1 = rows[rows.length - 1].t + 3600_000;
+  const pct = (t) => Math.min(100, Math.max(0, ((t - t0) / (t1 - t0)) * 100));
+
+  const merged = [];
+  for (const r of rows) {
+    const status = hourStatus(r.hour);
+    const last = merged[merged.length - 1];
+    if (last && last.status === status) last.to = r.t + 3600_000;
+    else merged.push({ from: r.t, to: r.t + 3600_000, status });
+  }
+
+  // one flag per event kind, max 3
+  const seen = new Set();
+  const flags = [];
+  for (const ev of findings.events ?? []) {
+    const label = EVENT_LABEL[ev.kind];
+    if (!label || seen.has(ev.kind) || !ev.window?.from) continue;
+    seen.add(ev.kind);
+    if (flags.length >= 3) break;
+    flags.push({ label, at: Date.parse(ev.window.from) });
+  }
+
+  const cursorTime = Date.parse(findings.departure_utc) + cursor * 3600_000;
+  const ticks = [];
+  for (let t = Math.ceil(t0 / (6 * 3600_000)) * 6 * 3600_000; t < t1; t += 6 * 3600_000) ticks.push(t);
+  const summary = merged
+    .map((m) => `${fmtHour(new Date(m.from).toISOString())}–${fmtHour(new Date(m.to).toISOString())} ${STRIP_LABEL[m.status]}`)
+    .join('; ');
+
+  return (
+    <div className="mt-3" data-testid="condition-strip">
+      <div className={flags.length ? 'relative h-6' : 'hidden'}>
+        {flags.map((f, i) => (
+          <span
+            key={f.label}
+            className="absolute -translate-x-1/2 font-sans text-[10px] text-paper px-1.5 py-0.5 rounded-sm whitespace-nowrap"
+            style={{ left: `${Math.min(94, Math.max(4, pct(f.at)))}%`, backgroundColor: '#A87718', top: i % 2 ? 2 : 0 }}
+          >
+            {f.label}
+          </span>
+        ))}
+      </div>
+      <div className="relative h-7 rounded-sm overflow-hidden border hairline" role="img" aria-label={`Conditions along your route: ${summary}`}>
+        {merged.map((m) => (
+          <div
+            key={m.from}
+            className="absolute top-0 bottom-0"
+            style={{
+              left: `${pct(m.from)}%`,
+              width: `${pct(m.to) - pct(m.from)}%`,
+              backgroundColor: STATUS_HEX[m.status],
+              opacity: m.status === 'ok' ? 0.45 : 0.8,
+            }}
+          />
+        ))}
+        {cursorTime >= t0 && cursorTime <= t1 && (
+          <div className="absolute top-0 bottom-0 w-[2px]" style={{ left: `${pct(cursorTime)}%`, backgroundColor: '#176B87' }} aria-hidden />
+        )}
+      </div>
+      <div className="relative h-4" aria-hidden>
+        {ticks.map((t) => (
+          <span key={t} className="absolute -translate-x-1/2 font-mono text-[10px] text-ink-soft" style={{ left: `${pct(t)}%` }}>
+            {fmtHour(new Date(t).toISOString())}
+          </span>
+        ))}
+      </div>
+      <div className="flex gap-5 justify-end font-sans text-[11px] text-ink-soft pr-2">
+        {['ok', 'approaching', 'exceeded'].map((s) => (
+          <span key={s} className="flex items-center gap-1.5">
+            <span
+              className="w-3.5 h-2.5 inline-block rounded-[2px]"
+              style={{ backgroundColor: STATUS_HEX[s], opacity: s === 'ok' ? 0.45 : 0.8 }}
+            />
+            {STRIP_LABEL[s]}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }
@@ -51,7 +157,8 @@ const EVENT_LABEL = {
   squall_potential: 'squalls?',
 };
 
-function buildOption(findings, cursorHours = 0, mobile = false) {
+/** hours inside each leg's nominal occupancy window, time-sorted */
+function collectRows(findings) {
   const rows = [];
   for (const leg of findings.legs) {
     const enter = Date.parse(leg.enter_range.nominal);
@@ -62,6 +169,11 @@ function buildOption(findings, cursorHours = 0, mobile = false) {
     }
   }
   rows.sort((a, b) => a.t - b.t);
+  return rows;
+}
+
+function buildOption(findings, cursorHours = 0, mobile = false) {
+  const rows = collectRows(findings);
 
   const gustLimit = findings.evidence.find(
     (e) => e.rule_id === 'W-GUST-01' || e.rule_id === 'W-GUST-03',
