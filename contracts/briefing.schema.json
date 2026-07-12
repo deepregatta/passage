@@ -20,9 +20,25 @@
           "evidence_ids": { "type": "array", "items": { "type": "string" } },
           "per_leg": { "type": "array", "items": { "type": "object" } },
           "glossary_terms": { "type": "array", "items": { "type": "string" } }
+          ,"availability": {
+            "type": "object",
+            "required": ["status"],
+            "properties": {
+              "status": { "enum": ["available", "unavailable"] },
+              "reason": { "type": "string" }
+            }
+          }
         }
       }
     },
-    "next_runs": { "type": "array", "items": { "type": "object" } }
+    "next_runs": { "type": "array", "items": { "type": "object" } },
+    "next_run": {
+      "type": "object",
+      "required": ["model", "expected_at"],
+      "properties": {
+        "model": { "type": "string" },
+        "expected_at": { "type": "string", "format": "date-time" }
+      }
+    }
   }
 }

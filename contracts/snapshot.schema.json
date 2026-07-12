@@ -24,6 +24,7 @@
         "changes": { "type": "string" },
         "route": { "type": "string" },
         "warnings": { "type": "string" },
+        "synoptic": { "type": "string" },
         "tides": { "type": "string" },
         "prepared": { "type": "array", "items": { "type": "string" } }
       }

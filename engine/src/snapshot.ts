@@ -83,6 +83,7 @@ export interface SnapshotExtras {
   route: Route;
   plume?: Plume;
   warnings?: unknown;
+  synoptic?: unknown;
   tides?: unknown;
 }
 
@@ -113,6 +114,10 @@ export async function writeSnapshot(
   if (extras.warnings !== undefined) {
     artifacts.warnings = 'warnings.json';
     await store.write(id, 'warnings.json', stringify(extras.warnings));
+  }
+  if (extras.synoptic !== undefined) {
+    artifacts.synoptic = 'synoptic.json';
+    await store.write(id, 'synoptic.json', stringify(extras.synoptic));
   }
   if (extras.tides !== undefined) {
     artifacts.tides = 'tides.json';

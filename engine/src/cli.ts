@@ -76,10 +76,12 @@ async function runCommand(args: Map<string, string>): Promise<number> {
     warnings = { doc, routeZoneIds, ref: warningsPath };
   }
 
-  // prepared artifacts: data/processed/runs/latest.json -> current grid + synoptic (skipped in fixture mode)
+  // prepared artifacts: live latest run, or deterministic fixture-local synoptic features.
   let currentGrid;
   let synoptic;
-  if (!fixtureDir) {
+  if (fixtureDir && existsSync(join(fixtureDir, 'synoptic.json'))) {
+    synoptic = JSON.parse(readFileSync(join(fixtureDir, 'synoptic.json'), 'utf8'));
+  } else if (!fixtureDir) {
     const latestPath = join(REPO_ROOT, 'data', 'processed', 'runs', 'latest.json');
     if (existsSync(latestPath)) {
       const latest = JSON.parse(readFileSync(latestPath, 'utf8'));

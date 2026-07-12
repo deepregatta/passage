@@ -19,7 +19,7 @@ import {
 } from '../src/fetch/openMeteo.js';
 import { deriveLegs, legMidpoints } from '../src/route.js';
 import { ENGINE_VERSION } from '../src/index.js';
-import type { LimitsProfile, Route, WarningsInput } from '../src/types.js';
+import type { LimitsProfile, Route, SynopticFeatures, WarningsInput } from '../src/types.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, '..', '..');
@@ -71,6 +71,12 @@ async function runScenario(name: string) {
     };
   }
 
+  let synoptic: SynopticFeatures | undefined;
+  const synopticPath = join(dir, 'synoptic.json');
+  if (existsSync(synopticPath)) {
+    synoptic = JSON.parse(readFileSync(synopticPath, 'utf8')) as SynopticFeatures;
+  }
+
   const findings = assembleFindings({
     route,
     profile,
@@ -83,10 +89,11 @@ async function runScenario(name: string) {
     marineMeta: marine.meta,
     multiModel: multi,
     warnings,
+    synoptic,
     engineVersion: ENGINE_VERSION,
     nowMs: FIXED_NOW,
   });
-  return { findings, briefing: renderBriefing(findings) };
+  return { findings, briefing: renderBriefing(findings, synoptic) };
 }
 
 describe('verdict-state harness: five scenarios -> five §7 states', () => {
@@ -108,6 +115,10 @@ describe('verdict-state harness: five scenarios -> five §7 states', () => {
     const ids = briefing.sections.map((s) => s.id);
     expect(ids[0]).toBe('warnings'); // authority section always first
     expect(ids).toContain('emulated_disclosure');
+    expect(findings.coverage?.find((item) => item.capability === 'official_warnings')?.status)
+      .toBe('assessed_emulated');
+    expect(findings.unsupported_hazards.join(' ')).not.toContain('official marine warnings');
+    expect(authorityEvidence[0]!.bulletin_ref?.zone_ids).toContain('casquets');
   });
 
   it('storm scenario: front signatures present (gust ramp + building seas)', async () => {
@@ -117,5 +128,14 @@ describe('verdict-state harness: five scenarios -> five §7 states', () => {
     expect(Math.max(...gusts)).toBeGreaterThan(30);
     const hs = allHours.map((h) => h.waves?.hs_m ?? 0);
     expect(Math.max(...hs)).toBeGreaterThan(2); // seas build behind the front, late passage
+    expect(findings.causal_events?.length).toBeGreaterThan(0);
+    expect(findings.causal_events?.[0]?.consequence.evidence_ids.length).toBeGreaterThan(0);
+  });
+
+  it('calm scenario without synoptic input has an explicit unavailable story', async () => {
+    const { briefing } = await runScenario('calm');
+    const story = briefing.sections.find((section) => section.id === 'synoptic_story');
+    expect(story?.availability?.status).toBe('unavailable');
+    expect(story?.register_plain).toContain('Causal attribution unavailable');
   });
 });

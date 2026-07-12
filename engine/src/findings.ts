@@ -18,7 +18,7 @@ import {
   type RegionGrid,
 } from './grids.js';
 import { contentHash } from './hash.js';
-import { interpolatePosition, wrap180 } from './geo.js';
+import { haversineNm, interpolatePosition, wrap180 } from './geo.js';
 import { squallPotential } from './hazards/convective.js';
 import { assessGates, type GateDef, type TidesDoc } from './hazards/tides.js';
 import { evaluateMinVisibility, fogRisk, visibilityNm } from './hazards/visibility.js';
@@ -44,12 +44,15 @@ import type {
 } from './fetch/openMeteo.js';
 import type {
   Evidence,
+  CapabilityCoverage,
+  CausalEvent,
   Findings,
   FindingsEvent,
   LegFinding,
   LegHour,
   LimitsProfile,
   Route,
+  SynopticFeatures,
   WarningsInput,
 } from './types.js';
 
@@ -70,12 +73,6 @@ export const RULES = {
 } as const;
 
 const DEFAULT_SCENARIO_FLOOR = 0.3;
-
-/** Hazards NOT assessed — stated in every report (brief §5/§6); entries drop out as inputs appear. */
-const UNSUPPORTED_BASE = ['tropical systems', 'ice'];
-const UNSUPPORTED_NO_CURRENTS = 'tidal currents (no prepared current grid)';
-const UNSUPPORTED_NO_WARNINGS = 'official marine warnings (no feed configured)';
-const UNSUPPORTED_NO_TIDES = 'tidal gates & HW/LW heights (no tide data)';
 
 export interface AssembleOptions {
   route: Route;
@@ -99,6 +96,8 @@ export interface AssembleOptions {
   /** tidal gates (M10): HW/LW predictions + named-gate timing rules */
   tides?: TidesDoc;
   gates?: GateDef[];
+  /** prepared synoptic system tracks used for conservative route attribution */
+  synoptic?: SynopticFeatures;
   engineVersion: string;
   /** injected clock (ms) for byte-stable goldens */
   nowMs: number;
@@ -734,6 +733,13 @@ export function assembleFindings(options: AssembleOptions): Findings {
         limit: null,
         units: null,
         source_kind: doc.source.mode === 'synthetic' ? 'emulated' : 'warning',
+        bulletin_ref: {
+          source: doc.source.name ?? 'official bulletin',
+          issued_at: doc.fetched_at,
+          valid_from: bulletin.valid_from,
+          valid_to: bulletin.valid_to,
+          zone_ids: [bulletin.zone_id],
+        },
       });
       events.push({
         kind: 'official_warning',
@@ -773,7 +779,8 @@ export function assembleFindings(options: AssembleOptions): Findings {
     });
   }
   const inputs = {
-    prepared_run_id: null,
+    prepared_run_id: options.synoptic?.run_id ?? grid?.run_id ?? null,
+    synoptic_run_id: options.synoptic?.run_id ?? null,
     openmeteo: allMeta,
     warnings_ref: options.warnings?.ref ?? null,
     route_hash: routeHash,
@@ -791,8 +798,22 @@ export function assembleFindings(options: AssembleOptions): Findings {
       ...(marineMeta ? [marineMeta.request_digest] : []),
       ...(multiModel ? [multiModel.meta.request_digest] : []),
       ...(grid ? [grid.run_id] : []),
+      ...(options.synoptic ? [options.synoptic.run_id] : []),
     ],
   }).slice(0, 8)}`;
+
+  const causalEvents = deriveCausalEvents(options.synoptic, legFindings, evidence);
+  const coverage = deriveCoverage({
+    evidence,
+    hasEnsemble: Boolean(legEnsembles),
+    hasMarine: Boolean(legMarine),
+    hasMultiModel: Boolean(multiModel),
+    warnings: options.warnings,
+    hasCurrents: Boolean(grid),
+    hasTides: Boolean(options.tides && options.gates),
+    hasSynoptic: Boolean(options.synoptic),
+    currentDetail: grid?.under_resolved_note,
+  });
 
   return {
     schema_version: 1,
@@ -807,15 +828,179 @@ export function assembleFindings(options: AssembleOptions): Findings {
     events,
     verdict,
     evidence,
+    coverage,
+    causal_events: causalEvents,
     ...(gateAssessments.length ? { gates: gateAssessments } : {}),
-    unsupported_hazards: [
-      ...UNSUPPORTED_BASE,
-      ...(grid ? [] : [UNSUPPORTED_NO_CURRENTS]),
-      ...(options.warnings ? [] : [UNSUPPORTED_NO_WARNINGS]),
-      ...(options.tides && options.gates ? [] : [UNSUPPORTED_NO_TIDES]),
-      ...(grid?.under_resolved_note ? [`under-resolved: ${grid.under_resolved_note}`] : []),
-    ],
+    unsupported_hazards: coverage
+      .filter((item) => item.status === 'not_assessed')
+      .map((item) => item.detail ?? item.capability.replaceAll('_', ' ')),
   };
+}
+
+interface CoverageInputs {
+  evidence: Evidence[];
+  hasEnsemble: boolean;
+  hasMarine: boolean;
+  hasMultiModel: boolean;
+  warnings?: WarningsInput;
+  hasCurrents: boolean;
+  hasTides: boolean;
+  hasSynoptic: boolean;
+  currentDetail?: string | null;
+}
+
+function deriveCoverage(input: CoverageInputs): CapabilityCoverage[] {
+  const ids = (rules: string[]) =>
+    input.evidence.filter((item) => rules.includes(item.rule_id)).map((item) => item.evidence_id);
+  const warningIds = ids([RULES.AUTHORITY]);
+  const warningStatus = !input.warnings
+    ? 'not_assessed'
+    : input.warnings.doc.source.mode === 'synthetic'
+      ? 'assessed_emulated'
+      : 'assessed';
+  return [
+    { capability: 'sustained_wind', status: 'assessed', evidence_ids: ids([RULES.SUSTAINED, RULES.SUSTAINED_ENSEMBLE]) },
+    { capability: 'gusts', status: input.hasEnsemble ? 'assessed' : 'partially_assessed', evidence_ids: ids([RULES.GUST, RULES.GUST_ENSEMBLE]) },
+    {
+      capability: 'waves',
+      status: input.hasMarine ? 'partially_assessed' : 'not_assessed',
+      detail: input.hasMarine
+        ? 'deterministic wave model only; no wave ensemble'
+        : 'waves (no marine forecast input)',
+      evidence_ids: ids([RULES.WAVE_HEIGHT, RULES.STEEPNESS, RULES.CROSS_SEA, RULES.WIND_AGAINST_SWELL]),
+    },
+    {
+      capability: 'visibility_and_convection',
+      status: input.hasMultiModel ? 'partially_assessed' : 'not_assessed',
+      detail: input.hasMultiModel
+        ? 'screening signals only; official warnings remain authoritative'
+        : 'visibility and convection (no supporting model input)',
+      evidence_ids: ids([RULES.VISIBILITY, RULES.SQUALL]),
+    },
+    {
+      capability: 'tidal_currents',
+      status: input.hasCurrents ? (input.currentDetail ? 'partially_assessed' : 'assessed') : 'not_assessed',
+      detail: input.hasCurrents
+        ? input.currentDetail ?? 'prepared current grid assessed'
+        : 'tidal currents (no prepared current grid)',
+      evidence_ids: ids([RULES.WIND_AGAINST_CURRENT]),
+    },
+    {
+      capability: 'tidal_gates',
+      status: input.hasTides ? 'assessed' : 'not_assessed',
+      detail: input.hasTides ? undefined : 'tidal gates & HW/LW heights (no tide data)',
+      evidence_ids: ids(['T-GATE-01']),
+    },
+    {
+      capability: 'official_warnings',
+      status: warningStatus,
+      detail:
+        warningStatus === 'not_assessed'
+          ? 'official marine warnings (no feed configured)'
+          : warningStatus === 'assessed_emulated'
+            ? 'synthetic bulletin scenario; not authority'
+            : 'official warning feed assessed for route zones',
+      evidence_ids: warningIds,
+    },
+    {
+      capability: 'synoptic_attribution',
+      status: input.hasSynoptic ? 'assessed' : 'not_assessed',
+      detail: input.hasSynoptic
+        ? 'system tracks assessed against the route ETA envelope'
+        : 'causal synoptic attribution (no prepared synoptic run)',
+    },
+    { capability: 'tropical_systems', status: 'not_assessed', detail: 'tropical systems' },
+    { capability: 'ice', status: 'not_assessed', detail: 'ice' },
+  ];
+}
+
+/**
+ * Attribute only evidence that is on the affected leg and inside the interval in
+ * which a tracked system is near the route. Broad weather-system influence is
+ * deliberately not inferred when there is no temporal and spatial overlap.
+ */
+function deriveCausalEvents(
+  synoptic: SynopticFeatures | undefined,
+  legs: LegFinding[],
+  evidence: Evidence[],
+): CausalEvent[] {
+  if (!synoptic) return [];
+  const causal: CausalEvent[] = [];
+  const HOUR = 3600_000;
+  for (const system of synoptic.systems) {
+    for (const leg of legs) {
+      const occupancyStart = Date.parse(leg.enter_range.fast);
+      // Findings are evaluated at whole forecast hours, including the ceiling
+      // hour that contains the slow ETA. Keep attribution on that same grid.
+      const occupancyEnd = Date.parse(leg.eta_range.slow) + HOUR;
+      const nearby = system.track.filter((point) => {
+        const time = Date.parse(point.valid_time);
+        return (
+          time >= occupancyStart - 3 * HOUR &&
+          time <= occupancyEnd + 3 * HOUR &&
+          haversineNm(point.lat, point.lon, leg.sample_point.lat, leg.sample_point.lon) <=
+            (system.kind === 'low' ? 420 : 300)
+        );
+      });
+      if (!nearby.length) continue;
+      const start = Math.max(
+        occupancyStart,
+        Math.min(...nearby.map((point) => Date.parse(point.valid_time))) - 3 * HOUR,
+      );
+      const end = Math.min(
+        occupancyEnd,
+        Math.max(...nearby.map((point) => Date.parse(point.valid_time))) + 3 * HOUR,
+      );
+      const attributed = evidence.filter((item) => {
+        if (item.leg_id !== leg.leg_id || !item.valid_time) return false;
+        const time = Date.parse(item.valid_time);
+        return time >= start && time <= end;
+      });
+      if (!attributed.length) continue;
+      const strongest = [...attributed].sort(evidenceMateriality)[0]!;
+      const pressure = nearby.reduce((best, point) =>
+        system.kind === 'low'
+          ? point.center_hpa < best.center_hpa ? point : best
+          : point.center_hpa > best.center_hpa ? point : best,
+      );
+      const value = typeof strongest.value === 'number' ? `${strongest.value} ${strongest.units ?? ''}`.trim() : String(strongest.value);
+      const limit = typeof strongest.limit === 'number' ? ` against your ${strongest.limit} ${strongest.units ?? ''} limit` : '';
+      const fractionText = strongest.member_fraction
+        ? `${strongest.member_fraction.exceed} of ${strongest.member_fraction.total} forecast scenarios cross your ${strongest.limit} ${strongest.units ?? ''} limit`
+        : `${value}${limit}`;
+      causal.push({
+        event_id: `CE${causal.length + 1}`,
+        name: `${system.kind === 'low' ? 'Low' : 'High'} ${system.system_id}`,
+        kind: system.kind,
+        system_id: system.system_id,
+        route_intersection: {
+          leg_id: leg.leg_id,
+          window_start: new Date(start).toISOString().replace(/\.\d{3}Z$/, 'Z'),
+          window_end: new Date(end).toISOString().replace(/\.\d{3}Z$/, 'Z'),
+          eta_sensitivity: round1(
+            (Date.parse(leg.eta_range.slow) - Date.parse(leg.eta_range.fast)) / HOUR,
+          ),
+        },
+        consequence: {
+          register_plain: `${fractionText} while ${system.kind === 'low' ? 'the low' : 'the high'} intersects ${leg.name}.`,
+          register_pro: `${system.system_id} (${Math.round(pressure.center_hpa)} hPa) is within the conservative route-attribution radius during ${new Date(start).toISOString()}–${new Date(end).toISOString()}; only same-leg evidence inside that window is attributed.`,
+          evidence_ids: attributed.map((item) => item.evidence_id),
+        },
+      });
+    }
+  }
+  return causal;
+}
+
+function evidenceMateriality(a: Evidence, b: Evidence): number {
+  const ratio = (item: Evidence) => {
+    if (item.member_fraction) return item.member_fraction.exceed / item.member_fraction.total;
+    if (typeof item.value === 'number' && typeof item.limit === 'number' && item.limit !== 0) {
+      return item.value / item.limit;
+    }
+    return 0;
+  };
+  return ratio(b) - ratio(a);
 }
 
 const round1 = (x: number) => Math.round(x * 10) / 10;

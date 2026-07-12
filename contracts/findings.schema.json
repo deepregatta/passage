@@ -17,6 +17,7 @@
       "required": ["route_hash", "profile_hash"],
       "properties": {
         "prepared_run_id": { "type": ["string", "null"] },
+        "synoptic_run_id": { "type": ["string", "null"] },
         "openmeteo": { "type": "array", "items": { "type": "object" } },
         "warnings_ref": { "type": ["string", "null"] },
         "route_hash": { "type": "string" },
@@ -94,6 +95,62 @@
             "properties": {
               "exceed": { "type": "integer", "minimum": 0 },
               "total": { "type": "integer", "minimum": 1 }
+            }
+          },
+          "bulletin_ref": {
+            "type": "object",
+            "required": ["source", "issued_at", "valid_from", "valid_to", "zone_ids"],
+            "properties": {
+              "source": { "type": "string" },
+              "issued_at": { "type": "string", "format": "date-time" },
+              "valid_from": { "type": "string", "format": "date-time" },
+              "valid_to": { "type": "string", "format": "date-time" },
+              "zone_ids": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        }
+      }
+    },
+    "coverage": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["capability", "status"],
+        "properties": {
+          "capability": { "type": "string" },
+          "status": { "enum": ["assessed", "assessed_emulated", "partially_assessed", "not_assessed"] },
+          "detail": { "type": "string" },
+          "evidence_ids": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "causal_events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["event_id", "name", "kind", "consequence"],
+        "properties": {
+          "event_id": { "type": "string" },
+          "name": { "type": "string" },
+          "kind": { "enum": ["low", "high", "front", "regime", "gate", "wind_against_current"] },
+          "system_id": { "type": "string" },
+          "route_intersection": {
+            "type": "object",
+            "required": ["leg_id", "window_start", "window_end", "eta_sensitivity"],
+            "properties": {
+              "leg_id": { "type": "string" },
+              "window_start": { "type": "string", "format": "date-time" },
+              "window_end": { "type": "string", "format": "date-time" },
+              "eta_sensitivity": { "type": "number", "minimum": 0 }
+            }
+          },
+          "consequence": {
+            "type": "object",
+            "required": ["register_plain", "register_pro", "evidence_ids"],
+            "properties": {
+              "register_plain": { "type": "string" },
+              "register_pro": { "type": "string" },
+              "evidence_ids": { "type": "array", "items": { "type": "string" } }
             }
           }
         }
