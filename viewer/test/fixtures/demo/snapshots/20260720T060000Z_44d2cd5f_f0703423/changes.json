@@ -289,7 +289,7 @@
     }
   ],
   "story": {
-    "headline_plain": "The assessment is still warning_active, but the timing or magnitude changed.",
+    "headline_plain": "The assessment is still warning active, but the timing or magnitude changed.",
     "headline_pro": "25 ledger entries ranked deterministically; 3 material changes promoted.",
     "material": [
       {
