@@ -3,6 +3,20 @@
   "snapshot_id": "20260712T060000Z_44d2cd5f_71240e89",
   "sections": [
     {
+      "id": "synoptic_story",
+      "title": "The weather system driving this",
+      "register_plain": "Causal attribution unavailable for this run — no prepared synoptic run was supplied.",
+      "register_pro": "Synoptic availability: unavailable (no prepared synoptic run was supplied). Route conditions and limit checks remain available, but this run does not attribute them to a weather system.",
+      "evidence_ids": [],
+      "glossary_terms": [
+        "model run"
+      ],
+      "availability": {
+        "status": "unavailable",
+        "reason": "no prepared synoptic run was supplied"
+      }
+    },
+    {
       "id": "route_impact",
       "title": "Route impact, leg by leg",
       "register_plain": "What the forecast means for each stretch of your passage:",
@@ -107,8 +121,8 @@
     {
       "id": "unsupported",
       "title": "Not assessed by this analysis",
-      "register_plain": "This briefing does NOT cover: tropical systems, ice, tidal currents (no prepared current grid), official marine warnings (no feed configured), tidal gates & HW/LW heights (no tide data). No warning here does not mean no risk.",
-      "register_pro": "Unassessed hazard classes: tropical systems; ice; tidal currents (no prepared current grid); official marine warnings (no feed configured); tidal gates & HW/LW heights (no tide data). Absence of a flag must not be read as absence of risk (brief §5).",
+      "register_plain": "This briefing does NOT cover: tidal currents (no prepared current grid), tidal gates & HW/LW heights (no tide data), official marine warnings (no feed configured), causal synoptic attribution (no prepared synoptic run), tropical systems, ice. Partly assessed: waves, visibility and convection. No warning here does not mean no risk.",
+      "register_pro": "Unassessed hazard classes: tidal currents (no prepared current grid); tidal gates & HW/LW heights (no tide data); official marine warnings (no feed configured); causal synoptic attribution (no prepared synoptic run); tropical systems; ice. Partial capability coverage: waves (deterministic wave model only; no wave ensemble); visibility_and_convection (screening signals only; official warnings remain authoritative). Absence of a flag must not be read as absence of risk (brief §5).",
       "evidence_ids": []
     }
   ],
@@ -117,5 +131,9 @@
       "model": "ecmwf_ifs025",
       "expected_at": "2026-07-11T20:00:00Z"
     }
-  ]
+  ],
+  "next_run": {
+    "model": "ecmwf_ifs025",
+    "expected_at": "2026-07-11T20:00:00Z"
+  }
 }
