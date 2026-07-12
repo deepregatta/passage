@@ -138,6 +138,7 @@ export interface CapabilityCoverage {
 
 export interface CausalEvent {
   event_id: string;
+  event_key?: string;
   name: string;
   kind: 'low' | 'high' | 'front' | 'regime' | 'gate' | 'wind_against_current';
   system_id?: string;

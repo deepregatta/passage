@@ -118,6 +118,9 @@ def accumulate_calibration(
         except (json.JSONDecodeError, OSError):
             existing = {}
         for record in existing.get("records", []):
+            classes = record.get("coverage_classes", {})
+            if classes and set(classes) <= {"emulated"}:
+                continue
             band = tuple(record.get("lead_band_h", ()))
             if len(band) != 2:
                 continue
@@ -134,6 +137,9 @@ def accumulate_calibration(
     # 2. Fold in the new pairs.
     skipped = 0
     for doc in verification_docs:
+        if doc.get("observation_source") == "emulated":
+            skipped += len(doc.get("pairs", []))
+            continue
         for pair in doc.get("pairs", []):
             lead_h = pair.get("lead_h")
             error = pair.get("error")
@@ -144,10 +150,13 @@ def accumulate_calibration(
             if band is None:
                 skipped += 1
                 continue
+            cls = pair.get("coverage_class", "not_independently_observed")
+            if cls == "emulated":
+                skipped += 1
+                continue
             key = (pair.get("variable", "wind_kt"), band, area)
             agg = aggs.setdefault(key, _Agg())
             agg.add_value(float(error))
-            cls = pair.get("coverage_class", "not_independently_observed")
             agg.add_classes({cls: 1})
 
     records: List[Dict[str, Any]] = []

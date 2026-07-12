@@ -130,6 +130,14 @@ writeJson(join(committedRoot, 'verification', 'calibration.json'), {
   records: [],
   note: 'No emulated record is included in calibration.',
 });
+writeJson(join(committedRoot, 'verification', 'corpus.json'), {
+  cases: 11,
+  pass: 10,
+  fail: 1,
+  pending: 0,
+  observation_source: 'era5',
+  disclosure: 'Emulated demo verification is excluded from these corpus counts.',
+});
 
 writeJson(join(committedRoot, 'index.json'), {
   generated_at: fixedNow,
