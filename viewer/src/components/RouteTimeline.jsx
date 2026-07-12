@@ -4,41 +4,48 @@ import { useApp } from '../stores/appStore.js';
 import { STATUS_HEX, hourStatus, fmtHour } from '../lib/format.js';
 
 /**
- * Passage timeline (mockup 1): wind + gusts vs declared gust limit, waves beneath,
- * hours colored by limit status, leg strip along the bottom (nominal schedule).
+ * Passage timeline, mockup style: three labeled rows (wind / gust / waves),
+ * limit line labeled at the right, amber/red status bands, event flags.
  */
 export default function RouteTimeline() {
   const findings = useApp((s) => s.findings);
   const option = useMemo(() => (findings ? buildOption(findings) : null), [findings]);
   if (!option) return null;
   return (
-    <ReactECharts option={option} style={{ height: 380 }} notMerge lazyUpdate opts={{ renderer: 'svg' }} />
+    <ReactECharts option={option} style={{ height: 330 }} notMerge lazyUpdate opts={{ renderer: 'svg' }} />
   );
 }
 
+const EVENT_LABEL = {
+  wind_against_current: 'wind over tide',
+  gate_conflict: 'gate closed',
+  gate_marginal: 'gate tight',
+  official_warning: 'warning',
+  model_divergence: 'models split',
+  squall_potential: 'squalls?',
+};
+
 function buildOption(findings) {
-  // stitch legs into one continuous nominal-schedule series
   const rows = [];
   for (const leg of findings.legs) {
     const enter = Date.parse(leg.enter_range.nominal);
     const exit = Date.parse(leg.eta_range.nominal);
     for (const hour of leg.hours) {
       const t = Date.parse(hour.valid_time);
-      if (t >= enter - 1800_000 && t <= exit + 1800_000) {
-        rows.push({ t, leg: leg.leg_id, hour });
-      }
+      if (t >= enter - 1800_000 && t <= exit + 1800_000) rows.push({ t, hour });
     }
   }
   rows.sort((a, b) => a.t - b.t);
 
-  const gustLimit = findings.evidence.find((e) => e.rule_id === 'W-GUST-01' || e.rule_id === 'W-GUST-03')
-    ?.limit;
+  const gustLimit = findings.evidence.find(
+    (e) => e.rule_id === 'W-GUST-01' || e.rule_id === 'W-GUST-03',
+  )?.limit;
 
   const wind = rows.map((r) => [r.t, r.hour.wind_kt]);
   const gust = rows.map((r) => [r.t, r.hour.gust_kt]);
   const hs = rows.map((r) => [r.t, r.hour.waves?.hs_m ?? null]);
 
-  // status read as background BANDS (approaching amber / exceeded red), not dots
+  // status bands (approaching amber / exceeded red)
   const bands = [];
   let bandStart = null;
   let bandStatus = null;
@@ -55,23 +62,62 @@ function buildOption(findings) {
   const bandAreas = bands.map((b) => [
     {
       xAxis: b.from,
-      itemStyle: { color: b.status === 'exceeded' ? 'rgba(166,59,42,0.14)' : 'rgba(168,119,24,0.14)' },
+      itemStyle: { color: b.status === 'exceeded' ? 'rgba(166,59,42,0.13)' : 'rgba(168,119,24,0.13)' },
     },
     { xAxis: b.to },
   ]);
 
-  const legMarks = findings.legs.map((leg) => ({
-    name: leg.leg_id,
-    xAxis: Date.parse(leg.enter_range.nominal),
-  }));
+  // event flags on the gust row (one per kind, first occurrence, max 3, staggered
+  // vertically so clustered events don't overlap)
+  const seenKinds = new Set();
+  const flags = [];
+  for (const ev of findings.events ?? []) {
+    const label = EVENT_LABEL[ev.kind];
+    if (!label || seenKinds.has(ev.kind) || !ev.window?.from) continue;
+    seenKinds.add(ev.kind);
+    if (flags.length >= 3) break;
+    flags.push({
+      name: label,
+      xAxis: Date.parse(ev.window.from),
+      yAxis: (gustLimit ?? 30) - flags.length * 9,
+      label: {
+        formatter: label,
+        position: flags.length % 2 === 0 ? 'top' : 'right',
+        color: '#F3EEE3',
+        backgroundColor: '#A87718',
+        padding: [2, 5],
+        borderRadius: 2,
+        fontFamily: 'system-ui',
+        fontSize: 10,
+      },
+      itemStyle: { color: '#A87718' },
+    });
+  }
 
   const ink = '#16283E';
   const soft = '#4C5D73';
-  const axis = {
-    axisLine: { lineStyle: { color: soft } },
+  const axisBase = {
+    axisLine: { lineStyle: { color: 'rgba(22,40,62,0.25)' } },
+    axisTick: { show: false },
     axisLabel: { color: soft, fontFamily: 'ui-monospace, monospace', fontSize: 10 },
-    splitLine: { lineStyle: { color: 'rgba(22,40,62,0.08)' } },
+    splitLine: { lineStyle: { color: 'rgba(22,40,62,0.07)' } },
   };
+  const rowName = (name, sub) => ({
+    name: `${name}\n${sub}`,
+    nameLocation: 'end',
+    nameTextStyle: {
+      color: ink,
+      fontFamily: 'system-ui',
+      fontSize: 11,
+      fontWeight: 600,
+      align: 'right',
+      padding: [0, 6, 0, 0],
+      lineHeight: 14,
+    },
+  });
+
+  const GRID_L = 88;
+  const GRID_R = 96;
 
   return {
     backgroundColor: 'transparent',
@@ -84,82 +130,73 @@ function buildOption(findings) {
       valueFormatter: (v) => (v == null ? '—' : String(v)),
     },
     grid: [
-      { left: 52, right: 16, top: 28, height: 190 },
-      { left: 52, right: 16, top: 258, height: 70 },
+      { left: GRID_L, right: GRID_R, top: 18, height: 78 },
+      { left: GRID_L, right: GRID_R, top: 112, height: 78 },
+      { left: GRID_L, right: GRID_R, top: 206, height: 58 },
     ],
-    xAxis: [
-      {
-        type: 'time',
-        gridIndex: 0,
-        ...axis,
-        axisLabel: { show: false },
-        axisTick: { show: false },
-      },
-      { type: 'time', gridIndex: 1, ...axis, axisLabel: { ...axis.axisLabel, formatter: (v) => fmtHour(new Date(v).toISOString()) } },
-    ],
+    xAxis: [0, 1, 2].map((i) => ({
+      type: 'time',
+      gridIndex: i,
+      ...axisBase,
+      axisLabel:
+        i === 2
+          ? { ...axisBase.axisLabel, formatter: (v) => fmtHour(new Date(v).toISOString()) }
+          : { show: false },
+    })),
     yAxis: [
-      { type: 'value', gridIndex: 0, name: 'kt', nameTextStyle: { color: soft }, ...axis },
-      { type: 'value', gridIndex: 1, name: 'Hs m', nameTextStyle: { color: soft }, ...axis },
+      { type: 'value', gridIndex: 0, ...axisBase, ...rowName('Wind', 'kt sustained') },
+      { type: 'value', gridIndex: 1, ...axisBase, ...rowName('Gust', 'kt') },
+      { type: 'value', gridIndex: 2, ...axisBase, ...rowName('Waves', 'Hs m') },
     ],
     series: [
       {
-        name: 'sustained wind',
+        name: 'wind',
         type: 'line',
         xAxisIndex: 0,
         yAxisIndex: 0,
         data: wind,
         showSymbol: false,
-        lineStyle: { color: ink, width: 1.6 },
-        markArea: bandAreas.length
-          ? { silent: true, data: bandAreas }
-          : undefined,
-        markLine: {
-          silent: true,
-          symbol: 'none',
-          data: legMarks,
-          lineStyle: { color: 'rgba(22,40,62,0.35)', type: 'dashed', width: 1 },
-          label: {
-            formatter: (p) => p.name,
-            color: soft,
-            fontFamily: 'ui-monospace, monospace',
-            fontSize: 10,
-            position: 'insideEndTop',
-          },
-        },
+        lineStyle: { color: ink, width: 2 },
+        markArea: bandAreas.length ? { silent: true, data: bandAreas } : undefined,
       },
       {
         name: 'gusts',
         type: 'line',
-        xAxisIndex: 0,
-        yAxisIndex: 0,
+        xAxisIndex: 1,
+        yAxisIndex: 1,
         data: gust,
         showSymbol: false,
-        lineStyle: { color: '#A63B2A', width: 1.2, opacity: 0.85 },
+        lineStyle: { color: '#A63B2A', width: 2 },
+        markArea: bandAreas.length ? { silent: true, data: bandAreas } : undefined,
         markLine: gustLimit
           ? {
               silent: true,
               symbol: 'none',
               data: [{ yAxis: gustLimit }],
-              lineStyle: { color: '#A87718', type: 'dashed', width: 1.5 },
+              lineStyle: { color: '#A87718', type: 'dashed', width: 1.6 },
               label: {
-                formatter: `your limit · ${gustLimit} kt`,
-                position: 'insideStartTop',
+                formatter: `${gustLimit} kt\nyour limit`,
+                position: 'end',
                 color: '#A87718',
                 fontFamily: 'ui-monospace, monospace',
                 fontSize: 10,
+                lineHeight: 13,
               },
             }
           : undefined,
+        markPoint: flags.length
+          ? { symbol: 'pin', symbolSize: 18, data: flags, silent: true }
+          : undefined,
       },
       {
-        name: 'significant wave height',
+        name: 'waves',
         type: 'line',
-        xAxisIndex: 1,
-        yAxisIndex: 1,
+        xAxisIndex: 2,
+        yAxisIndex: 2,
         data: hs,
         showSymbol: false,
-        areaStyle: { color: 'rgba(220,229,230,0.7)' },
-        lineStyle: { color: soft, width: 1.2 },
+        areaStyle: { color: 'rgba(76,93,115,0.18)' },
+        lineStyle: { color: soft, width: 1.6 },
       },
     ],
   };
