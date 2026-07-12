@@ -119,6 +119,19 @@ for (const [name, id, sourceName] of [
   writeJson(manifestPath, manifest);
 }
 
+// Install the pair into the live app data so the demo is openable from My briefings
+// (snapshots are write-once: remove any previous copy of these two ids first).
+const liveSnapshots = join(repo, 'data', 'processed', 'snapshots');
+mkdirSync(liveSnapshots, { recursive: true });
+for (const id of [previousId, latestId]) {
+  const target = join(liveSnapshots, id);
+  rmSync(target, { recursive: true, force: true });
+  cpSync(join(committedRoot, 'snapshots', id), target, { recursive: true });
+}
+const liveCases = join(repo, 'data', 'processed', 'verification', 'cases');
+mkdirSync(liveCases, { recursive: true });
+writeJson(join(liveCases, `${latestId}.json`), verificationCase);
+
 mkdirSync(join(committedRoot, 'verification', 'cases'), { recursive: true });
 writeJson(join(committedRoot, 'verification', 'cases', `${latestId}.json`), verificationCase);
 writeJson(join(committedRoot, 'verification', 'cases', 'index.json'), {

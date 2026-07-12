@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "-w", "viewer"],
       "port": 5174
+    },
+    {
+      "name": "viewer-alt",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "-w", "viewer", "--", "--port", "5199"],
+      "port": 5199
     }
   ]
 }

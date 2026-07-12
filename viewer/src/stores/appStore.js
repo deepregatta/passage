@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { initialPage } from '../lib/routes.js';
 
 async function fetchJson(url) {
   const response = await fetch(url);
@@ -7,7 +8,7 @@ async function fetchJson(url) {
 }
 
 export const useApp = create((set, get) => ({
-  page: 'snapshots', // snapshots | briefing | evidence | settings
+  page: initialPage(), // stage 01 (plan a passage) unless the URL deep-links elsewhere
   manifest: null,
   manifestError: null,
 

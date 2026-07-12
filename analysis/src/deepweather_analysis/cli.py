@@ -135,6 +135,25 @@ def cmd_scenario(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_extract_polar(args: argparse.Namespace) -> int:
+    from .polars import extract_polar
+
+    path = extract_polar(args.query, args.id)
+    print(f"polar: {path}")
+    return 0
+
+
+def cmd_build_polar_db(_args: argparse.Namespace) -> int:
+    from .polars import build_polar_db, default_db_output_dir
+
+    summary = build_polar_db()
+    print(
+        f"polar db: {summary['types']} boat types + {summary['generics']} length generics "
+        f"from {summary['certs']} ORC certificates -> {default_db_output_dir()}"
+    )
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="deepweather-analysis")
     parser.add_argument("--version", action="version", version=__version__)
@@ -195,6 +214,19 @@ def main(argv: list[str] | None = None) -> int:
     )
     verify_parser.add_argument("--snapshot", default=None, help="snapshot id substring (default latest)")
     verify_parser.set_defaults(func=cmd_verify)
+
+    extract_parser = subparsers.add_parser(
+        "extract-polar", help="ORC database -> config/polars/<slug>.json"
+    )
+    extract_parser.add_argument("query", help="boat model or name, e.g. 'SUN FAST 3200'")
+    extract_parser.add_argument("--id", default=None, help="override the polar slug")
+    extract_parser.set_defaults(func=cmd_extract_polar)
+
+    polar_db_parser = subparsers.add_parser(
+        "build-polar-db",
+        help="publish the whole ORC db: per-type polars + length generics + search index",
+    )
+    polar_db_parser.set_defaults(func=cmd_build_polar_db)
 
     scenario_parser = subparsers.add_parser(
         "scenario", help="generate synthetic scenario bundles (verdict-state harness)"

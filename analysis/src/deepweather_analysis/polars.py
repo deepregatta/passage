@@ -38,6 +38,7 @@ __all__ = [
     "normalize_model",
     "extract_polar",
     "search_orc",
+    "build_polar_db",
     "default_polars_file",
     "MatchResult",
 ]
@@ -733,3 +734,222 @@ def search_orc(
 
     ranked = sorted(scored.items(), key=lambda item: item[1], reverse=True)
     return [{"name": name, "type": boat_type} for (name, boat_type), _ in ranked[:limit]]
+
+
+# ---------------------------------------------------------------------------
+# Full-database publication: every ORC boat type + length-bucket generics
+# ---------------------------------------------------------------------------
+
+# LOA buckets for generic cruiser polars (metres); each generic is the
+# per-cell median across every certificate in the bucket (one uniform
+# angles×speeds grid across the whole 2025 db).
+LOA_BUCKETS_M: list[tuple[float, float]] = [
+    (0.0, 8.0),
+    (8.0, 9.0),
+    (9.0, 10.0),
+    (10.0, 11.0),
+    (11.0, 12.0),
+    (12.0, 14.0),
+    (14.0, 99.0),
+]
+
+
+def _bucket_label(lo: float, hi: float) -> str:
+    to_ft = 3.28084
+    if lo <= 0:
+        return f"Generic cruiser under {hi:g} m (under {round(hi * to_ft)} ft)"
+    if hi >= 99:
+        return f"Generic cruiser over {lo:g} m (over {round(lo * to_ft)} ft)"
+    return f"Generic cruiser {lo:g}–{hi:g} m ({round(lo * to_ft)}–{round(hi * to_ft)} ft)"
+
+
+def default_db_output_dir() -> Path:
+    """Where the published full polar database lives (served at /data/polars)."""
+    return data_root() / "processed" / "polars"
+
+
+def _median(values: list[float]) -> float:
+    ordered = sorted(values)
+    mid = len(ordered) // 2
+    if len(ordered) % 2:
+        return ordered[mid]
+    return (ordered[mid - 1] + ordered[mid]) / 2
+
+
+def _artifact(polar_id: str, label: str, polars: dict, source: dict) -> dict:
+    tws_kt, twa_deg, speeds_kt = polar_table_to_axes(polars)
+    return {
+        "schema_version": 1,
+        "polar_id": polar_id,
+        "label": label,
+        "tws_kt": tws_kt,
+        "twa_deg": twa_deg,
+        "speeds_kt": speeds_kt,
+        "source": source,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+def build_polar_db(
+    *,
+    polars_file: Path | None = None,
+    out_dir: Path | None = None,
+) -> dict:
+    """Publish the whole vendored ORC db for the viewer.
+
+    - one artifact per boat TYPE (median-GPH certificate of the group) under
+      <out_dir>/boats/<slug>.json
+    - generic cruiser polars per LOA bucket (median of every certificate in
+      the bucket) under <out_dir>/boats/
+    - a compact search index at <out_dir>/index.json
+
+    Returns summary counts.
+    """
+    from jsonschema import Draft202012Validator
+
+    source_file = polars_file or default_polars_file()
+    with open(source_file, "r", encoding="utf-8") as f:
+        content = f.read()
+    try:
+        records = json.loads(content)
+    except json.JSONDecodeError:
+        import ast
+
+        records = ast.literal_eval(content)
+
+    schema = json.loads(
+        (contracts_dir() / "polar.schema.json").read_text(encoding="utf-8")
+    )
+    validator = Draft202012Validator(schema)
+
+    target = out_dir or default_db_output_dir()
+    boats_dir = target / "boats"
+    boats_dir.mkdir(parents=True, exist_ok=True)
+
+    # ---- group certificates by normalized boat type ----
+    groups: dict[str, list[dict]] = {}
+    for record in records:
+        boat_type = str(record.get("boat", {}).get("type") or "").strip()
+        if not boat_type or not record.get("vpp"):
+            continue
+        groups.setdefault(normalize_model(boat_type), []).append(record)
+
+    index_entries: list[dict] = []
+    seen_slugs: set[str] = set()
+    written = 0
+
+    for norm_type, group in groups.items():
+        # display label: most common raw casing in the group
+        casings: dict[str, int] = {}
+        for record in group:
+            raw = str(record["boat"]["type"]).strip()
+            casings[raw] = casings.get(raw, 0) + 1
+        label = max(casings.items(), key=lambda item: (item[1], item[0]))[0]
+
+        # representative certificate: median GPH (typical performance for the type)
+        rated = sorted(group, key=lambda r: r.get("rating", {}).get("gph") or 0.0)
+        rep = rated[len(rated) // 2]
+
+        slug = _slugify(label)
+        while slug in seen_slugs:  # rare cross-type collisions after slugify
+            slug = f"{slug}-{norm_type[:6].lower() or 'x'}"
+        seen_slugs.add(slug)
+
+        polars = transform_orc_vpp(rep["vpp"])
+        if not polars:
+            continue
+        artifact = _artifact(
+            slug,
+            label,
+            polars,
+            {
+                "kind": "orc_vpp",
+                "match_type": "type_group",
+                "matched_value": label,
+                "detail": f"median-GPH certificate of {len(group)} ORC 2025 cert(s)",
+            },
+        )
+        validator.validate(artifact)
+        (boats_dir / f"{slug}.json").write_text(
+            json.dumps(artifact, separators=(",", ":")) + "\n", encoding="utf-8"
+        )
+        written += 1
+
+        sizes = rep.get("boat", {}).get("sizes", {})
+        index_entries.append(
+            {
+                "polar_id": slug,
+                "label": label,
+                "kind": "orc_vpp",
+                "loa_m": round(float(sizes.get("loa") or 0.0), 2) or None,
+                "builder": str(rep["boat"].get("builder") or "").strip() or None,
+                "year": rep["boat"].get("year") or None,
+                "certs": len(group),
+            }
+        )
+
+    # ---- generic length-bucket polars ----
+    generics = 0
+    for lo, hi in LOA_BUCKETS_M:
+        bucket = [
+            r
+            for r in records
+            if r.get("vpp") and lo <= float(r.get("boat", {}).get("sizes", {}).get("loa") or 0.0) < hi
+        ]
+        if len(bucket) < 5:
+            continue
+        tables = [transform_orc_vpp(r["vpp"]) for r in bucket]
+        first = tables[0]
+        median_table = {
+            tws: {
+                twa: round(_median([t[tws][twa] for t in tables if tws in t and twa in t[tws]]), 3)
+                for twa in row
+            }
+            for tws, row in first.items()
+        }
+        label = _bucket_label(lo, hi)
+        slug = _slugify(label)
+        artifact = _artifact(
+            slug,
+            label,
+            median_table,
+            {
+                "kind": "generic",
+                "match_type": "loa_bucket",
+                "matched_value": f"{lo:g}-{hi:g} m",
+                "detail": f"median of {len(bucket)} ORC 2025 certificates in this length range",
+            },
+        )
+        validator.validate(artifact)
+        (boats_dir / f"{slug}.json").write_text(
+            json.dumps(artifact, separators=(",", ":")) + "\n", encoding="utf-8"
+        )
+        index_entries.append(
+            {
+                "polar_id": slug,
+                "label": label,
+                "kind": "generic",
+                "loa_m": round((lo + min(hi, 20.0)) / 2, 1),
+                "builder": None,
+                "year": None,
+                "certs": len(bucket),
+            }
+        )
+        generics += 1
+
+    index_entries.sort(key=lambda item: (item["kind"] != "generic", item["label"].lower()))
+    (target / "index.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "source": "ORC 2025 VPP database (vendored)",
+                "polars": index_entries,
+            },
+            separators=(",", ":"),
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    return {"types": written, "generics": generics, "certs": len(records)}
