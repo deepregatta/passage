@@ -34,9 +34,19 @@ from .paths import cache_dir
 
 logger = logging.getLogger(__name__)
 
-# Request shape: keep it small — 3 params x 31 steps of one cycle.
+# Request shape: 3 params x one cycle's published steps. ECMWF open data
+# publishes 00Z/12Z cycles 3-hourly to 144 h then 6-hourly to 240 h (10 days);
+# 06Z/18Z cycles stop at 90 h. Request whatever the cycle actually offers.
 PARAMS = ["msl", "10u", "10v"]
-STEPS = list(range(0, 91, 3))
+STEPS_SHORT = list(range(0, 91, 3))
+STEPS_LONG = list(range(0, 145, 3)) + list(range(150, 241, 6))
+# Backwards-compatible alias (short set is valid for every cycle).
+STEPS = STEPS_SHORT
+
+
+def steps_for_cycle(cycle_time: datetime) -> list[int]:
+    """The step list a given cycle publishes (00Z/12Z reach 240 h)."""
+    return STEPS_LONG if cycle_time.hour in (0, 12) else STEPS_SHORT
 
 # North Atlantic crop window (route-independent synoptic board).
 WINDOW: Dict[str, float] = {
@@ -164,7 +174,7 @@ def _load_cached(cycle: str) -> Tuple[xr.Dataset, Dict[str, Any]] | None:
 
 
 def fetch_fields(
-    cycle: str | None = None, *, force: bool = False
+    cycle: str | None = None, *, force: bool = False, prefer_long: bool = False
 ) -> Tuple[xr.Dataset, Dict[str, Any]]:
     """
     Fetch (or load from cache) one IFS 0.25 open-data cycle, cropped to the
@@ -174,6 +184,9 @@ def fetch_fields(
         cycle: cycle label like '20260712T00Z'; None = latest available
                (resolved by the client; the resolved cycle is recorded).
         force: re-download even when a cache entry exists.
+        prefer_long: with cycle=None, resolve the latest 00Z/12Z cycle whose
+               full 240 h step set is published (up to ~12 h older than the
+               freshest 06Z/18Z cycle, but 10 days deep instead of ~4).
 
     Returns:
         (dataset, meta): normalised xarray Dataset (msl hPa, u10/v10 m/s) and
@@ -183,7 +196,11 @@ def fetch_fields(
     from ecmwf.opendata import Client
 
     client = Client(source="ecmwf", model=MODEL, resol=RESOL)
-    request: Dict[str, Any] = {"type": "fc", "param": PARAMS, "step": STEPS}
+    request: Dict[str, Any] = {
+        "type": "fc",
+        "param": PARAMS,
+        "step": STEPS_LONG if prefer_long else STEPS_SHORT,
+    }
 
     if cycle is None:
         cycle_time = client.latest(**request)
@@ -204,15 +221,29 @@ def fetch_fields(
     cache_root.mkdir(parents=True, exist_ok=True)
     grib_path = cache_root / "fields.grib2"
 
-    request.update({"date": cycle_time.strftime("%Y-%m-%d"), "time": cycle_time.hour})
+    steps = steps_for_cycle(cycle_time)
+    request.update(
+        {"date": cycle_time.strftime("%Y-%m-%d"), "time": cycle_time.hour, "step": steps}
+    )
     logger.info(
-        "Retrieving ECMWF open data %s (%d params x %d steps)",
+        "Retrieving ECMWF open data %s (%d params x %d steps, to +%d h)",
         cycle,
         len(PARAMS),
-        len(STEPS),
+        len(steps),
+        steps[-1],
     )
     fetch_started = datetime.now(timezone.utc)
-    client.retrieve(request, str(grib_path))
+    try:
+        client.retrieve(request, str(grib_path))
+    except Exception:
+        if steps == STEPS_SHORT:
+            raise
+        # a 00Z/12Z cycle whose long tail is not fully published yet: take the
+        # guaranteed short set rather than failing the whole prepare-run
+        logger.warning("Long step set unavailable for %s; falling back to 0–90 h", cycle)
+        steps = list(STEPS_SHORT)
+        request["step"] = steps
+        client.retrieve(request, str(grib_path))
     fetched_at = datetime.now(timezone.utc)
 
     try:
@@ -243,7 +274,7 @@ def fetch_fields(
         "licence": LICENCE,
         "dataset_id": DATASET_ID,
         "params": list(PARAMS),
-        "steps_h": list(STEPS),
+        "steps_h": list(steps),
         "window": dict(WINDOW),
         # Cycle nominal time vs wall clock at fetch: upper bound on how long
         # after the cycle the data became available (true publication lag is
@@ -258,6 +289,9 @@ def fetch_fields(
 __all__ = [
     "PARAMS",
     "STEPS",
+    "STEPS_SHORT",
+    "STEPS_LONG",
+    "steps_for_cycle",
     "WINDOW",
     "DATASET_ID",
     "LICENCE",

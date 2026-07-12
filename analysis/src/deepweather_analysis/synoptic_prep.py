@@ -195,6 +195,7 @@ def prepare_synoptic(
     *,
     panel_steps: Sequence[int] = DEFAULT_PANEL_STEPS,
     force: bool = False,
+    prefer_long: bool = False,
 ) -> Dict[str, Any]:
     """
     Run the full synoptic prep for one ECMWF open-data cycle and publish the
@@ -209,7 +210,7 @@ def prepare_synoptic(
         summary dict {run_id, cycle, publication_lag_minutes, systems,
         regimes, charts, artifact paths, latest}.
     """
-    ds, meta = fetch_fields(cycle, force=force)
+    ds, meta = fetch_fields(cycle, force=force, prefer_long=prefer_long)
     cycle_label = meta["cycle"]
     cycle_time = parse_cycle(cycle_label)
     run_id = f"{RUN_ID_PREFIX}-{cycle_label}"

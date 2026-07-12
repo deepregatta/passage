@@ -52,7 +52,7 @@ def cmd_fetch_currents(args: argparse.Namespace) -> int:
 def cmd_prepare_run(args: argparse.Namespace) -> int:
     from .synoptic_prep import prepare_synoptic
 
-    summary = prepare_synoptic(cycle=args.cycle, force=args.force)
+    summary = prepare_synoptic(cycle=args.cycle, force=args.force, prefer_long=args.long)
     print(f"prepared run {summary.get('run_id')}")
     for key in ("systems", "charts", "publication_lag_min"):
         if key in summary:
@@ -185,6 +185,11 @@ def main(argv: list[str] | None = None) -> int:
         "prepare-run", help="ECMWF cycle -> synoptic features + charts + wind grid + manifest"
     )
     prepare_parser.add_argument("--cycle", default=None, help="e.g. 20260712T00Z (default latest)")
+    prepare_parser.add_argument(
+        "--long",
+        action="store_true",
+        help="use the latest 00Z/12Z cycle (10-day horizon) instead of the freshest cycle (~4 days on 06Z/18Z)",
+    )
     prepare_parser.add_argument("--force", action="store_true")
     prepare_parser.set_defaults(func=cmd_prepare_run)
 

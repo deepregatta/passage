@@ -543,7 +543,78 @@ export default function Planner() {
           }}
         />
       )}
+
+      <ModelsUsed />
     </div>
+  );
+}
+
+/** which forecast models feed each calculation on this page — plain first, ids in mono */
+function ModelsUsed() {
+  const [run, setRun] = useState(null);
+  useEffect(() => {
+    loadJson('/data/runs/latest.json')
+      .then((latest) =>
+        latest?.artifacts?.run_manifest ? loadJson(`/data/${latest.artifacts.run_manifest}`) : null,
+      )
+      .then(setRun)
+      .catch(() => {});
+  }, []);
+  const lastStep = run?.steps_h?.[run.steps_h.length - 1];
+  const mono = (text) => <span className="font-mono text-[11px] text-ink-soft">{text}</span>;
+
+  return (
+    <details className="mt-6 border-t border-ink/40 pt-3">
+      <summary className="font-instrument font-semibold uppercase tracking-wider cursor-pointer">
+        Which models are behind these numbers?
+      </summary>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 mt-3 font-sans text-[13px] leading-relaxed max-w-[1100px]">
+        <div>
+          <p className="eyebrow mb-1.5">Checking a passage · comparing departures</p>
+          <ul className="space-y-1.5">
+            <li>
+              Winds and gusts along your route: ECMWF IFS 0.25° {mono('ecmwf_ifs025')} — fetched
+              live, reaches ~15 days ahead.
+            </li>
+            <li>
+              The “N of 51 forecast scenarios”: the ECMWF ensemble — 51 equally plausible runs of
+              the same model {mono('ecmwf_ifs025 · 51 members')} — also ~15 days.
+            </li>
+            <li>
+              The cross-check behind “models disagree”: ECMWF against GFS{' '}
+              {mono('gfs_global · ~16 days')} and ICON-EU {mono('icon_eu · ~5 days')}. Beyond ICON-EU's
+              horizon the check continues with ECMWF vs GFS alone.
+            </li>
+            <li>Waves: Open-Meteo's marine wave model {mono('marine-api best match')}.</li>
+            <li>
+              Tidal streams and gates: CMEMS IBI currents; gate timing from synthetic constituents{' '}
+              <span className="stamp-emulated">emulated</span>.
+            </li>
+            <li>
+              Official warnings: Météo-France BMS <span className="stamp-emulated">emulated</span>{' '}
+              in this prototype.
+            </li>
+          </ul>
+        </div>
+        <div>
+          <p className="eyebrow mb-1.5">Computing a route (and per-departure routes)</p>
+          <ul className="space-y-1.5">
+            <li>
+              Routing wind: the locally prepared ECMWF IFS 0.25° grid
+              {run ? <> — run {mono(run.cycle ?? run.run_id)}{typeof lastStep === 'number' && <>, reaching {mono(`+${lastStep} h (~${Math.round(lastStep / 24)} days)`)}</>}</> : null}.
+              Routes beyond this grid cannot be computed — the departure calendar says so when it
+              happens.
+            </li>
+            <li>Your boat: the ORC polar you picked, used as-is by the router.</li>
+            <li>Currents: CMEMS IBI forecast currents, when the prepared grid covers the window.</li>
+            <li className="text-ink-soft">
+              Refresh the prepared grid with {mono('deepweather-analysis prepare-run --long')} —
+              00Z/12Z cycles reach 10 days; 06Z/18Z cycles stop at ~4 days.
+            </li>
+          </ul>
+        </div>
+      </div>
+    </details>
   );
 }
 
