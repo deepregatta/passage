@@ -99,6 +99,62 @@ export interface WarningsInput {
   ref: string;
 }
 
+export interface SynopticTrackPoint {
+  step_h?: number;
+  valid_time: string;
+  lat: number;
+  lon: number;
+  center_hpa: number;
+}
+
+export interface SynopticFeatures {
+  schema_version?: number;
+  run_id: string;
+  generated_at?: string;
+  systems: Array<{
+    system_id: string;
+    kind: 'low' | 'high';
+    track: SynopticTrackPoint[];
+    deepening_hpa_per_24h?: number | null;
+    motion?: { dir_deg: number; speed_kt: number } | null;
+  }>;
+  regimes: Array<{ regime_id: string; rule_id: string }>;
+  route_transitions?: unknown[];
+  chart_captions?: Array<Record<string, unknown>>;
+}
+
+export type CoverageStatus =
+  | 'assessed'
+  | 'assessed_emulated'
+  | 'partially_assessed'
+  | 'not_assessed';
+
+export interface CapabilityCoverage {
+  capability: string;
+  status: CoverageStatus;
+  detail?: string;
+  evidence_ids?: string[];
+}
+
+export interface CausalEvent {
+  event_id: string;
+  name: string;
+  kind: 'low' | 'high' | 'front' | 'regime' | 'gate' | 'wind_against_current';
+  system_id?: string;
+  route_intersection?: {
+    leg_id: string;
+    window_start: string;
+    window_end: string;
+    /** difference between slow and fast ETA at the end of the affected leg */
+    eta_sensitivity: number;
+  };
+  consequence: {
+    register_plain: string;
+    register_pro: string;
+    evidence_ids: string[];
+  };
+}
+
 export interface Evidence {
   evidence_id: string;
   rule_id: string;
@@ -111,6 +167,13 @@ export interface Evidence {
   units: string | null;
   source_kind: SourceKind;
   member_fraction?: { exceed: number; total: number };
+  bulletin_ref?: {
+    source: string;
+    issued_at: string;
+    valid_from: string;
+    valid_to: string;
+    zone_ids: string[];
+  };
 }
 
 export type ConditionStatus = 'ok' | 'approaching' | 'exceeded' | 'unknown';
@@ -210,6 +273,7 @@ export interface Findings {
   generated_at: string;
   inputs: {
     prepared_run_id: string | null;
+    synoptic_run_id?: string | null;
     openmeteo: Array<Record<string, unknown>>;
     warnings_ref: string | null;
     route_hash: string;
@@ -223,6 +287,8 @@ export interface Findings {
     warning_override: { active: boolean; bulletin_ref: string | null };
   };
   evidence: Evidence[];
+  coverage?: CapabilityCoverage[];
+  causal_events?: CausalEvent[];
   /** named tidal-gate assessments (M10+) */
   gates?: GateResult[];
   unsupported_hazards: string[];

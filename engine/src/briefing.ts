@@ -11,7 +11,7 @@
  */
 
 import { fraction, phraseExceedance } from './exceedance.js';
-import type { Evidence, Findings } from './types.js';
+import type { Evidence, Findings, SynopticFeatures } from './types.js';
 
 export interface BriefingSection {
   id:
@@ -28,6 +28,7 @@ export interface BriefingSection {
   evidence_ids: string[];
   per_leg?: Array<{ leg_id: string; register_plain: string; register_pro: string; evidence_ids: string[] }>;
   glossary_terms?: string[];
+  availability?: { status: 'available' | 'unavailable'; reason?: string };
 }
 
 export interface Briefing {
@@ -35,6 +36,7 @@ export interface Briefing {
   snapshot_id: string;
   sections: BriefingSection[];
   next_runs: Array<{ model: string; expected_at: string }>;
+  next_run?: { model: string; expected_at: string };
 }
 
 const VERDICT_LABEL: Record<string, { plain: string; pro: string }> = {
@@ -59,18 +61,6 @@ const VERDICT_LABEL: Record<string, { plain: string; pro: string }> = {
     pro: 'Authority override active: an official bulletin covers route zones during the passage window.',
   },
 };
-
-export interface SynopticFeatures {
-  run_id: string;
-  systems: Array<{
-    system_id: string;
-    kind: 'low' | 'high';
-    track: Array<{ valid_time: string; lat: number; lon: number; center_hpa: number }>;
-    deepening_hpa_per_24h?: number | null;
-    motion?: { dir_deg: number; speed_kt: number } | null;
-  }>;
-  regimes: Array<{ regime_id: string; rule_id: string }>;
-}
 
 export function renderBriefing(findings: Findings, synoptic?: SynopticFeatures): Briefing {
   const sections: BriefingSection[] = [];
@@ -103,6 +93,20 @@ export function renderBriefing(findings: Findings, synoptic?: SynopticFeatures):
       register_pro: `Detected systems (${synoptic.run_id}): lows ${lows.map(describe).join('; ') || 'none'}; highs ${highs.map(describe).join('; ') || 'none'}.${synoptic.regimes.length ? ` Named regime active: ${synoptic.regimes.map((r) => r.regime_id).join(', ')}.` : ''} Front-type labels withheld pending corroboration (§4.1).`,
       evidence_ids: [],
       glossary_terms: ['model run'],
+      availability: { status: 'available' },
+    });
+  } else {
+    const reason = synoptic
+      ? 'the prepared synoptic run contains no tracked systems'
+      : 'no prepared synoptic run was supplied';
+    sections.push({
+      id: 'synoptic_story',
+      title: 'The weather system driving this',
+      register_plain: `Causal attribution unavailable for this run — ${reason}.`,
+      register_pro: `Synoptic availability: unavailable (${reason}). Route conditions and limit checks remain available, but this run does not attribute them to a weather system.`,
+      evidence_ids: [],
+      glossary_terms: ['model run'],
+      availability: { status: 'unavailable', reason },
     });
   }
 
@@ -115,7 +119,7 @@ export function renderBriefing(findings: Findings, synoptic?: SynopticFeatures):
         'The national weather service has an active marine warning covering part of your route. Official forecasts are the authority — read the bulletin before anything else.',
       register_pro: `Authority override: bulletin ${findings.verdict.warning_override.bulletin_ref ?? '(ref pending)'} active during the passage window. This state overrides the personal-limit summary and does not assert a numeric limit exceedance.`,
       evidence_ids: findings.evidence
-        .filter((e) => e.source_kind === 'warning')
+        .filter((e) => e.rule_id === 'A-WARN-01')
         .map((e) => e.evidence_id),
     });
   }
@@ -233,13 +237,17 @@ export function renderBriefing(findings: Findings, synoptic?: SynopticFeatures):
     glossary_terms: ['model run'],
   });
 
-  // 5. unsupported hazards — every report
+  // 5. unsupported hazards — computed from the capability matrix.
+  const unassessed = findings.coverage?.filter((item) => item.status === 'not_assessed');
+  const unsupported = unassessed?.map((item) => item.detail ?? item.capability.replaceAll('_', ' '))
+    ?? findings.unsupported_hazards;
+  const partial = findings.coverage?.filter((item) => item.status === 'partially_assessed') ?? [];
   sections.push({
     id: 'unsupported',
     title: 'Not assessed by this analysis',
-    register_plain: `This briefing does NOT cover: ${findings.unsupported_hazards.join(', ')}. No warning here does not mean no risk.`,
-    register_pro: `Unassessed hazard classes: ${findings.unsupported_hazards.join('; ')}. Absence of a flag must not be read as absence of risk (brief §5).`,
-    evidence_ids: [],
+    register_plain: `This briefing does NOT cover: ${unsupported.join(', ')}.${partial.length ? ` Partly assessed: ${partial.map((item) => item.capability.replaceAll('_', ' ')).join(', ')}.` : ''} No warning here does not mean no risk.`,
+    register_pro: `Unassessed hazard classes: ${unsupported.join('; ')}.${partial.length ? ` Partial capability coverage: ${partial.map((item) => `${item.capability} (${item.detail ?? 'limited inputs'})`).join('; ')}.` : ''} Absence of a flag must not be read as absence of risk (brief §5).`,
+    evidence_ids: unassessed?.flatMap((item) => item.evidence_ids ?? []) ?? [],
   });
 
   // 6. emulated-data disclosure — whenever any evidence is emulated
@@ -255,11 +263,23 @@ export function renderBriefing(findings: Findings, synoptic?: SynopticFeatures):
     });
   }
 
+  const sectionOrder: BriefingSection['id'][] = [
+    'warnings',
+    'synoptic_story',
+    'route_impact',
+    'decision',
+    'what_could_change',
+    'unsupported',
+    'emulated_disclosure',
+  ];
+  sections.sort((a, b) => sectionOrder.indexOf(a.id) - sectionOrder.indexOf(b.id));
+
   return {
     schema_version: 1,
     snapshot_id: findings.snapshot_id,
     sections,
     next_runs: [nextRun],
+    next_run: nextRun,
   };
 }
 

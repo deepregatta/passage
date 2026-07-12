@@ -5,7 +5,7 @@
  */
 
 import { assembleFindings } from './findings.js';
-import { renderBriefing, type Briefing, type SynopticFeatures } from './briefing.js';
+import { renderBriefing, type Briefing } from './briefing.js';
 import { buildPlume, writeSnapshot, type Plume, type SnapshotStore } from './snapshot.js';
 import { deriveLegs, legMidpoints } from './route.js';
 import { computeSchedules, parseUtc, toIso } from './eta.js';
@@ -18,7 +18,7 @@ import {
   type OpenMeteoOptions,
 } from './fetch/openMeteo.js';
 import { ENGINE_VERSION } from './version.js';
-import type { Findings, LimitsProfile, Route, WarningsInput } from './types.js';
+import type { Findings, LimitsProfile, Route, SynopticFeatures, WarningsInput } from './types.js';
 
 export interface AnalyzeOptions {
   route: Route;
@@ -45,6 +45,11 @@ export interface AnalyzeResult {
   findings: Findings;
   briefing: Briefing;
   plume: Plume;
+  snapshotInputs: {
+    warnings?: WarningsInput['doc'];
+    synoptic?: SynopticFeatures;
+    tides?: import('./hazards/tides.js').TidesDoc;
+  };
 }
 
 export async function runAnalysis(options: AnalyzeOptions): Promise<AnalyzeResult> {
@@ -94,12 +99,22 @@ export async function runAnalysis(options: AnalyzeOptions): Promise<AnalyzeResul
     ...(options.currentGrid ? { currentGrid: options.currentGrid } : {}),
     ...(options.tides ? { tides: options.tides } : {}),
     ...(options.gates ? { gates: options.gates } : {}),
+    ...(options.synoptic ? { synoptic: options.synoptic } : {}),
     engineVersion: ENGINE_VERSION,
     nowMs,
   });
   const briefing = renderBriefing(findings, options.synoptic);
   const plume = buildPlume(findings, ens.forecasts, profile.max_gust_kt, multi.byModel);
-  return { findings, briefing, plume };
+  return {
+    findings,
+    briefing,
+    plume,
+    snapshotInputs: {
+      ...(options.warnings ? { warnings: options.warnings.doc } : {}),
+      ...(options.synoptic ? { synoptic: options.synoptic } : {}),
+      ...(options.tides ? { tides: options.tides } : {}),
+    },
+  };
 }
 
 export async function persistSnapshot(
@@ -112,7 +127,7 @@ export async function persistSnapshot(
     store,
     result.findings,
     result.briefing,
-    { route, plume: result.plume },
+    { route, plume: result.plume, ...result.snapshotInputs },
     nowMs,
   );
   return snapshot_id;
