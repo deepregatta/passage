@@ -47,7 +47,11 @@ export default function Briefing() {
   const [bulletinOpen, setBulletinOpen] = useState(false);
   if (!findings || !briefing) return <EmptyState />;
   const warningEvidence = findings.evidence.find((item) => item.rule_id === 'A-WARN-01');
-  const hasCausalHero = Boolean(synoptic && route && findings.causal_events?.length);
+  // the synoptic chart is the product's differentiator: it renders whenever the
+  // snapshot archived one — an empty causal_events list only changes the story on top
+  const hasSynopticHero = Boolean(
+    synoptic && route && (synoptic.chart_captions?.length || synoptic.systems?.length),
+  );
 
   const sections = [...briefing.sections].sort(
     (a, b) => SECTION_ORDER.indexOf(a.id) - SECTION_ORDER.indexOf(b.id),
@@ -66,13 +70,13 @@ export default function Briefing() {
       <div className="px-3 sm:px-5 py-4 max-w-[1600px] mx-auto">
         <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,3fr)_minmax(320px,2fr)] gap-4">
           <div className="min-w-0">
-            {hasCausalHero ? (
+            {hasSynopticHero ? (
               <SynopticHero />
             ) : (
               <div>
                 <p className="font-instrument text-xs text-ink-soft border-l-4 border-line pl-3 py-1 mb-2">
-                  No weather-system track was saved with this briefing, so here is your passage
-                  chart. New briefings show the system moving toward your route.
+                  No synoptic chart was archived with this briefing, so here is your passage
+                  chart. New briefings show the pressure pattern behind your forecast.
                 </p>
                 <RouteMap height={430} />
               </div>
@@ -80,7 +84,7 @@ export default function Briefing() {
           </div>
           <div className="min-w-0 flex flex-col gap-3">
             <WeatherStoryCard findings={findings} sections={sections} />
-            {hasCausalHero && (
+            {hasSynopticHero && (
               <details open className="border hairline bg-white/25"><summary className="px-3 py-2 font-instrument text-xs cursor-pointer">Your passage on the chart — the boat moves with the playback</summary><div className="p-2"><RouteMap height={240} /></div></details>
             )}
           </div>
