@@ -32,11 +32,11 @@ export default function Verification() {
   return (
     <div className="px-6 py-5 max-w-5xl space-y-4">
       <header>
-        <h1 className="font-chart text-3xl">Verification</h1>
+        <h1 className="font-chart text-3xl">Track record</h1>
         <p className="font-sans text-sm text-ink-soft mt-1 max-w-2xl">
-          Every analysis is snapshotted so it can later be compared against what actually
-          happened. Calibration is earned here, not claimed — and every number below carries its
-          sample size and coverage class.
+          How the forecasts in your briefings compared with what actually happened. This is the
+          page where the tool earns (or loses) your trust — every number carries its sample size
+          and how independent the observation really was.
         </p>
       </header>
 

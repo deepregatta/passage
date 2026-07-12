@@ -5,7 +5,22 @@ import RouteTimeline from '../components/RouteTimeline.jsx';
 import ModelFooter from '../components/ModelFooter.jsx';
 import { Panel, EvidenceLink, VerdictChip } from '../components/common.jsx';
 import { fmtTime, hourStatus, STATUS_HEX, VERDICT } from '../lib/format.js';
+import { Term } from '../lib/glossary.jsx';
 import clsx from 'clsx';
+
+/** the Jack layer: what each §7 state means for what you DO next (labels stay exact) */
+const NEXT_STEP = {
+  within:
+    'Nothing in this forecast crosses the limits you set. The final call is always yours — check once more before you leave.',
+  approaching:
+    'It is close to your limits. Read the two or three points on the right before deciding.',
+  exceeds:
+    'This forecast goes beyond what you said you would accept. Look at WHEN — a different departure often fixes it (try "Compare departure times" on the Plan page).',
+  insufficient:
+    'The forecast models tell different stories right now. Wait for the next update before deciding — the time is listed below.',
+  warning_active:
+    'There is an official marine warning for your area. Start with the bulletin — everything else comes second.',
+};
 
 const SECTION_ORDER = ['warnings', 'synoptic_story', 'route_impact', 'decision', 'what_could_change', 'unsupported', 'emulated_disclosure'];
 
@@ -21,6 +36,7 @@ export default function Briefing() {
   return (
     <div>
       <HeaderBar findings={findings} />
+      <JackStrip findings={findings} />
       <div className="px-6 py-4 max-w-6xl">
         <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
           <div className="xl:col-span-3 min-w-0">
@@ -69,6 +85,22 @@ function HeaderBar({ findings }) {
         </div>
         <VerdictChip state={personalState} />
       </div>
+    </div>
+  );
+}
+
+/** one plain sentence, action first — directly under the verdict band */
+function JackStrip({ findings }) {
+  const state = findings.verdict.warning_override?.active
+    ? 'warning_active'
+    : findings.verdict.state;
+  const hex = VERDICT[state]?.hex ?? '#16283E';
+  return (
+    <div
+      className="px-6 py-2.5 bg-white/50 border-b hairline font-sans text-[14px]"
+      style={{ borderLeft: `4px solid ${hex}` }}
+    >
+      {NEXT_STEP[state]}
     </div>
   );
 }
@@ -125,33 +157,62 @@ function WeatherStoryCard({ findings, sections }) {
     ? firstSentence(synopticSection.register_plain)
     : 'The forecast at a glance';
 
+  const legPlace = (legId) => {
+    const leg = findings.legs.find((l) => l.leg_id === legId);
+    return leg ? `near ${shortName(leg.name)}` : legId;
+  };
+
   const driver = findings.evidence.find(
     (e) => e.evidence_id === findings.verdict.driver_evidence_id,
   );
   let keyFact = null;
   if (driver?.member_fraction) {
-    keyFact = `${driver.member_fraction.exceed} of ${driver.member_fraction.total} forecast scenarios exceed your ${driver.limit} kt limit on ${driver.leg_id}.`;
+    keyFact = `${driver.member_fraction.exceed} of ${driver.member_fraction.total} forecast scenarios exceed your ${driver.limit} kt limit ${legPlace(driver.leg_id)}.`;
   } else if (driver && typeof driver.value === 'number') {
-    keyFact = `${driver.leg_id} reaches ${driver.value} ${driver.units} against your ${driver.limit} ${driver.units} limit.`;
+    keyFact = `The forecast reaches ${driver.value} ${driver.units} against your ${driver.limit} ${driver.units} limit ${legPlace(driver.leg_id)}.`;
   }
 
-  // three quick-read facts max
+  // three quick-read facts max, in Jack's words (leg id kept as a small cross-reference)
   const bullets = [];
   const worstLeg = [...findings.legs].sort((a, b) => maxOf(b, 'gust_kt') - maxOf(a, 'gust_kt'))[0];
   if (worstLeg) {
     const hs = maxOf(worstLeg, null, (h) => h.waves?.hs_m ?? null);
     bullets.push(
-      `Strongest on ${worstLeg.leg_id} (${shortName(worstLeg.name)}): ${Math.round(maxOf(worstLeg, 'wind_kt'))}–${Math.round(maxOf(worstLeg, 'gust_kt'))} kt${hs ? `, seas ${hs.toFixed(1)} m` : ''}.`,
+      <>
+        Strongest {legPlace(worstLeg.leg_id)}{' '}
+        <span className="font-mono text-[11px] text-ink-soft">({worstLeg.leg_id})</span>: wind{' '}
+        {Math.round(maxOf(worstLeg, 'wind_kt'))} kt, <Term term="gust">gusts</Term>{' '}
+        {Math.round(maxOf(worstLeg, 'gust_kt'))} kt
+        {hs ? `, waves ${hs.toFixed(1)} m` : ''}.
+      </>,
     );
   }
   const gate = (findings.gates ?? []).find((g) => g.status !== 'ok');
-  if (gate) bullets.push(`${gate.name}: ${gate.status === 'conflict' ? 'outside' : 'partly outside'} the favorable stream.`);
+  if (gate)
+    bullets.push(
+      <>
+        The <Term term="tidal gate">{gate.name} gate</Term>{' '}
+        {gate.status === 'conflict' ? 'does not fit this departure' : 'only partly fits'} — the
+        stream will be against you.
+      </>,
+    );
   const wac = (findings.events ?? []).find((e) => e.kind === 'wind_against_current');
-  if (wac && bullets.length < 3) bullets.push(`Wind over tide on ${wac.leg_id} around ${fmtTime(wac.window?.from).slice(-5)} UTC — steeper seas.`);
+  if (wac && bullets.length < 3)
+    bullets.push(
+      <>
+        <Term term="wind over tide">Wind over tide</Term> {legPlace(wac.leg_id)} around{' '}
+        {fmtTime(wac.window?.from).slice(-5)} UTC — expect short, steep seas.
+      </>,
+    );
   const change = sections.find((s) => s.id === 'what_could_change');
   if (change && bullets.length < 3) {
     const at = change.register_plain.match(/expected around ([^)]+)\)/)?.[1];
-    bullets.push(`Forecast updates ${at ? `~${at}` : 'several times a day'} — recheck before you go.`);
+    bullets.push(
+      <>
+        The forecast updates {at ? `around ${at}` : 'several times a day'} — check again before
+        you cast off.
+      </>,
+    );
   }
 
   return (

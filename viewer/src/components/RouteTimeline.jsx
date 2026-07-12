@@ -12,7 +12,23 @@ export default function RouteTimeline() {
   const option = useMemo(() => (findings ? buildOption(findings) : null), [findings]);
   if (!option) return null;
   return (
-    <ReactECharts option={option} style={{ height: 330 }} notMerge lazyUpdate opts={{ renderer: 'svg' }} />
+    <div>
+      <ReactECharts option={option} style={{ height: 330 }} notMerge lazyUpdate opts={{ renderer: 'svg' }} />
+      <div className="flex gap-5 justify-end font-sans text-[11px] text-ink-soft pr-2 -mt-1">
+        <span className="flex items-center gap-1.5">
+          <span className="w-3.5 h-2.5 inline-block rounded-[2px]" style={{ background: 'rgba(168,119,24,0.35)' }} />
+          close to your limits
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-3.5 h-2.5 inline-block rounded-[2px]" style={{ background: 'rgba(166,59,42,0.35)' }} />
+          beyond your limits
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-4 border-t-2 border-dashed inline-block" style={{ borderColor: '#A87718' }} />
+          the limit you set
+        </span>
+      </div>
+    </div>
   );
 }
 
@@ -144,9 +160,9 @@ function buildOption(findings) {
           : { show: false },
     })),
     yAxis: [
-      { type: 'value', gridIndex: 0, ...axisBase, ...rowName('Wind', 'kt sustained') },
-      { type: 'value', gridIndex: 1, ...axisBase, ...rowName('Gust', 'kt') },
-      { type: 'value', gridIndex: 2, ...axisBase, ...rowName('Waves', 'Hs m') },
+      { type: 'value', gridIndex: 0, ...axisBase, ...rowName('Wind', 'knots') },
+      { type: 'value', gridIndex: 1, ...axisBase, ...rowName('Gusts', 'knots') },
+      { type: 'value', gridIndex: 2, ...axisBase, ...rowName('Waves', 'metres') },
     ],
     series: [
       {
