@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '../stores/appStore.js';
-import RouteMap from '../components/RouteMap.jsx';
+import RouteMap from '../components/lazy/LeafletLazy.jsx';
 import RouteTimeline from '../components/RouteTimeline.jsx';
 import ModelFooter from '../components/ModelFooter.jsx';
 import { Panel, EvidenceLink, VerdictChip } from '../components/common.jsx';
 import { fmtTime, hourStatus, STATUS_HEX, VERDICT } from '../lib/format.js';
 import { Term } from '../lib/glossary.jsx';
 import clsx from 'clsx';
+import BulletinPanel from '../components/BulletinPanel.jsx';
+import { deriveCoverage } from '../lib/evidenceSelectors.js';
+import SynopticHero from '../components/SynopticHero.jsx';
+import { frameForCursor, usePlayback } from '../stores/playbackStore.js';
 
 /** the Jack layer: what each §7 state means for what you DO next (labels stay exact) */
 const NEXT_STEP = {
@@ -27,7 +31,9 @@ const SECTION_ORDER = ['warnings', 'synoptic_story', 'route_impact', 'decision',
 export default function Briefing() {
   const findings = useApp((s) => s.findings);
   const briefing = useApp((s) => s.briefing);
+  const [bulletinOpen, setBulletinOpen] = useState(false);
   if (!findings || !briefing) return <EmptyState />;
+  const warningEvidence = findings.evidence.find((item) => item.rule_id === 'A-WARN-01');
 
   const sections = [...briefing.sections].sort(
     (a, b) => SECTION_ORDER.indexOf(a.id) - SECTION_ORDER.indexOf(b.id),
@@ -35,36 +41,41 @@ export default function Briefing() {
 
   return (
     <div>
-      <HeaderBar findings={findings} />
-      <JackStrip findings={findings} />
-      <div className="px-6 py-4 max-w-6xl">
-        <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
-          <div className="xl:col-span-3 min-w-0">
-            <HeroTabs />
+      <HeaderBar findings={findings} warningEvidence={warningEvidence} onOpenBulletin={() => setBulletinOpen(true)} />
+      <JackStrip findings={findings} warningEvidence={warningEvidence} />
+      <div className="px-3 sm:px-5 py-4 max-w-[1600px] mx-auto">
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,3fr)_minmax(320px,2fr)] gap-4">
+          <div className="min-w-0">
+            <SynopticHero />
           </div>
-          <div className="xl:col-span-2 min-w-0">
+          <div className="min-w-0 flex flex-col gap-3">
             <WeatherStoryCard findings={findings} sections={sections} />
+            <details className="border hairline bg-white/25"><summary className="px-3 py-2 font-instrument text-xs cursor-pointer">Passage chart inset</summary><div className="p-2"><RouteMap height={240} /></div></details>
           </div>
         </div>
 
-        <Panel title="Along your route · conditions vs your limits" className="mt-4">
+        <div className="mt-4 border-t border-ink/40 pt-3">
+          <div className="flex justify-between items-baseline"><h2 className="font-instrument font-semibold uppercase tracking-wider">Along your route · conditions vs your limits</h2><span className="eyebrow">same time cursor</span></div>
           <RouteTimeline />
           <LegProgressBar findings={findings} />
-        </Panel>
+        </div>
 
         <ModelFooter />
       </div>
+      {bulletinOpen && <BulletinPanel evidence={warningEvidence} onClose={() => setBulletinOpen(false)} />}
     </div>
   );
 }
 
 /** compact dark chart-table header: route + departure left, verdict right (mockup 1) */
-function HeaderBar({ findings }) {
+function HeaderBar({ findings, warningEvidence, onOpenBulletin }) {
   const warningActive = findings.verdict.warning_override?.active;
+  const emulated = warningEvidence?.source_kind === 'emulated';
+  const productionRefusal = emulated && import.meta.env.VITE_DW_MODE === 'production';
   const personalState = warningActive ? recomputePersonalState(findings) : findings.verdict.state;
   return (
     <div>
-      {warningActive && (
+      {warningActive && !emulated && (
         <div
           className="text-white px-6 py-2 font-sans text-[13px] flex items-center gap-2"
           style={{ backgroundColor: VERDICT.warning_active.hex }}
@@ -74,6 +85,15 @@ function HeaderBar({ findings }) {
             Official warning active
           </span>
           <span className="opacity-90">— read the bulletin before anything below</span>
+          <button type="button" onClick={onOpenBulletin} className="ml-auto underline underline-offset-2 min-h-11">Open official bulletin</button>
+        </div>
+      )}
+      {warningActive && emulated && (
+        <div className="warning-emulated px-6 py-2 font-instrument text-[13px] flex items-center gap-3 flex-wrap bg-shoal border-y border-ink/30">
+          <span className="stamp-emulated">EMULATED WARNING SCENARIO</span>
+          <span>{productionRefusal ? 'Authority styling refused: this source is synthetic.' : 'Synthetic bulletin evidence — never use for a real passage decision.'}</span>
+          <EvidenceLink evidenceId={warningEvidence.evidence_id}>evidence</EvidenceLink>
+          <button type="button" onClick={onOpenBulletin} className="ml-auto underline underline-offset-2 min-h-11">Open official bulletin</button>
         </div>
       )}
       <div className="bg-ink-deep text-paper px-6 py-3 flex items-center justify-between flex-wrap gap-x-6 gap-y-2">
@@ -90,7 +110,7 @@ function HeaderBar({ findings }) {
 }
 
 /** one plain sentence, action first — directly under the verdict band */
-function JackStrip({ findings }) {
+function JackStrip({ findings, warningEvidence }) {
   const state = findings.verdict.warning_override?.active
     ? 'warning_active'
     : findings.verdict.state;
@@ -100,7 +120,9 @@ function JackStrip({ findings }) {
       className="px-6 py-2.5 bg-white/50 border-b hairline font-sans text-[14px]"
       style={{ borderLeft: `4px solid ${hex}` }}
     >
-      {NEXT_STEP[state]}
+      {state === 'warning_active' && warningEvidence?.source_kind === 'emulated'
+        ? 'This is a synthetic warning scenario. Use the weather evidence below to test the workflow, never to make a passage decision.'
+        : NEXT_STEP[state]}
     </div>
   );
 }
@@ -151,11 +173,18 @@ function HeroTabs() {
 function WeatherStoryCard({ findings, sections }) {
   const [expanded, setExpanded] = useState(false);
   const verdictHex = VERDICT[findings.verdict.state]?.hex ?? '#16283E';
+  const cursor = usePlayback((state) => state.cursorHours);
+  const synoptic = useApp((state) => state.synoptic);
+  const route = useApp((state) => state.route);
+  const playbackFrame = frameForCursor(findings, synoptic, route, cursor);
 
   const synopticSection = sections.find((s) => s.id === 'synoptic_story');
-  const headline = synopticSection
-    ? firstSentence(synopticSection.register_plain)
-    : 'The forecast at a glance';
+  const event = findings.causal_events?.[0];
+  const headline = event
+    ? `${event.name} crosses your passage window`
+    : synopticSection
+      ? firstSentence(synopticSection.register_plain)
+      : 'Causal attribution unavailable for this legacy snapshot.';
 
   const legPlace = (legId) => {
     const leg = findings.legs.find((l) => l.leg_id === legId);
@@ -218,7 +247,9 @@ function WeatherStoryCard({ findings, sections }) {
   return (
     <div className="bg-white/40 border hairline rounded-sm shadow-panel p-5 h-full flex flex-col">
       <span className="eyebrow">The weather story</span>
-      <h2 className="font-chart text-[26px] leading-snug mt-2">{headline}</h2>
+      {event && <span className="font-mono text-[10px] text-event mt-2 uppercase">phase · {playbackFrame.phase}</span>}
+      <h2 className="font-story text-[30px] leading-tight mt-2">{headline}</h2>
+      {event && <p className="font-story text-[18px] leading-snug mt-2 text-event">{event.consequence.register_plain}</p>}
       {keyFact && (
         <p className="font-chart text-[19px] leading-snug mt-1.5" style={{ color: verdictHex }}>
           {driver ? <EvidenceLink evidenceId={driver.evidence_id}>{keyFact}</EvidenceLink> : keyFact}
@@ -248,8 +279,9 @@ function WeatherStoryCard({ findings, sections }) {
         {expanded && (
           <div className="mt-3 space-y-4 max-h-[340px] overflow-y-auto pr-1">
             {sections.map((section) => (
-              <StorySection key={section.id} section={section} />
+              <StorySection key={section.id} section={section} findings={findings} />
             ))}
+            <CoverageMatrix findings={findings} />
           </div>
         )}
       </div>
@@ -271,7 +303,12 @@ const firstSentence = (text) => {
 };
 const shortName = (name) => name.split('→')[1]?.trim().split(',')[0] ?? name.slice(0, 24);
 
-function StorySection({ section }) {
+function StorySection({ section, findings }) {
+  const coverage = section.id === 'unsupported' ? deriveCoverage(findings) : null;
+  const unassessed = coverage?.items.filter((item) => item.status === 'not_assessed') ?? [];
+  const plain = coverage
+    ? `Not assessed: ${unassessed.map((item) => item.detail ?? item.capability.replaceAll('_', ' ')).join(', ')}. No flag does not mean no risk.${coverage.derived ? ' Coverage derived conservatively from evidence in this legacy snapshot.' : ''}`
+    : section.register_plain;
   const tone =
     section.id === 'warnings'
       ? 'border-l-4 border-authority pl-3'
@@ -282,7 +319,7 @@ function StorySection({ section }) {
   return (
     <div className={tone}>
       <h3 className="eyebrow mb-1">{section.title}</h3>
-      <p className="font-sans text-[13px] leading-relaxed">{section.register_plain}</p>
+      <p className="font-sans text-[13px] leading-relaxed">{plain}</p>
       {section.per_leg && (
         <ul className="mt-1.5 space-y-1.5">
           {section.per_leg.map((leg) => (
@@ -316,6 +353,28 @@ function StorySection({ section }) {
         )}
       </details>
     </div>
+  );
+}
+
+function CoverageMatrix({ findings }) {
+  const coverage = deriveCoverage(findings);
+  return (
+    <section className="border-t hairline pt-3" aria-label="Capability coverage">
+      <div className="flex items-center justify-between gap-3 mb-2">
+        <h3 className="eyebrow">Capability coverage</h3>
+        {coverage.derived && <span className="font-mono text-[9px] text-ink-soft">derived from evidence · legacy snapshot</span>}
+      </div>
+      <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+        {coverage.items.map((item) => (
+          <li key={item.capability} className="flex items-baseline justify-between gap-2 border-b hairline py-1 font-instrument text-[12px]">
+            <span>{item.capability.replaceAll('_', ' ')}</span>
+            <span className={clsx('font-mono text-[10px]', item.status === 'not_assessed' ? 'text-verdict-insufficient' : item.status === 'assessed_emulated' ? 'stamp-emulated' : 'text-verdict-within')}>
+              {item.status.replaceAll('_', ' ')}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

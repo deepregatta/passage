@@ -20,14 +20,23 @@ export default function Verification() {
   const findings = useApp((s) => s.findings);
   const [caseDoc, setCaseDoc] = useState(null);
   const [calibration, setCalibration] = useState(null);
+  const [caseIndex, setCaseIndex] = useState(null);
+  const [corpus, setCorpus] = useState(null);
 
   useEffect(() => {
-    loadJson('/data/verification/calibration.json').then(setCalibration);
+    Promise.all([
+      loadJson('/data/verification/calibration.json').then(setCalibration),
+      loadJson('/data/verification/cases/index.json').then(setCaseIndex),
+      loadJson('/data/verification/corpus.json').then(setCorpus),
+    ]);
   }, []);
   useEffect(() => {
     if (!findings) return;
+    if (!caseIndex) return;
+    const exists = caseIndex.cases?.some((item) => (item.snapshot_id ?? item) === findings.snapshot_id);
+    if (!exists) return setCaseDoc(null);
     loadJson(`/data/verification/cases/${findings.snapshot_id}.json`).then(setCaseDoc);
-  }, [findings]);
+  }, [findings, caseIndex]);
 
   return (
     <div className="px-6 py-5 max-w-5xl space-y-4">
@@ -39,6 +48,12 @@ export default function Verification() {
           and how independent the observation really was.
         </p>
       </header>
+
+      <div className="border-y border-ink/40 py-3 flex flex-wrap gap-x-6 gap-y-2 font-instrument text-sm">
+        <strong>Skill claims use {corpus?.cases ?? 0} real ERA5 cases.</strong>
+        <span>{corpus ? `${corpus.pass} pass · ${corpus.fail} fail · ${corpus.pending} pending` : 'Corpus summary unavailable.'}</span>
+        <span>{caseIndex?.cases?.filter((item) => item.observation_source === 'emulated').length ?? 0} emulated cases shown for demo only.</span>
+      </div>
 
       <Panel title={findings ? `This analysis · ${findings.snapshot_id}` : 'This analysis'}>
         {!findings && <p className="font-sans text-sm text-ink-soft">Open a snapshot first.</p>}

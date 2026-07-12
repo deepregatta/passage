@@ -1,28 +1,31 @@
-import ReactECharts from 'echarts-for-react';
+import ReactECharts from './lazy/EChartsLazy.jsx';
 import { useMemo } from 'react';
 import { useApp } from '../stores/appStore.js';
 import { fmtHour } from '../lib/format.js';
+import useViewport from '../hooks/useViewport.js';
 
 /**
  * Ensemble plume (mockup 2): 51 thin member lines, median + P10/P90 envelope,
  * declared limit line, exceedance window shading. Raw scenario fractions only.
  */
-export default function EnsemblePlume({ variable = 'gust' }) {
+export default function EnsemblePlume({ evidence, variable = 'gust', height = 430 }) {
   const plume = useApp((s) => s.plume);
   const findings = useApp((s) => s.findings);
-  const legId = useApp((s) => s.selectedLegId);
+  const selectedLegId = useApp((s) => s.selectedLegId);
+  const legId = evidence?.leg_id ?? selectedLegId;
+  const mobile = useViewport();
 
   const option = useMemo(() => {
     if (!plume || !findings || !legId) return null;
     const leg = plume.legs.find((l) => l.leg_id === legId);
     const legFindings = findings.legs.find((l) => l.leg_id === legId);
     if (!leg || !legFindings) return null;
-    return buildOption(leg, legFindings, findings, variable);
-  }, [plume, findings, legId, variable]);
+    return buildOption(leg, legFindings, evidence, variable, mobile);
+  }, [plume, findings, legId, evidence, variable, mobile]);
 
   if (!option) return <p className="text-sm text-ink-soft">No ensemble data for this leg.</p>;
   return (
-    <ReactECharts option={option} style={{ height: 360 }} notMerge lazyUpdate opts={{ renderer: 'svg' }} />
+    <ReactECharts option={option} style={{ height }} notMerge lazyUpdate opts={{ renderer: 'svg' }} />
   );
 }
 
@@ -34,10 +37,11 @@ function quantile(sortedValues, q) {
   return sortedValues[lo] + (sortedValues[hi] - sortedValues[lo]) * (pos - lo);
 }
 
-function buildOption(leg, legFindings, findings, variable) {
+export function buildOption(leg, legFindings, evidence, variable, mobile = false) {
   const members = variable === 'gust' ? leg.gust_members : leg.wind_members;
   const times = leg.times.map((t) => Date.parse(t));
-  const limit = leg.gust_limit_kt;
+  const limit = typeof evidence?.limit === 'number' ? evidence.limit : leg.gust_limit_kt;
+  const units = evidence?.units ?? 'kt';
 
   const memberSeries = members.map((series, m) => ({
     name: m === 0 ? 'control' : `member ${m}`,
@@ -63,14 +67,14 @@ function buildOption(leg, legFindings, findings, variable) {
     p90.push([times[i], vals.length ? Math.round(quantile(vals, 0.9) * 10) / 10 : null]);
   }
 
-  // exceedance windows: hours where the raw fraction crosses the declared floor
+  // Exceedance windows are derived from these same members and this same claim limit.
   const floor = 0.3;
   const windows = [];
   let start = null;
-  for (const hour of legFindings.hours) {
-    const count = variable === 'gust' ? hour.exceedance?.gust : hour.exceedance?.sustained;
-    const above = count && count.exceed / count.total >= floor;
-    const t = Date.parse(hour.valid_time);
+  for (let i = 0; i < times.length; i++) {
+    const values = members.map((series) => series[i]).filter((value) => Number.isFinite(value));
+    const above = values.length > 0 && values.filter((value) => value > limit).length / values.length >= floor;
+    const t = times[i];
     if (above && start === null) start = t;
     if (!above && start !== null) {
       windows.push([{ xAxis: start }, { xAxis: t }]);
@@ -78,8 +82,11 @@ function buildOption(leg, legFindings, findings, variable) {
     }
   }
   if (start !== null) {
-    windows.push([{ xAxis: start }, { xAxis: Date.parse(legFindings.hours.at(-1).valid_time) }]);
+    windows.push([{ xAxis: start }, { xAxis: times.at(-1) }]);
   }
+
+  const finite = members.flat().filter((value) => Number.isFinite(value));
+  const dataMax = finite.length ? Math.max(...finite) : limit;
 
   const ink = '#16283E';
   const soft = '#4C5D73';
@@ -93,7 +100,7 @@ function buildOption(leg, legFindings, findings, variable) {
       borderColor: ink,
       textStyle: { color: ink, fontFamily: 'ui-monospace, monospace', fontSize: 11 },
     },
-    grid: { left: 48, right: 18, top: 30, bottom: 40 },
+    grid: { left: mobile ? 34 : 48, right: mobile ? 8 : 18, top: 30, bottom: mobile ? 52 : 40 },
     xAxis: {
       type: 'time',
       axisLine: { lineStyle: { color: soft } },
@@ -101,16 +108,18 @@ function buildOption(leg, legFindings, findings, variable) {
         color: soft,
         fontFamily: 'ui-monospace, monospace',
         fontSize: 10,
-        formatter: (v) => fmtHour(new Date(v).toISOString()),
+        formatter: (v, index) => mobile && index % 2 ? '' : fmtHour(new Date(v).toISOString()),
       },
       splitLine: { show: false },
     },
     yAxis: {
       type: 'value',
-      name: 'kt',
+      name: units,
       nameTextStyle: { color: soft },
       axisLabel: { color: soft, fontFamily: 'ui-monospace, monospace', fontSize: 10 },
       splitLine: { lineStyle: { color: 'rgba(22,40,62,0.08)' } },
+      min: 0,
+      max: Math.ceil(Math.max(dataMax, limit) * 1.12),
     },
     series: [
       ...memberSeries,
@@ -140,7 +149,7 @@ function buildOption(leg, legFindings, findings, variable) {
           data: [{ yAxis: limit }],
           lineStyle: { color: '#A87718', width: 1.8 },
           label: {
-            formatter: `YOUR LIMIT · ${limit} kt`,
+            formatter: `YOUR LIMIT · ${limit} ${units}`,
             position: 'insideStartTop',
             color: '#A87718',
             fontFamily: 'ui-monospace, monospace',

@@ -446,6 +446,8 @@ export default function Planner() {
                       {i === scan.best_index && (
                         <span className="text-ink-soft">least exposure — your call</span>
                       )}
+                      {c.avoids_event_key && <span className="text-event">avoids {c.avoids_event_key}</span>}
+                      {c.delta && i > 0 && <span className="font-mono text-[10px] text-ink-soft">gust {c.delta.peak_gust_kt > 0 ? '+' : ''}{c.delta.peak_gust_kt} kt · {c.delta.hours_over_limit > 0 ? '+' : ''}{c.delta.hours_over_limit} h over</span>}
                     </li>
                   ))}
                 </ul>

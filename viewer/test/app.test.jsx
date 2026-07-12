@@ -5,6 +5,7 @@ import App from '../src/App.jsx';
 import { useApp } from '../src/stores/appStore.js';
 
 beforeEach(() => {
+  history.replaceState(null, '', '#plan/briefings');
   useApp.setState({
     page: 'snapshots',
     manifest: null,
@@ -28,22 +29,21 @@ describe('viewer fixture harness', () => {
     const [snapshot] = await screen.findAllByRole('button', { name: /cherbourg-plymouth-v1/i });
     await user.click(snapshot);
 
-    await waitFor(() => expect(screen.getByText(/Official warning active/i)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/EMULATED WARNING SCENARIO/i)).toBeTruthy());
     expect(useApp.getState().snapshotId).toBe('20260720T060000Z_44d2cd5f_f0703423');
   });
 
-  it.fails('does not present emulated warning evidence as verified authority', async () => {
+  it('does not present emulated warning evidence as verified authority', async () => {
     const user = userEvent.setup();
     render(<App />);
-    await user.click(await screen.findByRole('button', { name: /cherbourg-plymouth-v1/i }));
-    await screen.findByText(/Official warning active/i);
+    await user.click((await screen.findAllByRole('button', { name: /cherbourg-plymouth-v1/i }))[0]);
     expect(screen.getByText(/EMULATED WARNING SCENARIO/i)).toBeTruthy();
   });
 
-  it.fails('never lists an active warning capability as unsupported', async () => {
+  it('never lists an active warning capability as unsupported', async () => {
     const user = userEvent.setup();
     render(<App />);
-    await user.click(await screen.findByRole('button', { name: /cherbourg-plymouth-v1/i }));
+    await user.click((await screen.findAllByRole('button', { name: /cherbourg-plymouth-v1/i }))[0]);
     await user.click(await screen.findByRole('button', { name: /Why this assessment/i }));
     expect(screen.queryByText(/does NOT cover:.*official marine warnings/i)).toBeNull();
   });

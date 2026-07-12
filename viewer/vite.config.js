@@ -140,6 +140,24 @@ function dataMiddleware() {
           return;
         }
 
+        if (requestPath === '/data/verification/cases/index.json') {
+          const casesDir = path.join(dataRoot, 'verification', 'cases');
+          const existing = path.join(casesDir, 'index.json');
+          const cases = fs.existsSync(existing)
+            ? JSON.parse(fs.readFileSync(existing, 'utf8')).cases ?? []
+            : fs.existsSync(casesDir)
+              ? fs.readdirSync(casesDir).filter((file) => file.endsWith('.json') && file !== 'index.json').map((file) => {
+                  try {
+                    const doc = JSON.parse(fs.readFileSync(path.join(casesDir, file), 'utf8'));
+                    return { snapshot_id: doc.snapshot_id ?? file.slice(0, -5), observation_source: doc.observation_source ?? 'unknown' };
+                  } catch { return null; }
+                }).filter(Boolean)
+              : [];
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ cases }));
+          return;
+        }
+
         // read-only view of repo config (providers, profiles, routes) for the UI
         const configRoot = path.resolve(__dirname, '../config');
         const relativePath = decodeURIComponent(requestPath.slice(6));
@@ -192,6 +210,7 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     outDir: 'dist',
+    chunkSizeWarningLimit: 1100,
     sourcemap: mode !== 'production',
     rollupOptions: {
       output: {

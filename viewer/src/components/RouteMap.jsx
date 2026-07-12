@@ -24,12 +24,13 @@ function legWorstStatus(leg) {
   return worst;
 }
 
-function legMarkerIcon(label, color) {
+function legMarkerIcon(label, color, status) {
+  const mark = status === 'exceeded' ? '×' : status === 'approaching' ? '!' : '·';
   return L.divIcon({
     className: '',
     html: `<div style="width:22px;height:22px;border-radius:50%;background:${color};color:#F3EEE3;
       border:2px solid #F3EEE3;box-shadow:0 0 0 1.5px ${color};font:600 11px system-ui;
-      display:flex;align-items:center;justify-content:center">${label}</div>`,
+      display:flex;align-items:center;justify-content:center;background-image:${status === 'exceeded' ? 'repeating-linear-gradient(135deg,transparent 0 3px,rgba(255,255,255,.32) 3px 5px)' : 'none'}" title="leg ${label}: ${status}">${label}${mark}</div>`,
     iconSize: [22, 22],
     iconAnchor: [11, 11],
   });
@@ -202,7 +203,7 @@ export default function RouteMap({ height = 420 }) {
             <Marker
               key={leg.leg_id}
               position={[wp.lat, wp.lon]}
-              icon={legMarkerIcon(i + 1, STATUS_HEX[status])}
+              icon={legMarkerIcon(i + 1, STATUS_HEX[status], status)}
             >
               <Tooltip direction="top" offset={[0, -12]}>
                 <span className="font-sans text-[12px]">
