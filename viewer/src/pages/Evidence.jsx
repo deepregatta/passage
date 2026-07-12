@@ -16,7 +16,11 @@ export default function Evidence() {
   return (
     <div className="px-6 py-5 max-w-6xl">
       <header className="mb-4">
-        <h1 className="font-chart text-3xl">Evidence & uncertainty</h1>
+        <h1 className="font-chart text-3xl">Deep dive — evidence & uncertainty</h1>
+        <p className="font-sans text-sm text-ink-soft mt-1">
+          Every thin line below is one complete run of the forecast. When the lines bunch
+          together the atmosphere is predictable; when they fan out, be humble.
+        </p>
         {headline ? (
           <p className="font-chart text-xl mt-2">
             <span className="text-verdict-exceeds font-semibold">

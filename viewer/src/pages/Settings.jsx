@@ -1,17 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '../stores/appStore.js';
 import { Panel, EmulatedStamp } from '../components/common.jsx';
-
-const GLOSSARY = [
-  ['gust', 'A brief burst of wind above the sustained speed — typically 20–40% higher; squalls can double it.'],
-  ['ensemble', 'The same model run ~50 times with slightly different starting conditions. The spread between members shows how uncertain the forecast is.'],
-  ['ETA window', 'Your arrival time is a range, not an instant: computed for your slow, nominal and fast boat speeds. Conditions are checked across the whole window.'],
-  ['model run', 'Weather models restart from fresh observations every 6–12 h. A new run can shift the forecast — always recheck before departure.'],
-  ['veer', 'Wind direction turning clockwise (e.g. SW → NW). Common behind a cold front in the northern hemisphere.'],
-  ['significant wave height', 'The average of the highest third of waves. Individual waves can be nearly twice this height.'],
-  ['steepness', 'Wave height relative to wavelength (H/L). Steep waves break; short-period seas are dangerous well below your height limit.'],
-  ['scenario exceedance', 'The count of ensemble members exceeding your declared limit — "33 of 51". A raw fraction, not a calibrated probability.'],
-];
+import { GLOSSARY } from '../lib/glossary.jsx';
 
 export default function Settings() {
   const providers = useApp((s) => s.providers);
@@ -41,7 +31,7 @@ export default function Settings() {
 
   return (
     <div className="px-6 py-5 max-w-4xl space-y-4">
-      <h1 className="font-chart text-3xl">Settings</h1>
+      <h1 className="font-chart text-3xl">My limits</h1>
 
       <Panel title="Your declared limits">
         <p className="font-sans text-sm text-ink-soft mb-4">
@@ -119,7 +109,7 @@ export default function Settings() {
 
       <Panel title="Glossary">
         <dl className="grid md:grid-cols-2 gap-x-8 gap-y-3">
-          {GLOSSARY.map(([term, def]) => (
+          {Object.entries(GLOSSARY).map(([term, def]) => (
             <div key={term}>
               <dt className="font-sans font-medium text-sm">{term}</dt>
               <dd className="font-sans text-[13px] text-ink-soft leading-relaxed">{def}</dd>

@@ -20,14 +20,15 @@ const ICONS = {
   settings: 'M9 6.5 A2.5 2.5 0 1 0 9 11.5 A2.5 2.5 0 1 0 9 6.5 M9 2 V4 M9 14 V16 M2 9 H4 M14 9 H16 M4 4 L5.4 5.4 M12.6 12.6 L14 14 M14 4 L12.6 5.4 M5.4 12.6 L4 14',
 };
 
+// nav speaks sailor, not system: pages named by what Jack does there
 const NAV = [
-  { id: 'planner', label: 'Planner', ready: true },
-  { id: 'snapshots', label: 'Analyses', ready: true },
+  { id: 'planner', label: 'Plan a passage', ready: true },
+  { id: 'snapshots', label: 'My briefings', ready: true },
   { id: 'briefing', label: 'Briefing', ready: true },
-  { id: 'evidence', label: 'Evidence', ready: true },
-  { id: 'changes', label: 'Changes', ready: true },
-  { id: 'verification', label: 'Verification', ready: true },
-  { id: 'settings', label: 'Settings', ready: true },
+  { id: 'evidence', label: 'Deep dive', ready: true },
+  { id: 'changes', label: 'What changed', ready: true },
+  { id: 'verification', label: 'Track record', ready: true },
+  { id: 'settings', label: 'My limits', ready: true },
 ];
 
 const PAGES = {

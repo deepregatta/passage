@@ -16,10 +16,10 @@ export default function Snapshots() {
 
   return (
     <div className="px-6 py-5 max-w-4xl">
-      <h1 className="font-chart text-3xl mb-1">Analyses</h1>
+      <h1 className="font-chart text-3xl mb-1">My briefings</h1>
       <p className="font-sans text-sm text-ink-soft mb-5">
-        Every analysis is an immutable snapshot — inputs, findings, and briefing frozen for later
-        verification.
+        Every briefing is kept exactly as it was made — so you can re-read it later and see how
+        the forecast actually did (that's the Track record page).
       </p>
 
       {manifestError && (
