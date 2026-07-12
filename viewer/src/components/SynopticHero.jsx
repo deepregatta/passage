@@ -11,7 +11,7 @@ const PHASE = {
   interception: 'The low and the boat occupy the same route window.',
   consequence: 'The system has crossed; the strongest route consequence is active.',
   easing: 'The low moves clear and the passage begins to ease.',
-  unavailable: 'Causal playback is unavailable for this run.',
+  unavailable: 'No tracked system crosses your route window — this pattern still sets your wind.',
 };
 
 export default function SynopticHero() {
@@ -31,8 +31,8 @@ export default function SynopticHero() {
     if (frame.focusedEvidenceId) selectEvidence(frame.focusedEvidenceId);
   }, [frame.focusedEvidenceId, selectEvidence]);
 
-  if (!findings || !synoptic || !route || !findings.causal_events?.length) {
-    return <div className="min-h-[430px] border border-dashed border-ink/30 bg-shoal/20 grid place-items-center p-8 text-center"><div><p className="font-story text-2xl">Causal attribution unavailable</p><p className="font-instrument text-sm text-ink-soft mt-2">{findings ? 'This legacy run has route conditions, but no archived system track.' : 'Open a passage briefing first.'}</p></div></div>;
+  if (!findings || !synoptic || !route) {
+    return <div className="min-h-[430px] border border-dashed border-ink/30 bg-shoal/20 grid place-items-center p-8 text-center"><div><p className="font-story text-2xl">Synoptic chart unavailable</p><p className="font-instrument text-sm text-ink-soft mt-2">{findings ? 'This legacy run has route conditions, but no archived synoptic data.' : 'Open a passage briefing first.'}</p></div></div>;
   }
 
   const content = <HeroCanvas findings={findings} synoptic={synoptic} route={route} frame={frame} cursor={cursor} maxHours={maxHours} departureVariant={departureVariant} setDepartureVariant={setDepartureVariant} />;
@@ -43,8 +43,8 @@ export default function SynopticHero() {
 }
 
 function HeroCanvas({ findings, synoptic, route, frame, cursor, maxHours, departureVariant, setDepartureVariant }) {
-  const event = frame.event;
-  const system = synoptic.systems.find((item) => item.system_id === event.system_id) ?? synoptic.systems[0];
+  const event = frame.event ?? null;
+  const system = synoptic.systems.find((item) => item.system_id === event?.system_id) ?? synoptic.systems[0] ?? null;
   const chart = nearestCaption(synoptic.chart_captions, cursor);
   const [chartBroken, setChartBroken] = useState(false);
   const [zoomed, setZoomed] = useState(false);
@@ -56,14 +56,20 @@ function HeroCanvas({ findings, synoptic, route, frame, cursor, maxHours, depart
       ? <ChartCanvas url={url} projector={projector} route={route} system={system} frame={frame} event={event} departureVariant={departureVariant} zoomed={zoomed} onBroken={() => setChartBroken(true)} caption={chart?.caption} />
       : <SchematicCanvas route={route} system={system} frame={frame} event={event} departureVariant={departureVariant} />}
     <div className="flex items-center justify-between gap-3 py-2 font-instrument text-xs">
-      <span>{placeLabel(event.consequence.register_plain)}</span>
+      <span>
+        {event
+          ? placeLabel(event.consequence.register_plain)
+          : 'No tracked weather system meets your route in this window.'}
+      </span>
       <span className="flex gap-2 whitespace-nowrap">
         {projector && url && (
           <button type="button" onClick={() => setZoomed(!zoomed)} className="min-h-11 px-3 border border-ink/40" aria-pressed={zoomed}>
             {zoomed ? 'Full chart' : 'Zoom to route'}
           </button>
         )}
-        <button type="button" onClick={() => setDepartureVariant(departureVariant === 'alternative' ? 'nominal' : 'alternative')} className="min-h-11 px-3 border border-event text-event">{departureVariant === 'alternative' ? 'Hide safer departure' : 'Compare safer departure'}</button>
+        {event && (
+          <button type="button" onClick={() => setDepartureVariant(departureVariant === 'alternative' ? 'nominal' : 'alternative')} className="min-h-11 px-3 border border-event text-event">{departureVariant === 'alternative' ? 'Hide safer departure' : 'Compare safer departure'}</button>
+        )}
       </span>
     </div>
     <TimeRuler findings={findings} maxHours={maxHours} />
@@ -73,15 +79,16 @@ function HeroCanvas({ findings, synoptic, route, frame, cursor, maxHours, depart
 /** overlay drawn in the PNG's own pixel space so positions are geographically true */
 function Overlay({ w, xy, route, system, frame, event, departureVariant }) {
   const routePoints = route.waypoints.map(xy).map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(' ');
-  const trackPoints = system.track.map(xy).map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(' ');
+  const track = system?.track ?? [];
+  const trackPoints = track.map(xy).map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(' ');
   const systemPoint = frame.systemPosition ? xy(frame.systemPosition) : null;
   const boatPoint = frame.boatPosition ? xy(frame.boatPosition) : null;
   const u = w / 340; // hairline unit relative to chart resolution
   return <>
     {departureVariant === 'alternative' && <polyline points={routePoints} fill="none" stroke="#176B87" strokeOpacity=".4" strokeWidth={u * 2.4} strokeDasharray={`${u * 2.5} ${u * 2.5}`} transform={`translate(0 ${-u * 5})`} />}
     <polyline points={routePoints} fill="none" stroke="#16283E" strokeWidth={u * 1.4} strokeDasharray={`${u * 1.2} ${u * 2}`} strokeLinecap="round" />
-    <polyline points={trackPoints} fill="none" stroke="#176B87" strokeWidth={u * 1.6} />
-    {system.track.map((point) => { const p = xy(point); return <circle key={point.valid_time} cx={p.x} cy={p.y} r={u * 0.9} fill="#176B87" />; })}
+    {track.length > 0 && <polyline points={trackPoints} fill="none" stroke="#176B87" strokeWidth={u * 1.6} />}
+    {track.map((point) => { const p = xy(point); return <circle key={point.valid_time} cx={p.x} cy={p.y} r={u * 0.9} fill="#176B87" />; })}
     {systemPoint && <g transform={`translate(${systemPoint.x} ${systemPoint.y})`}>
       <circle r={u * 5} fill="#F3EEE3" fillOpacity=".92" stroke="#176B87" strokeWidth={u * 1.1} />
       <text textAnchor="middle" y={u * 1.4} fontSize={u * 3.6} fill="#176B87" fontFamily="JetBrains Mono">{Math.round(frame.systemPosition.center_hpa)}</text>
@@ -112,7 +119,7 @@ function ChartCanvas({ url, projector, route, system, frame, event, departureVar
   return <div className="relative border border-ink/25 overflow-hidden bg-[#F3EEE3]">
     <div style={{ transform: `scale(${scale})`, transformOrigin: `${originX}% ${originY}%`, transition: 'transform .35s ease' }}>
       <img src={url} alt={caption ?? 'Synoptic pressure chart'} className="w-full block" onError={onBroken} />
-      <svg viewBox={`0 0 ${projector.w} ${projector.h}`} preserveAspectRatio="none" className="absolute inset-0 w-full h-full pointer-events-none" role="img" aria-label={`${event.name} track and route occupancy`}>
+      <svg viewBox={`0 0 ${projector.w} ${projector.h}`} preserveAspectRatio="none" className="absolute inset-0 w-full h-full pointer-events-none" role="img" aria-label={`${event?.name ?? 'Synoptic'} track and route occupancy`}>
         <Overlay w={projector.w} xy={projector.xy} route={route} system={system} frame={frame} event={event} departureVariant={departureVariant} />
       </svg>
     </div>
@@ -123,14 +130,14 @@ function ChartCanvas({ url, projector, route, system, frame, event, departureVar
 
 /** fallback when a chart image or its geometry is missing: bounds-fit schematic */
 function SchematicCanvas({ route, system, frame, event, departureVariant }) {
-  const points = [...route.waypoints, ...system.track];
+  const points = [...route.waypoints, ...(system?.track ?? [])];
   const lonMin = Math.min(...points.map((point) => point.lon)) - 1;
   const lonMax = Math.max(...points.map((point) => point.lon)) + 1;
   const latMin = Math.min(...points.map((point) => point.lat)) - .5;
   const latMax = Math.max(...points.map((point) => point.lat)) + .5;
   const xy = (point) => ({ x: 6 + ((point.lon - lonMin) / (lonMax - lonMin)) * 88, y: 7 + ((latMax - point.lat) / (latMax - latMin)) * 76 });
   return <div className="relative min-h-[360px] overflow-hidden bg-[#cbdce0] border border-ink/25">
-    <svg viewBox="0 0 100 90" className="absolute inset-0 w-full h-full" role="img" aria-label={`${event.name} track and route occupancy`}>
+    <svg viewBox="0 0 100 90" className="absolute inset-0 w-full h-full" role="img" aria-label={`${event?.name ?? 'Synoptic'} track and route occupancy`}>
       <defs><pattern id="sea-grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M10 0H0V10" fill="none" stroke="#52739e" strokeOpacity=".12" strokeWidth=".2"/></pattern></defs>
       <rect width="100" height="90" fill="url(#sea-grid)"/>
       <Overlay w={100} xy={xy} route={route} system={system} frame={frame} event={event} departureVariant={departureVariant} />
@@ -141,9 +148,9 @@ function SchematicCanvas({ route, system, frame, event, departureVariant }) {
 }
 
 function Banner({ frame, event }) {
-  return <div className="absolute left-3 top-3 max-w-[70%] bg-paper/90 border-l-4 border-event px-3 py-2"><p className="eyebrow">{frame.phase} · {event.name}</p><p className="font-story text-lg leading-tight">{PHASE[frame.phase]}</p></div>;
+  return <div className="absolute left-3 top-3 max-w-[70%] bg-paper/90 border-l-4 border-event px-3 py-2"><p className="eyebrow">{event ? `${frame.phase} · ${event.name}` : 'synoptic situation'}</p><p className="font-story text-lg leading-tight">{PHASE[frame.phase]}</p></div>;
 }
 
 function StatusChip({ frame, event }) {
-  return <div className="absolute right-3 bottom-3 bg-paper/90 px-2 py-1 font-mono text-[9px]">system {event.system_id} · boat {frame.activeLegId}</div>;
+  return <div className="absolute right-3 bottom-3 bg-paper/90 px-2 py-1 font-mono text-[9px]">{event ? `system ${event.system_id}` : 'no attributed system'} · boat {frame.activeLegId}</div>;
 }
