@@ -206,6 +206,11 @@ function dataMiddleware() {
         };
         const ext = path.extname(filePath).toLowerCase();
         if (!contentTypes[ext]) {
+          // Vite's public/ directory owns these committed deployment assets
+          // (including .bin.gz, which the allowlist above would otherwise 403).
+          if (requestPath.startsWith('/data/polars/') || requestPath.startsWith('/data/land/')) {
+            return next();
+          }
           res.statusCode = 403;
           res.end('Forbidden');
           return;
@@ -216,6 +221,11 @@ function dataMiddleware() {
           res.setHeader('Access-Control-Allow-Origin', '*');
           res.end(fs.readFileSync(filePath));
           return;
+        }
+
+        // Vite's public/ directory owns these committed deployment assets.
+        if (requestPath.startsWith('/data/polars/') || requestPath.startsWith('/data/land/')) {
+          return next();
         }
 
         res.statusCode = 404;

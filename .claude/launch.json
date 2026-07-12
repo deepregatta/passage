@@ -12,6 +12,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "-w", "viewer", "--", "--port", "5199"],
       "port": 5199
+    },
+    {
+      "name": "viewer-dist-preview",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "preview", "-w", "viewer", "--", "--port", "4173", "--strictPort"],
+      "port": 4173
     }
   ]
 }

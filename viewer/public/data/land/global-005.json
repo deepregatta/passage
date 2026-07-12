@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "kind": "packed_land_mask",
+  "lat0": -90.0,
+  "lon0": -180.0,
+  "dlat": 0.05,
+  "dlon": 0.05,
+  "nlat": 3601,
+  "nlon": 7200,
+  "bit_order": "lsb",
+  "dilated_cells": 1,
+  "encoding": "gzip",
+  "generated_at": "2026-07-12T21:41:41.978320+00:00",
+  "source": "global-land-mask GLOBE"
+}

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://deepweather.local/contracts/region-grid.schema.json",
-  "title": "Region grid — regular lat/lon u/v field, hourly. TS does bilinear + time interpolation only; fetching/decoding/gap-filling stays in Python.",
+  "title": "Region grid — regular lat/lon u/v field, hourly. Built by the Python factory or route-locally in the browser.",
   "type": "object",
   "required": ["schema_version", "kind", "run_id", "generated_at", "lat0", "lon0", "dlat", "dlon", "nlat", "nlon", "time_axis", "u_kt", "v_kt", "source"],
   "properties": {

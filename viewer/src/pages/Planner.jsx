@@ -14,14 +14,10 @@ import { fmtTime, VERDICT } from '../lib/format.js';
 import { useApp } from '../stores/appStore.js';
 import { usePlanner } from '../stores/plannerStore.js';
 import { analyzeInBrowser, saveRoute } from '../lib/browserAnalysis.js';
+import { loadRoutingInputs as loadLiveRoutingInputs } from '../lib/routingInputs.js';
 import { Panel } from '../components/common.jsx';
 import BoatPicker from '../components/BoatPicker.jsx';
 import clsx from 'clsx';
-
-async function loadJson(url) {
-  const res = await fetch(url);
-  return res.ok ? res.json() : null;
-}
 
 // ink-navy waypoint dots instead of Leaflet's default blue pin
 const waypointIcon = L.divIcon({
@@ -136,37 +132,26 @@ export default function Planner() {
   );
 
   // shared by Compute route and the per-departure scan routing
-  const loadRoutingInputs = async () => {
-    const [latest, polar] = await Promise.all([
-      loadJson('/data/runs/latest.json'),
-      // full published db first; the two curated config polars remain a fallback
-      loadJson(`/data/polars/boats/${polarId}.json`).then(
-        (doc) => doc ?? loadJson(`/data/config/polars/${polarId}.json`),
-      ),
-    ]);
-    if (!latest?.artifacts?.wind_grid) {
-      throw new Error('No prepared wind grid — run deepweather-analysis prepare-run first');
-    }
-    if (!polar) {
-      throw new Error(`Boat polar “${polarId}” not found — run deepweather-analysis build-polar-db`);
-    }
-    const [windGrid, currentGrid, landMask] = await Promise.all([
-      loadJson(`/data/${latest.artifacts.wind_grid}`),
-      latest.artifacts.current_grid ? loadJson(`/data/${latest.artifacts.current_grid}`) : null,
-      latest.artifacts.land_mask ? loadJson(`/data/${latest.artifacts.land_mask}`) : null,
-    ]);
-    return { polar, windGrid, currentGrid, landMask };
-  };
+  const loadRoutingInputs = (scanning = false) =>
+    loadLiveRoutingInputs({
+      start: { lat: endpoints[0].lat, lon: endpoints[0].lng, name: 'Start' },
+      finish: { lat: endpoints[1].lat, lon: endpoints[1].lng, name: 'Finish' },
+      polarId,
+      departureIso: `${departureLocal}:00Z`,
+      scanning,
+      onProgress: setBusy,
+    });
 
   const routeForDeparture = (inputs, departureUtc) =>
     computeRoute({
-      start: { lat: endpoints[0].lat, lon: endpoints[0].lng, name: 'Start' },
-      finish: { lat: endpoints[1].lat, lon: endpoints[1].lng, name: 'Finish' },
+      start: inputs.start,
+      finish: inputs.finish,
       departureUtc,
       polar: inputs.polar,
       windGrid: inputs.windGrid,
       currentGrid: inputs.currentGrid ?? undefined,
-      landMask: inputs.landMask ?? undefined,
+      landMask: inputs.landMask,
+      maxHours: inputs.maxHours,
     });
 
   const runRouting = async () => {
@@ -175,7 +160,8 @@ export default function Planner() {
     setError(null);
     try {
       const inputs = await loadRoutingInputs();
-      setComputed(routeForDeparture(inputs, `${departureLocal}:00Z`));
+      setBusy('computing route');
+      setComputed({ ...routeForDeparture(inputs, `${departureLocal}:00Z`), notes: inputs.notes });
       setBusy(null);
     } catch (e) {
       setBusy(null);
@@ -216,9 +202,9 @@ export default function Planner() {
       const routes = {};
       let routeFor;
       if (mode === 'compute' && endpoints.length === 2 && polarId) {
-        const inputs = await loadRoutingInputs();
+        const inputs = await loadRoutingInputs(true);
         routeFor = (departureUtc) => {
-          const result = routeForDeparture(inputs, departureUtc);
+          const result = { ...routeForDeparture(inputs, departureUtc), notes: inputs.notes };
           routes[departureUtc] = result;
           return result.route;
         };
@@ -228,7 +214,7 @@ export default function Planner() {
         partial.push(c);
         setBusy(`scanning departures ${partial.length}/${departures.length}`);
       });
-      setScan({ ...result, routes, rerouted: Boolean(routeFor), requested: departures.length });
+      setScan({ ...result, routes, rerouted: Boolean(routeFor), requested: departures.length, notes: routeFor ? Object.values(routes)[0]?.notes ?? [] : [] });
       setBusy(null);
     } catch (e) {
       setBusy(null);
@@ -428,6 +414,9 @@ export default function Planner() {
                     </span>
                   </p>
                 )}
+                {computed?.notes?.length > 0 && (
+                  <p className="text-[11px] text-ink-soft -mt-1">{computed.notes.join(' ')}</p>
+                )}
               </>
             )}
 
@@ -525,6 +514,9 @@ export default function Planner() {
                 Departure comparison ready — see the full-width calendar below the chart.
               </p>
             )}
+            {scan?.notes?.length > 0 && (
+              <p className="text-[11px] text-ink-soft">{scan.notes.join(' ')}</p>
+            )}
             <p className="text-[12px] text-ink-soft">
               Runs in your browser · forecasts fetched live · saved as an immutable snapshot.
             </p>
@@ -551,16 +543,6 @@ export default function Planner() {
 
 /** which forecast models feed each calculation on this page — plain first, ids in mono */
 function ModelsUsed() {
-  const [run, setRun] = useState(null);
-  useEffect(() => {
-    loadJson('/data/runs/latest.json')
-      .then((latest) =>
-        latest?.artifacts?.run_manifest ? loadJson(`/data/${latest.artifacts.run_manifest}`) : null,
-      )
-      .then(setRun)
-      .catch(() => {});
-  }, []);
-  const lastStep = run?.steps_h?.[run.steps_h.length - 1];
   const mono = (text) => <span className="font-mono text-[11px] text-ink-soft">{text}</span>;
 
   return (
@@ -600,17 +582,11 @@ function ModelsUsed() {
           <p className="eyebrow mb-1.5">Computing a route (and per-departure routes)</p>
           <ul className="space-y-1.5">
             <li>
-              Routing wind: the locally prepared ECMWF IFS 0.25° grid
-              {run ? <> — run {mono(run.cycle ?? run.run_id)}{typeof lastStep === 'number' && <>, reaching {mono(`+${lastStep} h (~${Math.round(lastStep / 24)} days)`)}</>}</> : null}.
-              Routes beyond this grid cannot be computed — the departure calendar says so when it
-              happens.
+              Routing wind: ECMWF IFS 0.25° fetched live over a grid sized to your crossing
+              {mono('ecmwf_ifs025 · up to ~15 days')}.
             </li>
             <li>Your boat: the ORC polar you picked, used as-is by the router.</li>
-            <li>Currents: CMEMS IBI forecast currents, when the prepared grid covers the window.</li>
-            <li className="text-ink-soft">
-              Refresh the prepared grid with {mono('deepweather-analysis prepare-run --long')} —
-              00Z/12Z cycles reach 10 days; 06Z/18Z cycles stop at ~4 days.
-            </li>
+            <li>Currents: Open-Meteo marine, fetched live; routing falls back to wind alone if unavailable.</li>
           </ul>
         </div>
       </div>
@@ -697,7 +673,7 @@ function DepartureComparison({ scan, departureLocal, onPick }) {
       {scan.requested > scan.candidates.length && (
         <p className="font-sans text-[12px] text-ink-soft mt-2">
           {scan.requested - scan.candidates.length} of {scan.requested} departure times could not
-          be assessed — they fall beyond the {scan.rerouted ? 'prepared routing-wind' : 'forecast'}{' '}
+          be assessed — they fall beyond the {scan.rerouted ? 'live forecast' : 'forecast'}{' '}
           horizon — and are not shown. No cell does not mean fine.
         </p>
       )}
