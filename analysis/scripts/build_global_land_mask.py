@@ -44,8 +44,11 @@ def main() -> None:
 
     packed = np.packbits(dilated.reshape(-1), bitorder="little").tobytes()
     with gzip.GzipFile(
-        filename="global-005.bin", mode="wb", fileobj=(output / "global-005.bin.gz").open("wb"),
-        compresslevel=9, mtime=0,
+        filename="global-005.bin",
+        mode="wb",
+        fileobj=(output / "global-005.bin.gz").open("wb"),
+        compresslevel=9,
+        mtime=0,
     ) as stream:
         stream.write(packed)
 

@@ -71,9 +71,7 @@ class TestDetectRegion:
 
 
 def _fake_dataset(dataset_id: str, variables=("uo", "vo")):
-    service = SimpleNamespace(
-        variables=[SimpleNamespace(short_name=name) for name in variables]
-    )
+    service = SimpleNamespace(variables=[SimpleNamespace(short_name=name) for name in variables])
     part = SimpleNamespace(services=[service])
     version = SimpleNamespace(parts=[part])
     return SimpleNamespace(dataset_id=dataset_id, versions=[version])
@@ -132,9 +130,7 @@ class TestResolveForecastDataset:
         assert resolved.product_id == "IBI_ANALYSISFORECAST_PHY_005_001"
 
     def test_env_override_wins(self, monkeypatch):
-        monkeypatch.setenv(
-            "DEEPWEATHER_CURRENTS_DATASET_IBI", "my_custom_ibi_currents_PT1H-m"
-        )
+        monkeypatch.setenv("DEEPWEATHER_CURRENTS_DATASET_IBI", "my_custom_ibi_currents_PT1H-m")
         monkeypatch.setitem(
             sys.modules,
             "copernicusmarine",
@@ -197,9 +193,7 @@ class TestExpiryInvalidation:
 
         # Stale valid_until -> refetch.
         stale = fetcher.load_currents_metadata(meta1.fetch_id)
-        stale.valid_until = (
-            datetime.now(timezone.utc) - timedelta(hours=1)
-        ).isoformat()
+        stale.valid_until = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
         fetcher.save_currents_metadata(stale)
         meta3 = fetcher.fetch_forecast_currents(CHANNEL, start, end)
         assert len(calls) == 2
@@ -268,9 +262,7 @@ def _write_synthetic_currents(path):
     uo[:, :, 1, 0] = np.nan
     vo[:, :, 1, 0] = np.nan
 
-    times = np.array(
-        ["2026-07-12T00:00:00", "2026-07-12T01:00:00"], dtype="datetime64[ns]"
-    )
+    times = np.array(["2026-07-12T00:00:00", "2026-07-12T01:00:00"], dtype="datetime64[ns]")
     ds = xr.Dataset(
         {
             "uo": (("time", "depth", "latitude", "longitude"), uo),
@@ -312,9 +304,7 @@ class TestGridArtifactWriter:
                 "variables": ["uo", "vo"],
             },
         )
-        monkeypatch.setattr(
-            fetcher, "fetch_forecast_currents", lambda *a, **k: meta
-        )
+        monkeypatch.setattr(fetcher, "fetch_forecast_currents", lambda *a, **k: meta)
         monkeypatch.setattr(fetcher, "get_cache_dir", lambda fid: tmp_path / "cache" / fid)
 
         path = grids_prep.prepare_current_grid(
@@ -358,13 +348,9 @@ class TestGridArtifactWriter:
         assert doc["u_kt"][39] == pytest.approx(round(_uo(1, 3, 4) * MS_TO_KNOTS, 2))
         assert doc["v_kt"][39] == pytest.approx(round(_vo(1, 3, 4) * MS_TO_KNOTS, 2))
         # And the opposite time slice of the same cell.
-        assert doc["u_kt"][idx(0, 3, 4)] == pytest.approx(
-            round(_uo(0, 3, 4) * MS_TO_KNOTS, 2)
-        )
+        assert doc["u_kt"][idx(0, 3, 4)] == pytest.approx(round(_uo(0, 3, 4) * MS_TO_KNOTS, 2))
         # Interior wet cell.
-        assert doc["u_kt"][idx(0, 2, 3)] == pytest.approx(
-            round(_uo(0, 2, 3) * MS_TO_KNOTS, 2)
-        )
+        assert doc["u_kt"][idx(0, 2, 3)] == pytest.approx(round(_uo(0, 2, 3) * MS_TO_KNOTS, 2))
 
     def test_coastal_fill_and_land_nulls(self, artifact):
         _, doc, _ = artifact
@@ -380,20 +366,14 @@ class TestGridArtifactWriter:
                 assert doc["v_kt"][idx(t, 0, j)] is None
         # Dry cell (1,0) is ~3.6 km from wet neighbour (1,1) -> filled with it.
         for t in range(2):
-            assert doc["u_kt"][idx(t, 1, 0)] == pytest.approx(
-                round(_uo(t, 1, 1) * MS_TO_KNOTS, 2)
-            )
-            assert doc["v_kt"][idx(t, 1, 0)] == pytest.approx(
-                round(_vo(t, 1, 1) * MS_TO_KNOTS, 2)
-            )
+            assert doc["u_kt"][idx(t, 1, 0)] == pytest.approx(round(_uo(t, 1, 1) * MS_TO_KNOTS, 2))
+            assert doc["v_kt"][idx(t, 1, 0)] == pytest.approx(round(_vo(t, 1, 1) * MS_TO_KNOTS, 2))
 
     def test_latest_json_points_at_artifact(self, artifact):
         path, doc, tmp_path = artifact
         run_id = doc["run_id"]
         assert run_id == "cmems-ibi-20260712T00Z"
         assert path == tmp_path / "data" / "processed" / "runs" / run_id / "current_grid.json"
-        latest = json.loads(
-            (tmp_path / "data" / "processed" / "runs" / "latest.json").read_text()
-        )
+        latest = json.loads((tmp_path / "data" / "processed" / "runs" / "latest.json").read_text())
         assert latest["run_id"] == run_id
         assert latest["artifacts"]["current_grid"] == f"runs/{run_id}/current_grid.json"

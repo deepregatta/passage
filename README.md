@@ -10,8 +10,8 @@ Explainable passage-weather risk audit for sailors. Local prototype — see [PRO
 |---|---|---|
 | `analysis/` | Python factory: everything **route-independent, authenticated or gridded** — ECMWF open-data GRIBs, synoptic feature detection, CMEMS forecast currents, warnings, tides, verification. Publishes compact JSON artifacts per model run. | Scheduled shared-prep job (Cloud Run / GH Actions), once per model run for all users, publishing to R2 |
 | `engine/` | TypeScript pure library: everything **per-user** — route geometry, live route-local routing grids, ETA ranges, limits, ensemble exceedance, verdicts, briefing text, isochrone routing. Zero DOM deps. | Runs unchanged **in the user's browser** (no per-user server compute) |
-| `viewer/` | React + Vite showroom. Dev middleware serves `/data/*` from `../data/processed`. | Cloudflare Pages; `/data/*` = R2 |
-| `data/` | Git-ignored warehouse: caches, prepared runs, immutable snapshots. | R2 bucket, same layout |
+| `viewer/` | React + Vite showroom. Dev middleware serves `/data/*` from `../data/processed`. | Cloudflare Pages currently packages demo data statically; R2 delivery is planned |
+| `data/` | Git-ignored warehouse: caches, prepared runs, immutable snapshots. | Local today; planned R2 bucket with the same layout |
 | `contracts/` | JSON Schemas — the treaty between Python and TypeScript. | The API between the shared job and every browser |
 
 ## Data providers

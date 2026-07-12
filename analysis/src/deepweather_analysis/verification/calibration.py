@@ -76,9 +76,7 @@ class _Agg:
         total = self.n + n
         combined_mean = (self.n * self.mean + n * mean) / total
         # Pooled population variance: E[x^2] - mean^2 over the union.
-        ex2 = (
-            self.n * (self.var + self.mean**2) + n * (var + mean**2)
-        ) / total
+        ex2 = (self.n * (self.var + self.mean**2) + n * (var + mean**2)) / total
         self.n = total
         self.mean = combined_mean
         self.var = max(0.0, ex2 - combined_mean**2)

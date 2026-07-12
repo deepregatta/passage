@@ -243,9 +243,7 @@ def _build_grid_artifact(
         )
 
     # Hourly time axis: the dataset's native (hourly) steps within the window.
-    native_times = np.sort(
-        np.asarray(ds[time_coord].values).reshape(-1).astype("datetime64[s]")
-    )
+    native_times = np.sort(np.asarray(ds[time_coord].values).reshape(-1).astype("datetime64[s]"))
     window_start = np.datetime64(start_time.replace(tzinfo=None), "s")
     window_end = np.datetime64(end_time.replace(tzinfo=None), "s")
     times = native_times[(native_times >= window_start) & (native_times <= window_end)]
@@ -254,8 +252,7 @@ def _build_grid_artifact(
             f"No forecast timesteps within {start_time.isoformat()}..{end_time.isoformat()}"
         )
     time_axis = [
-        _iso_z(datetime.fromtimestamp(int(t.astype("int64")), tz=timezone.utc))
-        for t in times
+        _iso_z(datetime.fromtimestamp(int(t.astype("int64")), tz=timezone.utc)) for t in times
     ]
     times_epoch = times.astype("int64")
     ntime = int(times.size)

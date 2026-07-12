@@ -7,7 +7,7 @@
  */
 
 import { existsSync, readFileSync } from 'node:fs';
-import { resolve, dirname, join } from 'node:path';
+import { resolve, dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runAnalysis, persistSnapshot } from './analyze.js';
 import { FsCacheStore, NodeFsSnapshotStore } from './io/node.js';
@@ -78,7 +78,12 @@ async function runCommand(args: Map<string, string>): Promise<number> {
       ...(zoneEntry?.fr_zones ?? []).map((z: { zone_id: string }) => z.zone_id),
       ...(zoneEntry?.uk_zones ?? []).map((z: { zone_id: string }) => z.zone_id),
     ];
-    warnings = { doc, routeZoneIds, ref: warningsPath };
+    const repoRelativeRef = relative(REPO_ROOT, warningsPath);
+    warnings = {
+      doc,
+      routeZoneIds,
+      ref: repoRelativeRef.startsWith('..') ? warningsPath : repoRelativeRef,
+    };
   }
 
   // prepared artifacts: live latest run, or deterministic fixture-local synoptic features.

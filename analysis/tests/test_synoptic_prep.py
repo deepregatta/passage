@@ -23,7 +23,7 @@ from deepweather_analysis.synoptic_prep import MS_TO_KNOTS, prepare_synoptic
 CYCLE = "20260701T00Z"
 CYCLE_TIME = datetime(2026, 7, 1, 0, 0, tzinfo=timezone.utc)
 
-LATS = np.arange(40.0, 55.01, 0.25)   # covers the Channel wind window
+LATS = np.arange(40.0, 55.01, 0.25)  # covers the Channel wind window
 LONS = np.arange(-12.0, 2.01, 0.25)
 STEPS = [0, 3, 6]
 
@@ -86,7 +86,12 @@ def prep_env(tmp_path, monkeypatch):
 
     monkeypatch.setenv("DEEPWEATHER_DATA_ROOT", str(data_root))
     monkeypatch.setattr(
-        synoptic_prep, "fetch_fields", lambda cycle=None, force=False: (synthetic_dataset(), synthetic_meta())
+        synoptic_prep,
+        "fetch_fields",
+        lambda cycle=None, force=False, prefer_long=False: (
+            synthetic_dataset(),
+            synthetic_meta(),
+        ),
     )
     return data_root
 

@@ -80,9 +80,7 @@ class TestDetectSystems:
         assert highs[0]["center_hpa"] == pytest.approx(1030.0, abs=1.0)
 
     def test_two_separated_lows_both_found(self):
-        field = gaussian_field(
-            1015.0, [(55.0, -25.0, -25.0, 3.0), (42.0, -5.0, -15.0, 3.0)]
-        )
+        field = gaussian_field(1015.0, [(55.0, -25.0, -25.0, 3.0), (42.0, -5.0, -15.0, 3.0)])
         lows = [s for s in detect_systems(field, LATS, LONS) if s["kind"] == "low"]
         assert len(lows) == 2
 
@@ -143,7 +141,13 @@ class TestTrackSystems:
         assert track_systems(steps, [0, 3]) == []
 
     def test_kind_never_mixes(self):
-        high = {"kind": "high", "lat": 50.0, "lon": -10.5, "center_hpa": 1030.0, "closed_contour": True}
+        high = {
+            "kind": "high",
+            "lat": 50.0,
+            "lon": -10.5,
+            "center_hpa": 1030.0,
+            "closed_contour": True,
+        }
         steps = [[_low(50.0, -10.0, 990.0)], [high]]
         assert track_systems(steps, [0, 3]) == []
 
@@ -165,8 +169,8 @@ def mistral_pattern(wind_ms: float = 8.0):
         RLONS,
     )
     shape = (RLATS.size, RLONS.size)
-    u10 = np.full(shape, +wind_ms)   # eastward
-    v10 = np.full(shape, -wind_ms)   # southward -> wind FROM 315 (NW)
+    u10 = np.full(shape, +wind_ms)  # eastward
+    v10 = np.full(shape, -wind_ms)  # southward -> wind FROM 315 (NW)
     return mslp, u10, v10
 
 

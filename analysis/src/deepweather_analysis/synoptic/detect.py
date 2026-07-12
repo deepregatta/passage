@@ -156,7 +156,9 @@ def detect_systems(
             prominence = _prominence(field, i, j, half_box_i, half_box_j, sign)
             if prominence < min_prominence_hpa:
                 continue
-            closed = _closed_within_box(field, i, j, contour_delta_hpa, half_box_i, half_box_j, sign)
+            closed = _closed_within_box(
+                field, i, j, contour_delta_hpa, half_box_i, half_box_j, sign
+            )
             kept.append((i, j))
             results.append(
                 {

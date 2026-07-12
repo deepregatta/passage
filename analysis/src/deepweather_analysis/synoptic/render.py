@@ -65,10 +65,33 @@ _GRADIENT_REGIONS = [
 ]
 
 _COMPASS16 = [
-    "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
-    "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW",
+    "N",
+    "NNE",
+    "NE",
+    "ENE",
+    "E",
+    "ESE",
+    "SE",
+    "SSE",
+    "S",
+    "SSW",
+    "SW",
+    "WSW",
+    "W",
+    "WNW",
+    "NW",
+    "NNW",
 ]
-_COMPASS8 = ["north", "north-east", "east", "south-east", "south", "south-west", "west", "north-west"]
+_COMPASS8 = [
+    "north",
+    "north-east",
+    "east",
+    "south-east",
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+]
 
 
 def _compass16(deg: float) -> str:
@@ -168,7 +191,10 @@ def _caption(step_h: int, systems: Sequence[Dict], mslp: np.ndarray, lats, lons)
 
     # Lows deepest first, then highs strongest first; keep the caption sober.
     at_step.sort(
-        key=lambda sp: (sp[0]["kind"] != "low", sp[1]["center_hpa"] * (1 if sp[0]["kind"] == "low" else -1))
+        key=lambda sp: (
+            sp[0]["kind"] != "low",
+            sp[1]["center_hpa"] * (1 if sp[0]["kind"] == "low" else -1),
+        )
     )
     sentences = [_system_sentence(s, p) for s, p in at_step[:3]]
     body = "; ".join(sentences) if sentences else "no closed pressure centres in the window"
@@ -189,7 +215,16 @@ def _draw_land(ax, lats: np.ndarray, lons: np.ndarray) -> None:
     lon_grid, lat_grid = np.meshgrid(lons, lats)
     land = globe.is_land(lat_grid, lon_grid)
     ax.contourf(lons, lats, land.astype(float), levels=[0.5, 1.5], colors=["#E2D9C5"], zorder=0)
-    ax.contour(lons, lats, land.astype(float), levels=[0.5], colors=[INK], linewidths=0.4, alpha=0.35, zorder=1)
+    ax.contour(
+        lons,
+        lats,
+        land.astype(float),
+        levels=[0.5],
+        colors=[INK],
+        linewidths=0.4,
+        alpha=0.35,
+        zorder=1,
+    )
 
 
 def _fmt_valid(valid: Optional[datetime]) -> str:
@@ -248,7 +283,9 @@ def render_panels(
         lo = math.floor(np.nanmin(mslp) / ISOBAR_STEP_HPA) * ISOBAR_STEP_HPA
         hi = math.ceil(np.nanmax(mslp) / ISOBAR_STEP_HPA) * ISOBAR_STEP_HPA
         levels = np.arange(lo, hi + ISOBAR_STEP_HPA, ISOBAR_STEP_HPA)
-        contours = ax.contour(lons, lats, mslp, levels=levels, colors=[INK], linewidths=0.8, zorder=2)
+        contours = ax.contour(
+            lons, lats, mslp, levels=levels, colors=[INK], linewidths=0.8, zorder=2
+        )
         label_levels = [lv for lv in levels if lv % ISOBAR_LABEL_EVERY_HPA == 0]
         if label_levels:
             ax.clabel(contours, levels=label_levels, fmt="%d", fontsize=8, colors=[INK])
@@ -280,14 +317,25 @@ def render_panels(
             if point is not None:
                 letter = "L" if system["kind"] == "low" else "H"
                 ax.text(
-                    point["lon"], point["lat"], letter,
-                    color=color, fontsize=22, fontweight="bold",
-                    ha="center", va="center", zorder=5,
+                    point["lon"],
+                    point["lat"],
+                    letter,
+                    color=color,
+                    fontsize=22,
+                    fontweight="bold",
+                    ha="center",
+                    va="center",
+                    zorder=5,
                 )
                 ax.text(
-                    point["lon"], point["lat"] - 1.1,
+                    point["lon"],
+                    point["lat"] - 1.1,
                     f"{system['system_id']} {point['center_hpa']:.0f}",
-                    color=color, fontsize=8, ha="center", va="top", zorder=5,
+                    color=color,
+                    fontsize=8,
+                    ha="center",
+                    va="top",
+                    zorder=5,
                 )
 
         ax.set_xlim(float(lons.min()), float(lons.max()))
@@ -302,12 +350,19 @@ def render_panels(
         subtitle = _fmt_valid(valid)
         ax.set_title(
             title + (f"   {subtitle}" if subtitle else ""),
-            color=INK, fontsize=12, loc="left", pad=10,
+            color=INK,
+            fontsize=12,
+            loc="left",
+            pad=10,
         )
         fig.text(
-            0.99, 0.01,
+            0.99,
+            0.01,
             "ECMWF open data (CC-BY-4.0) — isobars every 4 hPa",
-            color=INK, fontsize=7, alpha=0.7, ha="right",
+            color=INK,
+            fontsize=7,
+            alpha=0.7,
+            ha="right",
         )
 
         # fixed canvas (no tight crop) so the axes' pixel geometry is exact and

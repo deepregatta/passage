@@ -255,9 +255,7 @@ def _find_nearest_model_record(
         digit_bonus = 0.0
         if digits and candidate_digits:
             shared_digit_prefix = _shared_prefix_length(digits, candidate_digits)
-            digit_bonus += (
-                min(shared_digit_prefix, max(len(digits), len(candidate_digits))) * 0.05
-            )
+            digit_bonus += min(shared_digit_prefix, max(len(digits), len(candidate_digits))) * 0.05
             if digits == candidate_digits:
                 digit_bonus += 0.15
 
@@ -354,9 +352,7 @@ def load_orc_polars(polars_file: Path) -> dict[str, dict]:
         try:
             orc_data = ast.literal_eval(content)
         except (ValueError, SyntaxError) as e:
-            raise ValueError(
-                f"Could not parse polar file as JSON or Python literal: {e}"
-            )
+            raise ValueError(f"Could not parse polar file as JSON or Python literal: {e}")
 
     by_name = {}
     by_model = {}
@@ -511,9 +507,7 @@ def _slugify(text: str) -> str:
     return slug or "polar"
 
 
-def _interpolate_in_row(
-    twa: float, known_angles: list[float], row: dict[float, float]
-) -> float:
+def _interpolate_in_row(twa: float, known_angles: list[float], row: dict[float, float]) -> float:
     """Linear interpolation of a missing TWA within one TWS row.
 
     Values outside the known angle range clamp to the nearest neighbour.
@@ -619,9 +613,7 @@ def _update_index(index_path: Path, entry: dict) -> None:
         except json.JSONDecodeError:
             data = {"polars": []}
     polars_list = [
-        item
-        for item in data.get("polars", [])
-        if item.get("polar_id") != entry["polar_id"]
+        item for item in data.get("polars", []) if item.get("polar_id") != entry["polar_id"]
     ]
     polars_list.append(entry)
     data["polars"] = sorted(polars_list, key=lambda item: item.get("polar_id", ""))
@@ -675,9 +667,7 @@ def extract_polar(
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }
 
-    schema = json.loads(
-        (contracts_dir() / "polar.schema.json").read_text(encoding="utf-8")
-    )
+    schema = json.loads((contracts_dir() / "polar.schema.json").read_text(encoding="utf-8"))
     Draft202012Validator(schema).validate(artifact)
 
     target_dir = out_dir or default_output_dir()
@@ -817,9 +807,7 @@ def build_polar_db(
 
         records = ast.literal_eval(content)
 
-    schema = json.loads(
-        (contracts_dir() / "polar.schema.json").read_text(encoding="utf-8")
-    )
+    schema = json.loads((contracts_dir() / "polar.schema.json").read_text(encoding="utf-8"))
     validator = Draft202012Validator(schema)
 
     target = out_dir or default_db_output_dir()
@@ -894,7 +882,8 @@ def build_polar_db(
         bucket = [
             r
             for r in records
-            if r.get("vpp") and lo <= float(r.get("boat", {}).get("sizes", {}).get("loa") or 0.0) < hi
+            if r.get("vpp")
+            and lo <= float(r.get("boat", {}).get("sizes", {}).get("loa") or 0.0) < hi
         ]
         if len(bucket) < 5:
             continue

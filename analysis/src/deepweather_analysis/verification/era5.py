@@ -47,9 +47,7 @@ ERA5_VARIABLES = [
 ERA5_RESOLUTION_DEG = 0.25
 ERA5T_AGE_DAYS = 90  # events younger than this get the preliminary tier
 
-WEATHER_MAX_REQUEST_POINTS = int(
-    os.getenv("DEEPWEATHER_ERA5_MAX_REQUEST_POINTS", "20000000")
-)
+WEATHER_MAX_REQUEST_POINTS = int(os.getenv("DEEPWEATHER_ERA5_MAX_REQUEST_POINTS", "20000000"))
 
 
 def compute_file_checksum(file_path: Path) -> str:
@@ -264,9 +262,7 @@ def fetch_era5_weather(
         ],
     }
 
-    logger.info(
-        "Fetching %s weather for %s to %s", source, fetch_start.date(), fetch_end.date()
-    )
+    logger.info("Fetching %s weather for %s to %s", source, fetch_start.date(), fetch_end.date())
 
     try:
         # DEEPWEATHER_CDSAPI_URL/KEY override ~/.cdsapirc when set.
