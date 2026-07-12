@@ -216,14 +216,14 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     outDir: 'dist',
-    chunkSizeWarningLimit: 1100,
+    chunkSizeWarningLimit: 1200,
     sourcemap: mode !== 'production',
     rollupOptions: {
       output: {
-        manualChunks: {
-          'vendor-react': ['react', 'react-dom'],
-          'vendor-echarts': ['echarts', 'echarts-for-react'],
-          'vendor-leaflet': ['leaflet', 'react-leaflet'],
+        manualChunks(id) {
+          if (id.includes('/node_modules/echarts') || id.includes('/node_modules/zrender') || id.includes('/node_modules/echarts-for-react')) return 'vendor-echarts';
+          if (id.includes('/node_modules/leaflet') || id.includes('/node_modules/react-leaflet')) return 'vendor-leaflet';
+          if (id.includes('/node_modules/react/') || id.includes('/node_modules/react-dom/')) return 'vendor-react';
         },
       },
     },

@@ -150,13 +150,13 @@ def evaluate_expectations(case: Dict[str, Any], detections: Dict[str, Any]) -> D
         # given, so a shallow nearby low can't stand in for the storm.
         threshold = expectations.get("min_center_hpa_below")
         candidates = (
-            [l for l in lows if threshold is None or l["center_hpa"] < float(threshold)] or lows
+            [low for low in lows if threshold is None or low["center_hpa"] < float(threshold)] or lows
         )
         if candidates:
             position_error_deg = round(
                 min(
-                    _sep_deg(l["lat"], l["lon"], float(target["lat"]), float(target["lon"]))
-                    for l in candidates
+                    _sep_deg(low["lat"], low["lon"], float(target["lat"]), float(target["lon"]))
+                    for low in candidates
                 ),
                 2,
             )
@@ -172,7 +172,7 @@ def evaluate_expectations(case: Dict[str, Any], detections: Dict[str, Any]) -> D
 
     if kind == "negative":
         threshold = float(expectations.get("no_deep_low_below_hpa", DEFAULT_NO_DEEP_LOW_HPA))
-        offenders = [l for l in lows if l["center_hpa"] < threshold]
+        offenders = [low for low in lows if low["center_hpa"] < threshold]
         passed = not offenders
         if offenders:
             worst = min(offenders, key=lambda d: d["center_hpa"])

@@ -5,6 +5,9 @@ test('Plan and Verify stage checkpoints keep URL-deep-linked subviews', async ({
   await openAuditedSnapshot(page);
   await page.getByRole('button', { name: /Plan/ }).first().click();
   await expect(page).toHaveURL(/#plan\/planner$/);
+  await expect(page.getByRole('heading', { name: 'Plan a passage' })).toBeVisible();
+  await page.locator('.leaflet-container').waitFor();
+  await page.waitForTimeout(250);
   await expect(page).toHaveScreenshot('plan.png', { fullPage: true });
   await page.getByRole('button', { name: /Verify/ }).first().click();
   await expect(page).toHaveURL(/#verify\/record$/);
