@@ -8,6 +8,7 @@
   "generated_at": "2026-07-11T18:00:00Z",
   "inputs": {
     "prepared_run_id": null,
+    "synoptic_run_id": null,
     "openmeteo": [
       {
         "api": "forecast",
@@ -2840,11 +2841,99 @@
       "source_kind": "deterministic"
     }
   ],
+  "coverage": [
+    {
+      "capability": "sustained_wind",
+      "status": "assessed",
+      "evidence_ids": [
+        "E3",
+        "E6",
+        "E9",
+        "E12",
+        "E15",
+        "E19"
+      ]
+    },
+    {
+      "capability": "gusts",
+      "status": "assessed",
+      "evidence_ids": [
+        "E1",
+        "E4",
+        "E7",
+        "E8",
+        "E13",
+        "E14",
+        "E20",
+        "E21",
+        "E24",
+        "E25"
+      ]
+    },
+    {
+      "capability": "waves",
+      "status": "partially_assessed",
+      "detail": "deterministic wave model only; no wave ensemble",
+      "evidence_ids": [
+        "E5",
+        "E10",
+        "E11",
+        "E16",
+        "E17",
+        "E22",
+        "E23",
+        "E26"
+      ]
+    },
+    {
+      "capability": "visibility_and_convection",
+      "status": "partially_assessed",
+      "detail": "screening signals only; official warnings remain authoritative",
+      "evidence_ids": [
+        "E2"
+      ]
+    },
+    {
+      "capability": "tidal_currents",
+      "status": "not_assessed",
+      "detail": "tidal currents (no prepared current grid)",
+      "evidence_ids": []
+    },
+    {
+      "capability": "tidal_gates",
+      "status": "not_assessed",
+      "detail": "tidal gates & HW/LW heights (no tide data)",
+      "evidence_ids": []
+    },
+    {
+      "capability": "official_warnings",
+      "status": "not_assessed",
+      "detail": "official marine warnings (no feed configured)",
+      "evidence_ids": []
+    },
+    {
+      "capability": "synoptic_attribution",
+      "status": "not_assessed",
+      "detail": "causal synoptic attribution (no prepared synoptic run)"
+    },
+    {
+      "capability": "tropical_systems",
+      "status": "not_assessed",
+      "detail": "tropical systems"
+    },
+    {
+      "capability": "ice",
+      "status": "not_assessed",
+      "detail": "ice"
+    }
+  ],
+  "causal_events": [],
   "unsupported_hazards": [
-    "tropical systems",
-    "ice",
     "tidal currents (no prepared current grid)",
+    "tidal gates & HW/LW heights (no tide data)",
     "official marine warnings (no feed configured)",
-    "tidal gates & HW/LW heights (no tide data)"
+    "causal synoptic attribution (no prepared synoptic run)",
+    "tropical systems",
+    "ice"
   ]
 }
