@@ -39,6 +39,11 @@ export const VERDICT = {
   warning_active: { label: 'Official warning active', glyph: '🚩', tw: 'authority', hex: '#9E2B63' },
 };
 
+/** Drawn routes have machine waypoint ids (wp1, wp2…) — spell them out for display. */
+export function placeLabel(raw) {
+  return typeof raw === 'string' ? raw.replace(/\bwp(\d+)\b/gi, 'waypoint $1') : raw;
+}
+
 export const STATUS_HEX = {
   ok: '#2F6E4F',
   approaching: '#A87718',

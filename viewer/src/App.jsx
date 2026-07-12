@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect } from 'react';
 import { useApp } from './stores/appStore.js';
 import Shell from './components/Shell.jsx';
+import { HASH_PAGE, PAGE_HASH } from './lib/routes.js';
 
 const PAGES = {
   snapshots: lazy(() => import('./pages/Snapshots.jsx')),
@@ -13,18 +14,6 @@ const PAGES = {
   settings: lazy(() => import('./pages/Settings.jsx')),
 };
 const EvidenceInspector = lazy(() => import('./components/EvidenceInspector.jsx'));
-
-const HASH_PAGE = {
-  'plan/planner': 'planner',
-  'plan/briefings': 'snapshots',
-  'plan/limits': 'settings',
-  'brief/story': 'briefing',
-  'brief/evidence': 'evidence',
-  'watch/changes': 'changes',
-  'verify/record': 'verification',
-  'verify/case-study': 'caseStudy',
-};
-const PAGE_HASH = Object.fromEntries(Object.entries(HASH_PAGE).map(([hash, page]) => [page, hash]));
 
 export default function App() {
   const page = useApp((state) => state.page);
@@ -42,7 +31,7 @@ export default function App() {
   }, [setPage]);
 
   useEffect(() => {
-    const hash = PAGE_HASH[page] ?? PAGE_HASH.snapshots;
+    const hash = PAGE_HASH[page] ?? PAGE_HASH.planner;
     if (location.hash.slice(1) !== hash) history.replaceState(null, '', `#${hash}`);
   }, [page]);
 

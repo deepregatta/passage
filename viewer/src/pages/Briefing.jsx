@@ -4,7 +4,7 @@ import RouteMap from '../components/lazy/LeafletLazy.jsx';
 import RouteTimeline from '../components/RouteTimeline.jsx';
 import ModelFooter from '../components/ModelFooter.jsx';
 import { Panel, EvidenceLink, VerdictChip } from '../components/common.jsx';
-import { fmtTime, hourStatus, STATUS_HEX, VERDICT } from '../lib/format.js';
+import { fmtTime, hourStatus, placeLabel, STATUS_HEX, VERDICT } from '../lib/format.js';
 import { Term } from '../lib/glossary.jsx';
 import clsx from 'clsx';
 import BulletinPanel from '../components/BulletinPanel.jsx';
@@ -31,9 +31,12 @@ const SECTION_ORDER = ['warnings', 'synoptic_story', 'route_impact', 'decision',
 export default function Briefing() {
   const findings = useApp((s) => s.findings);
   const briefing = useApp((s) => s.briefing);
+  const synoptic = useApp((s) => s.synoptic);
+  const route = useApp((s) => s.route);
   const [bulletinOpen, setBulletinOpen] = useState(false);
   if (!findings || !briefing) return <EmptyState />;
   const warningEvidence = findings.evidence.find((item) => item.rule_id === 'A-WARN-01');
+  const hasCausalHero = Boolean(synoptic && route && findings.causal_events?.length);
 
   const sections = [...briefing.sections].sort(
     (a, b) => SECTION_ORDER.indexOf(a.id) - SECTION_ORDER.indexOf(b.id),
@@ -46,11 +49,23 @@ export default function Briefing() {
       <div className="px-3 sm:px-5 py-4 max-w-[1600px] mx-auto">
         <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,3fr)_minmax(320px,2fr)] gap-4">
           <div className="min-w-0">
-            <SynopticHero />
+            {hasCausalHero ? (
+              <SynopticHero />
+            ) : (
+              <div>
+                <p className="font-instrument text-xs text-ink-soft border-l-4 border-line pl-3 py-1 mb-2">
+                  No weather-system track was saved with this briefing, so here is your passage
+                  chart. New briefings show the system moving toward your route.
+                </p>
+                <RouteMap height={430} />
+              </div>
+            )}
           </div>
           <div className="min-w-0 flex flex-col gap-3">
             <WeatherStoryCard findings={findings} sections={sections} />
-            <details className="border hairline bg-white/25"><summary className="px-3 py-2 font-instrument text-xs cursor-pointer">Passage chart inset</summary><div className="p-2"><RouteMap height={240} /></div></details>
+            {hasCausalHero && (
+              <details className="border hairline bg-white/25"><summary className="px-3 py-2 font-instrument text-xs cursor-pointer">Passage chart inset</summary><div className="p-2"><RouteMap height={240} /></div></details>
+            )}
           </div>
         </div>
 
@@ -139,36 +154,6 @@ function recomputePersonalState(findings) {
   return approaching ? 'approaching' : 'within';
 }
 
-/** hero: one big chart area with tabs — the passage chart and the synoptic panels */
-function HeroTabs() {
-  const [tab, setTab] = useState('route');
-  return (
-    <div className="bg-white/40 border hairline rounded-sm shadow-panel">
-      <div className="flex items-center gap-1 px-3 pt-2">
-        {[
-          ['route', 'Passage chart'],
-          ['synoptic', 'Synoptic situation'],
-        ].map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => setTab(id)}
-            className={clsx(
-              'font-sans text-[12px] uppercase tracking-[0.12em] px-3 py-1.5 rounded-t-sm border border-b-0',
-              tab === id ? 'bg-paper border-ink/30 text-ink' : 'border-transparent text-ink-soft hover:text-ink',
-            )}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-      <div className="p-3 border-t hairline">
-        {tab === 'route' ? <RouteMap height={430} /> : <SynopticPanel />}
-      </div>
-    </div>
-  );
-}
-
 /** the story as a headline card: one look = the message; prose lives behind "why" */
 function WeatherStoryCard({ findings, sections }) {
   const [expanded, setExpanded] = useState(false);
@@ -183,7 +168,7 @@ function WeatherStoryCard({ findings, sections }) {
   const headline = event
     ? `${event.name} crosses your passage window`
     : synopticSection
-      ? firstSentence(synopticSection.register_plain)
+      ? placeLabel(firstSentence(synopticSection.register_plain))
       : 'Causal attribution unavailable for this legacy snapshot.';
 
   const legPlace = (legId) => {
@@ -249,7 +234,7 @@ function WeatherStoryCard({ findings, sections }) {
       <span className="eyebrow">The weather story</span>
       {event && <span className="font-mono text-[10px] text-event mt-2 uppercase">phase · {playbackFrame.phase}</span>}
       <h2 className="font-story text-[30px] leading-tight mt-2">{headline}</h2>
-      {event && <p className="font-story text-[18px] leading-snug mt-2 text-event">{event.consequence.register_plain}</p>}
+      {event && <p className="font-story text-[18px] leading-snug mt-2 text-event">{placeLabel(event.consequence.register_plain)}</p>}
       {keyFact && (
         <p className="font-chart text-[19px] leading-snug mt-1.5" style={{ color: verdictHex }}>
           {driver ? <EvidenceLink evidenceId={driver.evidence_id}>{keyFact}</EvidenceLink> : keyFact}
@@ -301,7 +286,7 @@ const firstSentence = (text) => {
   const cut = s.slice(0, 130);
   return `${cut.slice(0, cut.lastIndexOf(' '))}…`;
 };
-const shortName = (name) => name.split('→')[1]?.trim().split(',')[0] ?? name.slice(0, 24);
+const shortName = (name) => placeLabel(name.split('→')[1]?.trim().split(',')[0] ?? name.slice(0, 24));
 
 function StorySection({ section, findings }) {
   const coverage = section.id === 'unsupported' ? deriveCoverage(findings) : null;
@@ -378,127 +363,6 @@ function CoverageMatrix({ findings }) {
   );
 }
 
-function SynopticPanel() {
-  const findings = useApp((s) => s.findings);
-  const [state, setState] = useState(null);
-  const [routeDoc, setRouteDoc] = useState(null);
-  const [step, setStep] = useState(0);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const latest = await fetch('/data/runs/latest.json').then((r) => (r.ok ? r.json() : null));
-        const charts = latest?.artifacts?.synoptic_charts;
-        if (!charts?.length) return setState({ missing: true });
-        const features = latest.artifacts.synoptic_features
-          ? await fetch(`/data/${latest.artifacts.synoptic_features}`).then((r) => (r.ok ? r.json() : null))
-          : null;
-        setState({ charts, captions: features?.chart_captions ?? [], run: latest.run_id });
-      } catch {
-        setState({ missing: true });
-      }
-    })();
-  }, []);
-
-  useEffect(() => {
-    if (!findings) return;
-    fetch(`/data/snapshots/${findings.snapshot_id}/route.json`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then(setRouteDoc)
-      .catch(() => {});
-  }, [findings]);
-
-  if (!state) return <p className="font-sans text-sm text-ink-soft">Loading chart…</p>;
-  if (state.missing) {
-    return (
-      <div className="text-center py-10 bg-shoal/30 border border-dashed hairline rounded-sm">
-        <p className="font-chart text-lg text-ink-soft">Synoptic chart</p>
-        <p className="font-sans text-sm text-ink-soft mt-1">
-          Run <span className="font-mono text-[12px]">deepweather-analysis prepare-run</span> to
-          render it from the latest model cycle.
-        </p>
-      </div>
-    );
-  }
-
-  const chart = state.charts[step];
-  const file = chart.split('/').pop();
-  const meta = state.captions.find((c) => c.file === file || chart.endsWith(c.file ?? ''));
-  const overlay = buildRouteOverlay(meta, routeDoc);
-
-  return (
-    <div>
-      <div className="flex gap-1.5 mb-2">
-        {state.charts.map((c, i) => (
-          <button
-            key={c}
-            type="button"
-            onClick={() => setStep(i)}
-            className={
-              'font-mono text-[11px] px-2 py-0.5 border rounded-sm ' +
-              (i === step ? 'bg-ink text-paper border-ink' : 'border-line text-ink-soft hover:border-ink-soft')
-            }
-          >
-            T+{(c.match(/t(\d+)\.png/)?.[1] ?? '0').replace(/^0+(?=\d)/, '')}
-          </button>
-        ))}
-      </div>
-      <div className="relative border hairline rounded-sm overflow-hidden">
-        <img src={`/data/${chart}`} alt={`Synoptic chart ${file}`} className="w-full block" />
-        {overlay && (
-          <svg
-            className="absolute inset-0 w-full h-full pointer-events-none"
-            viewBox={`0 0 ${overlay.w} ${overlay.h}`}
-            preserveAspectRatio="none"
-            aria-hidden
-          >
-            <polyline
-              points={overlay.points}
-              fill="none"
-              stroke="#16283E"
-              strokeWidth={overlay.w / 340}
-              strokeDasharray={`${overlay.w / 300} ${overlay.w / 170}`}
-              strokeLinecap="round"
-            />
-            <circle cx={overlay.start.x} cy={overlay.start.y} r={overlay.w / 190} fill="#16283E" />
-            <circle
-              cx={overlay.end.x}
-              cy={overlay.end.y}
-              r={overlay.w / 190}
-              fill="#F3EEE3"
-              stroke="#16283E"
-              strokeWidth={overlay.w / 500}
-            />
-          </svg>
-        )}
-      </div>
-      {meta?.caption && (
-        <p className="font-sans text-[13px] text-ink-soft mt-2 leading-relaxed">{meta.caption}</p>
-      )}
-      <p className="font-mono text-[10px] text-ink-soft mt-1">
-        {state.run} · MSLP isobars{overlay ? ' · your route marked' : ''} · contains modified ECMWF
-        open data (CC-BY-4.0)
-      </p>
-    </div>
-  );
-}
-
-/** map route lon/lat onto the PNG's published axes geometry */
-function buildRouteOverlay(meta, routeDoc) {
-  if (!meta?.axes_px || !meta?.geo || !meta?.size_px || !routeDoc?.waypoints?.length) return null;
-  const { axes_px: a, geo: g, size_px: s } = meta;
-  const toX = (lon) => a.x0 + ((lon - g.lon_min) / (g.lon_max - g.lon_min)) * (a.x1 - a.x0);
-  const toY = (lat) => a.y0 + ((g.lat_max - lat) / (g.lat_max - g.lat_min)) * (a.y1 - a.y0);
-  const pts = routeDoc.waypoints.map((wp) => ({ x: toX(wp.lon), y: toY(wp.lat) }));
-  return {
-    w: s.w,
-    h: s.h,
-    points: pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' '),
-    start: pts[0],
-    end: pts[pts.length - 1],
-  };
-}
-
 /** leg progress bar: numbered dots on a line, distances + durations beneath (mockup 1) */
 function LegProgressBar({ findings }) {
   const rank = { ok: 0, unknown: 0, approaching: 1, exceeded: 2 };
@@ -565,8 +429,8 @@ function LegProgressBar({ findings }) {
 function routeTitle(findings) {
   const first = findings.legs[0];
   const last = findings.legs[findings.legs.length - 1];
-  const from = first?.name.split('→')[0]?.trim().split(',')[0] ?? findings.route_id;
-  const to = last?.name.split('→')[1]?.trim().split(',')[0] ?? '';
+  const from = placeLabel(first?.name.split('→')[0]?.trim().split(',')[0] ?? findings.route_id);
+  const to = placeLabel(last?.name.split('→')[1]?.trim().split(',')[0] ?? '');
   return to ? `${from} → ${to}` : from;
 }
 

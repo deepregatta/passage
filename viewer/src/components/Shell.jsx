@@ -34,7 +34,7 @@ export default function Shell({ page, onNavigate, children }) {
           <nav aria-label="Passage stages" className="hidden md:flex self-stretch flex-1 justify-center">
             {STAGES.map((stage, index) => <StageButton key={stage.id} stage={stage} index={index} active={active.id === stage.id} onClick={() => navigateStage(stage)} />)}
           </nav>
-          <div className="ml-auto font-mono text-[10px] text-paper/60 hidden sm:block">{snapshotId ? `SNAPSHOT ${snapshotId.slice(-8)}` : 'NO BRIEF OPEN'}</div>
+          <div className="ml-auto font-instrument text-[11px] text-paper/60 hidden sm:block">{snapshotId ? <span className="font-mono text-[10px]">SNAPSHOT {snapshotId.slice(-8)}</span> : 'no briefing open yet'}</div>
         </div>
         <nav aria-label={`${active.label} views`} className="h-9 px-3 sm:px-5 flex items-end gap-1 bg-paper text-ink border-b hairline overflow-x-auto">
           {SUBVIEWS[active.id].map(([id, label]) => (

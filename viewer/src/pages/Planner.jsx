@@ -10,11 +10,12 @@ import {
   scanDepartures,
   candidateDepartures,
 } from '@deepweather/engine';
-import { VerdictChip } from '../components/common.jsx';
-import { fmtTime } from '../lib/format.js';
+import { fmtTime, VERDICT } from '../lib/format.js';
 import { useApp } from '../stores/appStore.js';
+import { usePlanner } from '../stores/plannerStore.js';
 import { analyzeInBrowser, saveRoute } from '../lib/browserAnalysis.js';
 import { Panel } from '../components/common.jsx';
+import BoatPicker from '../components/BoatPicker.jsx';
 import clsx from 'clsx';
 
 async function loadJson(url) {
@@ -30,15 +31,18 @@ const waypointIcon = L.divIcon({
   iconAnchor: [7, 7],
 });
 
+/** compact verdict labels for the scan rows — the full wording lives in the briefing */
+const SCAN_VERDICT = {
+  within: 'within limits',
+  approaching: 'approaching',
+  exceeds: 'exceeds',
+  insufficient: 'models disagree',
+  warning_active: 'official warning',
+};
+
 function ClickCapture({ onClick }) {
   useMapEvents({ click: (e) => onClick(e.latlng) });
   return null;
-}
-
-function defaultDeparture() {
-  const t = new Date(Date.now() + 24 * 3600_000);
-  t.setUTCHours(6, 0, 0, 0);
-  return t.toISOString().slice(0, 16);
 }
 
 export default function Planner() {
@@ -46,26 +50,33 @@ export default function Planner() {
   const profileDefaults = useApp((s) => s.profileDefaults);
   const loadConfig = useApp((s) => s.loadConfig);
 
-  const [mode, setMode] = useState('draw'); // draw | compute
-  const [waypoints, setWaypoints] = useState([]);
-  const [computed, setComputed] = useState(null); // RoutingResult
-  const [endpoints, setEndpoints] = useState([]); // [start, finish] in compute mode
-  const [polars, setPolars] = useState([]);
-  const [polarId, setPolarId] = useState(null);
-  const [name, setName] = useState('My passage');
-  const [speeds, setSpeeds] = useState({ slow: 4.5, nominal: 5.5, fast: 6.5 });
-  const [departureLocal, setDepartureLocal] = useState(defaultDeparture);
+  // working state survives stage switches — see plannerStore.js
+  const mode = usePlanner((s) => s.mode);
+  const waypoints = usePlanner((s) => s.waypoints);
+  const computed = usePlanner((s) => s.computed);
+  const endpoints = usePlanner((s) => s.endpoints);
+  const polarId = usePlanner((s) => s.polarId);
+  const polarLabel = usePlanner((s) => s.polarLabel);
+  const name = usePlanner((s) => s.name);
+  const speeds = usePlanner((s) => s.speeds);
+  const departureLocal = usePlanner((s) => s.departureLocal);
+  const scan = usePlanner((s) => s.scan);
+  const patch = usePlanner((s) => s.patch);
+  const setMode = (value) => patch({ mode: value });
+  const setWaypoints = (value) => patch({ waypoints: typeof value === 'function' ? value(usePlanner.getState().waypoints) : value });
+  const setEndpoints = (value) => patch({ endpoints: typeof value === 'function' ? value(usePlanner.getState().endpoints) : value });
+  const setComputed = (value) => patch({ computed: value });
+  const setName = (value) => patch({ name: value });
+  const setSpeeds = (value) => patch({ speeds: typeof value === 'function' ? value(usePlanner.getState().speeds) : value });
+  const setDepartureLocal = (value) => patch({ departureLocal: value });
+  const setScan = (value) => patch({ scan: value });
+
   const [busy, setBusy] = useState(null);
   const [error, setError] = useState(null);
   const fileRef = useRef(null);
 
   useEffect(() => {
     loadConfig();
-    loadJson('/data/config/polars/index.json').then((idx) => {
-      const list = idx?.polars ?? [];
-      setPolars(list);
-      if (list.length) setPolarId(list[0].polar_id);
-    });
   }, [loadConfig]);
 
   const route = useMemo(() => {
@@ -111,10 +122,16 @@ export default function Planner() {
     try {
       const [latest, polar] = await Promise.all([
         loadJson('/data/runs/latest.json'),
-        loadJson(`/data/config/polars/${polarId}.json`),
+        // full published db first; the two curated config polars remain a fallback
+        loadJson(`/data/polars/boats/${polarId}.json`).then(
+          (doc) => doc ?? loadJson(`/data/config/polars/${polarId}.json`),
+        ),
       ]);
       if (!latest?.artifacts?.wind_grid) {
         throw new Error('No prepared wind grid — run deepweather-analysis prepare-run first');
+      }
+      if (!polar) {
+        throw new Error(`Boat polar “${polarId}” not found — run deepweather-analysis build-polar-db`);
       }
       const [windGrid, currentGrid, landMask] = await Promise.all([
         loadJson(`/data/${latest.artifacts.wind_grid}`),
@@ -155,8 +172,6 @@ export default function Planner() {
       if (fileRef.current) fileRef.current.value = '';
     }
   };
-
-  const [scan, setScan] = useState(null);
 
   const runScan = async () => {
     if (!route) return;
@@ -313,20 +328,11 @@ export default function Planner() {
 
             {mode === 'compute' && (
               <>
-                <label className="block">
-                  <span className="eyebrow block mb-1">Your boat (ORC polar)</span>
-                  <select
-                    value={polarId ?? ''}
-                    onChange={(e) => setPolarId(e.target.value)}
-                    className="w-full bg-white/60 border hairline rounded-sm px-2 py-1.5"
-                  >
-                    {polars.map((p) => (
-                      <option key={p.polar_id} value={p.polar_id}>
-                        {p.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <BoatPicker
+                  polarId={polarId}
+                  polarLabel={polarLabel}
+                  onSelect={(entry) => patch({ polarId: entry.polar_id, polarLabel: entry.label })}
+                />
                 <p className="text-[12px] text-ink-soft">
                   Click the chart twice: start, then finish. The route is computed from forecast
                   wind, currents and your polar — then audited like any other route.
@@ -420,6 +426,13 @@ export default function Planner() {
             >
               {busy ? `${busy}…` : 'Check this passage against my limits'}
             </button>
+            {!route && busy === null && (
+              <p className="text-[13px] text-ink-soft">
+                {mode === 'draw'
+                  ? 'To enable: click the chart at least twice — your start and your destination.'
+                  : 'To enable: click the chart twice to set the two endpoints.'}
+              </p>
+            )}
             <button
               type="button"
               onClick={runScan}
@@ -434,23 +447,42 @@ export default function Planner() {
                 <span className="eyebrow">Departure comparison</span>
                 <ul className="mt-1 space-y-1">
                   {scan.candidates.map((c, i) => (
-                    <li
-                      key={c.departure_utc}
-                      className={clsx(
-                        'flex items-center justify-between gap-2 text-[12px] px-1.5 py-1 rounded-sm',
-                        i === scan.best_index && 'bg-shoal/50 border hairline',
-                      )}
-                    >
-                      <span className="font-mono">{fmtTime(c.departure_utc)}</span>
-                      <VerdictChip state={c.verdict} small />
-                      {i === scan.best_index && (
-                        <span className="text-ink-soft">least exposure — your call</span>
-                      )}
-                      {c.avoids_event_key && <span className="text-event">avoids {c.avoids_event_key}</span>}
-                      {c.delta && i > 0 && <span className="font-mono text-[10px] text-ink-soft">gust {c.delta.peak_gust_kt > 0 ? '+' : ''}{c.delta.peak_gust_kt} kt · {c.delta.hours_over_limit > 0 ? '+' : ''}{c.delta.hours_over_limit} h over</span>}
+                    <li key={c.departure_utc}>
+                      <button
+                        type="button"
+                        onClick={() => setDepartureLocal(c.departure_utc.slice(0, 16))}
+                        title="Use this departure time"
+                        className={clsx(
+                          'w-full flex items-center justify-between gap-2 text-[12px] px-1.5 py-1.5 rounded-sm text-left hover:bg-white/60',
+                          i === scan.best_index && 'bg-shoal/50 border hairline',
+                          `${departureLocal}:00Z` === c.departure_utc && 'outline outline-1 outline-ink/50',
+                        )}
+                      >
+                        <span className="font-mono">{fmtTime(c.departure_utc)}</span>
+                        <span
+                          className="px-1.5 py-0.5 rounded-sm text-white text-[10px] font-medium whitespace-nowrap"
+                          style={{ backgroundColor: (VERDICT[c.verdict] ?? VERDICT.insufficient).hex }}
+                        >
+                          {SCAN_VERDICT[c.verdict] ?? c.verdict}
+                        </span>
+                        {i === scan.best_index && (
+                          <span className="text-ink-soft">least exposure — your call</span>
+                        )}
+                        {c.avoids_event_key && <span className="text-event">avoids {c.avoids_event_key}</span>}
+                        {c.delta && i > 0 && <span className="font-mono text-[10px] text-ink-soft">gust {c.delta.peak_gust_kt > 0 ? '+' : ''}{c.delta.peak_gust_kt} kt · {c.delta.hours_over_limit > 0 ? '+' : ''}{c.delta.hours_over_limit} h over</span>}
+                      </button>
                     </li>
                   ))}
                 </ul>
+                <p className="text-[12px] text-ink-soft mt-1.5">
+                  Click a time to use it, then “Check this passage against my limits” for the
+                  full briefing.
+                  {scan.candidates.length > 0 && scan.candidates.every((c) => c.verdict === 'insufficient') && (
+                    <> Right now the forecast models disagree near your limits across this whole
+                    window — a briefing will show you which models and when, and the next update
+                    time.</>
+                  )}
+                </p>
               </div>
             )}
             <p className="text-[12px] text-ink-soft">

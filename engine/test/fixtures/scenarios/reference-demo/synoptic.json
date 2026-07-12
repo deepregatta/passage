@@ -1,52 +1,84 @@
 {
-  "schema_version": 1,
-  "run_id": "reference-demo-20260719T18Z",
-  "generated_at": "2026-07-19T18:00:00Z",
-  "systems": [
+ "schema_version": 1,
+ "run_id": "reference-demo-20260719T18Z",
+ "generated_at": "2026-07-19T18:00:00Z",
+ "systems": [
+  {
+   "system_id": "L1",
+   "kind": "low",
+   "track": [
     {
-      "system_id": "L1",
-      "kind": "low",
-      "track": [
-        {
-          "step_h": 6,
-          "valid_time": "2026-07-20T06:00:00Z",
-          "lat": 48.8,
-          "lon": -6.8,
-          "center_hpa": 1002
-        },
-        {
-          "step_h": 12,
-          "valid_time": "2026-07-20T12:00:00Z",
-          "lat": 49.9,
-          "lon": -3.2,
-          "center_hpa": 996
-        },
-        {
-          "step_h": 18,
-          "valid_time": "2026-07-20T18:00:00Z",
-          "lat": 51.1,
-          "lon": 0.3,
-          "center_hpa": 992
-        }
-      ],
-      "deepening_hpa_per_24h": -18,
-      "motion": {
-        "dir_deg": 72,
-        "speed_kt": 31
-      }
-    }
-  ],
-  "regimes": [],
-  "chart_captions": [
-    {
-      "step_h": 0,
-      "file": "charts/t000.png",
-      "caption": "Low L1 deepens west of the route."
+     "step_h": 6,
+     "valid_time": "2026-07-20T06:00:00Z",
+     "lat": 48.8,
+     "lon": -6.8,
+     "center_hpa": 1002
     },
     {
-      "step_h": 12,
-      "file": "charts/t024.png",
-      "caption": "Low L1 intersects the Casquets and mid-Channel legs."
+     "step_h": 12,
+     "valid_time": "2026-07-20T12:00:00Z",
+     "lat": 49.9,
+     "lon": -3.2,
+     "center_hpa": 996
+    },
+    {
+     "step_h": 18,
+     "valid_time": "2026-07-20T18:00:00Z",
+     "lat": 51.1,
+     "lon": 0.3,
+     "center_hpa": 992
     }
-  ]
+   ],
+   "deepening_hpa_per_24h": -18,
+   "motion": {
+    "dir_deg": 72,
+    "speed_kt": 31
+   }
+  }
+ ],
+ "regimes": [],
+ "chart_captions": [
+  {
+   "step_h": 0,
+   "file": "charts/t000.png",
+   "caption": "Low L1 deepens west of the route.",
+   "size_px": {
+    "w": 1200,
+    "h": 900
+   },
+   "geo": {
+    "lon_min": -35,
+    "lon_max": 10,
+    "lat_min": 35,
+    "lat_max": 65
+   },
+   "axes_px": {
+    "x0": 58.3,
+    "x1": 1178,
+    "y0": 41.9,
+    "y1": 831.1
+   }
+  },
+  {
+   "step_h": 12,
+   "file": "charts/t024.png",
+   "caption": "Low L1 intersects the Casquets and mid-Channel legs.",
+   "size_px": {
+    "w": 1200,
+    "h": 900
+   },
+   "geo": {
+    "lon_min": -35,
+    "lon_max": 10,
+    "lat_min": 35,
+    "lat_max": 65
+   },
+   "axes_px": {
+    "x0": 58.3,
+    "x1": 1178,
+    "y0": 41.9,
+    "y1": 831.1
+   }
+  }
+ ]
 }

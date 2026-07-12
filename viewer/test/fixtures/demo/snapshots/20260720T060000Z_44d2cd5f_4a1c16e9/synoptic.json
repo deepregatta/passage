@@ -41,12 +41,44 @@
     {
       "step_h": 0,
       "file": "charts/t000.png",
-      "caption": "Previous run: Low L1 is weaker and six hours slower."
+      "caption": "Previous run: Low L1 is weaker and six hours slower.",
+      "size_px": {
+        "w": 1200,
+        "h": 900
+      },
+      "geo": {
+        "lon_min": -35,
+        "lon_max": 10,
+        "lat_min": 35,
+        "lat_max": 65
+      },
+      "axes_px": {
+        "x0": 58.3,
+        "x1": 1178,
+        "y0": 41.9,
+        "y1": 831.1
+      }
     },
     {
       "step_h": 12,
       "file": "charts/t024.png",
-      "caption": "Previous run keeps the low west of the route longer."
+      "caption": "Previous run keeps the low west of the route longer.",
+      "size_px": {
+        "w": 1200,
+        "h": 900
+      },
+      "geo": {
+        "lon_min": -35,
+        "lon_max": 10,
+        "lat_min": 35,
+        "lat_max": 65
+      },
+      "axes_px": {
+        "x0": 58.3,
+        "x1": 1178,
+        "y0": 41.9,
+        "y1": 831.1
+      }
     }
   ]
 }

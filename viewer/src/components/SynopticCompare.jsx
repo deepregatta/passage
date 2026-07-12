@@ -1,3 +1,5 @@
+import { chartUrl } from '../lib/synopticCharts.js';
+
 function systemSummary(synoptic) {
   const low = synoptic?.systems?.find((item) => item.kind === 'low');
   if (!low) return null;
@@ -16,5 +18,5 @@ export default function SynopticCompare({ previous, latest, previousId, latestId
 
 function SystemCard({ label, summary, snapshotId, synoptic, delta }) {
   const chart = synoptic.chart_captions?.[1] ?? synoptic.chart_captions?.[0];
-  return <figure className="bg-paper p-3"><figcaption className="flex justify-between items-baseline mb-2"><span className="eyebrow">{label} run</span><span className="font-mono text-xs">{summary.name} · {summary.pressure} hPa{delta ? ` · ${delta > 0 ? '+' : ''}${delta} hPa` : ''}</span></figcaption>{chart?.file ? <img src={`/data/snapshots/${snapshotId}/${chart.file}`} alt={`${label} synoptic chart`} className="w-full aspect-[4/2.4] object-cover border hairline" /> : <div className="aspect-[4/2.4] border border-dashed hairline grid place-items-center">chart image no longer archived</div>}<p className="font-instrument text-xs text-ink-soft mt-2">{chart?.caption ?? `${summary.track.length} tracked positions`}</p></figure>;
+  return <figure className="bg-paper p-3"><figcaption className="flex justify-between items-baseline mb-2"><span className="eyebrow">{label} run</span><span className="font-mono text-xs">{summary.name} · {summary.pressure} hPa{delta ? ` · ${delta > 0 ? '+' : ''}${delta} hPa` : ''}</span></figcaption>{chart?.file ? <img src={chartUrl(chart.file, snapshotId)} alt={`${label} synoptic chart`} className="w-full aspect-[4/2.4] object-cover border hairline" /> : <div className="aspect-[4/2.4] border border-dashed hairline grid place-items-center">chart image no longer archived</div>}<p className="font-instrument text-xs text-ink-soft mt-2">{chart?.caption ?? `${summary.track.length} tracked positions`}</p></figure>;
 }

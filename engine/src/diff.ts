@@ -63,7 +63,7 @@ export function diffFindings(previous: Findings | null, latest: Findings): Chang
   if (previous.verdict.state !== latest.verdict.state) {
     entries.push({
       kind: 'verdict_changed',
-      description: `Assessment changed: ${previous.verdict.state} → ${latest.verdict.state}.`,
+      description: `Assessment changed: ${verdictLabel(previous.verdict.state)} → ${verdictLabel(latest.verdict.state)}.`,
       previous: previous.verdict.state,
       latest: latest.verdict.state,
     });
@@ -80,7 +80,7 @@ export function diffFindings(previous: Findings | null, latest: Findings): Chang
     if (!p) {
       entries.push({
         kind: 'event_new',
-        description: `New signal ${e.rule_id} ${subject(e)}${e.valid_time ? ` around ${fmtTime(e.valid_time)} UTC` : ''}.`,
+        description: `New signal: ${ruleLabel(e.rule_id)} ${subject(e, latest)}${e.valid_time ? ` around ${fmtTime(e.valid_time)} UTC` : ''}.`,
         latest: e.value,
         evidence_pair: [e.evidence_id],
         rule_id: e.rule_id,
@@ -94,7 +94,7 @@ export function diffFindings(previous: Findings | null, latest: Findings): Chang
       if (deltaH !== 0) {
         entries.push({
           kind: 'event_shifted',
-          description: `${e.rule_id} ${subject(e)}: ${fmtTime(p.valid_time)} → ${fmtTime(e.valid_time)} UTC (${deltaH > 0 ? `${deltaH} h later` : `${-deltaH} h earlier`}).`,
+          description: `${ruleLabel(e.rule_id)} ${subject(e, latest)}: ${fmtTime(p.valid_time)} → ${fmtTime(e.valid_time)} UTC (${deltaH > 0 ? `${deltaH} h later` : `${-deltaH} h earlier`}).`,
           previous: p.valid_time,
           latest: e.valid_time,
           evidence_pair: [p.evidence_id, e.evidence_id],
@@ -109,7 +109,7 @@ export function diffFindings(previous: Findings | null, latest: Findings): Chang
       if (Math.abs(delta) >= VALUE_DELTA_MIN) {
         entries.push({
           kind: 'value_changed',
-          description: `${e.rule_id} ${subject(e)}: ${p.value} → ${e.value} ${e.units ?? ''} (${delta > 0 ? '+' : ''}${Math.round(delta * 10) / 10}).`,
+          description: `${ruleLabel(e.rule_id)} ${subject(e, latest)}: ${p.value} → ${e.value} ${e.units ?? ''} (${delta > 0 ? '+' : ''}${Math.round(delta * 10) / 10}).`,
           previous: p.value,
           latest: e.value,
           evidence_pair: [p.evidence_id, e.evidence_id],
@@ -122,7 +122,7 @@ export function diffFindings(previous: Findings | null, latest: Findings): Chang
       if (Math.abs(deltaMembers) >= 5) {
         entries.push({
           kind: 'value_changed',
-          description: `${e.rule_id} ${subject(e)}: ${p.member_fraction.exceed} of ${p.member_fraction.total} → ${e.member_fraction.exceed} of ${e.member_fraction.total} scenarios exceed.`,
+          description: `${ruleLabel(e.rule_id)} ${subject(e, latest)}: ${p.member_fraction.exceed} of ${p.member_fraction.total} → ${e.member_fraction.exceed} of ${e.member_fraction.total} scenarios exceed.`,
           previous: p.member_fraction,
           latest: e.member_fraction,
           evidence_pair: [p.evidence_id, e.evidence_id],
@@ -136,7 +136,7 @@ export function diffFindings(previous: Findings | null, latest: Findings): Chang
     if (!seen.has(k)) {
       entries.push({
         kind: 'event_gone',
-        description: `${p.rule_id} ${subject(p)} no longer flagged.`,
+        description: `${ruleLabel(p.rule_id)} ${subject(p, previous)} no longer flagged.`,
         previous: p.value,
         evidence_pair: [p.evidence_id],
         rule_id: p.rule_id,
@@ -185,8 +185,34 @@ export function diffFindings(previous: Findings | null, latest: Findings): Chang
   };
 }
 
-function subject(evidence: Evidence): string {
-  if (evidence.leg_id) return `on ${evidence.leg_id}`;
+/** sailor-readable names for rule ids; the raw id stays available on the entry */
+const RULE_LABEL: Record<string, string> = {
+  'W-SUST-01': 'sustained wind vs your limit',
+  'W-GUST-01': 'gusts vs your limit',
+  'W-SUST-03': 'wind scenarios over your limit',
+  'W-GUST-03': 'gust scenarios over your limit',
+  'S-WAVE-01': 'wave height vs your limit',
+  'S-CROSS-01': 'cross-sea',
+  'S-STEEP-01': 'steep waves',
+  'S-WAS-01': 'wind against swell',
+  'T-WAC-01': 'wind against current',
+  'T-GATE-01': 'tidal gate fit',
+  'A-WARN-01': 'official marine warning',
+  'D-DIVERGE-01': 'model disagreement',
+  'C-CAPE-01': 'thunderstorm potential',
+  'V-VIS-01': 'visibility',
+};
+const ruleLabel = (id: string | undefined) => (id && RULE_LABEL[id]) ?? id ?? 'signal';
+
+/** machine waypoint ids (wp1, wp2…) read badly in prose */
+const placeText = (raw: string) => raw.replace(/\bwp(\d+)\b/gi, 'waypoint $1');
+
+function subject(evidence: Evidence, findings: Findings): string {
+  if (evidence.leg_id) {
+    const leg = findings.legs.find((item) => item.leg_id === evidence.leg_id);
+    const place = leg?.name.split('→')[1]?.trim().split(',')[0];
+    return place ? `near ${placeText(place)}` : `on leg ${evidence.leg_id}`;
+  }
   const zones = evidence.bulletin_ref?.zone_ids;
   if (zones?.length) return `for zone ${zones.join(', ')}`;
   return 'for the route';
@@ -208,10 +234,10 @@ function buildStory(
   }).sort((a, b) => b.score - a.score || a.index - b.index).slice(0, 3);
   const changed = transition.from !== transition.to;
   const headlinePlain = changed
-    ? `The passage assessment changed from ${verdictLabel(transition.from)} to ${verdictLabel(transition.to)}.`
+    ? `The verdict changed from “${verdictLabel(transition.from)}” to “${verdictLabel(transition.to)}”.`
     : scored.length
-      ? `The assessment is still ${verdictLabel(transition.to)}, but the timing or magnitude changed.`
-      : `The new run keeps the same ${verdictLabel(transition.to)} assessment.`;
+      ? `The verdict is still “${verdictLabel(transition.to)}”, but the timing or strength changed.`
+      : `The new run keeps the same verdict: ${verdictLabel(transition.to)}.`;
   return {
     headline_plain: headlinePlain,
     headline_pro: `${entries.length} ledger entries ranked deterministically; ${scored.length} material changes promoted.`,
@@ -227,7 +253,7 @@ function buildStory(
 }
 
 function verdictLabel(state: string) {
-  return ({ within: 'within your limits', approaching: 'close to your limits', exceeds: 'beyond your limits', insufficient: 'too uncertain to assess', warning_active: 'warning active' } as Record<string, string>)[state] ?? state.replaceAll('_', ' ');
+  return ({ within: 'within your limits', approaching: 'close to your limits', exceeds: 'beyond your limits', insufficient: 'too uncertain to assess', warning_active: 'official warning active' } as Record<string, string>)[state] ?? state.replaceAll('_', ' ');
 }
 
 function humanizeChange(entry: ChangeEntry, latest: Findings): string {
