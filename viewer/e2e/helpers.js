@@ -6,4 +6,5 @@ export async function openAuditedSnapshot(page) {
   await page.goto('/');
   await page.getByRole('button', { name: /cherbourg-plymouth-v1.*warning active/i }).first().click();
   await expect(page.getByText(/EMULATED WARNING SCENARIO/i).first()).toBeVisible();
+  await page.waitForFunction(() => document.querySelectorAll('div[_echarts_instance_]').length > 0);
 }
