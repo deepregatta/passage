@@ -1,0 +1,12 @@
+{
+  "case_id": "mistral-2023-08",
+  "title": "Summer Mistral outbreak, Gulf of Lion",
+  "window": { "start": "2023-08-04T00:00:00Z", "end": "2023-08-04T21:00:00Z" },
+  "bounds": { "min_lat": 38.0, "max_lat": 48.0, "min_lon": -5.0, "max_lon": 15.0 },
+  "expectations": {
+    "kind": "regime",
+    "expect_systems": true,
+    "expect_regime": "mistral"
+  },
+  "notes": "4 Aug 2023: a sharp cold-air outbreak behind an Atlantic trough drove an out-of-season Mistral/Tramontane episode over the Gulf of Lion (gale-force NW flow after a very hot spell). Med bounds 38-48N/5W-15E clip the detector's Biscay ridge box (-8..-2E) to its eastern half — still >= 4 cells, so R-MISTRAL-01 evaluates on the clipped box; noted per §9 honesty. The combined rule may label the event 'tramontane'; that satisfies the expectation (same pattern, west channel). Confidence: moderate on the exact date; the case primarily exercises the regime rule on real fields."
+}

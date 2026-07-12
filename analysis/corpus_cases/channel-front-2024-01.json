@@ -1,0 +1,12 @@
+{
+  "case_id": "channel-front-2024-01",
+  "title": "Channel frontal passage, early January 2024 (Storm Henk period)",
+  "window": { "start": "2024-01-02T00:00:00Z", "end": "2024-01-02T21:00:00Z" },
+  "bounds": { "min_lat": 35.0, "max_lat": 65.0, "min_lon": -35.0, "max_lon": 10.0 },
+  "expectations": {
+    "kind": "storm",
+    "expect_systems": true,
+    "min_center_hpa_below": 995
+  },
+  "notes": "Filed as an (operationally) unnamed frontal passage over the Channel on 2 Jan 2024; the date coincides with Storm Henk, whose ~990 hPa centre crossed Wales/central England with damaging southerly gales south of the track. Threshold 995 hPa is deliberately loose. Confidence: high on the date being stormy, moderate on centre depth."
+}

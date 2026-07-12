@@ -1,0 +1,11 @@
+{
+  "case_id": "calm-2024-07",
+  "title": "Early-July lull over the Channel approaches — negative case",
+  "window": { "start": "2024-07-01T00:00:00Z", "end": "2024-07-01T21:00:00Z" },
+  "bounds": { "min_lat": 43.0, "max_lat": 58.0, "min_lon": -15.0, "max_lon": 5.0 },
+  "expectations": {
+    "kind": "negative",
+    "no_deep_low_below_hpa": 1005
+  },
+  "notes": "1 Jul 2024, chosen as a summer no-deep-low day over the Channel/Biscay approaches. Early July 2024 was cool and changeable in the UK, so this is the WEAKEST negative in the corpus: if ERA5 shows a sub-1005 low in the box the case fails and the review sheet flags it as a case-selection error rather than a detector fault. Bounds narrowed (43-58N, 15W-5E) as for all negatives. Confidence: low-moderate — deliberately kept as an honest stress test."
+}

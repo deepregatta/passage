@@ -1,0 +1,13 @@
+{
+  "case_id": "ciaran-2023-11",
+  "title": "Storm Ciarán — explosive deep low crossing the western Channel",
+  "window": { "start": "2023-11-01T00:00:00Z", "end": "2023-11-02T21:00:00Z" },
+  "bounds": { "min_lat": 35.0, "max_lat": 65.0, "min_lon": -35.0, "max_lon": 10.0 },
+  "expectations": {
+    "kind": "storm",
+    "expect_systems": true,
+    "min_center_hpa_below": 968,
+    "expect_low_near": { "lat": 50.0, "lon": 0.0, "tol_deg": 4.0 }
+  },
+  "notes": "Ciarán underwent explosive cyclogenesis on 1 Nov 2023 and crossed Brittany/the Channel overnight 1-2 Nov; minimum central pressure ~953-954 hPa over the Channel (England's November low-pressure record). The 968 hPa threshold and 50N 0E +/-4 deg expectation are deliberately generous — the corpus validates the detector, not history trivia. Confidence: high (well-documented event)."
+}

@@ -1,0 +1,12 @@
+{
+  "case_id": "pierrick-2024-04",
+  "title": "Storm Pierrick — Channel low with severe spring-tide coincidence",
+  "window": { "start": "2024-04-08T00:00:00Z", "end": "2024-04-09T21:00:00Z" },
+  "bounds": { "min_lat": 35.0, "max_lat": 65.0, "min_lon": -35.0, "max_lon": 10.0 },
+  "expectations": {
+    "kind": "storm",
+    "expect_systems": true,
+    "min_center_hpa_below": 990
+  },
+  "notes": "Pierrick (named by Météo-France) crossed on 8-9 Apr 2024, its gales coinciding with very large spring tides on the French Atlantic/Channel coasts. Depth threshold set conservatively at 990 hPa; no position expectation because my confidence in the centre's exact track is only moderate — the case tests that the detector finds a deep low in the window at all. Confidence: high on date/impact, moderate on depth, low on position (hence omitted)."
+}

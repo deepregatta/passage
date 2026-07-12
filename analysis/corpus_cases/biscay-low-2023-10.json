@@ -1,0 +1,12 @@
+{
+  "case_id": "biscay-low-2023-10",
+  "title": "Biscay/Atlantic low, Storm Babet period",
+  "window": { "start": "2023-10-19T00:00:00Z", "end": "2023-10-19T21:00:00Z" },
+  "bounds": { "min_lat": 35.0, "max_lat": 65.0, "min_lon": -35.0, "max_lon": 10.0 },
+  "expectations": {
+    "kind": "storm",
+    "expect_systems": true,
+    "min_center_hpa_below": 985
+  },
+  "notes": "19 Oct 2023 sits inside the Storm Babet spell (18-21 Oct): a slow-moving low that approached unusually from the south/southwest, driving prolonged easterly gales and record rain over Scotland. Centre position on the 19th uncertain in my recollection (west/northwest of Ireland to north of Scotland), so only a conservative 985 hPa depth expectation is scored. Confidence: high on the spell, low on instantaneous position (omitted)."
+}

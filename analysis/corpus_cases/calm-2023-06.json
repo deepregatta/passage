@@ -1,0 +1,11 @@
+{
+  "case_id": "calm-2023-06",
+  "title": "Quiet ridge over NW Europe — negative case (no deep low)",
+  "window": { "start": "2023-06-12T00:00:00Z", "end": "2023-06-12T21:00:00Z" },
+  "bounds": { "min_lat": 43.0, "max_lat": 58.0, "min_lon": -15.0, "max_lon": 5.0 },
+  "expectations": {
+    "kind": "negative",
+    "no_deep_low_below_hpa": 1005
+  },
+  "notes": "Mid-June 2023 sat under a persistent ridge over the UK/Channel (the record-warm settled June). Negative expectation is 'no low below 1005 hPa' rather than 'no systems' — highs count as systems and the detector SHOULD find the ridge. Bounds narrowed to the Channel/Biscay approaches (43-58N, 15W-5E) so a legitimately-detected distant Icelandic low cannot fail a case that is about quiet target waters. Confidence: high on the settled spell; the exact absence of any sub-1005 low in the box is what the case tests."
+}
