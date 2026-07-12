@@ -1,0 +1,10 @@
+{
+  "generated_at": "2026-07-19T18:00:00Z",
+  "departure_utc": "2026-07-20T06:00:00Z",
+  "previous_snapshot_id": "20260720T060000Z_44d2cd5f_4a1c16e9",
+  "latest_snapshot_id": "20260720T060000Z_44d2cd5f_f0703423",
+  "snapshots": {
+    "previous": "snapshots/20260720T060000Z_44d2cd5f_4a1c16e9/snapshot.json",
+    "latest": "snapshots/20260720T060000Z_44d2cd5f_f0703423/snapshot.json"
+  }
+}

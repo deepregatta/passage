@@ -57,7 +57,9 @@ function safeResolve(root, relativePath) {
 }
 
 function dataMiddleware() {
-  const dataRoot = path.resolve(__dirname, '../data/processed');
+  const dataRoot = process.env.VITE_DW_FIXTURE === 'demo'
+    ? path.resolve(__dirname, './test/fixtures/demo')
+    : path.resolve(__dirname, '../data/processed');
 
   return {
     name: 'data-middleware',

@@ -1,0 +1,235 @@
+{
+  "schema_version": 1,
+  "snapshot_id": "20260720T060000Z_44d2cd5f_f0703423",
+  "previous_snapshot_id": "20260720T060000Z_44d2cd5f_4a1c16e9",
+  "verdict_transition": {
+    "from": "warning_active",
+    "to": "warning_active"
+  },
+  "entries": [
+    {
+      "kind": "event_new",
+      "description": "New signal W-GUST-01 on L1 around Mon 20 Jul 08:00 UTC.",
+      "latest": 22.29,
+      "evidence_pair": [
+        "E1"
+      ]
+    },
+    {
+      "kind": "event_new",
+      "description": "New signal W-GUST-01 on L2 around Mon 20 Jul 10:00 UTC.",
+      "latest": 22.38,
+      "evidence_pair": [
+        "E2"
+      ]
+    },
+    {
+      "kind": "event_new",
+      "description": "New signal W-SUST-01 on L3 around Mon 20 Jul 18:00 UTC.",
+      "latest": 18.27,
+      "evidence_pair": [
+        "E3"
+      ]
+    },
+    {
+      "kind": "event_new",
+      "description": "New signal W-GUST-01 on L3 around Mon 20 Jul 18:00 UTC.",
+      "latest": 24.45,
+      "evidence_pair": [
+        "E4"
+      ]
+    },
+    {
+      "kind": "event_new",
+      "description": "New signal W-SUST-03 on L3 around Mon 20 Jul 18:00 UTC.",
+      "latest": 24,
+      "evidence_pair": [
+        "E5"
+      ]
+    },
+    {
+      "kind": "event_new",
+      "description": "New signal W-SUST-01 on L4 around Mon 20 Jul 23:00 UTC.",
+      "latest": 22.44,
+      "evidence_pair": [
+        "E6"
+      ]
+    },
+    {
+      "kind": "event_new",
+      "description": "New signal W-GUST-01 on L4 around Mon 20 Jul 23:00 UTC.",
+      "latest": 30.09,
+      "evidence_pair": [
+        "E7"
+      ]
+    },
+    {
+      "kind": "event_new",
+      "description": "New signal W-GUST-03 on L4 around Mon 20 Jul 23:00 UTC.",
+      "latest": 23,
+      "evidence_pair": [
+        "E8"
+      ]
+    },
+    {
+      "kind": "event_new",
+      "description": "New signal W-SUST-03 on L4 around Mon 20 Jul 23:00 UTC.",
+      "latest": 51,
+      "evidence_pair": [
+        "E9"
+      ]
+    },
+    {
+      "kind": "value_changed",
+      "description": "W-SUST-01 on L5: 18.44 → 28.38 kt (+9.9).",
+      "previous": 18.44,
+      "latest": 28.38,
+      "evidence_pair": [
+        "E1",
+        "E10"
+      ]
+    },
+    {
+      "kind": "value_changed",
+      "description": "W-GUST-01 on L5: 26.09 → 38.1 kt (+12).",
+      "previous": 26.09,
+      "latest": 38.1,
+      "evidence_pair": [
+        "E2",
+        "E11"
+      ]
+    },
+    {
+      "kind": "event_shifted",
+      "description": "W-GUST-03 on L5: Tue 21 Jul 05:00 → Tue 21 Jul 02:00 UTC (3 h earlier).",
+      "previous": "2026-07-21T05:00:00Z",
+      "latest": "2026-07-21T02:00:00Z",
+      "evidence_pair": [
+        "E3",
+        "E12"
+      ]
+    },
+    {
+      "kind": "value_changed",
+      "description": "W-GUST-03 on L5: 8 → 51 kt (+43).",
+      "previous": 8,
+      "latest": 51,
+      "evidence_pair": [
+        "E3",
+        "E12"
+      ]
+    },
+    {
+      "kind": "event_shifted",
+      "description": "W-SUST-03 on L5: Tue 21 Jul 05:00 → Mon 20 Jul 23:00 UTC (6 h earlier).",
+      "previous": "2026-07-21T05:00:00Z",
+      "latest": "2026-07-20T23:00:00Z",
+      "evidence_pair": [
+        "E4",
+        "E13"
+      ]
+    },
+    {
+      "kind": "value_changed",
+      "description": "W-SUST-03 on L5: 25 → 51 kt (+26).",
+      "previous": 25,
+      "latest": 51,
+      "evidence_pair": [
+        "E4",
+        "E13"
+      ]
+    },
+    {
+      "kind": "event_new",
+      "description": "New signal S-WAVE-01 on L5 around Tue 21 Jul 05:00 UTC.",
+      "latest": 2.63,
+      "evidence_pair": [
+        "E14"
+      ]
+    },
+    {
+      "kind": "event_new",
+      "description": "New signal S-STEEP-01 on L5 around Tue 21 Jul 05:00 UTC.",
+      "latest": 0.0399,
+      "evidence_pair": [
+        "E15"
+      ]
+    },
+    {
+      "kind": "value_changed",
+      "description": "W-SUST-01 on L6: 19.6 → 28.93 kt (+9.3).",
+      "previous": 19.6,
+      "latest": 28.93,
+      "evidence_pair": [
+        "E5",
+        "E16"
+      ]
+    },
+    {
+      "kind": "value_changed",
+      "description": "W-GUST-01 on L6: 27.65 → 38.85 kt (+11.2).",
+      "previous": 27.65,
+      "latest": 38.85,
+      "evidence_pair": [
+        "E6",
+        "E17"
+      ]
+    },
+    {
+      "kind": "event_shifted",
+      "description": "W-GUST-03 on L6: Tue 21 Jul 06:00 → Tue 21 Jul 02:00 UTC (4 h earlier).",
+      "previous": "2026-07-21T06:00:00Z",
+      "latest": "2026-07-21T02:00:00Z",
+      "evidence_pair": [
+        "E7",
+        "E18"
+      ]
+    },
+    {
+      "kind": "value_changed",
+      "description": "W-GUST-03 on L6: 20 → 51 kt (+31).",
+      "previous": 20,
+      "latest": 51,
+      "evidence_pair": [
+        "E7",
+        "E18"
+      ]
+    },
+    {
+      "kind": "event_shifted",
+      "description": "W-SUST-03 on L6: Tue 21 Jul 06:00 → Tue 21 Jul 00:00 UTC (6 h earlier).",
+      "previous": "2026-07-21T06:00:00Z",
+      "latest": "2026-07-21T00:00:00Z",
+      "evidence_pair": [
+        "E8",
+        "E19"
+      ]
+    },
+    {
+      "kind": "value_changed",
+      "description": "W-SUST-03 on L6: 33 → 51 kt (+18).",
+      "previous": 33,
+      "latest": 51,
+      "evidence_pair": [
+        "E8",
+        "E19"
+      ]
+    },
+    {
+      "kind": "event_new",
+      "description": "New signal S-STEEP-01 on L6 around Tue 21 Jul 06:00 UTC.",
+      "latest": 0.0417,
+      "evidence_pair": [
+        "E21"
+      ]
+    },
+    {
+      "kind": "event_new",
+      "description": "New signal C-CAPE-01 on L6 around Tue 21 Jul 06:00 UTC.",
+      "latest": 300,
+      "evidence_pair": [
+        "E22"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "snapshot_id": "20260720T060000Z_44d2cd5f_4a1c16e9",
+  "created_at": "2026-07-19T18:00:00Z",
+  "engine_version": "0.1.0",
+  "route_id": "cherbourg-plymouth-v1",
+  "profile_id": "coastal-cruising-cautious",
+  "departure_utc": "2026-07-20T06:00:00Z",
+  "verdict_state": "warning_active",
+  "artifacts": {
+    "findings": "findings.json",
+    "briefing": "briefing.json",
+    "route": "route.json",
+    "plume": "plume.json",
+    "warnings": "warnings.json",
+    "synoptic": "synoptic.json"
+  },
+  "input_hashes": {
+    "route": "44d2cd5ff959aaca",
+    "profile": "7c0e2e8460b2da21"
+  }
+}

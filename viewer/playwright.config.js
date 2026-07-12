@@ -14,7 +14,7 @@ export default defineConfig({
     { name: 'mobile', use: { ...devices['iPhone 13'], browserName: 'chromium', viewport: { width: 390, height: 844 } } },
   ],
   webServer: {
-    command: 'npm run dev -- --host 127.0.0.1',
+    command: 'VITE_DW_FIXTURE=demo npm run dev -- --host 127.0.0.1',
     url: 'http://127.0.0.1:5174',
     reuseExistingServer: true,
     timeout: 120_000,
