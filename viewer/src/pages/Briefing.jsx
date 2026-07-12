@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '../stores/appStore.js';
 import VerdictBanner from '../components/VerdictBanner.jsx';
+import RouteMap from '../components/RouteMap.jsx';
 import RouteTimeline from '../components/RouteTimeline.jsx';
 import ModelFooter from '../components/ModelFooter.jsx';
 import { Panel, EvidenceLink } from '../components/common.jsx';
-import { fmtTime } from '../lib/format.js';
+import { fmtTime, hourStatus, STATUS_HEX } from '../lib/format.js';
 
 const SECTION_ORDER = ['warnings', 'synoptic_story', 'route_impact', 'decision', 'what_could_change', 'unsupported', 'emulated_disclosure'];
 
@@ -21,33 +22,37 @@ export default function Briefing() {
     <div>
       <VerdictBanner />
       <div className="px-6 py-5 max-w-6xl">
-        <header className="mb-5 flex items-baseline justify-between flex-wrap gap-2">
+        <header className="mb-4 flex items-end justify-between flex-wrap gap-3">
           <div>
             <h1 className="font-chart text-3xl">{routeTitle(findings)}</h1>
-            <p className="font-mono text-[13px] text-ink-soft mt-1">
-              departure {fmtTime(findings.departure_utc)} UTC · profile {findings.profile_id} ·
-              snapshot {findings.snapshot_id}
+            <p className="font-mono text-[12px] text-ink-soft mt-1">
+              departure {fmtTime(findings.departure_utc)} UTC · {findings.profile_id} ·{' '}
+              {findings.snapshot_id}
             </p>
           </div>
+          <StatStrip findings={findings} />
         </header>
 
         <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
+          <div className="xl:col-span-3">
+            <RouteMap height={430} />
+          </div>
           <Panel title="Synoptic situation" className="xl:col-span-2">
             <SynopticPanel />
-          </Panel>
-
-          <Panel title="The weather story" className="xl:col-span-3">
-            <div className="space-y-5">
-              {sections.map((section) => (
-                <StorySection key={section.id} section={section} />
-              ))}
-            </div>
           </Panel>
         </div>
 
         <Panel title="Route timeline · conditions vs your limits" className="mt-4">
           <RouteTimeline />
           <LegStrip findings={findings} />
+        </Panel>
+
+        <Panel title="The weather story" className="mt-4">
+          <div className="space-y-5">
+            {sections.map((section) => (
+              <StorySection key={section.id} section={section} />
+            ))}
+          </div>
         </Panel>
 
         <ModelFooter />
@@ -121,6 +126,48 @@ function StorySection({ section }) {
   );
 }
 
+function StatStrip({ findings }) {
+  const hours = findings.legs.flatMap((l) => l.hours);
+  const max = (fn) => {
+    const vals = hours.map(fn).filter((v) => v !== null && v !== undefined && Number.isFinite(v));
+    return vals.length ? Math.round(Math.max(...vals) * 10) / 10 : null;
+  };
+  const wind = max((h) => h.wind_kt);
+  const gust = max((h) => h.gust_kt);
+  const hs = max((h) => h.waves?.hs_m ?? null);
+  const worstFraction = findings.evidence
+    .filter((e) => e.member_fraction)
+    .sort((a, b) => b.member_fraction.exceed / b.member_fraction.total - a.member_fraction.exceed / a.member_fraction.total)[0];
+
+  const Stat = ({ value, unit, label }) => (
+    <div className="text-center px-3 border-l hairline first:border-0">
+      <div className="font-mono text-xl leading-tight">
+        {value ?? '—'}
+        <span className="text-[11px] text-ink-soft ml-0.5">{unit}</span>
+      </div>
+      <div className="eyebrow">{label}</div>
+    </div>
+  );
+
+  return (
+    <div className="flex items-stretch bg-white/40 border hairline rounded-sm shadow-panel py-2 pr-1">
+      <Stat value={wind} unit="kt" label="max wind" />
+      <Stat value={gust} unit="kt" label="max gust" />
+      <Stat value={hs} unit="m" label="max seas" />
+      {worstFraction && (
+        <div className="text-center px-3 border-l hairline">
+          <div className="font-mono text-xl leading-tight">
+            <EvidenceLink evidenceId={worstFraction.evidence_id}>
+              {worstFraction.member_fraction.exceed}/{worstFraction.member_fraction.total}
+            </EvidenceLink>
+          </div>
+          <div className="eyebrow">scenarios over limit</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SynopticPanel() {
   const [state, setState] = useState(null);
   const [step, setStep] = useState(0);
@@ -184,21 +231,29 @@ function SynopticPanel() {
 }
 
 function LegStrip({ findings }) {
+  const rank = { ok: 0, unknown: 0, approaching: 1, exceeded: 2 };
   return (
     <div className="mt-3 flex items-stretch font-sans" aria-label="Legs">
-      {findings.legs.map((leg) => (
-        <div
-          key={leg.leg_id}
-          className="border hairline border-l-0 first:border-l px-2 py-1.5 text-center min-w-0"
-          style={{ flexGrow: Math.max(leg.distance_nm, 4) }}
-        >
-          <div className="font-mono text-[11px]">{leg.leg_id}</div>
-          <div className="text-[11px] text-ink-soft truncate">{leg.distance_nm} nm</div>
-          <div className="font-mono text-[10px] text-ink-soft">
-            {fmtTime(leg.eta_range.fast).slice(-5)}–{fmtTime(leg.eta_range.slow).slice(-5)}
+      {findings.legs.map((leg) => {
+        let worst = 'ok';
+        for (const hour of leg.hours) {
+          const s = hourStatus(hour);
+          if (rank[s] > rank[worst]) worst = s;
+        }
+        return (
+          <div
+            key={leg.leg_id}
+            className="border hairline border-l-0 first:border-l px-2 py-1.5 text-center min-w-0"
+            style={{ flexGrow: Math.max(leg.distance_nm, 4), borderTop: `3px solid ${STATUS_HEX[worst]}` }}
+          >
+            <div className="font-mono text-[11px]">{leg.leg_id}</div>
+            <div className="text-[11px] text-ink-soft truncate">{leg.distance_nm} nm</div>
+            <div className="font-mono text-[10px] text-ink-soft">
+              {fmtTime(leg.eta_range.fast).slice(-5)}–{fmtTime(leg.eta_range.slow).slice(-5)}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

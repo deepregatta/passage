@@ -37,10 +37,28 @@ function buildOption(findings) {
   const wind = rows.map((r) => [r.t, r.hour.wind_kt]);
   const gust = rows.map((r) => [r.t, r.hour.gust_kt]);
   const hs = rows.map((r) => [r.t, r.hour.waves?.hs_m ?? null]);
-  const statusDots = rows.map((r) => ({
-    value: [r.t, r.hour.gust_kt],
-    itemStyle: { color: STATUS_HEX[hourStatus(r.hour)] },
-  }));
+
+  // status read as background BANDS (approaching amber / exceeded red), not dots
+  const bands = [];
+  let bandStart = null;
+  let bandStatus = null;
+  for (const r of rows) {
+    const s = hourStatus(r.hour);
+    const active = s === 'approaching' || s === 'exceeded' ? s : null;
+    if (active !== bandStatus) {
+      if (bandStatus) bands.push({ from: bandStart, to: r.t, status: bandStatus });
+      bandStart = r.t;
+      bandStatus = active;
+    }
+  }
+  if (bandStatus && rows.length) bands.push({ from: bandStart, to: rows[rows.length - 1].t, status: bandStatus });
+  const bandAreas = bands.map((b) => [
+    {
+      xAxis: b.from,
+      itemStyle: { color: b.status === 'exceeded' ? 'rgba(166,59,42,0.14)' : 'rgba(168,119,24,0.14)' },
+    },
+    { xAxis: b.to },
+  ]);
 
   const legMarks = findings.legs.map((leg) => ({
     name: leg.leg_id,
@@ -92,6 +110,9 @@ function buildOption(findings) {
         data: wind,
         showSymbol: false,
         lineStyle: { color: ink, width: 1.6 },
+        markArea: bandAreas.length
+          ? { silent: true, data: bandAreas }
+          : undefined,
         markLine: {
           silent: true,
           symbol: 'none',
@@ -129,15 +150,6 @@ function buildOption(findings) {
               },
             }
           : undefined,
-      },
-      {
-        name: 'limit status',
-        type: 'scatter',
-        xAxisIndex: 0,
-        yAxisIndex: 0,
-        data: statusDots,
-        symbolSize: 5,
-        tooltip: { show: false },
       },
       {
         name: 'significant wave height',

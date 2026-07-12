@@ -222,6 +222,11 @@ export default function Planner() {
             <TileLayer
               url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
               attribution='&copy; OpenStreetMap contributors'
+              opacity={0.55}
+            />
+            <TileLayer
+              url="https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png"
+              attribution='seamarks &copy; OpenSeaMap'
             />
             <ClickCapture onClick={addWaypoint} />
             {mode === 'draw' &&
