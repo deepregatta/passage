@@ -202,7 +202,7 @@ export default function Planner() {
     try {
       const profileDraft = localStorage.getItem('deepweather.profile-draft');
       const profile = profileDraft ? JSON.parse(profileDraft) : profileDefaults;
-      const departures = candidateDepartures(Date.parse(`${departureLocal}:00Z`), 48, 6);
+      const departures = candidateDepartures(Date.parse(`${departureLocal}:00Z`), 120, 6);
       const partial = [];
       const result = await scanDepartures({ route, profile }, departures, (c) => {
         partial.push(c);
@@ -497,7 +497,7 @@ export default function Planner() {
               disabled={!route || busy !== null}
               className="w-full border border-ink/50 rounded-sm px-3 py-2 hover:bg-white/50 disabled:opacity-40"
             >
-              Compare departure times (next 48 h)
+              Compare departure times (next 5 days)
             </button>
             {error && <p className="text-verdict-exceeds text-[13px]">{error}</p>}
             {scan && scan.candidates.length === 0 && (
