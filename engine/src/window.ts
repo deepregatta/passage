@@ -6,7 +6,7 @@
 
 import { runAnalysis, type AnalyzeOptions, type AnalyzeResult } from './analyze.js';
 import { MemoryCacheStore } from './fetch/openMeteo.js';
-import type { VerdictState } from './types.js';
+import type { Route, VerdictState } from './types.js';
 
 export interface WindowCandidate {
   departure_utc: string;
@@ -16,8 +16,19 @@ export interface WindowCandidate {
   /** worst ensemble exceedance fraction across the passage */
   max_fraction: number | null;
   driver_summary: string | null;
+  /** nominal passage duration for this candidate's route */
+  passage_h: number | null;
   avoids_event_key?: string;
   delta?: { peak_gust_kt: number; hours_over_limit: number };
+}
+
+export interface ScanOptions extends Omit<AnalyzeOptions, 'departureUtc'> {
+  /**
+   * Weather-dependent routing: when set, each candidate departure is audited
+   * against its own route (e.g. re-run the router per departure). A throw
+   * skips that candidate, like any other failed candidate.
+   */
+  routeFor?: (departureUtc: string) => Route | Promise<Route>;
 }
 
 export interface WindowScan {
@@ -35,11 +46,12 @@ const SEVERITY: Record<VerdictState, number> = {
 };
 
 export async function scanDepartures(
-  base: Omit<AnalyzeOptions, 'departureUtc'>,
+  base: ScanOptions,
   departures: string[],
   onCandidate?: (candidate: WindowCandidate) => void,
 ): Promise<WindowScan> {
   // one shared cache: candidates inside the same date window reuse the same responses
+  const { routeFor, ...analyzeBase } = base;
   const cache = base.cache ?? new MemoryCacheStore();
   const candidates: WindowCandidate[] = [];
   const eventKeys: string[][] = [];
@@ -47,7 +59,8 @@ export async function scanDepartures(
   for (const departureUtc of departures) {
     let result: AnalyzeResult;
     try {
-      result = await runAnalysis({ ...base, cache, departureUtc });
+      const route = routeFor ? await routeFor(departureUtc) : analyzeBase.route;
+      result = await runAnalysis({ ...analyzeBase, route, cache, departureUtc });
     } catch {
       continue; // a failed candidate (e.g. beyond forecast horizon) is skipped, not fatal
     }
@@ -65,6 +78,7 @@ export async function scanDepartures(
     const driver = findings.evidence.find(
       (e) => e.evidence_id === findings.verdict.driver_evidence_id,
     );
+    const lastLeg = findings.legs[findings.legs.length - 1];
     const candidate: WindowCandidate = {
       departure_utc: departureUtc,
       verdict: findings.verdict.state,
@@ -72,6 +86,9 @@ export async function scanDepartures(
       max_fraction: maxFraction !== null ? Math.round(maxFraction * 100) / 100 : null,
       driver_summary: driver
         ? `${driver.rule_id} on ${driver.leg_id} at ${driver.valid_time}`
+        : null,
+      passage_h: lastLeg
+        ? Math.round(((Date.parse(lastLeg.eta_range.nominal) - Date.parse(departureUtc)) / 3600_000) * 10) / 10
         : null,
       delta: passageMetrics(findings),
     };
