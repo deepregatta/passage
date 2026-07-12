@@ -17,7 +17,7 @@ import math
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from .paths import processed_dir, data_root
+from .paths import data_root
 
 N_POINTS = 6  # engine evaluates leg midpoints of cherbourg-plymouth (6 legs)
 N_MEMBERS = 51

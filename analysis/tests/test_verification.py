@@ -5,8 +5,6 @@ calibration accumulator. No network; writes only under tmp_path.
 from __future__ import annotations
 
 import json
-import math
-
 import jsonschema
 import pytest
 
