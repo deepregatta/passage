@@ -1,0 +1,8 @@
+{
+  "cases": 11,
+  "pass": 10,
+  "fail": 1,
+  "pending": 0,
+  "observation_source": "era5",
+  "disclosure": "Emulated demo verification is excluded from these corpus counts."
+}
