@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "snapshot_id": "20260720T060000Z_44d2cd5f_f0703423",
+  "observation_source": "emulated",
+  "generated_at": "2026-07-21T12:00:00Z",
+  "coverage_summary": {
+    "emulated": 3
+  },
+  "pairs": [
+    {
+      "leg_id": "L4",
+      "valid_time": "2026-07-20T23:00:00Z",
+      "variable": "gust_kt",
+      "forecast": 31,
+      "observed": 29,
+      "error": 2,
+      "coverage_class": "emulated"
+    },
+    {
+      "leg_id": "L5",
+      "valid_time": "2026-07-21T02:00:00Z",
+      "variable": "gust_kt",
+      "forecast": 39,
+      "observed": 36,
+      "error": 3,
+      "coverage_class": "emulated"
+    },
+    {
+      "leg_id": "L5",
+      "valid_time": "2026-07-21T02:00:00Z",
+      "variable": "wave_height_m",
+      "forecast": 3.1,
+      "observed": 2.8,
+      "error": 0.3,
+      "coverage_class": "emulated"
+    }
+  ],
+  "disclosure": "Synthetic observations for the product demo; excluded from every skill claim."
+}

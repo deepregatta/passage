@@ -21,15 +21,15 @@ beforeEach(() => {
 });
 
 describe('viewer fixture harness', () => {
-  it('serves the frozen audited snapshot through the same /data paths as Vite', async () => {
+  it('serves the generated reference snapshot through the same /data paths as Vite', async () => {
     const user = userEvent.setup();
     render(<App />);
 
-    const snapshot = await screen.findByRole('button', { name: /cherbourg-plymouth-v1/i });
+    const [snapshot] = await screen.findAllByRole('button', { name: /cherbourg-plymouth-v1/i });
     await user.click(snapshot);
 
     await waitFor(() => expect(screen.getByText(/Official warning active/i)).toBeTruthy());
-    expect(useApp.getState().snapshotId).toBe('20260720T060000Z_44d2cd5f_4196266b');
+    expect(useApp.getState().snapshotId).toBe('20260720T060000Z_44d2cd5f_f0703423');
   });
 
   it.fails('does not present emulated warning evidence as verified authority', async () => {

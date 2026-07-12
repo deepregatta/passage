@@ -49,6 +49,11 @@ async function runCommand(args: Map<string, string>): Promise<number> {
 
   const route = JSON.parse(readFileSync(routePath, 'utf8')) as Route;
   const profile = JSON.parse(readFileSync(profilePath, 'utf8')) as LimitsProfile;
+  const fixedNow = args.get('now') ? Date.parse(args.get('now')!) : Date.now();
+  if (!Number.isFinite(fixedNow)) {
+    console.error('Invalid --now <ISO UTC>');
+    return 1;
+  }
 
   // fixture mode: responses come from files; file-URL bases make request digests
   // (and therefore snapshot ids) unique per fixture directory
@@ -127,6 +132,7 @@ async function runCommand(args: Map<string, string>): Promise<number> {
           },
         }
       : { cache: new FsCacheStore(join(REPO_ROOT, 'data', 'cache', 'openmeteo')) }),
+    now: () => fixedNow,
   });
 
   if (args.get('no-snapshot') !== undefined || args.has('print')) {
@@ -134,8 +140,11 @@ async function runCommand(args: Map<string, string>): Promise<number> {
     return 0;
   }
 
-  const store = new NodeFsSnapshotStore(join(REPO_ROOT, 'data', 'processed', 'snapshots'));
-  const snapshotId = await persistSnapshot(store, result, route, Date.now());
+  const snapshotRoot = args.get('snapshot-dir')
+    ? userPath(args.get('snapshot-dir')!)
+    : join(REPO_ROOT, 'data', 'processed', 'snapshots');
+  const store = new NodeFsSnapshotStore(snapshotRoot);
+  const snapshotId = await persistSnapshot(store, result, route, fixedNow);
 
   console.log(`snapshot: ${snapshotId}`);
   console.log(`verdict:  ${result.findings.verdict.state}`);

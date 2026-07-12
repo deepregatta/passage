@@ -33,6 +33,8 @@ const EXPECTED: Record<string, string> = {
   storm: 'exceeds',
   diverging: 'insufficient',
   warning: 'warning_active',
+  'reference-demo': 'warning_active',
+  'reference-demo-prev': 'warning_active',
 };
 
 async function runScenario(name: string) {
@@ -137,5 +139,20 @@ describe('verdict-state harness: five scenarios -> five §7 states', () => {
     const story = briefing.sections.find((section) => section.id === 'synoptic_story');
     expect(story?.availability?.status).toBe('unavailable');
     expect(story?.register_plain).toContain('Causal attribution unavailable');
+  });
+
+  it('reference demo carries the warning, causal low, and 23/51 gust crossing', async () => {
+    const { findings } = await runScenario('reference-demo');
+    expect(findings.verdict.warning_override.active).toBe(true);
+    expect(findings.causal_events?.some((event) => event.system_id === 'L1')).toBe(true);
+    expect(
+      findings.evidence.some(
+        (item) =>
+          item.rule_id === 'W-GUST-03' &&
+          item.leg_id === 'L4' &&
+          item.member_fraction?.exceed === 23 &&
+          item.member_fraction.total === 51,
+      ),
+    ).toBe(true);
   });
 });

@@ -1,0 +1,2577 @@
+{
+  "schema_version": 1,
+  "snapshot_id": "20260720T060000Z_44d2cd5f_4a1c16e9",
+  "route_id": "cherbourg-plymouth-v1",
+  "profile_id": "coastal-cruising-cautious",
+  "departure_utc": "2026-07-20T06:00:00Z",
+  "engine_version": "0.1.0",
+  "generated_at": "2026-07-19T18:00:00Z",
+  "inputs": {
+    "prepared_run_id": "reference-demo-20260719T12Z",
+    "synoptic_run_id": "reference-demo-20260719T12Z",
+    "openmeteo": [
+      {
+        "api": "forecast",
+        "model": "ecmwf_ifs025",
+        "request_digest": "503ded567a4813b0",
+        "fetched_at": "2026-07-19T18:00:00.000Z",
+        "run_inferred": "20260719T06Z (inferred)",
+        "cached": false,
+        "points": 6
+      },
+      {
+        "api": "ensemble",
+        "model": "ecmwf_ifs025",
+        "members": 51,
+        "request_digest": "9ce380d749be54bd",
+        "fetched_at": "2026-07-19T18:00:00.000Z",
+        "run_inferred": "20260719T06Z (inferred)",
+        "cached": false,
+        "points": 6
+      },
+      {
+        "api": "marine",
+        "model": "best_match",
+        "request_digest": "ab78b6563049c239",
+        "fetched_at": "2026-07-19T18:00:00.000Z",
+        "cached": false,
+        "points": 6,
+        "note": "deterministic wave model only — no wave ensembles available"
+      },
+      {
+        "api": "forecast-multimodel",
+        "models": [
+          "ecmwf_ifs025",
+          "gfs_global",
+          "icon_eu"
+        ],
+        "request_digest": "7914a344820cb25e",
+        "fetched_at": "2026-07-19T18:00:00.000Z",
+        "run_inferred": "20260719T06Z (inferred)",
+        "cached": false,
+        "points": 6
+      }
+    ],
+    "warnings_ref": "/home/davi/projects/deepweather/engine/test/fixtures/scenarios/reference-demo-prev/warnings.json",
+    "route_hash": "44d2cd5ff959aaca",
+    "profile_hash": "7c0e2e8460b2da21"
+  },
+  "legs": [
+    {
+      "leg_id": "L1",
+      "name": "Cherbourg, Passe de l'Ouest → Off Omonville-la-Rogue",
+      "distance_nm": 7.91,
+      "bearing_deg_true": 294.8,
+      "eta_range": {
+        "slow": "2026-07-20T07:45:28Z",
+        "nominal": "2026-07-20T07:26:17Z",
+        "fast": "2026-07-20T07:13:00Z"
+      },
+      "enter_range": {
+        "slow": "2026-07-20T06:00:00Z",
+        "nominal": "2026-07-20T06:00:00Z",
+        "fast": "2026-07-20T06:00:00Z"
+      },
+      "sog_kt": {
+        "slow": 4.5,
+        "nominal": 5.5,
+        "fast": 6.5
+      },
+      "hours": [
+        {
+          "valid_time": "2026-07-20T06:00:00Z",
+          "wind_kt": 12.6,
+          "gust_kt": 18.21,
+          "wind_dir_deg": 220,
+          "twa_deg": 74.8,
+          "point_of_sail": "reach",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1,
+            "period_s": 6.5,
+            "steepness": 0.0152,
+            "wind_wave_h_m": 0.85,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 0,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 0,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        },
+        {
+          "valid_time": "2026-07-20T07:00:00Z",
+          "wind_kt": 12.61,
+          "gust_kt": 18.21,
+          "wind_dir_deg": 220,
+          "twa_deg": 74.8,
+          "point_of_sail": "reach",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1,
+            "period_s": 6.5,
+            "steepness": 0.0152,
+            "wind_wave_h_m": 0.85,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 0,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 0,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        },
+        {
+          "valid_time": "2026-07-20T08:00:00Z",
+          "wind_kt": 12.61,
+          "gust_kt": 18.21,
+          "wind_dir_deg": 220.1,
+          "twa_deg": 74.7,
+          "point_of_sail": "reach",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.01,
+            "period_s": 6.5,
+            "steepness": 0.0153,
+            "wind_wave_h_m": 0.86,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 1,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 0,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        }
+      ],
+      "sample_point": {
+        "lat": 49.6925,
+        "lon": -1.7375
+      }
+    },
+    {
+      "leg_id": "L2",
+      "name": "Off Omonville-la-Rogue → NW of Cap de la Hague",
+      "distance_nm": 9.26,
+      "bearing_deg_true": 293,
+      "eta_range": {
+        "slow": "2026-07-20T09:48:56Z",
+        "nominal": "2026-07-20T09:07:18Z",
+        "fast": "2026-07-20T08:38:29Z"
+      },
+      "enter_range": {
+        "slow": "2026-07-20T07:45:28Z",
+        "nominal": "2026-07-20T07:26:17Z",
+        "fast": "2026-07-20T07:13:00Z"
+      },
+      "sog_kt": {
+        "slow": 4.5,
+        "nominal": 5.5,
+        "fast": 6.5
+      },
+      "hours": [
+        {
+          "valid_time": "2026-07-20T07:00:00Z",
+          "wind_kt": 12.61,
+          "gust_kt": 18.21,
+          "wind_dir_deg": 220,
+          "twa_deg": 73,
+          "point_of_sail": "reach",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1,
+            "period_s": 6.5,
+            "steepness": 0.0152,
+            "wind_wave_h_m": 0.85,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 0,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 0,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        },
+        {
+          "valid_time": "2026-07-20T08:00:00Z",
+          "wind_kt": 12.61,
+          "gust_kt": 18.21,
+          "wind_dir_deg": 220.1,
+          "twa_deg": 72.9,
+          "point_of_sail": "reach",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.01,
+            "period_s": 6.5,
+            "steepness": 0.0153,
+            "wind_wave_h_m": 0.86,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 1,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 0,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        },
+        {
+          "valid_time": "2026-07-20T09:00:00Z",
+          "wind_kt": 12.61,
+          "gust_kt": 18.22,
+          "wind_dir_deg": 220.1,
+          "twa_deg": 72.9,
+          "point_of_sail": "reach",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.01,
+            "period_s": 6.5,
+            "steepness": 0.0153,
+            "wind_wave_h_m": 0.86,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 1,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 0,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        },
+        {
+          "valid_time": "2026-07-20T10:00:00Z",
+          "wind_kt": 12.62,
+          "gust_kt": 18.22,
+          "wind_dir_deg": 220.1,
+          "twa_deg": 72.9,
+          "point_of_sail": "reach",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.01,
+            "period_s": 6.5,
+            "steepness": 0.0153,
+            "wind_wave_h_m": 0.86,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 1,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 0,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        }
+      ],
+      "sample_point": {
+        "lat": 49.75,
+        "lon": -1.94
+      }
+    },
+    {
+      "leg_id": "L3",
+      "name": "NW of Cap de la Hague → Casquets TSS crossing",
+      "distance_nm": 32.6,
+      "bearing_deg_true": 288.6,
+      "eta_range": {
+        "slow": "2026-07-20T17:03:36Z",
+        "nominal": "2026-07-20T15:02:56Z",
+        "fast": "2026-07-20T13:39:24Z"
+      },
+      "enter_range": {
+        "slow": "2026-07-20T09:48:56Z",
+        "nominal": "2026-07-20T09:07:18Z",
+        "fast": "2026-07-20T08:38:29Z"
+      },
+      "sog_kt": {
+        "slow": 4.5,
+        "nominal": 5.5,
+        "fast": 6.5
+      },
+      "hours": [
+        {
+          "valid_time": "2026-07-20T08:00:00Z",
+          "wind_kt": 12.61,
+          "gust_kt": 18.21,
+          "wind_dir_deg": 220.1,
+          "twa_deg": 68.5,
+          "point_of_sail": "reach",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.01,
+            "period_s": 6.5,
+            "steepness": 0.0153,
+            "wind_wave_h_m": 0.86,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 1,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 0,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        },
+        {
+          "valid_time": "2026-07-20T09:00:00Z",
+          "wind_kt": 12.61,
+          "gust_kt": 18.22,
+          "wind_dir_deg": 220.1,
+          "twa_deg": 68.5,
+          "point_of_sail": "reach",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.01,
+            "period_s": 6.5,
+            "steepness": 0.0153,
+            "wind_wave_h_m": 0.86,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 1,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 0,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        },
+        {
+          "valid_time": "2026-07-20T10:00:00Z",
+          "wind_kt": 12.62,
+          "gust_kt": 18.22,
+          "wind_dir_deg": 220.1,
+          "twa_deg": 68.5,
+          "point_of_sail": "reach",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.01,
+            "period_s": 6.5,
+            "steepness": 0.0153,
+            "wind_wave_h_m": 0.86,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 1,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 0,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        },
+        {
+          "valid_time": "2026-07-20T11:00:00Z",
+          "wind_kt": 12.62,
+          "gust_kt": 18.23,
+          "wind_dir_deg": 220.1,
+          "twa_deg": 68.5,
+          "point_of_sail": "reach",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.01,
+            "period_s": 6.5,
+            "steepness": 0.0153,
+            "wind_wave_h_m": 0.86,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 1,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 0,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        },
+        {
+          "valid_time": "2026-07-20T12:00:00Z",
+          "wind_kt": 12.63,
+          "gust_kt": 18.25,
+          "wind_dir_deg": 220.2,
+          "twa_deg": 68.4,
+          "point_of_sail": "reach",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.02,
+            "period_s": 6.5,
+            "steepness": 0.0155,
+            "wind_wave_h_m": 0.86,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 1,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 0,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        },
+        {
+          "valid_time": "2026-07-20T13:00:00Z",
+          "wind_kt": 12.65,
+          "gust_kt": 18.27,
+          "wind_dir_deg": 220.3,
+          "twa_deg": 68.3,
+          "point_of_sail": "reach",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.02,
+            "period_s": 6.5,
+            "steepness": 0.0155,
+            "wind_wave_h_m": 0.87,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 2,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 0,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        },
+        {
+          "valid_time": "2026-07-20T14:00:00Z",
+          "wind_kt": 12.67,
+          "gust_kt": 18.29,
+          "wind_dir_deg": 220.4,
+          "twa_deg": 68.2,
+          "point_of_sail": "reach",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.03,
+            "period_s": 6.5,
+            "steepness": 0.0156,
+            "wind_wave_h_m": 0.87,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 2,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 0,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        },
+        {
+          "valid_time": "2026-07-20T15:00:00Z",
+          "wind_kt": 12.69,
+          "gust_kt": 18.33,
+          "wind_dir_deg": 220.5,
+          "twa_deg": 68.1,
+          "point_of_sail": "reach",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.03,
+            "period_s": 6.5,
+            "steepness": 0.0156,
+            "wind_wave_h_m": 0.88,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 3,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 0,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        },
+        {
+          "valid_time": "2026-07-20T16:00:00Z",
+          "wind_kt": 12.73,
+          "gust_kt": 18.38,
+          "wind_dir_deg": 220.7,
+          "twa_deg": 67.9,
+          "point_of_sail": "reach",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.04,
+            "period_s": 6.5,
+            "steepness": 0.0158,
+            "wind_wave_h_m": 0.89,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 4,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 0,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        },
+        {
+          "valid_time": "2026-07-20T17:00:00Z",
+          "wind_kt": 12.78,
+          "gust_kt": 18.44,
+          "wind_dir_deg": 221,
+          "twa_deg": 67.6,
+          "point_of_sail": "reach",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.06,
+            "period_s": 6.5,
+            "steepness": 0.0161,
+            "wind_wave_h_m": 0.9,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 5,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 0,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        },
+        {
+          "valid_time": "2026-07-20T18:00:00Z",
+          "wind_kt": 12.85,
+          "gust_kt": 18.54,
+          "wind_dir_deg": 221.4,
+          "twa_deg": 67.2,
+          "point_of_sail": "reach",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.07,
+            "period_s": 6.5,
+            "steepness": 0.0162,
+            "wind_wave_h_m": 0.91,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 7,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 0,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        }
+      ],
+      "sample_point": {
+        "lat": 49.865,
+        "lon": -2.45
+      }
+    },
+    {
+      "leg_id": "L4",
+      "name": "Casquets TSS crossing → Mid-Channel",
+      "distance_nm": 24.83,
+      "bearing_deg_true": 291.5,
+      "eta_range": {
+        "slow": "2026-07-20T22:34:40Z",
+        "nominal": "2026-07-20T19:33:49Z",
+        "fast": "2026-07-20T17:28:36Z"
+      },
+      "enter_range": {
+        "slow": "2026-07-20T17:03:36Z",
+        "nominal": "2026-07-20T15:02:56Z",
+        "fast": "2026-07-20T13:39:24Z"
+      },
+      "sog_kt": {
+        "slow": 4.5,
+        "nominal": 5.5,
+        "fast": 6.5
+      },
+      "hours": [
+        {
+          "valid_time": "2026-07-20T13:00:00Z",
+          "wind_kt": 12.65,
+          "gust_kt": 18.27,
+          "wind_dir_deg": 220.3,
+          "twa_deg": 71.2,
+          "point_of_sail": "reach",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.02,
+            "period_s": 6.5,
+            "steepness": 0.0155,
+            "wind_wave_h_m": 0.87,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 2,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 0,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        },
+        {
+          "valid_time": "2026-07-20T14:00:00Z",
+          "wind_kt": 12.67,
+          "gust_kt": 18.29,
+          "wind_dir_deg": 220.4,
+          "twa_deg": 71.1,
+          "point_of_sail": "reach",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.03,
+            "period_s": 6.5,
+            "steepness": 0.0156,
+            "wind_wave_h_m": 0.87,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 2,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 0,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        },
+        {
+          "valid_time": "2026-07-20T15:00:00Z",
+          "wind_kt": 12.69,
+          "gust_kt": 18.33,
+          "wind_dir_deg": 220.5,
+          "twa_deg": 71,
+          "point_of_sail": "reach",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.03,
+            "period_s": 6.5,
+            "steepness": 0.0156,
+            "wind_wave_h_m": 0.88,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 3,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 0,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        },
+        {
+          "valid_time": "2026-07-20T16:00:00Z",
+          "wind_kt": 12.73,
+          "gust_kt": 18.38,
+          "wind_dir_deg": 220.7,
+          "twa_deg": 70.8,
+          "point_of_sail": "reach",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.04,
+            "period_s": 6.5,
+            "steepness": 0.0158,
+            "wind_wave_h_m": 0.89,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 4,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 0,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        },
+        {
+          "valid_time": "2026-07-20T17:00:00Z",
+          "wind_kt": 12.78,
+          "gust_kt": 18.44,
+          "wind_dir_deg": 221,
+          "twa_deg": 70.5,
+          "point_of_sail": "reach",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.06,
+            "period_s": 6.5,
+            "steepness": 0.0161,
+            "wind_wave_h_m": 0.9,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 5,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 0,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        },
+        {
+          "valid_time": "2026-07-20T18:00:00Z",
+          "wind_kt": 12.85,
+          "gust_kt": 18.54,
+          "wind_dir_deg": 221.4,
+          "twa_deg": 70.1,
+          "point_of_sail": "reach",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.07,
+            "period_s": 6.5,
+            "steepness": 0.0162,
+            "wind_wave_h_m": 0.91,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 7,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 0,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        },
+        {
+          "valid_time": "2026-07-20T19:00:00Z",
+          "wind_kt": 12.95,
+          "gust_kt": 18.67,
+          "wind_dir_deg": 222,
+          "twa_deg": 69.5,
+          "point_of_sail": "reach",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.09,
+            "period_s": 6.5,
+            "steepness": 0.0165,
+            "wind_wave_h_m": 0.93,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 8,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 0,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        },
+        {
+          "valid_time": "2026-07-20T20:00:00Z",
+          "wind_kt": 13.08,
+          "gust_kt": 18.85,
+          "wind_dir_deg": 222.8,
+          "twa_deg": 68.7,
+          "point_of_sail": "reach",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.11,
+            "period_s": 6.5,
+            "steepness": 0.0168,
+            "wind_wave_h_m": 0.95,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 11,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 0,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        },
+        {
+          "valid_time": "2026-07-20T21:00:00Z",
+          "wind_kt": 13.26,
+          "gust_kt": 19.1,
+          "wind_dir_deg": 223.8,
+          "twa_deg": 67.7,
+          "point_of_sail": "reach",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.14,
+            "period_s": 6.5,
+            "steepness": 0.0173,
+            "wind_wave_h_m": 0.97,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 14,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 0,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        },
+        {
+          "valid_time": "2026-07-20T22:00:00Z",
+          "wind_kt": 13.51,
+          "gust_kt": 19.43,
+          "wind_dir_deg": 225.2,
+          "twa_deg": 66.3,
+          "point_of_sail": "reach",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.18,
+            "period_s": 6.5,
+            "steepness": 0.0179,
+            "wind_wave_h_m": 1,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 18,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 0,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        },
+        {
+          "valid_time": "2026-07-20T23:00:00Z",
+          "wind_kt": 13.84,
+          "gust_kt": 19.87,
+          "wind_dir_deg": 227.1,
+          "twa_deg": 64.4,
+          "point_of_sail": "reach",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.23,
+            "period_s": 6.5,
+            "steepness": 0.0186,
+            "wind_wave_h_m": 1.04,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 22,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 0,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        }
+      ],
+      "sample_point": {
+        "lat": 50.025,
+        "lon": -3.15
+      }
+    },
+    {
+      "leg_id": "L5",
+      "name": "Mid-Channel → Plymouth approach (E of Eddystone)",
+      "distance_nm": 24.77,
+      "bearing_deg_true": 291.6,
+      "eta_range": {
+        "slow": "2026-07-21T04:04:56Z",
+        "nominal": "2026-07-21T00:04:02Z",
+        "fast": "2026-07-20T21:17:15Z"
+      },
+      "enter_range": {
+        "slow": "2026-07-20T22:34:40Z",
+        "nominal": "2026-07-20T19:33:49Z",
+        "fast": "2026-07-20T17:28:36Z"
+      },
+      "sog_kt": {
+        "slow": 4.5,
+        "nominal": 5.5,
+        "fast": 6.5
+      },
+      "hours": [
+        {
+          "valid_time": "2026-07-20T17:00:00Z",
+          "wind_kt": 12.78,
+          "gust_kt": 18.44,
+          "wind_dir_deg": 221,
+          "twa_deg": 70.6,
+          "point_of_sail": "reach",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.06,
+            "period_s": 6.5,
+            "steepness": 0.0161,
+            "wind_wave_h_m": 0.9,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 5,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 0,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        },
+        {
+          "valid_time": "2026-07-20T18:00:00Z",
+          "wind_kt": 12.85,
+          "gust_kt": 18.54,
+          "wind_dir_deg": 221.4,
+          "twa_deg": 70.2,
+          "point_of_sail": "reach",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.07,
+            "period_s": 6.5,
+            "steepness": 0.0162,
+            "wind_wave_h_m": 0.91,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 7,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 0,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        },
+        {
+          "valid_time": "2026-07-20T19:00:00Z",
+          "wind_kt": 12.95,
+          "gust_kt": 18.67,
+          "wind_dir_deg": 222,
+          "twa_deg": 69.6,
+          "point_of_sail": "reach",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.09,
+            "period_s": 6.5,
+            "steepness": 0.0165,
+            "wind_wave_h_m": 0.93,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 8,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 0,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        },
+        {
+          "valid_time": "2026-07-20T20:00:00Z",
+          "wind_kt": 13.08,
+          "gust_kt": 18.85,
+          "wind_dir_deg": 222.8,
+          "twa_deg": 68.8,
+          "point_of_sail": "reach",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.11,
+            "period_s": 6.5,
+            "steepness": 0.0168,
+            "wind_wave_h_m": 0.95,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 11,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 0,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        },
+        {
+          "valid_time": "2026-07-20T21:00:00Z",
+          "wind_kt": 13.26,
+          "gust_kt": 19.1,
+          "wind_dir_deg": 223.8,
+          "twa_deg": 67.8,
+          "point_of_sail": "reach",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.14,
+            "period_s": 6.5,
+            "steepness": 0.0173,
+            "wind_wave_h_m": 0.97,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 14,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 0,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        },
+        {
+          "valid_time": "2026-07-20T22:00:00Z",
+          "wind_kt": 13.51,
+          "gust_kt": 19.43,
+          "wind_dir_deg": 225.2,
+          "twa_deg": 66.4,
+          "point_of_sail": "reach",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.18,
+            "period_s": 6.5,
+            "steepness": 0.0179,
+            "wind_wave_h_m": 1,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 18,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 0,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        },
+        {
+          "valid_time": "2026-07-20T23:00:00Z",
+          "wind_kt": 13.84,
+          "gust_kt": 19.87,
+          "wind_dir_deg": 227.1,
+          "twa_deg": 64.5,
+          "point_of_sail": "reach",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.23,
+            "period_s": 6.5,
+            "steepness": 0.0186,
+            "wind_wave_h_m": 1.04,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 22,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 0,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        },
+        {
+          "valid_time": "2026-07-21T00:00:00Z",
+          "wind_kt": 14.27,
+          "gust_kt": 20.45,
+          "wind_dir_deg": 229.5,
+          "twa_deg": 62.1,
+          "point_of_sail": "reach",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.29,
+            "period_s": 6.5,
+            "steepness": 0.0196,
+            "wind_wave_h_m": 1.09,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 28,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 0,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        },
+        {
+          "valid_time": "2026-07-21T01:00:00Z",
+          "wind_kt": 14.82,
+          "gust_kt": 21.2,
+          "wind_dir_deg": 232.7,
+          "twa_deg": 58.9,
+          "point_of_sail": "upwind",
+          "limit_status": {
+            "sustained": "approaching",
+            "gust": "approaching",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.36,
+            "period_s": 6.5,
+            "steepness": 0.0206,
+            "wind_wave_h_m": 1.15,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 36,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 0,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        },
+        {
+          "valid_time": "2026-07-21T02:00:00Z",
+          "wind_kt": 15.52,
+          "gust_kt": 22.14,
+          "wind_dir_deg": 236.7,
+          "twa_deg": 54.9,
+          "point_of_sail": "upwind",
+          "limit_status": {
+            "sustained": "approaching",
+            "gust": "approaching",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.44,
+            "period_s": 6.5,
+            "steepness": 0.0218,
+            "wind_wave_h_m": 1.22,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 46,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 6,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        },
+        {
+          "valid_time": "2026-07-21T03:00:00Z",
+          "wind_kt": 16.37,
+          "gust_kt": 23.28,
+          "wind_dir_deg": 241.5,
+          "twa_deg": 50.1,
+          "point_of_sail": "upwind",
+          "limit_status": {
+            "sustained": "approaching",
+            "gust": "approaching",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.53,
+            "period_s": 6.5,
+            "steepness": 0.0232,
+            "wind_wave_h_m": 1.3,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 57,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 8,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        },
+        {
+          "valid_time": "2026-07-21T04:00:00Z",
+          "wind_kt": 17.35,
+          "gust_kt": 24.61,
+          "wind_dir_deg": 247.1,
+          "twa_deg": 44.5,
+          "point_of_sail": "upwind",
+          "limit_status": {
+            "sustained": "approaching",
+            "gust": "approaching",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.65,
+            "period_s": 6.5,
+            "steepness": 0.025,
+            "wind_wave_h_m": 1.4,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 72,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 15,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        },
+        {
+          "valid_time": "2026-07-21T05:00:00Z",
+          "wind_kt": 18.44,
+          "gust_kt": 26.09,
+          "wind_dir_deg": 253.4,
+          "twa_deg": 38.2,
+          "point_of_sail": "upwind",
+          "limit_status": {
+            "sustained": "exceeded",
+            "gust": "approaching",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.77,
+            "period_s": 6.5,
+            "steepness": 0.0268,
+            "wind_wave_h_m": 1.5,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 89,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 25,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 8,
+              "total": 51
+            }
+          }
+        }
+      ],
+      "sample_point": {
+        "lat": 50.175,
+        "lon": -3.75
+      }
+    },
+    {
+      "leg_id": "L6",
+      "name": "Plymouth approach (E of Eddystone) → Plymouth breakwater, western entrance",
+      "distance_nm": 6.92,
+      "bearing_deg_true": 316.2,
+      "eta_range": {
+        "slow": "2026-07-21T05:37:12Z",
+        "nominal": "2026-07-21T01:19:31Z",
+        "fast": "2026-07-20T22:21:08Z"
+      },
+      "enter_range": {
+        "slow": "2026-07-21T04:04:56Z",
+        "nominal": "2026-07-21T00:04:02Z",
+        "fast": "2026-07-20T21:17:15Z"
+      },
+      "sog_kt": {
+        "slow": 4.5,
+        "nominal": 5.5,
+        "fast": 6.5
+      },
+      "hours": [
+        {
+          "valid_time": "2026-07-20T21:00:00Z",
+          "wind_kt": 13.26,
+          "gust_kt": 19.1,
+          "wind_dir_deg": 223.8,
+          "twa_deg": 92.4,
+          "point_of_sail": "reach",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.14,
+            "period_s": 6.5,
+            "steepness": 0.0173,
+            "wind_wave_h_m": 0.97,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 14,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 0,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        },
+        {
+          "valid_time": "2026-07-20T22:00:00Z",
+          "wind_kt": 13.51,
+          "gust_kt": 19.43,
+          "wind_dir_deg": 225.2,
+          "twa_deg": 91,
+          "point_of_sail": "reach",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.18,
+            "period_s": 6.5,
+            "steepness": 0.0179,
+            "wind_wave_h_m": 1,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 18,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 0,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        },
+        {
+          "valid_time": "2026-07-20T23:00:00Z",
+          "wind_kt": 13.84,
+          "gust_kt": 19.87,
+          "wind_dir_deg": 227.1,
+          "twa_deg": 89.1,
+          "point_of_sail": "reach",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.23,
+            "period_s": 6.5,
+            "steepness": 0.0186,
+            "wind_wave_h_m": 1.04,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 22,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 0,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        },
+        {
+          "valid_time": "2026-07-21T00:00:00Z",
+          "wind_kt": 14.27,
+          "gust_kt": 20.45,
+          "wind_dir_deg": 229.5,
+          "twa_deg": 86.7,
+          "point_of_sail": "reach",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.29,
+            "period_s": 6.5,
+            "steepness": 0.0196,
+            "wind_wave_h_m": 1.09,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 28,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 0,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        },
+        {
+          "valid_time": "2026-07-21T01:00:00Z",
+          "wind_kt": 14.82,
+          "gust_kt": 21.2,
+          "wind_dir_deg": 232.7,
+          "twa_deg": 83.5,
+          "point_of_sail": "reach",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "approaching",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.36,
+            "period_s": 6.5,
+            "steepness": 0.0206,
+            "wind_wave_h_m": 1.15,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 36,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 0,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        },
+        {
+          "valid_time": "2026-07-21T02:00:00Z",
+          "wind_kt": 15.52,
+          "gust_kt": 22.14,
+          "wind_dir_deg": 236.7,
+          "twa_deg": 79.5,
+          "point_of_sail": "reach",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "approaching",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.44,
+            "period_s": 6.5,
+            "steepness": 0.0218,
+            "wind_wave_h_m": 1.22,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 46,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 0,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        },
+        {
+          "valid_time": "2026-07-21T03:00:00Z",
+          "wind_kt": 16.37,
+          "gust_kt": 23.28,
+          "wind_dir_deg": 241.5,
+          "twa_deg": 74.7,
+          "point_of_sail": "reach",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "approaching",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.53,
+            "period_s": 6.5,
+            "steepness": 0.0232,
+            "wind_wave_h_m": 1.3,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 57,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 0,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        },
+        {
+          "valid_time": "2026-07-21T04:00:00Z",
+          "wind_kt": 17.35,
+          "gust_kt": 24.61,
+          "wind_dir_deg": 247.1,
+          "twa_deg": 69.1,
+          "point_of_sail": "reach",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "approaching",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.65,
+            "period_s": 6.5,
+            "steepness": 0.025,
+            "wind_wave_h_m": 1.4,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 72,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 0,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 0,
+              "total": 51
+            }
+          }
+        },
+        {
+          "valid_time": "2026-07-21T05:00:00Z",
+          "wind_kt": 18.44,
+          "gust_kt": 26.09,
+          "wind_dir_deg": 253.4,
+          "twa_deg": 62.8,
+          "point_of_sail": "reach",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "approaching",
+            "wave": "ok",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.77,
+            "period_s": 6.5,
+            "steepness": 0.0268,
+            "wind_wave_h_m": 1.5,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 89,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 0,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 8,
+              "total": 51
+            }
+          }
+        },
+        {
+          "valid_time": "2026-07-21T06:00:00Z",
+          "wind_kt": 19.6,
+          "gust_kt": 27.65,
+          "wind_dir_deg": 260,
+          "twa_deg": 56.2,
+          "point_of_sail": "upwind",
+          "limit_status": {
+            "sustained": "exceeded",
+            "gust": "approaching",
+            "wave": "approaching",
+            "steepness": "ok",
+            "visibility": "ok"
+          },
+          "waves": {
+            "hs_m": 1.91,
+            "period_s": 6.5,
+            "steepness": 0.029,
+            "wind_wave_h_m": 1.62,
+            "swell_h_m": 0.8,
+            "cross_sea_deg": 20,
+            "cross_sea_significant": false,
+            "wind_against_swell": false
+          },
+          "cape_jkg": 109,
+          "squall_potential": "low",
+          "fog_risk": false,
+          "visibility_nm": 11.9,
+          "model_spread_kt": 1.2,
+          "exceedance": {
+            "sustained": {
+              "exceed": 33,
+              "total": 51
+            },
+            "gust": {
+              "exceed": 20,
+              "total": 51
+            }
+          }
+        }
+      ],
+      "sample_point": {
+        "lat": 50.2915,
+        "lon": -4.1125
+      }
+    }
+  ],
+  "events": [
+    {
+      "kind": "limit_exceeded",
+      "leg_id": "L5",
+      "window": {
+        "from": "2026-07-21T05:00:00Z",
+        "to": "2026-07-21T05:00:00Z"
+      },
+      "refs": [
+        "E1",
+        "E2",
+        "E3",
+        "E4"
+      ]
+    },
+    {
+      "kind": "limit_exceeded",
+      "leg_id": "L6",
+      "window": {
+        "from": "2026-07-21T06:00:00Z",
+        "to": "2026-07-21T06:00:00Z"
+      },
+      "refs": [
+        "E5",
+        "E6",
+        "E7",
+        "E8",
+        "E9"
+      ]
+    },
+    {
+      "kind": "official_warning",
+      "window": {
+        "from": "2026-07-20T12:00:00Z",
+        "to": "2026-07-21T12:00:00Z"
+      },
+      "refs": [
+        "E10"
+      ]
+    }
+  ],
+  "verdict": {
+    "state": "warning_active",
+    "driver_evidence_id": "E8",
+    "warning_override": {
+      "active": true,
+      "bulletin_ref": "casquets:BMS-large:2026-07-20T12:00:00Z"
+    }
+  },
+  "evidence": [
+    {
+      "evidence_id": "E1",
+      "rule_id": "W-SUST-01",
+      "model": "ecmwf_ifs025",
+      "run": "20260719T06Z (inferred)",
+      "leg_id": "L5",
+      "valid_time": "2026-07-21T05:00:00Z",
+      "value": 18.44,
+      "limit": 18,
+      "units": "kt",
+      "source_kind": "deterministic"
+    },
+    {
+      "evidence_id": "E2",
+      "rule_id": "W-GUST-01",
+      "model": "ecmwf_ifs025",
+      "run": "20260719T06Z (inferred)",
+      "leg_id": "L5",
+      "valid_time": "2026-07-21T05:00:00Z",
+      "value": 26.09,
+      "limit": 28,
+      "units": "kt",
+      "source_kind": "deterministic"
+    },
+    {
+      "evidence_id": "E3",
+      "rule_id": "W-GUST-03",
+      "model": "ecmwf_ifs025 ensemble",
+      "run": "20260719T06Z (inferred)",
+      "leg_id": "L5",
+      "valid_time": "2026-07-21T05:00:00Z",
+      "value": 8,
+      "limit": 28,
+      "units": "kt",
+      "source_kind": "ensemble",
+      "member_fraction": {
+        "exceed": 8,
+        "total": 51
+      }
+    },
+    {
+      "evidence_id": "E4",
+      "rule_id": "W-SUST-03",
+      "model": "ecmwf_ifs025 ensemble",
+      "run": "20260719T06Z (inferred)",
+      "leg_id": "L5",
+      "valid_time": "2026-07-21T05:00:00Z",
+      "value": 25,
+      "limit": 18,
+      "units": "kt",
+      "source_kind": "ensemble",
+      "member_fraction": {
+        "exceed": 25,
+        "total": 51
+      }
+    },
+    {
+      "evidence_id": "E5",
+      "rule_id": "W-SUST-01",
+      "model": "ecmwf_ifs025",
+      "run": "20260719T06Z (inferred)",
+      "leg_id": "L6",
+      "valid_time": "2026-07-21T06:00:00Z",
+      "value": 19.6,
+      "limit": 18,
+      "units": "kt",
+      "source_kind": "deterministic"
+    },
+    {
+      "evidence_id": "E6",
+      "rule_id": "W-GUST-01",
+      "model": "ecmwf_ifs025",
+      "run": "20260719T06Z (inferred)",
+      "leg_id": "L6",
+      "valid_time": "2026-07-21T06:00:00Z",
+      "value": 27.65,
+      "limit": 28,
+      "units": "kt",
+      "source_kind": "deterministic"
+    },
+    {
+      "evidence_id": "E7",
+      "rule_id": "W-GUST-03",
+      "model": "ecmwf_ifs025 ensemble",
+      "run": "20260719T06Z (inferred)",
+      "leg_id": "L6",
+      "valid_time": "2026-07-21T06:00:00Z",
+      "value": 20,
+      "limit": 28,
+      "units": "kt",
+      "source_kind": "ensemble",
+      "member_fraction": {
+        "exceed": 20,
+        "total": 51
+      }
+    },
+    {
+      "evidence_id": "E8",
+      "rule_id": "W-SUST-03",
+      "model": "ecmwf_ifs025 ensemble",
+      "run": "20260719T06Z (inferred)",
+      "leg_id": "L6",
+      "valid_time": "2026-07-21T06:00:00Z",
+      "value": 33,
+      "limit": 18,
+      "units": "kt",
+      "source_kind": "ensemble",
+      "member_fraction": {
+        "exceed": 33,
+        "total": 51
+      }
+    },
+    {
+      "evidence_id": "E9",
+      "rule_id": "S-WAVE-01",
+      "model": "marine best_match",
+      "run": null,
+      "leg_id": "L6",
+      "valid_time": "2026-07-21T06:00:00Z",
+      "value": 1.91,
+      "limit": 2.5,
+      "units": "m",
+      "source_kind": "deterministic"
+    },
+    {
+      "evidence_id": "E10",
+      "rule_id": "A-WARN-01",
+      "model": "Météo-France BMS (synthetic)",
+      "run": null,
+      "leg_id": null,
+      "valid_time": "2026-07-20T12:00:00Z",
+      "value": "BMS-large — Casquets",
+      "limit": null,
+      "units": null,
+      "source_kind": "emulated",
+      "bulletin_ref": {
+        "source": "Météo-France BMS (synthetic)",
+        "issued_at": "2026-07-20T06:00:00Z",
+        "valid_from": "2026-07-20T12:00:00Z",
+        "valid_to": "2026-07-21T12:00:00Z",
+        "zone_ids": [
+          "casquets"
+        ]
+      }
+    }
+  ],
+  "coverage": [
+    {
+      "capability": "sustained_wind",
+      "status": "assessed",
+      "evidence_ids": [
+        "E1",
+        "E4",
+        "E5",
+        "E8"
+      ]
+    },
+    {
+      "capability": "gusts",
+      "status": "assessed",
+      "evidence_ids": [
+        "E2",
+        "E3",
+        "E6",
+        "E7"
+      ]
+    },
+    {
+      "capability": "waves",
+      "status": "partially_assessed",
+      "detail": "deterministic wave model only; no wave ensemble",
+      "evidence_ids": [
+        "E9"
+      ]
+    },
+    {
+      "capability": "visibility_and_convection",
+      "status": "partially_assessed",
+      "detail": "screening signals only; official warnings remain authoritative",
+      "evidence_ids": []
+    },
+    {
+      "capability": "tidal_currents",
+      "status": "not_assessed",
+      "detail": "tidal currents (no prepared current grid)",
+      "evidence_ids": []
+    },
+    {
+      "capability": "tidal_gates",
+      "status": "not_assessed",
+      "detail": "tidal gates & HW/LW heights (no tide data)",
+      "evidence_ids": []
+    },
+    {
+      "capability": "official_warnings",
+      "status": "assessed_emulated",
+      "detail": "synthetic bulletin scenario; not authority",
+      "evidence_ids": [
+        "E10"
+      ]
+    },
+    {
+      "capability": "synoptic_attribution",
+      "status": "assessed",
+      "detail": "system tracks assessed against the route ETA envelope"
+    },
+    {
+      "capability": "tropical_systems",
+      "status": "not_assessed",
+      "detail": "tropical systems"
+    },
+    {
+      "capability": "ice",
+      "status": "not_assessed",
+      "detail": "ice"
+    }
+  ],
+  "causal_events": [],
+  "unsupported_hazards": [
+    "tidal currents (no prepared current grid)",
+    "tidal gates & HW/LW heights (no tide data)",
+    "tropical systems",
+    "ice"
+  ]
+}
