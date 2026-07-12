@@ -220,9 +220,8 @@ export default function Planner() {
             style={{ height: '100%', width: '100%', background: '#DCE5E6' }}
           >
             <TileLayer
-              url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-              attribution='&copy; OpenStreetMap contributors'
-              opacity={0.55}
+              url="https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+              attribution='&copy; OpenStreetMap &copy; CARTO'
             />
             <TileLayer
               url="https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png"

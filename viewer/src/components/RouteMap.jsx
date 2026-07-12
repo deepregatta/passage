@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, Tooltip } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { GridSampler } from '@deepweather/engine';
 import { useApp } from '../stores/appStore.js';
 import { STATUS_HEX, hourStatus, fmtTime } from '../lib/format.js';
 
@@ -52,6 +53,22 @@ function windArrowIcon(windFromDeg, windKt) {
   });
 }
 
+/** faint background flow arrow (the mockup's wind field) — no label, non-interactive */
+function fieldArrowIcon(windFromDeg, windKt) {
+  const rotation = (windFromDeg + 180) % 360;
+  const len = Math.min(20, 8 + windKt * 0.45);
+  return L.divIcon({
+    className: '',
+    html: `<svg width="22" height="22" viewBox="0 0 22 22"
+      style="transform:rotate(${rotation}deg);opacity:.5;pointer-events:none">
+      <path d="M11 ${11 - len / 2} L11 ${11 + len / 2} M11 ${11 - len / 2} L8 ${11 - len / 2 + 4} M11 ${11 - len / 2} L14 ${11 - len / 2 + 4}"
+        stroke="#52739E" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+    </svg>`,
+    iconSize: [22, 22],
+    iconAnchor: [11, 11],
+  });
+}
+
 function gateIcon(status) {
   const color = status === 'conflict' ? '#A63B2A' : status === 'marginal' ? '#A87718' : '#2F6E4F';
   return L.divIcon({
@@ -67,6 +84,7 @@ export default function RouteMap({ height = 420 }) {
   const findings = useApp((s) => s.findings);
   const [routeDoc, setRouteDoc] = useState(null);
   const [gatePositions, setGatePositions] = useState({});
+  const [windGrid, setWindGrid] = useState(null);
 
   useEffect(() => {
     if (!findings) return;
@@ -80,6 +98,15 @@ export default function RouteMap({ height = 420 }) {
         for (const g of doc?.gates ?? []) map[g.gate_id] = g;
         setGatePositions(map);
       });
+    fetch('/data/runs/latest.json')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((latest) =>
+        latest?.artifacts?.wind_grid
+          ? fetch(`/data/${latest.artifacts.wind_grid}`).then((r) => (r.ok ? r.json() : null))
+          : null,
+      )
+      .then(setWindGrid)
+      .catch(() => {});
   }, [findings]);
 
   const bounds = useMemo(() => {
@@ -91,6 +118,30 @@ export default function RouteMap({ height = 420 }) {
       [Math.max(...lats) + 0.15, Math.max(...lons) + 0.25],
     ];
   }, [routeDoc]);
+
+  // background wind field at mid-passage time, subsampled from the prepared grid
+  const fieldArrows = useMemo(() => {
+    if (!windGrid || !findings || !bounds) return [];
+    const sampler = new GridSampler(windGrid);
+    const midMs =
+      (Date.parse(findings.departure_utc) +
+        Date.parse(findings.legs[findings.legs.length - 1].eta_range.slow)) /
+      2;
+    const [[latMin, lonMin], [latMax, lonMax]] = bounds;
+    const arrows = [];
+    const step = Math.max(windGrid.dlat, (latMax - latMin) / 9, 0.2);
+    for (let lat = latMin + step / 2; lat <= latMax; lat += step) {
+      for (let lon = lonMin + step / 2; lon <= lonMax; lon += step * 1.35) {
+        const s = sampler.sample(lat, lon, midMs);
+        if (!s) continue;
+        const kt = Math.hypot(s.u_kt, s.v_kt);
+        if (kt < 2) continue;
+        const from = (Math.atan2(-s.u_kt, -s.v_kt) * 180) / Math.PI;
+        arrows.push({ lat, lon, dir: (from + 360) % 360, kt });
+      }
+    }
+    return arrows;
+  }, [windGrid, findings, bounds]);
 
   const legArrows = useMemo(() => {
     if (!findings) return [];
@@ -121,14 +172,25 @@ export default function RouteMap({ height = 420 }) {
     <div className="border border-ink/30 rounded-sm overflow-hidden" style={{ height }}>
       <MapContainer bounds={bounds} style={seaStyle} scrollWheelZoom={false} attributionControl>
         <TileLayer
-          url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='&copy; OpenStreetMap'
-          opacity={0.55}
+          url="https://basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png"
+          attribution='&copy; OpenStreetMap &copy; CARTO'
+        />
+        <TileLayer
+          url="https://basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png"
+          opacity={0.75}
         />
         <TileLayer
           url="https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png"
           attribution='seamarks &copy; OpenSeaMap'
         />
+        {fieldArrows.map((a, i) => (
+          <Marker
+            key={`f${i}`}
+            position={[a.lat, a.lon]}
+            icon={fieldArrowIcon(a.dir, a.kt)}
+            interactive={false}
+          />
+        ))}
         <Polyline
           positions={positions}
           pathOptions={{ color: '#16283E', weight: 2.5, dashArray: '1 7', lineCap: 'round' }}

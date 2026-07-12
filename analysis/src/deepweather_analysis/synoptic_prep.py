@@ -248,7 +248,16 @@ def prepare_synoptic(
         rel = f"runs/{run_id}/synoptic/charts/{Path(panel['file']).name}"
         chart_rel.append(rel)
         chart_captions.append(
-            {"step_h": panel["step_h"], "file": rel, "caption": panel["caption"]}
+            {
+                "step_h": panel["step_h"],
+                "file": rel,
+                "caption": panel["caption"],
+                # chart geometry: lets the viewer overlay the per-user route
+                # client-side while the PNG itself stays route-independent
+                "size_px": panel["size_px"],
+                "geo": panel["geo"],
+                "axes_px": panel["axes_px"],
+            }
         )
 
     # b) features.json (validated before write).
