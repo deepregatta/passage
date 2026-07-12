@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Polyline, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Polyline, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import {
@@ -45,6 +45,19 @@ function ClickCapture({ onClick }) {
   return null;
 }
 
+/** Bring the whole route into view when returning to the planner or when a
+ * route arrives whole (computed / GPX) — never while the user is drawing. */
+function FitRoute({ positions, fitKey }) {
+  const map = useMap();
+  useEffect(() => {
+    if (positions.length >= 2) {
+      map.fitBounds(L.latLngBounds(positions), { padding: [32, 32], maxZoom: 10 });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [map, fitKey]);
+  return null;
+}
+
 export default function Planner() {
   const openSnapshot = useApp((s) => s.openSnapshot);
   const profileDefaults = useApp((s) => s.profileDefaults);
@@ -75,6 +88,7 @@ export default function Planner() {
 
   const [busy, setBusy] = useState(null);
   const [error, setError] = useState(null);
+  const [fitNonce, setFitNonce] = useState(0);
   const fileRef = useRef(null);
 
   useEffect(() => {
@@ -171,6 +185,7 @@ export default function Planner() {
       });
       setName(parsed.name);
       setWaypoints(parsed.waypoints.map((wp) => ({ lat: wp.lat, lng: wp.lon })));
+      setFitNonce((n) => n + 1);
       setError(null);
     } catch (e) {
       setError(e.message);
@@ -272,6 +287,14 @@ export default function Planner() {
               attribution='seamarks &copy; OpenSeaMap'
             />
             <ClickCapture onClick={addWaypoint} />
+            <FitRoute
+              positions={
+                mode === 'compute'
+                  ? (computed?.route.waypoints ?? []).map((wp) => [wp.lat, wp.lon])
+                  : waypoints.map((wp) => [wp.lat, wp.lng])
+              }
+              fitKey={`${fitNonce}:${mode === 'compute' ? computed?.arrival_utc ?? '' : ''}`}
+            />
             {mode === 'draw' &&
               waypoints.map((wp, i) => (
                 <Marker
@@ -460,6 +483,12 @@ export default function Planner() {
                 {mode === 'draw'
                   ? 'To enable: click the chart at least twice — your start and your destination.'
                   : 'To enable: click the chart twice to set the two endpoints.'}
+              </p>
+            )}
+            {route && busy === null && (
+              <p className="text-[13px] text-ink-soft">
+                Checking runs the analysis and saves the briefing to My briefings. Until then
+                your draft stays here on this page.
               </p>
             )}
             <button

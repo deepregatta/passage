@@ -112,6 +112,27 @@ function dataMiddleware() {
           return;
         }
 
+        // ---- dev-only deletion: a briefing is the user's to discard ----
+        if (req.method === 'DELETE') {
+          if (process.env.VITE_DW_FIXTURE) {
+            res.statusCode = 403;
+            res.end('Fixture data is read-only');
+            return;
+          }
+          const match = requestPath.match(/^\/data\/snapshots\/([^/]+)$/);
+          const dirPath = match && safeResolve(path.join(dataRoot, 'snapshots'), decodeURIComponent(match[1]));
+          if (!dirPath || !fs.existsSync(path.join(dirPath, 'snapshot.json'))) {
+            res.statusCode = 404;
+            res.end('No such snapshot');
+            return;
+          }
+          fs.rmSync(dirPath, { recursive: true, force: true });
+          res.statusCode = 200;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ ok: true }));
+          return;
+        }
+
         // ---- reads ----
         if (requestPath === SNAPSHOTS_MANIFEST_PATH) {
           res.setHeader('Content-Type', 'application/json');

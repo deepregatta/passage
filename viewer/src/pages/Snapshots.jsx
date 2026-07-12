@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useApp } from '../stores/appStore.js';
 import { VerdictChip } from '../components/common.jsx';
 import { capitalize, fmtTime } from '../lib/format.js';
@@ -17,7 +17,9 @@ export default function Snapshots() {
   const manifestError = useApp((s) => s.manifestError);
   const loadManifest = useApp((s) => s.loadManifest);
   const openSnapshot = useApp((s) => s.openSnapshot);
+  const deleteSnapshot = useApp((s) => s.deleteSnapshot);
   const loading = useApp((s) => s.loading);
+  const [deleteError, setDeleteError] = useState(null);
 
   useEffect(() => {
     loadManifest();
@@ -48,13 +50,13 @@ export default function Snapshots() {
 
       <ul className="space-y-2">
         {manifest?.snapshots.map((s) => (
-          <li key={s.snapshot_id}>
+          <li key={s.snapshot_id} className="flex items-stretch gap-1.5">
             <button
               type="button"
               disabled={loading}
               onClick={() => openSnapshot(s.snapshot_id)}
               title={s.snapshot_id}
-              className="w-full text-left bg-white/40 border hairline rounded-sm shadow-panel px-4 py-3 hover:border-ink-soft flex items-center gap-4"
+              className="flex-1 min-w-0 text-left bg-white/40 border hairline rounded-sm shadow-panel px-4 py-3 hover:border-ink-soft flex items-center gap-4"
             >
               <span className="min-w-0 flex-1">
                 <span className="font-sans font-medium">
@@ -75,9 +77,29 @@ export default function Snapshots() {
                 </span>
               )}
             </button>
+            <button
+              type="button"
+              aria-label="Delete this briefing"
+              title="Delete this briefing"
+              disabled={loading}
+              onClick={async () => {
+                if (!window.confirm(`Delete the briefing "${routeName(s.route_id)}" departing ${fmtTime(s.departure_utc)} UTC? This cannot be undone.`)) return;
+                try {
+                  await deleteSnapshot(s.snapshot_id);
+                } catch (e) {
+                  setDeleteError(e.message);
+                }
+              }}
+              className="shrink-0 px-3 border hairline rounded-sm text-ink-soft hover:text-verdict-exceeds hover:border-verdict-exceeds min-h-11"
+            >
+              ✕
+            </button>
           </li>
         ))}
       </ul>
+      {deleteError && (
+        <p className="font-sans text-sm text-verdict-exceeds mt-3">{deleteError}</p>
+      )}
     </div>
   );
 }

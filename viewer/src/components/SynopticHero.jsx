@@ -47,14 +47,25 @@ function HeroCanvas({ findings, synoptic, route, frame, cursor, maxHours, depart
   const system = synoptic.systems.find((item) => item.system_id === event.system_id) ?? synoptic.systems[0];
   const chart = nearestCaption(synoptic.chart_captions, cursor);
   const [chartBroken, setChartBroken] = useState(false);
+  const [zoomed, setZoomed] = useState(false);
   const projector = chartBroken ? null : chartProjector(chart);
   const url = chartBroken ? null : chartUrl(chart?.file, findings.snapshot_id);
 
   return <div className="chart-frame border border-ink/40 bg-shoal/30 p-3">
     {projector && url
-      ? <ChartCanvas url={url} projector={projector} route={route} system={system} frame={frame} event={event} departureVariant={departureVariant} onBroken={() => setChartBroken(true)} caption={chart?.caption} />
+      ? <ChartCanvas url={url} projector={projector} route={route} system={system} frame={frame} event={event} departureVariant={departureVariant} zoomed={zoomed} onBroken={() => setChartBroken(true)} caption={chart?.caption} />
       : <SchematicCanvas route={route} system={system} frame={frame} event={event} departureVariant={departureVariant} />}
-    <div className="flex items-center justify-between gap-3 py-2 font-instrument text-xs"><span>{placeLabel(event.consequence.register_plain)}</span><button type="button" onClick={() => setDepartureVariant(departureVariant === 'alternative' ? 'nominal' : 'alternative')} className="min-h-11 px-3 border border-event text-event whitespace-nowrap">{departureVariant === 'alternative' ? 'Hide safer departure' : 'Compare safer departure'}</button></div>
+    <div className="flex items-center justify-between gap-3 py-2 font-instrument text-xs">
+      <span>{placeLabel(event.consequence.register_plain)}</span>
+      <span className="flex gap-2 whitespace-nowrap">
+        {projector && url && (
+          <button type="button" onClick={() => setZoomed(!zoomed)} className="min-h-11 px-3 border border-ink/40" aria-pressed={zoomed}>
+            {zoomed ? 'Full chart' : 'Zoom to route'}
+          </button>
+        )}
+        <button type="button" onClick={() => setDepartureVariant(departureVariant === 'alternative' ? 'nominal' : 'alternative')} className="min-h-11 px-3 border border-event text-event">{departureVariant === 'alternative' ? 'Hide safer departure' : 'Compare safer departure'}</button>
+      </span>
+    </div>
     <TimeRuler findings={findings} maxHours={maxHours} />
   </div>;
 }
@@ -83,12 +94,28 @@ function Overlay({ w, xy, route, system, frame, event, departureVariant }) {
 }
 
 /** the real synoptic pressure chart with the story drawn on top of it */
-function ChartCanvas({ url, projector, route, system, frame, event, departureVariant, onBroken, caption }) {
+function ChartCanvas({ url, projector, route, system, frame, event, departureVariant, zoomed, onBroken, caption }) {
+  // zoom about the route's center in the chart's own pixel space; the overlay
+  // shares the wrapper so route and isobars scale together and stay aligned
+  const points = route.waypoints.map(projector.xy);
+  const xs = points.map((p) => p.x);
+  const ys = points.map((p) => p.y);
+  const originX = ((Math.min(...xs) + Math.max(...xs)) / 2 / projector.w) * 100;
+  const originY = ((Math.min(...ys) + Math.max(...ys)) / 2 / projector.h) * 100;
+  const span = Math.max(
+    (Math.max(...xs) - Math.min(...xs)) / projector.w,
+    (Math.max(...ys) - Math.min(...ys)) / projector.h,
+    0.08,
+  );
+  const scale = zoomed ? Math.min(5, Math.max(2, 0.45 / span)) : 1;
+
   return <div className="relative border border-ink/25 overflow-hidden bg-[#F3EEE3]">
-    <img src={url} alt={caption ?? 'Synoptic pressure chart'} className="w-full block" onError={onBroken} />
-    <svg viewBox={`0 0 ${projector.w} ${projector.h}`} preserveAspectRatio="none" className="absolute inset-0 w-full h-full pointer-events-none" role="img" aria-label={`${event.name} track and route occupancy`}>
-      <Overlay w={projector.w} xy={projector.xy} route={route} system={system} frame={frame} event={event} departureVariant={departureVariant} />
-    </svg>
+    <div style={{ transform: `scale(${scale})`, transformOrigin: `${originX}% ${originY}%`, transition: 'transform .35s ease' }}>
+      <img src={url} alt={caption ?? 'Synoptic pressure chart'} className="w-full block" onError={onBroken} />
+      <svg viewBox={`0 0 ${projector.w} ${projector.h}`} preserveAspectRatio="none" className="absolute inset-0 w-full h-full pointer-events-none" role="img" aria-label={`${event.name} track and route occupancy`}>
+        <Overlay w={projector.w} xy={projector.xy} route={route} system={system} frame={frame} event={event} departureVariant={departureVariant} />
+      </svg>
+    </div>
     <Banner frame={frame} event={event} />
     <StatusChip frame={frame} event={event} />
   </div>;

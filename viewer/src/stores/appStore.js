@@ -91,6 +91,16 @@ export const useApp = create((set, get) => ({
     }
   },
 
+  deleteSnapshot: async (snapshotId) => {
+    const res = await fetch(`/data/snapshots/${snapshotId}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error(`Could not delete: ${await res.text()}`);
+    const closingOpen = get().snapshotId === snapshotId;
+    if (closingOpen) {
+      set({ snapshotId: null, findings: null, briefing: null, plume: null, snapshot: null, warnings: null, synoptic: null, route: null });
+    }
+    await get().loadManifest();
+  },
+
   selectEvidence: (evidenceId) => set({ selectedEvidenceId: evidenceId }),
   openEvidence: (evidenceId) => set({ selectedEvidenceId: evidenceId, inspectorOpen: true }),
   closeInspector: () => set({ inspectorOpen: false }),
