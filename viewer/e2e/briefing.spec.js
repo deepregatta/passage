@@ -21,7 +21,11 @@ test('mobile shell has no permanent rail or horizontal overflow', async ({ page 
 test('playback scrub synchronizes the story phase and evidence focus', async ({ page }) => {
   await openAuditedSnapshot(page);
   const ruler = page.getByRole('slider', { name: 'Passage time' });
-  await ruler.fill('2');
+  await ruler.evaluate((element) => {
+    element.value = '1';
+    element.dispatchEvent(new Event('input', { bubbles: true }));
+    element.dispatchEvent(new Event('change', { bubbles: true }));
+  });
   await expect(page.getByText(/phase · interception/i)).toBeVisible();
   await expect(page.getByText(/system L1 · boat L/i)).toBeVisible();
 });

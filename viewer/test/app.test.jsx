@@ -14,9 +14,15 @@ beforeEach(() => {
     findings: null,
     briefing: null,
     plume: null,
+    snapshot: null,
+    warnings: null,
+    synoptic: null,
+    route: null,
     loadError: null,
     loading: false,
     inspectorEvidenceId: null,
+    selectedEvidenceId: null,
+    inspectorOpen: false,
     selectedLegId: null,
   });
 });
