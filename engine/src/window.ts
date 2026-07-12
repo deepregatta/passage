@@ -16,6 +16,8 @@ export interface WindowCandidate {
   /** worst ensemble exceedance fraction across the passage */
   max_fraction: number | null;
   driver_summary: string | null;
+  avoids_event_key?: string;
+  delta?: { peak_gust_kt: number; hours_over_limit: number };
 }
 
 export interface WindowScan {
@@ -40,6 +42,7 @@ export async function scanDepartures(
   // one shared cache: candidates inside the same date window reuse the same responses
   const cache = base.cache ?? new MemoryCacheStore();
   const candidates: WindowCandidate[] = [];
+  const eventKeys: string[][] = [];
 
   for (const departureUtc of departures) {
     let result: AnalyzeResult;
@@ -70,8 +73,10 @@ export async function scanDepartures(
       driver_summary: driver
         ? `${driver.rule_id} on ${driver.leg_id} at ${driver.valid_time}`
         : null,
+      delta: passageMetrics(findings),
     };
     candidates.push(candidate);
+    eventKeys.push((findings.causal_events ?? []).map((event) => event.event_key).filter((key): key is string => Boolean(key)));
     onCandidate?.(candidate);
   }
 
@@ -87,7 +92,28 @@ export async function scanDepartures(
     else if (severityDelta === 0 && (c.worst_ratio ?? 0) < (best.worst_ratio ?? 0)) bestIndex = i;
   });
 
+  const baseline = candidates[0];
+  if (baseline?.delta) {
+    for (const candidate of candidates.slice(1)) {
+      const candidateIndex = candidates.indexOf(candidate);
+      const avoided = eventKeys[0]?.find((key) => !eventKeys[candidateIndex]?.includes(key));
+      if (avoided) candidate.avoids_event_key = avoided;
+      if (candidate.delta) {
+        candidate.delta = {
+          peak_gust_kt: Math.round((candidate.delta.peak_gust_kt - baseline.delta.peak_gust_kt) * 10) / 10,
+          hours_over_limit: candidate.delta.hours_over_limit - baseline.delta.hours_over_limit,
+        };
+      }
+    }
+  }
+
   return { candidates, best_index: bestIndex };
+}
+
+function passageMetrics(findings: AnalyzeResult['findings']) {
+  const gusts = findings.legs.flatMap((leg) => leg.hours.map((hour) => hour.gust_kt)).filter((value): value is number => value !== null);
+  const hoursOver = findings.legs.flatMap((leg) => leg.hours).filter((hour) => hour.limit_status.gust === 'exceeded').length;
+  return { peak_gust_kt: gusts.length ? Math.max(...gusts) : 0, hours_over_limit: hoursOver };
 }
 
 /** candidate departures every stepH hours across the next spanH hours */

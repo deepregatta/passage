@@ -325,6 +325,7 @@ def run_case(case: Dict[str, Any], *, fetch: bool = True) -> Dict[str, Any]:
             "deepest_low": None,
             "position_error_deg": None,
             "era5": {k: meta.get(k) for k in ("status", "source", "tier", "error")},
+            "observation_source": "era5",
         }
 
     ds, meta = open_case_dataset(case_id)
@@ -335,6 +336,7 @@ def run_case(case: Dict[str, Any], *, fetch: bool = True) -> Dict[str, Any]:
 
     result = evaluate_expectations(case, detections)
     result["era5"] = {k: meta.get(k) for k in ("status", "source", "tier", "checksum")}
+    result["observation_source"] = "era5"
     result.update(_route_conditions_note(case) if fetch else {"route_conditions_available": False})
     return result
 
@@ -483,6 +485,8 @@ def run_corpus(
         "review_sheet": str(sheet),
         "results": results,
     }
+    summary_path = sheet.with_name("corpus.json")
+    summary_path.write_text(json.dumps({**summary, "review_sheet": sheet.name}, indent=2) + "\n")
     logger.info(
         "Corpus run: %d pass / %d fail / %d pending -> %s",
         summary["pass"],

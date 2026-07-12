@@ -34,3 +34,4 @@ export type { Changes, ChangeEntry } from './diff.js';
 export { scanDepartures, candidateDepartures } from './window.js';
 export type { WindowScan, WindowCandidate } from './window.js';
 export * from './types.js';
+export { eventKeyForSystem, assignEventKeys, matchSystems } from './events.js';

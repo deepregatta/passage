@@ -26,6 +26,40 @@
           "previous": {},
           "latest": {},
           "evidence_pair": { "type": "array", "items": { "type": "string" }, "maxItems": 2 }
+          ,"rule_id": { "type": "string" }
+          ,"leg_id": { "type": ["string", "null"] }
+          ,"zone_ids": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "story": {
+      "type": "object",
+      "required": ["headline_plain", "headline_pro", "material", "next_run"],
+      "properties": {
+        "headline_plain": { "type": "string" },
+        "headline_pro": { "type": "string" },
+        "material": {
+          "type": "array",
+          "maxItems": 3,
+          "items": {
+            "type": "object",
+            "required": ["change_ref", "before", "after", "why_it_matters", "evidence_ids"],
+            "properties": {
+              "change_ref": { "type": "integer", "minimum": 0 },
+              "before": {},
+              "after": {},
+              "why_it_matters": { "type": "string" },
+              "evidence_ids": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        },
+        "next_run": {
+          "type": "object",
+          "required": ["model", "expected_at"],
+          "properties": {
+            "model": { "type": "string" },
+            "expected_at": { "type": "string", "format": "date-time" }
+          }
         }
       }
     }

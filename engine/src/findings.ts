@@ -32,6 +32,7 @@ import {
 } from './limits.js';
 import { deriveLegs, legMidpoints } from './route.js';
 import { decideVerdict, worstEvidence } from './verdict.js';
+import { assignEventKeys } from './events.js';
 import type {
   EnsemblePointForecast,
   EnsembleRequestMeta,
@@ -802,7 +803,13 @@ export function assembleFindings(options: AssembleOptions): Findings {
     ],
   }).slice(0, 8)}`;
 
-  const causalEvents = deriveCausalEvents(options.synoptic, legFindings, evidence);
+  const causalEvents = assignEventKeys(
+    [
+      ...deriveCausalEvents(options.synoptic, legFindings, evidence),
+      ...deriveOperationalEvents(gateAssessments, events, evidence, legFindings),
+    ].map((event, index) => ({ ...event, event_id: `CE${index + 1}` })),
+    options.synoptic,
+  );
   const coverage = deriveCoverage({
     evidence,
     hasEnsemble: Boolean(legEnsembles),
@@ -1001,6 +1008,58 @@ function evidenceMateriality(a: Evidence, b: Evidence): number {
     return 0;
   };
   return ratio(b) - ratio(a);
+}
+
+function deriveOperationalEvents(
+  gates: ReturnType<typeof assessGates>,
+  events: FindingsEvent[],
+  evidence: Evidence[],
+  legs: LegFinding[],
+): CausalEvent[] {
+  const out: CausalEvent[] = [];
+  for (const gate of gates) {
+    const refs = evidence.filter((item) => item.rule_id === 'T-GATE-01' && item.leg_id === gate.leg_id);
+    const leg = legs.find((item) => item.leg_id === gate.leg_id);
+    out.push({
+      event_id: '',
+      event_key: `gate:${gate.gate_id}`,
+      name: gate.name,
+      kind: 'gate',
+      route_intersection: {
+        leg_id: gate.leg_id,
+        window_start: gate.transit.from,
+        window_end: gate.transit.to,
+        eta_sensitivity: leg ? round1((Date.parse(leg.eta_range.slow) - Date.parse(leg.eta_range.fast)) / 3600_000) : 0,
+      },
+      consequence: {
+        register_plain: `${gate.name} is ${gate.status}; ${gate.rule_text}.`,
+        register_pro: `Named gate ${gate.gate_id} evaluated against ${gate.reference_port} tide timing.`,
+        evidence_ids: refs.map((item) => item.evidence_id),
+      },
+    });
+  }
+  for (const event of events.filter((item) => item.kind === 'wind_against_current' && item.leg_id && item.window)) {
+    const leg = legs.find((item) => item.leg_id === event.leg_id);
+    out.push({
+      event_id: '',
+      event_key: `wind-against-current:${event.leg_id}`,
+      name: `Wind against current · ${leg?.name ?? event.leg_id}`,
+      kind: 'wind_against_current',
+      route_intersection: { leg_id: event.leg_id!, window_start: event.window!.from, window_end: event.window!.to, eta_sensitivity: leg ? round1((Date.parse(leg.eta_range.slow) - Date.parse(leg.eta_range.fast)) / 3600_000) : 0 },
+      consequence: { register_plain: `Wind opposes the current at ${leg?.name ?? event.leg_id}, increasing the risk of short, steep seas.`, register_pro: 'Course-relative wind and sampled surface-current vectors oppose within the route occupancy window.', evidence_ids: event.refs },
+    });
+  }
+  for (const warning of evidence.filter((item) => item.rule_id === RULES.AUTHORITY && item.bulletin_ref)) {
+    const zones = warning.bulletin_ref!.zone_ids;
+    out.push({
+      event_id: '',
+      event_key: `warning:${zones.join('+')}:${warning.bulletin_ref!.valid_from}`,
+      name: `${zones.join(' / ')} marine warning`,
+      kind: 'front',
+      consequence: { register_plain: `${warning.value} covers a crossed marine zone.`, register_pro: `Bulletin source ${warning.bulletin_ref!.source}; valid ${warning.bulletin_ref!.valid_from}–${warning.bulletin_ref!.valid_to}.`, evidence_ids: [warning.evidence_id] },
+    });
+  }
+  return out;
 }
 
 const round1 = (x: number) => Math.round(x * 10) / 10;

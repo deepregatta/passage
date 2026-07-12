@@ -235,10 +235,10 @@ class TestMatchSnapshot:
 
 
 def verification_doc(pairs) -> dict:
-    return {"snapshot_id": "s", "pairs": pairs}
+    return {"snapshot_id": "s", "observation_source": "era5", "pairs": pairs}
 
 
-def cal_pair(lead_h: float, error: float, coverage_class: str = "emulated") -> dict:
+def cal_pair(lead_h: float, error: float, coverage_class: str = "reanalysis_referenced") -> dict:
     return {
         "variable": "wind_kt",
         "lead_h": lead_h,
@@ -261,7 +261,7 @@ class TestCalibration:
         assert early["n_pairs"] == 2
         assert early["bias"] == pytest.approx(2.0)  # mean(1, 3)
         assert early["spread"] == pytest.approx(1.0)  # population std of (1, 3)
-        assert early["coverage_classes"] == {"emulated": 2}
+        assert early["coverage_classes"] == {"reanalysis_referenced": 2}
         assert early["area"] == "channel"
 
         late = by_band[(12, 24)]
@@ -277,7 +277,7 @@ class TestCalibration:
         assert record["n_pairs"] == 2
         assert record["bias"] == pytest.approx(2.0)
         assert record["spread"] == pytest.approx(1.0)  # same as one-shot accumulation
-        assert record["coverage_classes"] == {"emulated": 2}
+        assert record["coverage_classes"] == {"reanalysis_referenced": 2}
 
     def test_schema_valid_and_persisted(self, tmp_path):
         path = tmp_path / "calibration.json"
@@ -316,5 +316,11 @@ class TestCalibration:
         assert record["coverage_classes"] == {
             "verified_near_observation": 1,
             "partially_observed": 1,
-            "emulated": 1,
         }
+        assert record["n_pairs"] == 2
+
+    def test_emulated_documents_are_excluded_from_skill_claims(self, tmp_path):
+        doc = {"snapshot_id": "demo", "observation_source": "emulated", "pairs": [cal_pair(6.0, 99.0)]}
+        out = accumulate_calibration([doc], path=tmp_path / "calibration.json")
+        assert out["records"] == []
+        assert out["skipped_pairs"] == 1

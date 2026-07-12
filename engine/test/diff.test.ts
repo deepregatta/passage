@@ -5,7 +5,7 @@ import type { Evidence, Findings } from '../src/types.js';
 function fakeFindings(partial: {
   snapshot_id: string;
   verdict: string;
-  evidence: Array<Partial<Evidence> & { rule_id: string; leg_id: string }>;
+  evidence: Array<Partial<Evidence> & { rule_id: string; leg_id: string | null }>;
   run?: string;
 }): Findings {
   return {
@@ -86,6 +86,8 @@ describe('change ledger', () => {
     const shift = changes.entries.find((e) => e.kind === 'event_shifted')!;
     expect(shift.description).toContain('3 h earlier');
     expect(shift.evidence_pair).toHaveLength(2);
+    expect(changes.story?.material.length).toBeLessThanOrEqual(3);
+    expect(changes.story?.headline_plain).toContain('changed');
   });
 
   it('ignores noise: sub-threshold value deltas produce no entry', () => {
@@ -101,5 +103,22 @@ describe('change ledger', () => {
     });
     const changes = diffFindings(previous, latest);
     expect(changes.entries.filter((e) => e.kind === 'value_changed')).toHaveLength(0);
+  });
+
+  it('phrases warning changes by zone and never leaks a null leg', () => {
+    const previous = fakeFindings({ snapshot_id: 'a', verdict: 'within', evidence: [] });
+    const latest = fakeFindings({
+      snapshot_id: 'b',
+      verdict: 'warning_active',
+      evidence: [{
+        rule_id: 'A-WARN-01',
+        leg_id: null,
+        source_kind: 'emulated',
+        bulletin_ref: { source: 'fixture', issued_at: '2026-07-20T06:00:00Z', valid_from: '2026-07-20T12:00:00Z', valid_to: '2026-07-21T12:00:00Z', zone_ids: ['casquets'] },
+      }],
+    });
+    const changes = diffFindings(previous, latest);
+    expect(changes.entries.map((entry) => entry.description).join(' ')).toContain('zone casquets');
+    expect(JSON.stringify(changes)).not.toContain('on null');
   });
 });

@@ -131,6 +131,7 @@
         "required": ["event_id", "name", "kind", "consequence"],
         "properties": {
           "event_id": { "type": "string" },
+          "event_key": { "type": "string" },
           "name": { "type": "string" },
           "kind": { "enum": ["low", "high", "front", "regime", "gate", "wind_against_current"] },
           "system_id": { "type": "string" },
