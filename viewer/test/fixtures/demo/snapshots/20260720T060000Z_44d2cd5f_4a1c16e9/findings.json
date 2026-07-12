@@ -2632,7 +2632,7 @@
         "eta_sensitivity": 1.2
       },
       "consequence": {
-        "register_plain": "22.22 kt against your 28 kt limit while the low intersects Off Omonville-la-Rogue → NW of Cap de la Hague.",
+        "register_plain": "Gusts up to 22 kt — close to your 28 kt limit while the low crosses Off Omonville-la-Rogue → NW of Cap de la Hague.",
         "register_pro": "L1 (1006 hPa) is within the conservative route-attribution radius during 2026-07-20T09:00:00.000Z–2026-07-20T10:48:56.000Z; only same-leg evidence inside that window is attributed.",
         "evidence_ids": [
           "E2"
@@ -2652,7 +2652,7 @@
         "eta_sensitivity": 3.4
       },
       "consequence": {
-        "register_plain": "22.54 kt against your 28 kt limit while the low intersects NW of Cap de la Hague → Casquets TSS crossing.",
+        "register_plain": "Gusts up to 23 kt — close to your 28 kt limit while the low crosses NW of Cap de la Hague → Casquets TSS crossing.",
         "register_pro": "L1 (1000 hPa) is within the conservative route-attribution radius during 2026-07-20T09:00:00.000Z–2026-07-20T18:03:36.000Z; only same-leg evidence inside that window is attributed.",
         "evidence_ids": [
           "E3"
@@ -2672,7 +2672,7 @@
         "eta_sensitivity": 5.1
       },
       "consequence": {
-        "register_plain": "23.87 kt against your 28 kt limit while the low intersects Casquets TSS crossing → Mid-Channel.",
+        "register_plain": "Gusts up to 24 kt — close to your 28 kt limit while the low crosses Casquets TSS crossing → Mid-Channel.",
         "register_pro": "L1 (996 hPa) is within the conservative route-attribution radius during 2026-07-20T13:39:24.000Z–2026-07-20T23:34:40.000Z; only same-leg evidence inside that window is attributed.",
         "evidence_ids": [
           "E4"

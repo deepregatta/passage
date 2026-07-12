@@ -32,5 +32,11 @@ export function fraction(count: ExceedanceCount): number {
 
 /** Phrase used identically in both registers (brief §13 wording decision). */
 export function phraseExceedance(count: ExceedanceCount, limitLabel: string): string {
+  if (count.exceed === count.total) {
+    return `all ${count.total} forecast scenarios exceed ${limitLabel}`;
+  }
+  if (count.exceed === 0) {
+    return `none of the ${count.total} forecast scenarios exceed ${limitLabel}`;
+  }
   return `${count.exceed} of ${count.total} forecast scenarios exceed ${limitLabel}`;
 }

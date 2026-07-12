@@ -20,5 +20,6 @@
   "input_hashes": {
     "route": "44d2cd5ff959aaca",
     "profile": "7c0e2e8460b2da21"
-  }
+  },
+  "demo": true
 }

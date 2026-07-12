@@ -23,7 +23,7 @@ export function VerdictChip({ state, small }) {
       style={{ backgroundColor: v.hex }}
     >
       <span aria-hidden>{v.glyph}</span>
-      {v.label}
+      {small ? v.label.split(' — ')[0] : v.label}
     </span>
   );
 }

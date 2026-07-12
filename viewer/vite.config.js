@@ -31,6 +31,7 @@ function buildSnapshotsManifest(dataRoot) {
           profile_id: manifest.profile_id,
           departure_utc: manifest.departure_utc,
           verdict_state: manifest.verdict_state ?? null,
+          demo: manifest.demo ?? false,
         });
       } catch (error) {
         console.warn(`[data-middleware] Skipping invalid ${manifestPath}: ${error.message}`);

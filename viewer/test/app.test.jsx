@@ -32,7 +32,7 @@ describe('viewer fixture harness', () => {
     const user = userEvent.setup();
     render(<App />);
 
-    const [snapshot] = await screen.findAllByRole('button', { name: /cherbourg-plymouth-v1/i });
+    const [snapshot] = await screen.findAllByRole('button', { name: /cherbourg plymouth/i });
     await user.click(snapshot);
 
     await waitFor(() => expect(screen.getByText(/EMULATED WARNING SCENARIO/i)).toBeTruthy());
@@ -42,14 +42,14 @@ describe('viewer fixture harness', () => {
   it('does not present emulated warning evidence as verified authority', async () => {
     const user = userEvent.setup();
     render(<App />);
-    await user.click((await screen.findAllByRole('button', { name: /cherbourg-plymouth-v1/i }))[0]);
+    await user.click((await screen.findAllByRole('button', { name: /cherbourg plymouth/i }))[0]);
     expect(screen.getByText(/EMULATED WARNING SCENARIO/i)).toBeTruthy();
   });
 
   it('never lists an active warning capability as unsupported', async () => {
     const user = userEvent.setup();
     render(<App />);
-    await user.click((await screen.findAllByRole('button', { name: /cherbourg-plymouth-v1/i }))[0]);
+    await user.click((await screen.findAllByRole('button', { name: /cherbourg plymouth/i }))[0]);
     await user.click(await screen.findByRole('button', { name: /Why this assessment/i }));
     expect(screen.queryByText(/does NOT cover:.*official marine warnings/i)).toBeNull();
   });

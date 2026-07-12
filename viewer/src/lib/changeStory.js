@@ -1,8 +1,8 @@
 export const ruleLabels = {
-  'W-GUST-01': 'gust limit',
-  'W-GUST-03': 'ensemble gust crossing',
-  'W-SUST-01': 'sustained-wind limit',
-  'W-SUST-03': 'ensemble wind crossing',
+  'W-GUST-01': 'gusts',
+  'W-GUST-03': 'gust scenarios over your limit',
+  'W-SUST-01': 'wind',
+  'W-SUST-03': 'wind scenarios over your limit',
   'A-WARN-01': 'marine warning',
   'S-WAVE-01': 'wave-height limit',
   'S-CROSS-01': 'cross-sea',

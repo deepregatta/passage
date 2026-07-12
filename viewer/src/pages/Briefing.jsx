@@ -4,13 +4,24 @@ import RouteMap from '../components/lazy/LeafletLazy.jsx';
 import RouteTimeline from '../components/RouteTimeline.jsx';
 import ModelFooter from '../components/ModelFooter.jsx';
 import { Panel, EvidenceLink, VerdictChip } from '../components/common.jsx';
-import { fmtTime, hourStatus, placeLabel, STATUS_HEX, VERDICT } from '../lib/format.js';
+import {
+  capitalize,
+  fmtTime,
+  hazardNoun,
+  hourStatus,
+  placeLabel,
+  plainEventNoun,
+  scenarioShare,
+  STATUS_HEX,
+  VERDICT,
+} from '../lib/format.js';
 import { Term } from '../lib/glossary.jsx';
 import clsx from 'clsx';
 import BulletinPanel from '../components/BulletinPanel.jsx';
 import { deriveCoverage } from '../lib/evidenceSelectors.js';
 import SynopticHero from '../components/SynopticHero.jsx';
 import { frameForCursor, usePlayback } from '../stores/playbackStore.js';
+import { usePlanner } from '../stores/plannerStore.js';
 
 /** the Jack layer: what each §7 state means for what you DO next (labels stay exact) */
 const NEXT_STEP = {
@@ -19,7 +30,7 @@ const NEXT_STEP = {
   approaching:
     'It is close to your limits. Read the two or three points on the right before deciding.',
   exceeds:
-    'This forecast goes beyond what you said you would accept. Look at WHEN — a different departure often fixes it (try "Compare departure times" on the Plan page).',
+    'This forecast goes beyond what you said you would accept. Look at WHEN — a different departure often fixes it.',
   insufficient:
     'The forecast models tell different stories right now. Wait for the next update before deciding — the time is listed below.',
   warning_active:
@@ -44,8 +55,14 @@ export default function Briefing() {
 
   return (
     <div>
-      <HeaderBar findings={findings} warningEvidence={warningEvidence} onOpenBulletin={() => setBulletinOpen(true)} />
-      <JackStrip findings={findings} warningEvidence={warningEvidence} />
+      <HeaderBar findings={findings} />
+      <DecisionBand
+        findings={findings}
+        sections={sections}
+        synoptic={synoptic}
+        warningEvidence={warningEvidence}
+        onOpenBulletin={() => setBulletinOpen(true)}
+      />
       <div className="px-3 sm:px-5 py-4 max-w-[1600px] mx-auto">
         <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,3fr)_minmax(320px,2fr)] gap-4">
           <div className="min-w-0">
@@ -82,63 +99,131 @@ export default function Briefing() {
   );
 }
 
-/** compact dark chart-table header: route + departure left, verdict right (mockup 1) */
-function HeaderBar({ findings, warningEvidence, onOpenBulletin }) {
+/** compact dark chart-table header: route + departure left, personal-limit state right */
+function HeaderBar({ findings }) {
   const warningActive = findings.verdict.warning_override?.active;
-  const emulated = warningEvidence?.source_kind === 'emulated';
-  const productionRefusal = emulated && import.meta.env.VITE_DW_MODE === 'production';
   const personalState = warningActive ? recomputePersonalState(findings) : findings.verdict.state;
   return (
-    <div>
-      {warningActive && !emulated && (
-        <div
-          className="text-white px-6 py-2 font-sans text-[13px] flex items-center gap-2"
-          style={{ backgroundColor: VERDICT.warning_active.hex }}
-        >
-          <span aria-hidden>🚩</span>
-          <span className="font-semibold uppercase tracking-[0.12em] text-[11px]">
-            Official warning active
-          </span>
-          <span className="opacity-90">— read the bulletin before anything below</span>
-          <button type="button" onClick={onOpenBulletin} className="ml-auto underline underline-offset-2 min-h-11">Open official bulletin</button>
-        </div>
-      )}
-      {warningActive && emulated && (
-        <div className="warning-emulated px-6 py-2 font-instrument text-[13px] flex items-center gap-3 flex-wrap bg-shoal border-y border-ink/30">
-          <span className="stamp-emulated">EMULATED WARNING SCENARIO</span>
-          <span>{productionRefusal ? 'Authority styling refused: this source is synthetic.' : 'Synthetic bulletin evidence — never use for a real passage decision.'}</span>
-          <EvidenceLink evidenceId={warningEvidence.evidence_id}>evidence</EvidenceLink>
-          <button type="button" onClick={onOpenBulletin} className="ml-auto underline underline-offset-2 min-h-11">Open official bulletin</button>
-        </div>
-      )}
-      <div className="bg-ink-deep text-paper px-6 py-3 flex items-center justify-between flex-wrap gap-x-6 gap-y-2">
-        <div className="flex items-baseline gap-4 flex-wrap">
-          <span className="font-chart text-2xl tracking-wide">{routeTitle(findings)}</span>
-          <span className="font-mono text-[12px] opacity-70">
-            dep {fmtTime(findings.departure_utc)} UTC
-          </span>
-        </div>
-        <VerdictChip state={personalState} />
+    <div className="bg-ink-deep text-paper px-6 py-3 flex items-center justify-between flex-wrap gap-x-6 gap-y-2">
+      <div className="flex items-baseline gap-4 flex-wrap">
+        <span className="font-chart text-2xl tracking-wide">{routeTitle(findings)}</span>
+        <span className="font-mono text-[12px] opacity-70">
+          dep {fmtTime(findings.departure_utc)} UTC
+        </span>
       </div>
+      <VerdictChip state={personalState} />
     </div>
   );
 }
 
-/** one plain sentence, action first — directly under the verdict band */
-function JackStrip({ findings, warningEvidence }) {
-  const state = findings.verdict.warning_override?.active
-    ? 'warning_active'
-    : findings.verdict.state;
-  const hex = VERDICT[state]?.hex ?? '#16283E';
+/**
+ * The 10-second layer: can I go, why, what to do instead — before any chart.
+ * One plain sentence, one limit, no decimals, no codenames.
+ */
+function DecisionBand({ findings, sections, synoptic, warningEvidence, onOpenBulletin }) {
+  const setPage = useApp((s) => s.setPage);
+  const route = useApp((s) => s.route);
+  const warningActive = findings.verdict.warning_override?.active;
+  const emulated = warningActive && warningEvidence?.source_kind === 'emulated';
+  const productionRefusal = emulated && import.meta.env.VITE_DW_MODE === 'production';
+  const state = warningActive ? 'warning_active' : findings.verdict.state;
+  const verdict = VERDICT[state];
+  const event = findings.causal_events?.[0];
+  const driver = findings.evidence.find(
+    (e) => e.evidence_id === findings.verdict.driver_evidence_id,
+  );
+
+  // one plain cause sentence — a single limit, whole numbers only
+  let cause = null;
+  if (warningActive) {
+    cause = emulated
+      ? productionRefusal
+        ? 'Authority styling refused: this warning comes from synthetic data.'
+        : 'A marine warning scenario covers part of your route — synthetic data, for testing the workflow only, never for a real passage decision.'
+      : 'An official marine warning covers part of your route — read the bulletin before anything else.';
+  } else if (driver && (state === 'exceeds' || state === 'approaching')) {
+    const prefix = event ? `${capitalize(plainEventNoun(event, synoptic))} crosses your route — ` : '';
+    const where = legPlace(findings, driver.leg_id);
+    if (driver.member_fraction) {
+      const clause = `${scenarioShare(driver.member_fraction)} ${hazardNoun(driver.rule_id)} over your ${driver.limit} kt limit ${where}`;
+      cause = `${prefix}${prefix ? clause : capitalize(clause)}.`;
+    } else if (typeof driver.value === 'number') {
+      const relation = driver.value > driver.limit ? 'over' : 'close to';
+      const clause = `${hazardNoun(driver.rule_id)} reach ${Math.round(driver.value)} ${driver.units ?? 'kt'} ${where} — ${relation} your ${driver.limit} ${driver.units ?? 'kt'} limit`;
+      cause = `${prefix}${prefix ? clause : capitalize(clause)}.`;
+    }
+  }
+
+  // when to look again — same source as the story-card bullet
+  const change = sections.find((s) => s.id === 'what_could_change');
+  const nextUpdate = change?.register_plain.match(/expected around ([^)]+)\)/)?.[1];
+
+  const offerScan = ['exceeds', 'approaching', 'warning_active'].includes(state) && route;
+  const findDeparture = () => {
+    usePlanner.getState().patch({
+      mode: 'draw',
+      name: route.name ?? findings.route_id,
+      waypoints: route.waypoints.map((wp) => ({ lat: wp.lat, lng: wp.lon })),
+      speeds: route.speeds_kt ? { ...route.speeds_kt } : usePlanner.getState().speeds,
+      departureLocal: findings.departure_utc.slice(0, 16),
+      computed: null,
+      scan: null,
+      autoScan: true,
+    });
+    setPage('planner');
+  };
+
+  const buttonClass = emulated
+    ? 'border border-ink/50 px-3.5 py-2 min-h-11 font-sans text-[14px] hover:bg-ink/5'
+    : 'border border-white/70 px-3.5 py-2 min-h-11 font-sans text-[14px] hover:bg-white/10';
+
   return (
-    <div
-      className="px-6 py-2.5 bg-white/50 border-b hairline font-sans text-[14px]"
-      style={{ borderLeft: `4px solid ${hex}` }}
+    <section
+      aria-label="Decision"
+      data-testid="decision-band"
+      className={emulated ? 'bg-shoal text-ink border-y border-ink/30' : 'text-white'}
+      style={emulated ? undefined : { backgroundColor: verdict.hex }}
     >
-      {state === 'warning_active' && warningEvidence?.source_kind === 'emulated'
-        ? 'This is a synthetic warning scenario. Use the weather evidence below to test the workflow, never to make a passage decision.'
-        : NEXT_STEP[state]}
-    </div>
+      <div className="px-6 py-5 max-w-[1600px] mx-auto flex flex-col gap-2.5">
+        <div className="flex items-center gap-x-4 gap-y-2 flex-wrap">
+          <span className="text-3xl sm:text-4xl leading-none" aria-hidden>
+            {verdict.glyph}
+          </span>
+          <h1 className="font-chart text-[30px] sm:text-[38px] leading-none tracking-wide">
+            {verdict.label.split(' — ')[0]}
+          </h1>
+          {emulated && <span className="stamp-emulated">EMULATED WARNING SCENARIO</span>}
+        </div>
+        {cause && (
+          <p className="font-story text-[18px] sm:text-[20px] leading-snug max-w-[72ch]">
+            {placeLabel(cause)}
+          </p>
+        )}
+        <p className={clsx('font-sans text-[14px] max-w-[72ch]', emulated ? 'text-ink-soft' : 'opacity-90')}>
+          {NEXT_STEP[state]}
+        </p>
+        <div className="flex items-center gap-x-3 gap-y-2 flex-wrap pt-0.5">
+          {offerScan && (
+            <button type="button" onClick={findDeparture} className={buttonClass}>
+              Find a departure that fits
+            </button>
+          )}
+          {warningActive && (
+            <button type="button" onClick={onOpenBulletin} className={buttonClass}>
+              Open official bulletin
+            </button>
+          )}
+          {emulated && (
+            <EvidenceLink evidenceId={warningEvidence.evidence_id}>evidence</EvidenceLink>
+          )}
+          {nextUpdate && (
+            <span className={clsx('font-mono text-[12px] sm:ml-auto', emulated ? 'text-ink-soft' : 'opacity-85')}>
+              forecast updates ~{nextUpdate} — check again before you cast off
+            </span>
+          )}
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -166,24 +251,21 @@ function WeatherStoryCard({ findings, sections }) {
   const synopticSection = sections.find((s) => s.id === 'synoptic_story');
   const event = findings.causal_events?.[0];
   const headline = event
-    ? `${event.name} crosses your passage window`
+    ? `${capitalize(plainEventNoun(event, synoptic))} crosses your passage window`
     : synopticSection
       ? placeLabel(firstSentence(synopticSection.register_plain))
       : 'Causal attribution unavailable for this legacy snapshot.';
-
-  const legPlace = (legId) => {
-    const leg = findings.legs.find((l) => l.leg_id === legId);
-    return leg ? `near ${shortName(leg.name)}` : legId;
-  };
 
   const driver = findings.evidence.find(
     (e) => e.evidence_id === findings.verdict.driver_evidence_id,
   );
   let keyFact = null;
   if (driver?.member_fraction) {
-    keyFact = `${driver.member_fraction.exceed} of ${driver.member_fraction.total} forecast scenarios exceed your ${driver.limit} kt limit ${legPlace(driver.leg_id)}.`;
+    const { exceed, total } = driver.member_fraction;
+    const count = exceed === total ? `All ${total}` : `${exceed} of ${total}`;
+    keyFact = `${count} forecast scenarios exceed your ${driver.limit} kt ${hazardNoun(driver.rule_id).replace(/s$/, '')} limit ${legPlace(findings, driver.leg_id)}.`;
   } else if (driver && typeof driver.value === 'number') {
-    keyFact = `The forecast reaches ${driver.value} ${driver.units} against your ${driver.limit} ${driver.units} limit ${legPlace(driver.leg_id)}.`;
+    keyFact = `The forecast reaches ${Math.round(driver.value)} ${driver.units} against your ${driver.limit} ${driver.units} limit ${legPlace(findings, driver.leg_id)}.`;
   }
 
   // three quick-read facts max, in Jack's words (leg id kept as a small cross-reference)
@@ -193,7 +275,7 @@ function WeatherStoryCard({ findings, sections }) {
     const hs = maxOf(worstLeg, null, (h) => h.waves?.hs_m ?? null);
     bullets.push(
       <>
-        Strongest {legPlace(worstLeg.leg_id)}{' '}
+        Strongest {legPlace(findings, worstLeg.leg_id)}{' '}
         <span className="font-mono text-[11px] text-ink-soft">({worstLeg.leg_id})</span>: wind{' '}
         {Math.round(maxOf(worstLeg, 'wind_kt'))} kt, <Term term="gust">gusts</Term>{' '}
         {Math.round(maxOf(worstLeg, 'gust_kt'))} kt
@@ -214,7 +296,7 @@ function WeatherStoryCard({ findings, sections }) {
   if (wac && bullets.length < 3)
     bullets.push(
       <>
-        <Term term="wind over tide">Wind over tide</Term> {legPlace(wac.leg_id)} around{' '}
+        <Term term="wind over tide">Wind over tide</Term> {legPlace(findings, wac.leg_id)} around{' '}
         {fmtTime(wac.window?.from).slice(-5)} UTC — expect short, steep seas.
       </>,
     );
@@ -232,7 +314,11 @@ function WeatherStoryCard({ findings, sections }) {
   return (
     <div className="bg-white/40 border hairline rounded-sm shadow-panel p-5 h-full flex flex-col">
       <span className="eyebrow">The weather story</span>
-      {event && <span className="font-mono text-[10px] text-event mt-2 uppercase">phase · {playbackFrame.phase}</span>}
+      {event && (
+        <span className="font-mono text-[10px] text-event mt-2 uppercase">
+          {PHASE_PLAIN[playbackFrame.phase] ?? playbackFrame.phase}
+        </span>
+      )}
       <h2 className="font-story text-[30px] leading-tight mt-2">{headline}</h2>
       {event && <p className="font-story text-[18px] leading-snug mt-2 text-event">{placeLabel(event.consequence.register_plain)}</p>}
       {keyFact && (
@@ -273,6 +359,20 @@ function WeatherStoryCard({ findings, sections }) {
     </div>
   );
 }
+
+/** plain phase words for the story eyebrow — the pro phase names stay in the hero chart focus line */
+const PHASE_PLAIN = {
+  cause: 'what sets this up',
+  interception: 'while you are out there',
+  consequence: 'right after your passage',
+  easing: 'easing off',
+  unavailable: '',
+};
+
+const legPlace = (findings, legId) => {
+  const leg = findings.legs.find((l) => l.leg_id === legId);
+  return leg ? `near ${shortName(leg.name)}` : legId;
+};
 
 const maxOf = (leg, key, fn) => {
   const vals = leg.hours

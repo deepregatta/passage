@@ -44,6 +44,38 @@ export function placeLabel(raw) {
   return typeof raw === 'string' ? raw.replace(/\bwp(\d+)\b/gi, 'waypoint $1') : raw;
 }
 
+/** Jack layer: rule family → plain noun (mirrors engine plainLanguage.ts). */
+export function hazardNoun(ruleId) {
+  if (!ruleId) return 'conditions';
+  if (ruleId.startsWith('W-GUST')) return 'gusts';
+  if (ruleId.startsWith('W-SUST')) return 'winds';
+  if (ruleId.startsWith('S-')) return 'seas';
+  if (ruleId.startsWith('T-WAC')) return 'wind against the tide';
+  if (ruleId.startsWith('C-CAPE')) return 'squall risk';
+  if (ruleId.startsWith('V-VIS')) return 'visibility';
+  return 'conditions';
+}
+
+/** Jack layer: causal event → plain noun phrase ("a deepening low"); ids stay in the pro register. */
+export function plainEventNoun(event, synoptic) {
+  const system = synoptic?.systems?.find((s) => s.system_id === event.system_id);
+  const deepening = (system?.deepening_hpa_per_24h ?? 0) >= 6;
+  if (event.kind === 'low') return deepening ? 'a deepening low' : 'a low-pressure system';
+  if (event.kind === 'high') return 'a high-pressure ridge';
+  if (event.kind === 'front') return 'a weather front';
+  return 'a weather system';
+}
+
+/** Jack layer: member fraction → subject + verb ("every forecast scenario shows"). */
+export function scenarioShare(memberFraction) {
+  const { exceed, total } = memberFraction;
+  if (exceed === total) return 'every forecast scenario shows';
+  if (exceed / total >= 0.5) return 'most forecast scenarios show';
+  return `${exceed} of ${total} forecast scenarios show`;
+}
+
+export const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
 export const STATUS_HEX = {
   ok: '#2F6E4F',
   approaching: '#A87718',
