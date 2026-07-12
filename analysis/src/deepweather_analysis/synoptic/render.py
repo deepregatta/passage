@@ -310,8 +310,15 @@ def render_panels(
             color=INK, fontsize=7, alpha=0.7, ha="right",
         )
 
+        # fixed canvas (no tight crop) so the axes' pixel geometry is exact and
+        # publishable — the viewer overlays the per-user route client-side, which
+        # keeps the prepared chart route-independent (shared across users)
+        fig.tight_layout(rect=(0, 0.015, 1, 1))
+        fig.canvas.draw()
+        pos = ax.get_position()
+
         file_path = out_dir / f"t{step_h:03d}.png"
-        fig.savefig(file_path, dpi=DPI, facecolor=PAPER, bbox_inches="tight")
+        fig.savefig(file_path, dpi=DPI, facecolor=PAPER)
         plt.close(fig)
 
         results.append(
@@ -319,6 +326,20 @@ def render_panels(
                 "step_h": int(step_h),
                 "file": str(file_path),
                 "caption": _caption(step_h, systems, mslp, lats, lons),
+                "size_px": {"w": int(FIG_W_PX), "h": int(FIG_H_PX)},
+                "geo": {
+                    "lon_min": float(lons.min()),
+                    "lon_max": float(lons.max()),
+                    "lat_min": float(lats.min()),
+                    "lat_max": float(lats.max()),
+                },
+                # axes bbox in PNG pixel coordinates, y measured from the TOP edge
+                "axes_px": {
+                    "x0": round(pos.x0 * FIG_W_PX, 1),
+                    "x1": round(pos.x1 * FIG_W_PX, 1),
+                    "y0": round((1 - pos.y1) * FIG_H_PX, 1),
+                    "y1": round((1 - pos.y0) * FIG_H_PX, 1),
+                },
             }
         )
     return results

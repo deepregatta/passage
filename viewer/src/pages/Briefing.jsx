@@ -259,7 +259,9 @@ function StorySection({ section }) {
 }
 
 function SynopticPanel() {
+  const findings = useApp((s) => s.findings);
   const [state, setState] = useState(null);
+  const [routeDoc, setRouteDoc] = useState(null);
   const [step, setStep] = useState(0);
 
   useEffect(() => {
@@ -278,6 +280,14 @@ function SynopticPanel() {
     })();
   }, []);
 
+  useEffect(() => {
+    if (!findings) return;
+    fetch(`/data/snapshots/${findings.snapshot_id}/route.json`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setRouteDoc)
+      .catch(() => {});
+  }, [findings]);
+
   if (!state) return <p className="font-sans text-sm text-ink-soft">Loading chart…</p>;
   if (state.missing) {
     return (
@@ -293,7 +303,9 @@ function SynopticPanel() {
 
   const chart = state.charts[step];
   const file = chart.split('/').pop();
-  const caption = state.captions.find((c) => c.file === file || chart.endsWith(c.file ?? ''))?.caption;
+  const meta = state.captions.find((c) => c.file === file || chart.endsWith(c.file ?? ''));
+  const overlay = buildRouteOverlay(meta, routeDoc);
+
   return (
     <div>
       <div className="flex gap-1.5 mb-2">
@@ -311,13 +323,60 @@ function SynopticPanel() {
           </button>
         ))}
       </div>
-      <img src={`/data/${chart}`} alt={`Synoptic chart ${file}`} className="w-full border hairline rounded-sm" />
-      {caption && <p className="font-sans text-[13px] text-ink-soft mt-2 leading-relaxed">{caption}</p>}
+      <div className="relative border hairline rounded-sm overflow-hidden">
+        <img src={`/data/${chart}`} alt={`Synoptic chart ${file}`} className="w-full block" />
+        {overlay && (
+          <svg
+            className="absolute inset-0 w-full h-full pointer-events-none"
+            viewBox={`0 0 ${overlay.w} ${overlay.h}`}
+            preserveAspectRatio="none"
+            aria-hidden
+          >
+            <polyline
+              points={overlay.points}
+              fill="none"
+              stroke="#16283E"
+              strokeWidth={overlay.w / 340}
+              strokeDasharray={`${overlay.w / 300} ${overlay.w / 170}`}
+              strokeLinecap="round"
+            />
+            <circle cx={overlay.start.x} cy={overlay.start.y} r={overlay.w / 190} fill="#16283E" />
+            <circle
+              cx={overlay.end.x}
+              cy={overlay.end.y}
+              r={overlay.w / 190}
+              fill="#F3EEE3"
+              stroke="#16283E"
+              strokeWidth={overlay.w / 500}
+            />
+          </svg>
+        )}
+      </div>
+      {meta?.caption && (
+        <p className="font-sans text-[13px] text-ink-soft mt-2 leading-relaxed">{meta.caption}</p>
+      )}
       <p className="font-mono text-[10px] text-ink-soft mt-1">
-        {state.run} · MSLP isobars · contains modified ECMWF open data (CC-BY-4.0)
+        {state.run} · MSLP isobars{overlay ? ' · your route marked' : ''} · contains modified ECMWF
+        open data (CC-BY-4.0)
       </p>
     </div>
   );
+}
+
+/** map route lon/lat onto the PNG's published axes geometry */
+function buildRouteOverlay(meta, routeDoc) {
+  if (!meta?.axes_px || !meta?.geo || !meta?.size_px || !routeDoc?.waypoints?.length) return null;
+  const { axes_px: a, geo: g, size_px: s } = meta;
+  const toX = (lon) => a.x0 + ((lon - g.lon_min) / (g.lon_max - g.lon_min)) * (a.x1 - a.x0);
+  const toY = (lat) => a.y0 + ((g.lat_max - lat) / (g.lat_max - g.lat_min)) * (a.y1 - a.y0);
+  const pts = routeDoc.waypoints.map((wp) => ({ x: toX(wp.lon), y: toY(wp.lat) }));
+  return {
+    w: s.w,
+    h: s.h,
+    points: pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' '),
+    start: pts[0],
+    end: pts[pts.length - 1],
+  };
 }
 
 /** leg progress bar: numbered dots on a line, distances + durations beneath (mockup 1) */
