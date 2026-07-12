@@ -46,6 +46,8 @@ export interface OpenMeteoOptions {
   sleep?: (ms: number) => Promise<void>;
   /** cached forecasts older than this are re-fetched (new runs supersede) */
   cacheMaxAgeMs?: number;
+  /** minimum total wait before retrying a 429 (per-minute quota reset) */
+  rateLimitDelayMs?: number;
 }
 
 const HOURLY_VARS = ['wind_speed_10m', 'wind_gusts_10m', 'wind_direction_10m'] as const;
@@ -105,6 +107,11 @@ async function fetchCachedWithBackoff(
     }
     if (response.status === 429 || response.status >= 500) {
       lastError = new Error(`Open-Meteo HTTP ${response.status}`);
+      // 429 is a per-minute quota: exponential backoff alone re-fires inside the
+      // same minute window, so wait long enough for the quota to reset.
+      if (response.status === 429 && attempt < maxRetries) {
+        await sleep(Math.max(0, (options.rateLimitDelayMs ?? 20_000) - baseDelayMs * 2 ** attempt));
+      }
       continue;
     }
     if (!response.ok) {
@@ -120,6 +127,35 @@ async function fetchCachedWithBackoff(
   throw lastError ?? new Error('Open-Meteo fetch failed');
 }
 
+/**
+ * Collapse duplicate 0.01°-rounded coordinates before building the request:
+ * Open-Meteo bills per location, so duplicates cost quota without adding data.
+ * `expand` maps the response back onto the caller's per-point order.
+ */
+function uniqueCoords(points: Array<{ lat: number; lon: number }>): {
+  lats: string[];
+  lons: string[];
+  expand: <T>(locations: T[]) => T[];
+} {
+  const lats: string[] = [];
+  const lons: string[] = [];
+  const indexForKey = new Map<string, number>();
+  const expandIndex = points.map((p) => {
+    const lat = p.lat.toFixed(2);
+    const lon = p.lon.toFixed(2);
+    const key = `${lat},${lon}`;
+    let idx = indexForKey.get(key);
+    if (idx === undefined) {
+      idx = lats.length;
+      indexForKey.set(key, idx);
+      lats.push(lat);
+      lons.push(lon);
+    }
+    return idx;
+  });
+  return { lats, lons, expand: (locations) => expandIndex.map((i) => locations[i]!) };
+}
+
 export async function fetchPointForecasts(
   points: Array<{ lat: number; lon: number }>,
   startDate: string,
@@ -130,8 +166,7 @@ export async function fetchPointForecasts(
   const baseUrl = options.baseUrl ?? 'https://api.open-meteo.com/v1/forecast';
   const now = options.now ?? Date.now;
 
-  const lats = points.map((p) => p.lat.toFixed(2));
-  const lons = points.map((p) => p.lon.toFixed(2));
+  const { lats, lons, expand } = uniqueCoords(points);
   const url =
     `${baseUrl}?latitude=${lats.join(',')}&longitude=${lons.join(',')}` +
     `&hourly=${HOURLY_VARS.join(',')}&models=${model}` +
@@ -141,13 +176,13 @@ export async function fetchPointForecasts(
 
   const parsed = JSON.parse(raw) as unknown;
   const locations = Array.isArray(parsed) ? parsed : [parsed];
-  if (locations.length !== points.length) {
+  if (locations.length !== lats.length) {
     throw new Error(
-      `Open-Meteo returned ${locations.length} locations for ${points.length} requested points`,
+      `Open-Meteo returned ${locations.length} locations for ${lats.length} requested points`,
     );
   }
 
-  const forecasts: PointForecast[] = locations.map((loc: any, i: number) => {
+  const forecasts: PointForecast[] = expand(locations).map((loc: any, i: number) => {
     const hourly = loc?.hourly;
     if (!hourly?.time) throw new Error(`Open-Meteo response missing hourly block (point ${i})`);
     return {
@@ -210,8 +245,7 @@ export async function fetchEnsembleForecasts(
   const baseUrl = options.baseUrl ?? 'https://ensemble-api.open-meteo.com/v1/ensemble';
   const now = options.now ?? Date.now;
 
-  const lats = points.map((p) => p.lat.toFixed(2));
-  const lons = points.map((p) => p.lon.toFixed(2));
+  const { lats, lons, expand } = uniqueCoords(points);
   const url =
     `${baseUrl}?latitude=${lats.join(',')}&longitude=${lons.join(',')}` +
     `&hourly=${ENSEMBLE_VARS.join(',')}&models=${model}` +
@@ -221,14 +255,14 @@ export async function fetchEnsembleForecasts(
 
   const parsed = JSON.parse(raw) as unknown;
   const locations = Array.isArray(parsed) ? parsed : [parsed];
-  if (locations.length !== points.length) {
+  if (locations.length !== lats.length) {
     throw new Error(
-      `Open-Meteo ensemble returned ${locations.length} locations for ${points.length} points`,
+      `Open-Meteo ensemble returned ${locations.length} locations for ${lats.length} points`,
     );
   }
 
   let memberCount = 0;
-  const forecasts: EnsemblePointForecast[] = locations.map((loc: any, i: number) => {
+  const forecasts: EnsemblePointForecast[] = expand(locations).map((loc: any, i: number) => {
     const hourly = loc?.hourly;
     if (!hourly?.time) throw new Error(`Ensemble response missing hourly block (point ${i})`);
     const windKeys = memberKeys(hourly, 'wind_speed_10m');
@@ -310,8 +344,7 @@ export async function fetchMultiModelForecasts(
   const baseUrl = options.baseUrl ?? 'https://api.open-meteo.com/v1/forecast';
   const now = options.now ?? Date.now;
 
-  const lats = points.map((p) => p.lat.toFixed(2));
-  const lons = points.map((p) => p.lon.toFixed(2));
+  const { lats, lons, expand } = uniqueCoords(points);
   const url =
     `${baseUrl}?latitude=${lats.join(',')}&longitude=${lons.join(',')}` +
     `&hourly=${HAZARD_VARS.join(',')}&models=${models.join(',')}` +
@@ -320,13 +353,13 @@ export async function fetchMultiModelForecasts(
   const { raw, cached, digest } = await fetchCachedWithBackoff(url, 'om-multimodel', options);
   const parsed = JSON.parse(raw) as unknown;
   const locations = Array.isArray(parsed) ? parsed : [parsed];
-  if (locations.length !== points.length) {
-    throw new Error(`Multi-model returned ${locations.length} locations for ${points.length}`);
+  if (locations.length !== lats.length) {
+    throw new Error(`Multi-model returned ${locations.length} locations for ${lats.length}`);
   }
 
   const byModel: Record<string, HazardPointForecast[]> = {};
   for (const model of models) {
-    byModel[model] = locations.map((loc: any, i: number) => {
+    byModel[model] = expand(locations).map((loc: any, i: number) => {
       const hourly = loc?.hourly;
       if (!hourly?.time) throw new Error(`Multi-model response missing hourly (point ${i})`);
       const series = (base: string) => hourly[`${base}_${model}`] ?? hourly[base] ?? [];
@@ -415,8 +448,7 @@ export async function fetchMarineForecasts(
   const baseUrl = options.baseUrl ?? 'https://marine-api.open-meteo.com/v1/marine';
   const now = options.now ?? Date.now;
 
-  const lats = points.map((p) => p.lat.toFixed(2));
-  const lons = points.map((p) => p.lon.toFixed(2));
+  const { lats, lons, expand } = uniqueCoords(points);
   const url =
     `${baseUrl}?latitude=${lats.join(',')}&longitude=${lons.join(',')}` +
     `&hourly=${MARINE_VARS.join(',')}&timezone=UTC&start_date=${startDate}&end_date=${endDate}`;
@@ -424,11 +456,11 @@ export async function fetchMarineForecasts(
   const { raw, cached, digest } = await fetchCachedWithBackoff(url, 'om-marine', options);
   const parsed = JSON.parse(raw) as unknown;
   const locations = Array.isArray(parsed) ? parsed : [parsed];
-  if (locations.length !== points.length) {
-    throw new Error(`Marine returned ${locations.length} locations for ${points.length}`);
+  if (locations.length !== lats.length) {
+    throw new Error(`Marine returned ${locations.length} locations for ${lats.length}`);
   }
 
-  const forecasts: WavePointForecast[] = locations.map((loc: any, i: number) => {
+  const forecasts: WavePointForecast[] = expand(locations).map((loc: any, i: number) => {
     const hourly = loc?.hourly;
     if (!hourly?.time) throw new Error(`Marine response missing hourly (point ${i})`);
     return {
@@ -470,8 +502,7 @@ export async function fetchCurrentForecasts(
 ): Promise<{ forecasts: CurrentPointForecast[]; meta: MarineRequestMeta }> {
   const baseUrl = options.baseUrl ?? 'https://marine-api.open-meteo.com/v1/marine';
   const now = options.now ?? Date.now;
-  const lats = points.map((p) => p.lat.toFixed(2));
-  const lons = points.map((p) => p.lon.toFixed(2));
+  const { lats, lons, expand } = uniqueCoords(points);
   const url =
     `${baseUrl}?latitude=${lats.join(',')}&longitude=${lons.join(',')}` +
     '&hourly=ocean_current_velocity,ocean_current_direction' +
@@ -479,11 +510,11 @@ export async function fetchCurrentForecasts(
   const { raw, cached, digest } = await fetchCachedWithBackoff(url, 'om-current', options);
   const parsed = JSON.parse(raw) as unknown;
   const locations = Array.isArray(parsed) ? parsed : [parsed];
-  if (locations.length !== points.length) {
-    throw new Error(`Marine currents returned ${locations.length} locations for ${points.length}`);
+  if (locations.length !== lats.length) {
+    throw new Error(`Marine currents returned ${locations.length} locations for ${lats.length}`);
   }
   return {
-    forecasts: locations.map((loc: any, i: number) => {
+    forecasts: expand(locations).map((loc: any, i: number) => {
       const hourly = loc?.hourly;
       if (!hourly?.time) throw new Error(`Marine currents missing hourly (point ${i})`);
       return {
