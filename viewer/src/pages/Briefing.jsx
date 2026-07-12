@@ -81,7 +81,7 @@ export default function Briefing() {
           <div className="min-w-0 flex flex-col gap-3">
             <WeatherStoryCard findings={findings} sections={sections} />
             {hasCausalHero && (
-              <details className="border hairline bg-white/25"><summary className="px-3 py-2 font-instrument text-xs cursor-pointer">Passage chart inset</summary><div className="p-2"><RouteMap height={240} /></div></details>
+              <details open className="border hairline bg-white/25"><summary className="px-3 py-2 font-instrument text-xs cursor-pointer">Your passage on the chart — the boat moves with the playback</summary><div className="p-2"><RouteMap height={240} /></div></details>
             )}
           </div>
         </div>

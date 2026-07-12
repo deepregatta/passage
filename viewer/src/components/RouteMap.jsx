@@ -4,6 +4,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { GridSampler } from '@deepweather/engine';
 import { useApp } from '../stores/appStore.js';
+import { frameForCursor, usePlayback } from '../stores/playbackStore.js';
 import { STATUS_HEX, hourStatus, fmtTime } from '../lib/format.js';
 
 /**
@@ -70,6 +71,21 @@ function fieldArrowIcon(windFromDeg, windKt) {
   });
 }
 
+/** the boat, same gold mark as on the synoptic chart, pointing along its leg */
+function boatIcon(bearingDeg) {
+  return L.divIcon({
+    className: '',
+    html: `<div style="pointer-events:none">
+      <svg width="34" height="34" viewBox="0 0 34 34" style="transform:rotate(${Math.round(bearingDeg)}deg)">
+        <circle cx="17" cy="17" r="12.5" fill="#F3EEE3" fill-opacity=".25" stroke="#A87718" stroke-width="2"/>
+        <path d="M17 8 L22.5 24 L17 20.6 L11.5 24 Z" fill="#A87718" stroke="#F3EEE3" stroke-width="1.4"/>
+      </svg>
+    </div>`,
+    iconSize: [34, 34],
+    iconAnchor: [17, 17],
+  });
+}
+
 function gateIcon(status) {
   const color = status === 'conflict' ? '#A63B2A' : status === 'marginal' ? '#A87718' : '#2F6E4F';
   return L.divIcon({
@@ -83,9 +99,18 @@ function gateIcon(status) {
 
 export default function RouteMap({ height = 420 }) {
   const findings = useApp((s) => s.findings);
+  const synoptic = useApp((s) => s.synoptic);
+  const cursor = usePlayback((s) => s.cursorHours);
   const [routeDoc, setRouteDoc] = useState(null);
   const [gatePositions, setGatePositions] = useState({});
   const [windGrid, setWindGrid] = useState(null);
+
+  // same time cursor as the synoptic playback: the boat sails the route as it plays
+  const frame = useMemo(
+    () => frameForCursor(findings, synoptic, routeDoc, cursor),
+    [findings, synoptic, routeDoc, cursor],
+  );
+  const activeLeg = findings?.legs.find((leg) => leg.leg_id === frame.activeLegId);
 
   useEffect(() => {
     if (!findings) return;
@@ -217,6 +242,14 @@ export default function RouteMap({ height = 420 }) {
         {legArrows.map((a) => (
           <Marker key={`w${a.leg_id}`} position={[a.lat, a.lon]} icon={windArrowIcon(a.dir, a.kt)} interactive={false} />
         ))}
+        {frame.boatPosition && (
+          <Marker
+            position={[frame.boatPosition.lat, frame.boatPosition.lon]}
+            icon={boatIcon(activeLeg?.bearing_deg_true ?? 0)}
+            interactive={false}
+            zIndexOffset={500}
+          />
+        )}
         {(findings.gates ?? []).map((g) => {
           const pos = gatePositions[g.gate_id];
           if (!pos) return null;
