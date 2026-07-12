@@ -2809,7 +2809,8 @@
         "evidence_ids": [
           "E1"
         ]
-      }
+      },
+      "event_key": "low:50:-5:deepening"
     },
     {
       "event_id": "CE2",
@@ -2828,7 +2829,8 @@
         "evidence_ids": [
           "E2"
         ]
-      }
+      },
+      "event_key": "low:50:-5:deepening"
     },
     {
       "event_id": "CE3",
@@ -2848,6 +2850,20 @@
           "E3",
           "E4",
           "E5"
+        ]
+      },
+      "event_key": "low:50:-5:deepening"
+    },
+    {
+      "event_id": "CE4",
+      "event_key": "warning:casquets:2026-07-20T12:00:00Z",
+      "name": "casquets marine warning",
+      "kind": "front",
+      "consequence": {
+        "register_plain": "BMS-large — Casquets covers a crossed marine zone.",
+        "register_pro": "Bulletin source Météo-France BMS (synthetic); valid 2026-07-20T12:00:00Z–2026-07-21T12:00:00Z.",
+        "evidence_ids": [
+          "E23"
         ]
       }
     }

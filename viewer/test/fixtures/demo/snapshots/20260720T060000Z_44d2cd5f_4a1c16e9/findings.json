@@ -80,14 +80,14 @@
       "hours": [
         {
           "valid_time": "2026-07-20T06:00:00Z",
-          "wind_kt": 12.6,
-          "gust_kt": 18.21,
+          "wind_kt": 16.6,
+          "gust_kt": 22.21,
           "wind_dir_deg": 220,
           "twa_deg": 74.8,
           "point_of_sail": "reach",
           "limit_status": {
             "sustained": "ok",
-            "gust": "ok",
+            "gust": "approaching",
             "wave": "ok",
             "steepness": "ok",
             "visibility": "ok"
@@ -120,14 +120,14 @@
         },
         {
           "valid_time": "2026-07-20T07:00:00Z",
-          "wind_kt": 12.61,
-          "gust_kt": 18.21,
+          "wind_kt": 16.61,
+          "gust_kt": 22.21,
           "wind_dir_deg": 220,
           "twa_deg": 74.8,
           "point_of_sail": "reach",
           "limit_status": {
             "sustained": "ok",
-            "gust": "ok",
+            "gust": "approaching",
             "wave": "ok",
             "steepness": "ok",
             "visibility": "ok"
@@ -160,14 +160,14 @@
         },
         {
           "valid_time": "2026-07-20T08:00:00Z",
-          "wind_kt": 12.61,
-          "gust_kt": 18.21,
+          "wind_kt": 16.61,
+          "gust_kt": 22.21,
           "wind_dir_deg": 220.1,
           "twa_deg": 74.7,
           "point_of_sail": "reach",
           "limit_status": {
             "sustained": "ok",
-            "gust": "ok",
+            "gust": "approaching",
             "wave": "ok",
             "steepness": "ok",
             "visibility": "ok"
@@ -227,14 +227,14 @@
       "hours": [
         {
           "valid_time": "2026-07-20T07:00:00Z",
-          "wind_kt": 12.61,
-          "gust_kt": 18.21,
+          "wind_kt": 16.61,
+          "gust_kt": 22.21,
           "wind_dir_deg": 220,
           "twa_deg": 73,
           "point_of_sail": "reach",
           "limit_status": {
             "sustained": "ok",
-            "gust": "ok",
+            "gust": "approaching",
             "wave": "ok",
             "steepness": "ok",
             "visibility": "ok"
@@ -267,14 +267,14 @@
         },
         {
           "valid_time": "2026-07-20T08:00:00Z",
-          "wind_kt": 12.61,
-          "gust_kt": 18.21,
+          "wind_kt": 16.61,
+          "gust_kt": 22.21,
           "wind_dir_deg": 220.1,
           "twa_deg": 72.9,
           "point_of_sail": "reach",
           "limit_status": {
             "sustained": "ok",
-            "gust": "ok",
+            "gust": "approaching",
             "wave": "ok",
             "steepness": "ok",
             "visibility": "ok"
@@ -307,14 +307,14 @@
         },
         {
           "valid_time": "2026-07-20T09:00:00Z",
-          "wind_kt": 12.61,
-          "gust_kt": 18.22,
+          "wind_kt": 16.61,
+          "gust_kt": 22.22,
           "wind_dir_deg": 220.1,
           "twa_deg": 72.9,
           "point_of_sail": "reach",
           "limit_status": {
             "sustained": "ok",
-            "gust": "ok",
+            "gust": "approaching",
             "wave": "ok",
             "steepness": "ok",
             "visibility": "ok"
@@ -347,14 +347,14 @@
         },
         {
           "valid_time": "2026-07-20T10:00:00Z",
-          "wind_kt": 12.62,
-          "gust_kt": 18.22,
+          "wind_kt": 16.62,
+          "gust_kt": 22.22,
           "wind_dir_deg": 220.1,
           "twa_deg": 72.9,
           "point_of_sail": "reach",
           "limit_status": {
             "sustained": "ok",
-            "gust": "ok",
+            "gust": "approaching",
             "wave": "ok",
             "steepness": "ok",
             "visibility": "ok"
@@ -414,14 +414,14 @@
       "hours": [
         {
           "valid_time": "2026-07-20T08:00:00Z",
-          "wind_kt": 12.61,
-          "gust_kt": 18.21,
+          "wind_kt": 16.61,
+          "gust_kt": 22.21,
           "wind_dir_deg": 220.1,
           "twa_deg": 68.5,
           "point_of_sail": "reach",
           "limit_status": {
             "sustained": "ok",
-            "gust": "ok",
+            "gust": "approaching",
             "wave": "ok",
             "steepness": "ok",
             "visibility": "ok"
@@ -454,14 +454,14 @@
         },
         {
           "valid_time": "2026-07-20T09:00:00Z",
-          "wind_kt": 12.61,
-          "gust_kt": 18.22,
+          "wind_kt": 16.61,
+          "gust_kt": 22.22,
           "wind_dir_deg": 220.1,
           "twa_deg": 68.5,
           "point_of_sail": "reach",
           "limit_status": {
             "sustained": "ok",
-            "gust": "ok",
+            "gust": "approaching",
             "wave": "ok",
             "steepness": "ok",
             "visibility": "ok"
@@ -494,14 +494,14 @@
         },
         {
           "valid_time": "2026-07-20T10:00:00Z",
-          "wind_kt": 12.62,
-          "gust_kt": 18.22,
+          "wind_kt": 16.62,
+          "gust_kt": 22.22,
           "wind_dir_deg": 220.1,
           "twa_deg": 68.5,
           "point_of_sail": "reach",
           "limit_status": {
             "sustained": "ok",
-            "gust": "ok",
+            "gust": "approaching",
             "wave": "ok",
             "steepness": "ok",
             "visibility": "ok"
@@ -534,14 +534,14 @@
         },
         {
           "valid_time": "2026-07-20T11:00:00Z",
-          "wind_kt": 12.62,
-          "gust_kt": 18.23,
+          "wind_kt": 16.62,
+          "gust_kt": 22.23,
           "wind_dir_deg": 220.1,
           "twa_deg": 68.5,
           "point_of_sail": "reach",
           "limit_status": {
             "sustained": "ok",
-            "gust": "ok",
+            "gust": "approaching",
             "wave": "ok",
             "steepness": "ok",
             "visibility": "ok"
@@ -574,14 +574,14 @@
         },
         {
           "valid_time": "2026-07-20T12:00:00Z",
-          "wind_kt": 12.63,
-          "gust_kt": 18.25,
+          "wind_kt": 16.63,
+          "gust_kt": 22.25,
           "wind_dir_deg": 220.2,
           "twa_deg": 68.4,
           "point_of_sail": "reach",
           "limit_status": {
             "sustained": "ok",
-            "gust": "ok",
+            "gust": "approaching",
             "wave": "ok",
             "steepness": "ok",
             "visibility": "ok"
@@ -614,14 +614,14 @@
         },
         {
           "valid_time": "2026-07-20T13:00:00Z",
-          "wind_kt": 12.65,
-          "gust_kt": 18.27,
+          "wind_kt": 16.65,
+          "gust_kt": 22.27,
           "wind_dir_deg": 220.3,
           "twa_deg": 68.3,
           "point_of_sail": "reach",
           "limit_status": {
             "sustained": "ok",
-            "gust": "ok",
+            "gust": "approaching",
             "wave": "ok",
             "steepness": "ok",
             "visibility": "ok"
@@ -654,14 +654,14 @@
         },
         {
           "valid_time": "2026-07-20T14:00:00Z",
-          "wind_kt": 12.67,
-          "gust_kt": 18.29,
+          "wind_kt": 16.67,
+          "gust_kt": 22.29,
           "wind_dir_deg": 220.4,
           "twa_deg": 68.2,
           "point_of_sail": "reach",
           "limit_status": {
             "sustained": "ok",
-            "gust": "ok",
+            "gust": "approaching",
             "wave": "ok",
             "steepness": "ok",
             "visibility": "ok"
@@ -694,14 +694,14 @@
         },
         {
           "valid_time": "2026-07-20T15:00:00Z",
-          "wind_kt": 12.69,
-          "gust_kt": 18.33,
+          "wind_kt": 16.69,
+          "gust_kt": 22.33,
           "wind_dir_deg": 220.5,
           "twa_deg": 68.1,
           "point_of_sail": "reach",
           "limit_status": {
             "sustained": "ok",
-            "gust": "ok",
+            "gust": "approaching",
             "wave": "ok",
             "steepness": "ok",
             "visibility": "ok"
@@ -734,14 +734,14 @@
         },
         {
           "valid_time": "2026-07-20T16:00:00Z",
-          "wind_kt": 12.73,
-          "gust_kt": 18.38,
+          "wind_kt": 16.73,
+          "gust_kt": 22.38,
           "wind_dir_deg": 220.7,
           "twa_deg": 67.9,
           "point_of_sail": "reach",
           "limit_status": {
             "sustained": "ok",
-            "gust": "ok",
+            "gust": "approaching",
             "wave": "ok",
             "steepness": "ok",
             "visibility": "ok"
@@ -774,14 +774,14 @@
         },
         {
           "valid_time": "2026-07-20T17:00:00Z",
-          "wind_kt": 12.78,
-          "gust_kt": 18.44,
+          "wind_kt": 16.78,
+          "gust_kt": 22.44,
           "wind_dir_deg": 221,
           "twa_deg": 67.6,
           "point_of_sail": "reach",
           "limit_status": {
             "sustained": "ok",
-            "gust": "ok",
+            "gust": "approaching",
             "wave": "ok",
             "steepness": "ok",
             "visibility": "ok"
@@ -814,14 +814,14 @@
         },
         {
           "valid_time": "2026-07-20T18:00:00Z",
-          "wind_kt": 12.85,
-          "gust_kt": 18.54,
+          "wind_kt": 16.85,
+          "gust_kt": 22.54,
           "wind_dir_deg": 221.4,
           "twa_deg": 67.2,
           "point_of_sail": "reach",
           "limit_status": {
             "sustained": "ok",
-            "gust": "ok",
+            "gust": "approaching",
             "wave": "ok",
             "steepness": "ok",
             "visibility": "ok"
@@ -881,14 +881,14 @@
       "hours": [
         {
           "valid_time": "2026-07-20T13:00:00Z",
-          "wind_kt": 12.65,
-          "gust_kt": 18.27,
+          "wind_kt": 16.65,
+          "gust_kt": 22.27,
           "wind_dir_deg": 220.3,
           "twa_deg": 71.2,
           "point_of_sail": "reach",
           "limit_status": {
             "sustained": "ok",
-            "gust": "ok",
+            "gust": "approaching",
             "wave": "ok",
             "steepness": "ok",
             "visibility": "ok"
@@ -921,14 +921,14 @@
         },
         {
           "valid_time": "2026-07-20T14:00:00Z",
-          "wind_kt": 12.67,
-          "gust_kt": 18.29,
+          "wind_kt": 16.67,
+          "gust_kt": 22.29,
           "wind_dir_deg": 220.4,
           "twa_deg": 71.1,
           "point_of_sail": "reach",
           "limit_status": {
             "sustained": "ok",
-            "gust": "ok",
+            "gust": "approaching",
             "wave": "ok",
             "steepness": "ok",
             "visibility": "ok"
@@ -961,14 +961,14 @@
         },
         {
           "valid_time": "2026-07-20T15:00:00Z",
-          "wind_kt": 12.69,
-          "gust_kt": 18.33,
+          "wind_kt": 16.69,
+          "gust_kt": 22.33,
           "wind_dir_deg": 220.5,
           "twa_deg": 71,
           "point_of_sail": "reach",
           "limit_status": {
             "sustained": "ok",
-            "gust": "ok",
+            "gust": "approaching",
             "wave": "ok",
             "steepness": "ok",
             "visibility": "ok"
@@ -1001,14 +1001,14 @@
         },
         {
           "valid_time": "2026-07-20T16:00:00Z",
-          "wind_kt": 12.73,
-          "gust_kt": 18.38,
+          "wind_kt": 16.73,
+          "gust_kt": 22.38,
           "wind_dir_deg": 220.7,
           "twa_deg": 70.8,
           "point_of_sail": "reach",
           "limit_status": {
             "sustained": "ok",
-            "gust": "ok",
+            "gust": "approaching",
             "wave": "ok",
             "steepness": "ok",
             "visibility": "ok"
@@ -1041,14 +1041,14 @@
         },
         {
           "valid_time": "2026-07-20T17:00:00Z",
-          "wind_kt": 12.78,
-          "gust_kt": 18.44,
+          "wind_kt": 16.78,
+          "gust_kt": 22.44,
           "wind_dir_deg": 221,
           "twa_deg": 70.5,
           "point_of_sail": "reach",
           "limit_status": {
             "sustained": "ok",
-            "gust": "ok",
+            "gust": "approaching",
             "wave": "ok",
             "steepness": "ok",
             "visibility": "ok"
@@ -1081,14 +1081,14 @@
         },
         {
           "valid_time": "2026-07-20T18:00:00Z",
-          "wind_kt": 12.85,
-          "gust_kt": 18.54,
+          "wind_kt": 16.85,
+          "gust_kt": 22.54,
           "wind_dir_deg": 221.4,
           "twa_deg": 70.1,
           "point_of_sail": "reach",
           "limit_status": {
             "sustained": "ok",
-            "gust": "ok",
+            "gust": "approaching",
             "wave": "ok",
             "steepness": "ok",
             "visibility": "ok"
@@ -1121,14 +1121,14 @@
         },
         {
           "valid_time": "2026-07-20T19:00:00Z",
-          "wind_kt": 12.95,
-          "gust_kt": 18.67,
+          "wind_kt": 16.95,
+          "gust_kt": 22.67,
           "wind_dir_deg": 222,
           "twa_deg": 69.5,
           "point_of_sail": "reach",
           "limit_status": {
             "sustained": "ok",
-            "gust": "ok",
+            "gust": "approaching",
             "wave": "ok",
             "steepness": "ok",
             "visibility": "ok"
@@ -1161,14 +1161,14 @@
         },
         {
           "valid_time": "2026-07-20T20:00:00Z",
-          "wind_kt": 13.08,
-          "gust_kt": 18.85,
+          "wind_kt": 17.08,
+          "gust_kt": 22.85,
           "wind_dir_deg": 222.8,
           "twa_deg": 68.7,
           "point_of_sail": "reach",
           "limit_status": {
             "sustained": "ok",
-            "gust": "ok",
+            "gust": "approaching",
             "wave": "ok",
             "steepness": "ok",
             "visibility": "ok"
@@ -1201,14 +1201,14 @@
         },
         {
           "valid_time": "2026-07-20T21:00:00Z",
-          "wind_kt": 13.26,
-          "gust_kt": 19.1,
+          "wind_kt": 17.26,
+          "gust_kt": 23.1,
           "wind_dir_deg": 223.8,
           "twa_deg": 67.7,
           "point_of_sail": "reach",
           "limit_status": {
             "sustained": "ok",
-            "gust": "ok",
+            "gust": "approaching",
             "wave": "ok",
             "steepness": "ok",
             "visibility": "ok"
@@ -1241,14 +1241,14 @@
         },
         {
           "valid_time": "2026-07-20T22:00:00Z",
-          "wind_kt": 13.51,
-          "gust_kt": 19.43,
+          "wind_kt": 17.51,
+          "gust_kt": 23.43,
           "wind_dir_deg": 225.2,
           "twa_deg": 66.3,
           "point_of_sail": "reach",
           "limit_status": {
             "sustained": "ok",
-            "gust": "ok",
+            "gust": "approaching",
             "wave": "ok",
             "steepness": "ok",
             "visibility": "ok"
@@ -1281,14 +1281,14 @@
         },
         {
           "valid_time": "2026-07-20T23:00:00Z",
-          "wind_kt": 13.84,
-          "gust_kt": 19.87,
+          "wind_kt": 17.84,
+          "gust_kt": 23.87,
           "wind_dir_deg": 227.1,
           "twa_deg": 64.4,
           "point_of_sail": "reach",
           "limit_status": {
             "sustained": "ok",
-            "gust": "ok",
+            "gust": "approaching",
             "wave": "ok",
             "steepness": "ok",
             "visibility": "ok"
@@ -1348,14 +1348,14 @@
       "hours": [
         {
           "valid_time": "2026-07-20T17:00:00Z",
-          "wind_kt": 12.78,
-          "gust_kt": 18.44,
+          "wind_kt": 16.78,
+          "gust_kt": 22.44,
           "wind_dir_deg": 221,
           "twa_deg": 70.6,
           "point_of_sail": "reach",
           "limit_status": {
             "sustained": "ok",
-            "gust": "ok",
+            "gust": "approaching",
             "wave": "ok",
             "steepness": "ok",
             "visibility": "ok"
@@ -1388,14 +1388,14 @@
         },
         {
           "valid_time": "2026-07-20T18:00:00Z",
-          "wind_kt": 12.85,
-          "gust_kt": 18.54,
+          "wind_kt": 16.85,
+          "gust_kt": 22.54,
           "wind_dir_deg": 221.4,
           "twa_deg": 70.2,
           "point_of_sail": "reach",
           "limit_status": {
             "sustained": "ok",
-            "gust": "ok",
+            "gust": "approaching",
             "wave": "ok",
             "steepness": "ok",
             "visibility": "ok"
@@ -1428,14 +1428,14 @@
         },
         {
           "valid_time": "2026-07-20T19:00:00Z",
-          "wind_kt": 12.95,
-          "gust_kt": 18.67,
+          "wind_kt": 16.95,
+          "gust_kt": 22.67,
           "wind_dir_deg": 222,
           "twa_deg": 69.6,
           "point_of_sail": "reach",
           "limit_status": {
             "sustained": "ok",
-            "gust": "ok",
+            "gust": "approaching",
             "wave": "ok",
             "steepness": "ok",
             "visibility": "ok"
@@ -1468,14 +1468,14 @@
         },
         {
           "valid_time": "2026-07-20T20:00:00Z",
-          "wind_kt": 13.08,
-          "gust_kt": 18.85,
+          "wind_kt": 17.08,
+          "gust_kt": 22.85,
           "wind_dir_deg": 222.8,
           "twa_deg": 68.8,
           "point_of_sail": "reach",
           "limit_status": {
             "sustained": "ok",
-            "gust": "ok",
+            "gust": "approaching",
             "wave": "ok",
             "steepness": "ok",
             "visibility": "ok"
@@ -1508,14 +1508,14 @@
         },
         {
           "valid_time": "2026-07-20T21:00:00Z",
-          "wind_kt": 13.26,
-          "gust_kt": 19.1,
+          "wind_kt": 17.26,
+          "gust_kt": 23.1,
           "wind_dir_deg": 223.8,
           "twa_deg": 67.8,
           "point_of_sail": "reach",
           "limit_status": {
             "sustained": "ok",
-            "gust": "ok",
+            "gust": "approaching",
             "wave": "ok",
             "steepness": "ok",
             "visibility": "ok"
@@ -1548,14 +1548,14 @@
         },
         {
           "valid_time": "2026-07-20T22:00:00Z",
-          "wind_kt": 13.51,
-          "gust_kt": 19.43,
+          "wind_kt": 17.51,
+          "gust_kt": 23.43,
           "wind_dir_deg": 225.2,
           "twa_deg": 66.4,
           "point_of_sail": "reach",
           "limit_status": {
             "sustained": "ok",
-            "gust": "ok",
+            "gust": "approaching",
             "wave": "ok",
             "steepness": "ok",
             "visibility": "ok"
@@ -1588,14 +1588,14 @@
         },
         {
           "valid_time": "2026-07-20T23:00:00Z",
-          "wind_kt": 13.84,
-          "gust_kt": 19.87,
+          "wind_kt": 17.84,
+          "gust_kt": 23.87,
           "wind_dir_deg": 227.1,
           "twa_deg": 64.5,
           "point_of_sail": "reach",
           "limit_status": {
             "sustained": "ok",
-            "gust": "ok",
+            "gust": "approaching",
             "wave": "ok",
             "steepness": "ok",
             "visibility": "ok"
@@ -1628,14 +1628,14 @@
         },
         {
           "valid_time": "2026-07-21T00:00:00Z",
-          "wind_kt": 14.27,
-          "gust_kt": 20.45,
+          "wind_kt": 18.27,
+          "gust_kt": 24.45,
           "wind_dir_deg": 229.5,
           "twa_deg": 62.1,
           "point_of_sail": "reach",
           "limit_status": {
             "sustained": "ok",
-            "gust": "ok",
+            "gust": "approaching",
             "wave": "ok",
             "steepness": "ok",
             "visibility": "ok"
@@ -1668,13 +1668,13 @@
         },
         {
           "valid_time": "2026-07-21T01:00:00Z",
-          "wind_kt": 14.82,
-          "gust_kt": 21.2,
+          "wind_kt": 18.82,
+          "gust_kt": 25.2,
           "wind_dir_deg": 232.7,
           "twa_deg": 58.9,
           "point_of_sail": "upwind",
           "limit_status": {
-            "sustained": "approaching",
+            "sustained": "exceeded",
             "gust": "approaching",
             "wave": "ok",
             "steepness": "ok",
@@ -1697,24 +1697,24 @@
           "model_spread_kt": 1.2,
           "exceedance": {
             "sustained": {
-              "exceed": 0,
+              "exceed": 30,
               "total": 51
             },
             "gust": {
-              "exceed": 0,
+              "exceed": 3,
               "total": 51
             }
           }
         },
         {
           "valid_time": "2026-07-21T02:00:00Z",
-          "wind_kt": 15.52,
-          "gust_kt": 22.14,
+          "wind_kt": 19.52,
+          "gust_kt": 26.14,
           "wind_dir_deg": 236.7,
           "twa_deg": 54.9,
           "point_of_sail": "upwind",
           "limit_status": {
-            "sustained": "approaching",
+            "sustained": "exceeded",
             "gust": "approaching",
             "wave": "ok",
             "steepness": "ok",
@@ -1737,24 +1737,24 @@
           "model_spread_kt": 1.2,
           "exceedance": {
             "sustained": {
-              "exceed": 6,
+              "exceed": 35,
               "total": 51
             },
             "gust": {
-              "exceed": 0,
+              "exceed": 6,
               "total": 51
             }
           }
         },
         {
           "valid_time": "2026-07-21T03:00:00Z",
-          "wind_kt": 16.37,
-          "gust_kt": 23.28,
+          "wind_kt": 20.37,
+          "gust_kt": 27.28,
           "wind_dir_deg": 241.5,
           "twa_deg": 50.1,
           "point_of_sail": "upwind",
           "limit_status": {
-            "sustained": "approaching",
+            "sustained": "exceeded",
             "gust": "approaching",
             "wave": "ok",
             "steepness": "ok",
@@ -1777,25 +1777,25 @@
           "model_spread_kt": 1.2,
           "exceedance": {
             "sustained": {
-              "exceed": 8,
+              "exceed": 40,
               "total": 51
             },
             "gust": {
-              "exceed": 0,
+              "exceed": 14,
               "total": 51
             }
           }
         },
         {
           "valid_time": "2026-07-21T04:00:00Z",
-          "wind_kt": 17.35,
-          "gust_kt": 24.61,
+          "wind_kt": 21.35,
+          "gust_kt": 28.61,
           "wind_dir_deg": 247.1,
           "twa_deg": 44.5,
           "point_of_sail": "upwind",
           "limit_status": {
-            "sustained": "approaching",
-            "gust": "approaching",
+            "sustained": "exceeded",
+            "gust": "exceeded",
             "wave": "ok",
             "steepness": "ok",
             "visibility": "ok"
@@ -1817,25 +1817,25 @@
           "model_spread_kt": 1.2,
           "exceedance": {
             "sustained": {
-              "exceed": 15,
+              "exceed": 45,
               "total": 51
             },
             "gust": {
-              "exceed": 0,
+              "exceed": 28,
               "total": 51
             }
           }
         },
         {
           "valid_time": "2026-07-21T05:00:00Z",
-          "wind_kt": 18.44,
-          "gust_kt": 26.09,
+          "wind_kt": 22.44,
+          "gust_kt": 30.09,
           "wind_dir_deg": 253.4,
           "twa_deg": 38.2,
           "point_of_sail": "upwind",
           "limit_status": {
             "sustained": "exceeded",
-            "gust": "approaching",
+            "gust": "exceeded",
             "wave": "ok",
             "steepness": "ok",
             "visibility": "ok"
@@ -1857,11 +1857,11 @@
           "model_spread_kt": 1.2,
           "exceedance": {
             "sustained": {
-              "exceed": 25,
+              "exceed": 51,
               "total": 51
             },
             "gust": {
-              "exceed": 8,
+              "exceed": 40,
               "total": 51
             }
           }
@@ -1895,14 +1895,14 @@
       "hours": [
         {
           "valid_time": "2026-07-20T21:00:00Z",
-          "wind_kt": 13.26,
-          "gust_kt": 19.1,
+          "wind_kt": 17.26,
+          "gust_kt": 23.1,
           "wind_dir_deg": 223.8,
           "twa_deg": 92.4,
           "point_of_sail": "reach",
           "limit_status": {
             "sustained": "ok",
-            "gust": "ok",
+            "gust": "approaching",
             "wave": "ok",
             "steepness": "ok",
             "visibility": "ok"
@@ -1935,14 +1935,14 @@
         },
         {
           "valid_time": "2026-07-20T22:00:00Z",
-          "wind_kt": 13.51,
-          "gust_kt": 19.43,
+          "wind_kt": 17.51,
+          "gust_kt": 23.43,
           "wind_dir_deg": 225.2,
           "twa_deg": 91,
           "point_of_sail": "reach",
           "limit_status": {
             "sustained": "ok",
-            "gust": "ok",
+            "gust": "approaching",
             "wave": "ok",
             "steepness": "ok",
             "visibility": "ok"
@@ -1975,14 +1975,14 @@
         },
         {
           "valid_time": "2026-07-20T23:00:00Z",
-          "wind_kt": 13.84,
-          "gust_kt": 19.87,
+          "wind_kt": 17.84,
+          "gust_kt": 23.87,
           "wind_dir_deg": 227.1,
           "twa_deg": 89.1,
           "point_of_sail": "reach",
           "limit_status": {
             "sustained": "ok",
-            "gust": "ok",
+            "gust": "approaching",
             "wave": "ok",
             "steepness": "ok",
             "visibility": "ok"
@@ -2015,14 +2015,14 @@
         },
         {
           "valid_time": "2026-07-21T00:00:00Z",
-          "wind_kt": 14.27,
-          "gust_kt": 20.45,
+          "wind_kt": 18.27,
+          "gust_kt": 24.45,
           "wind_dir_deg": 229.5,
           "twa_deg": 86.7,
           "point_of_sail": "reach",
           "limit_status": {
             "sustained": "ok",
-            "gust": "ok",
+            "gust": "approaching",
             "wave": "ok",
             "steepness": "ok",
             "visibility": "ok"
@@ -2055,13 +2055,13 @@
         },
         {
           "valid_time": "2026-07-21T01:00:00Z",
-          "wind_kt": 14.82,
-          "gust_kt": 21.2,
+          "wind_kt": 18.82,
+          "gust_kt": 25.2,
           "wind_dir_deg": 232.7,
           "twa_deg": 83.5,
           "point_of_sail": "reach",
           "limit_status": {
-            "sustained": "ok",
+            "sustained": "approaching",
             "gust": "approaching",
             "wave": "ok",
             "steepness": "ok",
@@ -2088,20 +2088,20 @@
               "total": 51
             },
             "gust": {
-              "exceed": 0,
+              "exceed": 3,
               "total": 51
             }
           }
         },
         {
           "valid_time": "2026-07-21T02:00:00Z",
-          "wind_kt": 15.52,
-          "gust_kt": 22.14,
+          "wind_kt": 19.52,
+          "gust_kt": 26.14,
           "wind_dir_deg": 236.7,
           "twa_deg": 79.5,
           "point_of_sail": "reach",
           "limit_status": {
-            "sustained": "ok",
+            "sustained": "approaching",
             "gust": "approaching",
             "wave": "ok",
             "steepness": "ok",
@@ -2128,20 +2128,20 @@
               "total": 51
             },
             "gust": {
-              "exceed": 0,
+              "exceed": 6,
               "total": 51
             }
           }
         },
         {
           "valid_time": "2026-07-21T03:00:00Z",
-          "wind_kt": 16.37,
-          "gust_kt": 23.28,
+          "wind_kt": 20.37,
+          "gust_kt": 27.28,
           "wind_dir_deg": 241.5,
           "twa_deg": 74.7,
           "point_of_sail": "reach",
           "limit_status": {
-            "sustained": "ok",
+            "sustained": "approaching",
             "gust": "approaching",
             "wave": "ok",
             "steepness": "ok",
@@ -2168,21 +2168,21 @@
               "total": 51
             },
             "gust": {
-              "exceed": 0,
+              "exceed": 14,
               "total": 51
             }
           }
         },
         {
           "valid_time": "2026-07-21T04:00:00Z",
-          "wind_kt": 17.35,
-          "gust_kt": 24.61,
+          "wind_kt": 21.35,
+          "gust_kt": 28.61,
           "wind_dir_deg": 247.1,
           "twa_deg": 69.1,
           "point_of_sail": "reach",
           "limit_status": {
-            "sustained": "ok",
-            "gust": "approaching",
+            "sustained": "approaching",
+            "gust": "exceeded",
             "wave": "ok",
             "steepness": "ok",
             "visibility": "ok"
@@ -2208,21 +2208,21 @@
               "total": 51
             },
             "gust": {
-              "exceed": 0,
+              "exceed": 28,
               "total": 51
             }
           }
         },
         {
           "valid_time": "2026-07-21T05:00:00Z",
-          "wind_kt": 18.44,
-          "gust_kt": 26.09,
+          "wind_kt": 22.44,
+          "gust_kt": 30.09,
           "wind_dir_deg": 253.4,
           "twa_deg": 62.8,
           "point_of_sail": "reach",
           "limit_status": {
-            "sustained": "ok",
-            "gust": "approaching",
+            "sustained": "approaching",
+            "gust": "exceeded",
             "wave": "ok",
             "steepness": "ok",
             "visibility": "ok"
@@ -2244,25 +2244,25 @@
           "model_spread_kt": 1.2,
           "exceedance": {
             "sustained": {
-              "exceed": 0,
+              "exceed": 3,
               "total": 51
             },
             "gust": {
-              "exceed": 8,
+              "exceed": 40,
               "total": 51
             }
           }
         },
         {
           "valid_time": "2026-07-21T06:00:00Z",
-          "wind_kt": 19.6,
-          "gust_kt": 27.65,
+          "wind_kt": 23.6,
+          "gust_kt": 31.65,
           "wind_dir_deg": 260,
           "twa_deg": 56.2,
           "point_of_sail": "upwind",
           "limit_status": {
             "sustained": "exceeded",
-            "gust": "approaching",
+            "gust": "exceeded",
             "wave": "approaching",
             "steepness": "ok",
             "visibility": "ok"
@@ -2284,11 +2284,11 @@
           "model_spread_kt": 1.2,
           "exceedance": {
             "sustained": {
-              "exceed": 33,
+              "exceed": 51,
               "total": 51
             },
             "gust": {
-              "exceed": 20,
+              "exceed": 47,
               "total": 51
             }
           }
@@ -2305,29 +2305,29 @@
       "kind": "limit_exceeded",
       "leg_id": "L5",
       "window": {
-        "from": "2026-07-21T05:00:00Z",
+        "from": "2026-07-21T01:00:00Z",
         "to": "2026-07-21T05:00:00Z"
       },
       "refs": [
-        "E1",
-        "E2",
-        "E3",
-        "E4"
+        "E5",
+        "E6",
+        "E7",
+        "E8"
       ]
     },
     {
       "kind": "limit_exceeded",
       "leg_id": "L6",
       "window": {
-        "from": "2026-07-21T06:00:00Z",
+        "from": "2026-07-21T04:00:00Z",
         "to": "2026-07-21T06:00:00Z"
       },
       "refs": [
-        "E5",
-        "E6",
-        "E7",
-        "E8",
-        "E9"
+        "E9",
+        "E10",
+        "E11",
+        "E12",
+        "E13"
       ]
     },
     {
@@ -2337,7 +2337,7 @@
         "to": "2026-07-21T12:00:00Z"
       },
       "refs": [
-        "E10"
+        "E14"
       ]
     }
   ],
@@ -2352,13 +2352,13 @@
   "evidence": [
     {
       "evidence_id": "E1",
-      "rule_id": "W-SUST-01",
+      "rule_id": "W-GUST-01",
       "model": "ecmwf_ifs025",
       "run": "20260719T06Z (inferred)",
-      "leg_id": "L5",
-      "valid_time": "2026-07-21T05:00:00Z",
-      "value": 18.44,
-      "limit": 18,
+      "leg_id": "L1",
+      "valid_time": "2026-07-20T06:00:00Z",
+      "value": 22.21,
+      "limit": 28,
       "units": "kt",
       "source_kind": "deterministic"
     },
@@ -2367,53 +2367,45 @@
       "rule_id": "W-GUST-01",
       "model": "ecmwf_ifs025",
       "run": "20260719T06Z (inferred)",
-      "leg_id": "L5",
-      "valid_time": "2026-07-21T05:00:00Z",
-      "value": 26.09,
+      "leg_id": "L2",
+      "valid_time": "2026-07-20T09:00:00Z",
+      "value": 22.22,
       "limit": 28,
       "units": "kt",
       "source_kind": "deterministic"
     },
     {
       "evidence_id": "E3",
-      "rule_id": "W-GUST-03",
-      "model": "ecmwf_ifs025 ensemble",
+      "rule_id": "W-GUST-01",
+      "model": "ecmwf_ifs025",
       "run": "20260719T06Z (inferred)",
-      "leg_id": "L5",
-      "valid_time": "2026-07-21T05:00:00Z",
-      "value": 8,
+      "leg_id": "L3",
+      "valid_time": "2026-07-20T18:00:00Z",
+      "value": 22.54,
       "limit": 28,
       "units": "kt",
-      "source_kind": "ensemble",
-      "member_fraction": {
-        "exceed": 8,
-        "total": 51
-      }
+      "source_kind": "deterministic"
     },
     {
       "evidence_id": "E4",
-      "rule_id": "W-SUST-03",
-      "model": "ecmwf_ifs025 ensemble",
+      "rule_id": "W-GUST-01",
+      "model": "ecmwf_ifs025",
       "run": "20260719T06Z (inferred)",
-      "leg_id": "L5",
-      "valid_time": "2026-07-21T05:00:00Z",
-      "value": 25,
-      "limit": 18,
+      "leg_id": "L4",
+      "valid_time": "2026-07-20T23:00:00Z",
+      "value": 23.87,
+      "limit": 28,
       "units": "kt",
-      "source_kind": "ensemble",
-      "member_fraction": {
-        "exceed": 25,
-        "total": 51
-      }
+      "source_kind": "deterministic"
     },
     {
       "evidence_id": "E5",
       "rule_id": "W-SUST-01",
       "model": "ecmwf_ifs025",
       "run": "20260719T06Z (inferred)",
-      "leg_id": "L6",
-      "valid_time": "2026-07-21T06:00:00Z",
-      "value": 19.6,
+      "leg_id": "L5",
+      "valid_time": "2026-07-21T05:00:00Z",
+      "value": 22.44,
       "limit": 18,
       "units": "kt",
       "source_kind": "deterministic"
@@ -2423,9 +2415,9 @@
       "rule_id": "W-GUST-01",
       "model": "ecmwf_ifs025",
       "run": "20260719T06Z (inferred)",
-      "leg_id": "L6",
-      "valid_time": "2026-07-21T06:00:00Z",
-      "value": 27.65,
+      "leg_id": "L5",
+      "valid_time": "2026-07-21T05:00:00Z",
+      "value": 30.09,
       "limit": 28,
       "units": "kt",
       "source_kind": "deterministic"
@@ -2435,14 +2427,14 @@
       "rule_id": "W-GUST-03",
       "model": "ecmwf_ifs025 ensemble",
       "run": "20260719T06Z (inferred)",
-      "leg_id": "L6",
-      "valid_time": "2026-07-21T06:00:00Z",
-      "value": 20,
+      "leg_id": "L5",
+      "valid_time": "2026-07-21T05:00:00Z",
+      "value": 40,
       "limit": 28,
       "units": "kt",
       "source_kind": "ensemble",
       "member_fraction": {
-        "exceed": 20,
+        "exceed": 40,
         "total": 51
       }
     },
@@ -2451,19 +2443,75 @@
       "rule_id": "W-SUST-03",
       "model": "ecmwf_ifs025 ensemble",
       "run": "20260719T06Z (inferred)",
-      "leg_id": "L6",
-      "valid_time": "2026-07-21T06:00:00Z",
-      "value": 33,
+      "leg_id": "L5",
+      "valid_time": "2026-07-21T05:00:00Z",
+      "value": 51,
       "limit": 18,
       "units": "kt",
       "source_kind": "ensemble",
       "member_fraction": {
-        "exceed": 33,
+        "exceed": 51,
         "total": 51
       }
     },
     {
       "evidence_id": "E9",
+      "rule_id": "W-SUST-01",
+      "model": "ecmwf_ifs025",
+      "run": "20260719T06Z (inferred)",
+      "leg_id": "L6",
+      "valid_time": "2026-07-21T06:00:00Z",
+      "value": 23.6,
+      "limit": 18,
+      "units": "kt",
+      "source_kind": "deterministic"
+    },
+    {
+      "evidence_id": "E10",
+      "rule_id": "W-GUST-01",
+      "model": "ecmwf_ifs025",
+      "run": "20260719T06Z (inferred)",
+      "leg_id": "L6",
+      "valid_time": "2026-07-21T06:00:00Z",
+      "value": 31.65,
+      "limit": 28,
+      "units": "kt",
+      "source_kind": "deterministic"
+    },
+    {
+      "evidence_id": "E11",
+      "rule_id": "W-GUST-03",
+      "model": "ecmwf_ifs025 ensemble",
+      "run": "20260719T06Z (inferred)",
+      "leg_id": "L6",
+      "valid_time": "2026-07-21T06:00:00Z",
+      "value": 47,
+      "limit": 28,
+      "units": "kt",
+      "source_kind": "ensemble",
+      "member_fraction": {
+        "exceed": 47,
+        "total": 51
+      }
+    },
+    {
+      "evidence_id": "E12",
+      "rule_id": "W-SUST-03",
+      "model": "ecmwf_ifs025 ensemble",
+      "run": "20260719T06Z (inferred)",
+      "leg_id": "L6",
+      "valid_time": "2026-07-21T06:00:00Z",
+      "value": 51,
+      "limit": 18,
+      "units": "kt",
+      "source_kind": "ensemble",
+      "member_fraction": {
+        "exceed": 51,
+        "total": 51
+      }
+    },
+    {
+      "evidence_id": "E13",
       "rule_id": "S-WAVE-01",
       "model": "marine best_match",
       "run": null,
@@ -2475,7 +2523,7 @@
       "source_kind": "deterministic"
     },
     {
-      "evidence_id": "E10",
+      "evidence_id": "E14",
       "rule_id": "A-WARN-01",
       "model": "Météo-France BMS (synthetic)",
       "run": null,
@@ -2501,20 +2549,24 @@
       "capability": "sustained_wind",
       "status": "assessed",
       "evidence_ids": [
-        "E1",
-        "E4",
         "E5",
-        "E8"
+        "E8",
+        "E9",
+        "E12"
       ]
     },
     {
       "capability": "gusts",
       "status": "assessed",
       "evidence_ids": [
+        "E1",
         "E2",
         "E3",
+        "E4",
         "E6",
-        "E7"
+        "E7",
+        "E10",
+        "E11"
       ]
     },
     {
@@ -2522,7 +2574,7 @@
       "status": "partially_assessed",
       "detail": "deterministic wave model only; no wave ensemble",
       "evidence_ids": [
-        "E9"
+        "E13"
       ]
     },
     {
@@ -2548,7 +2600,7 @@
       "status": "assessed_emulated",
       "detail": "synthetic bulletin scenario; not authority",
       "evidence_ids": [
-        "E10"
+        "E14"
       ]
     },
     {
@@ -2567,7 +2619,81 @@
       "detail": "ice"
     }
   ],
-  "causal_events": [],
+  "causal_events": [
+    {
+      "event_id": "CE1",
+      "name": "Low L1",
+      "kind": "low",
+      "system_id": "L1",
+      "route_intersection": {
+        "leg_id": "L2",
+        "window_start": "2026-07-20T09:00:00Z",
+        "window_end": "2026-07-20T10:48:56Z",
+        "eta_sensitivity": 1.2
+      },
+      "consequence": {
+        "register_plain": "22.22 kt against your 28 kt limit while the low intersects Off Omonville-la-Rogue → NW of Cap de la Hague.",
+        "register_pro": "L1 (1006 hPa) is within the conservative route-attribution radius during 2026-07-20T09:00:00.000Z–2026-07-20T10:48:56.000Z; only same-leg evidence inside that window is attributed.",
+        "evidence_ids": [
+          "E2"
+        ]
+      },
+      "event_key": "low:50:-5:deepening"
+    },
+    {
+      "event_id": "CE2",
+      "name": "Low L1",
+      "kind": "low",
+      "system_id": "L1",
+      "route_intersection": {
+        "leg_id": "L3",
+        "window_start": "2026-07-20T09:00:00Z",
+        "window_end": "2026-07-20T18:03:36Z",
+        "eta_sensitivity": 3.4
+      },
+      "consequence": {
+        "register_plain": "22.54 kt against your 28 kt limit while the low intersects NW of Cap de la Hague → Casquets TSS crossing.",
+        "register_pro": "L1 (1000 hPa) is within the conservative route-attribution radius during 2026-07-20T09:00:00.000Z–2026-07-20T18:03:36.000Z; only same-leg evidence inside that window is attributed.",
+        "evidence_ids": [
+          "E3"
+        ]
+      },
+      "event_key": "low:50:-5:deepening"
+    },
+    {
+      "event_id": "CE3",
+      "name": "Low L1",
+      "kind": "low",
+      "system_id": "L1",
+      "route_intersection": {
+        "leg_id": "L4",
+        "window_start": "2026-07-20T13:39:24Z",
+        "window_end": "2026-07-20T23:34:40Z",
+        "eta_sensitivity": 5.1
+      },
+      "consequence": {
+        "register_plain": "23.87 kt against your 28 kt limit while the low intersects Casquets TSS crossing → Mid-Channel.",
+        "register_pro": "L1 (996 hPa) is within the conservative route-attribution radius during 2026-07-20T13:39:24.000Z–2026-07-20T23:34:40.000Z; only same-leg evidence inside that window is attributed.",
+        "evidence_ids": [
+          "E4"
+        ]
+      },
+      "event_key": "low:50:-5:deepening"
+    },
+    {
+      "event_id": "CE4",
+      "event_key": "warning:casquets:2026-07-20T12:00:00Z",
+      "name": "casquets marine warning",
+      "kind": "front",
+      "consequence": {
+        "register_plain": "BMS-large — Casquets covers a crossed marine zone.",
+        "register_pro": "Bulletin source Météo-France BMS (synthetic); valid 2026-07-20T12:00:00Z–2026-07-21T12:00:00Z.",
+        "evidence_ids": [
+          "E14"
+        ]
+      }
+    }
+  ],
   "unsupported_hazards": [
     "tidal currents (no prepared current grid)",
     "tidal gates & HW/LW heights (no tide data)",
