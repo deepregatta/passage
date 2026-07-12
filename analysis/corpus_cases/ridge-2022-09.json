@@ -1,0 +1,11 @@
+{
+  "case_id": "ridge-2022-09",
+  "title": "Early-September ridge — negative case (no deep low)",
+  "window": { "start": "2022-09-05T00:00:00Z", "end": "2022-09-05T21:00:00Z" },
+  "bounds": { "min_lat": 43.0, "max_lat": 58.0, "min_lon": -15.0, "max_lon": 5.0 },
+  "expectations": {
+    "kind": "negative",
+    "no_deep_low_below_hpa": 1005
+  },
+  "notes": "5 Sep 2022: ridge/settled conditions over the UK and the Channel after the dry summer of 2022; ex-hurricane Danielle was still far out in the mid-Atlantic, west of the narrowed box (43-58N, 15W-5E). Negative expectation is 'no low below 1005 hPa' — highs count as systems and SHOULD be detected. Confidence: moderate."
+}

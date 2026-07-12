@@ -1,0 +1,11 @@
+{
+  "case_id": "alderney-springs-2024-03",
+  "title": "Alderney Race wind-against-tide episode at springs",
+  "window": { "start": "2024-03-10T00:00:00Z", "end": "2024-03-10T21:00:00Z" },
+  "bounds": { "min_lat": 35.0, "max_lat": 65.0, "min_lon": -35.0, "max_lon": 10.0 },
+  "expectations": {
+    "kind": "storm",
+    "expect_systems": true
+  },
+  "notes": "Spring tides around the 10 Mar 2024 new moon combined with fresh SW flow — the classic Alderney Race wind-against-tide setup. The tidal half of the episode is outside the synoptic detector's remit, so the only scored expectation is that the driving pressure systems are detected at all (expect_systems). Confidence: high on the astronomical springs (new moon 10 Mar 2024), moderate on the wind episode."
+}

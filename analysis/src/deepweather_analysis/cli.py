@@ -77,6 +77,50 @@ def cmd_tides(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_corpus(args: argparse.Namespace) -> int:
+    from .verification.corpus import run_corpus
+
+    case_ids = args.cases.split(",") if args.cases else None
+    summary = run_corpus(case_ids=case_ids, fetch=not args.no_fetch)
+    print(f"corpus review: {summary.get('review_sheet')}")
+    print(f"  pass={summary.get('pass')} fail={summary.get('fail')} pending={summary.get('pending')}")
+    return 0
+
+
+def cmd_verify(args: argparse.Namespace) -> int:
+    import json
+    from pathlib import Path
+
+    from .observations import generate_observations
+    from .paths import processed_dir
+    from .verification.calibration import accumulate_calibration
+    from .verification.match import match_snapshot
+
+    snapshots = sorted(
+        Path(processed_dir("snapshots")).glob("*/findings.json"), key=lambda p: p.stat().st_mtime
+    )
+    if not snapshots:
+        print("no snapshots to verify")
+        return 1
+    target = snapshots[-1]
+    if args.snapshot:
+        candidates = [p for p in snapshots if args.snapshot in str(p)]
+        if not candidates:
+            print(f"snapshot matching '{args.snapshot}' not found")
+            return 1
+        target = candidates[-1]
+    findings = json.loads(target.read_text())
+    first_hour = findings["legs"][0]["hours"][0]["valid_time"]
+    last_hour = findings["legs"][-1]["hours"][-1]["valid_time"]
+    observations = generate_observations(first_hour, last_hour)
+    verification = match_snapshot(findings, observations)
+    calibration_path = accumulate_calibration([verification])
+    print(f"verified {findings['snapshot_id']}")
+    print(f"  pairs: {len(verification['pairs'])} | coverage: {verification['coverage_summary']}")
+    print(f"  calibration: {calibration_path}")
+    return 0
+
+
 def cmd_scenario(args: argparse.Namespace) -> int:
     from .scenarios import SCENARIOS, generate_all, generate_scenario
 
@@ -138,6 +182,19 @@ def main(argv: list[str] | None = None) -> int:
     tides_parser.add_argument("--start", default=None, help="window start ISO UTC (default now)")
     tides_parser.add_argument("--hours", type=int, default=96)
     tides_parser.set_defaults(func=cmd_tides)
+
+    corpus_parser = subparsers.add_parser(
+        "corpus", help="retrospective corpus: replay synoptic detection on ERA5 (review sheet)"
+    )
+    corpus_parser.add_argument("--cases", default=None, help="comma-separated case ids")
+    corpus_parser.add_argument("--no-fetch", action="store_true", help="cached ERA5 only")
+    corpus_parser.set_defaults(func=cmd_corpus)
+
+    verify_parser = subparsers.add_parser(
+        "verify", help="match a snapshot against observations -> coverage classes + calibration"
+    )
+    verify_parser.add_argument("--snapshot", default=None, help="snapshot id substring (default latest)")
+    verify_parser.set_defaults(func=cmd_verify)
 
     scenario_parser = subparsers.add_parser(
         "scenario", help="generate synthetic scenario bundles (verdict-state harness)"

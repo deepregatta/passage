@@ -1,0 +1,12 @@
+{
+  "case_id": "channel-front-2023-03",
+  "title": "Channel frontal passage, mid-March 2023",
+  "window": { "start": "2023-03-13T00:00:00Z", "end": "2023-03-13T21:00:00Z" },
+  "bounds": { "min_lat": 35.0, "max_lat": 65.0, "min_lon": -35.0, "max_lon": 10.0 },
+  "expectations": {
+    "kind": "storm",
+    "expect_systems": true,
+    "min_center_hpa_below": 995
+  },
+  "notes": "Mid-March 2023 was persistently unsettled over NW Europe (Storm Larisa hit on 10 Mar; further Atlantic fronts followed); 13 Mar saw a frontal system cross the Channel within a broad cyclonic regime. No position expectation — this is a 'detector finds the synoptic driver of a corroborated frontal day' case. Confidence: moderate (recollection of the unsettled spell, not of a specific named centre)."
+}

@@ -1,0 +1,13 @@
+{
+  "case_id": "storm-eunice-2022-02",
+  "title": "Storm Eunice — sting-jet low crossing southern Britain",
+  "window": { "start": "2022-02-17T12:00:00Z", "end": "2022-02-19T00:00:00Z" },
+  "bounds": { "min_lat": 35.0, "max_lat": 65.0, "min_lon": -35.0, "max_lon": 10.0 },
+  "expectations": {
+    "kind": "storm",
+    "expect_systems": true,
+    "min_center_hpa_below": 975,
+    "expect_low_near": { "lat": 53.0, "lon": -1.0, "tol_deg": 5.0 }
+  },
+  "notes": "Eunice, 18 Feb 2022: ~966 hPa low tracking from south of Ireland across central/northern England to the North Sea; 122 mph gust at The Needles (England record). Position expectation is the midday-18th crossing area with a generous 5 deg tolerance. Confidence: high on date/depth, moderate on the instantaneous position (hence the wide tolerance)."
+}
