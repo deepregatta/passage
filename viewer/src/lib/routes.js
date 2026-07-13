@@ -1,8 +1,11 @@
 /** stage/subview deep links — shared by the store (initial page) and App (sync) */
 export const HASH_PAGE = {
   'plan/planner': 'planner',
+  // Keep existing shared/bookmarked links working; new navigation writes the
+  // canonical Brief-menu location below.
   'plan/briefings': 'snapshots',
   'plan/limits': 'settings',
+  'brief/briefings': 'snapshots',
   'brief/story': 'briefing',
   'brief/evidence': 'evidence',
   'watch/changes': 'changes',
