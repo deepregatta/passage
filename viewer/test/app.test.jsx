@@ -28,6 +28,16 @@ beforeEach(() => {
 });
 
 describe('viewer fixture harness', () => {
+  it('shows the shared DeepRegatta company links on every Passage view', () => {
+    render(<App />);
+
+    expect(screen.getByText(/A DeepRegatta instrument for offshore sailors/i)).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Privacy' }).getAttribute('href')).toBe('https://deepregatta.com/privacy');
+    expect(screen.getByRole('link', { name: 'Terms' }).getAttribute('href')).toBe('https://deepregatta.com/terms');
+    expect(screen.getByRole('link', { name: 'Legal notice' }).getAttribute('href')).toBe('https://deepregatta.com/legal');
+    expect(screen.getByRole('link', { name: 'contact@deepregatta.com' }).getAttribute('href')).toBe('mailto:contact@deepregatta.com');
+  });
+
   it('serves the generated reference snapshot through the same /data paths as Vite', async () => {
     const user = userEvent.setup();
     render(<App />);
