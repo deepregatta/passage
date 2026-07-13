@@ -50,6 +50,10 @@ export default function ModelFooter() {
           : 'models in agreement across this passage'}
       </span>
       <span className="text-ink-soft text-[12px] font-sans italic">agreement is not proof</span>
+      <span className="text-ink-soft text-[12px] font-sans basis-full">
+        Global models under-resolve coastal wind acceleration, harbours and tidal races; ocean-model
+        currents are not tidal stream predictions.
+      </span>
     </footer>
   );
 }

@@ -4,9 +4,9 @@
 export const GLOSSARY = {
   gust: 'A brief burst of wind above the sustained speed — typically 20–40% higher; squalls can double it.',
   ensemble:
-    'The same model run ~50 times with slightly different starting conditions. The spread between members shows how uncertain the forecast is.',
+    'The same model run ~30 times with slightly different starting conditions (31 members for GEFS). The spread between members shows how uncertain the forecast is.',
   'forecast scenarios':
-    'The ~50 runs of the ensemble. "43 of 51 scenarios exceed your limit" is a raw count, not a calibrated probability.',
+    'The ensemble members. "24 of 31 scenarios exceed your limit" is a raw count, not a calibrated probability — the member count always comes from the actual run.',
   'ETA window':
     'Your arrival time is a range, not an instant: computed for your slow, usual and fast boat speeds. Conditions are checked across the whole window.',
   'model run':
