@@ -152,5 +152,5 @@ function Banner({ frame, event }) {
 }
 
 function StatusChip({ frame, event }) {
-  return <div className="absolute right-3 bottom-3 bg-paper/90 px-2 py-1 font-mono text-[9px]">{event ? `system ${event.system_id}` : 'no attributed system'} · boat {frame.activeLegId}</div>;
+  return <div className="absolute right-3 bottom-3 bg-paper/90 px-2 py-1 font-mono text-[9px]">{event?.system_id ? `system ${event.system_id}` : 'no attributed system'} · boat {frame.activeLegId}</div>;
 }
