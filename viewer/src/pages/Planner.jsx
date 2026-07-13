@@ -61,6 +61,7 @@ export default function Planner() {
   const loadConfig = useApp((s) => s.loadConfig);
   const manifest = useApp((s) => s.manifest);
   const loadManifest = useApp((s) => s.loadManifest);
+  const language = useApp((s) => s.language);
 
   // working state survives stage switches — see plannerStore.js
   const mode = usePlanner((s) => s.mode);
@@ -94,6 +95,10 @@ export default function Planner() {
   useEffect(() => {
     if (!manifest) loadManifest();
   }, [manifest, loadManifest]);
+  useEffect(() => {
+    if (language === 'fr' && name === 'My passage') patch({ name: 'Ma traversée' });
+    if (language === 'en' && name === 'Ma traversée') patch({ name: 'My passage' });
+  }, [language, name, patch]);
   const demoSnapshot = manifest?.snapshots?.find((s) => s.demo);
 
   const route = useMemo(() => {
