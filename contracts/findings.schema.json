@@ -13,12 +13,12 @@
     "engine_version": { "type": "string" },
     "inputs": {
       "type": "object",
-      "description": "Everything that produced this analysis: prepared run id, API request digests, route/profile hashes, warnings ref.",
+      "description": "Everything that produced this analysis: prepared run id, forecast-tile run provenance (exact run ids/cycles), route/profile hashes, warnings ref.",
       "required": ["route_hash", "profile_hash"],
       "properties": {
         "prepared_run_id": { "type": ["string", "null"] },
         "synoptic_run_id": { "type": ["string", "null"] },
-        "openmeteo": { "type": "array", "items": { "type": "object" } },
+        "forecast_tiles": { "type": "array", "items": { "type": "object" } },
         "warnings_ref": { "type": ["string", "null"] },
         "route_hash": { "type": "string" },
         "profile_hash": { "type": "string" }

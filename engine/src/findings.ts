@@ -36,14 +36,11 @@ import { decideVerdict, worstEvidence } from './verdict.js';
 import { assignEventKeys } from './events.js';
 import type {
   EnsemblePointForecast,
-  EnsembleRequestMeta,
-  ForecastRequestMeta,
   HazardPointForecast,
-  MarineRequestMeta,
-  MultiModelRequestMeta,
   PointForecast,
+  TileRequestMeta,
   WavePointForecast,
-} from './fetch/openMeteo.js';
+} from './forecast/types.js';
 import type {
   Evidence,
   CapabilityCoverage,
@@ -82,15 +79,15 @@ export interface AssembleOptions {
   departureUtc: string;
   /** one forecast per leg (midpoint), index-aligned with derived legs */
   legForecasts: PointForecast[];
-  requestMeta: ForecastRequestMeta[];
+  requestMeta: TileRequestMeta[];
   /** ensemble forecasts per leg midpoint (M2+); index-aligned with legs */
   legEnsembles?: EnsemblePointForecast[];
-  ensembleMeta?: EnsembleRequestMeta;
+  ensembleMeta?: TileRequestMeta;
   /** wave forecasts per leg midpoint (M3+) */
   legMarine?: WavePointForecast[];
-  marineMeta?: MarineRequestMeta;
-  /** multi-model deterministic forecasts for hazards + disagreement (M3+) */
-  multiModel?: { byModel: Record<string, HazardPointForecast[]>; meta: MultiModelRequestMeta };
+  marineMeta?: TileRequestMeta;
+  /** per-model deterministic forecasts for hazards + disagreement (GFS + ECMWF layers) */
+  multiModel?: { byModel: Record<string, HazardPointForecast[]>; meta: TileRequestMeta[] };
   /** official marine warnings (M5 seam; live/synthetic feed lands at M9) */
   warnings?: WarningsInput;
   /** prepared CMEMS surface-current region grid (M7+) */
@@ -149,12 +146,13 @@ export function assembleFindings(options: AssembleOptions): Findings {
   let insufficientConfidence = false;
 
   const model = requestMeta[0]?.model ?? null;
-  const run = requestMeta[0]?.run_inferred ?? null;
+  const run = requestMeta[0]?.cycle ?? null;
   const ensembleModel = ensembleMeta ? `${ensembleMeta.model} ensemble` : null;
-  const ensembleRun = ensembleMeta?.run_inferred ?? null;
+  const ensembleRun = ensembleMeta?.cycle ?? null;
   const marineModel = marineMeta ? `marine ${marineMeta.model}` : null;
-  /** visibility source order: ICON-EU (EU high-res) then GFS — ECMWF has no visibility */
-  const VIS_MODELS = ['icon_eu', 'gfs_global'];
+  /** visibility source order: GFS tiles first (the ECMWF open-data layer carries no
+   *  visibility); legacy scenario-bundle model names accepted as fallbacks */
+  const VIS_MODELS = ['gfs_0p25', 'icon_eu', 'gfs_global'];
 
   const nextEvidence = (partial: Omit<Evidence, 'evidence_id'>): Evidence => {
     evidenceCounter += 1;
@@ -614,7 +612,7 @@ export function assembleFindings(options: AssembleOptions): Findings {
     if (worstVisibility) {
       nextEvidence({
         rule_id: RULES.VISIBILITY,
-        model: 'icon_eu/gfs_global',
+        model: VIS_MODELS.join('/'),
         run,
         leg_id: leg.leg_id,
         valid_time: worstVisibility.hour.valid_time,
@@ -768,22 +766,22 @@ export function assembleFindings(options: AssembleOptions): Findings {
   const allMeta: Array<Record<string, unknown>> = requestMeta.map((m) => ({ ...m }));
   if (ensembleMeta) allMeta.push({ ...ensembleMeta });
   if (marineMeta) allMeta.push({ ...marineMeta });
-  if (multiModel) allMeta.push({ ...multiModel.meta });
+  if (multiModel) allMeta.push(...multiModel.meta.map((m) => ({ ...m })));
   if (grid) {
     allMeta.push({
-      api: 'cmems-current-grid',
+      source: 'region-grid',
+      layer: 'currents',
       model: grid.source.dataset_id ?? 'cmems',
-      run: grid.run_id,
+      run_id: grid.run_id,
       mode: grid.source.mode,
       fetched_at: grid.source.fetched_at ?? grid.generated_at,
       resolution_deg: grid.source.resolution_deg ?? null,
-      request_digest: contentHash({ run: grid.run_id, kind: grid.kind }),
     });
   }
   const inputs = {
     prepared_run_id: options.synoptic?.run_id ?? grid?.run_id ?? null,
     synoptic_run_id: options.synoptic?.run_id ?? null,
-    openmeteo: allMeta,
+    forecast_tiles: allMeta,
     warnings_ref: options.warnings?.ref ?? null,
     route_hash: routeHash,
     profile_hash: profileHash,
@@ -794,11 +792,12 @@ export function assembleFindings(options: AssembleOptions): Findings {
     routeHash,
     profileHash,
     departureUtc,
+    // exact immutable run ids — two analyses over the same runs share a snapshot id
     digests: [
-      ...requestMeta.map((m) => m.request_digest),
-      ...(ensembleMeta ? [ensembleMeta.request_digest] : []),
-      ...(marineMeta ? [marineMeta.request_digest] : []),
-      ...(multiModel ? [multiModel.meta.request_digest] : []),
+      ...requestMeta.map((m) => `${m.layer}:${m.run_id}`),
+      ...(ensembleMeta ? [`${ensembleMeta.layer}:${ensembleMeta.run_id}`] : []),
+      ...(marineMeta ? [`${marineMeta.layer}:${marineMeta.run_id}`] : []),
+      ...(multiModel ? multiModel.meta.map((m) => `${m.layer}:${m.run_id}`) : []),
       ...(grid ? [grid.run_id] : []),
       ...(options.synoptic ? [options.synoptic.run_id] : []),
     ],
@@ -816,6 +815,7 @@ export function assembleFindings(options: AssembleOptions): Findings {
     hasEnsemble: Boolean(legEnsembles),
     hasMarine: Boolean(legMarine),
     hasMultiModel: Boolean(multiModel),
+    deterministicModelCount: multiModel ? Object.keys(multiModel.byModel).length : 0,
     warnings: options.warnings,
     hasCurrents: Boolean(grid),
     hasTides: Boolean(options.tides && options.gates),
@@ -850,6 +850,7 @@ interface CoverageInputs {
   hasEnsemble: boolean;
   hasMarine: boolean;
   hasMultiModel: boolean;
+  deterministicModelCount: number;
   warnings?: WarningsInput;
   hasCurrents: boolean;
   hasTides: boolean;
@@ -881,9 +882,25 @@ function deriveCoverage(input: CoverageInputs): CapabilityCoverage[] {
       capability: 'visibility_and_convection',
       status: input.hasMultiModel ? 'partially_assessed' : 'not_assessed',
       detail: input.hasMultiModel
-        ? 'screening signals only; official warnings remain authoritative'
+        ? 'screening signals only (single model, GFS); official warnings remain authoritative'
         : 'visibility and convection (no supporting model input)',
       evidence_ids: ids([RULES.VISIBILITY, RULES.SQUALL]),
+    },
+    {
+      capability: 'model_agreement',
+      status:
+        input.deterministicModelCount >= 2
+          ? 'assessed'
+          : input.deterministicModelCount === 1
+            ? 'partially_assessed'
+            : 'not_assessed',
+      detail:
+        input.deterministicModelCount >= 2
+          ? 'independent deterministic models compared hour by hour'
+          : input.deterministicModelCount === 1
+            ? 'single deterministic model available; disagreement proxied by ensemble spread only'
+            : 'model comparison (no multi-model input)',
+      evidence_ids: ids([RULES.DIVERGENCE]),
     },
     {
       capability: 'tidal_currents',

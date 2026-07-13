@@ -2,7 +2,8 @@
 
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import type { CacheStore } from '../fetch/openMeteo.js';
+import { gunzipSync } from 'node:zlib';
+import type { LatestDoc, RunManifest, TileTransport } from '../forecast/store.js';
 import type { SnapshotStore } from '../snapshot.js';
 
 export class NodeFsSnapshotStore implements SnapshotStore {
@@ -22,23 +23,26 @@ export class NodeFsSnapshotStore implements SnapshotStore {
   }
 }
 
-export class FsCacheStore implements CacheStore {
+/**
+ * Tile transport over a local directory laid out like the R2 bucket
+ * (latest.json, forecast-runs/{run_id}/…). Used by the CLI and by tests
+ * against fixture runs (e.g. an `ingest weather --dry-run` output).
+ */
+export class FsTileTransport implements TileTransport {
   constructor(private root: string) {}
 
-  private pathFor(key: string): string {
-    const safe = key.replace(/[^a-zA-Z0-9_.-]/g, '_');
-    return join(this.root, `${safe}.json`);
+  async fetchLatest(): Promise<LatestDoc> {
+    return JSON.parse(readFileSync(join(this.root, 'latest.json'), 'utf8')) as LatestDoc;
   }
 
-  async get(key: string): Promise<string | null> {
-    const path = this.pathFor(key);
-    if (!existsSync(path)) return null;
-    return readFileSync(path, 'utf8');
+  async fetchManifest(runId: string): Promise<RunManifest> {
+    return JSON.parse(
+      readFileSync(join(this.root, 'forecast-runs', runId, 'manifest.json'), 'utf8'),
+    ) as RunManifest;
   }
 
-  async set(key: string, value: string): Promise<void> {
-    const path = this.pathFor(key);
-    mkdirSync(dirname(path), { recursive: true });
-    writeFileSync(path, value);
+  async fetchTile(runId: string, path: string): Promise<Uint8Array> {
+    const bytes = readFileSync(join(this.root, 'forecast-runs', runId, path));
+    return new Uint8Array(gunzipSync(bytes));
   }
 }

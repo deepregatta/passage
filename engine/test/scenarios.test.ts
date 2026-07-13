@@ -10,13 +10,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { assembleFindings } from '../src/findings.js';
 import { renderBriefing } from '../src/briefing.js';
-import {
-  fetchEnsembleForecasts,
-  fetchMarineForecasts,
-  fetchMultiModelForecasts,
-  fetchPointForecasts,
-  MemoryCacheStore,
-} from '../src/fetch/openMeteo.js';
+import { ScenarioBundleStore } from '../src/forecast/scenarioStore.js';
 import { deriveLegs, legMidpoints } from '../src/route.js';
 import { ENGINE_VERSION } from '../src/index.js';
 import type { LimitsProfile, Route, SynopticFeatures, WarningsInput } from '../src/types.js';
@@ -46,22 +40,18 @@ async function runScenario(name: string) {
     readFileSync(join(REPO, 'config', 'profiles', 'default-limits.json'), 'utf8'),
   ) as LimitsProfile;
 
-  const fileFetch = (async (url: string | URL) => {
-    const path = String(url).split('?')[0]!.replace('file://', '');
-    return new Response(readFileSync(path, 'utf8'), { status: 200 });
-  }) as unknown as typeof fetch;
-
   const points = legMidpoints(deriveLegs(route)).map((p) => ({ lat: p.lat, lon: p.lon }));
-  const opts = (api: string) => ({
-    fetchFn: fileFetch,
-    cache: new MemoryCacheStore(),
+  const store = new ScenarioBundleStore({
+    loadBundle: async (name) => {
+      const path = join(dir, `${name}.json`);
+      return existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : null;
+    },
     now: () => FIXED_NOW,
-    baseUrl: `file://${dir}/${api}.json`,
   });
-  const det = await fetchPointForecasts(points, '2026-07-20', '2026-07-22', opts('forecast'));
-  const ens = await fetchEnsembleForecasts(points, '2026-07-20', '2026-07-22', opts('ensemble'));
-  const marine = await fetchMarineForecasts(points, '2026-07-20', '2026-07-22', opts('marine'));
-  const multi = await fetchMultiModelForecasts(points, '2026-07-20', '2026-07-22', opts('multimodel'));
+  const det = await store.getPointForecasts(points, 0, 0);
+  const ens = await store.getEnsembleForecasts(points, 0, 0);
+  const marine = await store.getWaveForecasts(points, 0, 0);
+  const multi = await store.getHazardForecasts(points, 0, 0);
 
   let warnings: WarningsInput | undefined;
   const warningsPath = join(dir, 'warnings.json');
@@ -85,11 +75,9 @@ async function runScenario(name: string) {
     departureUtc: DEPARTURE,
     legForecasts: det.forecasts,
     requestMeta: [det.meta],
-    legEnsembles: ens.forecasts,
-    ensembleMeta: ens.meta,
-    legMarine: marine.forecasts,
-    marineMeta: marine.meta,
-    multiModel: multi,
+    ...(ens ? { legEnsembles: ens.forecasts, ensembleMeta: ens.meta } : {}),
+    ...(marine ? { legMarine: marine.forecasts, marineMeta: marine.meta } : {}),
+    ...(multi ? { multiModel: multi } : {}),
     warnings,
     synoptic,
     engineVersion: ENGINE_VERSION,

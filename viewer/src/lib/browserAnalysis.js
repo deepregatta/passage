@@ -1,8 +1,10 @@
 // The production bet, running today: per-user analysis in the browser.
-// Open-Meteo is fetched from this browser (each user's own IP carries the quota);
-// snapshots persist via the dev middleware POST (Supabase/R2 later).
+// Weather comes from precomputed forecast tiles (R2 in production, the dev
+// middleware's fixture run locally) cached in IndexedDB; snapshots persist via
+// the dev middleware POST (Supabase/R2 later).
 
 import { runAnalysis, persistSnapshot } from '@deepweather/engine';
+import { forecastStore } from './forecastStore.js';
 
 class HttpSnapshotStore {
   async exists(snapshotId) {
@@ -74,6 +76,7 @@ export async function analyzeInBrowser({ route, profile, departureUtc, onProgres
     route,
     profile,
     departureUtc,
+    store: forecastStore(),
     onProgress,
     currentGrid,
     synoptic,
