@@ -9,3 +9,13 @@
 /data/*
   Access-Control-Allow-Origin: *
   Cache-Control: public, max-age=3600
+
+# no-transform stops Cloudflare injecting the challenge-platform (JS
+# Detections) inline bootstrap, which our CSP would block anyway; it also
+# stops beacon auto-injection, so build-pages.mjs adds the analytics tag
+# explicitly. max-age=0 keeps the app shell fresh across deploys.
+/
+  Cache-Control: public, max-age=0, must-revalidate, no-transform
+
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate, no-transform
