@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { initialPage } from '../lib/routes.js';
-import { localSnapshots, fetchSnapshotJson } from '../lib/localSnapshots.js';
+import { localSnapshots, fetchSnapshotJson, snapshotTombstones } from '../lib/localSnapshots.js';
 import { preparedRun } from '../lib/preparedRun.js';
 
 async function fetchJson(url) {
@@ -47,7 +47,10 @@ export const useApp = create((set, get) => ({
       set({ manifestError: served.message });
       return;
     }
-    const servedSnapshots = served instanceof Error ? [] : served.snapshots ?? [];
+    const hidden = snapshotTombstones.all();
+    const servedSnapshots = (served instanceof Error ? [] : served.snapshots ?? []).filter(
+      (s) => !hidden.has(s.snapshot_id),
+    );
     const localIds = new Set(local.map((s) => s.snapshot_id));
     // local briefings first (newest first), then the served list in its own order
     const snapshots = [...local, ...servedSnapshots.filter((s) => !localIds.has(s.snapshot_id))];
@@ -109,8 +112,15 @@ export const useApp = create((set, get) => ({
   deleteSnapshot: async (snapshotId) => {
     const deletedLocally = await localSnapshots.remove(snapshotId);
     if (!deletedLocally) {
-      const res = await fetch(`/data/snapshots/${snapshotId}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error(`Could not delete: ${await res.text()}`);
+      if (import.meta.env.DEV) {
+        // dev middleware deletes the repo files (fixture mode refuses: read-only)
+        const res = await fetch(`/data/snapshots/${snapshotId}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error(`Could not delete: ${await res.text()}`);
+      } else {
+        // static hosting: baked-in demo snapshots can't be removed server-side —
+        // hide them in this browser instead
+        snapshotTombstones.add(snapshotId);
+      }
     }
     const closingOpen = get().snapshotId === snapshotId;
     if (closingOpen) {

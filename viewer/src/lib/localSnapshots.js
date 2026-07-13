@@ -108,6 +108,29 @@ export const localSnapshots = {
   },
 };
 
+// Snapshots baked into the static build (demo briefings) cannot be deleted
+// server-side; "deleting" one hides it in this browser via a tombstone list.
+const TOMBSTONES_KEY = 'deepweather.deleted-snapshots';
+
+export const snapshotTombstones = {
+  all() {
+    try {
+      return new Set(JSON.parse(localStorage.getItem(TOMBSTONES_KEY) ?? '[]'));
+    } catch {
+      return new Set();
+    }
+  },
+  add(snapshotId) {
+    const ids = this.all();
+    ids.add(snapshotId);
+    try {
+      localStorage.setItem(TOMBSTONES_KEY, JSON.stringify([...ids]));
+    } catch {
+      // storage full/blocked: the entry reappears next visit, nothing breaks
+    }
+  },
+};
+
 // Reads a snapshot artifact wherever it lives: browser-local first (user
 // briefings on static hosting), then the served /data/snapshots/ tree
 // (demo snapshots, dev middleware). A locally-stored snapshot is complete as
