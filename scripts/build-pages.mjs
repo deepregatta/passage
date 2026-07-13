@@ -44,6 +44,18 @@ writeFileSync(
   JSON.stringify({ generated_at: new Date().toISOString(), snapshots }, null, 2) + '\n',
 );
 
+// The HTML shell ships Cache-Control: no-transform (see viewer/public/_headers)
+// to stop Cloudflare injecting its CSP-blocked challenge-platform snippet —
+// which also disables Web Analytics auto-injection, so add the beacon here.
+const BEACON =
+  '<script defer src="https://static.cloudflareinsights.com/beacon.min.js" ' +
+  'data-cf-beacon=\'{"token": "108c0d82f68a4c1daeb984cf0055b41f"}\'></script>';
+const indexPath = join(dist, 'index.html');
+const indexHtml = readFileSync(indexPath, 'utf8');
+if (!indexHtml.includes('cloudflareinsights')) {
+  writeFileSync(indexPath, indexHtml.replace('</body>', `  ${BEACON}\n  </body>`));
+}
+
 // Cloudflare Pages otherwise serves index.html for unknown paths. Data loaders
 // rely on a genuine non-2xx response for missing artifacts.
 writeFileSync(
