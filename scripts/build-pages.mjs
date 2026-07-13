@@ -45,16 +45,11 @@ writeFileSync(
 );
 
 // The HTML shell ships Cache-Control: no-transform (see viewer/public/_headers)
-// to stop Cloudflare injecting its CSP-blocked challenge-platform snippet —
-// which also disables Web Analytics auto-injection, so add the beacon here.
-const BEACON =
-  '<script defer src="https://static.cloudflareinsights.com/beacon.min.js" ' +
-  'data-cf-beacon=\'{"token": "108c0d82f68a4c1daeb984cf0055b41f"}\'></script>';
-const indexPath = join(dist, 'index.html');
-const indexHtml = readFileSync(indexPath, 'utf8');
-if (!indexHtml.includes('cloudflareinsights')) {
-  writeFileSync(indexPath, indexHtml.replace('</body>', `  ${BEACON}\n  </body>`));
-}
+// to stop Cloudflare injecting its CSP-blocked challenge-platform snippet.
+// That also disables Web Analytics auto-injection; the zone's RUM token is
+// rejected by the manual-install ingest (404 on /cdn-cgi/rum), so no beacon
+// is shipped. To restore analytics: create the site under Analytics & Logs →
+// Web Analytics with manual install, and inject that snippet here.
 
 // Cloudflare Pages otherwise serves index.html for unknown paths. Data loaders
 // rely on a genuine non-2xx response for missing artifacts.
