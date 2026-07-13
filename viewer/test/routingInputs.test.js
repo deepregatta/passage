@@ -1,19 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-  buildWindGrid: vi.fn(),
-  buildCurrentGrid: vi.fn(),
+  getWindGrid: vi.fn(),
+  getCurrentGrid: vi.fn(),
   snapToSea: vi.fn(),
   landMaskForBbox: vi.fn(),
 }));
 
 vi.mock('@deepweather/engine', () => ({
-  MemoryCacheStore: class MemoryCacheStore {},
   routeBbox: () => ({ minLat: 0, maxLat: 1, minLon: 0, maxLon: 1 }),
   passageMaxHours: () => 48,
-  buildWindGrid: mocks.buildWindGrid,
-  buildCurrentGrid: mocks.buildCurrentGrid,
   snapToSea: mocks.snapToSea,
+  TileForecastStore: class TileForecastStore {},
+  HttpTileTransport: class HttpTileTransport {},
 }));
 
 vi.mock('../src/lib/landMask.js', () => ({
@@ -27,6 +26,7 @@ const now = () => Date.parse('2026-07-19T00:00:00Z');
 const polar = { polar_id: 'test', label: 'Test boat' };
 const windGrid = { kind: 'wind10m', under_resolved_note: 'Grid was coarsened.' };
 const landMask = { kind: 'land_mask' };
+const store = { getWindGrid: mocks.getWindGrid, getCurrentGrid: mocks.getCurrentGrid };
 
 describe('live routing inputs', () => {
   beforeEach(() => {
@@ -36,8 +36,8 @@ describe('live routing inputs', () => {
     mocks.snapToSea
       .mockReturnValueOnce({ lat: 0.1, lon: 0.1 })
       .mockReturnValueOnce({ lat: 0.9, lon: 0.9 });
-    mocks.buildWindGrid.mockResolvedValue(windGrid);
-    mocks.buildCurrentGrid.mockResolvedValue({ kind: 'surface_current' });
+    mocks.getWindGrid.mockResolvedValue(windGrid);
+    mocks.getCurrentGrid.mockResolvedValue({ kind: 'surface_current' });
   });
 
   it('returns snapped endpoints, grids, polar, duration and progress', async () => {
@@ -45,7 +45,7 @@ describe('live routing inputs', () => {
     const result = await loadRoutingInputs({
       start: { lat: 0, lon: 0, name: 'Start' },
       finish: { lat: 1, lon: 1, name: 'Finish' },
-      polarId: 'test', departureIso, now, onProgress,
+      polarId: 'test', departureIso, now, onProgress, store,
     });
     expect(result).toMatchObject({
       polar, windGrid, landMask, maxHours: 48,
@@ -54,43 +54,44 @@ describe('live routing inputs', () => {
     });
     expect(result.notes).toEqual(['Grid was coarsened.']);
     expect(onProgress.mock.calls.map(([stage]) => stage)).toEqual([
-      'loading coastline', 'fetching forecast grid', 'fetching currents',
+      'loading coastline', 'loading forecast tiles', 'loading current tiles',
     ]);
   });
 
-  it('clamps a scan grid to the forecast horizon', async () => {
+  it('clamps a scan grid to the deterministic tile horizon', async () => {
     await loadRoutingInputs({
       start: { lat: 0, lon: 0 }, finish: { lat: 1, lon: 1 }, polarId: 'test',
-      departureIso: '2026-08-01T00:00:00Z', scanning: true, now,
+      departureIso: '2026-07-24T00:00:00Z', scanning: true, now, store,
     });
-    expect(mocks.buildWindGrid.mock.calls[0][0].hours).toBe(48);
+    // 240 h horizon − 120 h until departure = 120 h available < 120+48+6
+    expect(mocks.getWindGrid.mock.calls[0][2]).toBe(120);
   });
 
   it('degrades current failure to wind-only with a visible note', async () => {
-    mocks.buildCurrentGrid.mockResolvedValue(null);
+    mocks.getCurrentGrid.mockResolvedValue(null);
     const result = await loadRoutingInputs({
-      start: { lat: 0, lon: 0 }, finish: { lat: 1, lon: 1 }, polarId: 'test', departureIso, now,
+      start: { lat: 0, lon: 0 }, finish: { lat: 1, lon: 1 }, polarId: 'test', departureIso, now, store,
     });
     expect(result.currentGrid).toBeNull();
     expect(result.notes.join(' ')).toMatch(/wind alone/i);
   });
 
   it('maps wind failure and rejects departures beyond the horizon', async () => {
-    mocks.buildWindGrid.mockRejectedValue(new TypeError('Failed to fetch'));
+    mocks.getWindGrid.mockRejectedValue(new TypeError('Failed to fetch'));
     await expect(loadRoutingInputs({
-      start: { lat: 0, lon: 0 }, finish: { lat: 1, lon: 1 }, polarId: 'test', departureIso, now,
-    })).rejects.toThrow(/live wind forecast/);
+      start: { lat: 0, lon: 0 }, finish: { lat: 1, lon: 1 }, polarId: 'test', departureIso, now, store,
+    })).rejects.toThrow(/forecast tiles/);
 
     await expect(loadRoutingInputs({
       start: { lat: 0, lon: 0 }, finish: { lat: 1, lon: 1 }, polarId: 'test',
-      departureIso: '2026-08-20T00:00:00Z', now,
-    })).rejects.toThrow(/beyond the live forecast horizon/);
+      departureIso: '2026-08-20T00:00:00Z', now, store,
+    })).rejects.toThrow(/beyond the forecast horizon/);
   });
 
   it('asks for an open-water click when snapping cannot find sea', async () => {
     mocks.snapToSea.mockReset().mockReturnValue(null);
     await expect(loadRoutingInputs({
-      start: { lat: 0, lon: 0 }, finish: { lat: 1, lon: 1 }, polarId: 'test', departureIso, now,
+      start: { lat: 0, lon: 0 }, finish: { lat: 1, lon: 1 }, polarId: 'test', departureIso, now, store,
     })).rejects.toThrow(/open water/);
   });
 });

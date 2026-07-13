@@ -342,14 +342,15 @@ function positionPhrase(p: { lat: number; lon: number }): string {
   return `${ew}, ${ns}`;
 }
 
-/** Next ECMWF cycle expected on Open-Meteo (cycle cadence 6 h, ~8 h publication lag). */
+/** Next GFS cycle expected in the tile store (cycle cadence 6 h, ~4.5 h pipeline lag). */
 function nextEcmwfRun(afterIso: string): { model: string; expected_at: string } {
   const t = Date.parse(afterIso);
   const HOUR = 3600_000;
-  const lastCycle = Math.floor((t - 8 * HOUR) / (6 * HOUR)) * 6 * HOUR;
-  const nextAvailable = lastCycle + 6 * HOUR + 8 * HOUR;
+  const LAG = 4.5 * HOUR;
+  const lastCycle = Math.floor((t - LAG) / (6 * HOUR)) * 6 * HOUR;
+  const nextAvailable = lastCycle + 6 * HOUR + LAG;
   return {
-    model: 'ecmwf_ifs025',
+    model: 'gfs_0p25',
     expected_at: new Date(nextAvailable).toISOString().replace(/\.\d{3}Z$/, 'Z'),
   };
 }

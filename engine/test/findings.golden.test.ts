@@ -13,13 +13,7 @@ import addFormats from 'ajv-formats';
 import { assembleFindings } from '../src/findings.js';
 import { renderBriefing } from '../src/briefing.js';
 import { buildPlume } from '../src/snapshot.js';
-import {
-  fetchEnsembleForecasts,
-  fetchMarineForecasts,
-  fetchMultiModelForecasts,
-  fetchPointForecasts,
-  MemoryCacheStore,
-} from '../src/fetch/openMeteo.js';
+import { ScenarioBundleStore } from '../src/forecast/scenarioStore.js';
 import { deriveLegs, legMidpoints } from '../src/route.js';
 import { ENGINE_VERSION } from '../src/index.js';
 import type { LimitsProfile, Route } from '../src/types.js';
@@ -42,34 +36,22 @@ async function computePipeline() {
     readFileSync(join(REPO, 'config', 'profiles', 'default-limits.json'), 'utf8'),
   ) as LimitsProfile;
 
-  const bodies: Record<string, string> = {
-    ensemble: readFileSync(ENSEMBLE_FIXTURE, 'utf8'),
-    marine: readFileSync(join(HERE, 'fixtures', 'openmeteo-marine-cherbourg-plymouth.json'), 'utf8'),
-    multimodel: readFileSync(
-      join(HERE, 'fixtures', 'openmeteo-multimodel-cherbourg-plymouth.json'),
-      'utf8',
-    ),
-    forecast: readFileSync(FIXTURE, 'utf8'),
+  const paths: Record<string, string> = {
+    forecast: FIXTURE,
+    ensemble: ENSEMBLE_FIXTURE,
+    marine: join(HERE, 'fixtures', 'openmeteo-marine-cherbourg-plymouth.json'),
+    multimodel: join(HERE, 'fixtures', 'openmeteo-multimodel-cherbourg-plymouth.json'),
   };
-  const fakeFetch = (async (url: string | URL) => {
-    const u = String(url);
-    const body = u.includes('ensemble-api')
-      ? bodies.ensemble
-      : u.includes('marine-api')
-        ? bodies.marine
-        : u.includes('models=ecmwf_ifs025,')
-          ? bodies.multimodel
-          : bodies.forecast;
-    return new Response(body, { status: 200 });
-  }) as unknown as typeof fetch;
-
+  const store = new ScenarioBundleStore({
+    loadBundle: async (name) => JSON.parse(readFileSync(paths[name]!, 'utf8')),
+    now: () => FIXED_NOW,
+  });
   const midpoints = legMidpoints(deriveLegs(route));
   const points = midpoints.map((p) => ({ lat: p.lat, lon: p.lon }));
-  const opts = { fetchFn: fakeFetch, cache: new MemoryCacheStore(), now: () => FIXED_NOW };
-  const det = await fetchPointForecasts(points, '2026-07-12', '2026-07-14', opts);
-  const ens = await fetchEnsembleForecasts(points, '2026-07-12', '2026-07-14', opts);
-  const marine = await fetchMarineForecasts(points, '2026-07-12', '2026-07-14', opts);
-  const multi = await fetchMultiModelForecasts(points, '2026-07-12', '2026-07-14', opts);
+  const det = await store.getPointForecasts(points, 0, 0);
+  const ens = await store.getEnsembleForecasts(points, 0, 0);
+  const marine = await store.getWaveForecasts(points, 0, 0);
+  const multi = await store.getHazardForecasts(points, 0, 0);
 
   const findings = assembleFindings({
     route,
@@ -77,16 +59,14 @@ async function computePipeline() {
     departureUtc: DEPARTURE,
     legForecasts: det.forecasts,
     requestMeta: [det.meta],
-    legEnsembles: ens.forecasts,
-    ensembleMeta: ens.meta,
-    legMarine: marine.forecasts,
-    marineMeta: marine.meta,
-    multiModel: multi,
+    ...(ens ? { legEnsembles: ens.forecasts, ensembleMeta: ens.meta } : {}),
+    ...(marine ? { legMarine: marine.forecasts, marineMeta: marine.meta } : {}),
+    ...(multi ? { multiModel: multi } : {}),
     engineVersion: ENGINE_VERSION,
     nowMs: FIXED_NOW,
   });
   const briefing = renderBriefing(findings);
-  const plume = buildPlume(findings, ens.forecasts, profile.max_gust_kt);
+  const plume = buildPlume(findings, ens?.forecasts, profile.max_gust_kt);
   return { findings, briefing, plume };
 }
 

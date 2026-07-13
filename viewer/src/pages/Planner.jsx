@@ -15,6 +15,7 @@ import { useApp } from '../stores/appStore.js';
 import { usePlanner } from '../stores/plannerStore.js';
 import { analyzeInBrowser, saveRoute } from '../lib/browserAnalysis.js';
 import { loadRoutingInputs as loadLiveRoutingInputs } from '../lib/routingInputs.js';
+import { forecastStore } from '../lib/forecastStore.js';
 import { Panel } from '../components/common.jsx';
 import BoatPicker from '../components/BoatPicker.jsx';
 import clsx from 'clsx';
@@ -211,18 +212,18 @@ export default function Planner() {
           return result.route;
         };
       }
-      // one shared fetch window covering every candidate: identical request URLs
-      // let candidates reuse the scan cache instead of burning Open-Meteo quota
+      // one shared assessment window covering every candidate: all candidates read
+      // the same immutable tile run and share the tile cache
       const scanEndMs = Math.min(
         Date.parse(departures[departures.length - 1]) + (scanPassageHours + 24) * 3600_000,
-        Date.now() + 9 * 24 * 3600_000, // ensemble forecast horizon
+        Date.now() + 10 * 24 * 3600_000, // deterministic tile horizon (240 h)
       );
       const dateWindow = {
         startDate: departures[0].slice(0, 10),
         endDate: new Date(Math.max(scanEndMs, Date.parse(departures[0]))).toISOString().slice(0, 10),
       };
       const partial = [];
-      const result = await scanDepartures({ route, profile, routeFor, dateWindow }, departures, (c) => {
+      const result = await scanDepartures({ route, profile, routeFor, dateWindow, store: forecastStore() }, departures, (c) => {
         partial.push(c);
         setBusy(`scanning departures ${partial.length}/${departures.length}`);
       });
@@ -567,19 +568,19 @@ function ModelsUsed() {
           <p className="eyebrow mb-1.5">Checking a passage · comparing departures</p>
           <ul className="space-y-1.5">
             <li>
-              Winds and gusts along your route: ECMWF IFS 0.25° {mono('ecmwf_ifs025')} — fetched
-              live, reaches ~15 days ahead.
+              Winds and gusts along your route: NOAA GFS 0.25° {mono('gfs_0p25')} — precomputed
+              forecast tiles, updated four times a day, reaching 10 days ahead.
             </li>
             <li>
-              The “N of 51 forecast scenarios”: the ECMWF ensemble — 51 equally plausible runs of
-              the same model {mono('ecmwf_ifs025 · 51 members')} — also ~15 days.
+              The “N forecast scenarios”: the GEFS ensemble — equally plausible runs of the same
+              model {mono('gefs_0p50 · 31 members')} — reaching 16 days. The exact member count is
+              read from the run, never assumed.
             </li>
             <li>
-              The cross-check behind “models disagree”: ECMWF against GFS{' '}
-              {mono('gfs_global · ~16 days')} and ICON-EU {mono('icon_eu · ~5 days')}. Beyond ICON-EU's
-              horizon the check continues with ECMWF vs GFS alone.
+              The cross-check behind “models disagree”: GFS against ECMWF open data{' '}
+              {mono('ecmwf_0p25 · ~10 days')}, with the GEFS spread as an additional signal.
             </li>
-            <li>Waves: Open-Meteo's marine wave model {mono('marine-api best match')}.</li>
+            <li>Waves: NOAA GFS-Wave {mono('gfswave_0p25')}, same tile pipeline.</li>
             <li>
               Tidal streams and gates: CMEMS IBI currents; gate timing from synthetic constituents{' '}
               <span className="stamp-emulated">emulated</span>.
@@ -594,11 +595,14 @@ function ModelsUsed() {
           <p className="eyebrow mb-1.5">Computing a route (and per-departure routes)</p>
           <ul className="space-y-1.5">
             <li>
-              Routing wind: ECMWF IFS 0.25° fetched live over a grid sized to your crossing
-              {mono('ecmwf_ifs025 · up to ~15 days')}.
+              Routing wind: GFS 0.25° tiles mosaicked over a grid sized to your crossing
+              {mono('gfs_0p25 · up to 10 days')}.
             </li>
             <li>Your boat: the ORC polar you picked, used as-is by the router.</li>
-            <li>Currents: Open-Meteo marine, fetched live; routing falls back to wind alone if unavailable.</li>
+            <li>
+              Currents: Copernicus GLO12 surface currents (1/12°, 6-hourly) from the same tile
+              pipeline — <em>not</em> tidal streams; routing falls back to wind alone if unavailable.
+            </li>
           </ul>
         </div>
       </div>

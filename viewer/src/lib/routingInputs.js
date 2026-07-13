@@ -1,28 +1,13 @@
-import {
-  MemoryCacheStore,
-  buildCurrentGrid,
-  buildWindGrid,
-  passageMaxHours,
-  routeBbox,
-  snapToSea,
-} from '@deepweather/engine';
+import { passageMaxHours, routeBbox, snapToSea } from '@deepweather/engine';
 import { landMaskForBbox } from './landMask.js';
+import { forecastStore, friendlyForecastError } from './forecastStore.js';
 
-const gridCache = new MemoryCacheStore();
-const FORECAST_HOURS = 15 * 24;
+/** deterministic tile horizon (GFS 240 h); scans beyond it fail with a clear message */
+const FORECAST_HOURS = 240;
 
 async function loadJson(url) {
   const response = await fetch(url);
   return response.ok ? response.json() : null;
-}
-
-function friendlyWindError(error) {
-  const message = error instanceof Error ? error.message : String(error);
-  if (/too large|Antimeridian/i.test(message)) return new Error(message);
-  if (/missing .*T|forecast horizon/i.test(message)) {
-    return new Error('This departure is beyond the live forecast horizon');
-  }
-  return new Error("Couldn't fetch the live wind forecast — check your connection and try again");
 }
 
 export async function loadRoutingInputs({
@@ -33,7 +18,7 @@ export async function loadRoutingInputs({
   scanning = false,
   onProgress = () => {},
   now = Date.now,
-  openMeteoOptions = {},
+  store = forecastStore(),
 }) {
   const polar = await loadJson(`/data/polars/boats/${polarId}.json`).then(
     (doc) => doc ?? loadJson(`/data/config/polars/${polarId}.json`),
@@ -48,7 +33,7 @@ export async function loadRoutingInputs({
   const remaining = Math.floor((now() + FORECAST_HOURS * 3600_000 - departureMs) / 3600_000);
   const hours = Math.min((scanning ? 120 : 0) + maxHours + 6, remaining);
   if (!Number.isFinite(departureMs) || hours < 12) {
-    throw new Error('This departure is beyond the live forecast horizon');
+    throw new Error('This departure is beyond the forecast horizon');
   }
 
   onProgress('loading coastline');
@@ -68,17 +53,18 @@ export async function loadRoutingInputs({
     throw new Error('Click a point in open water near both ends of the passage');
   }
 
-  const options = { ...openMeteoOptions, cache: openMeteoOptions.cache ?? gridCache };
-  onProgress('fetching forecast grid');
+  onProgress('loading forecast tiles');
   let windGrid;
   try {
-    windGrid = await buildWindGrid({ bbox, startIso: departureIso, hours, options });
+    windGrid = await store.getWindGrid(bbox, departureIso, hours);
   } catch (error) {
-    throw friendlyWindError(error);
+    const message = error instanceof Error ? error.message : String(error);
+    if (/Antimeridian|too large/i.test(message)) throw error;
+    throw friendlyForecastError(error);
   }
 
-  onProgress('fetching currents');
-  const currentGrid = await buildCurrentGrid({ bbox, startIso: departureIso, hours, options });
+  onProgress('loading current tiles');
+  const currentGrid = await store.getCurrentGrid(bbox, departureIso, hours).catch(() => null);
   const notes = [windGrid.under_resolved_note, currentGrid?.under_resolved_note].filter(Boolean);
   if (!currentGrid) notes.push('Currents unavailable right now — routed on wind alone.');
 
