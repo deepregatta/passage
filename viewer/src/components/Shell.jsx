@@ -17,6 +17,8 @@ const SUBVIEWS = {
 
 export default function Shell({ page, onNavigate, children }) {
   const snapshotId = useApp((state) => state.snapshotId);
+  const language = useApp((state) => state.language);
+  const setLanguage = useApp((state) => state.setLanguage);
   const active = STAGES.find((stage) => stage.pages.includes(page)) ?? STAGES[0];
   const navigateStage = (stage) => {
     if (stage.id === 'brief' && !snapshotId) onNavigate('snapshots');
@@ -34,7 +36,24 @@ export default function Shell({ page, onNavigate, children }) {
           <nav aria-label="Passage stages" className="hidden md:flex self-stretch flex-1 justify-center">
             {STAGES.map((stage, index) => <StageButton key={stage.id} stage={stage} index={index} active={active.id === stage.id} onClick={() => navigateStage(stage)} />)}
           </nav>
-          <div className="ml-auto font-instrument text-[11px] text-paper/60 hidden sm:block">{snapshotId ? <span className="font-mono text-[10px]">SNAPSHOT {snapshotId.slice(-8)}</span> : 'no briefing open yet'}</div>
+          <div className="ml-auto flex items-center gap-3">
+            <div className="font-instrument text-[11px] text-paper/60 hidden lg:block">{snapshotId ? <span className="font-mono text-[10px]">SNAPSHOT {snapshotId.slice(-8)}</span> : 'no briefing open yet'}</div>
+            <div className="flex rounded-sm border border-paper/35 p-0.5 font-mono text-[10px]" role="group" aria-label={language === 'fr' ? 'Choisir la langue' : 'Select language'}>
+              {['en', 'fr'].map((code) => (
+                <button
+                  key={code}
+                  type="button"
+                  lang={code}
+                  aria-pressed={language === code}
+                  aria-label={code === 'fr' ? 'Français' : 'English'}
+                  onClick={() => setLanguage(code)}
+                  className={clsx('min-h-9 min-w-9 px-1.5 transition-colors', language === code ? 'bg-paper text-ink' : 'text-paper/65 hover:text-paper')}
+                >
+                  {code.toUpperCase()}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
         <nav aria-label={`${active.label} views`} className="h-9 px-3 sm:px-5 flex items-end gap-1 bg-paper text-ink border-b hairline overflow-x-auto">
           {SUBVIEWS[active.id].map(([id, label]) => (

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { initialPage } from '../lib/routes.js';
 import { localSnapshots, fetchSnapshotJson, snapshotTombstones } from '../lib/localSnapshots.js';
 import { preparedRun } from '../lib/preparedRun.js';
+import { getInitialLanguage, LANGUAGE_STORAGE_KEY } from '../i18n.js';
 
 async function fetchJson(url) {
   const response = await fetch(url);
@@ -10,6 +11,7 @@ async function fetchJson(url) {
 }
 
 export const useApp = create((set, get) => ({
+  language: getInitialLanguage(),
   page: initialPage(), // stage 01 (plan a passage) unless the URL deep-links elsewhere
   manifest: null,
   manifestError: null,
@@ -35,6 +37,15 @@ export const useApp = create((set, get) => ({
   nowMs: Date.now(),
 
   setPage: (page) => set({ page }),
+  setLanguage: (language) => {
+    if (language !== 'en' && language !== 'fr') return;
+    try {
+      localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
+    } catch {
+      // The selection still applies for this session when storage is blocked.
+    }
+    set({ language });
+  },
 
   loadManifest: async () => {
     // static manifest (demo + committed snapshots) merged with briefings the
