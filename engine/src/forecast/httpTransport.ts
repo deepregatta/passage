@@ -19,7 +19,9 @@ export class HttpTileTransport implements TileTransport {
 
   constructor(options: HttpTileTransportOptions) {
     this.baseUrl = options.baseUrl.replace(/\/$/, '');
-    this.fetchFn = options.fetchFn ?? fetch;
+    // bind the global: bare `fetch` invoked as `this.fetchFn(...)` gets the
+    // transport as its receiver and Chromium throws "Illegal invocation"
+    this.fetchFn = options.fetchFn ?? ((...args) => fetch(...args));
   }
 
   private async getJson<T>(path: string): Promise<T> {

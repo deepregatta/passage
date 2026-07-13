@@ -7,6 +7,12 @@
       "runtimeArgs": ["run", "dev", "-w", "viewer"],
       "port": 5174,
       "env": { "VITE_DW_FIXTURE": "demo" }
+    },
+    {
+      "name": "static-dist",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["scripts/serve-pages.mjs"],
+      "port": 8788
     }
   ]
 }

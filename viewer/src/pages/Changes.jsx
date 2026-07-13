@@ -5,6 +5,7 @@ import { EvidenceLink, VerdictChip } from '../components/common.jsx';
 import SynopticCompare from '../components/SynopticCompare.jsx';
 import { deriveChangeStory, kindLabels, ruleLabels } from '../lib/changeStory.js';
 import { fmtTime } from '../lib/format.js';
+import { fetchSnapshotJson } from '../lib/localSnapshots.js';
 
 export default function Changes() {
   const findings = useApp((state) => state.findings);
@@ -19,8 +20,8 @@ export default function Changes() {
     const previous = manifest.snapshots.filter((item) => item.route_id === findings.route_id && item.departure_utc === findings.departure_utc && item.snapshot_id !== findings.snapshot_id).sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))[0];
     if (!previous) return setState({ status: 'first', changes: diffFindings(null, findings) });
     Promise.all([
-      fetch(`/data/snapshots/${previous.snapshot_id}/findings.json`).then((response) => response.ok ? response.json() : Promise.reject(new Error(`HTTP ${response.status}`))),
-      fetch(`/data/snapshots/${previous.snapshot_id}/synoptic.json`).then((response) => response.ok ? response.json() : null),
+      fetchSnapshotJson(previous.snapshot_id, 'findings.json'),
+      fetchSnapshotJson(previous.snapshot_id, 'synoptic.json').catch(() => null),
     ]).then(([previousFindings, previousSynoptic]) => setState({ status: 'ok', previous: previousFindings, previousSynoptic, previousId: previous.snapshot_id, changes: diffFindings(previousFindings, findings) })).catch((error) => setState({ status: 'error', error: error.message }));
   }, [findings, manifest]);
   if (!findings) return <p className="p-10 font-instrument text-ink-soft">Open a snapshot first.</p>;

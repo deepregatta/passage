@@ -25,6 +25,9 @@ export function forecastStore() {
 
 /** friendly message for store failures (no run published / offline / coverage) */
 export function friendlyForecastError(error) {
+  // the friendly message replaces the technical one in the UI; keep the
+  // original in the console so production failures stay diagnosable
+  console.error('forecast tiles:', error);
   const message = error instanceof Error ? error.message : String(error);
   if (/unavailable for this area/i.test(message)) {
     return new Error('No forecast tiles cover this area yet');

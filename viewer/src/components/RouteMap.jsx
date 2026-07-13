@@ -6,6 +6,7 @@ import { GridSampler } from '@deepweather/engine';
 import { useApp } from '../stores/appStore.js';
 import { frameForCursor, usePlayback } from '../stores/playbackStore.js';
 import { STATUS_HEX, hourStatus, fmtTime } from '../lib/format.js';
+import { fetchSnapshotJson } from '../lib/localSnapshots.js';
 
 /**
  * The passage on a chart (mockup 1): marine-styled Leaflet — light base +
@@ -114,8 +115,8 @@ export default function RouteMap({ height = 420 }) {
 
   useEffect(() => {
     if (!findings) return;
-    fetch(`/data/snapshots/${findings.snapshot_id}/route.json`)
-      .then((r) => (r.ok ? r.json() : null))
+    fetchSnapshotJson(findings.snapshot_id, 'route.json')
+      .catch(() => null)
       .then(setRouteDoc);
     fetch('/data/config/gates.json')
       .then((r) => (r.ok ? r.json() : null))
