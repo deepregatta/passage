@@ -22,7 +22,10 @@ test('playback scrub synchronizes the story phase and evidence focus', async ({ 
   await openAuditedSnapshot(page);
   const ruler = page.getByRole('slider', { name: 'Passage time' });
   await ruler.evaluate((element) => {
-    element.value = '1';
+    // React tracks the value property: plain `element.value = …` updates the
+    // tracker too and the dispatched event is ignored — use the native setter
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+    setter.call(element, '1');
     element.dispatchEvent(new Event('input', { bubbles: true }));
     element.dispatchEvent(new Event('change', { bubbles: true }));
   });
