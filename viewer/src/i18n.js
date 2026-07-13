@@ -33,6 +33,8 @@ const FR = {
   'My briefings': 'Mes briefings',
   'Causal brief': 'Briefing causal',
   'Evidence': 'Éléments probants',
+  'evidence:': 'éléments probants :',
+  'NM': 'M',
   'Changes': 'Évolutions',
   'Track record': 'Bilan de fiabilité',
   'Case study': 'Étude de cas',
@@ -368,6 +370,25 @@ const FR = {
 };
 
 const FR_PATTERNS = [
+  [/^A (strengthening )?low-pressure system sits (.+) — that is what sets the wind pattern over your route\. The chart panels show how it moves over the next days\.$/, (_match, strengthening, position) => `Une dépression${strengthening ? ' qui se renforce' : ''} se trouve ${translateSynopticPosition(position)} — elle détermine le régime de vent sur votre route. Les cartes montrent son déplacement au cours des prochains jours.`],
+  [/^Low (L\d+) deepens west of the route\.$/, 'La dépression $1 se creuse à l’ouest de la route.'],
+  [/^(.+): (light|moderate|fresh|strong|near-gale|gale-force) winds while you are on this stretch \((.+) UTC\)\.(.*)$/, (_match, leg, strength, window, suffix) => `${translateRouteName(leg)} : ${translateWindStrength(strength)} pendant ce tronçon (${window} UTC).${translateExceedanceSuffix(suffix)}`],
+  [/^The forecasts disagree too much to assess this passage against your limits\. Reassess after the next model run\.(.*)$/, (_match, suffix) => `Les prévisions divergent trop pour évaluer cette traversée par rapport à vos limites. Réévaluez-la après le prochain cycle du modèle.${translateMainSignal(suffix)}`],
+  [/^An official marine warning covers part of your route\. That takes precedence over everything below\.(.*)$/, (_match, suffix) => `Une alerte marine officielle couvre une partie de votre route. Elle prévaut sur tout ce qui suit.${translateMainSignal(suffix)}`],
+  [/^Forecast conditions stay inside the limits you declared for this departure\.(.*)$/, (_match, suffix) => `Les conditions prévues restent dans les limites que vous avez déclarées pour ce départ.${translateMainSignal(suffix)}`],
+  [/^Forecast conditions come close to the limits you declared\. Look at what is driving this before deciding\.(.*)$/, (_match, suffix) => `Les conditions prévues approchent des limites que vous avez déclarées. Examinez la cause avant de décider.${translateMainSignal(suffix)}`],
+  [/^Forecast conditions go beyond the limits you declared for this departure\.(.*)$/, (_match, suffix) => `Les conditions prévues dépassent les limites que vous avez déclarées pour ce départ.${translateMainSignal(suffix)}`],
+  [/^Authority override: bulletin (.+) active during the passage window\. This state overrides the personal-limit summary and does not assert a numeric limit exceedance\.$/, 'Priorité à l’autorité : le bulletin $1 est actif pendant la fenêtre de traversée. Cet état prévaut sur le résumé des limites personnelles et n’affirme aucun dépassement chiffré.'],
+  [/^Detected systems \((.+)\): (.+)\. Front-type labels withheld pending corroboration \(§4\.1\)\.$/, (_match, run, systems) => `Systèmes détectés (${run}) : ${translateDetectedSystems(systems)}. Les types de fronts ne sont pas indiqués dans l’attente d’une corroboration (§4.1).`],
+  [/^Per-leg conditions evaluated hourly across each leg's ETA occupancy window \(slow\/nominal\/fast scenarios\), course-relative\.$/, 'Conditions de chaque tronçon évaluées heure par heure sur sa fenêtre d’occupation estimée (scénarios lent, nominal et rapide), par rapport à la route.'],
+  [/^L\d+ .+ \([\d.]+ nm, [\d.]+°T\): .+$/, (value) => translateProfessionalLeg(value)],
+  [/^(All evaluated condition-hours remain below declared thresholds|One or more condition-hours reach ≥75% of a declared limit, or the ensemble scenario fraction is above your declared floor|At least one condition-hour exceeds a declared threshold in the deterministic run|Deterministic model divergence exceeds assessment tolerance within the passage window|Authority override active: an official bulletin covers route zones during the passage window)\.(.*)$/, (_match, assessment, suffix) => `${translateProfessionalAssessment(assessment)}.${translateProfessionalDecisionSuffix(suffix)}`],
+  [/^Next (.+) cycle expected ~(.+)\. Model run ids in this analysis are inferred from publication schedules until the prepared-run pipeline provides authoritative cycles\. Agreement between runs is not proof of accuracy\.$/, 'Prochain cycle $1 attendu vers $2. Dans cette analyse, les identifiants de cycles sont déduits des calendriers de publication jusqu’à ce que la chaîne de préparation fournisse les cycles de référence. La concordance entre les cycles ne prouve pas leur exactitude.'],
+  [/^Emulated evidence entries: (.+)\. Provider modes are recorded in the snapshot inputs\.$/, 'Entrées probantes simulées : $1. Les modes des fournisseurs sont consignés dans les données d’entrée du briefing.'],
+  [/^This briefing does NOT cover: (.+)\. Partly assessed: (.+)\. No warning here does not mean no risk\.$/, (_match, unsupported, partial) => `Ce briefing ne couvre PAS : ${translateCapabilityList(unsupported)}. Évaluation partielle : ${translateCapabilityList(partial)}. L’absence d’alerte ici ne signifie pas l’absence de risque.`],
+  [/^This briefing does NOT cover: (.+)\. No warning here does not mean no risk\.$/, (_match, unsupported) => `Ce briefing ne couvre PAS : ${translateCapabilityList(unsupported)}. L’absence d’alerte ici ne signifie pas l’absence de risque.`],
+  [/^Unassessed hazard classes: (.+)\. Partial capability coverage: (.+)\. Absence of a flag must not be read as absence of risk \(brief §5\)\.$/, (_match, unsupported, partial) => `Catégories de dangers non évaluées : ${translateCapabilityList(unsupported)}. Couverture partielle des capacités : ${translateCapabilityList(partial)}. L’absence de signalement ne doit pas être interprétée comme une absence de risque (briefing §5).`],
+  [/^Unassessed hazard classes: (.+)\. Absence of a flag must not be read as absence of risk \(brief §5\)\.$/, (_match, unsupported) => `Catégories de dangers non évaluées : ${translateCapabilityList(unsupported)}. L’absence de signalement ne doit pas être interprétée comme une absence de risque (briefing §5).`],
   [/^Plan views$/, 'Vues de planification'],
   [/^Brief views$/, 'Vues du briefing'],
   [/^Watch views$/, 'Vues du suivi'],
@@ -401,6 +422,7 @@ const FR_PATTERNS = [
   [/^(.+): fresh winds while you are on this stretch \((.+)\)\.(.*)$/, '$1 : vents frais pendant ce tronçon ($2).$3'],
   [/^(.+): strong winds while you are on this stretch \((.+)\)\.(.*)$/, '$1 : vents forts pendant ce tronçon ($2).$3'],
   [/^(.+): light winds while you are on this stretch \((.+)\)\.(.*)$/, '$1 : vents faibles pendant ce tronçon ($2).$3'],
+  [/^(.+): moderate winds while you are on this stretch \((.+)\)\.(.*)$/, '$1 : vents modérés pendant ce tronçon ($2).$3'],
   [/^Forecasts update several times a day\. Check again after the next model run \(expected around (.+) UTC\) — especially if you are close to your limits\.$/, 'Les prévisions sont mises à jour plusieurs fois par jour. Vérifiez à nouveau après le prochain cycle du modèle (attendu vers $1 UTC), surtout si les conditions sont proches de vos limites.'],
   [/^Conditions along your route: (.+)$/, 'Conditions le long de votre route : $1'],
   [/^(\d+) of (\d+)$/, '$1 sur $2'],
@@ -427,7 +449,126 @@ const FR_PATTERNS = [
   [/^(.+) tracked positions$/, '$1 positions suivies'],
 ];
 
+function translateSynopticPosition(position) {
+  const positions = {
+    'far out in the Atlantic, to the north': 'loin dans l’Atlantique, au nord',
+    'far out in the Atlantic, to the south': 'loin dans l’Atlantique, au sud',
+    'far out in the Atlantic, at your latitude': 'loin dans l’Atlantique, à votre latitude',
+    'west of the approaches, to the north': 'à l’ouest des approches, au nord',
+    'west of the approaches, to the south': 'à l’ouest des approches, au sud',
+    'west of the approaches, at your latitude': 'à l’ouest des approches, à votre latitude',
+    'near your waters, to the north': 'près de votre zone de navigation, au nord',
+    'near your waters, to the south': 'près de votre zone de navigation, au sud',
+    'near your waters, at your latitude': 'près de votre zone de navigation, à votre latitude',
+  };
+  return positions[position] ?? position;
+}
+
+function translateDetectedSystems(systems) {
+  return systems
+    .replace(/^lows /, 'dépressions ')
+    .replace(/; highs none/, ' ; aucun anticyclone')
+    .replace(/; highs /, ' ; anticyclones ')
+    .replace(/\bnone\b/g, 'aucun')
+    .replace(/\bnear\b/g, 'près de')
+    .replace(/, deepening ([\d.]+) hPa\/24h/g, ', se creusant de $1 hPa/24 h')
+    .replace(/, filling ([\d.]+) hPa\/24h/g, ', se comblant de $1 hPa/24 h')
+    .replace(/, steady/g, ', stable')
+    .replace(/, moving ([A-Z]+) ([\d.]+) kt/g, ', se déplaçant vers l’$1 à $2 nd');
+}
+
+function translateRouteName(name) {
+  return name
+    .replace(/\bStart\b/g, 'Départ')
+    .replace(/\bFinish\b/g, 'Arrivée')
+    .replace(/\bwaypoint (\d+)\b/gi, 'point de route $1');
+}
+
+function translateWindStrength(strength) {
+  return {
+    light: 'vents faibles',
+    moderate: 'vents modérés',
+    fresh: 'vents frais',
+    strong: 'vents forts',
+    'near-gale': 'vents proches du grand frais',
+    'gale-force': 'vents de force coup de vent',
+  }[strength];
+}
+
+function translateExceedanceSuffix(suffix) {
+  if (!suffix) return '';
+  const match = suffix.match(/^ (all (\d+)|(\d+) of (\d+)) forecast scenarios exceed your ([\d.]+) kt (gust|wind) limit around (.+) UTC\.$/i);
+  if (!match) return suffix;
+  const count = match[2] ? `Les ${match[2]} scénarios de prévision` : `${match[3]} scénarios sur ${match[4]}`;
+  const kind = match[6] === 'gust' ? 'rafales' : 'vent';
+  return ` ${count} dépassent votre limite de ${kind} de ${match[5]} nd vers ${match[7]} UTC.`;
+}
+
+function translateProfessionalLeg(value) {
+  const match = value.match(/^(L\d+) (.+) \(([\d.]+) nm, ([\d.]+)°T\): sustained ([\d–.]+) kt(?:, gusts to ([\d.]+) kt)? across the ETA window (.+) UTC\.(.*)$/);
+  if (!match) return value;
+  let translated = `${match[1]} ${translateRouteName(match[2])} (${match[3]} M, ${match[4]}° vrais) : vent moyen ${match[5]} nd${match[6] ? `, rafales jusqu’à ${match[6]} nd` : ''} sur la fenêtre d’arrivée estimée ${match[7]} UTC.`;
+  translated += match[8]
+    .replace(/ Seas to ([\d.]+) m significant \(deterministic wave model — no wave ensembles exist\)\./g, ' Mer significative jusqu’à $1 m (modèle de vagues déterministe ; aucun ensemble de vagues).')
+    .replace(/ Wind against swell here — expect steeper, more uncomfortable seas\./g, ' Vent contre houle sur ce tronçon : attendez-vous à une mer plus abrupte et inconfortable.')
+    .replace(/ Wind-against-swell flagged\./g, ' Vent contre houle signalé.')
+    .replace(/ Models diverge on (\d+) h of this leg \(max spread ([\d.]+) kt\) — agreement is not proof, divergence says wait for the next run\./g, ' Les modèles divergent pendant $1 h sur ce tronçon (écart maximal de $2 nd) ; la concordance ne constitue pas une preuve et la divergence invite à attendre le prochain cycle.')
+    .replace(/ Ensemble \((.+)\): all (\d+) forecast scenarios exceed your ([\d.]+) kt (gust|wind) limit at (.+) \(raw scenario fraction — not a calibrated probability\)\./gi, (_m, model, count, limit, kind, time) => ` Ensemble (${model}) : les ${count} scénarios de prévision dépassent votre limite de ${kind.toLowerCase() === 'gust' ? 'rafales' : 'vent'} de ${limit} nd à ${time} (fraction brute de scénarios, et non probabilité étalonnée).`)
+    .replace(/ Ensemble \((.+)\): (\d+) of (\d+) forecast scenarios exceed your ([\d.]+) kt (gust|wind) limit at (.+) \(raw scenario fraction — not a calibrated probability\)\./gi, (_m, model, exceed, total, limit, kind, time) => ` Ensemble (${model}) : ${exceed} scénarios sur ${total} dépassent votre limite de ${kind.toLowerCase() === 'gust' ? 'rafales' : 'vent'} de ${limit} nd à ${time} (fraction brute de scénarios, et non probabilité étalonnée).`);
+  return translated;
+}
+
+function translateProfessionalAssessment(assessment) {
+  return {
+    'All evaluated condition-hours remain below declared thresholds': 'Toutes les conditions horaires évaluées restent sous les seuils déclarés',
+    'One or more condition-hours reach ≥75% of a declared limit, or the ensemble scenario fraction is above your declared floor': 'Une ou plusieurs conditions horaires atteignent au moins 75 % d’une limite déclarée, ou la fraction de scénarios d’ensemble dépasse votre seuil déclaré',
+    'At least one condition-hour exceeds a declared threshold in the deterministic run': 'Au moins une condition horaire dépasse un seuil déclaré dans le cycle déterministe',
+    'Deterministic model divergence exceeds assessment tolerance within the passage window': 'La divergence des modèles déterministes dépasse la tolérance d’évaluation pendant la fenêtre de traversée',
+    'Authority override active: an official bulletin covers route zones during the passage window': 'Priorité active à l’autorité : un bulletin officiel couvre des zones de la route pendant la fenêtre de traversée',
+  }[assessment];
+}
+
+function translateProfessionalDecisionSuffix(suffix) {
+  return suffix
+    .replace(/ Driver: (\S+) on (L\d+) at (\S+) — (\d+)\/(\d+) members > ([\d.]+) (\S+)\./g, ' Facteur déterminant : $1 sur $2 à $3 — $4 membres sur $5 > $6 $7.')
+    .replace(/ Driver: (\S+) on (L\d+) at (\S+) — ([\d.]+) (\S+) vs declared ([\d.]+) (\S+)\./g, ' Facteur déterminant : $1 sur $2 à $3 — $4 $5 contre une limite déclarée de $6 $7.');
+}
+
+function translateMainSignal(suffix) {
+  if (!suffix) return '';
+  const match = suffix.match(/^ The main signal: (.+) on (.+) around (.+) UTC\.$/);
+  if (!match) return suffix;
+  return ` Signal principal : ${translateExceedanceClaim(match[1])} sur ${translateRouteName(match[2])} vers ${match[3]} UTC.`;
+}
+
+function translateExceedanceClaim(claim) {
+  return claim
+    .replace(/^gusts up to ([\d.]+) kt — over your ([\d.]+) kt limit$/, 'rafales jusqu’à $1 nd — au-dessus de votre limite de $2 nd')
+    .replace(/^gusts up to ([\d.]+) kt — close to your ([\d.]+) kt limit$/, 'rafales jusqu’à $1 nd — proches de votre limite de $2 nd')
+    .replace(/^([\d.]+) kt against your ([\d.]+) kt limit$/, '$1 nd pour une limite de $2 nd')
+    .replace(/^(all (\d+)|(\d+) of (\d+)) forecast scenarios exceed your ([\d.]+) kt limit$/i, (_match, _count, all, exceed, total, limit) => all
+      ? `les ${all} scénarios de prévision dépassent votre limite de ${limit} nd`
+      : `${exceed} scénarios sur ${total} dépassent votre limite de ${limit} nd`);
+}
+
+function translateCapabilityList(value) {
+  return value
+    .replace(/official marine warnings \(no feed configured\)/gi, 'alertes marines officielles (aucun flux configuré)')
+    .replace(/official marine warnings/gi, 'alertes marines officielles')
+    .replace(/tidal currents & gates/gi, 'courants et portes de marée')
+    .replace(/waves \(deterministic wave model only; no wave ensemble\)/gi, 'vagues (modèle de vagues déterministe uniquement ; aucun ensemble de vagues)')
+    .replace(/visibility_and_convection \(screening signals only \(single model, GFS\); official warnings remain authoritative\)/gi, 'visibilité et convection (signaux de dépistage uniquement, issus d’un seul modèle, GFS ; les alertes officielles restent la référence)')
+    .replace(/tidal_currents \(stride-subsampled x(\d+) from native ([\d.]+) deg to ([\d.]+) deg \(target ([\d.]+) deg\); values are exact native cell values, no smoothing\)/gi, 'courants de marée (sous-échantillonnage par pas x$1, de $2° natif à $3°, cible $4° ; valeurs exactes des cellules natives, sans lissage)')
+    .replace(/tidal currents \(no prepared current grid\)/gi, 'courants de marée (aucune grille de courants préparée)')
+    .replace(/tidal gates & HW\/LW heights \(no tide data\)/gi, 'portes de marée et hauteurs PM/BM (aucune donnée de marée)')
+    .replace(/tropical systems/gi, 'systèmes tropicaux')
+    .replace(/\bice\b/gi, 'glace')
+    .replace(/limited inputs/gi, 'données d’entrée limitées');
+}
+
 const FR_FRAGMENTS = [
+  [/\bofficial marine warnings \(no feed configured\)/gi, 'alertes marines officielles (aucun flux configuré)'],
+  [/\bmoderate winds while you are on this stretch\b/gi, 'vents modérés pendant ce tronçon'],
   [/\bClaim-level evidence\b/g, 'Éléments probants au niveau de l’affirmation'],
   [/\bforecast scenarios exceed your\b/gi, 'scénarios de prévision dépassent votre'],
   [/\bEvidence claims\b/g, 'Affirmations étayées'],
@@ -530,7 +671,7 @@ const FR_FRAGMENTS = [
   [/\blimit\b/gi, 'limite'],
   [/\bkt\b/g, 'nd'],
   [/(\d)kt\b/g, '$1 nd'],
-  [/(\d) NM\b/g, '$1 M'],
+  [/(\d+) NM\b/g, '$1 M'],
   [/\bStart\b/g, 'Départ'],
   [/\bFinish\b/g, 'Arrivée'],
   [/proches de votre limites/gi, 'proches de vos limites'],
