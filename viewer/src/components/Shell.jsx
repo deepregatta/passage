@@ -23,7 +23,7 @@ export default function Shell({ page, onNavigate, children }) {
     else onNavigate(stage.target);
   };
   return (
-    <div className="min-h-screen bg-paper pb-16 md:pb-0">
+    <div className="min-h-screen bg-paper pb-16 md:pb-0 flex flex-col">
       <a href="#main-content" className="sr-only focus:not-sr-only fixed left-3 top-3 z-[100] bg-paper border border-ink px-3 py-2">Skip to briefing content</a>
       <header className="sticky top-0 z-30 bg-ink-deep text-paper border-b border-paper/20">
         <div className="h-14 px-3 sm:px-5 flex items-center gap-4">
@@ -42,11 +42,47 @@ export default function Shell({ page, onNavigate, children }) {
           ))}
         </nav>
       </header>
-      <main id="main-content" className="min-w-0">{children}</main>
+      <main id="main-content" className="min-w-0 flex-1">{children}</main>
+      <SiteFooter />
       <nav aria-label="Passage stages" className="md:hidden fixed bottom-0 inset-x-0 h-16 z-40 bg-ink-deep text-paper grid grid-cols-4 border-t border-paper/20">
         {STAGES.map((stage, index) => <StageButton key={stage.id} stage={stage} index={index} active={active.id === stage.id} onClick={() => navigateStage(stage)} mobile />)}
       </nav>
     </div>
+  );
+}
+
+function SiteFooter() {
+  const year = new Date().getFullYear();
+  const links = [
+    ['Privacy', 'https://deepregatta.com/privacy'],
+    ['Terms', 'https://deepregatta.com/terms'],
+    ['Legal notice', 'https://deepregatta.com/legal'],
+  ];
+
+  return (
+    <footer className="mt-12 border-t border-ink/25 bg-paper-deep/55" aria-label="DeepRegatta information">
+      <div className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6">
+        <div className="flex flex-col gap-4 font-instrument text-sm text-ink-soft lg:flex-row lg:items-center lg:justify-between">
+          <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+            <span className="font-semibold uppercase tracking-[0.08em] text-ink">Passage</span>
+            <span aria-hidden="true">·</span>
+            <span>A DeepRegatta instrument for offshore sailors</span>
+            <span aria-hidden="true">·</span>
+            <span>© {year} DeepRegatta</span>
+          </p>
+          <nav aria-label="DeepRegatta legal and contact links" className="flex flex-wrap gap-x-5 gap-y-2">
+            {links.map(([label, href]) => (
+              <a key={href} href={href} className="text-event underline-offset-4 hover:underline">
+                {label}
+              </a>
+            ))}
+            <a href="mailto:contact@deepregatta.com" className="text-event underline-offset-4 hover:underline">
+              contact@deepregatta.com
+            </a>
+          </nav>
+        </div>
+      </div>
+    </footer>
   );
 }
 
