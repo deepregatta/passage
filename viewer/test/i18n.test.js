@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getDefaultLanguage, getInitialLanguage, translateText } from '../src/i18n.js';
 
@@ -34,6 +35,8 @@ describe('language selection', () => {
       'models diverge on 7 h of this passage': 'les modèles divergent pendant 7 h sur cette traversée',
       'run 2026-07-13T00:00Z · age 18 h 15 min': 'cycle 2026-07-13T00:00Z · âge 18 h 15 min',
       'system undefined · boat L1': 'aucun système attribué · bateau L1',
+      '8 NM': '8 M',
+      'evidence:': 'éléments probants :',
     };
     for (const [english, french] of Object.entries(samples)) {
       expect(translateText(english, 'fr')).toBe(french);
@@ -58,6 +61,40 @@ describe('language selection', () => {
     for (const sample of samples) {
       const translated = translateText(sample, 'fr');
       expect(translated).not.toMatch(/\b(The|forecast|winds|while|Not assessed|tidal|tropical|ice|limit|around)\b/i);
+    }
+  });
+
+  it('translates every sentence from the reported French briefing regressions', () => {
+    const samples = [
+      'A low-pressure system sits near your waters, to the south — that is what sets the wind pattern over your route. The chart panels show how it moves over the next days.',
+      'Start → waypoint 2: moderate winds while you are on this stretch (Wed 15 Jul 06:00–Wed 15 Jul 06:17 UTC).',
+      'waypoint 8 → Finish: fresh winds while you are on this stretch (Wed 15 Jul 12:23–Wed 15 Jul 15:38 UTC). 6 of 31 forecast scenarios exceed your 28 kt gust limit around Wed 15 Jul 15:00 UTC.',
+      'The forecasts disagree too much to assess this passage against your limits. Reassess after the next model run. The main signal: gusts up to 32 kt — over your 28 kt limit on waypoint 7 → waypoint 8 around Wed 15 Jul 14:00 UTC.',
+      'This briefing does NOT cover: official marine warnings (no feed configured), tropical systems, ice. No warning here does not mean no risk.',
+      'Unassessed hazard classes: official marine warnings (no feed configured); tropical systems; ice. Partial capability coverage: waves (deterministic wave model only; no wave ensemble); visibility_and_convection (screening signals only (single model, GFS); official warnings remain authoritative); tidal_currents (stride-subsampled x2 from native 0.0278 deg to 0.0556 deg (target 0.05 deg); values are exact native cell values, no smoothing). Absence of a flag must not be read as absence of risk (brief §5).',
+    ];
+    const english = /\b(?:a low-pressure|sits|that is what|chart panels|moderate winds|while you are|the forecasts|assess this passage|reassess|next model run|the main signal|gust limit|official marine warnings|no feed configured|unassessed hazard|partial capability|deterministic wave|no wave ensemble|screening signals|single model|remain authoritative|stride-subsampled|native cell values|no smoothing|absence of a flag|absence of risk)\b/i;
+
+    for (const sample of samples) {
+      expect(translateText(sample, 'fr')).not.toMatch(english);
+    }
+  });
+
+  it('leaves no generated English briefing prose in the bundled snapshots', () => {
+    const fixtures = [
+      './fixtures/20260720T060000Z_44d2cd5f_4196266b/briefing.json',
+      './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_7b2600cd/briefing.json',
+      './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/briefing.json',
+    ];
+    const english = /\b(?:while you are|forecast scenarios exceed|the forecasts|reassess after|official marine warnings|unassessed hazard classes|partial capability coverage|deterministic wave model|screening signals only|values are exact|absence of a flag|authority override|detected systems|front-type labels|per-leg conditions|sustained \d|gusts to|seas to|raw scenario fraction|calibrated probability|provider modes are recorded)\b/i;
+    const visit = (value) => {
+      if (typeof value === 'string') expect(translateText(value, 'fr')).not.toMatch(english);
+      else if (Array.isArray(value)) value.forEach(visit);
+      else if (value && typeof value === 'object') Object.values(value).forEach(visit);
+    };
+
+    for (const fixture of fixtures) {
+      visit(JSON.parse(readFileSync(new URL(fixture, import.meta.url), 'utf8')));
     }
   });
 });
