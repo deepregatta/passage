@@ -18,7 +18,7 @@ function fakeFindings(partial: {
     generated_at: '2026-07-19T18:00:00Z',
     inputs: {
       prepared_run_id: null,
-      openmeteo: [{ api: 'forecast', run_inferred: partial.run ?? 'runA' }],
+      forecast_tiles: [{ layer: 'weather', cycle: partial.run ?? 'runA' }],
       warnings_ref: null,
       route_hash: 'x',
       profile_hash: 'y',

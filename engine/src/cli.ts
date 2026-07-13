@@ -10,7 +10,11 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve, dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runAnalysis, persistSnapshot } from './analyze.js';
-import { FsCacheStore, NodeFsSnapshotStore } from './io/node.js';
+import { FsTileTransport, NodeFsSnapshotStore } from './io/node.js';
+import { HttpTileTransport } from './forecast/httpTransport.js';
+import { ScenarioBundleStore } from './forecast/scenarioStore.js';
+import { TileForecastStore } from './forecast/tileStore.js';
+import type { ForecastStore } from './forecast/store.js';
 import type { LimitsProfile, Route, WarningsInput } from './types.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -55,13 +59,33 @@ async function runCommand(args: Map<string, string>): Promise<number> {
     return 1;
   }
 
-  // fixture mode: responses come from files; file-URL bases make request digests
-  // (and therefore snapshot ids) unique per fixture directory
+  // weather source: scenario bundle (--fixture-dir), local tile run (--tiles-dir,
+  // e.g. an `ingest --dry-run` output), or a tile host (--tiles-url / env)
   const fixtureDir = args.get('fixture-dir') ? userPath(args.get('fixture-dir')!) : undefined;
-  const fileFetch = (async (url: string | URL) => {
-    const path = String(url).split('?')[0]!.replace('file://', '');
-    return new Response(readFileSync(path, 'utf8'), { status: 200 });
-  }) as unknown as typeof fetch;
+  const tilesDir = args.get('tiles-dir') ? userPath(args.get('tiles-dir')!) : undefined;
+  const tilesUrl = args.get('tiles-url') ?? process.env.DEEPWEATHER_FORECAST_BASE_URL;
+  let store: ForecastStore;
+  if (fixtureDir) {
+    store = new ScenarioBundleStore({
+      loadBundle: async (name) => {
+        const path = join(fixtureDir, `${name}.json`);
+        return existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : null;
+      },
+      now: () => fixedNow,
+    });
+  } else if (tilesDir) {
+    store = new TileForecastStore({ transport: new FsTileTransport(tilesDir), now: () => fixedNow });
+  } else if (tilesUrl) {
+    store = new TileForecastStore({
+      transport: new HttpTileTransport({ baseUrl: tilesUrl }),
+      now: () => fixedNow,
+    });
+  } else {
+    console.error(
+      'No weather source: pass --fixture-dir, --tiles-dir, --tiles-url, or set DEEPWEATHER_FORECAST_BASE_URL',
+    );
+    return 1;
+  }
 
   // warnings: explicit path (scenarios), or data/processed/warnings/latest.json when present
   let warnings: WarningsInput | undefined;
@@ -121,22 +145,12 @@ async function runCommand(args: Map<string, string>): Promise<number> {
     route,
     profile,
     departureUtc: departure,
+    store,
     ...(warnings ? { warnings } : {}),
     ...(currentGrid ? { currentGrid } : {}),
     ...(synoptic ? { synoptic } : {}),
     ...(tides ? { tides } : {}),
     ...(gates ? { gates } : {}),
-    ...(fixtureDir
-      ? {
-          fetchFn: fileFetch,
-          baseUrls: {
-            forecast: `file://${fixtureDir}/forecast.json`,
-            ensemble: `file://${fixtureDir}/ensemble.json`,
-            marine: `file://${fixtureDir}/marine.json`,
-            multimodel: `file://${fixtureDir}/multimodel.json`,
-          },
-        }
-      : { cache: new FsCacheStore(join(REPO_ROOT, 'data', 'cache', 'openmeteo')) }),
     now: () => fixedNow,
   });
 
@@ -148,8 +162,8 @@ async function runCommand(args: Map<string, string>): Promise<number> {
   const snapshotRoot = args.get('snapshot-dir')
     ? userPath(args.get('snapshot-dir')!)
     : join(REPO_ROOT, 'data', 'processed', 'snapshots');
-  const store = new NodeFsSnapshotStore(snapshotRoot);
-  const snapshotId = await persistSnapshot(store, result, route, fixedNow);
+  const snapshotStore = new NodeFsSnapshotStore(snapshotRoot);
+  const snapshotId = await persistSnapshot(snapshotStore, result, route, fixedNow);
 
   console.log(`snapshot: ${snapshotId}`);
   console.log(`verdict:  ${result.findings.verdict.state}`);

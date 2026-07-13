@@ -1,10 +1,10 @@
 {
   "generated_at": "2026-07-19T18:00:00Z",
   "departure_utc": "2026-07-20T06:00:00Z",
-  "previous_snapshot_id": "20260720T060000Z_44d2cd5f_51edce67",
-  "latest_snapshot_id": "20260720T060000Z_44d2cd5f_862f314f",
+  "previous_snapshot_id": "20260720T060000Z_44d2cd5f_7b2600cd",
+  "latest_snapshot_id": "20260720T060000Z_44d2cd5f_64ea971e",
   "snapshots": {
-    "previous": "snapshots/20260720T060000Z_44d2cd5f_51edce67/snapshot.json",
-    "latest": "snapshots/20260720T060000Z_44d2cd5f_862f314f/snapshot.json"
+    "previous": "snapshots/20260720T060000Z_44d2cd5f_7b2600cd/snapshot.json",
+    "latest": "snapshots/20260720T060000Z_44d2cd5f_64ea971e/snapshot.json"
   }
 }

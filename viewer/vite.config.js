@@ -199,6 +199,20 @@ function dataMiddleware() {
           return;
         }
 
+        // forecast tiles: a local fixture run under data/processed/forecast/
+        // (e.g. from `ingest weather --dry-run`) mirrors the R2 layout
+        if (requestPath.startsWith('/data/forecast/') && requestPath.endsWith('.bin.gz')) {
+          if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+            res.setHeader('Content-Type', 'application/octet-stream');
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.end(fs.readFileSync(filePath));
+            return;
+          }
+          res.statusCode = 404;
+          res.end('Not found');
+          return;
+        }
+
         const contentTypes = {
           '.json': 'application/json',
           '.geojson': 'application/geo+json',

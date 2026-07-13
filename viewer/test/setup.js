@@ -1,15 +1,15 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, vi } from 'vitest';
 import { cleanup } from '@testing-library/react';
-import manifest from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_862f314f/snapshot.json';
-import findings from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_862f314f/findings.json';
-import briefing from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_862f314f/briefing.json';
-import plume from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_862f314f/plume.json';
-import route from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_862f314f/route.json';
-import warnings from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_862f314f/warnings.json';
-import synoptic from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_862f314f/synoptic.json';
-import previousManifest from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_51edce67/snapshot.json';
-import previousFindings from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_51edce67/findings.json';
+import manifest from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/snapshot.json';
+import findings from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/findings.json';
+import briefing from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/briefing.json';
+import plume from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/plume.json';
+import route from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/route.json';
+import warnings from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/warnings.json';
+import synoptic from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/synoptic.json';
+import previousManifest from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_7b2600cd/snapshot.json';
+import previousFindings from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_7b2600cd/findings.json';
 
 const snapshotId = manifest.snapshot_id;
 const fixtureRoutes = new Map([

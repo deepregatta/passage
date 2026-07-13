@@ -164,7 +164,7 @@ export function diffFindings(previous: Findings | null, latest: Findings): Chang
 
   // source updates (model runs)
   const runOf = (f: Findings) =>
-    (f.inputs.openmeteo.find((m) => m.api === 'forecast')?.run_inferred as string) ?? null;
+    (f.inputs.forecast_tiles.find((m) => m.layer === 'weather')?.cycle as string) ?? null;
   if (runOf(previous) !== runOf(latest)) {
     entries.push({
       kind: 'source_updated',

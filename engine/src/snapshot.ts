@@ -6,7 +6,7 @@
  */
 
 import type { Briefing } from './briefing.js';
-import type { EnsemblePointForecast, HazardPointForecast } from './fetch/openMeteo.js';
+import type { EnsemblePointForecast, HazardPointForecast } from './forecast/types.js';
 import type { Findings, Route } from './types.js';
 
 export interface SnapshotStore {
@@ -70,7 +70,7 @@ export function buildPlume(
       legs.push(plumeLeg);
     });
   }
-  const ensembleInput = findings.inputs.openmeteo.find((m) => m.api === 'ensemble');
+  const ensembleInput = findings.inputs.forecast_tiles.find((m) => m.layer === 'ensemble');
   return {
     schema_version: 1,
     snapshot_id: findings.snapshot_id,

@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "snapshot_id": "20260720T060000Z_44d2cd5f_862f314f",
-  "previous_snapshot_id": "20260720T060000Z_44d2cd5f_51edce67",
+  "snapshot_id": "20260720T060000Z_44d2cd5f_64ea971e",
+  "previous_snapshot_id": "20260720T060000Z_44d2cd5f_7b2600cd",
   "verdict_transition": {
     "from": "warning_active",
     "to": "warning_active"
