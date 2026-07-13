@@ -29,6 +29,9 @@ jobs:
   prepare:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      # secrets are not readable inside `if:` expressions; surface presence via env
+      CMEMS_USERNAME: ${{ secrets.COPERNICUSMARINE_SERVICE_USERNAME }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -47,7 +50,7 @@ jobs:
           CYCLE: ${{ inputs.cycle }}
 
       - name: Prepare current grid (CMEMS)
-        if: ${{ secrets.COPERNICUSMARINE_SERVICE_USERNAME != '' }}
+        if: ${{ env.CMEMS_USERNAME != '' }}
         working-directory: analysis
         continue-on-error: true # a currents outage never blocks the synoptic publish
         run: uv run --no-sync deepweather-analysis fetch-currents
