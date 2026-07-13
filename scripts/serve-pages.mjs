@@ -15,6 +15,7 @@ const port = Number(process.env.PORT ?? 8788);
 const types = {
   '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',
   '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png',
+  '.txt': 'text/plain; charset=utf-8', '.xml': 'application/xml',
   '.gz': 'application/octet-stream', '.bin': 'application/octet-stream',
   '.woff2': 'font/woff2',
 };
