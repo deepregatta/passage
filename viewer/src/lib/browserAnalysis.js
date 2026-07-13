@@ -12,11 +12,17 @@ import { preparedRun, artifactUrl } from './preparedRun.js';
 // statuses that mean "no write endpoint here", not "this write failed"
 const NO_WRITE_ENDPOINT = new Set([403, 404, 405, 501]);
 
+// the /data write endpoints exist only in the dev middleware; a production
+// build goes straight to browser storage instead of probing (a probe works,
+// but every 405 lands in the user's console)
+const DEV_WRITES = import.meta.env.DEV;
+
 class FallbackSnapshotStore {
-  useLocal = false;
+  useLocal = !DEV_WRITES;
 
   async exists(snapshotId) {
     if (await localSnapshots.exists(snapshotId)) return true;
+    if (!DEV_WRITES) return false; // static hosting can't hold a same-id user snapshot
     const res = await fetch(`/data/snapshots/${snapshotId}/snapshot.json`, { method: 'GET' });
     return res.ok;
   }
@@ -70,7 +76,9 @@ export async function analyzeInBrowser({ route, profile, departureUtc, onProgres
       : undefined,
     loadJson('/data/tides/channel.json'),
     loadJson('/data/config/gates.json'),
-    loadJson('/data/warnings/latest.json'),
+    // warnings are a local-pipeline artifact with no production publisher yet;
+    // requesting them from static hosting just logs a 404 in every briefing
+    DEV_WRITES ? loadJson('/data/warnings/latest.json') : undefined,
     loadJson('/data/config/route-zones.json'),
   ]);
   let warnings;
@@ -107,8 +115,9 @@ export async function analyzeInBrowser({ route, profile, departureUtc, onProgres
 
 // Dev nicety: mirrors the route into data/processed/routes/ for CLI use.
 // The briefing itself carries route.json inside the snapshot, so on static
-// hosting (no POST endpoint) this is a silent no-op, not a failure.
+// hosting (no POST endpoint) this is a no-op, not a failure.
 export async function saveRoute(route) {
+  if (!DEV_WRITES) return;
   const res = await fetch(`/data/routes/${route.route_id}.json`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

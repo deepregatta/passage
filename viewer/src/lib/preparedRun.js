@@ -18,11 +18,15 @@ let sourcePromise = null;
 /** {doc, base}: latest.json content (or null) and the URL prefix for `runs/…` paths */
 export function preparedRun() {
   sourcePromise ??= (async () => {
-    try {
-      const res = await fetch('/data/runs/latest.json');
-      if (res.ok) return { doc: await res.json(), base: '/data/' };
-    } catch {
-      // fall through to the published copy
+    // only the dev middleware serves /data/runs/ — a production build skips
+    // the probe (it would 404 into the console on every briefing)
+    if (import.meta.env.DEV) {
+      try {
+        const res = await fetch('/data/runs/latest.json');
+        if (res.ok) return { doc: await res.json(), base: '/data/' };
+      } catch {
+        // fall through to the published copy
+      }
     }
     if (FORECAST_BASE) {
       try {

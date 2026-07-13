@@ -110,10 +110,15 @@ export const localSnapshots = {
 
 // Reads a snapshot artifact wherever it lives: browser-local first (user
 // briefings on static hosting), then the served /data/snapshots/ tree
-// (demo snapshots, dev middleware). Throws when neither has the file.
+// (demo snapshots, dev middleware). A locally-stored snapshot is complete as
+// written — a file it lacks (e.g. warnings.json) is absent, not elsewhere,
+// so don't fall through to HTTP and log a guaranteed 404.
 export async function fetchSnapshotJson(snapshotId, filename) {
   const local = await localSnapshots.read(snapshotId, filename);
   if (local !== null) return JSON.parse(local);
+  if (await localSnapshots.exists(snapshotId)) {
+    throw new Error(`${snapshotId}/${filename}: not stored with this briefing`);
+  }
   const url = `/data/snapshots/${snapshotId}/${filename}`;
   const response = await fetch(url);
   if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
