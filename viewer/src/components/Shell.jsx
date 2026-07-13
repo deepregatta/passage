@@ -2,15 +2,15 @@ import clsx from 'clsx';
 import { useApp } from '../stores/appStore.js';
 
 const STAGES = [
-  { id: 'plan', label: 'Plan', pages: ['planner', 'snapshots', 'settings'], target: 'planner' },
-  { id: 'brief', label: 'Brief', pages: ['briefing', 'evidence'], target: 'briefing' },
+  { id: 'plan', label: 'Plan', pages: ['planner', 'settings'], target: 'planner' },
+  { id: 'brief', label: 'Brief', pages: ['snapshots', 'briefing', 'evidence'], target: 'briefing' },
   { id: 'watch', label: 'Watch', pages: ['changes'], target: 'changes' },
   { id: 'verify', label: 'Verify', pages: ['verification', 'caseStudy'], target: 'verification' },
 ];
 
 const SUBVIEWS = {
-  plan: [['planner', 'Passage'], ['snapshots', 'My briefings'], ['settings', 'My limits']],
-  brief: [['briefing', 'Causal brief'], ['evidence', 'Evidence']],
+  plan: [['planner', 'Passage'], ['settings', 'My limits']],
+  brief: [['snapshots', 'My briefings'], ['briefing', 'Causal brief'], ['evidence', 'Evidence']],
   watch: [['changes', 'Changes']],
   verify: [['verification', 'Track record'], ['caseStudy', 'Case study']],
 };

@@ -11,6 +11,15 @@ export function fmtTime(iso) {
   return `${DAYS[d.getUTCDay()]} ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${hh}:${mm}`;
 }
 
+/** Human-readable timestamp in the viewer's browser timezone. */
+export function fmtLocalTime(iso) {
+  if (!iso) return '—';
+  const d = new Date(Date.parse(iso));
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  return `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]} ${hh}:${mm}`;
+}
+
 export function fmtHour(iso) {
   const d = new Date(Date.parse(iso));
   return `${String(d.getUTCHours()).padStart(2, '0')}:00`;

@@ -5,7 +5,7 @@ import App from '../src/App.jsx';
 import { useApp } from '../src/stores/appStore.js';
 
 beforeEach(() => {
-  history.replaceState(null, '', '#plan/briefings');
+  history.replaceState(null, '', '#brief/briefings');
   useApp.setState({
     page: 'snapshots',
     manifest: null,
@@ -28,6 +28,14 @@ beforeEach(() => {
 });
 
 describe('viewer fixture harness', () => {
+  it('places My briefings in the Brief menu', () => {
+    render(<App />);
+
+    expect(screen.getAllByRole('button', { name: /Brief$/ }).some((button) => button.getAttribute('aria-current') === 'page')).toBe(true);
+    expect(screen.getByRole('button', { name: 'My briefings' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Passage' })).toBeNull();
+  });
+
   it('shows the shared DeepRegatta company links on every Passage view', () => {
     render(<App />);
 

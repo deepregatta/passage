@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '../stores/appStore.js';
 import { VerdictChip } from '../components/common.jsx';
-import { capitalize, fmtTime } from '../lib/format.js';
+import { capitalize, fmtLocalTime, fmtTime } from '../lib/format.js';
 
 /** "cherbourg-plymouth-v1" / "my-passage-5wp" → "Cherbourg plymouth" / "My passage" */
 function routeName(routeId) {
@@ -68,7 +68,7 @@ export default function Snapshots() {
                   )}
                 </span>
                 <span className="font-sans text-[13px] text-ink-soft block mt-0.5">
-                  departing {fmtTime(s.departure_utc)} UTC · made {fmtTime(s.created_at)}
+                  departing {fmtTime(s.departure_utc)} UTC · made {fmtLocalTime(s.created_at)}
                 </span>
               </span>
               {s.verdict_state && (
