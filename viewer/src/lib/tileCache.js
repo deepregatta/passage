@@ -28,8 +28,11 @@ function tx(db, mode, fn) {
   return new Promise((resolve, reject) => {
     const transaction = db.transaction(STORE, mode);
     const store = transaction.objectStore(STORE);
-    const result = fn(store);
-    transaction.oncomplete = () => resolve(result?.result ?? result);
+    const request = fn(store);
+    // a get() miss has request.result === undefined — resolve to that, never
+    // to the IDBRequest itself, or callers mistake a miss for an entry
+    transaction.oncomplete = () =>
+      resolve(request instanceof IDBRequest ? request.result : request);
     transaction.onerror = () => reject(transaction.error);
     transaction.onabort = () => reject(transaction.error);
   });

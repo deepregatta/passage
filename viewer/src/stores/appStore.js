@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { initialPage } from '../lib/routes.js';
+import { localSnapshots, fetchSnapshotJson } from '../lib/localSnapshots.js';
 
 async function fetchJson(url) {
   const response = await fetch(url);
@@ -35,12 +36,24 @@ export const useApp = create((set, get) => ({
   setPage: (page) => set({ page }),
 
   loadManifest: async () => {
-    try {
-      const manifest = await fetchJson('/data/snapshots/manifest.json');
-      set({ manifest, manifestError: null });
-    } catch (error) {
-      set({ manifestError: error.message });
+    // static manifest (demo + committed snapshots) merged with briefings the
+    // browser persisted locally on static hosting; local entries win on id
+    const [served, local] = await Promise.all([
+      fetchJson('/data/snapshots/manifest.json').catch((error) => error),
+      localSnapshots.list(),
+    ]);
+    if (served instanceof Error && local.length === 0) {
+      set({ manifestError: served.message });
+      return;
     }
+    const servedSnapshots = served instanceof Error ? [] : served.snapshots ?? [];
+    const localIds = new Set(local.map((s) => s.snapshot_id));
+    // local briefings first (newest first), then the served list in its own order
+    const snapshots = [...local, ...servedSnapshots.filter((s) => !localIds.has(s.snapshot_id))];
+    set({
+      manifest: { ...(served instanceof Error ? {} : served), snapshots },
+      manifestError: null,
+    });
   },
 
   loadConfig: async () => {
@@ -58,15 +71,15 @@ export const useApp = create((set, get) => ({
   openSnapshot: async (snapshotId) => {
     set({ loading: true, loadError: null, snapshotId, inspectorOpen: false });
     try {
-      const base = `/data/snapshots/${snapshotId}`;
+      const file = (name) => fetchSnapshotJson(snapshotId, name);
       const [snapshot, findings, briefing, plume, warnings, synoptic, route] = await Promise.all([
-        fetchJson(`${base}/snapshot.json`).catch(() => null),
-        fetchJson(`${base}/findings.json`),
-        fetchJson(`${base}/briefing.json`),
-        fetchJson(`${base}/plume.json`).catch(() => null),
-        fetchJson(`${base}/warnings.json`).catch(() => null),
-        fetchJson(`${base}/synoptic.json`).catch(() => null),
-        fetchJson(`${base}/route.json`).catch(() => null),
+        file('snapshot.json').catch(() => null),
+        file('findings.json'),
+        file('briefing.json'),
+        file('plume.json').catch(() => null),
+        file('warnings.json').catch(() => null),
+        file('synoptic.json').catch(() => null),
+        file('route.json').catch(() => null),
       ]);
       const worstLeg =
         findings.evidence.find((e) => e.evidence_id === findings.verdict.driver_evidence_id)
@@ -92,8 +105,11 @@ export const useApp = create((set, get) => ({
   },
 
   deleteSnapshot: async (snapshotId) => {
-    const res = await fetch(`/data/snapshots/${snapshotId}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error(`Could not delete: ${await res.text()}`);
+    const deletedLocally = await localSnapshots.remove(snapshotId);
+    if (!deletedLocally) {
+      const res = await fetch(`/data/snapshots/${snapshotId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error(`Could not delete: ${await res.text()}`);
+    }
     const closingOpen = get().snapshotId === snapshotId;
     if (closingOpen) {
       set({ snapshotId: null, findings: null, briefing: null, plume: null, snapshot: null, warnings: null, synoptic: null, route: null });

@@ -1,25 +1,40 @@
 // The production bet, running today: per-user analysis in the browser.
 // Weather comes from precomputed forecast tiles (R2 in production, the dev
-// middleware's fixture run locally) cached in IndexedDB; snapshots persist via
-// the dev middleware POST (Supabase/R2 later).
+// middleware's fixture run locally) cached in IndexedDB. Snapshots persist via
+// the dev middleware POST when it exists; static hosting (Cloudflare Pages)
+// answers 405, and the snapshot falls back to browser-local IndexedDB.
 
 import { runAnalysis, persistSnapshot } from '@deepweather/engine';
 import { forecastStore } from './forecastStore.js';
+import { localSnapshots } from './localSnapshots.js';
 
-class HttpSnapshotStore {
+// statuses that mean "no write endpoint here", not "this write failed"
+const NO_WRITE_ENDPOINT = new Set([403, 404, 405, 501]);
+
+class FallbackSnapshotStore {
+  useLocal = false;
+
   async exists(snapshotId) {
+    if (await localSnapshots.exists(snapshotId)) return true;
     const res = await fetch(`/data/snapshots/${snapshotId}/snapshot.json`, { method: 'GET' });
     return res.ok;
   }
 
   async write(snapshotId, filename, content) {
-    const res = await fetch(`/data/snapshots/${snapshotId}/${filename}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: content,
-    });
-    if (res.status === 409) throw new Error(`Snapshot ${snapshotId} already exists (write-once)`);
-    if (!res.ok) throw new Error(`Snapshot write failed: HTTP ${res.status}`);
+    if (!this.useLocal) {
+      const res = await fetch(`/data/snapshots/${snapshotId}/${filename}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: content,
+      });
+      if (res.ok) return;
+      if (res.status === 409) throw new Error(`Snapshot ${snapshotId} already exists (write-once)`);
+      if (!NO_WRITE_ENDPOINT.has(res.status)) {
+        throw new Error(`Snapshot write failed: HTTP ${res.status}`);
+      }
+      this.useLocal = true; // keep every artifact of this snapshot in one place
+    }
+    await localSnapshots.write(snapshotId, filename, content);
   }
 }
 
@@ -85,15 +100,20 @@ export async function analyzeInBrowser({ route, profile, departureUtc, onProgres
     warnings,
   });
   onProgress?.('saving immutable snapshot');
-  const snapshotId = await persistSnapshot(new HttpSnapshotStore(), result, route, Date.now());
+  const snapshotId = await persistSnapshot(new FallbackSnapshotStore(), result, route, Date.now());
   return { snapshotId, result };
 }
 
+// Dev nicety: mirrors the route into data/processed/routes/ for CLI use.
+// The briefing itself carries route.json inside the snapshot, so on static
+// hosting (no POST endpoint) this is a silent no-op, not a failure.
 export async function saveRoute(route) {
   const res = await fetch(`/data/routes/${route.route_id}.json`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(route, null, 2),
   });
-  if (!res.ok) throw new Error(`Route save failed: HTTP ${res.status}`);
+  if (!res.ok && !NO_WRITE_ENDPOINT.has(res.status)) {
+    throw new Error(`Route save failed: HTTP ${res.status}`);
+  }
 }
