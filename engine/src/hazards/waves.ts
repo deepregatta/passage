@@ -3,7 +3,7 @@
  *  - steepness computed properly: deep-water wavelength L ≈ gT²/2π, steepness = H/L
  *    (NOT H/T — the review's correction)
  *  - wind-wave and swell components evaluated separately; cross-sea angle between them
- *  - directions are "coming from", degrees true (Open-Meteo marine convention)
+ *  - directions are "coming from", degrees true (wave-model convention, matches GFS-Wave tiles)
  */
 
 import { wrap180 } from '../geo.js';

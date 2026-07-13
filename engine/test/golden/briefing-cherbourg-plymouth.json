@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "snapshot_id": "20260712T060000Z_44d2cd5f_71240e89",
+  "snapshot_id": "20260712T060000Z_44d2cd5f_e56e8fe0",
   "sections": [
     {
       "id": "synoptic_story",
@@ -45,7 +45,7 @@
         {
           "leg_id": "L3",
           "register_plain": "NW of Cap de la Hague → Casquets TSS crossing: strong winds while you are on this stretch (Sun 12 Jul 08:38–Sun 12 Jul 17:03 UTC). All 51 forecast scenarios exceed your 28 kt gust limit around Sun 12 Jul 16:00 UTC.",
-          "register_pro": "L3 NW of Cap de la Hague → Casquets TSS crossing (32.6 nm, 288.6°T): sustained 20–25 kt, gusts to 32 kt across the ETA window Sun 12 Jul 08:38–Sun 12 Jul 17:03 UTC. Seas to 1.9 m significant (deterministic wave model — no wave ensembles exist). Ensemble (ecmwf_ifs025 ensemble): all 51 forecast scenarios exceed your 28 kt gust limit at 2026-07-12T16:00:00Z (raw scenario fraction — not a calibrated probability).",
+          "register_pro": "L3 NW of Cap de la Hague → Casquets TSS crossing (32.6 nm, 288.6°T): sustained 20–25 kt, gusts to 32 kt across the ETA window Sun 12 Jul 08:38–Sun 12 Jul 17:03 UTC. Seas to 1.9 m significant (deterministic wave model — no wave ensembles exist). Ensemble (scenario ensemble): all 51 forecast scenarios exceed your 28 kt gust limit at 2026-07-12T16:00:00Z (raw scenario fraction — not a calibrated probability).",
           "evidence_ids": [
             "E6",
             "E7",
@@ -58,7 +58,7 @@
         {
           "leg_id": "L4",
           "register_plain": "Casquets TSS crossing → Mid-Channel: strong winds while you are on this stretch (Sun 12 Jul 13:39–Sun 12 Jul 22:34 UTC). All 51 forecast scenarios exceed your 28 kt gust limit around Sun 12 Jul 19:00 UTC.",
-          "register_pro": "L4 Casquets TSS crossing → Mid-Channel (24.83 nm, 291.5°T): sustained 19–27 kt, gusts to 35 kt across the ETA window Sun 12 Jul 13:39–Sun 12 Jul 22:34 UTC. Seas to 2.3 m significant (deterministic wave model — no wave ensembles exist). Models diverge on 1 h of this leg (max spread 7.7 kt) — agreement is not proof, divergence says wait for the next run. Ensemble (ecmwf_ifs025 ensemble): all 51 forecast scenarios exceed your 28 kt gust limit at 2026-07-12T19:00:00Z (raw scenario fraction — not a calibrated probability).",
+          "register_pro": "L4 Casquets TSS crossing → Mid-Channel (24.83 nm, 291.5°T): sustained 19–27 kt, gusts to 35 kt across the ETA window Sun 12 Jul 13:39–Sun 12 Jul 22:34 UTC. Seas to 2.3 m significant (deterministic wave model — no wave ensembles exist). Models diverge on 1 h of this leg (max spread 7.7 kt) — agreement is not proof, divergence says wait for the next run. Ensemble (scenario ensemble): all 51 forecast scenarios exceed your 28 kt gust limit at 2026-07-12T19:00:00Z (raw scenario fraction — not a calibrated probability).",
           "evidence_ids": [
             "E12",
             "E13",
@@ -72,7 +72,7 @@
         {
           "leg_id": "L5",
           "register_plain": "Mid-Channel → Plymouth approach (E of Eddystone): fresh winds while you are on this stretch (Sun 12 Jul 17:28–Mon 13 Jul 04:04 UTC). All 51 forecast scenarios exceed your 28 kt gust limit around Sun 12 Jul 17:00 UTC.",
-          "register_pro": "L5 Mid-Channel → Plymouth approach (E of Eddystone) (24.77 nm, 291.6°T): sustained 17–20 kt, gusts to 34 kt across the ETA window Sun 12 Jul 17:28–Mon 13 Jul 04:04 UTC. Seas to 2.0 m significant (deterministic wave model — no wave ensembles exist). Ensemble (ecmwf_ifs025 ensemble): all 51 forecast scenarios exceed your 28 kt gust limit at 2026-07-12T17:00:00Z (raw scenario fraction — not a calibrated probability).",
+          "register_pro": "L5 Mid-Channel → Plymouth approach (E of Eddystone) (24.77 nm, 291.6°T): sustained 17–20 kt, gusts to 34 kt across the ETA window Sun 12 Jul 17:28–Mon 13 Jul 04:04 UTC. Seas to 2.0 m significant (deterministic wave model — no wave ensembles exist). Ensemble (scenario ensemble): all 51 forecast scenarios exceed your 28 kt gust limit at 2026-07-12T17:00:00Z (raw scenario fraction — not a calibrated probability).",
           "evidence_ids": [
             "E19",
             "E20",
@@ -84,7 +84,7 @@
         {
           "leg_id": "L6",
           "register_plain": "Plymouth approach (E of Eddystone) → Plymouth breakwater, western entrance: moderate winds while you are on this stretch (Sun 12 Jul 21:17–Mon 13 Jul 05:37 UTC). 28 of 51 forecast scenarios exceed your 28 kt gust limit around Mon 13 Jul 05:00 UTC.",
-          "register_pro": "L6 Plymouth approach (E of Eddystone) → Plymouth breakwater, western entrance (6.92 nm, 316.2°T): sustained 12–15 kt, gusts to 27 kt across the ETA window Sun 12 Jul 21:17–Mon 13 Jul 05:37 UTC. Seas to 1.5 m significant (deterministic wave model — no wave ensembles exist). Models diverge on 10 h of this leg (max spread 11.6 kt) — agreement is not proof, divergence says wait for the next run. Ensemble (ecmwf_ifs025 ensemble): 28 of 51 forecast scenarios exceed your 28 kt gust limit at 2026-07-13T05:00:00Z (raw scenario fraction — not a calibrated probability).",
+          "register_pro": "L6 Plymouth approach (E of Eddystone) → Plymouth breakwater, western entrance (6.92 nm, 316.2°T): sustained 12–15 kt, gusts to 27 kt across the ETA window Sun 12 Jul 21:17–Mon 13 Jul 05:37 UTC. Seas to 1.5 m significant (deterministic wave model — no wave ensembles exist). Models diverge on 10 h of this leg (max spread 11.6 kt) — agreement is not proof, divergence says wait for the next run. Ensemble (scenario ensemble): 28 of 51 forecast scenarios exceed your 28 kt gust limit at 2026-07-13T05:00:00Z (raw scenario fraction — not a calibrated probability).",
           "evidence_ids": [
             "E24",
             "E25",
@@ -111,8 +111,8 @@
     {
       "id": "what_could_change",
       "title": "What could change",
-      "register_plain": "Forecasts update several times a day. Check again after the next model run (expected around Sat 11 Jul 20:00 UTC) — especially if you are close to your limits.",
-      "register_pro": "Next ecmwf_ifs025 cycle expected ~2026-07-11T20:00:00Z. Model run ids in this analysis are inferred from publication schedules until the prepared-run pipeline provides authoritative cycles. Agreement between runs is not proof of accuracy.",
+      "register_plain": "Forecasts update several times a day. Check again after the next model run (expected around Sat 11 Jul 22:30 UTC) — especially if you are close to your limits.",
+      "register_pro": "Next gfs_0p25 cycle expected ~2026-07-11T22:30:00Z. Model run ids in this analysis are inferred from publication schedules until the prepared-run pipeline provides authoritative cycles. Agreement between runs is not proof of accuracy.",
       "evidence_ids": [],
       "glossary_terms": [
         "model run"
@@ -122,18 +122,18 @@
       "id": "unsupported",
       "title": "Not assessed by this analysis",
       "register_plain": "This briefing does NOT cover: tidal currents (no prepared current grid), tidal gates & HW/LW heights (no tide data), official marine warnings (no feed configured), causal synoptic attribution (no prepared synoptic run), tropical systems, ice. Partly assessed: waves, visibility and convection. No warning here does not mean no risk.",
-      "register_pro": "Unassessed hazard classes: tidal currents (no prepared current grid); tidal gates & HW/LW heights (no tide data); official marine warnings (no feed configured); causal synoptic attribution (no prepared synoptic run); tropical systems; ice. Partial capability coverage: waves (deterministic wave model only; no wave ensemble); visibility_and_convection (screening signals only; official warnings remain authoritative). Absence of a flag must not be read as absence of risk (brief §5).",
+      "register_pro": "Unassessed hazard classes: tidal currents (no prepared current grid); tidal gates & HW/LW heights (no tide data); official marine warnings (no feed configured); causal synoptic attribution (no prepared synoptic run); tropical systems; ice. Partial capability coverage: waves (deterministic wave model only; no wave ensemble); visibility_and_convection (screening signals only (single model, GFS); official warnings remain authoritative). Absence of a flag must not be read as absence of risk (brief §5).",
       "evidence_ids": []
     }
   ],
   "next_runs": [
     {
-      "model": "ecmwf_ifs025",
-      "expected_at": "2026-07-11T20:00:00Z"
+      "model": "gfs_0p25",
+      "expected_at": "2026-07-11T22:30:00Z"
     }
   ],
   "next_run": {
-    "model": "ecmwf_ifs025",
-    "expected_at": "2026-07-11T20:00:00Z"
+    "model": "gfs_0p25",
+    "expected_at": "2026-07-11T22:30:00Z"
   }
 }

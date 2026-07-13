@@ -1,7 +1,8 @@
 /**
  * Browser-safe analysis orchestration: the SAME pipeline the CLI runs, callable
  * from the viewer. In production this is per-user compute in the user's browser —
- * Open-Meteo is fetched from the user's own IP, prepared shared data from R2.
+ * weather comes from precomputed forecast tiles on R2 (docs/forecast-tiles-spec.md),
+ * downloaded per-route and cached locally; routing and audit never leave the browser.
  */
 
 import { assembleFindings } from './findings.js';
@@ -9,14 +10,8 @@ import { renderBriefing, type Briefing } from './briefing.js';
 import { buildPlume, writeSnapshot, type Plume, type SnapshotStore } from './snapshot.js';
 import { deriveLegs, legMidpoints } from './route.js';
 import { computeSchedules, parseUtc, toIso } from './eta.js';
-import {
-  fetchEnsembleForecasts,
-  fetchMarineForecasts,
-  fetchMultiModelForecasts,
-  fetchPointForecasts,
-  type CacheStore,
-  type OpenMeteoOptions,
-} from './fetch/openMeteo.js';
+import { passageMaxHours, routeBbox } from './fetch/liveGrids.js';
+import type { ForecastStore } from './forecast/store.js';
 import { ENGINE_VERSION } from './version.js';
 import type { Findings, LimitsProfile, Route, SynopticFeatures, WarningsInput } from './types.js';
 
@@ -24,25 +19,22 @@ export interface AnalyzeOptions {
   route: Route;
   profile: LimitsProfile;
   departureUtc: string;
+  /** the only weather source: precomputed forecast tiles (or a fixture store in tests) */
+  store: ForecastStore;
   warnings?: WarningsInput;
-  /** prepared CMEMS current grid (loaded by the caller: fs in CLI, /data fetch in browser) */
+  /** prepared CMEMS current grid override; when absent the store's currents layer is used */
   currentGrid?: import('./grids.js').RegionGrid;
   /** HW/LW predictions + named tidal gates (M10) */
   tides?: import('./hazards/tides.js').TidesDoc;
   gates?: import('./hazards/tides.js').GateDef[];
   /** synoptic features from the prepared run (M8) — powers the weather story */
   synoptic?: SynopticFeatures;
-  /** injected transport (tests/fixtures); defaults to live Open-Meteo */
-  fetchFn?: typeof fetch;
-  cache?: CacheStore;
   now?: () => number;
-  /** per-API base URL overrides (fixture mode) */
-  baseUrls?: Partial<Record<'forecast' | 'ensemble' | 'marine' | 'multimodel', string>>;
   onProgress?: (step: string) => void;
   /**
-   * Widen the fetch window to at least this range (ISO dates). A departure scan
-   * passes one window covering every candidate so all candidates share the same
-   * request URLs and hit the scan-wide cache instead of Open-Meteo's quota.
+   * Widen the assessment window to at least this range (ISO dates). A departure
+   * scan passes one window covering every candidate so all candidates read the
+   * same tiles and hit the shared tile cache.
    */
   dateWindow?: { startDate: string; endDate: string };
 }
@@ -50,8 +42,9 @@ export interface AnalyzeOptions {
 /**
  * Audit sampling cell: leg-midpoint forecasts snap to this grid so that
  * near-identical routes (departure-scan candidates re-routed per departure)
- * resolve to the same sample coordinates and share cached responses.
- * 0.25° is the native ECMWF IFS resolution — snapping loses no model detail.
+ * resolve to the same sample coordinates and share cached tiles. 0.25° is the
+ * native GFS/ECMWF resolution — snapping loses no model detail, and makes the
+ * tile lookup an exact grid-point read.
  */
 const AUDIT_CELL_DEG = 0.25;
 
@@ -71,7 +64,7 @@ export interface AnalyzeResult {
 }
 
 export async function runAnalysis(options: AnalyzeOptions): Promise<AnalyzeResult> {
-  const { route, profile, departureUtc } = options;
+  const { route, profile, departureUtc, store } = options;
   if (!route.speeds_kt) throw new Error('Route needs speeds_kt (polar ETAs land with routing)');
   const progress = options.onProgress ?? (() => {});
 
@@ -91,26 +84,43 @@ export async function runAnalysis(options: AnalyzeOptions): Promise<AnalyzeResul
     options.dateWindow && options.dateWindow.endDate > derivedEnd
       ? options.dateWindow.endDate
       : derivedEnd;
+  const startMs = parseUtc(`${startDate}T00:00Z`);
+  const endMs = parseUtc(`${endDate}T00:00Z`) + 24 * 3600_000;
   const points = midpoints.map((p) => ({
     lat: snapToAuditCell(p.lat),
     lon: snapToAuditCell(p.lon),
   }));
 
-  const opts = (api: keyof NonNullable<AnalyzeOptions['baseUrls']>): OpenMeteoOptions => ({
-    ...(options.fetchFn ? { fetchFn: options.fetchFn } : {}),
-    ...(options.cache ? { cache: options.cache } : {}),
-    ...(options.now ? { now: options.now } : {}),
-    ...(options.baseUrls?.[api] ? { baseUrl: options.baseUrls[api] } : {}),
-  });
+  progress('reading forecast run manifest');
+  await store.init();
+  const layers = store.describe();
 
-  progress('fetching deterministic forecast');
-  const det = await fetchPointForecasts(points, startDate, endDate, opts('forecast'));
-  progress('fetching 51-member ensemble');
-  const ens = await fetchEnsembleForecasts(points, startDate, endDate, opts('ensemble'));
-  progress('fetching wave model');
-  const marine = await fetchMarineForecasts(points, startDate, endDate, opts('marine'));
-  progress('fetching model comparison');
-  const multi = await fetchMultiModelForecasts(points, startDate, endDate, opts('multimodel'));
+  progress('reading deterministic forecast tiles');
+  const det = await store.getPointForecasts(points, startMs, endMs);
+  const memberCount = layers.ensemble?.member_count;
+  progress(memberCount ? `reading ${memberCount}-member ensemble tiles` : 'checking ensemble tiles');
+  const ens = await store.getEnsembleForecasts(points, startMs, endMs);
+  progress('reading wave tiles');
+  const marine = await store.getWaveForecasts(points, startMs, endMs);
+  progress('reading hazard and model-comparison tiles');
+  const multi = await store.getHazardForecasts(points, startMs, endMs);
+
+  let currentGrid = options.currentGrid;
+  if (!currentGrid) {
+    progress('reading current tiles');
+    const start = legs[0]!.from;
+    const finish = legs[legs.length - 1]!.to;
+    try {
+      currentGrid =
+        (await store.getCurrentGrid(
+          routeBbox(start, finish),
+          departureUtc,
+          passageMaxHours(start, finish),
+        )) ?? undefined;
+    } catch {
+      currentGrid = undefined; // currents degrade gracefully; coverage reports it
+    }
+  }
 
   progress('evaluating against your limits');
   const nowMs = (options.now ?? Date.now)();
@@ -120,13 +130,11 @@ export async function runAnalysis(options: AnalyzeOptions): Promise<AnalyzeResul
     departureUtc,
     legForecasts: det.forecasts,
     requestMeta: [det.meta],
-    legEnsembles: ens.forecasts,
-    ensembleMeta: ens.meta,
-    legMarine: marine.forecasts,
-    marineMeta: marine.meta,
-    multiModel: multi,
+    ...(ens ? { legEnsembles: ens.forecasts, ensembleMeta: ens.meta } : {}),
+    ...(marine ? { legMarine: marine.forecasts, marineMeta: marine.meta } : {}),
+    ...(multi ? { multiModel: multi } : {}),
     ...(options.warnings ? { warnings: options.warnings } : {}),
-    ...(options.currentGrid ? { currentGrid: options.currentGrid } : {}),
+    ...(currentGrid ? { currentGrid } : {}),
     ...(options.tides ? { tides: options.tides } : {}),
     ...(options.gates ? { gates: options.gates } : {}),
     ...(options.synoptic ? { synoptic: options.synoptic } : {}),
@@ -134,7 +142,7 @@ export async function runAnalysis(options: AnalyzeOptions): Promise<AnalyzeResul
     nowMs,
   });
   const briefing = renderBriefing(findings, options.synoptic);
-  const plume = buildPlume(findings, ens.forecasts, profile.max_gust_kt, multi.byModel);
+  const plume = buildPlume(findings, ens?.forecasts ?? [], profile.max_gust_kt, multi?.byModel);
   return {
     findings,
     briefing,

@@ -275,7 +275,8 @@ export interface Findings {
   inputs: {
     prepared_run_id: string | null;
     synoptic_run_id?: string | null;
-    openmeteo: Array<Record<string, unknown>>;
+    /** provenance of every tile-layer read (exact run ids and cycles) */
+    forecast_tiles: Array<Record<string, unknown>>;
     warnings_ref: string | null;
     route_hash: string;
     profile_hash: string;

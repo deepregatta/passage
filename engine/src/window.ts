@@ -5,7 +5,6 @@
  */
 
 import { runAnalysis, type AnalyzeOptions, type AnalyzeResult } from './analyze.js';
-import { MemoryCacheStore } from './fetch/openMeteo.js';
 import type { Route, VerdictState } from './types.js';
 
 export interface WindowCandidate {
@@ -50,9 +49,9 @@ export async function scanDepartures(
   departures: string[],
   onCandidate?: (candidate: WindowCandidate) => void,
 ): Promise<WindowScan> {
-  // one shared cache: candidates inside the same date window reuse the same responses
+  // one shared ForecastStore: every candidate reads the same immutable tile
+  // run, so the store's tile cache serves all candidates after the first
   const { routeFor, ...analyzeBase } = base;
-  const cache = base.cache ?? new MemoryCacheStore();
   const candidates: WindowCandidate[] = [];
   const eventKeys: string[][] = [];
 
@@ -60,7 +59,7 @@ export async function scanDepartures(
     let result: AnalyzeResult;
     try {
       const route = routeFor ? await routeFor(departureUtc) : analyzeBase.route;
-      result = await runAnalysis({ ...analyzeBase, route, cache, departureUtc });
+      result = await runAnalysis({ ...analyzeBase, route, departureUtc });
     } catch {
       continue; // a failed candidate (e.g. beyond forecast horizon) is skipped, not fatal
     }

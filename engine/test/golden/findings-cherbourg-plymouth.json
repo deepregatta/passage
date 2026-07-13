@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "snapshot_id": "20260712T060000Z_44d2cd5f_71240e89",
+  "snapshot_id": "20260712T060000Z_44d2cd5f_e56e8fe0",
   "route_id": "cherbourg-plymouth-v1",
   "profile_id": "coastal-cruising-cautious",
   "departure_utc": "2026-07-12T06:00:00Z",
@@ -9,46 +9,54 @@
   "inputs": {
     "prepared_run_id": null,
     "synoptic_run_id": null,
-    "openmeteo": [
+    "forecast_tiles": [
       {
-        "api": "forecast",
-        "model": "ecmwf_ifs025",
-        "request_digest": "f9bdc0a368d28a03",
+        "source": "fixture",
+        "layer": "weather",
+        "model": "scenario",
+        "run_id": "scenario-5cfe696f",
+        "cycle": "scenario",
+        "resolution_deg": 0.25,
+        "tiles": [],
         "fetched_at": "2026-07-11T18:00:00.000Z",
-        "run_inferred": "20260711T06Z (inferred)",
-        "cached": false,
+        "cached_tiles": 0,
         "points": 6
       },
       {
-        "api": "ensemble",
-        "model": "ecmwf_ifs025",
-        "members": 51,
-        "request_digest": "d66fcedb33bcf62a",
+        "source": "fixture",
+        "layer": "ensemble",
+        "model": "scenario",
+        "run_id": "scenario-2a3ba0d9",
+        "cycle": "scenario",
+        "resolution_deg": 0.25,
+        "member_count": 51,
+        "tiles": [],
         "fetched_at": "2026-07-11T18:00:00.000Z",
-        "run_inferred": "20260711T06Z (inferred)",
-        "cached": false,
+        "cached_tiles": 0,
         "points": 6
       },
       {
-        "api": "marine",
-        "model": "best_match",
-        "request_digest": "4cd3dcfb29b8557f",
+        "source": "fixture",
+        "layer": "waves",
+        "model": "scenario",
+        "run_id": "scenario-90080f74",
+        "cycle": "scenario",
+        "resolution_deg": 0.25,
+        "tiles": [],
         "fetched_at": "2026-07-11T18:00:00.000Z",
-        "cached": false,
-        "points": 6,
-        "note": "deterministic wave model only — no wave ensembles available"
+        "cached_tiles": 0,
+        "points": 6
       },
       {
-        "api": "forecast-multimodel",
-        "models": [
-          "ecmwf_ifs025",
-          "gfs_global",
-          "icon_eu"
-        ],
-        "request_digest": "27a9505a99a2b28e",
+        "source": "fixture",
+        "layer": "weather-multimodel",
+        "model": "scenario",
+        "run_id": "scenario-c24a873d",
+        "cycle": "scenario",
+        "resolution_deg": 0.25,
+        "tiles": [],
         "fetched_at": "2026-07-11T18:00:00.000Z",
-        "run_inferred": "20260711T06Z (inferred)",
-        "cached": false,
+        "cached_tiles": 0,
         "points": 6
       }
     ],
@@ -2487,8 +2495,8 @@
     {
       "evidence_id": "E1",
       "rule_id": "W-GUST-01",
-      "model": "ecmwf_ifs025",
-      "run": "20260711T06Z (inferred)",
+      "model": "scenario",
+      "run": "scenario",
       "leg_id": "L1",
       "valid_time": "2026-07-12T08:00:00Z",
       "value": 24.9,
@@ -2499,8 +2507,8 @@
     {
       "evidence_id": "E2",
       "rule_id": "V-VIS-01",
-      "model": "icon_eu/gfs_global",
-      "run": "20260711T06Z (inferred)",
+      "model": "gfs_0p25/icon_eu/gfs_global",
+      "run": "scenario",
       "leg_id": "L1",
       "valid_time": "2026-07-12T06:00:00Z",
       "value": 0.5,
@@ -2511,8 +2519,8 @@
     {
       "evidence_id": "E3",
       "rule_id": "W-SUST-01",
-      "model": "ecmwf_ifs025",
-      "run": "20260711T06Z (inferred)",
+      "model": "scenario",
+      "run": "scenario",
       "leg_id": "L2",
       "valid_time": "2026-07-12T10:00:00Z",
       "value": 19.8,
@@ -2523,8 +2531,8 @@
     {
       "evidence_id": "E4",
       "rule_id": "W-GUST-01",
-      "model": "ecmwf_ifs025",
-      "run": "20260711T06Z (inferred)",
+      "model": "scenario",
+      "run": "scenario",
       "leg_id": "L2",
       "valid_time": "2026-07-12T10:00:00Z",
       "value": 24.7,
@@ -2535,7 +2543,7 @@
     {
       "evidence_id": "E5",
       "rule_id": "S-STEEP-01",
-      "model": "marine best_match",
+      "model": "marine scenario",
       "run": null,
       "leg_id": "L2",
       "valid_time": "2026-07-12T10:00:00Z",
@@ -2547,8 +2555,8 @@
     {
       "evidence_id": "E6",
       "rule_id": "W-SUST-01",
-      "model": "ecmwf_ifs025",
-      "run": "20260711T06Z (inferred)",
+      "model": "scenario",
+      "run": "scenario",
       "leg_id": "L3",
       "valid_time": "2026-07-12T18:00:00Z",
       "value": 24.5,
@@ -2559,8 +2567,8 @@
     {
       "evidence_id": "E7",
       "rule_id": "W-GUST-01",
-      "model": "ecmwf_ifs025",
-      "run": "20260711T06Z (inferred)",
+      "model": "scenario",
+      "run": "scenario",
       "leg_id": "L3",
       "valid_time": "2026-07-12T18:00:00Z",
       "value": 32.3,
@@ -2571,8 +2579,8 @@
     {
       "evidence_id": "E8",
       "rule_id": "W-GUST-03",
-      "model": "ecmwf_ifs025 ensemble",
-      "run": "20260711T06Z (inferred)",
+      "model": "scenario ensemble",
+      "run": "scenario",
       "leg_id": "L3",
       "valid_time": "2026-07-12T16:00:00Z",
       "value": 51,
@@ -2587,8 +2595,8 @@
     {
       "evidence_id": "E9",
       "rule_id": "W-SUST-03",
-      "model": "ecmwf_ifs025 ensemble",
-      "run": "20260711T06Z (inferred)",
+      "model": "scenario ensemble",
+      "run": "scenario",
       "leg_id": "L3",
       "valid_time": "2026-07-12T18:00:00Z",
       "value": 12,
@@ -2603,7 +2611,7 @@
     {
       "evidence_id": "E10",
       "rule_id": "S-WAVE-01",
-      "model": "marine best_match",
+      "model": "marine scenario",
       "run": null,
       "leg_id": "L3",
       "valid_time": "2026-07-12T18:00:00Z",
@@ -2615,7 +2623,7 @@
     {
       "evidence_id": "E11",
       "rule_id": "S-STEEP-01",
-      "model": "marine best_match",
+      "model": "marine scenario",
       "run": null,
       "leg_id": "L3",
       "valid_time": "2026-07-12T18:00:00Z",
@@ -2627,8 +2635,8 @@
     {
       "evidence_id": "E12",
       "rule_id": "W-SUST-01",
-      "model": "ecmwf_ifs025",
-      "run": "20260711T06Z (inferred)",
+      "model": "scenario",
+      "run": "scenario",
       "leg_id": "L4",
       "valid_time": "2026-07-12T22:00:00Z",
       "value": 26.6,
@@ -2639,8 +2647,8 @@
     {
       "evidence_id": "E13",
       "rule_id": "W-GUST-01",
-      "model": "ecmwf_ifs025",
-      "run": "20260711T06Z (inferred)",
+      "model": "scenario",
+      "run": "scenario",
       "leg_id": "L4",
       "valid_time": "2026-07-12T23:00:00Z",
       "value": 34.6,
@@ -2651,8 +2659,8 @@
     {
       "evidence_id": "E14",
       "rule_id": "W-GUST-03",
-      "model": "ecmwf_ifs025 ensemble",
-      "run": "20260711T06Z (inferred)",
+      "model": "scenario ensemble",
+      "run": "scenario",
       "leg_id": "L4",
       "valid_time": "2026-07-12T19:00:00Z",
       "value": 51,
@@ -2667,8 +2675,8 @@
     {
       "evidence_id": "E15",
       "rule_id": "W-SUST-03",
-      "model": "ecmwf_ifs025 ensemble",
-      "run": "20260711T06Z (inferred)",
+      "model": "scenario ensemble",
+      "run": "scenario",
       "leg_id": "L4",
       "valid_time": "2026-07-12T23:00:00Z",
       "value": 36,
@@ -2683,7 +2691,7 @@
     {
       "evidence_id": "E16",
       "rule_id": "S-WAVE-01",
-      "model": "marine best_match",
+      "model": "marine scenario",
       "run": null,
       "leg_id": "L4",
       "valid_time": "2026-07-12T23:00:00Z",
@@ -2695,7 +2703,7 @@
     {
       "evidence_id": "E17",
       "rule_id": "S-STEEP-01",
-      "model": "marine best_match",
+      "model": "marine scenario",
       "run": null,
       "leg_id": "L4",
       "valid_time": "2026-07-12T23:00:00Z",
@@ -2708,7 +2716,7 @@
       "evidence_id": "E18",
       "rule_id": "D-DIVERGE-01",
       "model": "ecmwf_ifs025,gfs_global,icon_eu",
-      "run": "20260711T06Z (inferred)",
+      "run": "scenario",
       "leg_id": "L4",
       "valid_time": "2026-07-12T13:00:00Z",
       "value": {
@@ -2723,8 +2731,8 @@
     {
       "evidence_id": "E19",
       "rule_id": "W-SUST-01",
-      "model": "ecmwf_ifs025",
-      "run": "20260711T06Z (inferred)",
+      "model": "scenario",
+      "run": "scenario",
       "leg_id": "L5",
       "valid_time": "2026-07-12T23:00:00Z",
       "value": 19.6,
@@ -2735,8 +2743,8 @@
     {
       "evidence_id": "E20",
       "rule_id": "W-GUST-01",
-      "model": "ecmwf_ifs025",
-      "run": "20260711T06Z (inferred)",
+      "model": "scenario",
+      "run": "scenario",
       "leg_id": "L5",
       "valid_time": "2026-07-12T23:00:00Z",
       "value": 34,
@@ -2747,8 +2755,8 @@
     {
       "evidence_id": "E21",
       "rule_id": "W-GUST-03",
-      "model": "ecmwf_ifs025 ensemble",
-      "run": "20260711T06Z (inferred)",
+      "model": "scenario ensemble",
+      "run": "scenario",
       "leg_id": "L5",
       "valid_time": "2026-07-12T17:00:00Z",
       "value": 51,
@@ -2763,7 +2771,7 @@
     {
       "evidence_id": "E22",
       "rule_id": "S-WAVE-01",
-      "model": "marine best_match",
+      "model": "marine scenario",
       "run": null,
       "leg_id": "L5",
       "valid_time": "2026-07-13T03:00:00Z",
@@ -2775,7 +2783,7 @@
     {
       "evidence_id": "E23",
       "rule_id": "S-STEEP-01",
-      "model": "marine best_match",
+      "model": "marine scenario",
       "run": null,
       "leg_id": "L5",
       "valid_time": "2026-07-12T20:00:00Z",
@@ -2787,8 +2795,8 @@
     {
       "evidence_id": "E24",
       "rule_id": "W-GUST-01",
-      "model": "ecmwf_ifs025",
-      "run": "20260711T06Z (inferred)",
+      "model": "scenario",
+      "run": "scenario",
       "leg_id": "L6",
       "valid_time": "2026-07-13T05:00:00Z",
       "value": 27.4,
@@ -2799,8 +2807,8 @@
     {
       "evidence_id": "E25",
       "rule_id": "W-GUST-03",
-      "model": "ecmwf_ifs025 ensemble",
-      "run": "20260711T06Z (inferred)",
+      "model": "scenario ensemble",
+      "run": "scenario",
       "leg_id": "L6",
       "valid_time": "2026-07-13T05:00:00Z",
       "value": 28,
@@ -2815,7 +2823,7 @@
     {
       "evidence_id": "E26",
       "rule_id": "S-STEEP-01",
-      "model": "marine best_match",
+      "model": "marine scenario",
       "run": null,
       "leg_id": "L6",
       "valid_time": "2026-07-12T21:00:00Z",
@@ -2828,7 +2836,7 @@
       "evidence_id": "E27",
       "rule_id": "D-DIVERGE-01",
       "model": "ecmwf_ifs025,gfs_global,icon_eu",
-      "run": "20260711T06Z (inferred)",
+      "run": "scenario",
       "leg_id": "L6",
       "valid_time": "2026-07-12T23:00:00Z",
       "value": {
@@ -2888,9 +2896,18 @@
     {
       "capability": "visibility_and_convection",
       "status": "partially_assessed",
-      "detail": "screening signals only; official warnings remain authoritative",
+      "detail": "screening signals only (single model, GFS); official warnings remain authoritative",
       "evidence_ids": [
         "E2"
+      ]
+    },
+    {
+      "capability": "model_agreement",
+      "status": "assessed",
+      "detail": "independent deterministic models compared hour by hour",
+      "evidence_ids": [
+        "E18",
+        "E27"
       ]
     },
     {

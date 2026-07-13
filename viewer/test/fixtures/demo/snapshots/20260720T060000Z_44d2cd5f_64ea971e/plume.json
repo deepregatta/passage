@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "snapshot_id": "20260720T060000Z_44d2cd5f_862f314f",
-  "model": "ecmwf_ifs025",
+  "snapshot_id": "20260720T060000Z_44d2cd5f_64ea971e",
+  "model": "scenario",
   "legs": [
     {
       "leg_id": "L1",
