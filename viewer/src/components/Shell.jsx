@@ -27,9 +27,9 @@ export default function Shell({ page, onNavigate, children }) {
       <a href="#main-content" className="sr-only focus:not-sr-only fixed left-3 top-3 z-[100] bg-paper border border-ink px-3 py-2">Skip to briefing content</a>
       <header className="sticky top-0 z-30 bg-ink-deep text-paper border-b border-paper/20">
         <div className="h-14 px-3 sm:px-5 flex items-center gap-4">
-          <button type="button" onClick={() => onNavigate('snapshots')} className="min-h-11 flex items-center gap-2" aria-label="Deepweather home">
+          <button type="button" onClick={() => onNavigate('snapshots')} className="min-h-11 flex items-center gap-2" aria-label="Passage home">
             <CompassMark />
-            <span className="font-instrument font-semibold tracking-[0.08em] hidden sm:inline">deepweather</span>
+            <span className="hidden sm:inline font-instrument tracking-[0.08em]"><span className="font-semibold">Passage</span> <span className="text-paper/60 text-xs">by DeepRegatta</span></span>
           </button>
           <nav aria-label="Passage stages" className="hidden md:flex self-stretch flex-1 justify-center">
             {STAGES.map((stage, index) => <StageButton key={stage.id} stage={stage} index={index} active={active.id === stage.id} onClick={() => navigateStage(stage)} />)}

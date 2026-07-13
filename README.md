@@ -1,8 +1,8 @@
-# deepweather
+# Passage by DeepRegatta
 
 Explainable passage-weather risk audit for sailors. Local prototype — see [PROJECT_BRIEF.md](PROJECT_BRIEF.md) for the product spec.
 
-`deepweather` is both the project and product name for now (a real name comes later).
+The product name is **Passage by DeepRegatta**; `deepweather` was the dev codename and survives in internal identifiers (package names, CLI commands, localStorage keys).
 
 ## Architecture (factory / showroom / warehouse — mirrors coachregatta)
 
