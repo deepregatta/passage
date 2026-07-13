@@ -157,11 +157,21 @@ The credibility engine, and a key differentiator:
 
 ## 10. Data sources (corrected)
 
+> **Architecture update (2026-07):** the Open-Meteo runtime dependency described
+> below was removed. Production weather now comes from the provider-independent
+> **forecast-tile pipeline** (public repo `deepregatta/forecast-tiles`,
+> spec in `docs/forecast-tiles-spec.md`): NOAA GFS (deterministic + hazards),
+> GEFS (31-member ensemble), GFS-Wave, ECMWF open data (second deterministic
+> model), and Copernicus GLO12 currents — quantized into immutable PFT1 tiles on
+> Cloudflare R2, downloaded per-route by the browser and cached in IndexedDB.
+> Runtime quotas are gone; run ids in the audit trail are exact, not inferred.
+> The Open-Meteo rows below are retained as the historical v1 design record.
+
 | Source | Provides | Notes & limits |
 |---|---|---|
-| **Open-Meteo Forecast API** | Point time series: ECMWF, GFS, ICON/ICON-EU; **AROME (France only, ~1.5 km, horizon ≈ 2 days)** | Route-layer sampling. High-res is a bonus where available, never assumed |
-| **Open-Meteo Ensemble API** | Atmospheric ensembles (wind, gusts, precip…) | Raw scenario-exceedance fractions; calibrated probabilities only after verification. **No wave ensembles** |
-| **Open-Meteo Marine API** | Deterministic wave models (height/period/direction, wind-wave + swell components) | Waves labeled deterministic-only (§6) |
+| **Open-Meteo Forecast API** *(retired 2026-07)* | Point time series: ECMWF, GFS, ICON/ICON-EU; **AROME (France only, ~1.5 km, horizon ≈ 2 days)** | Route-layer sampling. High-res is a bonus where available, never assumed |
+| **Open-Meteo Ensemble API** *(retired 2026-07)* | Atmospheric ensembles (wind, gusts, precip…) | Raw scenario-exceedance fractions; calibrated probabilities only after verification. **No wave ensembles** |
+| **Open-Meteo Marine API** *(retired 2026-07)* | Deterministic wave models (height/period/direction, wind-wave + swell components) | Waves labeled deterministic-only (§6) |
 | **ECMWF Open Data (GRIB, 0.25°)** | Gridded MSLP, 10 m wind, 850 hPa fields | Required for the synoptic layer (feature detection + chart rendering) — point APIs can't do this |
 | **Official marine warnings** | Météo-France BMS / marine bulletins, Atlantic + Med zones (v1); UK Met Office / other national services later | Authority-override layer (§7) |
 | **Copernicus Marine (CMEMS) regional models — IBI / NWS / MED / BAL** | Hourly surface currents incl. tidal signal (regional, ~2–7 km per coachregatta's implemented catalog), sea level | Free with registration. v1 tidal/current layer: SOG/ETA correction, wind-against-current, gates. Region auto-selection + global fallback imported from coachregatta (see below); deepweather uses the *forecast* product variants, resolutions to confirm. Limits flagged per §5 |

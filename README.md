@@ -8,11 +8,12 @@ Explainable passage-weather risk audit for sailors. Local prototype — see [PRO
 
 | Part | Role | Future deployment |
 |---|---|---|
-| `analysis/` | Python factory: everything **route-independent, authenticated or gridded** — ECMWF open-data GRIBs, synoptic feature detection, CMEMS forecast currents, warnings, tides, verification. Publishes compact JSON artifacts per model run. | Scheduled shared-prep job (Cloud Run / GH Actions), once per model run for all users, publishing to R2 |
-| `engine/` | TypeScript pure library: everything **per-user** — route geometry, live route-local routing grids, ETA ranges, limits, ensemble exceedance, verdicts, briefing text, isochrone routing. Zero DOM deps. | Runs unchanged **in the user's browser** (no per-user server compute) |
-| `viewer/` | React + Vite showroom. Dev middleware serves `/data/*` from `../data/processed`. | Cloudflare Pages currently packages demo data statically; R2 delivery is planned |
+| [forecast-tiles](https://github.com/deepregatta/forecast-tiles) (public repo) | Scheduled ingestion factory: NOAA GFS/GEFS/GFS-Wave, ECMWF open data, Copernicus GLO12 currents → quantized, immutable **PFT1 forecast tiles** on Cloudflare R2 (`docs/forecast-tiles-spec.md`). | Already its production shape: GitHub Actions cron per layer |
+| `analysis/` | Python factory: the remaining **route-independent** prep — synoptic feature detection, warnings, tides, verification, scenario bundles. Publishes compact JSON artifacts per model run. | Scheduled shared-prep job, publishing to R2 |
+| `engine/` | TypeScript pure library: everything **per-user** — route geometry, ForecastStore tile reads, ETA ranges, limits, ensemble exceedance, verdicts, briefing text, isochrone routing. Zero DOM deps, no weather APIs. | Runs unchanged **in the user's browser** (no per-user server compute, no runtime API quotas) |
+| `viewer/` | React + Vite showroom. Dev middleware serves `/data/*` from `../data/processed`, including a local fixture tile run at `/data/forecast/`. Forecast tiles cache in IndexedDB per immutable run id. | Cloudflare Pages + R2 (`VITE_FORECAST_BASE_URL`) |
 | `data/` | Git-ignored warehouse: caches, prepared runs, immutable snapshots. | Local today; planned R2 bucket with the same layout |
-| `contracts/` | JSON Schemas — the treaty between Python and TypeScript. | The API between the shared job and every browser |
+| `contracts/` | JSON Schemas — the treaty between Python and TypeScript, including the forecast tile/manifest/latest schemas vendored into the pipeline repo. | The API between the shared jobs and every browser |
 
 ## Data providers
 
@@ -55,7 +56,7 @@ node scripts/build-demo-snapshots.mjs
 VITE_DW_FIXTURE=demo npm run dev -w viewer
 ```
 
-The builder runs the engine CLI twice with a fixed clock and rebuilds the committed previous/latest snapshot pair in `viewer/test/fixtures/demo/`. It includes archived synthetic bulletin text, synoptic tracks/charts, the `23 of 51` gust claim, a six-hour/four-hPa before/after low, a changes artifact, and an explicitly emulated verification case. Re-running it must leave the fixture byte-identical.
+The builder runs the engine CLI twice with a fixed clock and rebuilds the committed previous/latest snapshot pair in `viewer/test/fixtures/demo/`. It includes archived synthetic bulletin text, synoptic tracks/charts, an ensemble gust-scenario claim, a six-hour/four-hPa before/after low, a changes artifact, and an explicitly emulated verification case. Re-running it must leave the fixture byte-identical.
 
 ## Verification commands
 
