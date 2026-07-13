@@ -1,5 +1,5 @@
 /*
-  Content-Security-Policy: base-uri 'self'; default-src 'self'; connect-src 'self' https://forecast.deepregatta.com https://cloudflareinsights.com; img-src 'self' data: blob: https://basemaps.cartocdn.com https://*.basemaps.cartocdn.com https://tiles.openseamap.org; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:; worker-src 'self' blob:; frame-ancestors 'none'; form-action 'self'
+  Content-Security-Policy: base-uri 'self'; default-src 'self'; connect-src 'self' https://forecast.deepregatta.com https://cloudflareinsights.com; img-src 'self' data: blob: https://basemaps.cartocdn.com https://*.basemaps.cartocdn.com https://tiles.openseamap.org https://forecast.deepregatta.com; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:; worker-src 'self' blob:; frame-ancestors 'none'; form-action 'self'
   Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff

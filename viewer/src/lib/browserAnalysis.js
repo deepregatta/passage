@@ -7,6 +7,7 @@
 import { runAnalysis, persistSnapshot } from '@deepweather/engine';
 import { forecastStore } from './forecastStore.js';
 import { localSnapshots } from './localSnapshots.js';
+import { preparedRun, artifactUrl } from './preparedRun.js';
 
 // statuses that mean "no write endpoint here", not "this write failed"
 const NO_WRITE_ENDPOINT = new Set([403, 404, 405, 501]);
@@ -40,10 +41,10 @@ class FallbackSnapshotStore {
 
 async function loadCurrentGrid() {
   try {
-    const latest = await fetch('/data/runs/latest.json').then((r) => (r.ok ? r.json() : null));
+    const { doc: latest } = await preparedRun();
     const rel = latest?.artifacts?.current_grid;
     if (!rel) return undefined;
-    const grid = await fetch(`/data/${rel}`).then((r) => (r.ok ? r.json() : null));
+    const grid = await fetch(await artifactUrl(rel)).then((r) => (r.ok ? r.json() : null));
     return grid ?? undefined;
   } catch {
     return undefined; // analysis still runs; currents listed as unsupported
@@ -61,11 +62,11 @@ async function loadJson(url) {
 
 export async function analyzeInBrowser({ route, profile, departureUtc, onProgress }) {
   onProgress?.('loading prepared data');
-  const latest = await loadJson('/data/runs/latest.json');
+  const { doc: latest } = await preparedRun();
   const [currentGrid, synoptic, tides, gatesDoc, warningsDoc, zonesDoc] = await Promise.all([
     loadCurrentGrid(),
     latest?.artifacts?.synoptic_features
-      ? loadJson(`/data/${latest.artifacts.synoptic_features}`)
+      ? artifactUrl(latest.artifacts.synoptic_features).then(loadJson)
       : undefined,
     loadJson('/data/tides/channel.json'),
     loadJson('/data/config/gates.json'),
