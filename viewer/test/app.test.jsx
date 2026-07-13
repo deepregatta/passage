@@ -5,8 +5,10 @@ import App from '../src/App.jsx';
 import { useApp } from '../src/stores/appStore.js';
 
 beforeEach(() => {
+  localStorage.removeItem('passage-language');
   history.replaceState(null, '', '#brief/briefings');
   useApp.setState({
+    language: 'en',
     page: 'snapshots',
     manifest: null,
     manifestError: null,
@@ -44,6 +46,23 @@ describe('viewer fixture harness', () => {
     expect(screen.getByRole('link', { name: 'Terms' }).getAttribute('href')).toBe('https://deepregatta.com/terms');
     expect(screen.getByRole('link', { name: 'Legal notice' }).getAttribute('href')).toBe('https://deepregatta.com/legal');
     expect(screen.getByRole('link', { name: 'contact@deepregatta.com' }).getAttribute('href')).toBe('mailto:contact@deepregatta.com');
+  });
+
+  it('switches the whole interface to French and remembers the choice', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole('button', { name: 'Français' }));
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Mes briefings' })).toBeTruthy());
+    expect(screen.getAllByRole('button', { name: /Planifier$/ }).length).toBeGreaterThan(0);
+    expect(screen.getByRole('link', { name: 'Confidentialité' })).toBeTruthy();
+    expect(document.documentElement.lang).toBe('fr');
+    expect(localStorage.getItem('passage-language')).toBe('fr');
+
+    await user.click(screen.getByRole('button', { name: 'English' }));
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'My briefings' })).toBeTruthy());
+    expect(document.documentElement.lang).toBe('en');
   });
 
   it('serves the generated reference snapshot through the same /data paths as Vite', async () => {
