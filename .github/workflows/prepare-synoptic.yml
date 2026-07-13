@@ -1,0 +1,66 @@
+name: prepare-synoptic
+
+# Publishes the route-independent prepared run (synoptic features + chart
+# panels + wind grid, plus the CMEMS current grid when credentials are set)
+# to R2 under prepared/, where the production viewer reads it from the
+# forecast tile host (viewer/src/lib/preparedRun.js).
+#
+# Requires repo secrets (same values as deepregatta/forecast-tiles):
+#   R2_ENDPOINT, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET
+# and optionally COPERNICUSMARINE_SERVICE_USERNAME / _PASSWORD for currents.
+
+on:
+  schedule:
+    - cron: "25 5,11,17,23 * * *" # after ECMWF open-data publication, like the tiles repo
+  workflow_dispatch:
+    inputs:
+      cycle:
+        description: "ECMWF cycle YYYYMMDDTHHZ (default: latest published)"
+        required: false
+
+concurrency:
+  group: prepare-synoptic
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Sync analysis environment
+        working-directory: analysis
+        run: uv sync --all-extras # GRIB/ECMWF/CMEMS deps live in the "environment" extra; jsonschema in dev
+
+      - name: Prepare synoptic run (ECMWF features + charts + wind grid)
+        working-directory: analysis
+        run: uv run --no-sync deepweather-analysis prepare-run ${CYCLE:+--cycle "$CYCLE"}
+        env:
+          CYCLE: ${{ inputs.cycle }}
+
+      - name: Prepare current grid (CMEMS)
+        if: ${{ secrets.COPERNICUSMARINE_SERVICE_USERNAME != '' }}
+        working-directory: analysis
+        continue-on-error: true # a currents outage never blocks the synoptic publish
+        run: uv run --no-sync deepweather-analysis fetch-currents
+        env:
+          COPERNICUSMARINE_SERVICE_USERNAME: ${{ secrets.COPERNICUSMARINE_SERVICE_USERNAME }}
+          COPERNICUSMARINE_SERVICE_PASSWORD: ${{ secrets.COPERNICUSMARINE_SERVICE_PASSWORD }}
+
+      - name: Upload prepared run to R2
+        run: |
+          pip install --quiet boto3
+          python scripts/upload-prepared-run.py
+        env:
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}

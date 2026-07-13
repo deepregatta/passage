@@ -7,6 +7,7 @@ import { useApp } from '../stores/appStore.js';
 import { frameForCursor, usePlayback } from '../stores/playbackStore.js';
 import { STATUS_HEX, hourStatus, fmtTime } from '../lib/format.js';
 import { fetchSnapshotJson } from '../lib/localSnapshots.js';
+import { preparedRun, artifactUrl } from '../lib/preparedRun.js';
 
 /**
  * The passage on a chart (mockup 1): marine-styled Leaflet — light base +
@@ -125,11 +126,12 @@ export default function RouteMap({ height = 420 }) {
         for (const g of doc?.gates ?? []) map[g.gate_id] = g;
         setGatePositions(map);
       });
-    fetch('/data/runs/latest.json')
-      .then((r) => (r.ok ? r.json() : null))
-      .then((latest) =>
-        latest?.artifacts?.wind_grid
-          ? fetch(`/data/${latest.artifacts.wind_grid}`).then((r) => (r.ok ? r.json() : null))
+    preparedRun()
+      .then(({ doc }) =>
+        doc?.artifacts?.wind_grid
+          ? artifactUrl(doc.artifacts.wind_grid)
+              .then(fetch)
+              .then((r) => (r.ok ? r.json() : null))
           : null,
       )
       .then(setWindGrid)

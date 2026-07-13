@@ -1,8 +1,12 @@
-/** Chart images live in two places: prepared runs (repo-relative `runs/...` paths,
- * served at /data/...) and snapshot-local copies (`charts/...`, demo fixtures). */
+import { runsBase } from './preparedRun.js';
+
+/** Chart images live in two places: prepared runs (repo-relative `runs/...`
+ * paths, served at /data/... in dev and from the forecast host's prepared/
+ * prefix in production) and snapshot-local copies (`charts/...`, demo
+ * fixtures). */
 export function chartUrl(file, snapshotId) {
   if (!file) return null;
-  return file.startsWith('runs/') ? `/data/${file}` : `/data/snapshots/${snapshotId}/${file}`;
+  return file.startsWith('runs/') ? `${runsBase()}${file}` : `/data/snapshots/${snapshotId}/${file}`;
 }
 
 export function nearestCaption(captions, cursorHours) {

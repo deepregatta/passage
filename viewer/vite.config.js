@@ -238,8 +238,14 @@ function dataMiddleware() {
           return;
         }
 
-        // Vite's public/ directory owns these committed deployment assets.
-        if (requestPath.startsWith('/data/polars/') || requestPath.startsWith('/data/land/')) {
+        // Vite's public/ directory owns these committed deployment assets
+        // (tides fall through too: the synthetic constituents are committed
+        // for production and only overridden by a local pipeline run).
+        if (
+          requestPath.startsWith('/data/polars/') ||
+          requestPath.startsWith('/data/land/') ||
+          requestPath.startsWith('/data/tides/')
+        ) {
           return next();
         }
 

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { initialPage } from '../lib/routes.js';
 import { localSnapshots, fetchSnapshotJson } from '../lib/localSnapshots.js';
+import { preparedRun } from '../lib/preparedRun.js';
 
 async function fetchJson(url) {
   const response = await fetch(url);
@@ -71,6 +72,7 @@ export const useApp = create((set, get) => ({
   openSnapshot: async (snapshotId) => {
     set({ loading: true, loadError: null, snapshotId, inspectorOpen: false });
     try {
+      await preparedRun(); // settle the runs/… base before chart <img> URLs render
       const file = (name) => fetchSnapshotJson(snapshotId, name);
       const [snapshot, findings, briefing, plume, warnings, synoptic, route] = await Promise.all([
         file('snapshot.json').catch(() => null),
