@@ -37,5 +37,17 @@ export { diffFindings } from './diff.js';
 export type { Changes, ChangeEntry } from './diff.js';
 export { scanDepartures, candidateDepartures } from './window.js';
 export type { WindowScan, WindowCandidate } from './window.js';
+export { decodeTile } from './forecast/tileCodec.js';
+export type { TileHeader, TileVariable, DecodedTile, TimeAxis } from './forecast/tileCodec.js';
+export {
+  TILE_DEG,
+  tileIdFor,
+  tileOrigin,
+  tilesForBbox,
+  axisTimesMs,
+  nearestGridIndex,
+  resampleToHourly,
+} from './forecast/tileMath.js';
+export type { Bbox, TileOrigin } from './forecast/tileMath.js';
 export * from './types.js';
 export { eventKeyForSystem, assignEventKeys, matchSystems } from './events.js';
