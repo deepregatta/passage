@@ -126,7 +126,7 @@ describe('verdict-state harness: five scenarios -> five §7 states', () => {
     const { briefing } = await runScenario('calm');
     const story = briefing.sections.find((section) => section.id === 'synoptic_story');
     expect(story?.availability?.status).toBe('unavailable');
-    expect(story?.register_plain).toContain('Causal attribution unavailable');
+    expect(story?.register_plain).toContain('no causal attribution');
   });
 
   it('reference demo carries the warning, causal low, and 23/51 gust crossing', async () => {

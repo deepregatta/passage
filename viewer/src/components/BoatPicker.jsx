@@ -89,15 +89,15 @@ export default function BoatPicker({ polarId, polarLabel, onSelect }) {
               if (e.key === 'Escape') setOpen(false);
               if (e.key === 'Enter' && matches.length) pick(matches[0]);
             }}
-            placeholder="Type your boat model — e.g. First 36.7, JPK 10.10…"
+            placeholder="Type a model, for example First 36.7 or JPK 10.10"
             aria-label="Search boat models"
             className="w-full sticky top-0 bg-white/95 border-b hairline px-2 py-2 text-sm outline-none"
           />
           {!index && <p className="px-2 py-2 text-[12px] text-ink-soft">Loading boat database…</p>}
           {index && query && matches.length === 0 && (
             <p className="px-2 py-2 text-[12px] text-ink-soft">
-              No ORC boat matches “{query}”. Pick a generic cruiser by length below — the
-              analysis stays honest about it.
+              No ORC boat matches “{query}”. Choose a generic cruiser by length below. The
+              briefing will identify the generic polar.
             </p>
           )}
           <ul role="listbox" aria-label="Boat models">
@@ -118,7 +118,7 @@ export default function BoatPicker({ polarId, polarLabel, onSelect }) {
           {index && !query && (
             <p className="px-2 py-2 text-[12px] text-ink-soft">
               {index.filter((p) => p.kind !== 'generic').length.toLocaleString()} boat types from
-              the ORC 2025 database — start typing to search.
+              the ORC 2025 database. Start typing to search.
             </p>
           )}
         </div>

@@ -29,7 +29,7 @@ export default function RouteTimeline() {
         aria-expanded={detailed}
         className="mt-2 font-sans text-[13px] text-ink-soft hover:text-ink underline underline-offset-2 min-h-11"
       >
-        {detailed ? 'Hide detailed charts ▴' : 'Show detailed charts — wind · gusts · waves ▾'}
+        {detailed ? 'Hide detailed charts ▴' : 'Show wind, gust and wave charts ▾'}
       </button>
       {detailed && option && (
         <>
@@ -145,7 +145,7 @@ function ConditionStrip({ findings, cursor }) {
 
 function TimelineTable({ findings }) {
   const rows = findings.legs.flatMap((leg) => leg.hours.filter((_, index) => index % 3 === 0).map((hour) => ({ leg: leg.leg_id, ...hour })));
-  return <details className="mt-3 border-t hairline pt-2"><summary className="font-instrument text-xs cursor-pointer">Table alternative for route timeline</summary><div className="overflow-x-auto max-h-64 mt-2"><table className="w-full font-mono text-[10px]"><thead><tr className="text-left"><th>UTC</th><th>leg</th><th>wind kt</th><th>gust kt</th><th>waves m</th><th>status</th></tr></thead><tbody>{rows.map((row) => <tr key={`${row.leg}-${row.valid_time}`} className="border-t hairline"><td className="py-1">{fmtHour(row.valid_time)}</td><td>{row.leg}</td><td>{row.wind_kt ?? '—'}</td><td>{row.gust_kt ?? '—'}</td><td>{row.waves?.hs_m ?? 'not assessed'}</td><td>{hourStatus(row)}</td></tr>)}</tbody></table></div></details>;
+  return <details className="mt-3 border-t hairline pt-2"><summary className="font-instrument text-xs cursor-pointer">Table alternative for route timeline</summary><div className="overflow-x-auto max-h-64 mt-2"><table className="w-full font-mono text-[10px]"><thead><tr className="text-left"><th>UTC</th><th>leg</th><th>wind kt</th><th>gust kt</th><th>waves m</th><th>status</th></tr></thead><tbody>{rows.map((row) => <tr key={`${row.leg}-${row.valid_time}`} className="border-t hairline"><td className="py-1">{fmtHour(row.valid_time)}</td><td>{row.leg}</td><td>{row.wind_kt ?? 'n/a'}</td><td>{row.gust_kt ?? 'n/a'}</td><td>{row.waves?.hs_m ?? 'not assessed'}</td><td>{hourStatus(row)}</td></tr>)}</tbody></table></div></details>;
 }
 
 const EVENT_LABEL = {
@@ -266,7 +266,7 @@ function buildOption(findings, cursorHours = 0, mobile = false) {
       backgroundColor: '#F3EEE3',
       borderColor: ink,
       textStyle: { color: ink, fontFamily: 'ui-monospace, monospace', fontSize: 11 },
-      valueFormatter: (v) => (v == null ? '—' : String(v)),
+      valueFormatter: (v) => (v == null ? 'n/a' : String(v)),
     },
     grid: [
       { left: GRID_L, right: GRID_R, top: 18, height: 78 },

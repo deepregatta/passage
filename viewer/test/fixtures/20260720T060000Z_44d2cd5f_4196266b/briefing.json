@@ -5,7 +5,7 @@
     {
       "id": "warnings",
       "title": "Official warning active",
-      "register_plain": "The national weather service has an active marine warning covering part of your route. Official forecasts are the authority — read the bulletin before anything else.",
+      "register_plain": "The national weather service has an active marine warning for part of your route. Read the official bulletin first.",
       "register_pro": "Authority override: bulletin casquets:BMS-large:2026-07-20T12:00:00Z active during the passage window. This state overrides the personal-limit summary and does not assert a numeric limit exceedance.",
       "evidence_ids": []
     },
@@ -19,7 +19,7 @@
         {
           "leg_id": "L1",
           "register_plain": "Cherbourg, Passe de l'Ouest → Off Omonville-la-Rogue: moderate winds while you are on this stretch (Mon 20 Jul 06:00–Mon 20 Jul 07:45 UTC). 7 of 51 forecast scenarios exceed your 18 kt wind limit around Mon 20 Jul 08:00 UTC.",
-          "register_pro": "L1 Cherbourg, Passe de l'Ouest → Off Omonville-la-Rogue (7.91 nm, 294.8°T): sustained 16–16 kt, gusts to 21 kt across the ETA window Mon 20 Jul 06:00–Mon 20 Jul 07:45 UTC. Seas to 0.8 m significant (deterministic wave model — no wave ensembles exist). Ensemble (ecmwf_ifs025 ensemble): 7 of 51 forecast scenarios exceed your 18 kt wind limit at 2026-07-20T08:00:00Z (raw scenario fraction — not a calibrated probability).",
+          "register_pro": "L1 Cherbourg, Passe de l'Ouest → Off Omonville-la-Rogue (7.91 nm, 294.8°T): sustained 16–16 kt, gusts to 21 kt across the ETA window Mon 20 Jul 06:00–Mon 20 Jul 07:45 UTC. Seas to 0.8 m significant (deterministic wave model; no wave ensembles exist). Ensemble (ecmwf_ifs025 ensemble): 7 of 51 forecast scenarios exceed your 18 kt wind limit at 2026-07-20T08:00:00Z (raw scenario fraction; not a calibrated probability).",
           "evidence_ids": [
             "E1",
             "E2",
@@ -29,7 +29,7 @@
         {
           "leg_id": "L2",
           "register_plain": "Off Omonville-la-Rogue → NW of Cap de la Hague: fresh winds while you are on this stretch (Mon 20 Jul 07:13–Mon 20 Jul 09:48 UTC). 9 of 51 forecast scenarios exceed your 18 kt wind limit around Mon 20 Jul 08:00 UTC.",
-          "register_pro": "L2 Off Omonville-la-Rogue → NW of Cap de la Hague (9.26 nm, 293°T): sustained 17–17 kt, gusts to 22 kt across the ETA window Mon 20 Jul 07:13–Mon 20 Jul 09:48 UTC. Seas to 0.8 m significant (deterministic wave model — no wave ensembles exist). Ensemble (ecmwf_ifs025 ensemble): 9 of 51 forecast scenarios exceed your 18 kt wind limit at 2026-07-20T08:00:00Z (raw scenario fraction — not a calibrated probability).",
+          "register_pro": "L2 Off Omonville-la-Rogue → NW of Cap de la Hague (9.26 nm, 293°T): sustained 17–17 kt, gusts to 22 kt across the ETA window Mon 20 Jul 07:13–Mon 20 Jul 09:48 UTC. Seas to 0.8 m significant (deterministic wave model; no wave ensembles exist). Ensemble (ecmwf_ifs025 ensemble): 9 of 51 forecast scenarios exceed your 18 kt wind limit at 2026-07-20T08:00:00Z (raw scenario fraction; not a calibrated probability).",
           "evidence_ids": [
             "E4",
             "E5",
@@ -39,7 +39,7 @@
         {
           "leg_id": "L3",
           "register_plain": "NW of Cap de la Hague → Casquets TSS crossing: fresh winds while you are on this stretch (Mon 20 Jul 08:38–Mon 20 Jul 17:03 UTC). 9 of 51 forecast scenarios exceed your 18 kt wind limit around Mon 20 Jul 08:00 UTC.",
-          "register_pro": "L3 NW of Cap de la Hague → Casquets TSS crossing (32.6 nm, 288.6°T): sustained 14–17 kt, gusts to 22 kt across the ETA window Mon 20 Jul 08:38–Mon 20 Jul 17:03 UTC. Seas to 0.8 m significant (deterministic wave model — no wave ensembles exist). Ensemble (ecmwf_ifs025 ensemble): 9 of 51 forecast scenarios exceed your 18 kt wind limit at 2026-07-20T08:00:00Z (raw scenario fraction — not a calibrated probability).",
+          "register_pro": "L3 NW of Cap de la Hague → Casquets TSS crossing (32.6 nm, 288.6°T): sustained 14–17 kt, gusts to 22 kt across the ETA window Mon 20 Jul 08:38–Mon 20 Jul 17:03 UTC. Seas to 0.8 m significant (deterministic wave model; no wave ensembles exist). Ensemble (ecmwf_ifs025 ensemble): 9 of 51 forecast scenarios exceed your 18 kt wind limit at 2026-07-20T08:00:00Z (raw scenario fraction; not a calibrated probability).",
           "evidence_ids": [
             "E7",
             "E8",
@@ -49,7 +49,7 @@
         {
           "leg_id": "L4",
           "register_plain": "Casquets TSS crossing → Mid-Channel: moderate winds while you are on this stretch (Mon 20 Jul 13:39–Mon 20 Jul 22:34 UTC). 2 of 51 forecast scenarios exceed your 18 kt wind limit around Mon 20 Jul 13:00 UTC.",
-          "register_pro": "L4 Casquets TSS crossing → Mid-Channel (24.83 nm, 291.5°T): sustained 12–15 kt, gusts to 20 kt across the ETA window Mon 20 Jul 13:39–Mon 20 Jul 22:34 UTC. Seas to 0.8 m significant (deterministic wave model — no wave ensembles exist). Ensemble (ecmwf_ifs025 ensemble): 2 of 51 forecast scenarios exceed your 18 kt wind limit at 2026-07-20T13:00:00Z (raw scenario fraction — not a calibrated probability).",
+          "register_pro": "L4 Casquets TSS crossing → Mid-Channel (24.83 nm, 291.5°T): sustained 12–15 kt, gusts to 20 kt across the ETA window Mon 20 Jul 13:39–Mon 20 Jul 22:34 UTC. Seas to 0.8 m significant (deterministic wave model; no wave ensembles exist). Ensemble (ecmwf_ifs025 ensemble): 2 of 51 forecast scenarios exceed your 18 kt wind limit at 2026-07-20T13:00:00Z (raw scenario fraction; not a calibrated probability).",
           "evidence_ids": [
             "E10",
             "E11"
@@ -58,13 +58,13 @@
         {
           "leg_id": "L5",
           "register_plain": "Mid-Channel → Plymouth approach (E of Eddystone): moderate winds while you are on this stretch (Mon 20 Jul 17:28–Tue 21 Jul 04:04 UTC).",
-          "register_pro": "L5 Mid-Channel → Plymouth approach (E of Eddystone) (24.77 nm, 291.6°T): sustained 12–13 kt, gusts to 18 kt across the ETA window Mon 20 Jul 17:28–Tue 21 Jul 04:04 UTC. Seas to 0.8 m significant (deterministic wave model — no wave ensembles exist).",
+          "register_pro": "L5 Mid-Channel → Plymouth approach (E of Eddystone) (24.77 nm, 291.6°T): sustained 12–13 kt, gusts to 18 kt across the ETA window Mon 20 Jul 17:28–Tue 21 Jul 04:04 UTC. Seas to 0.8 m significant (deterministic wave model; no wave ensembles exist).",
           "evidence_ids": []
         },
         {
           "leg_id": "L6",
           "register_plain": "Plymouth approach (E of Eddystone) → Plymouth breakwater, western entrance: moderate winds while you are on this stretch (Mon 20 Jul 21:17–Tue 21 Jul 05:37 UTC).",
-          "register_pro": "L6 Plymouth approach (E of Eddystone) → Plymouth breakwater, western entrance (6.92 nm, 316.2°T): sustained 12–13 kt, gusts to 18 kt across the ETA window Mon 20 Jul 21:17–Tue 21 Jul 05:37 UTC. Seas to 0.8 m significant (deterministic wave model — no wave ensembles exist).",
+          "register_pro": "L6 Plymouth approach (E of Eddystone) → Plymouth breakwater, western entrance (6.92 nm, 316.2°T): sustained 12–13 kt, gusts to 18 kt across the ETA window Mon 20 Jul 21:17–Tue 21 Jul 05:37 UTC. Seas to 0.8 m significant (deterministic wave model; no wave ensembles exist).",
           "evidence_ids": []
         }
       ],
@@ -78,7 +78,7 @@
       "id": "decision",
       "title": "Against your declared limits",
       "register_plain": "An official marine warning covers part of your route. That takes precedence over everything below. The main signal: 16.7 kt against your 18 kt limit on Off Omonville-la-Rogue → NW of Cap de la Hague around Mon 20 Jul 09:00 UTC.",
-      "register_pro": "Authority override active: an official bulletin covers route zones during the passage window. Driver: W-SUST-01 on L2 at 2026-07-20T09:00:00Z — 16.7 kt vs declared 18 kt.",
+      "register_pro": "Authority override active: an official bulletin covers route zones during the passage window. Driver: W-SUST-01 on L2 at 2026-07-20T09:00:00Z; 16.7 kt vs declared 18 kt.",
       "evidence_ids": [
         "E4"
       ]
@@ -86,7 +86,7 @@
     {
       "id": "what_could_change",
       "title": "What could change",
-      "register_plain": "Forecasts update several times a day. Check again after the next model run (expected around Sat 11 Jul 20:00 UTC) — especially if you are close to your limits.",
+      "register_plain": "The next model run is expected around . Check again then, especially if conditions are close to your limits.",
       "register_pro": "Next ecmwf_ifs025 cycle expected ~2026-07-11T20:00:00Z. Model run ids in this analysis are inferred from publication schedules until the prepared-run pipeline provides authoritative cycles. Agreement between runs is not proof of accuracy.",
       "evidence_ids": [],
       "glossary_terms": [

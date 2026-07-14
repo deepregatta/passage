@@ -58,7 +58,7 @@ const FR = {
   'Draw my route': 'Tracer ma route',
   'Compute a route': 'Calculer une route',
   'Name': 'Nom',
-  'Boat speed (kt) — slow / usual / fast': 'Vitesse du bateau (nd) — lente / habituelle / rapide',
+  'Boat speed (kt) · slow / usual / fast': 'Vitesse du bateau (nd) · lente / habituelle / rapide',
   'slow speed': 'vitesse lente',
   'nominal speed': 'vitesse habituelle',
   'fast speed': 'vitesse rapide',
@@ -70,18 +70,18 @@ const FR = {
   'Not listed? Generic by boat length': 'Absent de la liste ? Polaire générique selon la longueur',
   'Generic cruiser polars': 'Polaires génériques de croiseur',
   'Compute route': 'Calculer la route',
-  'Click the chart twice: start, then finish. The route is computed from forecast wind, currents and your polar — then audited like any other route.': 'Cliquez deux fois sur la carte : départ, puis arrivée. La route est calculée à partir du vent prévu, des courants et de votre polaire, puis contrôlée comme toute autre route.',
-  'computed route — inherits polar uncertainty; audited below like any route': 'route calculée — intègre l’incertitude de la polaire ; contrôlée ci-dessous comme toute autre route',
+  'Mark a start and finish on the chart. Passage uses the forecast, available currents and your boat polar to find a route.': 'Placez un départ et une arrivée sur la carte. Passage utilise les prévisions, les courants disponibles et la polaire de votre bateau pour calculer une route.',
+  'Weather-routed · includes polar uncertainty · ready to check': 'Route météo · incertitude de la polaire incluse · prête à vérifier',
   'Departure (UTC)': 'Départ (UTC)',
   'undo': 'annuler',
   'clear': 'effacer',
   'Import GPX…': 'Importer un GPX…',
   'Check this passage against my limits': 'Vérifier cette traversée selon mes limites',
-  'To enable: click the chart at least twice — your start and your destination.': 'Pour activer : cliquez au moins deux fois sur la carte — votre départ et votre destination.',
-  'To enable: click the chart twice to set the two endpoints.': 'Pour activer : cliquez deux fois sur la carte afin de définir les deux extrémités.',
+  'Mark at least two points on the chart: your start and destination.': 'Placez au moins deux points sur la carte : votre départ et votre destination.',
+  'Mark a start and finish on the chart.': 'Placez un départ et une arrivée sur la carte.',
   'Checking runs the analysis and saves the briefing to My briefings. Until then your draft stays here on this page.': 'La vérification lance l’analyse et enregistre le briefing dans Mes briefings. Jusque-là, votre brouillon reste sur cette page.',
   'Compare departure times (next 5 days)': 'Comparer les heures de départ (5 prochains jours)',
-  'Departure comparison ready — see the full-width calendar below the chart.': 'Comparaison des départs prête — consultez le calendrier pleine largeur sous la carte.',
+  'Departure comparison ready. Choose a time below the chart.': 'Comparaison des départs prête. Choisissez une heure sous la carte.',
   'Runs in your browser · forecasts fetched live · saved as an immutable snapshot.': 'S’exécute dans votre navigateur · prévisions récupérées en direct · enregistrement sous forme de briefing immuable.',
   'Departure comparison': 'Comparaison des départs',
   'Departure comparison · next 5 days': 'Comparaison des départs · 5 prochains jours',
@@ -91,14 +91,14 @@ const FR = {
   'Checking a passage · comparing departures': 'Vérification d’une traversée · comparaison des départs',
   'Computing a route (and per-departure routes)': 'Calcul d’une route (et des routes par départ)',
   'My briefings': 'Mes briefings',
-  "Every briefing is kept exactly as it was made — so you can re-read it later and see how the forecast actually did (that's the Track record page).": 'Chaque briefing est conservé exactement tel qu’il a été créé — vous pouvez ainsi le relire plus tard et voir la performance réelle de la prévision (dans la page Bilan de fiabilité).',
-  'No analyses yet. Run one from the repo root:': 'Aucune analyse pour le moment. Lancez-en une depuis la racine du dépôt :',
+  'Briefings are frozen when you make them. Reopen one here, or compare its forecast with later observations in Track record.': 'Les briefings sont figés à leur création. Rouvrez-en un ici ou comparez sa prévision aux observations ultérieures dans le Bilan de fiabilité.',
+  'No briefings yet.': 'Aucun briefing pour le moment.',
+  'Plan a passage, set a departure time and check it against your limits.': 'Planifiez une traversée, choisissez une heure de départ et vérifiez-la selon vos limites.',
   'example': 'exemple',
   'Delete this briefing': 'Supprimer ce briefing',
   'My limits': 'Mes limites',
   'Your declared limits': 'Vos limites déclarées',
-  'These are operational limits you declare — not sailor categories. Presets only pre-fill; everything is editable. No preset relaxes squall or storm tolerance.': 'Ce sont les limites opérationnelles que vous déclarez, et non des catégories de marins. Les préréglages ne font que préremplir les champs ; tout reste modifiable. Aucun préréglage n’assouplit la tolérance aux grains ou aux tempêtes.',
-  'CLI analyses read config/profiles/default-limits.json; this draft feeds in-browser analysis when it lands.': 'Les analyses en ligne de commande lisent config/profiles/default-limits.json ; ce brouillon alimente l’analyse dans le navigateur.',
+  'Set the conditions you will accept for this passage. Presets are only a starting point. Every value remains editable. Squall and storm tolerance never changes with a preset.': 'Définissez les conditions que vous acceptez pour cette traversée. Les préréglages sont un point de départ. Chaque valeur reste modifiable. La tolérance aux grains et aux tempêtes ne change jamais avec un préréglage.',
   'Max sustained · upwind': 'Vent moyen max. · près',
   'Max sustained · reach': 'Vent moyen max. · travers',
   'Max sustained · downwind': 'Vent moyen max. · portant',
@@ -111,18 +111,18 @@ const FR = {
   'Loading profile…': 'Chargement du profil…',
   'Data providers': 'Fournisseurs de données',
   'Feeds marked': 'Les flux marqués',
-  'produce synthetic values for testing — they are badged everywhere they appear and must never inform a real passage decision.': 'produisent des valeurs synthétiques pour les tests — ils sont signalés partout et ne doivent jamais guider une décision de traversée réelle.',
+  'contain synthetic test values. They stay visibly marked and must never inform a real passage decision.': 'contiennent des valeurs synthétiques de test. Elles restent clairement signalées et ne doivent jamais guider une décision de traversée réelle.',
   'Glossary': 'Glossaire',
   'Open a snapshot first.': 'Ouvrez d’abord un briefing.',
   'No ensemble limit claim is available for this snapshot.': 'Aucune affirmation de limite issue de l’ensemble n’est disponible pour ce briefing.',
-  'raw fraction — not a calibrated probability': 'fraction brute — pas une probabilité étalonnée',
+  'raw count, not a calibrated probability': 'décompte brut, pas une probabilité étalonnée',
   'inspect claim': 'examiner l’affirmation',
   'Open a briefing to view its case study.': 'Ouvrez un briefing pour voir son étude de cas.',
   'Open a passage briefing first.': 'Ouvrez d’abord un briefing de traversée.',
   'First analysis of this passage': 'Première analyse de cette traversée',
   'Nothing to compare yet. Reassess after the next model run.': 'Rien à comparer pour le moment. Réévaluez après la prochaine sortie des modèles.',
   'Comparing frozen runs…': 'Comparaison des analyses figées…',
-  'No material change; steadiness is recorded.': 'Aucun changement significatif ; la stabilité est enregistrée.',
+  'No material change. The forecast held steady.': 'Aucun changement significatif. La prévision est restée stable.',
   'Edited change story · previous → latest': 'Synthèse des évolutions · précédente → dernière',
   'Event onset at the route': 'Début de l’événement sur la route',
   'previous': 'précédente',
@@ -147,7 +147,7 @@ const FR = {
   'No multi-model data in this snapshot.': 'Aucune donnée multimodèle dans ce briefing.',
   'Evidence · model guidance': 'Éléments probants · indication des modèles',
   'Loading chart…': 'Chargement de la carte…',
-  'Show detailed charts — wind · gusts · waves ▾': 'Afficher les graphiques détaillés — vent · rafales · vagues ▾',
+  'Show wind, gust and wave charts ▾': 'Afficher les graphiques du vent, des rafales et des vagues ▾',
   'Hide detailed charts ▴': 'Masquer les graphiques détaillés ▴',
   'Table alternative for route timeline': 'Tableau alternatif pour la chronologie de la route',
   'wind kt': 'vent nd',
@@ -171,7 +171,7 @@ const FR = {
   'The low and the boat occupy the same route window.': 'La dépression et le bateau occupent la même fenêtre sur la route.',
   'The system has crossed; the strongest route consequence is active.': 'Le système est passé ; son effet le plus fort sur la route est actif.',
   'The low moves clear and the passage begins to ease.': 'La dépression s’éloigne et les conditions commencent à s’améliorer.',
-  'No tracked system crosses your route window — this pattern still sets your wind.': 'Aucun système suivi ne traverse votre fenêtre de route — cette configuration détermine néanmoins votre vent.',
+  'No tracked system crosses your route window; this pattern still sets your wind.': 'Aucun système suivi ne traverse votre fenêtre de route; cette configuration détermine néanmoins votre vent.',
   'Full screen': 'Plein écran',
   'Full chart': 'Carte entière',
   'Zoom to route': 'Zoomer sur la route',
@@ -185,24 +185,24 @@ const FR = {
   'departure': 'départ',
   'arrival': 'arrivée',
   'The weather story': 'L’histoire météo',
-  'Nothing in this forecast crosses the limits you set. The final call is always yours — check once more before you leave.': 'Rien dans cette prévision ne dépasse les limites que vous avez fixées. La décision finale vous appartient toujours — vérifiez encore une fois avant de partir.',
+  'The forecast stays inside the limits you set. Check the latest run once more before you leave.': 'La prévision reste dans les limites fixées. Vérifiez une dernière fois le cycle le plus récent avant de partir.',
   'It is close to your limits. Read the two or three points on the right before deciding.': 'Les conditions sont proches de vos limites. Lisez les deux ou trois points à droite avant de décider.',
-  'This forecast goes beyond what you said you would accept. Look at WHEN — a different departure often fixes it.': 'Cette prévision dépasse ce que vous avez déclaré acceptable. Regardez QUAND — un autre départ résout souvent le problème.',
-  'The forecast models tell different stories right now. Wait for the next update before deciding — the time is listed below.': 'Les modèles de prévision divergent actuellement. Attendez la prochaine mise à jour avant de décider — l’heure est indiquée ci-dessous.',
-  'There is an official marine warning for your area. Start with the bulletin — everything else comes second.': 'Une alerte marine officielle concerne votre zone. Commencez par le bulletin — tout le reste vient ensuite.',
-  'An official marine warning covers part of your route — read the bulletin before anything else.': 'Une alerte marine officielle couvre une partie de votre route — lisez le bulletin avant toute autre chose.',
+  'This forecast crosses your limits. Compare departure times before changing the route.': 'Cette prévision dépasse vos limites. Comparez les heures de départ avant de modifier la route.',
+  'The models disagree near your limits. Wait for the next update before deciding.': 'Les modèles divergent près de vos limites. Attendez la prochaine mise à jour avant de décider.',
+  'A marine warning covers your area. Read the official bulletin first.': 'Une alerte marine concerne votre zone. Lisez d’abord le bulletin officiel.',
+  'An official marine warning covers part of your route. Read the bulletin before anything else.': 'Une alerte marine officielle couvre une partie de votre route. Lisez le bulletin en premier.',
   'Authority styling refused: this warning comes from synthetic data.': 'Présentation officielle refusée : cette alerte provient de données synthétiques.',
-  'Your passage on the chart — the boat moves with the playback': 'Votre traversée sur la carte — le bateau avance avec la lecture',
+  'A synthetic warning scenario covers part of your route. It tests the workflow and must not inform a real passage decision.': 'Un scénario d’alerte synthétique couvre une partie de votre route. Il sert à tester le fonctionnement et ne doit jamais guider une décision réelle.',
+  'Passage chart · synced to playback': 'Carte de la traversée · synchronisée avec la lecture',
   'Along your route · conditions vs your limits': 'Le long de votre route · conditions et limites',
   'same time cursor': 'même curseur temporel',
   'Decision': 'Décision',
   'Within your declared limits': 'Dans vos limites déclarées',
   'Approaching your limits': 'Proche de vos limites',
   'Exceeds your limits': 'Dépasse vos limites',
-  'Insufficient forecast confidence — reassess at the next model run': 'Confiance insuffisante dans la prévision — réévaluez lors de la prochaine sortie des modèles',
+  'Models disagree · reassess after the next run': 'Divergence des modèles · réévaluez après le prochain cycle',
   'Insufficient forecast confidence': 'Confiance insuffisante dans la prévision',
   'Official warning active': 'Alerte officielle active',
-  '— takes precedence over the personal-limit assessment below': '— prévaut sur l’évaluation des limites personnelles ci-dessous',
   'driven by': 'déterminé par',
   'within limits': 'dans les limites',
   'approaching': 'proche des limites',
@@ -222,7 +222,7 @@ const FR = {
   'Print / save PDF': 'Imprimer / enregistrer en PDF',
   'Observations not attached yet': 'Observations pas encore jointes',
   'The original forecast remains frozen. This report will populate only after observations are classified.': 'La prévision initiale reste figée. Ce rapport ne sera complété qu’après la classification des observations.',
-  'The route forecast captured the event direction; the table below shows the remaining timing and magnitude error without hindsight edits.': 'La prévision sur la route a correctement indiqué l’évolution de l’événement ; le tableau ci-dessous présente l’erreur restante de chronologie et d’intensité, sans réécriture a posteriori.',
+  'The route forecast caught the event direction. The table records its timing and magnitude errors without hindsight edits.': 'La prévision sur la route a saisi l’évolution de l’événement. Le tableau consigne ses erreurs de chronologie et d’intensité sans réécriture a posteriori.',
   'Error decomposition': 'Décomposition de l’erreur',
   'variable': 'variable',
   'frozen forecast': 'prévision figée',
@@ -230,12 +230,12 @@ const FR = {
   'error': 'erreur',
   'interpretation': 'interprétation',
   'Original interpretation': 'Interprétation initiale',
-  'Corrected interpretation': 'Interprétation corrigée',
-  'Treat the event timing as a window, preserve the personal limit, and use the verified error as extra margin—not as a reason to rewrite the frozen forecast.': 'Traitez la chronologie de l’événement comme une fenêtre, conservez votre limite personnelle et utilisez l’erreur vérifiée comme marge supplémentaire — pas comme prétexte pour réécrire la prévision figée.',
+  'Lesson for the next passage': 'Leçon pour la prochaine traversée',
+  'Treat event timing as a window. Keep your personal limit, then add the measured forecast error as margin.': 'Traitez la chronologie de l’événement comme une fenêtre. Conservez votre limite personnelle, puis ajoutez l’erreur de prévision mesurée comme marge.',
   'Track record': 'Bilan de fiabilité',
   'Corpus summary unavailable.': 'Résumé du corpus indisponible.',
   'This analysis': 'Cette analyse',
-  'Calibration record — the track record this tool must earn': 'Historique d’étalonnage — la fiabilité que cet outil doit démontrer',
+  'Calibration record': 'Historique d’étalonnage',
   'forecast': 'prévision',
   'observed': 'observé',
   'lead': 'échéance',
@@ -263,7 +263,7 @@ const FR = {
   'easing off': 'en amélioration',
   'A weather system crosses your passage window': 'Un système météo traverse votre fenêtre de passage',
   'A low-pressure system crosses your passage window': 'Une dépression traverse votre fenêtre de passage',
-  'A marine warning scenario covers part of your route — synthetic data, for testing the workflow only, never for a real passage decision.': 'Un scénario d’alerte marine couvre une partie de votre route — données synthétiques destinées uniquement à tester le fonctionnement, jamais à prendre une décision de traversée réelle.',
+  'A marine warning scenario covers part of your route; synthetic data, for testing the workflow only, never for a real passage decision.': 'Un scénario d’alerte marine couvre une partie de votre route; données synthétiques destinées uniquement à tester le fonctionnement, jamais à prendre une décision de traversée réelle.',
   'Why this assessment': 'Pourquoi cette évaluation',
   'Strongest': 'Conditions les plus fortes',
   'wind': 'vent',
@@ -287,6 +287,7 @@ const FR = {
   'age': 'âge',
   'models in agreement across this passage': 'modèles concordants sur toute la traversée',
   'Global models under-resolve coastal wind acceleration, harbours and tidal races; ocean-model currents are not tidal stream predictions.': 'Les modèles globaux représentent mal l’accélération côtière du vent, les ports et les raz de marée ; les courants des modèles océaniques ne sont pas des prévisions de courants de marée.',
+  'Global models under-resolve coastal wind acceleration, harbours and tidal races. Ocean-model currents are not tidal stream predictions.': 'Les modèles globaux représentent mal l’accélération côtière du vent, les ports et les raz de marée. Les courants des modèles océaniques ne sont pas des prévisions de courants de marée.',
   'synoptic situation': 'situation synoptique',
   'no attributed system': 'aucun système attribué',
   'system': 'système',
@@ -318,9 +319,9 @@ const FR = {
   'Zoom in': 'Zoom avant',
   'Zoom out': 'Zoom arrière',
   'Agreement is not proof. Models share observations and assumptions; disagreement mainly says when to wait for the next run.': 'L’accord ne constitue pas une preuve. Les modèles partagent des observations et des hypothèses ; leur divergence indique surtout quand attendre le prochain cycle.',
-  'The national weather service has an active marine warning covering part of your route. Official forecasts are the authority — read the bulletin before anything else.': 'Le service météorologique national a émis une alerte marine active couvrant une partie de votre route. Les prévisions officielles font autorité — lisez le bulletin avant toute autre chose.',
+  'The national weather service has an active marine warning covering part of your route. Official forecasts are the authority; read the bulletin before anything else.': 'Le service météorologique national a émis une alerte marine active couvrant une partie de votre route. Les prévisions officielles font autorité; lisez le bulletin avant toute autre chose.',
   'The weather system driving this': 'Le système météo à l’origine de la situation',
-  'A strengthening low-pressure system sits west of the approaches, at your latitude — that is what sets the wind pattern over your route. The chart panels show how it moves over the next days.': 'Une dépression qui se renforce se trouve à l’ouest des approches, à votre latitude — elle détermine le régime de vent sur votre route. Les cartes montrent son déplacement au cours des prochains jours.',
+  'A strengthening low-pressure system sits west of the approaches, at your latitude; that is what sets the wind pattern over your route. The chart panels show how it moves over the next days.': 'Une dépression qui se renforce se trouve à l’ouest des approches, à votre latitude; elle détermine le régime de vent sur votre route. Les cartes montrent son déplacement au cours des prochains jours.',
   'Route impact, leg by leg': 'Effet sur la route, tronçon par tronçon',
   'What the forecast means for each stretch of your passage:': 'Ce que la prévision implique pour chaque tronçon de votre traversée :',
   'Against your declared limits': 'Par rapport à vos limites déclarées',
@@ -345,7 +346,7 @@ const FR = {
   'exceedance window': 'fenêtre de dépassement',
   'YOUR limit': 'VOTRE limite',
   '10 m sustained': 'vent moyen à 10 m',
-  'How the forecasts in your briefings compared with what actually happened. This is the page where the tool earns (or loses) your trust — every number carries its sample size and how independent the observation really was.': 'Comparaison entre les prévisions de vos briefings et ce qui s’est réellement produit. C’est ici que l’outil gagne — ou perd — votre confiance : chaque chiffre indique la taille de l’échantillon et le degré d’indépendance réel de l’observation.',
+  'How the forecasts in your briefings compared with what actually happened. This is the page where the tool earns (or loses) your trust; every number carries its sample size and how independent the observation really was.': 'Comparaison entre les prévisions de vos briefings et ce qui s’est réellement produit. C’est ici que l’outil gagne; ou perd; votre confiance : chaque chiffre indique la taille de l’échantillon et le degré d’indépendance réel de l’observation.',
   'Reanalysis-referenced comparisons use ERA5, which assimilates observations but is not independent ground truth (brief §9). Sample sizes are always shown; no probability is called calibrated until they support it.': 'Les comparaisons fondées sur une réanalyse utilisent ERA5, qui assimile des observations mais ne constitue pas une vérité terrain indépendante (brief §9). La taille des échantillons est toujours indiquée ; aucune probabilité n’est dite étalonnée avant que les données ne le permettent.',
   'live': 'direct',
   'gust': 'rafale',
@@ -357,20 +358,20 @@ const FR = {
   'significant wave height': 'hauteur significative des vagues',
   'steepness': 'cambrure',
   'tidal gate': 'porte de marée',
-  'A brief burst of wind above the sustained speed — typically 20–40% higher; squalls can double it.': 'Une brève pointe de vent supérieure au vent moyen — généralement 20 à 40 % plus forte ; les grains peuvent la doubler.',
+  'A brief burst of wind above the sustained speed; typically 20–40% higher; squalls can double it.': 'Une brève pointe de vent supérieure au vent moyen; généralement 20 à 40 % plus forte ; les grains peuvent la doubler.',
   'The same model run ~30 times with slightly different starting conditions (31 members for GEFS). The spread between members shows how uncertain the forecast is.': 'Le même modèle est exécuté environ 30 fois avec des conditions initiales légèrement différentes (31 membres pour GEFS). La dispersion entre les membres montre l’incertitude de la prévision.',
-  'The ensemble members. "24 of 31 scenarios exceed your limit" is a raw count, not a calibrated probability — the member count always comes from the actual run.': 'Les membres de l’ensemble. « 24 scénarios sur 31 dépassent votre limite » est un décompte brut, pas une probabilité étalonnée — le nombre de membres provient toujours du cycle réel.',
+  'The ensemble members. "24 of 31 scenarios exceed your limit" is a raw count, not a calibrated probability; the member count always comes from the actual run.': 'Les membres de l’ensemble. « 24 scénarios sur 31 dépassent votre limite » est un décompte brut, pas une probabilité étalonnée; le nombre de membres provient toujours du cycle réel.',
   'Your arrival time is a range, not an instant: computed for your slow, usual and fast boat speeds. Conditions are checked across the whole window.': 'Votre heure d’arrivée est une plage, pas un instant : elle est calculée pour les vitesses lente, habituelle et rapide de votre bateau. Les conditions sont vérifiées sur toute la fenêtre.',
-  'Weather models restart from fresh observations every 6–12 h. A new run can shift the forecast — always recheck before departure.': 'Les modèles météo redémarrent à partir de nouvelles observations toutes les 6 à 12 h. Un nouveau cycle peut décaler la prévision — vérifiez toujours avant le départ.',
+  'Weather models restart from fresh observations every 6–12 h. A new run can shift the forecast; always recheck before departure.': 'Les modèles météo redémarrent à partir de nouvelles observations toutes les 6 à 12 h. Un nouveau cycle peut décaler la prévision; vérifiez toujours avant le départ.',
   'Wind direction turning clockwise (e.g. SW → NW). Common behind a cold front.': 'Rotation du vent dans le sens horaire (p. ex. SO → NO). Fréquente derrière un front froid.',
   'The average of the highest third of waves. Individual waves can be nearly twice this height.': 'La moyenne du tiers des vagues les plus hautes. Certaines vagues peuvent atteindre près du double de cette hauteur.',
   'Wave height relative to wavelength. Steep waves break; short, steep seas are dangerous well below your height limit.': 'Rapport entre la hauteur et la longueur d’onde. Les vagues cambrées déferlent ; une mer courte et abrupte est dangereuse bien avant votre limite de hauteur.',
-  'Wind blowing against the tidal stream — it makes waves shorter and steeper. Notorious in races like the Alderney Race.': 'Vent soufflant contre le courant de marée — il rend les vagues plus courtes et plus abruptes. Phénomène bien connu dans le raz Blanchard.',
-  'A passage you must transit while the stream is fair (or slack). Miss the window and you fight a foul current — or worse seas.': 'Un passage à franchir lorsque le courant est favorable (ou à l’étale). Si vous manquez la fenêtre, vous affrontez un courant contraire — ou une mer plus difficile.',
+  'Wind blowing against the tidal stream; it makes waves shorter and steeper. Notorious in races like the Alderney Race.': 'Vent soufflant contre le courant de marée; il rend les vagues plus courtes et plus abruptes. Phénomène bien connu dans le raz Blanchard.',
+  'A passage you must transit while the stream is fair (or slack). Miss the window and you fight a foul current; or worse seas.': 'Un passage à franchir lorsque le courant est favorable (ou à l’étale). Si vous manquez la fenêtre, vous affrontez un courant contraire; ou une mer plus difficile.',
 };
 
 const FR_PATTERNS = [
-  [/^A (strengthening )?low-pressure system sits (.+) — that is what sets the wind pattern over your route\. The chart panels show how it moves over the next days\.$/, (_match, strengthening, position) => `Une dépression${strengthening ? ' qui se renforce' : ''} se trouve ${translateSynopticPosition(position)} — elle détermine le régime de vent sur votre route. Les cartes montrent son déplacement au cours des prochains jours.`],
+  [/^A (strengthening )?low-pressure system sits (.+); that is what sets the wind pattern over your route\. The chart panels show how it moves over the next days\.$/, (_match, strengthening, position) => `Une dépression${strengthening ? ' qui se renforce' : ''} se trouve ${translateSynopticPosition(position)}; elle détermine le régime de vent sur votre route. Les cartes montrent son déplacement au cours des prochains jours.`],
   [/^Low (L\d+) deepens west of the route\.$/, 'La dépression $1 se creuse à l’ouest de la route.'],
   [/^(.+): (light|moderate|fresh|strong|near-gale|gale-force) winds while you are on this stretch \((.+) UTC\)\.(.*)$/, (_match, leg, strength, window, suffix) => `${translateRouteName(leg)} : ${translateWindStrength(strength)} pendant ce tronçon (${window} UTC).${translateExceedanceSuffix(suffix)}`],
   [/^The forecasts disagree too much to assess this passage against your limits\. Reassess after the next model run\.(.*)$/, (_match, suffix) => `Les prévisions divergent trop pour évaluer cette traversée par rapport à vos limites. Réévaluez-la après le prochain cycle du modèle.${translateMainSignal(suffix)}`],
@@ -397,13 +398,14 @@ const FR_PATTERNS = [
   [/^SNAPSHOT /, 'BRIEFING '],
   [/^Start\s*→\s*Finish$/, 'Départ → Arrivée'],
   [/^dep (.+) UTC$/, 'départ $1 UTC'],
-  [/^forecast updates ~(.+) — check again before you cast off$/, 'mise à jour des prévisions vers $1 — vérifiez à nouveau avant d’appareiller'],
-  [/^The forecast updates around (.+) — check again before you cast off\.$/, 'La prévision est mise à jour vers $1 — vérifiez à nouveau avant d’appareiller.'],
-  [/^The forecast updates several times a day — check again before you cast off\.$/, 'La prévision est mise à jour plusieurs fois par jour — vérifiez à nouveau avant d’appareiller.'],
+  [/^forecast updates ~(.+); check again before you cast off$/, 'mise à jour des prévisions vers $1; vérifiez à nouveau avant d’appareiller'],
+  [/^The forecast updates around (.+); check again before you cast off\.$/, 'La prévision est mise à jour vers $1; vérifiez à nouveau avant d’appareiller.'],
+  [/^The forecast updates several times a day\. Check again before you cast off\.$/, 'La prévision est mise à jour plusieurs fois par jour. Vérifiez à nouveau avant d’appareiller.'],
+  [/^The next model run is expected around (.+) UTC\. Check again then, especially if conditions are close to your limits\.$/, 'Le prochain cycle du modèle est attendu vers $1 UTC. Vérifiez à nouveau à ce moment-là, surtout si les conditions approchent vos limites.'],
   [/^A weather system crosses your passage window$/, 'Un système météo traverse votre fenêtre de passage'],
   [/^The forecast reaches ([\d.]+) (\w+) against your ([\d.]+) (\w+) limit (.+)\.$/, 'La prévision atteint $1 $2, pour une limite fixée à $3 $4, $5.'],
   [/^Strongest (.+)$/, 'Conditions les plus fortes $1'],
-  [/^Wind over tide (.+) around (.+) UTC — expect short, steep seas\.$/, 'Vent contre courant $1 vers $2 UTC — attendez-vous à une mer courte et abrupte.'],
+  [/^Wind over tide (.+) around (.+) UTC; expect short, steep seas\.$/, 'Vent contre courant $1 vers $2 UTC; attendez-vous à une mer courte et abrupte.'],
   [/^Wind opposes the current at (.+), increasing the risk of short, steep seas\.$/, 'Le vent s’oppose au courant au $1, ce qui augmente le risque de mer courte et abrupte.'],
   [/^Wind opposes the current (.+), increasing the risk of short, steep seas\.$/, 'Le vent s’oppose au courant $1, ce qui augmente le risque de mer courte et abrupte.'],
   [/^models diverge on (\d+) h of this passage$/, 'les modèles divergent pendant $1 h sur cette traversée'],
@@ -417,16 +419,16 @@ const FR_PATTERNS = [
   [/^Previous run: (.+)$/, 'Analyse précédente : $1'],
   [/^Low (.+) track and route occupancy$/, 'Trajectoire de la dépression $1 et occupation de la route'],
   [/^High (.+) track and route occupancy$/, 'Trajectoire de l’anticyclone $1 et occupation de la route'],
-  [/^gusts up to ([\d.]+) kt — close to your ([\d.]+) kt limit while the low crosses (.+)\.$/, 'rafales jusqu’à $1 nd — proches de votre limite de $2 nd pendant que la dépression traverse $3.'],
-  [/^gusts up to ([\d.]+) kt — over your ([\d.]+) kt limit while the low crosses (.+)\.$/, 'rafales jusqu’à $1 nd — au-dessus de votre limite de $2 nd pendant que la dépression traverse $3.'],
+  [/^gusts up to ([\d.]+) kt; close to your ([\d.]+) kt limit while the low crosses (.+)\.$/, 'rafales jusqu’à $1 nd; proches de votre limite de $2 nd pendant que la dépression traverse $3.'],
+  [/^gusts up to ([\d.]+) kt; over your ([\d.]+) kt limit while the low crosses (.+)\.$/, 'rafales jusqu’à $1 nd; au-dessus de votre limite de $2 nd pendant que la dépression traverse $3.'],
   [/^(.+): fresh winds while you are on this stretch \((.+)\)\.(.*)$/, '$1 : vents frais pendant ce tronçon ($2).$3'],
   [/^(.+): strong winds while you are on this stretch \((.+)\)\.(.*)$/, '$1 : vents forts pendant ce tronçon ($2).$3'],
   [/^(.+): light winds while you are on this stretch \((.+)\)\.(.*)$/, '$1 : vents faibles pendant ce tronçon ($2).$3'],
   [/^(.+): moderate winds while you are on this stretch \((.+)\)\.(.*)$/, '$1 : vents modérés pendant ce tronçon ($2).$3'],
-  [/^Forecasts update several times a day\. Check again after the next model run \(expected around (.+) UTC\) — especially if you are close to your limits\.$/, 'Les prévisions sont mises à jour plusieurs fois par jour. Vérifiez à nouveau après le prochain cycle du modèle (attendu vers $1 UTC), surtout si les conditions sont proches de vos limites.'],
+  [/^Forecasts update several times a day\. Check again after the next model run \(expected around (.+) UTC\); especially if you are close to your limits\.$/, 'Les prévisions sont mises à jour plusieurs fois par jour. Vérifiez à nouveau après le prochain cycle du modèle (attendu vers $1 UTC), surtout si les conditions sont proches de vos limites.'],
   [/^Conditions along your route: (.+)$/, 'Conditions le long de votre route : $1'],
   [/^(\d+) of (\d+)$/, '$1 sur $2'],
-  [/^forecast scenarios exceed (.+) — raw fraction \((.+)\), not a calibrated probability$/, 'scénarios de prévision dépassent $1 — fraction brute ($2), pas une probabilité étalonnée'],
+  [/^forecast scenarios exceed (.+); raw fraction \((.+)\), not a calibrated probability$/, 'scénarios de prévision dépassent $1; fraction brute ($2), pas une probabilité étalonnée'],
   [/^All (\d+) forecast scenarios exceed your (.+) limit (.+)\.$/, 'Les $1 scénarios de prévision dépassent votre limite de $2 $3.'],
   [/^(\d+) of (\d+) forecast scenarios exceed your (.+) limit (.+)\.$/, '$1 scénarios sur $2 dépassent votre limite de $3 $4.'],
   [/^near (.+)$/, 'près de $1'],
@@ -509,12 +511,12 @@ function translateProfessionalLeg(value) {
   if (!match) return value;
   let translated = `${match[1]} ${translateRouteName(match[2])} (${match[3]} M, ${match[4]}° vrais) : vent moyen ${match[5]} nd${match[6] ? `, rafales jusqu’à ${match[6]} nd` : ''} sur la fenêtre d’arrivée estimée ${match[7]} UTC.`;
   translated += match[8]
-    .replace(/ Seas to ([\d.]+) m significant \(deterministic wave model — no wave ensembles exist\)\./g, ' Mer significative jusqu’à $1 m (modèle de vagues déterministe ; aucun ensemble de vagues).')
-    .replace(/ Wind against swell here — expect steeper, more uncomfortable seas\./g, ' Vent contre houle sur ce tronçon : attendez-vous à une mer plus abrupte et inconfortable.')
+    .replace(/ Seas to ([\d.]+) m significant \(deterministic wave model; no wave ensembles exist\)\./g, ' Mer significative jusqu’à $1 m (modèle de vagues déterministe ; aucun ensemble de vagues).')
+    .replace(/ Wind against swell here; expect steeper, more uncomfortable seas\./g, ' Vent contre houle sur ce tronçon : attendez-vous à une mer plus abrupte et inconfortable.')
     .replace(/ Wind-against-swell flagged\./g, ' Vent contre houle signalé.')
-    .replace(/ Models diverge on (\d+) h of this leg \(max spread ([\d.]+) kt\) — agreement is not proof, divergence says wait for the next run\./g, ' Les modèles divergent pendant $1 h sur ce tronçon (écart maximal de $2 nd) ; la concordance ne constitue pas une preuve et la divergence invite à attendre le prochain cycle.')
-    .replace(/ Ensemble \((.+)\): all (\d+) forecast scenarios exceed your ([\d.]+) kt (gust|wind) limit at (.+) \(raw scenario fraction — not a calibrated probability\)\./gi, (_m, model, count, limit, kind, time) => ` Ensemble (${model}) : les ${count} scénarios de prévision dépassent votre limite de ${kind.toLowerCase() === 'gust' ? 'rafales' : 'vent'} de ${limit} nd à ${time} (fraction brute de scénarios, et non probabilité étalonnée).`)
-    .replace(/ Ensemble \((.+)\): (\d+) of (\d+) forecast scenarios exceed your ([\d.]+) kt (gust|wind) limit at (.+) \(raw scenario fraction — not a calibrated probability\)\./gi, (_m, model, exceed, total, limit, kind, time) => ` Ensemble (${model}) : ${exceed} scénarios sur ${total} dépassent votre limite de ${kind.toLowerCase() === 'gust' ? 'rafales' : 'vent'} de ${limit} nd à ${time} (fraction brute de scénarios, et non probabilité étalonnée).`);
+    .replace(/ Models diverge on (\d+) h of this leg \(max spread ([\d.]+) kt\); agreement is not proof, divergence says wait for the next run\./g, ' Les modèles divergent pendant $1 h sur ce tronçon (écart maximal de $2 nd) ; la concordance ne constitue pas une preuve et la divergence invite à attendre le prochain cycle.')
+    .replace(/ Ensemble \((.+)\): all (\d+) forecast scenarios exceed your ([\d.]+) kt (gust|wind) limit at (.+) \(raw scenario fraction; not a calibrated probability\)\./gi, (_m, model, count, limit, kind, time) => ` Ensemble (${model}) : les ${count} scénarios de prévision dépassent votre limite de ${kind.toLowerCase() === 'gust' ? 'rafales' : 'vent'} de ${limit} nd à ${time} (fraction brute de scénarios, et non probabilité étalonnée).`)
+    .replace(/ Ensemble \((.+)\): (\d+) of (\d+) forecast scenarios exceed your ([\d.]+) kt (gust|wind) limit at (.+) \(raw scenario fraction; not a calibrated probability\)\./gi, (_m, model, exceed, total, limit, kind, time) => ` Ensemble (${model}) : ${exceed} scénarios sur ${total} dépassent votre limite de ${kind.toLowerCase() === 'gust' ? 'rafales' : 'vent'} de ${limit} nd à ${time} (fraction brute de scénarios, et non probabilité étalonnée).`);
   return translated;
 }
 
@@ -530,8 +532,8 @@ function translateProfessionalAssessment(assessment) {
 
 function translateProfessionalDecisionSuffix(suffix) {
   return suffix
-    .replace(/ Driver: (\S+) on (L\d+) at (\S+) — (\d+)\/(\d+) members > ([\d.]+) (\S+)\./g, ' Facteur déterminant : $1 sur $2 à $3 — $4 membres sur $5 > $6 $7.')
-    .replace(/ Driver: (\S+) on (L\d+) at (\S+) — ([\d.]+) (\S+) vs declared ([\d.]+) (\S+)\./g, ' Facteur déterminant : $1 sur $2 à $3 — $4 $5 contre une limite déclarée de $6 $7.');
+    .replace(/ Driver: (\S+) on (L\d+) at (\S+); (\d+)\/(\d+) members > ([\d.]+) (\S+)\./g, ' Facteur déterminant : $1 sur $2 à $3; $4 membres sur $5 > $6 $7.')
+    .replace(/ Driver: (\S+) on (L\d+) at (\S+); ([\d.]+) (\S+) vs declared ([\d.]+) (\S+)\./g, ' Facteur déterminant : $1 sur $2 à $3; $4 $5 contre une limite déclarée de $6 $7.');
 }
 
 function translateMainSignal(suffix) {
@@ -543,8 +545,8 @@ function translateMainSignal(suffix) {
 
 function translateExceedanceClaim(claim) {
   return claim
-    .replace(/^gusts up to ([\d.]+) kt — over your ([\d.]+) kt limit$/, 'rafales jusqu’à $1 nd — au-dessus de votre limite de $2 nd')
-    .replace(/^gusts up to ([\d.]+) kt — close to your ([\d.]+) kt limit$/, 'rafales jusqu’à $1 nd — proches de votre limite de $2 nd')
+    .replace(/^gusts up to ([\d.]+) kt; over your ([\d.]+) kt limit$/, 'rafales jusqu’à $1 nd; au-dessus de votre limite de $2 nd')
+    .replace(/^gusts up to ([\d.]+) kt; close to your ([\d.]+) kt limit$/, 'rafales jusqu’à $1 nd; proches de votre limite de $2 nd')
     .replace(/^([\d.]+) kt against your ([\d.]+) kt limit$/, '$1 nd pour une limite de $2 nd')
     .replace(/^(all (\d+)|(\d+) of (\d+)) forecast scenarios exceed your ([\d.]+) kt limit$/i, (_match, _count, all, exceed, total, limit) => all
       ? `les ${all} scénarios de prévision dépassent votre limite de ${limit} nd`

@@ -23,7 +23,7 @@ export function limitRelation(value: number, limit: number): 'over' | 'close to'
 }
 
 /**
- * "gusts up to 39 kt — over your 28 kt limit" / "visibility down to 0.5 nm —
+ * "gusts up to 39 kt, over your 28 kt limit" / "visibility down to 0.5 nm,
  * below your 2 nm minimum". Whole numbers only; the pro register keeps the
  * exact values.
  */
@@ -36,12 +36,12 @@ export function plainValueVsLimit(
   const u = units ? ` ${units}` : '';
   if (ruleId?.startsWith('V-VIS')) {
     const relation = value < limit ? 'below' : 'above';
-    return `visibility down to ${Math.round(value)}${u} — ${relation} your ${limit}${u} minimum`;
+    return `visibility down to ${Math.round(value)}${u}, ${relation} your ${limit}${u} minimum`;
   }
   const rounded = Math.round(value);
   const relation = limitRelation(value, limit);
   if (relation === 'over' && rounded <= limit) {
     return `${hazardNoun(ruleId)} just over your ${limit}${u} limit`;
   }
-  return `${hazardNoun(ruleId)} up to ${rounded}${u} — ${relation} your ${limit}${u} limit`;
+  return `${hazardNoun(ruleId)} up to ${rounded}${u}, ${relation} your ${limit}${u} limit`;
 }

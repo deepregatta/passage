@@ -28,7 +28,7 @@ test('Verify publishes the frozen demo case study with emulated exclusion', asyn
   await page.getByRole('button', { name: 'Case study', exact: true }).click();
   await expect(page).toHaveURL(/#verify\/case-study$/);
   await expect(page.getByRole('heading', { name: /What the forecast said, and what happened/i })).toBeVisible();
-  await expect(page.getByText(/EXCLUDED FROM SKILL CLAIMS/i)).toBeVisible();
+  await expect(page.getByText(/NOT A SKILL CLAIM/i)).toBeVisible();
 });
 
 test('core flow emits no data 404s or uncaught page errors', async ({ page }) => {

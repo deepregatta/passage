@@ -241,7 +241,7 @@ export function assembleFindings(options: AssembleOptions): Findings {
           const speed = currentSpeedKt(sample);
           const set = currentSetDeg(sample);
           // wind-against-current: water moving INTO the wind (set ≈ wind-from direction)
-          // steepens the sea — the Alderney Race effect. Needs real current + real wind.
+          // steepens the sea; the Alderney Race effect. Needs real current + real wind.
           const opposition =
             windDir !== null && wind !== null && speed >= 1 && wind >= 12
               ? 180 - Math.abs(wrap180(set - windDir))
@@ -380,7 +380,7 @@ export function assembleFindings(options: AssembleOptions): Findings {
       }
 
       // ensemble scenario exceedance for this hour (direction for the POS limit comes
-      // from the deterministic run — members carry speed/gusts only; documented in §6 layer)
+      // from the deterministic run; members carry speed/gusts only; documented in §6 layer)
       if (ensemble) {
         const eIdx = ensembleTimeIndex.get(parseUtc(validTime));
         if (eIdx !== undefined) {
@@ -500,7 +500,7 @@ export function assembleFindings(options: AssembleOptions): Findings {
         ratio: fraction(worstEnsembleSustained.count) / scenarioFloor,
       });
     }
-    // ---- M7: wind-against-current (steep breaking seas — Alderney Race effect) ----
+    // ---- M7: wind-against-current (steep breaking seas; Alderney Race effect) ----
     if (worstWac) {
       const c = worstWac.hour.current!;
       const e = nextEvidence({
@@ -729,7 +729,7 @@ export function assembleFindings(options: AssembleOptions): Findings {
         run: null,
         leg_id: null,
         valid_time: bulletin.valid_from,
-        value: `${bulletin.kind} — ${bulletin.zone_name ?? bulletin.zone_id}`,
+        value: `${bulletin.kind}: ${bulletin.zone_name ?? bulletin.zone_id}`,
         limit: null,
         units: null,
         source_kind: doc.source.mode === 'synthetic' ? 'emulated' : 'warning',
@@ -792,7 +792,7 @@ export function assembleFindings(options: AssembleOptions): Findings {
     routeHash,
     profileHash,
     departureUtc,
-    // exact immutable run ids — two analyses over the same runs share a snapshot id
+    // exact immutable run ids; two analyses over the same runs share a snapshot id
     digests: [
       ...requestMeta.map((m) => `${m.layer}:${m.run_id}`),
       ...(ensembleMeta ? [`${ensembleMeta.layer}:${ensembleMeta.run_id}`] : []),

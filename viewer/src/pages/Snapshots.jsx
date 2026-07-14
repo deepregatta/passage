@@ -29,8 +29,8 @@ export default function Snapshots() {
     <div className="px-6 py-5 max-w-4xl">
       <h1 className="font-chart text-3xl mb-1">My briefings</h1>
       <p className="font-sans text-sm text-ink-soft mb-5">
-        Every briefing is kept exactly as it was made — so you can re-read it later and see how
-        the forecast actually did (that's the Track record page).
+        Briefings are frozen when you make them. Reopen one here, or compare its forecast with
+        later observations in Track record.
       </p>
 
       {manifestError && (
@@ -39,12 +39,10 @@ export default function Snapshots() {
 
       {manifest?.snapshots.length === 0 && (
         <div className="border border-dashed hairline rounded-sm p-6 bg-white/30">
-          <p className="font-sans text-sm text-ink-soft">
-            No analyses yet. Run one from the repo root:
+          <p className="font-story text-xl">No briefings yet.</p>
+          <p className="font-sans text-sm text-ink-soft mt-1">
+            Plan a passage, set a departure time and check it against your limits.
           </p>
-          <pre className="font-mono text-[12px] mt-2 bg-ink text-paper p-3 rounded-sm overflow-x-auto">
-            npm -w engine run cli -- run --departure 2026-07-14T06:00:00Z
-          </pre>
         </div>
       )}
 

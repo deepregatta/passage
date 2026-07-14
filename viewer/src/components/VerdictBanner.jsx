@@ -4,7 +4,7 @@ import { EvidenceLink } from './common.jsx';
 
 /**
  * §7 verdict strip. When an official warning is active it renders as a separate
- * authority band ABOVE the personal-limit verdict — it overrides, it never blends.
+ * authority band ABOVE the personal-limit verdict; it overrides, it never blends.
  */
 export default function VerdictBanner() {
   const findings = useApp((s) => s.findings);
@@ -29,9 +29,7 @@ export default function VerdictBanner() {
           <span className="font-semibold uppercase tracking-wider text-[12px]">
             Official warning active
           </span>
-          <span className="opacity-90">
-            — takes precedence over the personal-limit assessment below
-          </span>
+          <span className="opacity-90">Official advice takes priority over your personal limits.</span>
         </div>
       )}
       <div

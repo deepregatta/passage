@@ -2,7 +2,7 @@ import { useApp } from '../stores/appStore.js';
 import { runAge } from '../lib/format.js';
 
 /**
- * Model guidance footer — §16 correction enforced: run age + agreement status,
+ * Model guidance footer; §16 correction enforced: run age + agreement status,
  * NEVER "High/Medium confidence".
  */
 export default function ModelFooter() {
@@ -33,7 +33,7 @@ export default function ModelFooter() {
           ) : null}
           <span className="text-ink-soft text-[12px]">
             {input.cycle && input.cycle !== 'scenario' ? `run ${input.cycle} · ` : ''}
-            age {runAge(input.cycle && input.cycle !== 'scenario' ? input.cycle : input.fetched_at, nowMs) ?? '—'}
+            age {runAge(input.cycle && input.cycle !== 'scenario' ? input.cycle : input.fetched_at, nowMs) ?? 'n/a'}
           </span>
         </div>
       ))}
@@ -51,7 +51,7 @@ export default function ModelFooter() {
       </span>
       <span className="text-ink-soft text-[12px] font-sans italic">agreement is not proof</span>
       <span className="text-ink-soft text-[12px] font-sans basis-full">
-        Global models under-resolve coastal wind acceleration, harbours and tidal races; ocean-model
+        Global models under-resolve coastal wind acceleration, harbours and tidal races. Ocean-model
         currents are not tidal stream predictions.
       </span>
     </footer>

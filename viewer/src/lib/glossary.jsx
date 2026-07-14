@@ -2,24 +2,24 @@
 // Settings. The tool should teach while briefing (brief §8).
 
 export const GLOSSARY = {
-  gust: 'A brief burst of wind above the sustained speed — typically 20–40% higher; squalls can double it.',
+  gust: 'A brief burst above the sustained wind. Gusts are often 20–40% stronger; squalls can double it.',
   ensemble:
     'The same model run ~30 times with slightly different starting conditions (31 members for GEFS). The spread between members shows how uncertain the forecast is.',
   'forecast scenarios':
-    'The ensemble members. "24 of 31 scenarios exceed your limit" is a raw count, not a calibrated probability — the member count always comes from the actual run.',
+    'The ensemble members. "24 of 31 scenarios exceed your limit" is a raw count, not a calibrated probability. The total comes from the current run.',
   'ETA window':
     'Your arrival time is a range, not an instant: computed for your slow, usual and fast boat speeds. Conditions are checked across the whole window.',
   'model run':
-    'Weather models restart from fresh observations every 6–12 h. A new run can shift the forecast — always recheck before departure.',
+    'Weather models restart from fresh observations every 6–12 h. A new run can shift the forecast, so recheck before departure.',
   veer: 'Wind direction turning clockwise (e.g. SW → NW). Common behind a cold front.',
   'significant wave height':
     'The average of the highest third of waves. Individual waves can be nearly twice this height.',
   steepness:
     'Wave height relative to wavelength. Steep waves break; short, steep seas are dangerous well below your height limit.',
   'wind over tide':
-    'Wind blowing against the tidal stream — it makes waves shorter and steeper. Notorious in races like the Alderney Race.',
+    'Wind against the tidal stream makes waves shorter and steeper. The Alderney Race is a well-known example.',
   'tidal gate':
-    'A passage you must transit while the stream is fair (or slack). Miss the window and you fight a foul current — or worse seas.',
+    'A passage best crossed in fair or slack stream. Miss the window and you meet foul current, rougher seas, or both.',
 };
 
 /** Keyboard- and touch-focusable teaching popover. */

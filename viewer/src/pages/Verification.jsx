@@ -44,7 +44,7 @@ export default function Verification() {
         <h1 className="font-chart text-3xl">Track record</h1>
         <p className="font-sans text-sm text-ink-soft mt-1 max-w-2xl">
           How the forecasts in your briefings compared with what actually happened. This is the
-          page where the tool earns (or loses) your trust — every number carries its sample size
+          page where Passage earns your trust. Every number carries its sample size
           and how independent the observation really was.
         </p>
       </header>
@@ -59,9 +59,8 @@ export default function Verification() {
         {!findings && <p className="font-sans text-sm text-ink-soft">Open a snapshot first.</p>}
         {findings && !caseDoc && (
           <p className="font-sans text-sm text-ink-soft">
-            Not verified yet. After the passage window, run{' '}
-            <span className="font-mono text-[12px]">deepweather-analysis verify</span> to match
-            this forecast against observations.
+            Not verified yet. After the passage window, the verification job will match this
+            frozen forecast against later observations.
           </p>
         )}
         {caseDoc && (
@@ -108,12 +107,11 @@ export default function Verification() {
         )}
       </Panel>
 
-      <Panel title="Calibration record — the track record this tool must earn">
+      <Panel title="Calibration record">
         {!calibration && (
           <p className="font-sans text-sm text-ink-soft">
-            No calibration data yet. It accumulates as verified analyses build up; until real
-            observations flow in, entries from emulated sources are labeled and never counted as
-            real skill.
+            No calibration data yet. Verified analyses will build this record over time. Emulated
+            observations stay labeled and never count as real skill.
           </p>
         )}
         {calibration && (
@@ -138,8 +136,8 @@ export default function Verification() {
                   </td>
                   <td>{r.area}</td>
                   <td className="font-mono">{r.n_pairs}</td>
-                  <td className="font-mono">{r.bias ?? '—'}</td>
-                  <td className="font-mono">{r.spread ?? '—'}</td>
+                  <td className="font-mono">{r.bias ?? 'n/a'}</td>
+                  <td className="font-mono">{r.spread ?? 'n/a'}</td>
                   <td>
                     {Object.keys(r.coverage_classes ?? {}).includes('emulated') ? (
                       <EmulatedStamp />
@@ -154,8 +152,8 @@ export default function Verification() {
         )}
         <p className="font-sans text-[12px] text-ink-soft mt-3">
           Reanalysis-referenced comparisons use ERA5, which assimilates observations but is not
-          independent ground truth (brief §9). Sample sizes are always shown; no probability is
-          called calibrated until they support it.
+          independent ground truth (brief §9). Sample sizes are always shown. Passage calls a
+          probability calibrated only when the record supports it.
         </p>
       </Panel>
     </div>

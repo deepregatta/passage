@@ -35,7 +35,7 @@
         "fetched_at": "2026-07-11T19:22:24.788Z",
         "cached": false,
         "points": 6,
-        "note": "deterministic wave model only — no wave ensembles available"
+        "note": "deterministic wave model only; no wave ensembles available"
       },
       {
         "api": "forecast-multimodel",
@@ -2475,7 +2475,7 @@
       "run": null,
       "leg_id": null,
       "valid_time": "2026-07-20T12:00:00Z",
-      "value": "BMS-large — Casquets",
+      "value": "BMS-large: Casquets",
       "limit": null,
       "units": null,
       "source_kind": "emulated"

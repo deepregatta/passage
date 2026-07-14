@@ -47,7 +47,7 @@ export default function Evidence() {
           </h1>
           <div className="lg:text-right">
             <div className="font-mono text-4xl">{pct}%</div>
-            <div className="font-instrument text-xs text-ink-soft max-w-56">raw fraction — not a calibrated probability</div>
+            <div className="font-instrument text-xs text-ink-soft max-w-56">raw count, not a calibrated probability</div>
           </div>
         </div>
         <p className="font-instrument text-sm mt-3">{evidence.leg_id} · {leg?.name} · limit {evidence.limit} {evidence.units} · <EvidenceLink evidenceId={evidence.evidence_id}>inspect claim</EvidenceLink></p>
@@ -101,7 +101,7 @@ function EvidenceTable({ leg, evidence, variable }) {
             const values = members.map((series) => series[i]).filter(Number.isFinite).sort((a, b) => a - b);
             const median = values[Math.floor(values.length / 2)];
             const over = values.filter((value) => value > evidence.limit).length;
-            return <tr key={time} className="border-t hairline"><td className="py-1">{fmtTime(time)}</td><td>{median ?? '—'}</td><td>{values.at(-1) ?? '—'}</td><td>{evidence.limit} {evidence.units}</td><td>{over}/{values.length}</td></tr>;
+            return <tr key={time} className="border-t hairline"><td className="py-1">{fmtTime(time)}</td><td>{median ?? 'n/a'}</td><td>{values.at(-1) ?? 'n/a'}</td><td>{evidence.limit} {evidence.units}</td><td>{over}/{values.length}</td></tr>;
           })}</tbody>
         </table>
       </div>

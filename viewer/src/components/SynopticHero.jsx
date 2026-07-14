@@ -9,9 +9,9 @@ import FullscreenChart from './FullscreenChart.jsx';
 const PHASE = {
   cause: 'The system is organizing west of the passage.',
   interception: 'The low and the boat occupy the same route window.',
-  consequence: 'The system has crossed; the strongest route consequence is active.',
+  consequence: 'The system has crossed. Its strongest effect on your route is active.',
   easing: 'The low moves clear and the passage begins to ease.',
-  unavailable: 'No tracked system crosses your route window — this pattern still sets your wind.',
+  unavailable: 'No tracked system crosses your route window. The wider pattern still sets your wind.',
 };
 
 export default function SynopticHero() {

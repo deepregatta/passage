@@ -2699,7 +2699,7 @@
       "run": null,
       "leg_id": null,
       "valid_time": "2026-07-20T12:00:00Z",
-      "value": "BMS-large — Casquets",
+      "value": "BMS-large: Casquets",
       "limit": null,
       "units": null,
       "source_kind": "emulated",
@@ -2818,7 +2818,7 @@
         "eta_sensitivity": 0.5
       },
       "consequence": {
-        "register_plain": "Gusts up to 22 kt — close to your 28 kt limit while the low crosses Cherbourg, Passe de l'Ouest → Off Omonville-la-Rogue.",
+        "register_plain": "Gusts up to 22 kt, close to your 28 kt limit while the low crosses Cherbourg, Passe de l'Ouest → Off Omonville-la-Rogue.",
         "register_pro": "L1 (1002 hPa) is within the conservative route-attribution radius during 2026-07-20T06:00:00.000Z–2026-07-20T08:45:28.000Z; only same-leg evidence inside that window is attributed.",
         "evidence_ids": [
           "E1"
@@ -2838,7 +2838,7 @@
         "eta_sensitivity": 1.2
       },
       "consequence": {
-        "register_plain": "Gusts up to 22 kt — close to your 28 kt limit while the low crosses Off Omonville-la-Rogue → NW of Cap de la Hague.",
+        "register_plain": "Gusts up to 22 kt, close to your 28 kt limit while the low crosses Off Omonville-la-Rogue → NW of Cap de la Hague.",
         "register_pro": "L1 (996 hPa) is within the conservative route-attribution radius during 2026-07-20T07:13:00.000Z–2026-07-20T10:48:56.000Z; only same-leg evidence inside that window is attributed.",
         "evidence_ids": [
           "E2"
@@ -2874,7 +2874,7 @@
       "name": "casquets marine warning",
       "kind": "front",
       "consequence": {
-        "register_plain": "BMS-large — Casquets covers a crossed marine zone.",
+        "register_plain": "BMS-large: Casquets covers a crossed marine zone.",
         "register_pro": "Bulletin source Météo-France BMS (synthetic); valid 2026-07-20T12:00:00Z–2026-07-21T12:00:00Z.",
         "evidence_ids": [
           "E23"
