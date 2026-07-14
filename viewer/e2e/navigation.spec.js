@@ -31,6 +31,20 @@ test('Verify publishes the frozen demo case study with emulated exclusion', asyn
   await expect(page.getByText(/NOT A SKILL CLAIM/i)).toBeVisible();
 });
 
+test('Verify renders complete French copy, including dynamic counts and analysis state', async ({ page }) => {
+  await openAuditedSnapshot(page);
+  await page.getByRole('button', { name: 'Français' }).click();
+  await page.getByRole('button', { name: /Vérifier/ }).first().click();
+  await expect(page.getByText('Les mesures de fiabilité reposent sur 11 cas ERA5 réels.')).toBeVisible();
+  await expect(page.getByText('10 réussites · 1 échec · 0 en attente')).toBeVisible();
+  await expect(page.getByText('1 cas simulé affiché uniquement pour la démonstration.')).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Cette analyse ·/ })).toBeVisible();
+  await expect(page.getByText(/How the forecasts|Skill claims|emulated cases|Not verified yet|Reanalysis-referenced|leg · hour/)).toHaveCount(0);
+  await page.getByRole('button', { name: 'Étude de cas', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Ce que prévoyait la météo et ce qui s’est produit' })).toBeVisible();
+  await expect(page.getByText('DÉMONSTRATION SIMULÉE · AUCUN RÉSULTAT RÉEL')).toBeVisible();
+});
+
 test('core flow emits no data 404s or uncaught page errors', async ({ page }) => {
   const failures = [];
   page.on('response', (response) => { if (response.status() === 404 && response.url().includes('/data/')) failures.push(response.url()); });
