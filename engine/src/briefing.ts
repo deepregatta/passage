@@ -1,6 +1,6 @@
 /**
  * Two-register briefing renderer (brief §8): plain language anyone can act on,
- * plus the professional reasoning — generated from the SAME facts (findings JSON).
+ * plus the professional reasoning; generated from the SAME facts (findings JSON).
  * Bounded vocabulary, every sentence traceable via evidence_ids. This seam is
  * where an optional LLM writer could later swap in; all numbers stay deterministic.
  *
@@ -89,8 +89,8 @@ export function renderBriefing(findings: Findings, synoptic?: SynopticFeatures):
       id: 'synoptic_story',
       title: 'The weather system driving this',
       register_plain: plainLow
-        ? `A ${plainLow.deepening_hpa_per_24h != null && plainLow.deepening_hpa_per_24h < -1 ? 'strengthening ' : ''}low-pressure system sits ${positionPhrase(plainLow.track[0]!)} — that is what sets the wind pattern over your route. The chart panels show how it moves over the next days.`
-        : 'High pressure dominates the picture — expect the pattern to evolve slowly.',
+        ? `A ${plainLow.deepening_hpa_per_24h != null && plainLow.deepening_hpa_per_24h < -1 ? 'strengthening ' : ''}low-pressure system sits ${positionPhrase(plainLow.track[0]!)}. It sets the wind pattern over your route. The charts track it over the next few days.`
+        : 'High pressure dominates the picture. Expect the pattern to change slowly.',
       register_pro: `Detected systems (${synoptic.run_id}): lows ${lows.map(describe).join('; ') || 'none'}; highs ${highs.map(describe).join('; ') || 'none'}.${synoptic.regimes.length ? ` Named regime active: ${synoptic.regimes.map((r) => r.regime_id).join(', ')}.` : ''} Front-type labels withheld pending corroboration (§4.1).`,
       evidence_ids: [],
       glossary_terms: ['model run'],
@@ -103,7 +103,7 @@ export function renderBriefing(findings: Findings, synoptic?: SynopticFeatures):
     sections.push({
       id: 'synoptic_story',
       title: 'The weather system driving this',
-      register_plain: `Causal attribution unavailable for this run — ${reason}.`,
+      register_plain: `This run has no causal attribution. Reason: ${reason}.`,
       register_pro: `Synoptic availability: unavailable (${reason}). Route conditions and limit checks remain available, but this run does not attribute them to a weather system.`,
       evidence_ids: [],
       glossary_terms: ['model run'],
@@ -111,13 +111,13 @@ export function renderBriefing(findings: Findings, synoptic?: SynopticFeatures):
     });
   }
 
-  // 1. warnings — always first when active (authority state)
+  // 1. warnings; always first when active (authority state)
   if (findings.verdict.warning_override.active) {
     sections.push({
       id: 'warnings',
       title: 'Official warning active',
       register_plain:
-        'The national weather service has an active marine warning covering part of your route. Official forecasts are the authority — read the bulletin before anything else.',
+        'The national weather service has an active marine warning for part of your route. Read the official bulletin first.',
       register_pro: `Authority override: bulletin ${findings.verdict.warning_override.bulletin_ref ?? '(ref pending)'} active during the passage window. This state overrides the personal-limit summary and does not assert a numeric limit exceedance.`,
       evidence_ids: findings.evidence
         .filter((e) => e.rule_id === 'A-WARN-01')
@@ -151,14 +151,14 @@ export function renderBriefing(findings: Findings, synoptic?: SynopticFeatures):
       const hsMaxExact = Math.max(
         ...leg.hours.map((h) => h.waves?.hs_m ?? 0),
       );
-      pro += ` Seas to ${hsMaxExact.toFixed(1)} m significant (deterministic wave model — no wave ensembles exist).`;
+      pro += ` Seas to ${hsMaxExact.toFixed(1)} m significant (deterministic wave model; no wave ensembles exist).`;
       if (leg.hours.some((h) => h.waves?.wind_against_swell)) {
-        plain += ' Wind against swell here — expect steeper, more uncomfortable seas.';
+        plain += ' Wind opposes the swell here, making the sea steeper and less comfortable.';
         pro += ' Wind-against-swell flagged.';
       }
     }
     if (leg.divergent_hours && leg.divergent_hours.length > 0) {
-      pro += ` Models diverge on ${leg.divergent_hours.length} h of this leg (max spread ${Math.max(...leg.divergent_hours.map((d) => d.spread_kt))} kt) — agreement is not proof, divergence says wait for the next run.`;
+      pro += ` Models diverge on ${leg.divergent_hours.length} h of this leg (max spread ${Math.max(...leg.divergent_hours.map((d) => d.spread_kt))} kt); agreement is not proof, divergence says wait for the next run.`;
     }
     if (worstEns?.member_fraction) {
       const phrase = phraseExceedance(
@@ -166,7 +166,7 @@ export function renderBriefing(findings: Findings, synoptic?: SynopticFeatures):
         `your ${worstEns.rule_id === 'W-GUST-03' ? `${worstEns.limit} kt gust` : `${worstEns.limit} kt wind`} limit`,
       );
       plain += ` ${capitalize(phrase)} around ${fmtTime(worstEns.valid_time!)} UTC.`;
-      pro += ` Ensemble (${worstEns.model}): ${phrase} at ${worstEns.valid_time} (raw scenario fraction — not a calibrated probability).`;
+      pro += ` Ensemble (${worstEns.model}): ${phrase} at ${worstEns.valid_time} (raw scenario fraction; not a calibrated probability).`;
     }
 
     return {
@@ -199,10 +199,10 @@ export function renderBriefing(findings: Findings, synoptic?: SynopticFeatures):
     const legName = findings.legs.find((l) => l.leg_id === driver.leg_id)?.name ?? driver.leg_id;
     if (driver.member_fraction) {
       decisionPlain += ` The main signal: ${phraseExceedance(driver.member_fraction, `your ${driver.limit} kt limit`)} on ${legName} around ${fmtTime(driver.valid_time!)} UTC.`;
-      decisionPro += ` Driver: ${driver.rule_id} on ${driver.leg_id} at ${driver.valid_time} — ${driver.member_fraction.exceed}/${driver.member_fraction.total} members > ${driver.limit} ${driver.units}.`;
+      decisionPro += ` Driver: ${driver.rule_id} on ${driver.leg_id} at ${driver.valid_time}; ${driver.member_fraction.exceed}/${driver.member_fraction.total} members > ${driver.limit} ${driver.units}.`;
     } else if (typeof driver.value === 'number' && typeof driver.limit === 'number') {
       decisionPlain += ` The main signal: ${plainValueVsLimit(driver.rule_id, driver.value, driver.limit, driver.units)} on ${legName} around ${fmtTime(driver.valid_time!)} UTC.`;
-      decisionPro += ` Driver: ${driver.rule_id} on ${driver.leg_id} at ${driver.valid_time} — ${driver.value} ${driver.units} vs declared ${driver.limit} ${driver.units}.`;
+      decisionPro += ` Driver: ${driver.rule_id} on ${driver.leg_id} at ${driver.valid_time}; ${driver.value} ${driver.units} vs declared ${driver.limit} ${driver.units}.`;
     }
   }
   // tidal gates shape the decision (M10)
@@ -210,10 +210,10 @@ export function renderBriefing(findings: Findings, synoptic?: SynopticFeatures):
   for (const gate of findings.gates ?? []) {
     const badge = gate.rule_text.includes('unverified') ? ' (timing rule unverified)' : '';
     if (gate.status === 'conflict') {
-      decisionPlain += ` The ${gate.name} gate does not fit this departure: you would reach it ${fmtTime(gate.transit.from)}–${fmtTime(gate.transit.to)} UTC, outside the favorable stream (${gate.rule_text.split(' — ')[0]}). Shifting departure may fix this.`;
+      decisionPlain += ` The ${gate.name} gate does not fit this departure: you would reach it ${fmtTime(gate.transit.from)}–${fmtTime(gate.transit.to)} UTC, outside the favorable stream (${gate.rule_text.split('; ')[0]}). Shifting departure may fix this.`;
       decisionPro += ` Gate ${gate.gate_id} on ${gate.leg_id}: transit window entirely outside favorable interval; ${gate.rule_text}${badge}.`;
     } else if (gate.status === 'marginal') {
-      decisionPlain += ` The ${gate.name} gate only partly fits: aim for the ${gate.reference_port}-referenced window (${gate.rule_text.split(' — ')[0]}).`;
+      decisionPlain += ` The ${gate.name} gate only partly fits: aim for the ${gate.reference_port}-referenced window (${gate.rule_text.split('; ')[0]}).`;
       decisionPro += ` Gate ${gate.gate_id} on ${gate.leg_id}: partial overlap with favorable interval; ${gate.rule_text}${badge}.`;
     } else {
       decisionPro += ` Gate ${gate.gate_id} (${gate.name}) fits: transit inside ${gate.rule_text}${badge}.`;
@@ -233,13 +233,13 @@ export function renderBriefing(findings: Findings, synoptic?: SynopticFeatures):
   sections.push({
     id: 'what_could_change',
     title: 'What could change',
-    register_plain: `Forecasts update several times a day. Check again after the next model run (expected around ${fmtTime(nextRun.expected_at)} UTC) — especially if you are close to your limits.`,
+    register_plain: `The next model run is expected around ${fmtTime(nextRun.expected_at)} UTC. Check again then, especially if conditions are close to your limits.`,
     register_pro: `Next ${nextRun.model} cycle expected ~${nextRun.expected_at}. Model run ids in this analysis are inferred from publication schedules until the prepared-run pipeline provides authoritative cycles. Agreement between runs is not proof of accuracy.`,
     evidence_ids: [],
     glossary_terms: ['model run'],
   });
 
-  // 5. unsupported hazards — computed from the capability matrix.
+  // 5. unsupported hazards; computed from the capability matrix.
   const unassessed = findings.coverage?.filter((item) => item.status === 'not_assessed');
   const unsupported = unassessed?.map((item) => item.detail ?? item.capability.replaceAll('_', ' '))
     ?? findings.unsupported_hazards;
@@ -252,7 +252,7 @@ export function renderBriefing(findings: Findings, synoptic?: SynopticFeatures):
     evidence_ids: unassessed?.flatMap((item) => item.evidence_ids ?? []) ?? [],
   });
 
-  // 6. emulated-data disclosure — whenever any evidence is emulated
+  // 6. emulated-data disclosure; whenever any evidence is emulated
   const emulated = findings.evidence.filter((e) => e.source_kind === 'emulated');
   if (emulated.length > 0) {
     sections.push({
@@ -317,7 +317,7 @@ function numericMax(values: Array<number | null>): number | null {
   return range ? range.max : null;
 }
 
-/** "Sun 12 Jul 18:00" — deterministic UTC formatting, no locale dependence. */
+/** "Sun 12 Jul 18:00"; deterministic UTC formatting, no locale dependence. */
 export function fmtTime(iso: string): string {
   const d = new Date(Date.parse(iso));
   const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];

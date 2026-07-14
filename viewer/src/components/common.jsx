@@ -2,7 +2,7 @@ import clsx from 'clsx';
 import { useApp } from '../stores/appStore.js';
 import { VERDICT } from '../lib/format.js';
 
-/** Inline provenance link — the evidence chain. Dotted underline = has evidence. */
+/** Inline provenance link; the evidence chain. Dotted underline = has evidence. */
 export function EvidenceLink({ evidenceId, children }) {
   const openEvidence = useApp((s) => s.openEvidence);
   return (
@@ -23,7 +23,7 @@ export function VerdictChip({ state, small }) {
       style={{ backgroundColor: v.hex }}
     >
       <span aria-hidden>{v.glyph}</span>
-      {small ? v.label.split(' — ')[0] : v.label}
+      {small ? v.label.split(' · ')[0] : v.label}
     </span>
   );
 }

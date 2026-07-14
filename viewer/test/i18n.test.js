@@ -29,7 +29,7 @@ describe('language selection', () => {
       'Start → Finish': 'Départ → Arrivée',
       'dep Wed 15 Jul 06:00 UTC': 'départ mer. 15 juil. 06:00 UTC',
       'Insufficient forecast confidence': 'Confiance insuffisante dans la prévision',
-      'forecast updates ~Mon 13 Jul 16:30 UTC — check again before you cast off': 'mise à jour des prévisions vers lun. 13 juil. 16:30 UTC — vérifiez à nouveau avant d’appareiller',
+      'forecast updates ~Mon 13 Jul 16:30 UTC; check again before you cast off': 'mise à jour des prévisions vers lun. 13 juil. 16:30 UTC; vérifiez à nouveau avant d’appareiller',
       'Wind opposes the current at waypoint 2 → waypoint 3, increasing the risk of short, steep seas.': 'Le vent s’oppose au courant au point de route 2 → point de route 3, ce qui augmente le risque de mer courte et abrupte.',
       'The forecast reaches 32 kt against your 28 kt limit near waypoint 8.': 'La prévision atteint 32 nd, pour une limite fixée à 28 nd, près du point de route 8.',
       'models diverge on 7 h of this passage': 'les modèles divergent pendant 7 h sur cette traversée',
@@ -52,10 +52,10 @@ describe('language selection', () => {
 
   it('translates expanded briefing sections', () => {
     const samples = [
-      'The national weather service has an active marine warning covering part of your route. Official forecasts are the authority — read the bulletin before anything else.',
-      'A strengthening low-pressure system sits west of the approaches, at your latitude — that is what sets the wind pattern over your route. The chart panels show how it moves over the next days.',
+      'The national weather service has an active marine warning covering part of your route. Official forecasts are the authority; read the bulletin before anything else.',
+      'A strengthening low-pressure system sits west of the approaches, at your latitude; that is what sets the wind pattern over your route. The chart panels show how it moves over the next days.',
       'Mid-Channel → Plymouth approach: strong winds while you are on this stretch (Mon 20 Jul 17:28–Tue 21 Jul 04:04 UTC). All 51 forecast scenarios exceed your 18 kt wind limit around Tue 21 Jul 05:00 UTC.',
-      'Forecasts update several times a day. Check again after the next model run (expected around Sun 19 Jul 22:30 UTC) — especially if you are close to your limits.',
+      'Forecasts update several times a day. Check again after the next model run (expected around Sun 19 Jul 22:30 UTC); especially if you are close to your limits.',
       'Not assessed: tidal currents (no prepared current grid), tidal gates & HW/LW heights (no tide data), tropical systems, ice. No flag does not mean no risk.',
     ];
     for (const sample of samples) {
@@ -66,10 +66,10 @@ describe('language selection', () => {
 
   it('translates every sentence from the reported French briefing regressions', () => {
     const samples = [
-      'A low-pressure system sits near your waters, to the south — that is what sets the wind pattern over your route. The chart panels show how it moves over the next days.',
+      'A low-pressure system sits near your waters, to the south; that is what sets the wind pattern over your route. The chart panels show how it moves over the next days.',
       'Start → waypoint 2: moderate winds while you are on this stretch (Wed 15 Jul 06:00–Wed 15 Jul 06:17 UTC).',
       'waypoint 8 → Finish: fresh winds while you are on this stretch (Wed 15 Jul 12:23–Wed 15 Jul 15:38 UTC). 6 of 31 forecast scenarios exceed your 28 kt gust limit around Wed 15 Jul 15:00 UTC.',
-      'The forecasts disagree too much to assess this passage against your limits. Reassess after the next model run. The main signal: gusts up to 32 kt — over your 28 kt limit on waypoint 7 → waypoint 8 around Wed 15 Jul 14:00 UTC.',
+      'The forecasts disagree too much to assess this passage against your limits. Reassess after the next model run. The main signal: gusts up to 32 kt; over your 28 kt limit on waypoint 7 → waypoint 8 around Wed 15 Jul 14:00 UTC.',
       'This briefing does NOT cover: official marine warnings (no feed configured), tropical systems, ice. No warning here does not mean no risk.',
       'Unassessed hazard classes: official marine warnings (no feed configured); tropical systems; ice. Partial capability coverage: waves (deterministic wave model only; no wave ensemble); visibility_and_convection (screening signals only (single model, GFS); official warnings remain authoritative); tidal_currents (stride-subsampled x2 from native 0.0278 deg to 0.0556 deg (target 0.05 deg); values are exact native cell values, no smoothing). Absence of a flag must not be read as absence of risk (brief §5).',
     ];

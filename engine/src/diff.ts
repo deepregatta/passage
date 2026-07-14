@@ -1,6 +1,6 @@
 /**
  * Change ledger (mockup 3): what changed between the previous analysis and this
- * one, with evidence pairs — never a vague "forecast updated". Honest diffing:
+ * one, with evidence pairs; never a vague "forecast updated". Honest diffing:
  * timing shifts, value deltas, events appearing/vanishing, verdict transitions.
  */
 
@@ -44,7 +44,7 @@ export interface Changes {
   };
 }
 
-const VALUE_DELTA_MIN = 1.5; // kt — below this, wind deltas are noise, not news
+const VALUE_DELTA_MIN = 1.5; // kt; below this, wind deltas are noise, not news
 
 export function diffFindings(previous: Findings | null, latest: Findings): Changes {
   const entries: ChangeEntry[] = [];
@@ -154,7 +154,7 @@ export function diffFindings(previous: Findings | null, latest: Findings): Chang
     if (deltaH === 0) continue;
     entries.push({
       kind: 'event_shifted',
-      description: `${event.name} — same system as the previous briefing — now ${Math.abs(deltaH)} h ${deltaH < 0 ? 'faster' : 'slower'} at the route.`,
+      description: `${event.name} is the same system as in the previous briefing. It now reaches the route ${Math.abs(deltaH)} h ${deltaH < 0 ? 'earlier' : 'later'}.`,
       previous: prior.route_intersection.window_start,
       latest: event.route_intersection.window_start,
       evidence_pair: [...prior.consequence.evidence_ids.slice(0, 1), ...event.consequence.evidence_ids.slice(0, 1)],
@@ -168,7 +168,7 @@ export function diffFindings(previous: Findings | null, latest: Findings): Chang
   if (runOf(previous) !== runOf(latest)) {
     entries.push({
       kind: 'source_updated',
-      description: `Model run updated: ${runOf(previous) ?? '—'} → ${runOf(latest) ?? '—'}.`,
+      description: `Model run updated: ${runOf(previous) ?? 'n/a'} → ${runOf(latest) ?? 'n/a'}.`,
       previous: runOf(previous),
       latest: runOf(latest),
     });

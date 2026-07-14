@@ -26,15 +26,15 @@ import { usePlanner } from '../stores/plannerStore.js';
 /** the Jack layer: what each §7 state means for what you DO next (labels stay exact) */
 const NEXT_STEP = {
   within:
-    'Nothing in this forecast crosses the limits you set. The final call is always yours — check once more before you leave.',
+    'The forecast stays inside the limits you set. Check the latest run once more before you leave.',
   approaching:
     'It is close to your limits. Read the two or three points on the right before deciding.',
   exceeds:
-    'This forecast goes beyond what you said you would accept. Look at WHEN — a different departure often fixes it.',
+    'This forecast crosses your limits. Compare departure times before changing the route.',
   insufficient:
-    'The forecast models tell different stories right now. Wait for the next update before deciding — the time is listed below.',
+    'The models disagree near your limits. Wait for the next update before deciding.',
   warning_active:
-    'There is an official marine warning for your area. Start with the bulletin — everything else comes second.',
+    'A marine warning covers your area. Read the official bulletin first.',
 };
 
 const SECTION_ORDER = ['warnings', 'synoptic_story', 'route_impact', 'decision', 'what_could_change', 'unsupported', 'emulated_disclosure'];
@@ -48,7 +48,7 @@ export default function Briefing() {
   if (!findings || !briefing) return <EmptyState />;
   const warningEvidence = findings.evidence.find((item) => item.rule_id === 'A-WARN-01');
   // the synoptic chart is the product's differentiator: it renders whenever the
-  // snapshot archived one — an empty causal_events list only changes the story on top
+  // snapshot archived one; an empty causal_events list only changes the story on top
   const hasSynopticHero = Boolean(
     synoptic && route && (synoptic.chart_captions?.length || synoptic.systems?.length),
   );
@@ -85,7 +85,7 @@ export default function Briefing() {
           <div className="min-w-0 flex flex-col gap-3">
             <WeatherStoryCard findings={findings} sections={sections} />
             {hasSynopticHero && (
-              <details open className="border hairline bg-white/25"><summary className="px-3 py-2 font-instrument text-xs cursor-pointer">Your passage on the chart — the boat moves with the playback</summary><div className="p-2"><RouteMap height={240} /></div></details>
+              <details open className="border hairline bg-white/25"><summary className="px-3 py-2 font-instrument text-xs cursor-pointer">Passage chart · synced to playback</summary><div className="p-2"><RouteMap height={240} /></div></details>
             )}
           </div>
         </div>
@@ -121,7 +121,7 @@ function HeaderBar({ findings }) {
 }
 
 /**
- * The 10-second layer: can I go, why, what to do instead — before any chart.
+ * The 10-second layer: can I go, why, what to do instead; before any chart.
  * One plain sentence, one limit, no decimals, no codenames.
  */
 function DecisionBand({ findings, sections, synoptic, warningEvidence, onOpenBulletin }) {
@@ -137,28 +137,28 @@ function DecisionBand({ findings, sections, synoptic, warningEvidence, onOpenBul
     (e) => e.evidence_id === findings.verdict.driver_evidence_id,
   );
 
-  // one plain cause sentence — a single limit, whole numbers only
+  // one plain cause sentence; a single limit, whole numbers only
   let cause = null;
   if (warningActive) {
     cause = emulated
       ? productionRefusal
         ? 'Authority styling refused: this warning comes from synthetic data.'
-        : 'A marine warning scenario covers part of your route — synthetic data, for testing the workflow only, never for a real passage decision.'
-      : 'An official marine warning covers part of your route — read the bulletin before anything else.';
+        : 'A synthetic warning scenario covers part of your route. It tests the workflow and must not inform a real passage decision.'
+      : 'An official marine warning covers part of your route. Read the bulletin before anything else.';
   } else if (driver && (state === 'exceeds' || state === 'approaching')) {
-    const prefix = event ? `${capitalize(plainEventNoun(event, synoptic))} crosses your route — ` : '';
+    const prefix = event ? `${capitalize(plainEventNoun(event, synoptic))} crosses your route. ` : '';
     const where = legPlace(findings, driver.leg_id);
     if (driver.member_fraction) {
       const clause = `${scenarioShare(driver.member_fraction)} ${hazardNoun(driver.rule_id)} over your ${driver.limit} kt limit ${where}`;
       cause = `${prefix}${prefix ? clause : capitalize(clause)}.`;
     } else if (typeof driver.value === 'number') {
       const relation = driver.value > driver.limit ? 'over' : 'close to';
-      const clause = `${hazardNoun(driver.rule_id)} reach ${Math.round(driver.value)} ${driver.units ?? 'kt'} ${where} — ${relation} your ${driver.limit} ${driver.units ?? 'kt'} limit`;
+      const clause = `${hazardNoun(driver.rule_id)} reach ${Math.round(driver.value)} ${driver.units ?? 'kt'} ${where}, ${relation} your ${driver.limit} ${driver.units ?? 'kt'} limit`;
       cause = `${prefix}${prefix ? clause : capitalize(clause)}.`;
     }
   }
 
-  // when to look again — same source as the story-card bullet
+  // when to look again; same source as the story-card bullet
   const change = sections.find((s) => s.id === 'what_could_change');
   const nextUpdate = change?.register_plain.match(/expected around ([^)]+)\)/)?.[1];
 
@@ -194,7 +194,7 @@ function DecisionBand({ findings, sections, synoptic, warningEvidence, onOpenBul
             {verdict.glyph}
           </span>
           <h1 className="font-chart text-[30px] sm:text-[38px] leading-none tracking-wide">
-            {verdict.label.split(' — ')[0]}
+            {verdict.label.split(': ')[0]}
           </h1>
           {emulated && <span className="stamp-emulated">EMULATED WARNING SCENARIO</span>}
         </div>
@@ -222,7 +222,7 @@ function DecisionBand({ findings, sections, synoptic, warningEvidence, onOpenBul
           )}
           {nextUpdate && (
             <span className={clsx('font-mono text-[12px] sm:ml-auto', emulated ? 'text-ink-soft' : 'opacity-85')}>
-              forecast updates ~{nextUpdate} — check again before you cast off
+              next forecast ~{nextUpdate} · recheck before departure
             </span>
           )}
         </div>
@@ -292,7 +292,7 @@ function WeatherStoryCard({ findings, sections }) {
     bullets.push(
       <>
         The <Term term="tidal gate">{gate.name} gate</Term>{' '}
-        {gate.status === 'conflict' ? 'does not fit this departure' : 'only partly fits'} — the
+        {gate.status === 'conflict' ? 'does not fit this departure' : 'only partly fits'}. The
         stream will be against you.
       </>,
     );
@@ -301,7 +301,7 @@ function WeatherStoryCard({ findings, sections }) {
     bullets.push(
       <>
         <Term term="wind over tide">Wind over tide</Term> {legPlace(findings, wac.leg_id)} around{' '}
-        {fmtTime(wac.window?.from).slice(-5)} UTC — expect short, steep seas.
+        {fmtTime(wac.window?.from).slice(-5)} UTC. Expect short, steep seas.
       </>,
     );
   const change = sections.find((s) => s.id === 'what_could_change');
@@ -309,7 +309,7 @@ function WeatherStoryCard({ findings, sections }) {
     const at = change.register_plain.match(/expected around ([^)]+)\)/)?.[1];
     bullets.push(
       <>
-        The forecast updates {at ? `around ${at}` : 'several times a day'} — check again before
+        The forecast updates {at ? `around ${at}` : 'several times a day'}. Check again before
         you cast off.
       </>,
     );
@@ -364,7 +364,7 @@ function WeatherStoryCard({ findings, sections }) {
   );
 }
 
-/** plain phase words for the story eyebrow — the pro phase names stay in the hero chart focus line */
+/** plain phase words for the story eyebrow; the pro phase names stay in the hero chart focus line */
 const PHASE_PLAIN = {
   cause: 'what sets this up',
   interception: 'while you are out there',

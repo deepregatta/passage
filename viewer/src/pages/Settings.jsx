@@ -35,12 +35,8 @@ export default function Settings() {
 
       <Panel title="Your declared limits">
         <p className="font-sans text-sm text-ink-soft mb-4">
-          These are operational limits you declare — not sailor categories. Presets only pre-fill;
-          everything is editable. No preset relaxes squall or storm tolerance.{' '}
-          <span className="text-ink">
-            CLI analyses read config/profiles/default-limits.json; this draft feeds in-browser
-            analysis when it lands.
-          </span>
+          Set the conditions you will accept for this passage. Presets are only a starting point.
+          Every value remains editable. Squall and storm tolerance never changes with a preset.
         </p>
         {draft ? (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -89,8 +85,8 @@ export default function Settings() {
 
       <Panel title="Data providers">
         <p className="font-sans text-sm text-ink-soft mb-3">
-          Feeds marked <EmulatedStamp /> produce synthetic values for testing — they are badged
-          everywhere they appear and must never inform a real passage decision.
+          Feeds marked <EmulatedStamp /> contain synthetic test values. They stay visibly marked
+          and must never inform a real passage decision.
         </p>
         <ul className="grid md:grid-cols-2 gap-x-8">
           {providers &&

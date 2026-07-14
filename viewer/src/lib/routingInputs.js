@@ -24,7 +24,7 @@ export async function loadRoutingInputs({
     (doc) => doc ?? loadJson(`/data/config/polars/${polarId}.json`),
   );
   if (!polar) {
-    throw new Error(`Boat polar “${polarId}” not found — regenerate and publish the ORC polar database`);
+    throw new Error(`Boat polar “${polarId}” not found. Regenerate and publish the ORC polar database.`);
   }
 
   const bbox = routeBbox(start, finish);
@@ -66,7 +66,7 @@ export async function loadRoutingInputs({
   onProgress('loading current tiles');
   const currentGrid = await store.getCurrentGrid(bbox, departureIso, hours).catch(() => null);
   const notes = [windGrid.under_resolved_note, currentGrid?.under_resolved_note].filter(Boolean);
-  if (!currentGrid) notes.push('Currents unavailable right now — routed on wind alone.');
+  if (!currentGrid) notes.push('Currents unavailable right now. This route uses wind alone.');
 
   return {
     polar,

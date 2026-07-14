@@ -35,13 +35,13 @@ export default function Changes() {
     <section className="py-5"><SynopticCompare previous={state.previousSynoptic} latest={latestSynoptic} previousId={state.previousId} latestId={findings.snapshot_id}/></section>
     <OnsetShift previous={state.previous} latest={findings} />
     <section className="grid lg:grid-cols-3 border-y border-ink/40 divide-y lg:divide-y-0 lg:divide-x divide-ink/30">
-      {story.material.length ? story.material.map((item, index) => { const entry = state.changes.entries[item.change_ref]; return <article key={item.change_ref} className="p-4"><p className="eyebrow">material change {index + 1} · {ruleLabels[entry?.rule_id] ?? kindLabels[entry?.kind] ?? 'change'}</p><p className="font-story text-xl mt-2">{entry?.description}</p><p className="font-instrument text-sm text-ink-soft mt-3">{item.why_it_matters}</p>{item.evidence_ids.length > 0 && <p className="font-mono text-[10px] mt-2">{item.evidence_ids.map((id) => <EvidenceLink key={id} evidenceId={id}>{id} </EvidenceLink>)}</p>}</article>; }) : <p className="p-5 text-ink-soft">No material change; steadiness is recorded.</p>}
+      {story.material.length ? story.material.map((item, index) => { const entry = state.changes.entries[item.change_ref]; return <article key={item.change_ref} className="p-4"><p className="eyebrow">material change {index + 1} · {ruleLabels[entry?.rule_id] ?? kindLabels[entry?.kind] ?? 'change'}</p><p className="font-story text-xl mt-2">{entry?.description}</p><p className="font-instrument text-sm text-ink-soft mt-3">{item.why_it_matters}</p>{item.evidence_ids.length > 0 && <p className="font-mono text-[10px] mt-2">{item.evidence_ids.map((id) => <EvidenceLink key={id} evidenceId={id}>{id} </EvidenceLink>)}</p>}</article>; }) : <p className="p-5 text-ink-soft">No material change. The forecast held steady.</p>}
     </section>
     <footer className="py-5 flex flex-wrap justify-between gap-3 border-b border-ink/40"><p className="font-story text-xl">Reassess after the next run at {story.next_run ? fmtTime(story.next_run.expected_at) : 'the published update time'} UTC.</p><details><summary className="font-instrument cursor-pointer">Full change ledger · {state.changes.entries.length} entries</summary><ul className="mt-3 max-w-3xl divide-y hairline">{state.changes.entries.map((entry, index) => <li key={index} className="py-2 font-instrument text-sm">{entry.description}</li>)}</ul></details></footer>
   </div>;
 }
 
-/** Authority magenta is reserved for real authority — an emulated warning gets the test-pattern stamp. */
+/** Authority magenta is reserved for real authority; an emulated warning gets the test-pattern stamp. */
 function TransitionChip({ state, emulated }) {
   if (state === 'warning_active' && emulated) {
     return <span className="stamp-emulated">emulated warning scenario</span>;

@@ -4,7 +4,7 @@ const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export function fmtTime(iso) {
-  if (!iso) return '—';
+  if (!iso) return 'n/a';
   const d = new Date(Date.parse(iso));
   const hh = String(d.getUTCHours()).padStart(2, '0');
   const mm = String(d.getUTCMinutes()).padStart(2, '0');
@@ -13,7 +13,7 @@ export function fmtTime(iso) {
 
 /** Human-readable timestamp in the viewer's browser timezone. */
 export function fmtLocalTime(iso) {
-  if (!iso) return '—';
+  if (!iso) return 'n/a';
   const d = new Date(Date.parse(iso));
   const hh = String(d.getHours()).padStart(2, '0');
   const mm = String(d.getMinutes()).padStart(2, '0');
@@ -34,13 +34,13 @@ export function runAge(fetchedAtIso, nowMs) {
   return h > 0 ? `${h} h ${String(m).padStart(2, '0')} min` : `${m} min`;
 }
 
-/** §7 verdict states — exact wording, never "GO". */
+/** §7 verdict states; exact wording, never "GO". */
 export const VERDICT = {
   within: { label: 'Within your declared limits', glyph: '✓', tw: 'verdict-within', hex: '#2F6E4F' },
   approaching: { label: 'Approaching your limits', glyph: '⚠', tw: 'verdict-approaching', hex: '#A87718' },
   exceeds: { label: 'Exceeds your limits', glyph: '⛔', tw: 'verdict-exceeds', hex: '#A63B2A' },
   insufficient: {
-    label: 'Insufficient forecast confidence — reassess at the next model run',
+    label: 'Models disagree · reassess after the next run',
     glyph: '◌',
     tw: 'verdict-insufficient',
     hex: '#5A6B82',
@@ -48,7 +48,7 @@ export const VERDICT = {
   warning_active: { label: 'Official warning active', glyph: '🚩', tw: 'authority', hex: '#9E2B63' },
 };
 
-/** Drawn routes have machine waypoint ids (wp1, wp2…) — spell them out for display. */
+/** Drawn routes have machine waypoint ids (wp1, wp2…); spell them out for display. */
 export function placeLabel(raw) {
   return typeof raw === 'string' ? raw.replace(/\bwp(\d+)\b/gi, 'waypoint $1') : raw;
 }

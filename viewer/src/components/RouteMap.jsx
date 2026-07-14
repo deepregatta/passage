@@ -10,8 +10,8 @@ import { fetchSnapshotJson } from '../lib/localSnapshots.js';
 import { preparedRun, artifactUrl } from '../lib/preparedRun.js';
 
 /**
- * The passage on a chart (mockup 1): marine-styled Leaflet — light base +
- * OpenSeaMap seamarks — with the route polyline, leg markers colored by their
+ * The passage on a chart (mockup 1): marine-styled Leaflet; light base +
+ * OpenSeaMap seamarks; with the route polyline, leg markers colored by their
  * worst limit status, wind arrows at each leg midpoint, and tidal-gate marks.
  */
 
@@ -57,7 +57,7 @@ function windArrowIcon(windFromDeg, windKt) {
   });
 }
 
-/** faint background flow arrow (the mockup's wind field) — no label, non-interactive */
+/** faint background flow arrow (the mockup's wind field); no label, non-interactive */
 function fieldArrowIcon(windFromDeg, windKt) {
   const rotation = (windFromDeg + 180) % 360;
   const len = Math.min(20, 8 + windKt * 0.45);
@@ -260,7 +260,7 @@ export default function RouteMap({ height = 420 }) {
             <Marker key={g.gate_id} position={[pos.lat, pos.lon]} icon={gateIcon(g.status)}>
               <Tooltip direction="top" offset={[0, -10]}>
                 <span className="font-sans text-[12px]">
-                  <b>{g.name}</b> — gate {g.status}
+                  <b>{g.name}</b> · gate {g.status}
                 </span>
               </Tooltip>
             </Marker>

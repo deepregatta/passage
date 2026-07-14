@@ -32,5 +32,5 @@ export function friendlyForecastError(error) {
   if (/unavailable for this area/i.test(message)) {
     return new Error('No forecast tiles cover this area yet');
   }
-  return new Error("Couldn't load the forecast tiles — check your connection and try again");
+  return new Error("Couldn't load the forecast tiles. Check your connection and try again.");
 }

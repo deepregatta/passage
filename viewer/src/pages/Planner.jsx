@@ -28,7 +28,7 @@ const waypointIcon = L.divIcon({
   iconAnchor: [7, 7],
 });
 
-/** compact verdict labels for the scan rows — the full wording lives in the briefing */
+/** compact verdict labels for the scan rows; the full wording lives in the briefing */
 const SCAN_VERDICT = {
   within: 'within limits',
   approaching: 'approaching',
@@ -43,7 +43,7 @@ function ClickCapture({ onClick }) {
 }
 
 /** Bring the whole route into view when returning to the planner or when a
- * route arrives whole (computed / GPX) — never while the user is drawing. */
+ * route arrives whole (computed / GPX); never while the user is drawing. */
 function FitRoute({ positions, fitKey }) {
   const map = useMap();
   useEffect(() => {
@@ -63,7 +63,7 @@ export default function Planner() {
   const loadManifest = useApp((s) => s.loadManifest);
   const language = useApp((s) => s.language);
 
-  // working state survives stage switches — see plannerStore.js
+  // working state survives stage switches; see plannerStore.js
   const mode = usePlanner((s) => s.mode);
   const waypoints = usePlanner((s) => s.waypoints);
   const computed = usePlanner((s) => s.computed);
@@ -257,7 +257,7 @@ export default function Planner() {
     try {
       const profileDraft = localStorage.getItem('deepweather.profile-draft');
       const profile = profileDraft ? JSON.parse(profileDraft) : profileDefaults;
-      if (!profile) throw new Error('No limits profile available — open Settings once');
+      if (!profile) throw new Error('No limits profile available. Open My limits first.');
       const departureUtc = `${departureLocal}:00Z`;
       await saveRoute(route);
       const { snapshotId } = await analyzeInBrowser({
@@ -385,7 +385,7 @@ export default function Planner() {
 
             {mode === 'draw' && (
               <div>
-                <span className="eyebrow block mb-1">Boat speed (kt) — slow / usual / fast</span>
+                <span className="eyebrow block mb-1">Boat speed (kt) · slow / usual / fast</span>
                 <div className="flex gap-2">
                   {['slow', 'nominal', 'fast'].map((k) => (
                     <input
@@ -410,8 +410,8 @@ export default function Planner() {
                   onSelect={(entry) => patch({ polarId: entry.polar_id, polarLabel: entry.label })}
                 />
                 <p className="text-[12px] text-ink-soft">
-                  Click the chart twice: start, then finish. The route is computed from forecast
-                  wind, currents and your polar — then audited like any other route.
+                  Mark a start and finish on the chart. Passage uses the forecast, available
+                  currents and your boat polar to find a route.
                 </p>
                 <button
                   type="button"
@@ -428,7 +428,7 @@ export default function Planner() {
                     <span className="font-mono">{computed.arrival_utc.slice(11, 16)} UTC</span> · avg{' '}
                     <span className="font-mono">{computed.avg_sog_kt} kt</span>
                     <span className="block text-[11px] text-ink-soft mt-0.5">
-                      computed route — inherits polar uncertainty; audited below like any route
+                      Weather-routed · includes polar uncertainty · ready to check
                     </span>
                   </p>
                 )}
@@ -508,8 +508,8 @@ export default function Planner() {
             {!route && busy === null && (
               <p className="text-[13px] text-ink-soft">
                 {mode === 'draw'
-                  ? 'To enable: click the chart at least twice — your start and your destination.'
-                  : 'To enable: click the chart twice to set the two endpoints.'}
+                  ? 'Mark at least two points on the chart: your start and destination.'
+                  : 'Mark a start and finish on the chart.'}
               </p>
             )}
             {route && busy === null && (
@@ -529,7 +529,7 @@ export default function Planner() {
             {error && <p className="text-verdict-exceeds text-[13px]">{error}</p>}
             {scan && scan.candidates.length > 0 && (
               <p className="text-[12px] text-ink-soft border-t hairline pt-2">
-                Departure comparison ready — see the full-width calendar below the chart.
+                Departure comparison ready. Choose a time below the chart.
               </p>
             )}
             {scan?.notes?.length > 0 && (
@@ -559,7 +559,7 @@ export default function Planner() {
   );
 }
 
-/** which forecast models feed each calculation on this page — plain first, ids in mono */
+/** which forecast models feed each calculation on this page; plain first, ids in mono */
 function ModelsUsed() {
   const mono = (text) => <span className="font-mono text-[11px] text-ink-soft">{text}</span>;
 
@@ -573,12 +573,12 @@ function ModelsUsed() {
           <p className="eyebrow mb-1.5">Checking a passage · comparing departures</p>
           <ul className="space-y-1.5">
             <li>
-              Winds and gusts along your route: NOAA GFS 0.25° {mono('gfs_0p25')} — precomputed
+              Winds and gusts along your route: NOAA GFS 0.25° {mono('gfs_0p25')}. Precomputed
               forecast tiles, updated four times a day, reaching 10 days ahead.
             </li>
             <li>
-              The “N forecast scenarios”: the GEFS ensemble — equally plausible runs of the same
-              model {mono('gefs_0p50 · 31 members')} — reaching 16 days. The exact member count is
+              The “N forecast scenarios”: the GEFS ensemble, a set of plausible runs of the same
+              model {mono('gefs_0p50 · 31 members')}, reaching 16 days. The exact member count is
               read from the run, never assumed.
             </li>
             <li>
@@ -587,7 +587,7 @@ function ModelsUsed() {
             </li>
             <li>Waves: NOAA GFS-Wave {mono('gfswave_0p25')}, same tile pipeline.</li>
             <li>
-              Tidal streams and gates: CMEMS IBI currents; gate timing from synthetic constituents{' '}
+              Tidal streams and gates: CMEMS IBI currents. Gate timing uses synthetic constituents{' '}
               <span className="stamp-emulated">emulated</span>.
             </li>
             <li>
@@ -606,7 +606,7 @@ function ModelsUsed() {
             <li>Your boat: the ORC polar you picked, used as-is by the router.</li>
             <li>
               Currents: Copernicus GLO12 surface currents (1/12°, 6-hourly) from the same tile
-              pipeline — <em>not</em> tidal streams; routing falls back to wind alone if unavailable.
+              pipeline. These are <em>not</em> tidal streams. Routing falls back to wind alone if unavailable.
             </li>
           </ul>
         </div>
@@ -618,7 +618,7 @@ function ModelsUsed() {
 /**
  * Full-width departure calendar: days across, one colored cell per candidate
  * (same verdict colors as everywhere else). Click a cell to adopt that
- * departure — in compute mode the cell also carries its own weather-routed track.
+ * departure; in compute mode the cell also carries its own weather-routed track.
  */
 function DepartureComparison({ scan, departureLocal, onPick }) {
   if (scan.candidates.length === 0) {
@@ -626,8 +626,8 @@ function DepartureComparison({ scan, departureLocal, onPick }) {
       <section className="mt-6 border-t border-ink/40 pt-3">
         <h2 className="font-instrument font-semibold uppercase tracking-wider">Departure comparison</h2>
         <p className="font-sans text-sm text-ink-soft mt-2 max-w-[70ch]">
-          None of the candidate departures could be assessed — either the live forecast doesn't
-          reach that far ahead, or the forecast service was unreachable. Try a departure within
+          None of the candidate departures could be assessed. The live forecast may not reach
+          that far ahead, or the forecast service may be unreachable. Try a departure within
           the next few days, or check your connection.
         </p>
       </section>
@@ -674,7 +674,7 @@ function DepartureComparison({ scan, departureLocal, onPick }) {
                     key={c.departure_utc}
                     type="button"
                     onClick={() => onPick(c)}
-                    title={`${fmtTime(c.departure_utc)} UTC — ${parts.join(' · ')}`}
+                    title={`${fmtTime(c.departure_utc)} UTC · ${parts.join(' · ')}`}
                     className={clsx(
                       'w-[66px] h-[54px] rounded-sm text-white flex flex-col items-center justify-center gap-0.5',
                       `${departureLocal}:00Z` === c.departure_utc && 'outline outline-2 outline-ink outline-offset-1',
@@ -693,9 +693,9 @@ function DepartureComparison({ scan, departureLocal, onPick }) {
 
       {scan.requested > scan.candidates.length && (
         <p className="font-sans text-[12px] text-ink-soft mt-2">
-          {scan.requested - scan.candidates.length} of {scan.requested} departure times could not
-          be assessed — they fall beyond the {scan.rerouted ? 'live forecast' : 'forecast'}{' '}
-          horizon — and are not shown. No cell does not mean fine.
+          {scan.requested - scan.candidates.length} of {scan.requested} departure times fall beyond
+          the {scan.rerouted ? 'live forecast' : 'forecast'} horizon and are not shown. A missing
+          cell does not mean safe conditions.
         </p>
       )}
       <div className="flex flex-wrap items-baseline justify-between gap-2 mt-3">
@@ -703,14 +703,14 @@ function DepartureComparison({ scan, departureLocal, onPick }) {
           {best && (
             <>
               <span className="font-medium">◎ Least exposure this window: {fmtTime(best.departure_utc)} UTC</span>
-              {' — '}your call, as always.{' '}
+              {'. '}
             </>
           )}
           Click a time to use it{scan.rerouted ? ' (its route appears on the chart)' : ''}, then
           “Check this passage against my limits” for the full briefing.
           {allInsufficient && (
-            <> Right now the forecast models disagree near your limits across this whole window —
-            a briefing will show you which models and when, and the next update time.</>
+            <> The models disagree near your limits throughout this window. Open a briefing to see
+            where they diverge and when the next update is due.</>
           )}
         </p>
         <span className="flex gap-4 font-sans text-[11px] text-ink-soft">

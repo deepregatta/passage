@@ -1,6 +1,6 @@
 /**
  * Immutable snapshots (brief §9): every analysis is recorded write-once with
- * everything needed to re-render it later — findings, briefing, plume, and
+ * everything needed to re-render it later; findings, briefing, plume, and
  * frozen copies of mutable inputs. Store interface keeps the core browser-safe
  * (NodeFs store locally; HTTP POST to the dev middleware / Supabase later).
  */
@@ -96,7 +96,7 @@ export async function writeSnapshot(
 ): Promise<{ snapshot_id: string; manifest: Record<string, unknown> }> {
   const id = findings.snapshot_id;
   if (await store.exists(id)) {
-    throw new Error(`Snapshot ${id} already exists — snapshots are write-once`);
+    throw new Error(`Snapshot ${id} already exists. Snapshots are write-once.`);
   }
 
   const artifacts: Record<string, unknown> = {
@@ -139,7 +139,7 @@ export async function writeSnapshot(
       profile: findings.inputs.profile_hash,
     },
   };
-  // manifest written LAST — its presence marks the snapshot complete
+  // manifest written LAST; its presence marks the snapshot complete
   await store.write(id, 'snapshot.json', stringify(manifest));
   return { snapshot_id: id, manifest };
 }
