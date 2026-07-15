@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '../stores/appStore.js';
 import { VerdictChip } from '../components/common.jsx';
-import { capitalize, fmtLocalTime, fmtTime } from '../lib/format.js';
+import { capitalize, fmtLocalTime, localTimeZoneName } from '../lib/format.js';
 
 /** "cherbourg-plymouth-v1" / "my-passage-5wp" → "Cherbourg plymouth" / "My passage" */
 function routeName(routeId) {
@@ -66,7 +66,7 @@ export default function Snapshots() {
                   )}
                 </span>
                 <span className="font-sans text-[13px] text-ink-soft block mt-0.5">
-                  departing {fmtTime(s.departure_utc)} UTC · made {fmtLocalTime(s.created_at)}
+                  departing {fmtLocalTime(s.departure_utc)} local time · made {fmtLocalTime(s.created_at)}
                 </span>
               </span>
               {s.verdict_state && (
@@ -81,7 +81,7 @@ export default function Snapshots() {
               title="Delete this briefing"
               disabled={loading}
               onClick={async () => {
-                if (!window.confirm(`Delete the briefing "${routeName(s.route_id)}" departing ${fmtTime(s.departure_utc)} UTC? This cannot be undone.`)) return;
+                if (!window.confirm(`Delete the briefing "${routeName(s.route_id)}" departing ${fmtLocalTime(s.departure_utc)} local time (${localTimeZoneName()})? This cannot be undone.`)) return;
                 try {
                   await deleteSnapshot(s.snapshot_id);
                 } catch (e) {

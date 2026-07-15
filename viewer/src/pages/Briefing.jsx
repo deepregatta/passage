@@ -6,7 +6,10 @@ import ModelFooter from '../components/ModelFooter.jsx';
 import { Panel, EvidenceLink, VerdictChip } from '../components/common.jsx';
 import {
   capitalize,
+  fmtLocalTime,
   fmtTime,
+  localTimeZoneName,
+  toLocalDateTimeValue,
   hazardNoun,
   hourStatus,
   placeLabel,
@@ -112,7 +115,7 @@ function HeaderBar({ findings }) {
       <div className="flex items-baseline gap-4 flex-wrap">
         <span className="font-chart text-2xl tracking-wide">{routeTitle(findings)}</span>
         <span className="font-mono text-[12px] opacity-70">
-          dep {fmtTime(findings.departure_utc)} UTC
+          <span>dep</span> {fmtLocalTime(findings.departure_utc)} <span>local time</span> · {localTimeZoneName()}
         </span>
       </div>
       <VerdictChip state={personalState} />
@@ -169,7 +172,7 @@ function DecisionBand({ findings, sections, synoptic, warningEvidence, onOpenBul
       name: route.name ?? findings.route_id,
       waypoints: route.waypoints.map((wp) => ({ lat: wp.lat, lng: wp.lon })),
       speeds: route.speeds_kt ? { ...route.speeds_kt } : usePlanner.getState().speeds,
-      departureLocal: findings.departure_utc.slice(0, 16),
+      departureLocal: toLocalDateTimeValue(findings.departure_utc),
       computed: null,
       scan: null,
       autoScan: true,

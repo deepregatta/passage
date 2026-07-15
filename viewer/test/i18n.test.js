@@ -28,6 +28,9 @@ describe('language selection', () => {
     const samples = {
       'Start → Finish': 'Départ → Arrivée',
       'dep Wed 15 Jul 06:00 UTC': 'départ mer. 15 juil. 06:00 UTC',
+      'dep Wed 15 Jul 08:00 local time · Europe/Paris': 'départ mer. 15 juil. 08:00 heure locale · Europe/Paris',
+      '24-hour clock (HH:mm) · your local time · Europe/Paris': 'format 24 heures (HH:mm) · votre heure locale · Europe/Paris',
+      'local time · Europe/Paris': 'heure locale · Europe/Paris',
       'Insufficient forecast confidence': 'Confiance insuffisante dans la prévision',
       'forecast updates ~Mon 13 Jul 16:30 UTC; check again before you cast off': 'mise à jour des prévisions vers lun. 13 juil. 16:30 UTC; vérifiez à nouveau avant d’appareiller',
       'Wind opposes the current at waypoint 2 → waypoint 3, increasing the risk of short, steep seas.': 'Le vent s’oppose au courant au point de route 2 → point de route 3, ce qui augmente le risque de mer courte et abrupte.',

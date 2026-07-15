@@ -20,6 +20,37 @@ export function fmtLocalTime(iso) {
   return `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]} ${hh}:${mm}`;
 }
 
+/** Convert an instant to the value used by the planner's browser-local controls. */
+export function toLocalDateTimeValue(iso) {
+  if (!iso) return '';
+  const d = new Date(Date.parse(iso));
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hh}:${mm}`;
+}
+
+/** Interpret a planner value as browser-local wall time and return a UTC instant. */
+export function localDateTimeToIso(value) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value ?? '');
+  if (!match) return null;
+  const [, year, month, day, hour, minute] = match.map(Number);
+  if (hour > 23 || minute > 59) return null;
+  const d = new Date(year, month - 1, day, hour, minute, 0, 0);
+  if (
+    d.getFullYear() !== year || d.getMonth() !== month - 1 || d.getDate() !== day
+    || d.getHours() !== hour || d.getMinutes() !== minute
+  ) return null;
+  return d.toISOString();
+}
+
+/** IANA timezone name makes the meaning of "local" explicit without ambiguous abbreviations. */
+export function localTimeZoneName() {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || 'browser local time';
+}
+
 export function fmtHour(iso) {
   const d = new Date(Date.parse(iso));
   return `${String(d.getUTCHours()).padStart(2, '0')}:00`;
