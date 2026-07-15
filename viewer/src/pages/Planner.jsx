@@ -10,7 +10,13 @@ import {
   scanDepartures,
   candidateDepartures,
 } from '@deepweather/engine';
-import { fmtTime, VERDICT } from '../lib/format.js';
+import {
+  fmtLocalTime,
+  localDateTimeToIso,
+  localTimeZoneName,
+  toLocalDateTimeValue,
+  VERDICT,
+} from '../lib/format.js';
 import { useApp } from '../stores/appStore.js';
 import { usePlanner } from '../stores/plannerStore.js';
 import { analyzeInBrowser, saveRoute } from '../lib/browserAnalysis.js';
@@ -124,6 +130,7 @@ export default function Planner() {
     return Math.round(totalDistanceNm(deriveLegs(route)) * 10) / 10;
   }, [route]);
   const passageHours = distance ? Math.round(distance / speeds.nominal) : null;
+  const departureUtc = localDateTimeToIso(departureLocal);
 
   const addWaypoint = useCallback(
     (latlng) => {
@@ -143,7 +150,7 @@ export default function Planner() {
       start: { lat: endpoints[0].lat, lon: endpoints[0].lng, name: 'Start' },
       finish: { lat: endpoints[1].lat, lon: endpoints[1].lng, name: 'Finish' },
       polarId,
-      departureIso: `${departureLocal}:00Z`,
+      departureIso: departureUtc,
       scanning,
       onProgress: setBusy,
     });
@@ -161,13 +168,13 @@ export default function Planner() {
     });
 
   const runRouting = async () => {
-    if (endpoints.length !== 2 || !polarId) return;
+    if (endpoints.length !== 2 || !polarId || !departureUtc) return;
     setBusy('computing route');
     setError(null);
     try {
       const inputs = await loadRoutingInputs();
       setBusy('computing route');
-      setComputed({ ...routeForDeparture(inputs, `${departureLocal}:00Z`), notes: inputs.notes });
+      setComputed({ ...routeForDeparture(inputs, departureUtc), notes: inputs.notes });
       setBusy(null);
     } catch (e) {
       setBusy(null);
@@ -195,14 +202,14 @@ export default function Planner() {
   };
 
   const runScan = async () => {
-    if (!route) return;
+    if (!route || !departureUtc) return;
     setBusy('scanning departures');
     setError(null);
     setScan(null);
     try {
       const profileDraft = localStorage.getItem('deepweather.profile-draft');
       const profile = profileDraft ? JSON.parse(profileDraft) : profileDefaults;
-      const departures = candidateDepartures(Date.parse(`${departureLocal}:00Z`), 120, 6);
+      const departures = candidateDepartures(Date.parse(departureUtc), 120, 6);
       // weather-dependent routing: in compute mode every candidate departure
       // gets its own route through its own wind field
       const routes = {};
@@ -258,7 +265,7 @@ export default function Planner() {
       const profileDraft = localStorage.getItem('deepweather.profile-draft');
       const profile = profileDraft ? JSON.parse(profileDraft) : profileDefaults;
       if (!profile) throw new Error('No limits profile available. Open My limits first.');
-      const departureUtc = `${departureLocal}:00Z`;
+      if (!departureUtc) throw new Error('Enter a valid departure date and 24-hour time.');
       await saveRoute(route);
       const { snapshotId } = await analyzeInBrowser({
         route,
@@ -416,7 +423,7 @@ export default function Planner() {
                 <button
                   type="button"
                   onClick={runRouting}
-                  disabled={endpoints.length !== 2 || !polarId || busy !== null}
+                  disabled={endpoints.length !== 2 || !polarId || !departureUtc || busy !== null}
                   className="w-full border border-ink/50 rounded-sm px-3 py-2 hover:bg-white/50 disabled:opacity-40"
                 >
                   Compute route
@@ -425,7 +432,7 @@ export default function Planner() {
                   <p className="text-[13px]">
                     <span className="font-mono">{computed.distance_nm} nm</span> ·{' '}
                     <span className="font-mono">{computed.duration_h} h</span> · arrives{' '}
-                    <span className="font-mono">{computed.arrival_utc.slice(11, 16)} UTC</span> · avg{' '}
+                    <span className="font-mono">{fmtLocalTime(computed.arrival_utc)}</span> local time · avg{' '}
                     <span className="font-mono">{computed.avg_sog_kt} kt</span>
                     <span className="block text-[11px] text-ink-soft mt-0.5">
                       Weather-routed · includes polar uncertainty · ready to check
@@ -438,15 +445,7 @@ export default function Planner() {
               </>
             )}
 
-            <label className="block">
-              <span className="eyebrow block mb-1">Departure (UTC)</span>
-              <input
-                type="datetime-local"
-                value={departureLocal}
-                onChange={(e) => setDepartureLocal(e.target.value)}
-                className="w-full bg-white/60 border hairline rounded-sm px-2 py-1.5 font-mono"
-              />
-            </label>
+            <DepartureField value={departureLocal} onChange={setDepartureLocal} />
 
             <div className="flex items-center justify-between border-t hairline pt-3">
               <span className="text-ink-soft">
@@ -500,7 +499,7 @@ export default function Planner() {
             <button
               type="button"
               onClick={run}
-              disabled={!route || busy !== null}
+              disabled={!route || !departureUtc || busy !== null}
               className="w-full bg-ink text-paper font-medium rounded-sm px-3 py-2.5 hover:bg-ink-deep disabled:opacity-40"
             >
               {busy ? `${busy}…` : 'Check this passage against my limits'}
@@ -521,7 +520,7 @@ export default function Planner() {
             <button
               type="button"
               onClick={runScan}
-              disabled={!route || busy !== null}
+              disabled={!route || !departureUtc || busy !== null}
               className="w-full border border-ink/50 rounded-sm px-3 py-2 hover:bg-white/50 disabled:opacity-40"
             >
               Compare departure times (next 5 days)
@@ -547,7 +546,7 @@ export default function Planner() {
           scan={scan}
           departureLocal={departureLocal}
           onPick={(candidate) => {
-            setDepartureLocal(candidate.departure_utc.slice(0, 16));
+            setDepartureLocal(toLocalDateTimeValue(candidate.departure_utc));
             const rerouted = scan.routes?.[candidate.departure_utc];
             if (rerouted) setComputed(rerouted);
           }}
@@ -556,6 +555,58 @@ export default function Planner() {
 
       <ModelsUsed />
     </div>
+  );
+}
+
+function DepartureField({ value, onChange }) {
+  const [timeDraft, setTimeDraft] = useState(value.slice(11, 16));
+  const date = value.slice(0, 10);
+  const validTime = /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(timeDraft);
+
+  useEffect(() => {
+    setTimeDraft(value.slice(11, 16));
+  }, [value]);
+
+  const updateTime = (next) => {
+    setTimeDraft(next);
+    if (/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(next)) onChange(`${date}T${next}`);
+  };
+
+  return (
+    <fieldset className="block">
+      <legend className="eyebrow block mb-1">Departure · local time</legend>
+      <div className="grid grid-cols-[minmax(0,1fr)_7.25rem] gap-2">
+        <label>
+          <span className="sr-only">Departure date</span>
+          <input
+            type="date"
+            value={date}
+            onChange={(event) => onChange(`${event.target.value}T${validTime ? timeDraft : value.slice(11, 16)}`)}
+            className="w-full bg-white/60 border hairline rounded-sm px-2 py-1.5 font-mono"
+          />
+        </label>
+        <label>
+          <span className="sr-only">Departure time, 24-hour clock</span>
+          <input
+            type="text"
+            value={timeDraft}
+            onChange={(event) => updateTime(event.target.value)}
+            onBlur={() => { if (!validTime) setTimeDraft(value.slice(11, 16)); }}
+            inputMode="numeric"
+            autoComplete="off"
+            maxLength={5}
+            pattern="(?:[01][0-9]|2[0-3]):[0-5][0-9]"
+            placeholder="HH:mm"
+            aria-invalid={!validTime}
+            className="w-full bg-white/60 border hairline rounded-sm px-2 py-1.5 font-mono tabular-nums"
+          />
+        </label>
+      </div>
+      <p className="mt-1 text-[11px] text-ink-soft">
+        <span>24-hour clock (HH:mm)</span> · <span>your local time</span> ·{' '}
+        <span className="font-mono">{localTimeZoneName()}</span>
+      </p>
+    </fieldset>
   );
 }
 
@@ -636,7 +687,7 @@ function DepartureComparison({ scan, departureLocal, onPick }) {
 
   const days = [];
   for (const [i, c] of scan.candidates.entries()) {
-    const stamp = fmtTime(c.departure_utc); // "Mon 13 Jul 06:00"
+    const stamp = fmtLocalTime(c.departure_utc); // "Mon 13 Jul 08:00" in browser-local time
     const day = stamp.slice(0, -6);
     if (days.at(-1)?.day !== day) days.push({ day, cells: [] });
     days.at(-1).cells.push({ ...c, index: i, hhmm: stamp.slice(-5) });
@@ -652,7 +703,8 @@ function DepartureComparison({ scan, departureLocal, onPick }) {
           Departure comparison · next 5 days
         </h2>
         <span className="eyebrow">
-          {scan.rerouted ? 'each departure sails its own computed route' : 'same route, different weather'}
+          <span>24-hour local time</span> · {localTimeZoneName()} ·{' '}
+          <span>{scan.rerouted ? 'each departure sails its own computed route' : 'same route, different weather'}</span>
         </span>
       </div>
 
@@ -674,10 +726,10 @@ function DepartureComparison({ scan, departureLocal, onPick }) {
                     key={c.departure_utc}
                     type="button"
                     onClick={() => onPick(c)}
-                    title={`${fmtTime(c.departure_utc)} UTC · ${parts.join(' · ')}`}
+                    title={`${fmtLocalTime(c.departure_utc)} local time (${localTimeZoneName()}) · ${parts.join(' · ')}`}
                     className={clsx(
                       'w-[66px] h-[54px] rounded-sm text-white flex flex-col items-center justify-center gap-0.5',
-                      `${departureLocal}:00Z` === c.departure_utc && 'outline outline-2 outline-ink outline-offset-1',
+                      localDateTimeToIso(departureLocal) === c.departure_utc && 'outline outline-2 outline-ink outline-offset-1',
                     )}
                     style={{ backgroundColor: v.hex }}
                   >
@@ -702,7 +754,7 @@ function DepartureComparison({ scan, departureLocal, onPick }) {
         <p className="font-sans text-[13px] max-w-[80ch]">
           {best && (
             <>
-              <span className="font-medium">◎ Least exposure this window: {fmtTime(best.departure_utc)} UTC</span>
+              <span className="font-medium">◎ Least exposure this window: {fmtLocalTime(best.departure_utc)} local time</span>
               {'. '}
             </>
           )}
