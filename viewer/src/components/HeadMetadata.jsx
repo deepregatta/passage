@@ -24,7 +24,7 @@ function softwareApplication(language, description) {
     name: 'Passage',
     applicationCategory: 'WeatherApplication',
     operatingSystem: 'Web',
-    url: `${ORIGIN}/${isFrench ? '?lang=fr' : ''}`,
+    url: `${ORIGIN}/`,
     description,
     inLanguage: isFrench ? 'fr' : 'en',
     offers: {
