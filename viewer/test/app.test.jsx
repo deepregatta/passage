@@ -45,7 +45,8 @@ describe('viewer fixture harness', () => {
     expect(screen.getByRole('link', { name: 'Privacy' }).getAttribute('href')).toBe('https://deepregatta.com/privacy');
     expect(screen.getByRole('link', { name: 'Terms' }).getAttribute('href')).toBe('https://deepregatta.com/terms');
     expect(screen.getByRole('link', { name: 'Legal notice' }).getAttribute('href')).toBe('https://deepregatta.com/legal');
-    expect(screen.getByRole('link', { name: 'contact@deepregatta.com' }).getAttribute('href')).toBe('mailto:contact@deepregatta.com');
+    expect(screen.getByRole('link', { name: 'DeepRegatta' }).getAttribute('href')).toBe('https://deepregatta.com');
+    expect(screen.getByRole('link', { name: 'Feedback — contact@deepregatta.com' }).getAttribute('href')).toBe('mailto:contact@deepregatta.com?subject=Passage%20feedback');
   });
 
   it('switches the whole interface to French and remembers the choice', async () => {
