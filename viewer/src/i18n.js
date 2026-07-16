@@ -48,6 +48,7 @@ const FR = {
   'Terms': "Conditions d’utilisation",
   'Legal notice': 'Mentions légales',
   'DeepRegatta information': 'Informations DeepRegatta',
+  'Feedback — contact@deepregatta.com': 'Vos retours — contact@deepregatta.com',
   'DeepRegatta legal and contact links': 'Liens juridiques et contact DeepRegatta',
   'A DeepRegatta instrument for offshore sailors': 'Un instrument DeepRegatta pour les navigateurs au large',
   'Plan a passage': 'Planifier une traversée',
