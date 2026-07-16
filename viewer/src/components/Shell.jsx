@@ -73,6 +73,7 @@ export default function Shell({ page, onNavigate, children }) {
 function SiteFooter() {
   const year = new Date().getFullYear();
   const links = [
+    ['DeepRegatta', 'https://deepregatta.com'],
     ['Privacy', 'https://deepregatta.com/privacy'],
     ['Terms', 'https://deepregatta.com/terms'],
     ['Legal notice', 'https://deepregatta.com/legal'],
@@ -95,8 +96,11 @@ function SiteFooter() {
                 {label}
               </a>
             ))}
-            <a href="mailto:contact@deepregatta.com" className="text-event underline-offset-4 hover:underline">
-              contact@deepregatta.com
+            <a
+              href="mailto:contact@deepregatta.com?subject=Passage%20feedback"
+              className="text-event underline-offset-4 hover:underline"
+            >
+              Feedback — contact@deepregatta.com
             </a>
           </nav>
         </div>
