@@ -16,6 +16,30 @@ const COPY = {
   },
 };
 
+function softwareApplication(language, description) {
+  const isFrench = language === 'fr';
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: 'Passage',
+    applicationCategory: 'WeatherApplication',
+    operatingSystem: 'Web',
+    url: `${ORIGIN}/${isFrench ? '?lang=fr' : ''}`,
+    description,
+    inLanguage: isFrench ? 'fr' : 'en',
+    offers: {
+      '@type': 'Offer',
+      price: '0',
+      priceCurrency: 'EUR',
+    },
+    publisher: {
+      '@type': 'Organization',
+      name: 'DeepRegatta',
+      url: 'https://deepregatta.com/',
+    },
+  };
+}
+
 function setMeta(selector, attributes, content) {
   let element = document.querySelector(selector);
   if (!element) {
@@ -42,6 +66,12 @@ export function HeadMetadata({ language }) {
     setMeta('meta[name="twitter:title"]', { name: 'twitter:title' }, metadata.title);
     setMeta('meta[name="twitter:description"]', { name: 'twitter:description' }, metadata.description);
     setMeta('meta[name="twitter:image"]', { name: 'twitter:image' }, IMAGE);
+    const structuredData = document.getElementById('passage-structured-data');
+    if (structuredData) {
+      structuredData.textContent = JSON.stringify(
+        softwareApplication(language, metadata.description)
+      );
+    }
   }, [language]);
 
   return null;
