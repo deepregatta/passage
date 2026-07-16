@@ -112,5 +112,5 @@ function StageButton({ stage, index, active, onClick, mobile = false }) {
 }
 
 function CompassMark() {
-  return <svg width="28" height="28" viewBox="0 0 30 30" aria-hidden><circle cx="15" cy="15" r="13" fill="none" stroke="currentColor" strokeWidth="1.2"/><path d="M15 3 L17 13 L15 15 L13 13 Z" fill="currentColor"/><path d="M15 27 L13 17 L15 15 L17 17 Z" fill="none" stroke="currentColor"/></svg>;
+  return <img src="/brand/mark-reversed.svg" alt="" width="28" height="28" aria-hidden />;
 }
