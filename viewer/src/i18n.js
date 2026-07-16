@@ -776,15 +776,6 @@ export function LocalizedDocument({ language }) {
   useLayoutEffect(() => {
     const root = document.getElementById('root') ?? document.body;
     document.documentElement.lang = language;
-    document.title = language === 'fr'
-      ? 'Passage par DeepRegatta | Planification météo de traversée'
-      : 'Passage by DeepRegatta | Passage weather planning';
-    const description = language === 'fr'
-      ? 'Planifiez vos traversées à la voile avec routage météo en direct, analyse explicable des risques et briefings adaptés à la route.'
-      : 'Plan sailing passages with live weather routing, explainable forecast risk, and route-specific briefings from Passage by DeepRegatta.';
-    document.querySelector('meta[name="description"]')?.setAttribute('content', description);
-    document.querySelector('meta[property="og:locale"]')?.setAttribute('content', language === 'fr' ? 'fr_FR' : 'en_US');
-
     let queued = false;
     const observer = new MutationObserver(() => {
       if (queued) return;

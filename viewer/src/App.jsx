@@ -3,6 +3,7 @@ import { useApp } from './stores/appStore.js';
 import Shell from './components/Shell.jsx';
 import { HASH_PAGE, PAGE_HASH } from './lib/routes.js';
 import { LocalizedDocument } from './i18n.js';
+import { HeadMetadata } from './components/HeadMetadata.jsx';
 
 const PAGES = {
   snapshots: lazy(() => import('./pages/Snapshots.jsx')),
@@ -40,6 +41,7 @@ export default function App() {
   return (
     <>
       <LocalizedDocument language={language} />
+      <HeadMetadata language={language} />
       <Shell page={page} onNavigate={setPage}>
         <Suspense fallback={<div className="p-8 font-instrument text-ink-soft">Loading passage instruments…</div>}>
           <Page />
