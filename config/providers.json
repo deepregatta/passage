@@ -11,6 +11,6 @@
     "warnings_fr": { "mode": "live", "note": "official data.gouv BMS mirror, synced daily (~24h max lag, disclosed in coverage_note)" },
     "warnings_uk": { "mode": "live", "note": "Met Office shipping-forecast print page (no API exists); gale warnings between issues invisible until next forecast" },
     "tides": { "mode": "live", "note": "CMEMS IBI 15-min SSH at reference ports; degrades to synthetic harmonics on fetch failure" },
-    "observations": { "mode": "synthetic", "note": "EMODnet ERDDAP is the first easy live swap" }
+    "observations": { "mode": "live", "note": "NDBC realtime2 mirror of Met Office Channel buoys (62103 Channel Lightship, 62050 E1); hourly, past ~45 days only — future windows report not_independently_observed" }
   }
 }
