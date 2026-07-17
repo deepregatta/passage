@@ -32,7 +32,8 @@ from .route_sources import currents_bounds
 logger = logging.getLogger(__name__)
 
 # Default route's corridor window from config/route-sources.json (Channel:
-# IBI covers it, NWS is the fallback). Kept under the historical name for
+# IBI covers it; outside every regional model the global GLO product — ~1/12
+# deg, hourly total surface currents — takes over). Kept under the historical name for
 # direct callers/tests; per-route lookups go through route_sources.currents_bounds.
 CHANNEL_BOUNDS: Dict[str, float] = currents_bounds()
 
@@ -121,7 +122,7 @@ def prepare_current_grid(
     if end_time <= start_time:
         raise ValueError(f"end ({end_time}) must be after start ({start_time})")
 
-    # 1. Detect region (Channel corridor -> IBI; NWS is the fallback).
+    # 1. Detect region (regional models first — IBI/NWS/MED/BAL — then global GLO).
     region = fetcher.detect_region(bounds)
     if region is None:
         raise RuntimeError(f"No regional forecast model covers bounds {bounds}")

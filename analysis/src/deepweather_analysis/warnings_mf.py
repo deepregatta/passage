@@ -275,12 +275,13 @@ def write_warnings(doc: dict) -> Path:
     return latest
 
 
-def _route_uk_zones() -> list[dict]:
+def _route_zones(kind: str) -> list[dict]:
+    """Union of one zone kind ('uk_zones' / 'us_zones') across all routes."""
     zones_doc = json.loads((config_dir() / "route-zones.json").read_text())
     out: list[dict] = []
     seen: set[str] = set()
     for entry in zones_doc.get("routes", {}).values():
-        for zone in entry.get("uk_zones", []):
+        for zone in entry.get(kind, []):
             if zone["zone_id"] not in seen:
                 seen.add(zone["zone_id"])
                 out.append(zone)
@@ -292,7 +293,7 @@ def _merge_uk_warnings(doc: dict) -> dict:
     from .warnings_uk import fetch_uk_gale_bulletins
 
     try:
-        bulletins, uk_note = fetch_uk_gale_bulletins(_route_uk_zones())
+        bulletins, uk_note = fetch_uk_gale_bulletins(_route_zones("uk_zones"))
     except Exception as error:  # noqa: BLE001 — any feed failure must degrade, not crash
         doc["feed_status"] = "parse-degraded"
         doc["coverage_note"] = f"{doc.get('coverage_note', '')} UK feed unavailable: {error}".strip()
@@ -304,6 +305,22 @@ def _merge_uk_warnings(doc: dict) -> dict:
     return doc
 
 
+def _merge_us_warnings(doc: dict) -> dict:
+    """Append live US bulletins (NWS api.weather.gov active alerts) to the doc."""
+    from .warnings_us import fetch_us_bulletins
+
+    try:
+        bulletins, us_note = fetch_us_bulletins(_route_zones("us_zones"))
+    except Exception as error:  # noqa: BLE001 — any feed failure must degrade, not crash
+        doc["feed_status"] = "parse-degraded"
+        doc["coverage_note"] = f"{doc.get('coverage_note', '')} US feed unavailable: {error}".strip()
+        return doc
+    doc["bulletins"].extend(bulletins)
+    doc["source"]["name"] = f"{doc['source'].get('name', '')} + NWS active alerts"
+    doc["coverage_note"] = f"{doc.get('coverage_note', '')} {us_note}".strip()
+    return doc
+
+
 def fetch_warnings(gale_zone: str | None = None, paste_file: str | None = None) -> Path:
     if paste_file:
         doc = parse_manual_bulletin(Path(paste_file).read_text(), zone_id=gale_zone or "casquets")
@@ -312,4 +329,6 @@ def fetch_warnings(gale_zone: str | None = None, paste_file: str | None = None) 
     doc = fetch_live() if mode is Mode.LIVE else synthetic_doc(gale_zone)
     if provider_mode("warnings_uk") is Mode.LIVE:
         doc = _merge_uk_warnings(doc)
+    if provider_mode("warnings_us") is Mode.LIVE and _route_zones("us_zones"):
+        doc = _merge_us_warnings(doc)
     return write_warnings(doc)

@@ -79,9 +79,17 @@ REGIONAL_MODELS: Dict[str, RegionalModel] = {
         bounds={"lat": (53.5, 66), "lon": (9, 30.5)},
         resolution_deg=1 / 60,  # ~2 km
     ),
+    "GLO": RegionalModel(
+        code="GLO",
+        name="Global Ocean",
+        bounds={"lat": (-80, 90), "lon": (-180, 180)},
+        resolution_deg=1 / 12,  # ~9 km
+    ),
 }
 
-REGION_PRIORITY = ["IBI", "NWS", "MED", "BAL"]
+# GLO covers everything, so it must stay last: a corridor inside a regional
+# model's box always resolves to that (finer) model first.
+REGION_PRIORITY = ["IBI", "NWS", "MED", "BAL", "GLO"]
 
 
 @dataclass(frozen=True)
@@ -705,7 +713,7 @@ def fetch_regional_currents(
     Fetch regional forecast current data (surface uo/vo, hourly).
 
     Args:
-        region: Region code ('IBI', 'NWS', 'MED', 'BAL')
+        region: Region code ('IBI', 'NWS', 'MED', 'BAL', 'GLO')
         bounds: Dict with min_lat, max_lat, min_lon, max_lon
         start_time: Start datetime (UTC)
         end_time: End datetime (UTC)
@@ -780,7 +788,10 @@ def fetch_regional_currents(
                 maximum_latitude=bounds["max_lat"],
                 start_datetime=fetch_start.strftime("%Y-%m-%dT%H:%M:%S"),
                 end_datetime=fetch_end.strftime("%Y-%m-%dT%H:%M:%S"),
-                minimum_depth=0.5,
+                # top model level is ~0.494 m in both regional and global anfc
+                # products (GLO merged-uv carries ONLY that level); the grid
+                # loader then takes the shallowest level as the surface.
+                minimum_depth=0.0,
                 maximum_depth=5.0,
                 output_filename=str(output_path.name),
                 output_directory=str(output_path.parent),

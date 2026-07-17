@@ -1,8 +1,14 @@
 """Tidal predictions at reference ports — HW/LW series (M10).
 
-Modes (config/providers.json "tides"):
+Modes (config/providers.json "tides"); the live source is per-route, from
+config/route-sources.json tides.live_source.kind:
 
-live — CMEMS IBI 15-minute sea-surface height (dataset
+live / noaa_coops — NOAA CO-OPS official harmonic predictions
+  (api.tidesandcurrents.noaa.gov, product=predictions&interval=hilo): HW/LW
+  events directly from the authority, heights in metres above MLLW (the US
+  chart datum) — no extraction or datum transfer needed. US routes.
+
+live / cmems_ssh — CMEMS IBI 15-minute sea-surface height (dataset
   cmems_mod_ibi_phy_anfc_0.027deg-2D_PT15M-i, variable zos). The IBI model
   carries explicit tidal forcing, so its SSH series contains the real tide;
   HW/LW are extracted at the nearest wet grid cell to each reference port.
@@ -30,7 +36,7 @@ from pathlib import Path
 
 from .paths import contracts_dir, data_root, processed_dir
 from .providers import Mode, provider_mode
-from .route_sources import tide_ports, tides_artifact_name
+from .route_sources import tide_ports, tides_artifact_name, tides_live_source
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +45,10 @@ CMEMS_SSH_DATASET = os.environ.get(
 )
 # half-width of the per-port subset box, degrees (~8 nm) — enough to find a wet cell
 PORT_BOX_HALF_DEG = 0.14
+
+COOPS_URL = os.environ.get(
+    "DEEPWEATHER_COOPS_URL", "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
+)
 
 # angular speeds, degrees per hour (standard values)
 OMEGA = {"M2": 28.9841042, "S2": 30.0, "N2": 28.4397295, "K1": 15.0410686, "O1": 13.9430356}
@@ -166,7 +176,66 @@ def _fetch_port_ssh_events(port_id: str, port: dict, start: datetime, end: datet
     return _events_from_samples(times_ms, heights)
 
 
-def _live_doc(start: datetime, end: datetime, route_ports: dict[str, dict]) -> dict:
+def _coops_events_from_json(data: dict, start: datetime, end: datetime) -> list[dict]:
+    """Schema events from a CO-OPS predictions&interval=hilo JSON response."""
+    if "predictions" not in data:
+        raise RuntimeError(f"CO-OPS response carries no predictions: {data.get('error', data)}")
+    events = []
+    for prediction in data["predictions"]:
+        t = datetime.strptime(prediction["t"], "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
+        if not start <= t <= end:
+            continue
+        events.append(
+            {
+                "kind": "HW" if prediction["type"] == "H" else "LW",
+                "time": t.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "height_m": round(float(prediction["v"]), 2),
+            }
+        )
+    return events
+
+
+def _fetch_port_coops_events(port: dict, start: datetime, end: datetime) -> list[dict]:
+    """Live US path: official NOAA CO-OPS HW/LW predictions for one station."""
+    import requests
+
+    response = requests.get(
+        COOPS_URL,
+        params={
+            "product": "predictions",
+            "interval": "hilo",
+            "datum": "MLLW",
+            "units": "metric",
+            "time_zone": "gmt",
+            "station": port["coops_station"],
+            "begin_date": start.strftime("%Y%m%d"),
+            "end_date": end.strftime("%Y%m%d"),
+            "format": "json",
+        },
+        timeout=60,
+    )
+    response.raise_for_status()
+    return _coops_events_from_json(response.json(), start, end)
+
+
+def _live_doc(
+    start: datetime, end: datetime, route_ports: dict[str, dict], live_kind: str
+) -> dict:
+    if live_kind == "noaa_coops":
+        fetch_events = lambda port_id, port: _fetch_port_coops_events(port, start, end)  # noqa: E731
+        note = (
+            "HW/LW from NOAA CO-OPS official harmonic predictions "
+            "(api.tidesandcurrents.noaa.gov, per-port station ids). Heights in "
+            "metres above MLLW (US chart datum)."
+        )
+    else:
+        fetch_events = lambda port_id, port: _fetch_port_ssh_events(port_id, port, start, end)  # noqa: E731
+        note = (
+            f"HW/LW extracted from CMEMS IBI 15-min sea-surface height "
+            f"({CMEMS_SSH_DATASET}) at the nearest wet cell to each reference "
+            "port. Heights = model SSH + port mean level above chart datum "
+            "(approximate datum transfer); use for gate timing, not clearances."
+        )
     ports = []
     for port_id, port in route_ports.items():
         ports.append(
@@ -175,21 +244,13 @@ def _live_doc(start: datetime, end: datetime, route_ports: dict[str, dict]) -> d
                 "name": port["name"],
                 "lat": port["lat"],
                 "lon": port["lon"],
-                "events": _fetch_port_ssh_events(port_id, port, start, end),
+                "events": fetch_events(port_id, port),
             }
         )
     return {
         "schema_version": 1,
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "source": {
-            "mode": "live",
-            "note": (
-                f"HW/LW extracted from CMEMS IBI 15-min sea-surface height "
-                f"({CMEMS_SSH_DATASET}) at the nearest wet cell to each reference "
-                "port. Heights = model SSH + port mean level above chart datum "
-                "(approximate datum transfer); use for gate timing, not clearances."
-            ),
-        },
+        "source": {"mode": "live", "note": note},
         "ports": ports,
     }
 
@@ -243,7 +304,7 @@ def prepare_tides(
 
     if provider_mode("tides") is Mode.LIVE:
         try:
-            doc = _live_doc(start, end, route_ports)
+            doc = _live_doc(start, end, route_ports, tides_live_source(route_id)["kind"])
         except Exception as error:  # noqa: BLE001 — feed failure must degrade, not crash
             logger.warning("live tides fetch failed, degrading to synthetic: %s", error)
             doc = _synthetic_doc(start, end, route_ports, degraded_reason=str(error))

@@ -51,6 +51,10 @@ def synthetic_observations_source_name(route_id: str | None = None) -> str:
     return route_sources(route_id)["observations"]["synthetic_source_name"]
 
 
+def live_observations_source_name(route_id: str | None = None) -> str:
+    return route_sources(route_id)["observations"].get("live_source_name", "ndbc-realtime2")
+
+
 def tide_ports(route_id: str | None = None) -> Dict[str, Dict[str, Any]]:
     """Ports with (amp, phase) constituent tuples, as tides.py consumes them."""
     ports = {}
@@ -64,6 +68,14 @@ def tide_ports(route_id: str | None = None) -> Dict[str, Dict[str, Any]]:
 
 def tides_artifact_name(route_id: str | None = None) -> str:
     return route_sources(route_id)["tides"]["artifact_name"]
+
+
+def tides_live_source(route_id: str | None = None) -> Dict[str, Any]:
+    """Live tide source spec, e.g. {'kind': 'cmems_ssh'} or {'kind': 'noaa_coops'}.
+
+    Absent registry entries default to cmems_ssh (the original Channel path).
+    """
+    return dict(route_sources(route_id)["tides"].get("live_source", {"kind": "cmems_ssh"}))
 
 
 def currents_bounds(route_id: str | None = None) -> Dict[str, float]:
@@ -88,6 +100,7 @@ __all__ = [
     "DEFAULT_ROUTE_ID",
     "currents_bounds",
     "fr_broadcast_areas",
+    "live_observations_source_name",
     "live_stations",
     "load_route_sources",
     "route_sources",
@@ -95,4 +108,5 @@ __all__ = [
     "synthetic_stations",
     "tide_ports",
     "tides_artifact_name",
+    "tides_live_source",
 ]

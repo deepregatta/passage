@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "route_id": "newport-newyork-v1",
+  "name": "Newport → New York",
+  "mode": "fixed",
+  "comment": "First North America route (~150 nm, ~27 h at 5.5 kt): Narragansett Bay entrance, across Rhode Island and Block Island Sounds, around Montauk Point, along the Long Island south shore, in via Ambrose Channel to The Battery.",
+  "waypoints": [
+    { "id": "wp1", "name": "Newport, Narragansett Bay entrance", "lat": 41.44, "lon": -71.35 },
+    { "id": "wp2", "name": "Off Point Judith", "lat": 41.3, "lon": -71.47 },
+    { "id": "wp3", "name": "Block Island Sound", "lat": 41.18, "lon": -71.72 },
+    { "id": "wp4", "name": "Off Montauk Point", "lat": 41.02, "lon": -71.9 },
+    { "id": "wp5", "name": "South of Shinnecock Inlet", "lat": 40.75, "lon": -72.5 },
+    { "id": "wp6", "name": "South of Fire Island", "lat": 40.55, "lon": -73.2 },
+    { "id": "wp7", "name": "Ambrose Channel approach", "lat": 40.45, "lon": -73.8 },
+    { "id": "wp8", "name": "Verrazzano Narrows", "lat": 40.6, "lon": -74.045 },
+    { "id": "wp9", "name": "The Battery, New York", "lat": 40.7, "lon": -74.02 }
+  ],
+  "speeds_kt": { "slow": 4.5, "nominal": 5.5, "fast": 6.5 }
+}

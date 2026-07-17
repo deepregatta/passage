@@ -31,6 +31,7 @@ from typing import Any, Dict, List, Optional, Sequence
 from .paths import contracts_dir, processed_dir
 from .providers import Mode, provider_mode
 from .route_sources import (
+    live_observations_source_name,
     live_stations,
     synthetic_observations_source_name,
     synthetic_stations,
@@ -46,7 +47,8 @@ NDBC_URL_TEMPLATE = os.environ.get(
     "DEEPWEATHER_NDBC_URL_TEMPLATE",
     "https://www.ndbc.noaa.gov/data/realtime2/{station_id}.txt",
 )
-LIVE_SOURCE_NAME = "ndbc-realtime2 (Met Office GTS buoys)"
+# Default route's source label; per-route lookups go through the registry.
+LIVE_SOURCE_NAME = live_observations_source_name()
 KT_PER_MS = 1.9438445
 
 # Real moorings on the route track, from config/route-sources.json (default
@@ -299,7 +301,7 @@ def fetch_live(
     doc = {
         "schema_version": SCHEMA_VERSION,
         "generated_at": generated_at or _iso_z(datetime.now(timezone.utc)),
-        "source": {"mode": "live", "name": LIVE_SOURCE_NAME},
+        "source": {"mode": "live", "name": live_observations_source_name(route_id)},
         "stations": stations_out,
     }
     validate_observations(doc)

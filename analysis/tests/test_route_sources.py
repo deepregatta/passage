@@ -68,6 +68,43 @@ def test_fr_broadcast_areas_match_previous_hardcode():
     assert rs.fr_broadcast_areas("cherbourg-plymouth-v1") == expected
 
 
+def test_channel_live_tide_source_stays_cmems():
+    assert rs.tides_live_source() == {"kind": "cmems_ssh"}
+    assert rs.live_observations_source_name() == "ndbc-realtime2 (Met Office GTS buoys)"
+
+
+def test_newport_newyork_route_registered():
+    route = rs.route_sources("newport-newyork-v1")
+    assert route["region"] == "us-northeast"
+
+    assert rs.tides_live_source("newport-newyork-v1") == {"kind": "noaa_coops"}
+    ports = rs.tide_ports("newport-newyork-v1")
+    assert list(ports) == ["newport", "montauk", "sandy-hook", "the-battery"]
+    # every US port needs a CO-OPS station id for the live path
+    assert all("coops_station" in port for port in ports.values())
+    assert ports["newport"]["coops_station"] == "8452660"
+    assert rs.tides_artifact_name("newport-newyork-v1") == "newport-newyork"
+
+    stations = [s["station_id"] for s in rs.live_stations("newport-newyork-v1")]
+    assert stations == ["NWPR1", "44097", "44025", "44065"]
+    assert "NOAA NDBC" in rs.live_observations_source_name("newport-newyork-v1")
+
+    bounds = rs.currents_bounds("newport-newyork-v1")
+    assert bounds["min_lon"] < -74.0 and bounds["max_lat"] > 41.5
+
+    # no FR broadcast areas — and the cross-route union stays purely Channel
+    assert rs.fr_broadcast_areas("newport-newyork-v1") == set()
+    assert rs.fr_broadcast_areas() == rs.fr_broadcast_areas("cherbourg-plymouth-v1")
+
+
+def test_us_route_currents_bounds_resolve_to_global_model():
+    from deepweather_analysis.environment_fetcher import detect_region
+
+    assert detect_region(rs.currents_bounds("newport-newyork-v1")) == "GLO"
+    # the Channel corridor must keep resolving to the finer IBI model
+    assert detect_region(rs.currents_bounds("cherbourg-plymouth-v1")) == "IBI"
+
+
 def test_feed_modules_expose_registry_backed_constants():
     from deepweather_analysis.grids_prep import CHANNEL_BOUNDS
     from deepweather_analysis.observations import LIVE_STATIONS, STATIONS
