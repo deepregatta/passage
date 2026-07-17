@@ -1,5 +1,6 @@
 import clsx from 'clsx';
 import { useApp } from '../stores/appStore.js';
+import FooterActions from './FooterActions.jsx';
 
 const STAGES = [
   { id: 'plan', label: 'Plan', pages: ['planner', 'settings'], target: 'planner' },
@@ -62,7 +63,7 @@ export default function Shell({ page, onNavigate, children }) {
         </nav>
       </header>
       <main id="main-content" className="min-w-0 flex-1">{children}</main>
-      <SiteFooter />
+      <SiteFooter onNavigate={onNavigate} />
       <nav aria-label="Passage stages" className="md:hidden fixed bottom-0 inset-x-0 h-16 z-40 bg-ink-deep text-paper grid grid-cols-4 border-t border-paper/20">
         {STAGES.map((stage, index) => <StageButton key={stage.id} stage={stage} index={index} active={active.id === stage.id} onClick={() => navigateStage(stage)} mobile />)}
       </nav>
@@ -70,7 +71,7 @@ export default function Shell({ page, onNavigate, children }) {
   );
 }
 
-function SiteFooter() {
+function SiteFooter({ onNavigate }) {
   const year = new Date().getFullYear();
   const links = [
     ['DeepRegatta', 'https://deepregatta.com'],
@@ -82,6 +83,9 @@ function SiteFooter() {
   return (
     <footer className="mt-12 border-t border-ink/25 bg-paper-deep/55" aria-label="DeepRegatta information">
       <div className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6">
+        <div className="mb-4 border-b hairline pb-4">
+          <FooterActions onNavigate={onNavigate} />
+        </div>
         <div className="flex flex-col gap-4 font-instrument text-sm text-ink-soft lg:flex-row lg:items-center lg:justify-between">
           <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
             <span className="font-semibold uppercase tracking-[0.08em] text-ink">Passage</span>
@@ -96,12 +100,6 @@ function SiteFooter() {
                 {label}
               </a>
             ))}
-            <a
-              href="mailto:contact@deepregatta.com?subject=Passage%20feedback"
-              className="text-event underline-offset-4 hover:underline"
-            >
-              Feedback — contact@deepregatta.com
-            </a>
           </nav>
         </div>
       </div>

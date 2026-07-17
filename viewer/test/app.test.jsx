@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '../src/App.jsx';
 import { useApp } from '../src/stores/appStore.js';
 
@@ -46,7 +46,33 @@ describe('viewer fixture harness', () => {
     expect(screen.getByRole('link', { name: 'Terms' }).getAttribute('href')).toBe('https://deepregatta.com/terms');
     expect(screen.getByRole('link', { name: 'Legal notice' }).getAttribute('href')).toBe('https://deepregatta.com/legal');
     expect(screen.getByRole('link', { name: 'DeepRegatta' }).getAttribute('href')).toBe('https://deepregatta.com');
-    expect(screen.getByRole('link', { name: 'Feedback — contact@deepregatta.com' }).getAttribute('href')).toBe('mailto:contact@deepregatta.com?subject=Passage%20feedback');
+    expect(screen.getByRole('button', { name: 'Share this analysis' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Request a race / report a data issue' })).toBeTruthy();
+  });
+
+  it('sends a race request to the fleet feedback inbox and offers a next step', async () => {
+    const user = userEvent.setup();
+    const previousFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn(async (input, init) => {
+      if (String(input).includes('/api/feedback')) {
+        return new Response('{"ok":true}', { status: 201, headers: { 'Content-Type': 'application/json' } });
+      }
+      return previousFetch(input, init);
+    });
+
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'Request a race / report a data issue' }));
+    await user.type(screen.getByPlaceholderText(/what looks wrong/i), 'Please add the Middle Sea Race');
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+
+    await waitFor(() => expect(screen.getByText('Thanks! Your message has been received.')).toBeTruthy());
+    const call = globalThis.fetch.mock.calls.find(([input]) => String(input).includes('/api/feedback'));
+    const payload = JSON.parse(call[1].body);
+    expect(payload.category).toBe('race_request');
+    expect(payload.platform).toBe('desktop');
+    expect(payload.locale).toBe('en');
+    expect(payload.page_url).toContain('http');
+    expect(screen.getByRole('button', { name: /Next: explore another scenario/ })).toBeTruthy();
   });
 
   it('switches the whole interface to French and remembers the choice', async () => {
