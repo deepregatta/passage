@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { track } from '../lib/analytics.js';
 import { useApp } from '../stores/appStore.js';
 import RouteMap from '../components/lazy/LeafletLazy.jsx';
 import RouteTimeline from '../components/RouteTimeline.jsx';
@@ -48,6 +49,11 @@ export default function Briefing() {
   const synoptic = useApp((s) => s.synoptic);
   const route = useApp((s) => s.route);
   const [bulletinOpen, setBulletinOpen] = useState(false);
+  const ready = Boolean(findings && briefing);
+  useEffect(() => {
+    // passage_run: the visitor submitted a scenario and is seeing its output.
+    if (ready) track('passage_run', { verdict: findings?.verdict?.state ?? null });
+  }, [ready]);
   if (!findings || !briefing) return <EmptyState />;
   const warningEvidence = findings.evidence.find((item) => item.rule_id === 'A-WARN-01');
   // the synoptic chart is the product's differentiator: it renders whenever the

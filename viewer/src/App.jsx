@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect } from 'react';
 import { useApp } from './stores/appStore.js';
 import Shell from './components/Shell.jsx';
 import { HASH_PAGE, PAGE_HASH } from './lib/routes.js';
+import { track } from './lib/analytics.js';
 import { LocalizedDocument } from './i18n.js';
 import { HeadMetadata } from './components/HeadMetadata.jsx';
 
@@ -36,6 +37,10 @@ export default function App() {
   useEffect(() => {
     const hash = PAGE_HASH[page] ?? PAGE_HASH.planner;
     if (location.hash.slice(1) !== hash) history.replaceState(null, '', `#${hash}`);
+  }, [page]);
+
+  useEffect(() => {
+    track('page_view', { page });
   }, [page]);
 
   return (
