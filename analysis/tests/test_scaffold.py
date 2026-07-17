@@ -47,7 +47,7 @@ def test_providers_load_with_valid_modes():
         "observations",
     }
     assert expected <= set(providers)
-    assert provider_mode("tides", providers) is Mode.SYNTHETIC
+    assert provider_mode("tides", providers) is Mode.LIVE
     assert provider_mode("openmeteo_forecast", providers) is Mode.LIVE
 
 

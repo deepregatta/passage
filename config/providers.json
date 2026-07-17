@@ -10,7 +10,7 @@
     "era5": { "mode": "live" },
     "warnings_fr": { "mode": "synthetic", "note": "flip to live if the BMS feed spike (M9) succeeds" },
     "warnings_uk": { "mode": "synthetic" },
-    "tides": { "mode": "synthetic", "note": "harmonic synthesis at reference ports; real source (SHOM/UKHO/FES) later" },
+    "tides": { "mode": "live", "note": "CMEMS IBI 15-min SSH at reference ports; degrades to synthetic harmonics on fetch failure" },
     "observations": { "mode": "synthetic", "note": "EMODnet ERDDAP is the first easy live swap" }
   }
 }

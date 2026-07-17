@@ -638,8 +638,9 @@ function ModelsUsed() {
             </li>
             <li>Waves: NOAA GFS-Wave {mono('gfswave_0p25')}, same tile pipeline.</li>
             <li>
-              Tidal streams and gates: CMEMS IBI currents. Gate timing uses synthetic constituents{' '}
-              <span className="stamp-emulated">emulated</span>.
+              Tidal streams and gates: CMEMS IBI currents. Gate timing: HW/LW extracted from CMEMS
+              IBI 15-minute sea-surface height at the reference ports{' '}
+              {mono('ibi_phy_anfc_2D_PT15M')}.
             </li>
             <li>
               Official warnings: Météo-France BMS <span className="stamp-emulated">emulated</span>{' '}

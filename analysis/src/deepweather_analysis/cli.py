@@ -71,7 +71,10 @@ def cmd_tides(args: argparse.Namespace) -> int:
     from .tides import prepare_tides
 
     path = prepare_tides(start_iso=args.start, hours=args.hours)
-    print(f"wrote {path} (SYNTHETIC constituents — badged emulated downstream)")
+    import json
+
+    mode = json.loads(path.read_text())["source"]["mode"]
+    print(f"wrote {path} (source mode: {mode})")
     return 0
 
 
@@ -201,7 +204,7 @@ def main(argv: list[str] | None = None) -> int:
     warnings_parser.set_defaults(func=cmd_fetch_warnings)
 
     tides_parser = subparsers.add_parser(
-        "tides", help="HW/LW predictions at reference ports (synthetic harmonics)"
+        "tides", help="HW/LW predictions at reference ports (live CMEMS SSH; synthetic fallback)"
     )
     tides_parser.add_argument("--start", default=None, help="window start ISO UTC (default now)")
     tides_parser.add_argument("--hours", type=int, default=96)
