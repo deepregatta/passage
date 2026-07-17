@@ -27,16 +27,14 @@ import numpy as np
 from . import environment_fetcher as fetcher
 from .environment_grid import EnvironmentGrid
 from .paths import contracts_dir, processed_dir
+from .route_sources import currents_bounds
 
 logger = logging.getLogger(__name__)
 
-# Fixed Channel corridor window (Cherbourg-Plymouth); IBI covers it, NWS is the fallback.
-CHANNEL_BOUNDS: Dict[str, float] = {
-    "min_lat": 49.3,
-    "max_lat": 50.6,
-    "min_lon": -5.0,
-    "max_lon": -1.2,
-}
+# Default route's corridor window from config/route-sources.json (Channel:
+# IBI covers it, NWS is the fallback). Kept under the historical name for
+# direct callers/tests; per-route lookups go through route_sources.currents_bounds.
+CHANNEL_BOUNDS: Dict[str, float] = currents_bounds()
 
 TARGET_RESOLUTION_DEG = 0.05
 DEFAULT_WINDOW_HOURS = 120  # CMEMS IBI publishes ~5 days of forecast currents
@@ -91,21 +89,25 @@ def prepare_current_grid(
     *,
     target_resolution_deg: float = TARGET_RESOLUTION_DEG,
     force: bool = False,
+    route_id: str | None = None,
 ) -> Path:
     """
     Fetch forecast currents and publish a region-grid artifact.
 
     Args:
-        bounds: min_lat/max_lat/min_lon/max_lon dict; defaults to the Channel window
+        bounds: min_lat/max_lat/min_lon/max_lon dict; defaults to the route's
+            corridor window from config/route-sources.json (default route when
+            route_id is omitted)
         start: window start (ISO or datetime); default now (floored to the hour)
         end: window end; default start + 72 h
         target_resolution_deg: target regular grid resolution (~0.05 deg)
         force: re-fetch even when a fresh cache exists
+        route_id: route-sources registry key for the default bounds
 
     Returns:
         Path to the written current_grid.json artifact.
     """
-    bounds = dict(bounds or CHANNEL_BOUNDS)
+    bounds = dict(bounds or currents_bounds(route_id))
     start_time = (
         _parse_iso_utc(start)
         if start is not None

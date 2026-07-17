@@ -11,7 +11,7 @@ not yet visible. That lag is disclosed in coverage_note; absence of a warning
 must never read as absence of risk.
 
 Modes:
-  live       — data.gouv BMS mirror: filter Channel broadcast areas, match
+  live       — data.gouv BMS mirror: filter route broadcast areas, match
                route zones by name in the bulletin text, parse validity;
                graceful feed_status "unavailable" on any fetch failure
   synthetic  — clear conditions by default; --gale ZONE injects a gale bulletin
@@ -36,20 +36,12 @@ import requests
 
 from .paths import config_dir, contracts_dir, processed_dir
 from .providers import Mode, provider_mode
+from .route_sources import fr_broadcast_areas
 
 BMS_URL_TEMPLATE = os.environ.get(
     "DEEPWEATHER_BMS_URL_TEMPLATE",
     "https://meteofrance.s3.sbg.io.cloud.ovh.net/data/synchro_ftp/BULLETINS/BMS/bms_{year}.csv.gz",
 )
-
-# BMS broadcast areas (the CSV `zone` column) that can carry Channel bulletins.
-CHANNEL_AREAS = {
-    "Proche Atlantique et Manche Ouest",
-    "Manche Est et Sud Mer du Nord",
-    "Casquet/Antifer",
-    "Baie de Somme/Cap de la Hague",
-    "Cap de la Hague/Penmarc'h",
-}
 
 SEVERITY_WORDS = [
     ("OURAGAN", "hurricane"),
@@ -222,11 +214,14 @@ def fetch_live(now: datetime | None = None) -> dict:
 
     last_issued: datetime | None = None
     zone_tokens = _route_zone_tokens()
+    # BMS broadcast areas (the CSV `zone` column) that can carry bulletins for
+    # any registered route — from config/route-sources.json.
+    route_areas = fr_broadcast_areas()
     for row in rows:
         issued = datetime.strptime(row["date"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
         if last_issued is None or issued > last_issued:
             last_issued = issued
-        if row["langue"] != "FR" or row["zone"] not in CHANNEL_AREAS:
+        if row["langue"] != "FR" or row["zone"] not in route_areas:
             continue
         if issued < now - timedelta(days=7):
             continue

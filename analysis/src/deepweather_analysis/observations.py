@@ -30,9 +30,14 @@ from typing import Any, Dict, List, Optional, Sequence
 
 from .paths import contracts_dir, processed_dir
 from .providers import Mode, provider_mode
+from .route_sources import (
+    live_stations,
+    synthetic_observations_source_name,
+    synthetic_stations,
+)
 
 SCHEMA_VERSION = 1
-SOURCE_NAME = "synthetic-channel-stations"
+SOURCE_NAME = synthetic_observations_source_name()
 RECORD_STEP_MIN = 10
 
 # --- live source: NDBC realtime2 mirror of Met Office GTS buoys -------------
@@ -44,48 +49,16 @@ NDBC_URL_TEMPLATE = os.environ.get(
 LIVE_SOURCE_NAME = "ndbc-realtime2 (Met Office GTS buoys)"
 KT_PER_MS = 1.9438445
 
-# Real moorings on the Cherbourg-Plymouth track. Coordinates from the NDBC
-# station table. Legs beyond ~25 km of these stay 'not_independently_observed'.
-LIVE_STATIONS: tuple[Dict[str, Any], ...] = (
-    {
-        "station_id": "62103",
-        "name": "Channel Lightship",
-        "lat": 49.900,
-        "lon": -2.900,
-    },
-    {
-        "station_id": "62050",
-        "name": "E1 buoy (Plymouth approach)",
-        "lat": 50.000,
-        "lon": -4.400,
-    },
-)
+# Real moorings on the route track, from config/route-sources.json (default
+# route). Legs beyond ~25 km of these stay 'not_independently_observed'.
+LIVE_STATIONS: tuple[Dict[str, Any], ...] = live_stations()
 
 # Keep records this far outside the requested window so the matcher's
 # nearest-in-time search (max 40 min) never starves at the edges.
 WINDOW_SLACK_MIN = 40
 
-# Fixed synthetic station set (Channel verification geometry).
-STATIONS: tuple[Dict[str, Any], ...] = (
-    {
-        "station_id": "casquets-buoy",
-        "name": "Casquets Buoy (synthetic)",
-        "lat": 49.72,
-        "lon": -2.34,
-    },
-    {
-        "station_id": "mid-channel",
-        "name": "Mid-Channel Buoy (synthetic)",
-        "lat": 49.95,
-        "lon": -3.0,
-    },
-    {
-        "station_id": "plymouth-approach",
-        "name": "Plymouth Approach (synthetic)",
-        "lat": 50.25,
-        "lon": -4.1,
-    },
-)
+# Fixed synthetic station set (default route's verification geometry).
+STATIONS: tuple[Dict[str, Any], ...] = synthetic_stations()
 
 # Fields a base_series may carry (per-station hourly truth-ish arrays).
 VARIABLES = ("wind_kt", "gust_kt", "wind_dir_deg", "pressure_hpa", "hs_m")
@@ -162,6 +135,7 @@ def generate_observations(
     base_series: Optional[Dict[str, Dict[str, Sequence[float]]]] = None,
     *,
     generated_at: Optional[str] = None,
+    route_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Generate a synthetic observations document per contracts/observations.schema.json.
@@ -175,6 +149,7 @@ def generate_observations(
             deterministic sin 'noise' plus a small fixed bias; stations or
             variables absent from base_series fall back to the default model.
         generated_at: override the stamped generation time (determinism aids).
+        route_id: route-sources registry key (default route when omitted).
 
     Returns:
         schema-valid observations dict, source.mode == 'synthetic'.
@@ -186,7 +161,7 @@ def generate_observations(
     base_series = base_series or {}
 
     stations_out: List[Dict[str, Any]] = []
-    for station in STATIONS:
+    for station in synthetic_stations(route_id):
         sid = station["station_id"]
         per_station = base_series.get(sid) or {}
         records: List[Dict[str, Any]] = []
@@ -225,7 +200,7 @@ def generate_observations(
     doc = {
         "schema_version": SCHEMA_VERSION,
         "generated_at": generated_at or _iso_z(datetime.now(timezone.utc)),
-        "source": {"mode": "synthetic", "name": SOURCE_NAME},
+        "source": {"mode": "synthetic", "name": synthetic_observations_source_name(route_id)},
         "stations": stations_out,
     }
     validate_observations(doc)
@@ -275,7 +250,11 @@ def parse_realtime2(raw_text: str) -> List[Dict[str, Any]]:
 
 
 def fetch_live(
-    start_iso: str, end_iso: str, *, generated_at: Optional[str] = None
+    start_iso: str,
+    end_iso: str,
+    *,
+    generated_at: Optional[str] = None,
+    route_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Fetch real observations from NDBC realtime2 for the window.
@@ -293,7 +272,7 @@ def fetch_live(
 
     stations_out: List[Dict[str, Any]] = []
     failures: List[str] = []
-    for station in LIVE_STATIONS:
+    for station in live_stations(route_id):
         url = NDBC_URL_TEMPLATE.format(station_id=station["station_id"])
         try:
             resp = requests.get(url, timeout=30)
@@ -327,16 +306,19 @@ def fetch_live(
     return doc
 
 
-def fetch_observations(start_iso: str, end_iso: str) -> Dict[str, Any]:
+def fetch_observations(
+    start_iso: str, end_iso: str, *, route_id: Optional[str] = None
+) -> Dict[str, Any]:
     """Provider-mode dispatch: live NDBC buoys, degrading visibly to synthetic."""
     if provider_mode("observations") is Mode.LIVE:
         try:
-            return fetch_live(start_iso, end_iso)
+            return fetch_live(start_iso, end_iso, route_id=route_id)
         except Exception as exc:  # degrade, but never silently
-            doc = generate_observations(start_iso, end_iso)
-            doc["source"]["name"] = f"{SOURCE_NAME} (live fetch failed: {exc})"
+            doc = generate_observations(start_iso, end_iso, route_id=route_id)
+            source_name = synthetic_observations_source_name(route_id)
+            doc["source"]["name"] = f"{source_name} (live fetch failed: {exc})"
             return doc
-    return generate_observations(start_iso, end_iso)
+    return generate_observations(start_iso, end_iso, route_id=route_id)
 
 
 def validate_observations(doc: Dict[str, Any]) -> None:

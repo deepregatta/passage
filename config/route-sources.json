@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "comment": "Per-route registry for the four 'local' feeds (tides, currents, warnings, observations). The forecast-model layer is global; everything region-specific lives here. Marine warning ZONES stay in route-zones.json; this file carries the feed sources: observation stations, tide ports, currents bounds, FR broadcast-area filters. Synthetic entries are the deterministic fallback geometry for the same route.",
+  "routes": {
+    "cherbourg-plymouth-v1": {
+      "region": "channel",
+      "currents_bounds": { "min_lat": 49.3, "max_lat": 50.6, "min_lon": -5.0, "max_lon": -1.2 },
+      "observations": {
+        "synthetic_source_name": "synthetic-channel-stations",
+        "live_stations": [
+          { "station_id": "62103", "name": "Channel Lightship", "lat": 49.9, "lon": -2.9 },
+          { "station_id": "62050", "name": "E1 buoy (Plymouth approach)", "lat": 50.0, "lon": -4.4 }
+        ],
+        "synthetic_stations": [
+          { "station_id": "casquets-buoy", "name": "Casquets Buoy (synthetic)", "lat": 49.72, "lon": -2.34 },
+          { "station_id": "mid-channel", "name": "Mid-Channel Buoy (synthetic)", "lat": 49.95, "lon": -3.0 },
+          { "station_id": "plymouth-approach", "name": "Plymouth Approach (synthetic)", "lat": 50.25, "lon": -4.1 }
+        ]
+      },
+      "tides": {
+        "artifact_name": "channel",
+        "ports": {
+          "cherbourg": {
+            "name": "Cherbourg",
+            "lat": 49.65,
+            "lon": -1.63,
+            "z0": 3.8,
+            "constituents": { "M2": [1.9, 220], "S2": [0.7, 260], "N2": [0.4, 200], "K1": [0.1, 75], "O1": [0.08, 330] }
+          },
+          "st-helier": {
+            "name": "St Helier",
+            "lat": 49.18,
+            "lon": -2.12,
+            "z0": 6.1,
+            "constituents": { "M2": [3.5, 190], "S2": [1.3, 235], "N2": [0.7, 170], "K1": [0.08, 90], "O1": [0.07, 340] }
+          },
+          "brest": {
+            "name": "Brest",
+            "lat": 48.38,
+            "lon": -4.5,
+            "z0": 4.0,
+            "constituents": { "M2": [2.0, 140], "S2": [0.75, 180], "N2": [0.42, 120], "K1": [0.07, 70], "O1": [0.07, 325] }
+          },
+          "plymouth": {
+            "name": "Plymouth (Devonport)",
+            "lat": 50.37,
+            "lon": -4.19,
+            "z0": 3.2,
+            "constituents": { "M2": [1.7, 135], "S2": [0.6, 180], "N2": [0.35, 115], "K1": [0.06, 65], "O1": [0.06, 320] }
+          }
+        }
+      },
+      "warnings_fr": {
+        "broadcast_areas": [
+          "Proche Atlantique et Manche Ouest",
+          "Manche Est et Sud Mer du Nord",
+          "Casquet/Antifer",
+          "Baie de Somme/Cap de la Hague",
+          "Cap de la Hague/Penmarc'h"
+        ]
+      }
+    }
+  }
+}

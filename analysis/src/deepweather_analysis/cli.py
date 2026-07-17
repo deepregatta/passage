@@ -42,7 +42,9 @@ def cmd_fetch_currents(args: argparse.Namespace) -> int:
             "min_lon": min_lon,
             "max_lon": max_lon,
         }
-    path = prepare_current_grid(bounds=bounds, start=args.start, end=args.end, force=args.force)
+    path = prepare_current_grid(
+        bounds=bounds, start=args.start, end=args.end, force=args.force, route_id=args.route
+    )
     print(f"published {path}")
     return 0
 
@@ -70,7 +72,7 @@ def cmd_fetch_warnings(args: argparse.Namespace) -> int:
 def cmd_tides(args: argparse.Namespace) -> int:
     from .tides import prepare_tides
 
-    path = prepare_tides(start_iso=args.start, hours=args.hours)
+    path = prepare_tides(start_iso=args.start, hours=args.hours, route_id=args.route)
     import json
 
     mode = json.loads(path.read_text())["source"]["mode"]
@@ -115,7 +117,7 @@ def cmd_verify(args: argparse.Namespace) -> int:
     findings = json.loads(target.read_text())
     first_hour = findings["legs"][0]["hours"][0]["valid_time"]
     last_hour = findings["legs"][-1]["hours"][-1]["valid_time"]
-    observations = fetch_observations(first_hour, last_hour)
+    observations = fetch_observations(first_hour, last_hour, route_id=args.route)
     verification = match_snapshot(findings, observations)
     calibration_path = accumulate_calibration([verification])
     source = observations["source"]
@@ -184,6 +186,9 @@ def main(argv: list[str] | None = None) -> int:
     currents_parser.add_argument(
         "--force", action="store_true", help="re-fetch even if a fresh cache exists"
     )
+    currents_parser.add_argument(
+        "--route", default=None, help="route id in config/route-sources.json (default route)"
+    )
     currents_parser.set_defaults(func=cmd_fetch_currents)
 
     prepare_parser = subparsers.add_parser(
@@ -210,6 +215,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     tides_parser.add_argument("--start", default=None, help="window start ISO UTC (default now)")
     tides_parser.add_argument("--hours", type=int, default=96)
+    tides_parser.add_argument(
+        "--route", default=None, help="route id in config/route-sources.json (default route)"
+    )
     tides_parser.set_defaults(func=cmd_tides)
 
     corpus_parser = subparsers.add_parser(
@@ -224,6 +232,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     verify_parser.add_argument(
         "--snapshot", default=None, help="snapshot id substring (default latest)"
+    )
+    verify_parser.add_argument(
+        "--route", default=None, help="route id in config/route-sources.json (default route)"
     )
     verify_parser.set_defaults(func=cmd_verify)
 

@@ -30,6 +30,7 @@ from pathlib import Path
 
 from .paths import contracts_dir, data_root, processed_dir
 from .providers import Mode, provider_mode
+from .route_sources import tide_ports, tides_artifact_name
 
 logger = logging.getLogger(__name__)
 
@@ -42,69 +43,18 @@ PORT_BOX_HALF_DEG = 0.14
 # angular speeds, degrees per hour (standard values)
 OMEGA = {"M2": 28.9841042, "S2": 30.0, "N2": 28.4397295, "K1": 15.0410686, "O1": 13.9430356}
 
-# SYNTHETIC constituents: amplitudes (m) and phases (deg) are plausible for the
-# region's character (large semidiurnal, marked spring/neap) but are NOT surveyed
-# values. Z0 = mean level above chart datum.
-PORTS: dict[str, dict] = {
-    "cherbourg": {
-        "name": "Cherbourg",
-        "lat": 49.65,
-        "lon": -1.63,
-        "z0": 3.8,
-        "constituents": {
-            "M2": (1.9, 220),
-            "S2": (0.7, 260),
-            "N2": (0.4, 200),
-            "K1": (0.1, 75),
-            "O1": (0.08, 330),
-        },
-    },
-    "st-helier": {
-        "name": "St Helier",
-        "lat": 49.18,
-        "lon": -2.12,
-        "z0": 6.1,
-        "constituents": {
-            "M2": (3.5, 190),
-            "S2": (1.3, 235),
-            "N2": (0.7, 170),
-            "K1": (0.08, 90),
-            "O1": (0.07, 340),
-        },
-    },
-    "brest": {
-        "name": "Brest",
-        "lat": 48.38,
-        "lon": -4.5,
-        "z0": 4.0,
-        "constituents": {
-            "M2": (2.0, 140),
-            "S2": (0.75, 180),
-            "N2": (0.42, 120),
-            "K1": (0.07, 70),
-            "O1": (0.07, 325),
-        },
-    },
-    "plymouth": {
-        "name": "Plymouth (Devonport)",
-        "lat": 50.37,
-        "lon": -4.19,
-        "z0": 3.2,
-        "constituents": {
-            "M2": (1.7, 135),
-            "S2": (0.6, 180),
-            "N2": (0.35, 115),
-            "K1": (0.06, 65),
-            "O1": (0.06, 320),
-        },
-    },
-}
+# Reference ports come from config/route-sources.json per route. SYNTHETIC
+# constituent amplitudes (m) / phases (deg) there are plausible for each
+# region's character (large semidiurnal, marked spring/neap) but are NOT
+# surveyed values. Z0 = mean level above chart datum. PORTS is the default
+# route's registry, kept for direct callers/tests.
+PORTS: dict[str, dict] = tide_ports()
 
 EPOCH = datetime(2026, 1, 1, tzinfo=timezone.utc)
 
 
-def height_m(port_id: str, when: datetime) -> float:
-    port = PORTS[port_id]
+def height_m(port_id: str, when: datetime, *, ports: dict[str, dict] | None = None) -> float:
+    port = (ports or PORTS)[port_id]
     hours = (when - EPOCH).total_seconds() / 3600.0
     h = port["z0"]
     for name, (amp, phase) in port["constituents"].items():
@@ -112,15 +62,21 @@ def height_m(port_id: str, when: datetime) -> float:
     return h
 
 
-def hw_lw_events(port_id: str, start: datetime, end: datetime) -> list[dict]:
+def hw_lw_events(
+    port_id: str, start: datetime, end: datetime, *, ports: dict[str, dict] | None = None
+) -> list[dict]:
     """HW/LW via derivative sign change on a 6-min grid + quadratic refinement."""
+
+    def _h(when: datetime) -> float:
+        return height_m(port_id, when, ports=ports)
+
     events = []
     step = timedelta(minutes=6)
     t = start
-    prev_h = height_m(port_id, t - step)
-    cur_h = height_m(port_id, t)
+    prev_h = _h(t - step)
+    cur_h = _h(t)
     while t <= end:
-        next_h = height_m(port_id, t + step)
+        next_h = _h(t + step)
         rising_before = cur_h > prev_h
         rising_after = next_h > cur_h
         if rising_before != rising_after:
@@ -132,7 +88,7 @@ def hw_lw_events(port_id: str, start: datetime, end: datetime) -> list[dict]:
                 {
                     "kind": "HW" if rising_before else "LW",
                     "time": t_ext.strftime("%Y-%m-%dT%H:%M:%SZ"),
-                    "height_m": round(height_m(port_id, t_ext), 2),
+                    "height_m": round(_h(t_ext), 2),
                 }
             )
         prev_h, cur_h = cur_h, next_h
@@ -168,13 +124,11 @@ def _events_from_samples(times_ms: list[float], heights: list[float]) -> list[di
     return events
 
 
-def _fetch_port_ssh_events(port_id: str, start: datetime, end: datetime) -> list[dict]:
+def _fetch_port_ssh_events(port_id: str, port: dict, start: datetime, end: datetime) -> list[dict]:
     """Live path: subset CMEMS SSH around one port, extract HW/LW at nearest wet cell."""
     import copernicusmarine
     import numpy as np
     import xarray as xr
-
-    port = PORTS[port_id]
     cache_dir = data_root() / "cache" / "tides"
     cache_dir.mkdir(parents=True, exist_ok=True)
     nc_path = cache_dir / f"{port_id}.nc"
@@ -212,16 +166,16 @@ def _fetch_port_ssh_events(port_id: str, start: datetime, end: datetime) -> list
     return _events_from_samples(times_ms, heights)
 
 
-def _live_doc(start: datetime, end: datetime) -> dict:
+def _live_doc(start: datetime, end: datetime, route_ports: dict[str, dict]) -> dict:
     ports = []
-    for port_id, port in PORTS.items():
+    for port_id, port in route_ports.items():
         ports.append(
             {
                 "port_id": port_id,
                 "name": port["name"],
                 "lat": port["lat"],
                 "lon": port["lon"],
-                "events": _fetch_port_ssh_events(port_id, start, end),
+                "events": _fetch_port_ssh_events(port_id, port, start, end),
             }
         )
     return {
@@ -240,7 +194,12 @@ def _live_doc(start: datetime, end: datetime) -> dict:
     }
 
 
-def _synthetic_doc(start: datetime, end: datetime, degraded_reason: str | None = None) -> dict:
+def _synthetic_doc(
+    start: datetime,
+    end: datetime,
+    route_ports: dict[str, dict],
+    degraded_reason: str | None = None,
+) -> dict:
     note = (
         "SYNTHETIC harmonic constituents — plausible regional character, not "
         "surveyed values. Never use for a real passage. Real source "
@@ -262,14 +221,16 @@ def _synthetic_doc(start: datetime, end: datetime, degraded_reason: str | None =
                 "name": port["name"],
                 "lat": port["lat"],
                 "lon": port["lon"],
-                "events": hw_lw_events(port_id, start, end),
+                "events": hw_lw_events(port_id, start, end, ports=route_ports),
             }
-            for port_id, port in PORTS.items()
+            for port_id, port in route_ports.items()
         ],
     }
 
 
-def prepare_tides(start_iso: str | None = None, hours: int = 96) -> Path:
+def prepare_tides(
+    start_iso: str | None = None, hours: int = 96, route_id: str | None = None
+) -> Path:
     from jsonschema import Draft202012Validator
 
     start = (
@@ -278,19 +239,20 @@ def prepare_tides(start_iso: str | None = None, hours: int = 96) -> Path:
         else datetime.now(timezone.utc)
     )
     end = start + timedelta(hours=hours)
+    route_ports = tide_ports(route_id)
 
     if provider_mode("tides") is Mode.LIVE:
         try:
-            doc = _live_doc(start, end)
+            doc = _live_doc(start, end, route_ports)
         except Exception as error:  # noqa: BLE001 — feed failure must degrade, not crash
             logger.warning("live tides fetch failed, degrading to synthetic: %s", error)
-            doc = _synthetic_doc(start, end, degraded_reason=str(error))
+            doc = _synthetic_doc(start, end, route_ports, degraded_reason=str(error))
     else:
-        doc = _synthetic_doc(start, end)
+        doc = _synthetic_doc(start, end, route_ports)
 
     schema = json.loads((contracts_dir() / "tides.schema.json").read_text())
     Draft202012Validator(schema).validate(doc)
 
-    out = processed_dir("tides") / "channel.json"
+    out = processed_dir("tides") / f"{tides_artifact_name(route_id)}.json"
     out.write_text(json.dumps(doc, indent=1))
     return out
