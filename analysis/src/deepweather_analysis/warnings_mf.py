@@ -280,11 +280,41 @@ def write_warnings(doc: dict) -> Path:
     return latest
 
 
+def _route_uk_zones() -> list[dict]:
+    zones_doc = json.loads((config_dir() / "route-zones.json").read_text())
+    out: list[dict] = []
+    seen: set[str] = set()
+    for entry in zones_doc.get("routes", {}).values():
+        for zone in entry.get("uk_zones", []):
+            if zone["zone_id"] not in seen:
+                seen.add(zone["zone_id"])
+                out.append(zone)
+    return out
+
+
+def _merge_uk_warnings(doc: dict) -> dict:
+    """Append live UK gale bulletins (Met Office shipping forecast) to the FR doc."""
+    from .warnings_uk import fetch_uk_gale_bulletins
+
+    try:
+        bulletins, uk_note = fetch_uk_gale_bulletins(_route_uk_zones())
+    except Exception as error:  # noqa: BLE001 — any feed failure must degrade, not crash
+        doc["feed_status"] = "parse-degraded"
+        doc["coverage_note"] = f"{doc.get('coverage_note', '')} UK feed unavailable: {error}".strip()
+        return doc
+    doc["bulletins"].extend(bulletins)
+    doc["source"]["name"] = f"{doc['source'].get('name', '')} + Met Office shipping forecast"
+    base_note = doc.get("coverage_note", "")
+    doc["coverage_note"] = f"{base_note.replace('UK shipping-forecast zones modeled but not fetched.', '').strip()} {uk_note}".strip()
+    return doc
+
+
 def fetch_warnings(gale_zone: str | None = None, paste_file: str | None = None) -> Path:
     if paste_file:
         doc = parse_manual_bulletin(Path(paste_file).read_text(), zone_id=gale_zone or "casquets")
         return write_warnings(doc)
     mode = provider_mode("warnings_fr")
-    if mode is Mode.LIVE:
-        return write_warnings(fetch_live())
-    return write_warnings(synthetic_doc(gale_zone))
+    doc = fetch_live() if mode is Mode.LIVE else synthetic_doc(gale_zone)
+    if provider_mode("warnings_uk") is Mode.LIVE:
+        doc = _merge_uk_warnings(doc)
+    return write_warnings(doc)

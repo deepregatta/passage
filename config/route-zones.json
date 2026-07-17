@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "comment": "Marine forecast zone coverage per route. FR zones: Météo-France côte/large. UK zones: shipping forecast areas — modeled but not fetched live (warnings_uk provider is synthetic).",
+  "comment": "Marine forecast zone coverage per route. FR zones: Météo-France côte/large (BMS via data.gouv mirror). UK zones: Met Office shipping forecast areas (gale warnings from the print page).",
   "routes": {
     "cherbourg-plymouth-v1": {
       "fr_zones": [
@@ -8,8 +8,8 @@
         { "zone_id": "hague-barfleur", "zone_name": "De la Hague à la pointe de Barfleur (côte)", "kind": "cote", "match_tokens": ["HAGUE", "BARFLEUR"] }
       ],
       "uk_zones": [
-        { "zone_id": "portland", "zone_name": "Portland", "kind": "shipping", "fetched": false },
-        { "zone_id": "plymouth", "zone_name": "Plymouth", "kind": "shipping", "fetched": false }
+        { "zone_id": "portland", "zone_name": "Portland", "kind": "shipping", "fetched": true },
+        { "zone_id": "plymouth", "zone_name": "Plymouth", "kind": "shipping", "fetched": true }
       ]
     }
   }
