@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "route_id": "palma-barcelona-v1",
+  "name": "Palma → Barcelona",
+  "mode": "fixed",
+  "comment": "First Mediterranean route (~135 nm, ~24 h at 5.5 kt): out of the Bay of Palma, round Cap de Cala Figuera, past Sa Dragonera, then the open Balearic Sea rhumb line to the Barcelona port entrance.",
+  "waypoints": [
+    { "id": "wp1", "name": "Palma, harbour entrance", "lat": 39.55, "lon": 2.63 },
+    { "id": "wp2", "name": "Bay of Palma, south exit", "lat": 39.46, "lon": 2.55 },
+    { "id": "wp3", "name": "Off Cap de Cala Figuera", "lat": 39.43, "lon": 2.45 },
+    { "id": "wp4", "name": "Sa Dragonera offing", "lat": 39.55, "lon": 2.28 },
+    { "id": "wp5", "name": "Balearic Sea mid-passage", "lat": 40.4, "lon": 2.25 },
+    { "id": "wp6", "name": "Barcelona approach", "lat": 41.28, "lon": 2.22 },
+    { "id": "wp7", "name": "Barcelona, port entrance", "lat": 41.34, "lon": 2.16 }
+  ],
+  "speeds_kt": { "slow": 4.5, "nominal": 5.5, "fast": 6.5 }
+}

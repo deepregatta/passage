@@ -8,10 +8,14 @@ live / noaa_coops — NOAA CO-OPS official harmonic predictions
   events directly from the authority, heights in metres above MLLW (the US
   chart datum) — no extraction or datum transfer needed. US routes.
 
-live / cmems_ssh — CMEMS IBI 15-minute sea-surface height (dataset
-  cmems_mod_ibi_phy_anfc_0.027deg-2D_PT15M-i, variable zos). The IBI model
-  carries explicit tidal forcing, so its SSH series contains the real tide;
-  HW/LW are extracted at the nearest wet grid cell to each reference port.
+live / cmems_ssh — CMEMS regional-model sea-surface height (variable zos).
+  Default dataset is the IBI 15-minute 2D SSH
+  (cmems_mod_ibi_phy_anfc_0.027deg-2D_PT15M-i); routes outside IBI declare a
+  sibling dataset in route-sources.json tides.live_source.dataset (e.g. the
+  Med model's cmems_mod_med_phy-ssh_anfc_4.2km_PT15M-i — recent Med versions
+  carry explicit tides, proven by the detided sibling dataset). The models
+  carry tidal forcing, so their SSH series contains the real tide; HW/LW are
+  extracted at the nearest wet grid cell to each reference port.
   Heights are model SSH (≈ above mean sea level) shifted by the port's Z0
   (mean level above chart datum) as an approximate datum transfer — good for
   gate *timing*, indicative only for heights. Any fetch failure degrades to
@@ -134,7 +138,9 @@ def _events_from_samples(times_ms: list[float], heights: list[float]) -> list[di
     return events
 
 
-def _fetch_port_ssh_events(port_id: str, port: dict, start: datetime, end: datetime) -> list[dict]:
+def _fetch_port_ssh_events(
+    port_id: str, port: dict, start: datetime, end: datetime, dataset_id: str
+) -> list[dict]:
     """Live path: subset CMEMS SSH around one port, extract HW/LW at nearest wet cell."""
     import copernicusmarine
     import numpy as np
@@ -143,7 +149,7 @@ def _fetch_port_ssh_events(port_id: str, port: dict, start: datetime, end: datet
     cache_dir.mkdir(parents=True, exist_ok=True)
     nc_path = cache_dir / f"{port_id}.nc"
     copernicusmarine.subset(
-        dataset_id=CMEMS_SSH_DATASET,
+        dataset_id=dataset_id,
         variables=["zos"],
         minimum_longitude=port["lon"] - PORT_BOX_HALF_DEG,
         maximum_longitude=port["lon"] + PORT_BOX_HALF_DEG,
@@ -219,9 +225,9 @@ def _fetch_port_coops_events(port: dict, start: datetime, end: datetime) -> list
 
 
 def _live_doc(
-    start: datetime, end: datetime, route_ports: dict[str, dict], live_kind: str
+    start: datetime, end: datetime, route_ports: dict[str, dict], live_source: dict
 ) -> dict:
-    if live_kind == "noaa_coops":
+    if live_source["kind"] == "noaa_coops":
         fetch_events = lambda port_id, port: _fetch_port_coops_events(port, start, end)  # noqa: E731
         note = (
             "HW/LW from NOAA CO-OPS official harmonic predictions "
@@ -229,10 +235,13 @@ def _live_doc(
             "metres above MLLW (US chart datum)."
         )
     else:
-        fetch_events = lambda port_id, port: _fetch_port_ssh_events(port_id, port, start, end)  # noqa: E731
+        dataset_id = live_source.get("dataset", CMEMS_SSH_DATASET)
+        fetch_events = lambda port_id, port: _fetch_port_ssh_events(  # noqa: E731
+            port_id, port, start, end, dataset_id
+        )
         note = (
-            f"HW/LW extracted from CMEMS IBI 15-min sea-surface height "
-            f"({CMEMS_SSH_DATASET}) at the nearest wet cell to each reference "
+            f"HW/LW extracted from CMEMS model sea-surface height "
+            f"({dataset_id}) at the nearest wet cell to each reference "
             "port. Heights = model SSH + port mean level above chart datum "
             "(approximate datum transfer); use for gate timing, not clearances."
         )
@@ -304,7 +313,7 @@ def prepare_tides(
 
     if provider_mode("tides") is Mode.LIVE:
         try:
-            doc = _live_doc(start, end, route_ports, tides_live_source(route_id)["kind"])
+            doc = _live_doc(start, end, route_ports, tides_live_source(route_id))
         except Exception as error:  # noqa: BLE001 — feed failure must degrade, not crash
             logger.warning("live tides fetch failed, degrading to synthetic: %s", error)
             doc = _synthetic_doc(start, end, route_ports, degraded_reason=str(error))

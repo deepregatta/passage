@@ -11,7 +11,8 @@
     "warnings_fr": { "mode": "live", "note": "official data.gouv BMS mirror, synced daily (~24h max lag, disclosed in coverage_note)" },
     "warnings_uk": { "mode": "live", "note": "Met Office shipping-forecast print page (no API exists); gale warnings between issues invisible until next forecast" },
     "warnings_us": { "mode": "live", "note": "NWS api.weather.gov active alerts per marine zone (official structured API); merged for routes with us_zones" },
-    "tides": { "mode": "live", "note": "per route: NOAA CO-OPS official predictions (US) or CMEMS IBI 15-min SSH (Channel); degrades to synthetic harmonics on fetch failure" },
-    "observations": { "mode": "live", "note": "NDBC realtime2 (GTS mirror of Met Office Channel buoys; native NDBC/C-MAN for US); hourly, past ~45 days only — future windows report not_independently_observed" }
+    "warnings_meteoalarm": { "mode": "live", "note": "Meteoalarm CAP JSON per country (national services aggregated); coastal zones only — high-seas bulletins not distributed via Meteoalarm; merged for routes with meteoalarm_zones" },
+    "tides": { "mode": "live", "note": "per route: NOAA CO-OPS official predictions (US) or CMEMS 15-min model SSH (IBI Channel, Med); degrades to synthetic harmonics on fetch failure" },
+    "observations": { "mode": "live", "note": "per route: NDBC realtime2 (GTS/C-MAN) or Copernicus In Situ TAC NRT moorings (Med); recent past only — future windows report not_independently_observed" }
   }
 }

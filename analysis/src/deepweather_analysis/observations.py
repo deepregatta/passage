@@ -1,12 +1,22 @@
 """Buoy/station observations for the verification layer (brief §9).
 
-LIVE (config/providers.json: observations.mode == 'live'): real Channel buoys
-via NDBC's realtime2 mirror of the GTS marine network — Channel Lightship
-(62103, mid-Channel) and E1 (62050, Plymouth approach), both UK Met Office
-moorings reporting hourly wind/direction/pressure. No account or token needed.
-Records only exist for the past (~45-day rolling window at hourly cadence);
-a future passage window honestly yields empty station records, which the
-matcher reports as 'not_independently_observed'.
+LIVE (config/providers.json: observations.mode == 'live'): the per-route
+live source kind comes from route-sources.json observations.live_source:
+
+ndbc (default) — NDBC's realtime2 mirror of the GTS marine network: Channel
+  Met Office moorings (62103, 62050) and native NDBC/C-MAN for US routes.
+  No account or token needed. Records only exist for the past (~45-day
+  rolling window at hourly cadence).
+
+cmems_insitu_nrt — Copernicus Marine In Situ TAC NRT moorings (Med routes:
+  the Spanish Med buoys are NOT on the GTS/NDBC mirror, checked 2026-07-17).
+  Daily per-platform NetCDF files on the anonymously readable CMEMS native
+  S3 ('latest' rolling window, ~1 month); stations carry a file_prefix like
+  IR_TS_MO_6100430 (Dragonera). Variables WSPD/GSPD/WDIR/ATMS|ATMP/VHM0 at
+  a single met level, masked by their _QC flags.
+
+Either way a future passage window honestly yields empty station records,
+which the matcher reports as 'not_independently_observed'.
 
 SYNTHETIC fallback: kept for fixture mode and for graceful degradation when
 the live fetch fails. Every synthetic document carries source.mode ==
@@ -28,11 +38,12 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
-from .paths import contracts_dir, processed_dir
+from .paths import contracts_dir, data_root, processed_dir
 from .providers import Mode, provider_mode
 from .route_sources import (
     live_observations_source_name,
     live_stations,
+    observations_live_source,
     synthetic_observations_source_name,
     synthetic_stations,
 )
@@ -308,12 +319,147 @@ def fetch_live(
     return doc
 
 
+# CMEMS In Situ TAC QC flags accepted as usable (0 no-QC, 1 good, 2 probably good)
+INSITU_GOOD_QC = (0, 1, 2)
+# (record field, candidate NetCDF variables in preference order, unit conversion)
+INSITU_VARIABLES = (
+    ("wind_kt", ("WSPD",), KT_PER_MS, 1),
+    ("gust_kt", ("GSPD",), KT_PER_MS, 1),
+    ("wind_dir_deg", ("WDIR",), 1.0, 0),
+    ("pressure_hpa", ("ATMS", "ATMP"), 1.0, 1),
+    ("hs_m", ("VHM0",), 1.0, 2),
+)
+
+
+def records_from_insitu_nc(nc_path: Path) -> List[Dict[str, Any]]:
+    """
+    Parse one In Situ TAC daily mooring NetCDF into schema records.
+
+    Variables are dimensioned (TIME, DEPTH) with met sensors on a single
+    level; per timestep the first finite value across DEPTH is taken. Values
+    whose <VAR>_QC flag is outside INSITU_GOOD_QC are dropped (kept as None).
+    """
+    import numpy as np
+    import xarray as xr
+
+    records: Dict[str, Dict[str, Any]] = {}
+    with xr.open_dataset(nc_path) as ds:
+        times = [
+            _iso_z(datetime.fromtimestamp(t / 1e9, tz=timezone.utc))
+            for t in ds["TIME"].values.astype("datetime64[ns]").astype("int64")
+        ]
+        for field, candidates, factor, digits in INSITU_VARIABLES:
+            name = next((v for v in candidates if v in ds), None)
+            if name is None:
+                continue
+            values = np.atleast_2d(ds[name].values.astype(float))
+            qc_name = f"{name}_QC"
+            if qc_name in ds:
+                qc = np.atleast_2d(ds[qc_name].values.astype(float))
+                values = np.where(np.isin(qc, INSITU_GOOD_QC), values, np.nan)
+            for i, t in enumerate(times):
+                finite = values[i][np.isfinite(values[i])]
+                if not len(finite):
+                    continue
+                value = float(finite[0]) * factor
+                if field == "wind_dir_deg":
+                    value = value % 360.0
+                record = records.setdefault(t, {"time": t})
+                record[field] = round(value, digits) if digits else round(value, 0)
+    return [records[t] for t in sorted(records)]
+
+
+def fetch_live_insitu(
+    start_iso: str,
+    end_iso: str,
+    *,
+    generated_at: Optional[str] = None,
+    route_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Fetch real Med observations from the Copernicus In Situ TAC NRT S3 mirror.
+
+    One daily NetCDF per station per day, from route-sources live_source
+    base_url. Days after today are not requested (a fully future window keeps
+    every station with empty records — 'not_independently_observed'); a day
+    missing upstream (rolled out of the ~1-month 'latest' window, or today's
+    file not yet published) is skipped. If no file at all could be fetched for
+    a window that includes past days, raises so the dispatcher degrades to
+    synthetic — an all-404 response must not masquerade as live coverage.
+    """
+    import requests
+
+    source = observations_live_source(route_id)
+    base_url = source["base_url"].rstrip("/")
+    start = _parse_iso(start_iso) - timedelta(minutes=WINDOW_SLACK_MIN)
+    end = _parse_iso(end_iso) + timedelta(minutes=WINDOW_SLACK_MIN)
+    today = datetime.now(timezone.utc).date()
+    days = []
+    day = start.date()
+    while day <= min(end.date(), today):
+        days.append(day)
+        day += timedelta(days=1)
+
+    cache_dir = data_root() / "cache" / "observations" / "insitu"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
+    stations_out: List[Dict[str, Any]] = []
+    fetched_files = 0
+    failures: List[str] = []
+    for station in live_stations(route_id):
+        prefix = station["file_prefix"]
+        records: List[Dict[str, Any]] = []
+        for day in days:
+            stamp = day.strftime("%Y%m%d")
+            nc_path = cache_dir / f"{prefix}_{stamp}.nc"
+            # a past day's file is final; today's is still filling — refetch it
+            if not nc_path.exists() or day == today:
+                try:
+                    resp = requests.get(f"{base_url}/{stamp}/{prefix}_{stamp}.nc", timeout=60)
+                    resp.raise_for_status()
+                except requests.RequestException as exc:
+                    failures.append(f"{prefix} {stamp}: {exc}")
+                    continue
+                nc_path.write_bytes(resp.content)
+            try:
+                day_records = records_from_insitu_nc(nc_path)
+            except Exception as exc:  # noqa: BLE001 — one corrupt file must not sink the station
+                nc_path.unlink(missing_ok=True)
+                failures.append(f"{prefix} {stamp}: unparseable ({exc})")
+                continue
+            fetched_files += 1
+            records.extend(r for r in day_records if start <= _parse_iso(r["time"]) <= end)
+        stations_out.append(
+            {
+                "station_id": station["station_id"],
+                "name": station["name"],
+                "lat": station["lat"],
+                "lon": station["lon"],
+                "quality_flags": ["insitu-nrt"],
+                "records": records,
+            }
+        )
+    if days and not fetched_files:
+        raise RuntimeError(f"no In Situ TAC file retrievable: {'; '.join(failures[:6])}")
+
+    doc = {
+        "schema_version": SCHEMA_VERSION,
+        "generated_at": generated_at or _iso_z(datetime.now(timezone.utc)),
+        "source": {"mode": "live", "name": live_observations_source_name(route_id)},
+        "stations": stations_out,
+    }
+    validate_observations(doc)
+    return doc
+
+
 def fetch_observations(
     start_iso: str, end_iso: str, *, route_id: Optional[str] = None
 ) -> Dict[str, Any]:
-    """Provider-mode dispatch: live NDBC buoys, degrading visibly to synthetic."""
+    """Provider-mode dispatch: live buoys (per-route source), degrading visibly to synthetic."""
     if provider_mode("observations") is Mode.LIVE:
         try:
+            if observations_live_source(route_id)["kind"] == "cmems_insitu_nrt":
+                return fetch_live_insitu(start_iso, end_iso, route_id=route_id)
             return fetch_live(start_iso, end_iso, route_id=route_id)
         except Exception as exc:  # degrade, but never silently
             doc = generate_observations(start_iso, end_iso, route_id=route_id)
@@ -344,9 +490,11 @@ __all__ = [
     "STATIONS",
     "VARIABLES",
     "fetch_live",
+    "fetch_live_insitu",
     "fetch_observations",
     "generate_observations",
     "parse_realtime2",
+    "records_from_insitu_nc",
     "validate_observations",
     "window_label",
     "write_observations",

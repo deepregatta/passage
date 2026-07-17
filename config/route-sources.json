@@ -118,6 +118,48 @@
           }
         }
       }
+    },
+    "palma-barcelona-v1": {
+      "region": "med-west",
+      "currents_bounds": { "min_lat": 39.2, "max_lat": 41.5, "min_lon": 1.8, "max_lon": 2.9 },
+      "observations": {
+        "synthetic_source_name": "synthetic-balearic-stations",
+        "live_source_name": "cmems-insitu-nrt (Copernicus Marine In Situ TAC, Med NRT moorings)",
+        "live_source": {
+          "kind": "cmems_insitu_nrt",
+          "base_url": "https://s3.waw3-1.cloudferro.com/mdl-native-03/native/INSITU_MED_PHYBGCWAV_DISCRETE_MYNRT_013_035/cmems_obs-ins_med_phybgcwav_mynrt_na_irr_202311/latest"
+        },
+        "live_stations": [
+          { "station_id": "6100430", "file_prefix": "IR_TS_MO_6100430", "name": "Dragonera buoy (Puertos del Estado)", "lat": 39.56, "lon": 2.09 },
+          { "station_id": "6100280", "file_prefix": "IR_TS_MO_6100280", "name": "Tarragona buoy (Puertos del Estado)", "lat": 40.69, "lon": 1.47 },
+          { "station_id": "barcelona-coast", "file_prefix": "IR_TS_MO_Barcelona-coast-buoy", "name": "Barcelona II coastal buoy (waves only)", "lat": 41.32, "lon": 2.2 }
+        ],
+        "synthetic_stations": [
+          { "station_id": "palma-bay", "name": "Bay of Palma (synthetic)", "lat": 39.48, "lon": 2.55 },
+          { "station_id": "balearic-sea", "name": "Balearic Sea mid-passage (synthetic)", "lat": 40.4, "lon": 2.25 },
+          { "station_id": "barcelona-approach", "name": "Barcelona Approach (synthetic)", "lat": 41.27, "lon": 2.21 }
+        ]
+      },
+      "tides": {
+        "artifact_name": "palma-barcelona",
+        "live_source": { "kind": "cmems_ssh", "dataset": "cmems_mod_med_phy-ssh_anfc_4.2km_PT15M-i" },
+        "ports": {
+          "palma": {
+            "name": "Palma de Mallorca",
+            "lat": 39.56,
+            "lon": 2.64,
+            "z0": 0.25,
+            "constituents": { "M2": [0.04, 225], "S2": [0.015, 250], "N2": [0.01, 205], "K1": [0.03, 165], "O1": [0.02, 120] }
+          },
+          "barcelona": {
+            "name": "Barcelona",
+            "lat": 41.34,
+            "lon": 2.17,
+            "z0": 0.25,
+            "constituents": { "M2": [0.045, 220], "S2": [0.02, 245], "N2": [0.01, 200], "K1": [0.035, 170], "O1": [0.02, 125] }
+          }
+        }
+      }
     }
   }
 }
