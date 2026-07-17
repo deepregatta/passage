@@ -7,6 +7,7 @@
       "currents_bounds": { "min_lat": 49.3, "max_lat": 50.6, "min_lon": -5.0, "max_lon": -1.2 },
       "observations": {
         "synthetic_source_name": "synthetic-channel-stations",
+        "live_source_name": "ndbc-realtime2 (Met Office GTS buoys)",
         "live_stations": [
           { "station_id": "62103", "name": "Channel Lightship", "lat": 49.9, "lon": -2.9 },
           { "station_id": "62050", "name": "E1 buoy (Plymouth approach)", "lat": 50.0, "lon": -4.4 }
@@ -19,6 +20,7 @@
       },
       "tides": {
         "artifact_name": "channel",
+        "live_source": { "kind": "cmems_ssh" },
         "ports": {
           "cherbourg": {
             "name": "Cherbourg",
@@ -58,6 +60,63 @@
           "Baie de Somme/Cap de la Hague",
           "Cap de la Hague/Penmarc'h"
         ]
+      }
+    },
+    "newport-newyork-v1": {
+      "region": "us-northeast",
+      "currents_bounds": { "min_lat": 40.2, "max_lat": 41.6, "min_lon": -74.2, "max_lon": -70.9 },
+      "observations": {
+        "synthetic_source_name": "synthetic-us-northeast-stations",
+        "live_source_name": "ndbc-realtime2 (NOAA NDBC / C-MAN stations)",
+        "live_stations": [
+          { "station_id": "NWPR1", "name": "Newport, RI (C-MAN)", "lat": 41.505, "lon": -71.326 },
+          { "station_id": "44097", "name": "Block Island wave buoy", "lat": 40.969, "lon": -71.127 },
+          { "station_id": "44025", "name": "Long Island (30 nm S of Islip)", "lat": 40.251, "lon": -73.164 },
+          { "station_id": "44065", "name": "New York Harbor Entrance", "lat": 40.369, "lon": -73.703 }
+        ],
+        "synthetic_stations": [
+          { "station_id": "block-island-sound", "name": "Block Island Sound (synthetic)", "lat": 41.15, "lon": -71.7 },
+          { "station_id": "li-south-shore", "name": "Long Island South Shore (synthetic)", "lat": 40.5, "lon": -73.0 },
+          { "station_id": "ambrose", "name": "Ambrose Approach (synthetic)", "lat": 40.45, "lon": -73.75 }
+        ]
+      },
+      "tides": {
+        "artifact_name": "newport-newyork",
+        "live_source": { "kind": "noaa_coops" },
+        "ports": {
+          "newport": {
+            "name": "Newport, RI",
+            "lat": 41.505,
+            "lon": -71.326,
+            "z0": 0.7,
+            "coops_station": "8452660",
+            "constituents": { "M2": [0.5, 10], "S2": [0.11, 35], "N2": [0.12, 350], "K1": [0.06, 180], "O1": [0.05, 175] }
+          },
+          "montauk": {
+            "name": "Montauk, NY",
+            "lat": 41.048,
+            "lon": -71.96,
+            "z0": 0.4,
+            "coops_station": "8510560",
+            "constituents": { "M2": [0.3, 30], "S2": [0.06, 55], "N2": [0.07, 10], "K1": [0.07, 175], "O1": [0.05, 170] }
+          },
+          "sandy-hook": {
+            "name": "Sandy Hook, NJ",
+            "lat": 40.467,
+            "lon": -74.009,
+            "z0": 0.85,
+            "coops_station": "8531680",
+            "constituents": { "M2": [0.7, 220], "S2": [0.14, 245], "N2": [0.16, 200], "K1": [0.1, 100], "O1": [0.05, 95] }
+          },
+          "the-battery": {
+            "name": "The Battery, NY",
+            "lat": 40.7,
+            "lon": -74.014,
+            "z0": 0.8,
+            "coops_station": "8518750",
+            "constituents": { "M2": [0.66, 230], "S2": [0.13, 255], "N2": [0.15, 210], "K1": [0.1, 105], "O1": [0.05, 100] }
+          }
+        }
       }
     }
   }

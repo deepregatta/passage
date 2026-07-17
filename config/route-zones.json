@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "comment": "Marine forecast zone coverage per route. FR zones: Météo-France côte/large (BMS via data.gouv mirror). UK zones: Met Office shipping forecast areas (gale warnings from the print page).",
+  "comment": "Marine forecast zone coverage per route. FR zones: Météo-France côte/large (BMS via data.gouv mirror). UK zones: Met Office shipping forecast areas (gale warnings from the print page). US zones: NWS coastal marine zones (active alerts via api.weather.gov, keyed by nws_zone UGC code).",
   "routes": {
     "cherbourg-plymouth-v1": {
       "fr_zones": [
@@ -10,6 +10,16 @@
       "uk_zones": [
         { "zone_id": "portland", "zone_name": "Portland", "kind": "shipping", "fetched": true },
         { "zone_id": "plymouth", "zone_name": "Plymouth", "kind": "shipping", "fetched": true }
+      ]
+    },
+    "newport-newyork-v1": {
+      "us_zones": [
+        { "zone_id": "rhode-island-sound", "zone_name": "Rhode Island Sound", "kind": "nws-coastal", "nws_zone": "ANZ235" },
+        { "zone_id": "block-island-sound", "zone_name": "Block Island Sound", "kind": "nws-coastal", "nws_zone": "ANZ237" },
+        { "zone_id": "moriches-montauk", "zone_name": "Moriches Inlet NY to Montauk Point NY out 20 NM", "kind": "nws-coastal", "nws_zone": "ANZ350" },
+        { "zone_id": "fire-island-moriches", "zone_name": "Fire Island Inlet NY to Moriches Inlet NY out 20 NM", "kind": "nws-coastal", "nws_zone": "ANZ353" },
+        { "zone_id": "sandy-hook-fire-island", "zone_name": "Sandy Hook NJ to Fire Island Inlet NY out 20 NM", "kind": "nws-coastal", "nws_zone": "ANZ355" },
+        { "zone_id": "new-york-harbor", "zone_name": "New York Harbor", "kind": "nws-coastal", "nws_zone": "ANZ338" }
       ]
     }
   }

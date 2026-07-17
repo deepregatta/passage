@@ -52,13 +52,14 @@ class TestDetectRegion:
         monkeypatch.setattr(fetcher, "REGION_PRIORITY", ["NWS", "MED", "BAL"])
         assert detect_region(CHANNEL) == "NWS"
 
-    def test_overlap_threshold_respected(self):
-        # 20% overlap with IBI (lat 26..30 of a 10..30 box) -> below 0.25 -> None
-        below = {"min_lat": 10.0, "max_lat": 30.0, "min_lon": -19.0, "max_lon": -5.0}
-        assert detect_region(below) is None
-        # 40% overlap (lat 26..30 of a 20..30 box) -> above threshold -> IBI
-        above = {"min_lat": 20.0, "max_lat": 30.0, "min_lon": -19.0, "max_lon": -5.0}
-        assert detect_region(above) == "IBI"
+    def test_partial_regional_overlap_now_resolves_to_global(self):
+        # A box only partly inside IBI used to overlap-match IBI (or fall to
+        # None); since the GLO fallback landed, anything not fully inside a
+        # regional model gets the global product, which covers the whole box.
+        partial = {"min_lat": 20.0, "max_lat": 30.0, "min_lon": -19.0, "max_lon": -5.0}
+        assert detect_region(partial) == "GLO"
+        outside = {"min_lat": 10.0, "max_lat": 30.0, "min_lon": -19.0, "max_lon": -5.0}
+        assert detect_region(outside) == "GLO"
 
     def test_missing_bounds_returns_none(self):
         assert detect_region({}) is None
