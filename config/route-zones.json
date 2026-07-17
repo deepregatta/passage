@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "comment": "Marine forecast zone coverage per route. FR zones: Météo-France côte/large (BMS via data.gouv mirror). UK zones: Met Office shipping forecast areas (gale warnings from the print page). US zones: NWS coastal marine zones (active alerts via api.weather.gov, keyed by nws_zone UGC code).",
+  "comment": "Marine forecast zone coverage per route. FR zones: Météo-France côte/large (BMS via data.gouv mirror). UK zones: Met Office shipping forecast areas (gale warnings from the print page). US zones: NWS coastal marine zones (active alerts via api.weather.gov, keyed by nws_zone UGC code). Meteoalarm zones: national CAP warnings aggregated by meteoalarm.org, keyed by EMMA_ID geocode + feed country — coastal zones only, high-seas bulletins are not distributed via Meteoalarm.",
   "routes": {
     "cherbourg-plymouth-v1": {
       "fr_zones": [
@@ -20,6 +20,13 @@
         { "zone_id": "fire-island-moriches", "zone_name": "Fire Island Inlet NY to Moriches Inlet NY out 20 NM", "kind": "nws-coastal", "nws_zone": "ANZ353" },
         { "zone_id": "sandy-hook-fire-island", "zone_name": "Sandy Hook NJ to Fire Island Inlet NY out 20 NM", "kind": "nws-coastal", "nws_zone": "ANZ355" },
         { "zone_id": "new-york-harbor", "zone_name": "New York Harbor", "kind": "nws-coastal", "nws_zone": "ANZ338" }
+      ]
+    },
+    "palma-barcelona-v1": {
+      "meteoalarm_zones": [
+        { "zone_id": "costa-sur-de-mallorca", "zone_name": "Costa - Sur de Mallorca", "kind": "meteoalarm-coastal", "emma_id": "ES874", "country": "spain" },
+        { "zone_id": "costa-sierra-tramontana", "zone_name": "Costa - Sierra Tramontana", "kind": "meteoalarm-coastal", "emma_id": "ES875", "country": "spain" },
+        { "zone_id": "costa-litoral-de-barcelona", "zone_name": "Costa - Litoral de Barcelona", "kind": "meteoalarm-coastal", "emma_id": "ES869", "country": "spain" }
       ]
     }
   }

@@ -547,12 +547,17 @@ def _temporal_resolution_from_dataset_id(dataset_id: str) -> Optional[str]:
         return "hourly"
     if "p3h" in dataset_id or "pt3h" in dataset_id:
         return "3-hourly"
+    if "pt15m" in dataset_id:
+        # MED anfc publishes currents only as 15-min instantaneous (no PT1H sibling)
+        return "15-min"
     return None
 
 
 def _format_temporal_resolution(hours: Optional[float], fallback: str) -> str:
     if hours is None:
         return fallback
+    if hours <= 0.5:
+        return "15-min"
     if hours <= 1.5:
         return "hourly"
     if hours <= 3.5:
@@ -677,7 +682,8 @@ def _resolve_regional_dataset(region_code: str) -> Optional[ResolvedDataset]:
 
     def candidate_score(candidate: ResolvedDataset) -> tuple[int, int, int, str]:
         forecast_score = 1 if _dataset_is_forecast(candidate.dataset_id) else 0
-        temporal_score = 2 if candidate.temporal_resolution == "hourly" else 1
+        # hourly is the sweet spot (bandwidth); 15-min beats settling for 3-hourly
+        temporal_score = {"hourly": 3, "15-min": 2}.get(candidate.temporal_resolution, 1)
         looks_like_currents = 1 if _dataset_id_looks_like_currents(candidate.dataset_id) else 0
         return (forecast_score, temporal_score, looks_like_currents, candidate.dataset_id)
 
@@ -751,7 +757,7 @@ def fetch_regional_currents(
         fetch_end.date(),
     )
 
-    temporal_hours = 1 if resolved.temporal_resolution == "hourly" else 3
+    temporal_hours = {"hourly": 1, "15-min": 0.25}.get(resolved.temporal_resolution, 3)
     estimated_points = _estimate_request_grid_points(
         bounds,
         fetch_start,

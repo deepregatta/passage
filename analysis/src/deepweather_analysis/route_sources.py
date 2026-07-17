@@ -55,6 +55,15 @@ def live_observations_source_name(route_id: str | None = None) -> str:
     return route_sources(route_id)["observations"].get("live_source_name", "ndbc-realtime2")
 
 
+def observations_live_source(route_id: str | None = None) -> Dict[str, Any]:
+    """Live observations source spec, e.g. {'kind': 'ndbc'} or
+    {'kind': 'cmems_insitu_nrt', 'base_url': ...}.
+
+    Absent registry entries default to ndbc (the original Channel/US path).
+    """
+    return dict(route_sources(route_id)["observations"].get("live_source", {"kind": "ndbc"}))
+
+
 def tide_ports(route_id: str | None = None) -> Dict[str, Dict[str, Any]]:
     """Ports with (amp, phase) constituent tuples, as tides.py consumes them."""
     ports = {}
@@ -102,6 +111,7 @@ __all__ = [
     "fr_broadcast_areas",
     "live_observations_source_name",
     "live_stations",
+    "observations_live_source",
     "load_route_sources",
     "route_sources",
     "synthetic_observations_source_name",

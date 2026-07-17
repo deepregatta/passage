@@ -1,0 +1,1315 @@
+{
+ "warnings": [
+  {
+   "alert": {
+    "identifier": "2.49.0.0.724.0.ES.260712093009.754801GAGA121948609",
+    "incidents": "Alert",
+    "info": [
+     {
+      "area": [
+       {
+        "areaDesc": "Costa - Bizkaia litoral",
+        "geocode": [
+         {
+          "value": "ES841",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       }
+      ],
+      "category": [
+       "Met"
+      ],
+      "certainty": "Likely",
+      "contact": "AEMET",
+      "description": "Localmente Viento del Oeste de 50 a 61 km/h (fuerza 7). Las rachas máximas podrían alcanzar 60 km/h en Bizkaia y 70 km/h en Gipuzkoa.",
+      "effective": "2026-07-12T11:27:56+02:00",
+      "event": "Aviso de galernas de nivel amarillo",
+      "expires": "2026-07-12T20:59:59+02:00",
+      "headline": "Aviso de galernas de nivel amarillo. Costa - Bizkaia litoral",
+      "instruction": "Esté atento. Manténgase informado de la predicción meteorológica más actualizada. Se pueden producir daños moderados a personas y bienes, especialmente a aquellos vulnerables o en zonas expuestas al fenómeno.",
+      "language": "es-ES",
+      "onset": "2026-07-12T17:00:00+02:00",
+      "parameter": [
+       {
+        "value": "2; yellow; Moderate",
+        "valueName": "awareness_level"
+       },
+       {
+        "value": "7; coastalevent",
+        "valueName": "awareness_type"
+       }
+      ],
+      "responseType": [
+       "Monitor"
+      ],
+      "senderName": "AEMET. Agencia Estatal de Meteorología",
+      "severity": "Moderate",
+      "urgency": "Future",
+      "web": "https://www.aemet.es/es/eltiempo/prediccion/avisos"
+     },
+     {
+      "area": [
+       {
+        "areaDesc": "Costa - Bizkaia litoral",
+        "geocode": [
+         {
+          "value": "ES841",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       }
+      ],
+      "category": [
+       "Met"
+      ],
+      "certainty": "Likely",
+      "contact": "AEMET",
+      "description": "Localmente Viento del Oeste de 50 a 61 km/h (fuerza 7). Las rachas máximas podrían alcanzar 60 km/h en Bizkaia y 70 km/h en Gipuzkoa.",
+      "effective": "2026-07-12T11:27:56+02:00",
+      "event": "Moderate galerna warning",
+      "expires": "2026-07-12T20:59:59+02:00",
+      "headline": "Moderate galerna warning. Costa - Bizkaia litoral",
+      "instruction": "Be aware, keep up to date with the latest weather forecast. Moderate damages to people and properties may occur, especially to those vulnerable or in exposed areas.",
+      "language": "en-GB",
+      "onset": "2026-07-12T17:00:00+02:00",
+      "parameter": [
+       {
+        "value": "2; yellow; Moderate",
+        "valueName": "awareness_level"
+       },
+       {
+        "value": "7; coastalevent",
+        "valueName": "awareness_type"
+       }
+      ],
+      "responseType": [
+       "Monitor"
+      ],
+      "senderName": "AEMET. State Meteorological Agency",
+      "severity": "Moderate",
+      "urgency": "Future",
+      "web": "https://www.aemet.es/en/eltiempo/prediccion/avisos"
+     }
+    ],
+    "msgType": "Alert",
+    "scope": "Public",
+    "sender": "http://www.aemet.es",
+    "sent": "2026-07-12T09:30:09+00:00",
+    "status": "Actual"
+   },
+   "uuid": "e6a7e19f-bbd6-4970-9e27-a0393ec79d46"
+  },
+  {
+   "alert": {
+    "identifier": "2.49.0.0.724.0.ES.260712215208.65VV65VIRM152393128",
+    "incidents": "Alert",
+    "info": [
+     {
+      "area": [
+       {
+        "areaDesc": "Norte de Gran Canaria",
+        "geocode": [
+         {
+          "value": "ES120",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Cumbres de Gran Canaria",
+        "geocode": [
+         {
+          "value": "ES121",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Este, sur y oeste de Gran Canaria",
+        "geocode": [
+         {
+          "value": "ES122",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Lanzarote",
+        "geocode": [
+         {
+          "value": "ES123",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Fuerteventura",
+        "geocode": [
+         {
+          "value": "ES124",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Cumbres de La Palma",
+        "geocode": [
+         {
+          "value": "ES125",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Este de La Palma",
+        "geocode": [
+         {
+          "value": "ES126",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Oeste de La Palma",
+        "geocode": [
+         {
+          "value": "ES127",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "La Gomera",
+        "geocode": [
+         {
+          "value": "ES128",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "El Hierro",
+        "geocode": [
+         {
+          "value": "ES129",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Norte de Tenerife",
+        "geocode": [
+         {
+          "value": "ES130",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Área metropolitana de Tenerife",
+        "geocode": [
+         {
+          "value": "ES131",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Este, sur y oeste de Tenerife",
+        "geocode": [
+         {
+          "value": "ES132",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       }
+      ],
+      "category": [
+       "Met"
+      ],
+      "certainty": "Likely",
+      "contact": "AEMET",
+      "effective": "2026-07-12T22:50:01+01:00",
+      "event": "Aviso de vientos de nivel verde",
+      "expires": "2026-07-15T23:59:59+01:00",
+      "headline": "Aviso de vientos de nivel verde.",
+      "language": "es-ES",
+      "onset": "2026-07-15T00:00:00+01:00",
+      "parameter": [
+       {
+        "value": "1; green; Minor",
+        "valueName": "awareness_level"
+       },
+       {
+        "value": "1; Wind",
+        "valueName": "awareness_type"
+       }
+      ],
+      "responseType": [
+       "None"
+      ],
+      "senderName": "AEMET. Agencia Estatal de Meteorología",
+      "severity": "Minor",
+      "urgency": "Future",
+      "web": "https://www.aemet.es/es/eltiempo/prediccion/avisos"
+     },
+     {
+      "area": [
+       {
+        "areaDesc": "Norte de Gran Canaria",
+        "geocode": [
+         {
+          "value": "ES120",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Cumbres de Gran Canaria",
+        "geocode": [
+         {
+          "value": "ES121",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Este, sur y oeste de Gran Canaria",
+        "geocode": [
+         {
+          "value": "ES122",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Lanzarote",
+        "geocode": [
+         {
+          "value": "ES123",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Fuerteventura",
+        "geocode": [
+         {
+          "value": "ES124",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Cumbres de La Palma",
+        "geocode": [
+         {
+          "value": "ES125",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Este de La Palma",
+        "geocode": [
+         {
+          "value": "ES126",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Oeste de La Palma",
+        "geocode": [
+         {
+          "value": "ES127",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "La Gomera",
+        "geocode": [
+         {
+          "value": "ES128",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "El Hierro",
+        "geocode": [
+         {
+          "value": "ES129",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Norte de Tenerife",
+        "geocode": [
+         {
+          "value": "ES130",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Área metropolitana de Tenerife",
+        "geocode": [
+         {
+          "value": "ES131",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Este, sur y oeste de Tenerife",
+        "geocode": [
+         {
+          "value": "ES132",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       }
+      ],
+      "category": [
+       "Met"
+      ],
+      "certainty": "Likely",
+      "contact": "AEMET",
+      "effective": "2026-07-12T22:50:01+01:00",
+      "event": "Minor wind warning",
+      "expires": "2026-07-15T23:59:59+01:00",
+      "headline": "Minor wind warning.",
+      "language": "en-GB",
+      "onset": "2026-07-15T00:00:00+01:00",
+      "parameter": [
+       {
+        "value": "1; green; Minor",
+        "valueName": "awareness_level"
+       },
+       {
+        "value": "1; Wind",
+        "valueName": "awareness_type"
+       }
+      ],
+      "responseType": [
+       "None"
+      ],
+      "senderName": "AEMET. State Meteorological Agency",
+      "severity": "Minor",
+      "urgency": "Future",
+      "web": "https://www.aemet.es/en/eltiempo/prediccion/avisos"
+     }
+    ],
+    "msgType": "Alert",
+    "scope": "Public",
+    "sender": "http://www.aemet.es",
+    "sent": "2026-07-12T21:52:08+00:00",
+    "status": "Actual"
+   },
+   "uuid": "b7835f30-19c2-4d19-9223-d8d8dcdd2308"
+  },
+  {
+   "alert": {
+    "identifier": "2.49.0.0.724.0.ES.260712061408.645403ATTA121836848",
+    "incidents": "Update",
+    "info": [
+     {
+      "area": [
+       {
+        "areaDesc": "Interior de Mallorca",
+        "geocode": [
+         {
+          "value": "ES116",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       }
+      ],
+      "category": [
+       "Met"
+      ],
+      "certainty": "Likely",
+      "contact": "AEMET",
+      "description": "Temperatura máxima: 39 ºC.",
+      "effective": "2026-07-12T08:10:51+02:00",
+      "event": "Aviso de temperaturas máximas de nivel naranja",
+      "expires": "2026-07-12T19:59:59+02:00",
+      "headline": "Aviso de temperaturas máximas de nivel naranja. Interior de Mallorca",
+      "instruction": "Esté preparado. Tome precauciones y manténgase informado de la predicción meteorológica más actualizada. Se pueden producir daños graves a personas y bienes, especialmente a aquellos vulnerables o en zonas expuestas al fenómeno.",
+      "language": "es-ES",
+      "onset": "2026-07-12T12:00:00+02:00",
+      "parameter": [
+       {
+        "value": "3; orange; Severe",
+        "valueName": "awareness_level"
+       },
+       {
+        "value": "5; high-temperature",
+        "valueName": "awareness_type"
+       }
+      ],
+      "responseType": [
+       "Monitor"
+      ],
+      "senderName": "AEMET. Agencia Estatal de Meteorología",
+      "severity": "Severe",
+      "urgency": "Future",
+      "web": "https://www.aemet.es/es/eltiempo/prediccion/avisos"
+     },
+     {
+      "area": [
+       {
+        "areaDesc": "Interior de Mallorca",
+        "geocode": [
+         {
+          "value": "ES116",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       }
+      ],
+      "category": [
+       "Met"
+      ],
+      "certainty": "Likely",
+      "contact": "AEMET",
+      "description": "Maximum temperature: 39 ºC.",
+      "effective": "2026-07-12T08:10:51+02:00",
+      "event": "Severe high-temperature warning",
+      "expires": "2026-07-12T19:59:59+02:00",
+      "headline": "Severe high-temperature warning. Interior de Mallorca",
+      "instruction": "Be prepared. Take precautions and keep up to date with the latest weather forecast. Severe damages to people and properties may occur, especially to those vulnerable or in exposed areas.",
+      "language": "en-GB",
+      "onset": "2026-07-12T12:00:00+02:00",
+      "parameter": [
+       {
+        "value": "3; orange; Severe",
+        "valueName": "awareness_level"
+       },
+       {
+        "value": "5; high-temperature",
+        "valueName": "awareness_type"
+       }
+      ],
+      "responseType": [
+       "Monitor"
+      ],
+      "senderName": "AEMET. State Meteorological Agency",
+      "severity": "Severe",
+      "urgency": "Future",
+      "web": "https://www.aemet.es/en/eltiempo/prediccion/avisos"
+     }
+    ],
+    "msgType": "Update",
+    "references": "http://www.aemet.es,2.49.0.0.724.0.ES.260711091209.645403ATTA121861129,2026-07-11T09:12:09+00:00",
+    "scope": "Public",
+    "sender": "http://www.aemet.es",
+    "sent": "2026-07-12T06:14:08+00:00",
+    "status": "Actual"
+   },
+   "uuid": "a81b9d07-2c1b-44e3-8c60-66ecf72ee7ee"
+  },
+  {
+   "alert": {
+    "identifier": "2.49.0.0.724.0.ES.260712215208.78VV78COCO152293128",
+    "incidents": "Alert",
+    "info": [
+     {
+      "area": [
+       {
+        "areaDesc": "Costa - Poniente y Almería Capital",
+        "geocode": [
+         {
+          "value": "ES857",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Levante almeriense",
+        "geocode": [
+         {
+          "value": "ES858",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Litoral gaditano",
+        "geocode": [
+         {
+          "value": "ES852",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Estrecho",
+        "geocode": [
+         {
+          "value": "ES853",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Costa granadina",
+        "geocode": [
+         {
+          "value": "ES856",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Litoral de Huelva",
+        "geocode": [
+         {
+          "value": "ES851",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Sol y Guadalhorce",
+        "geocode": [
+         {
+          "value": "ES854",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Axarquía",
+        "geocode": [
+         {
+          "value": "ES855",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Litoral occidental asturiano",
+        "geocode": [
+         {
+          "value": "ES844",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Litoral oriental asturiano",
+        "geocode": [
+         {
+          "value": "ES843",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Ibiza y Formentera",
+        "geocode": [
+         {
+          "value": "ES873",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Sierra Tramontana",
+        "geocode": [
+         {
+          "value": "ES875",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Norte y nordeste de Mallorca",
+        "geocode": [
+         {
+          "value": "ES876",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Sur de Mallorca",
+        "geocode": [
+         {
+          "value": "ES874",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Levante mallorquín",
+        "geocode": [
+         {
+          "value": "ES877",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Menorca",
+        "geocode": [
+         {
+          "value": "ES878",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Litoral cántabro",
+        "geocode": [
+         {
+          "value": "ES842",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Litoral de Barcelona",
+        "geocode": [
+         {
+          "value": "ES869",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Ampurdán",
+        "geocode": [
+         {
+          "value": "ES890",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Litoral sur de Girona",
+        "geocode": [
+         {
+          "value": "ES870",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Litoral norte de Tarragona",
+        "geocode": [
+         {
+          "value": "ES868",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Litoral sur de Tarragona",
+        "geocode": [
+         {
+          "value": "ES867",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Noroeste de A Coruña",
+        "geocode": [
+         {
+          "value": "ES846",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Oeste de A Coruña",
+        "geocode": [
+         {
+          "value": "ES847",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Suroeste de A Coruña",
+        "geocode": [
+         {
+          "value": "ES848",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - A Mariña",
+        "geocode": [
+         {
+          "value": "ES845",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Rias Baixas",
+        "geocode": [
+         {
+          "value": "ES849",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Miño de Pontevedra",
+        "geocode": [
+         {
+          "value": "ES850",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Valle del Guadalentín, Lorca y Águilas",
+        "geocode": [
+         {
+          "value": "ES859",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Campo de Cartagena y Mazarrón",
+        "geocode": [
+         {
+          "value": "ES860",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Gipuzkoa litoral",
+        "geocode": [
+         {
+          "value": "ES840",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Bizkaia litoral",
+        "geocode": [
+         {
+          "value": "ES841",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Litoral norte de Alicante",
+        "geocode": [
+         {
+          "value": "ES862",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Litoral sur de Alicante",
+        "geocode": [
+         {
+          "value": "ES861",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Litoral norte de Castellón",
+        "geocode": [
+         {
+          "value": "ES866",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Litoral sur de Castellón",
+        "geocode": [
+         {
+          "value": "ES865",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Litoral norte de Valencia",
+        "geocode": [
+         {
+          "value": "ES864",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Litoral sur de Valencia",
+        "geocode": [
+         {
+          "value": "ES863",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Ceuta",
+        "geocode": [
+         {
+          "value": "ES871",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Melilla",
+        "geocode": [
+         {
+          "value": "ES872",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       }
+      ],
+      "category": [
+       "Met"
+      ],
+      "certainty": "Likely",
+      "contact": "AEMET",
+      "effective": "2026-07-12T23:50:01+02:00",
+      "event": "Aviso de costeros de nivel verde",
+      "expires": "2026-07-15T23:59:59+02:00",
+      "headline": "Aviso de costeros de nivel verde.",
+      "language": "es-ES",
+      "onset": "2026-07-15T00:00:00+02:00",
+      "parameter": [
+       {
+        "value": "1; green; Minor",
+        "valueName": "awareness_level"
+       },
+       {
+        "value": "7; coastalevent",
+        "valueName": "awareness_type"
+       }
+      ],
+      "responseType": [
+       "None"
+      ],
+      "senderName": "AEMET. Agencia Estatal de Meteorología",
+      "severity": "Minor",
+      "urgency": "Future",
+      "web": "https://www.aemet.es/es/eltiempo/prediccion/avisos"
+     },
+     {
+      "area": [
+       {
+        "areaDesc": "Costa - Poniente y Almería Capital",
+        "geocode": [
+         {
+          "value": "ES857",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Levante almeriense",
+        "geocode": [
+         {
+          "value": "ES858",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Litoral gaditano",
+        "geocode": [
+         {
+          "value": "ES852",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Estrecho",
+        "geocode": [
+         {
+          "value": "ES853",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Costa granadina",
+        "geocode": [
+         {
+          "value": "ES856",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Litoral de Huelva",
+        "geocode": [
+         {
+          "value": "ES851",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Sol y Guadalhorce",
+        "geocode": [
+         {
+          "value": "ES854",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Axarquía",
+        "geocode": [
+         {
+          "value": "ES855",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Litoral occidental asturiano",
+        "geocode": [
+         {
+          "value": "ES844",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Litoral oriental asturiano",
+        "geocode": [
+         {
+          "value": "ES843",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Ibiza y Formentera",
+        "geocode": [
+         {
+          "value": "ES873",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Sierra Tramontana",
+        "geocode": [
+         {
+          "value": "ES875",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Norte y nordeste de Mallorca",
+        "geocode": [
+         {
+          "value": "ES876",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Sur de Mallorca",
+        "geocode": [
+         {
+          "value": "ES874",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Levante mallorquín",
+        "geocode": [
+         {
+          "value": "ES877",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Menorca",
+        "geocode": [
+         {
+          "value": "ES878",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Litoral cántabro",
+        "geocode": [
+         {
+          "value": "ES842",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Litoral de Barcelona",
+        "geocode": [
+         {
+          "value": "ES869",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Ampurdán",
+        "geocode": [
+         {
+          "value": "ES890",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Litoral sur de Girona",
+        "geocode": [
+         {
+          "value": "ES870",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Litoral norte de Tarragona",
+        "geocode": [
+         {
+          "value": "ES868",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Litoral sur de Tarragona",
+        "geocode": [
+         {
+          "value": "ES867",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Noroeste de A Coruña",
+        "geocode": [
+         {
+          "value": "ES846",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Oeste de A Coruña",
+        "geocode": [
+         {
+          "value": "ES847",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Suroeste de A Coruña",
+        "geocode": [
+         {
+          "value": "ES848",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - A Mariña",
+        "geocode": [
+         {
+          "value": "ES845",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Rias Baixas",
+        "geocode": [
+         {
+          "value": "ES849",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Miño de Pontevedra",
+        "geocode": [
+         {
+          "value": "ES850",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Valle del Guadalentín, Lorca y Águilas",
+        "geocode": [
+         {
+          "value": "ES859",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Campo de Cartagena y Mazarrón",
+        "geocode": [
+         {
+          "value": "ES860",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Gipuzkoa litoral",
+        "geocode": [
+         {
+          "value": "ES840",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Bizkaia litoral",
+        "geocode": [
+         {
+          "value": "ES841",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Litoral norte de Alicante",
+        "geocode": [
+         {
+          "value": "ES862",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Litoral sur de Alicante",
+        "geocode": [
+         {
+          "value": "ES861",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Litoral norte de Castellón",
+        "geocode": [
+         {
+          "value": "ES866",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Litoral sur de Castellón",
+        "geocode": [
+         {
+          "value": "ES865",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Litoral norte de Valencia",
+        "geocode": [
+         {
+          "value": "ES864",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Litoral sur de Valencia",
+        "geocode": [
+         {
+          "value": "ES863",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Ceuta",
+        "geocode": [
+         {
+          "value": "ES871",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       },
+       {
+        "areaDesc": "Costa - Melilla",
+        "geocode": [
+         {
+          "value": "ES872",
+          "valueName": "EMMA_ID"
+         }
+        ]
+       }
+      ],
+      "category": [
+       "Met"
+      ],
+      "certainty": "Likely",
+      "contact": "AEMET",
+      "effective": "2026-07-12T23:50:01+02:00",
+      "event": "Minor coastalevent warning",
+      "expires": "2026-07-15T23:59:59+02:00",
+      "headline": "Minor coastalevent warning.",
+      "language": "en-GB",
+      "onset": "2026-07-15T00:00:00+02:00",
+      "parameter": [
+       {
+        "value": "1; green; Minor",
+        "valueName": "awareness_level"
+       },
+       {
+        "value": "7; coastalevent",
+        "valueName": "awareness_type"
+       }
+      ],
+      "responseType": [
+       "None"
+      ],
+      "senderName": "AEMET. State Meteorological Agency",
+      "severity": "Minor",
+      "urgency": "Future",
+      "web": "https://www.aemet.es/en/eltiempo/prediccion/avisos"
+     }
+    ],
+    "msgType": "Alert",
+    "scope": "Public",
+    "sender": "http://www.aemet.es",
+    "sent": "2026-07-12T21:52:08+00:00",
+    "status": "Actual"
+   },
+   "uuid": "c6ea5697-68a4-4212-9b7a-85c107b96f4f"
+  }
+ ]
+}

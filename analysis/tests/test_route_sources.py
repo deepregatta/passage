@@ -105,6 +105,51 @@ def test_us_route_currents_bounds_resolve_to_global_model():
     assert detect_region(rs.currents_bounds("cherbourg-plymouth-v1")) == "IBI"
 
 
+def test_palma_barcelona_route_registered():
+    route = rs.route_sources("palma-barcelona-v1")
+    assert route["region"] == "med-west"
+
+    tides = rs.tides_live_source("palma-barcelona-v1")
+    assert tides["kind"] == "cmems_ssh"
+    # Med sibling of the IBI SSH dataset — recent Med model versions carry explicit tides
+    assert tides["dataset"] == "cmems_mod_med_phy-ssh_anfc_4.2km_PT15M-i"
+    assert list(rs.tide_ports("palma-barcelona-v1")) == ["palma", "barcelona"]
+    assert rs.tides_artifact_name("palma-barcelona-v1") == "palma-barcelona"
+
+    observations = rs.observations_live_source("palma-barcelona-v1")
+    assert observations["kind"] == "cmems_insitu_nrt"
+    assert observations["base_url"].startswith("https://")
+    stations = rs.live_stations("palma-barcelona-v1")
+    assert [s["station_id"] for s in stations] == ["6100430", "6100280", "barcelona-coast"]
+    # the In Situ TAC file prefix is what the fetcher joins with the date
+    assert all("file_prefix" in s for s in stations)
+
+    # NDBC routes default to the ndbc kind without a registry entry
+    assert rs.observations_live_source("cherbourg-plymouth-v1") == {"kind": "ndbc"}
+    assert rs.observations_live_source("newport-newyork-v1") == {"kind": "ndbc"}
+
+
+def test_med_route_currents_bounds_resolve_to_ibi():
+    """The Palma–Barcelona corridor sits west of 5°E, inside the finer IBI box."""
+    from deepweather_analysis.environment_fetcher import detect_region
+
+    assert detect_region(rs.currents_bounds("palma-barcelona-v1")) == "IBI"
+    # a corridor east of IBI's 5°E cut (e.g. Corsica) must resolve to MED
+    assert detect_region({"min_lat": 41.5, "max_lat": 43.2, "min_lon": 6.0, "max_lon": 9.5}) == "MED"
+
+
+def test_pt15m_datasets_are_resolvable_currents():
+    """MED anfc publishes currents only as PT15M-i — the resolver must accept it."""
+    from deepweather_analysis.environment_fetcher import (
+        _format_temporal_resolution,
+        _temporal_resolution_from_dataset_id,
+    )
+
+    assert _temporal_resolution_from_dataset_id("cmems_mod_med_phy-cur_anfc_4.2km_PT15M-i") == "15-min"
+    assert _temporal_resolution_from_dataset_id("cmems_mod_ibi_phy_anfc_0.027deg-3D_PT1H-m") == "hourly"
+    assert _format_temporal_resolution(0.25, "fallback") == "15-min"
+
+
 def test_feed_modules_expose_registry_backed_constants():
     from deepweather_analysis.grids_prep import CHANNEL_BOUNDS
     from deepweather_analysis.observations import LIVE_STATIONS, STATIONS

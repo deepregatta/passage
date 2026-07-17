@@ -321,6 +321,24 @@ def _merge_us_warnings(doc: dict) -> dict:
     return doc
 
 
+def _merge_meteoalarm_warnings(doc: dict) -> dict:
+    """Append live European bulletins (Meteoalarm CAP aggregation) to the doc."""
+    from .warnings_meteoalarm import fetch_meteoalarm_bulletins
+
+    try:
+        bulletins, note = fetch_meteoalarm_bulletins(_route_zones("meteoalarm_zones"))
+    except Exception as error:  # noqa: BLE001 — any feed failure must degrade, not crash
+        doc["feed_status"] = "parse-degraded"
+        doc["coverage_note"] = (
+            f"{doc.get('coverage_note', '')} Meteoalarm feed unavailable: {error}".strip()
+        )
+        return doc
+    doc["bulletins"].extend(bulletins)
+    doc["source"]["name"] = f"{doc['source'].get('name', '')} + Meteoalarm CAP"
+    doc["coverage_note"] = f"{doc.get('coverage_note', '')} {note}".strip()
+    return doc
+
+
 def fetch_warnings(gale_zone: str | None = None, paste_file: str | None = None) -> Path:
     if paste_file:
         doc = parse_manual_bulletin(Path(paste_file).read_text(), zone_id=gale_zone or "casquets")
@@ -331,4 +349,6 @@ def fetch_warnings(gale_zone: str | None = None, paste_file: str | None = None) 
         doc = _merge_uk_warnings(doc)
     if provider_mode("warnings_us") is Mode.LIVE and _route_zones("us_zones"):
         doc = _merge_us_warnings(doc)
+    if provider_mode("warnings_meteoalarm") is Mode.LIVE and _route_zones("meteoalarm_zones"):
+        doc = _merge_meteoalarm_warnings(doc)
     return write_warnings(doc)
