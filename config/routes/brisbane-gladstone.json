@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "route_id": "brisbane-gladstone-v1",
+  "name": "Brisbane → Gladstone",
+  "mode": "fixed",
+  "comment": "First Australian route (~310 nm, ~56 h at 5.5 kt): the classic race course — out of Moreton Bay past Caloundra, up the Sunshine and Cooloola coasts, along the K'gari (Fraser Island) surf beach, around Breaksea Spit, then across Hervey Bay's seaward approaches and the Curtis Channel to the Gladstone fairway.",
+  "waypoints": [
+    { "id": "wp1", "name": "Brisbane, Shorncliffe start", "lat": -27.33, "lon": 153.1 },
+    { "id": "wp2", "name": "Moreton Bay, Northwest Channel", "lat": -27.03, "lon": 153.25 },
+    { "id": "wp3", "name": "Caloundra fairway", "lat": -26.85, "lon": 153.2 },
+    { "id": "wp4", "name": "Off Mooloolaba", "lat": -26.6, "lon": 153.2 },
+    { "id": "wp5", "name": "Off Double Island Point", "lat": -25.9, "lon": 153.3 },
+    { "id": "wp6", "name": "Off Indian Head, K'gari", "lat": -25.0, "lon": 153.45 },
+    { "id": "wp7", "name": "Breaksea Spit offing", "lat": -24.45, "lon": 153.25 },
+    { "id": "wp8", "name": "Curtis Channel", "lat": -24.05, "lon": 152.3 },
+    { "id": "wp9", "name": "Gladstone fairway buoy", "lat": -23.88, "lon": 151.5 },
+    { "id": "wp10", "name": "Gladstone, harbour entrance", "lat": -23.83, "lon": 151.32 }
+  ],
+  "speeds_kt": { "slow": 4.5, "nominal": 5.5, "fast": 6.5 }
+}

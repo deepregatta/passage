@@ -8,6 +8,14 @@ live / noaa_coops — NOAA CO-OPS official harmonic predictions
   events directly from the authority, heights in metres above MLLW (the US
   chart datum) — no extraction or datum transfer needed. US routes.
 
+live / qld_msq — Maritime Safety Queensland official predictions on the
+  Queensland open-data portal (data.qld.gov.au CKAN): per-gauge yearly
+  "predicted high/low" CSVs, resolved by package name at fetch time so a new
+  year is picked up automatically. HW/LW events directly from the authority,
+  heights in metres above LAT (the QLD chart datum); times arrive in AEST
+  (UTC+10, Queensland keeps no DST) and are converted via the route's
+  utc_offset_hours. Australian routes.
+
 live / cmems_ssh — CMEMS regional-model sea-surface height (variable zos).
   Default dataset is the IBI 15-minute 2D SSH
   (cmems_mod_ibi_phy_anfc_0.027deg-2D_PT15M-i); routes outside IBI declare a
@@ -224,6 +232,73 @@ def _fetch_port_coops_events(port: dict, start: datetime, end: datetime) -> list
     return _coops_events_from_json(response.json(), start, end)
 
 
+def _qld_events_from_csv(
+    csv_text: str, start: datetime, end: datetime, utc_offset_hours: float
+) -> list[dict]:
+    """Schema events from an MSQ predicted high/low CSV (Date;Time local, Ind ±1)."""
+    import csv as csv_module
+    import io
+
+    offset = timedelta(hours=utc_offset_hours)
+    events = []
+    for row in csv_module.DictReader(io.StringIO(csv_text)):
+        local = datetime.strptime(f"{row['Date']} {row['Time']}", "%d/%m/%Y %H:%M")
+        t = local.replace(tzinfo=timezone.utc) - offset
+        if not start <= t <= end:
+            continue
+        events.append(
+            {
+                "kind": "HW" if row["Ind"].strip() == "1" else "LW",
+                "time": t.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "height_m": round(float(row["Reading"]), 2),
+            }
+        )
+    return events
+
+
+def _fetch_port_qld_events(
+    port: dict, start: datetime, end: datetime, live_source: dict
+) -> list[dict]:
+    """Live AU path: official MSQ high/low predictions from the QLD open-data portal."""
+    import requests
+
+    base_url = live_source.get("base_url", "https://www.data.qld.gov.au").rstrip("/")
+    offset_hours = float(live_source.get("utc_offset_hours", 10))
+    headers = {"User-Agent": "passage-deepregatta (davivasconcellos@gmail.com)"}
+
+    package = requests.get(
+        f"{base_url}/api/3/action/package_show",
+        params={"id": port["qld_package"]},
+        headers=headers,
+        timeout=60,
+    )
+    package.raise_for_status()
+    resources = package.json()["result"]["resources"]
+
+    # the window's local dates decide which yearly CSVs are needed
+    offset = timedelta(hours=offset_hours)
+    years = sorted({(start + offset).year, (end + offset).year})
+    events: list[dict] = []
+    for year in years:
+        resource = next(
+            (
+                r
+                for r in resources
+                if r.get("format", "").upper() == "CSV"
+                and r.get("name", "").strip().startswith(str(year))
+            ),
+            None,
+        )
+        if resource is None:
+            raise RuntimeError(f"no {year} predictions published for {port['qld_package']}")
+        dump = requests.get(
+            f"{base_url}/datastore/dump/{resource['id']}", headers=headers, timeout=60
+        )
+        dump.raise_for_status()
+        events.extend(_qld_events_from_csv(dump.text, start, end, offset_hours))
+    return events
+
+
 def _live_doc(
     start: datetime, end: datetime, route_ports: dict[str, dict], live_source: dict
 ) -> dict:
@@ -233,6 +308,15 @@ def _live_doc(
             "HW/LW from NOAA CO-OPS official harmonic predictions "
             "(api.tidesandcurrents.noaa.gov, per-port station ids). Heights in "
             "metres above MLLW (US chart datum)."
+        )
+    elif live_source["kind"] == "qld_msq":
+        fetch_events = lambda port_id, port: _fetch_port_qld_events(  # noqa: E731
+            port, start, end, live_source
+        )
+        note = (
+            "HW/LW from Maritime Safety Queensland official predictions "
+            "(data.qld.gov.au open data, per-port gauge datasets). Heights in "
+            "metres above LAT (QLD chart datum); times converted from AEST (UTC+10)."
         )
     else:
         dataset_id = live_source.get("dataset", CMEMS_SSH_DATASET)

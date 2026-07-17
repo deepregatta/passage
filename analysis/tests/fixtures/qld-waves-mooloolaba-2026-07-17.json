@@ -1,0 +1,288 @@
+{
+ "help": "https://www.data.qld.gov.au/api/3/action/help_show?name=datastore_search",
+ "success": true,
+ "result": {
+  "filters": {
+   "Site": "Mooloolaba"
+  },
+  "include_total": true,
+  "limit": 12,
+  "records_format": "objects",
+  "resource_id": "2bbef99e-9974-49b9-a316-57402b00609c",
+  "total_estimation_threshold": null,
+  "records": [
+   {
+    "_id": 670,
+    "Site": "Mooloolaba",
+    "SiteNumber": "4",
+    "Seconds": "1783692000",
+    "DateTime": "2026-07-11T00:00:00",
+    "Latitude": "-26.56608",
+    "Longitude": "153.18096",
+    "Hsig": "1.174",
+    "Hmax": "1.870",
+    "Tp": "12.500",
+    "Tz": "6.667",
+    "SST": "21.15",
+    "Direction": "122.30",
+    "Current Speed": "-99.90",
+    "Current Direction": "-99.90"
+   },
+   {
+    "_id": 671,
+    "Site": "Mooloolaba",
+    "SiteNumber": "4",
+    "Seconds": "1783693800",
+    "DateTime": "2026-07-11T00:30:00",
+    "Latitude": "-26.56608",
+    "Longitude": "153.18094",
+    "Hsig": "1.105",
+    "Hmax": "2.040",
+    "Tp": "12.500",
+    "Tz": "6.061",
+    "SST": "21.15",
+    "Direction": "112.50",
+    "Current Speed": "-99.90",
+    "Current Direction": "-99.90"
+   },
+   {
+    "_id": 672,
+    "Site": "Mooloolaba",
+    "SiteNumber": "4",
+    "Seconds": "1783695600",
+    "DateTime": "2026-07-11T01:00:00",
+    "Latitude": "-26.56608",
+    "Longitude": "153.18094",
+    "Hsig": "1.116",
+    "Hmax": "2.350",
+    "Tp": "12.500",
+    "Tz": "5.882",
+    "SST": "21.20",
+    "Direction": "112.50",
+    "Current Speed": "-99.90",
+    "Current Direction": "-99.90"
+   },
+   {
+    "_id": 673,
+    "Site": "Mooloolaba",
+    "SiteNumber": "4",
+    "Seconds": "1783697400",
+    "DateTime": "2026-07-11T01:30:00",
+    "Latitude": "-26.56608",
+    "Longitude": "153.18094",
+    "Hsig": "1.186",
+    "Hmax": "1.730",
+    "Tp": "11.760",
+    "Tz": "5.882",
+    "SST": "21.15",
+    "Direction": "104.10",
+    "Current Speed": "-99.90",
+    "Current Direction": "-99.90"
+   },
+   {
+    "_id": 674,
+    "Site": "Mooloolaba",
+    "SiteNumber": "4",
+    "Seconds": "1783699200",
+    "DateTime": "2026-07-11T02:00:00",
+    "Latitude": "-26.56608",
+    "Longitude": "153.18091",
+    "Hsig": "1.082",
+    "Hmax": "1.920",
+    "Tp": "11.760",
+    "Tz": "5.970",
+    "SST": "21.15",
+    "Direction": "113.90",
+    "Current Speed": "-99.90",
+    "Current Direction": "-99.90"
+   },
+   {
+    "_id": 675,
+    "Site": "Mooloolaba",
+    "SiteNumber": "4",
+    "Seconds": "1783701000",
+    "DateTime": "2026-07-11T02:30:00",
+    "Latitude": "-26.56609",
+    "Longitude": "153.18094",
+    "Hsig": "1.204",
+    "Hmax": "1.830",
+    "Tp": "12.500",
+    "Tz": "5.634",
+    "SST": "21.15",
+    "Direction": "119.50",
+    "Current Speed": "-99.90",
+    "Current Direction": "-99.90"
+   },
+   {
+    "_id": 676,
+    "Site": "Mooloolaba",
+    "SiteNumber": "4",
+    "Seconds": "1783702800",
+    "DateTime": "2026-07-11T03:00:00",
+    "Latitude": "-26.56610",
+    "Longitude": "153.18094",
+    "Hsig": "1.148",
+    "Hmax": "1.790",
+    "Tp": "12.500",
+    "Tz": "6.154",
+    "SST": "21.15",
+    "Direction": "118.10",
+    "Current Speed": "-99.90",
+    "Current Direction": "-99.90"
+   },
+   {
+    "_id": 677,
+    "Site": "Mooloolaba",
+    "SiteNumber": "4",
+    "Seconds": "1783704600",
+    "DateTime": "2026-07-11T03:30:00",
+    "Latitude": "-26.56609",
+    "Longitude": "153.18094",
+    "Hsig": "1.134",
+    "Hmax": "1.990",
+    "Tp": "10.530",
+    "Tz": "5.797",
+    "SST": "21.15",
+    "Direction": "115.30",
+    "Current Speed": "-99.90",
+    "Current Direction": "-99.90"
+   },
+   {
+    "_id": 678,
+    "Site": "Mooloolaba",
+    "SiteNumber": "4",
+    "Seconds": "1783706400",
+    "DateTime": "2026-07-11T04:00:00",
+    "Latitude": "-26.56609",
+    "Longitude": "153.18094",
+    "Hsig": "1.200",
+    "Hmax": "2.020",
+    "Tp": "12.500",
+    "Tz": "5.556",
+    "SST": "21.15",
+    "Direction": "112.50",
+    "Current Speed": "-99.90",
+    "Current Direction": "-99.90"
+   },
+   {
+    "_id": 679,
+    "Site": "Mooloolaba",
+    "SiteNumber": "4",
+    "Seconds": "1783708200",
+    "DateTime": "2026-07-11T04:30:00",
+    "Latitude": "-26.56610",
+    "Longitude": "153.18094",
+    "Hsig": "1.131",
+    "Hmax": "2.010",
+    "Tp": "11.760",
+    "Tz": "5.556",
+    "SST": "21.15",
+    "Direction": "115.30",
+    "Current Speed": "-99.90",
+    "Current Direction": "-99.90"
+   },
+   {
+    "_id": 680,
+    "Site": "Mooloolaba",
+    "SiteNumber": "4",
+    "Seconds": "1783710000",
+    "DateTime": "2026-07-11T05:00:00",
+    "Latitude": "-26.56609",
+    "Longitude": "153.18098",
+    "Hsig": "1.105",
+    "Hmax": "1.880",
+    "Tp": "12.500",
+    "Tz": "5.405",
+    "SST": "21.10",
+    "Direction": "109.70",
+    "Current Speed": "-99.90",
+    "Current Direction": "-99.90"
+   },
+   {
+    "_id": 681,
+    "Site": "Mooloolaba",
+    "SiteNumber": "4",
+    "Seconds": "1783711800",
+    "DateTime": "2026-07-11T05:30:00",
+    "Latitude": "-26.56609",
+    "Longitude": "153.18100",
+    "Hsig": "1.043",
+    "Hmax": "2.070",
+    "Tp": "11.760",
+    "Tz": "5.405",
+    "SST": "21.15",
+    "Direction": "115.30",
+    "Current Speed": "-99.90",
+    "Current Direction": "-99.90"
+   }
+  ],
+  "fields": [
+   {
+    "id": "_id",
+    "type": "int"
+   },
+   {
+    "id": "Site",
+    "type": "text"
+   },
+   {
+    "id": "SiteNumber",
+    "type": "text"
+   },
+   {
+    "id": "Seconds",
+    "type": "text"
+   },
+   {
+    "id": "DateTime",
+    "type": "text"
+   },
+   {
+    "id": "Latitude",
+    "type": "text"
+   },
+   {
+    "id": "Longitude",
+    "type": "text"
+   },
+   {
+    "id": "Hsig",
+    "type": "text"
+   },
+   {
+    "id": "Hmax",
+    "type": "text"
+   },
+   {
+    "id": "Tp",
+    "type": "text"
+   },
+   {
+    "id": "Tz",
+    "type": "text"
+   },
+   {
+    "id": "SST",
+    "type": "text"
+   },
+   {
+    "id": "Direction",
+    "type": "text"
+   },
+   {
+    "id": "Current Speed",
+    "type": "text"
+   },
+   {
+    "id": "Current Direction",
+    "type": "text"
+   }
+  ],
+  "_links": {
+   "start": "/api/3/action/datastore_search?filters=%7B%22Site%22%3A%22Mooloolaba%22%7D&limit=12&resource_id=2bbef99e-9974-49b9-a316-57402b00609c",
+   "next": "/api/3/action/datastore_search?filters=%7B%22Site%22%3A%22Mooloolaba%22%7D&limit=12&resource_id=2bbef99e-9974-49b9-a316-57402b00609c&offset=12"
+  },
+  "total": 332,
+  "total_was_estimated": false
+ }
+}
