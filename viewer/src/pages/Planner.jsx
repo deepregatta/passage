@@ -643,8 +643,9 @@ function ModelsUsed() {
               {mono('ibi_phy_anfc_2D_PT15M')}.
             </li>
             <li>
-              Official warnings: Météo-France BMS from the official open-data mirror (côte + large),
-              synced daily — a bulletin issued after the last sync is not yet visible, so absence of
+              Official warnings: Météo-France BMS from the official open-data mirror (côte + large,
+              synced daily) and Met Office shipping-forecast gale warnings (per issue). Both lag
+              their source — a warning issued after the last sync is not yet visible, so absence of
               a warning here is not absence of risk.
             </li>
           </ul>
