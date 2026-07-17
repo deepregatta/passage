@@ -8,7 +8,7 @@
     "ecmwf_open_data": { "mode": "live" },
     "cmems_currents": { "mode": "live" },
     "era5": { "mode": "live" },
-    "warnings_fr": { "mode": "synthetic", "note": "flip to live if the BMS feed spike (M9) succeeds" },
+    "warnings_fr": { "mode": "live", "note": "official data.gouv BMS mirror, synced daily (~24h max lag, disclosed in coverage_note)" },
     "warnings_uk": { "mode": "synthetic" },
     "tides": { "mode": "live", "note": "CMEMS IBI 15-min SSH at reference ports; degrades to synthetic harmonics on fetch failure" },
     "observations": { "mode": "synthetic", "note": "EMODnet ERDDAP is the first easy live swap" }

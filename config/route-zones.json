@@ -4,8 +4,8 @@
   "routes": {
     "cherbourg-plymouth-v1": {
       "fr_zones": [
-        { "zone_id": "casquets", "zone_name": "Casquets (large)", "kind": "large" },
-        { "zone_id": "hague-barfleur", "zone_name": "De la Hague à la pointe de Barfleur (côte)", "kind": "cote" }
+        { "zone_id": "casquets", "zone_name": "Casquets (large)", "kind": "large", "match_tokens": ["CASQUET"] },
+        { "zone_id": "hague-barfleur", "zone_name": "De la Hague à la pointe de Barfleur (côte)", "kind": "cote", "match_tokens": ["HAGUE", "BARFLEUR"] }
       ],
       "uk_zones": [
         { "zone_id": "portland", "zone_name": "Portland", "kind": "shipping", "fetched": false },

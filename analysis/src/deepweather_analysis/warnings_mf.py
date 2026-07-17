@@ -1,42 +1,78 @@
 """Official marine warnings (brief §7 authority layer) — Météo-France BMS.
 
-Feed spike (2026-07-11, time-boxed):
-- public-api.meteofrance.fr (DPVigilance / marine bulletins): requires a free API
-  portal account (Bearer token) -> account-gated, so the provider defaults to
-  SYNTHETIC per the prototype's data-realism policy. The live client below is
-  ready: create a portal account, set DEEPWEATHER_MF_API_TOKEN, flip
-  config/providers.json warnings_fr.mode to "live".
-- donneespubliques.meteofrance.fr: 302/HTML only — scraping-grade, rejected.
-- vigilance.meteofrance.fr: HTML app, no stable JSON without the portal.
+Live source (feed spike 2026-07-17): the portail-api.meteofrance.fr catalog has
+NO marine-bulletins API (checked every category). What does exist is the
+official open-data BMS archive on data.gouv.fr — an S3 mirror whose
+current-year CSV is re-synced daily (~05:45 UTC) and carries the full bulletin
+text (côte / large / grand large, FR+EN):
+  https://www.data.gouv.fr/datasets/bulletin-meteorologique-special-annuel
+The daily sync means up to ~24 h of lag: a BMS issued after the last sync is
+not yet visible. That lag is disclosed in coverage_note; absence of a warning
+must never read as absence of risk.
 
 Modes:
+  live       — data.gouv BMS mirror: filter Channel broadcast areas, match
+               route zones by name in the bulletin text, parse validity;
+               graceful feed_status "unavailable" on any fetch failure
   synthetic  — clear conditions by default; --gale ZONE injects a gale bulletin
                (drives the warning_active verdict state end-to-end)
   manual     — parse a pasted bulletin text file (feed_status parse-degraded,
                raw text always preserved)
-  live       — portal API (token required); graceful feed_status "unavailable"
-
-The absence of a warning must never read as absence of risk: feed_status is
-part of the artifact and surfaced in every briefing.
 """
 
 from __future__ import annotations
 
+import csv
+import gzip
+import io
 import json
 import os
 import re
+import unicodedata
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import requests
 
-from .paths import contracts_dir, processed_dir
+from .paths import config_dir, contracts_dir, processed_dir
 from .providers import Mode, provider_mode
 
-LIVE_ENDPOINT = os.environ.get(
-    "DEEPWEATHER_MF_BMS_ENDPOINT",
-    "https://public-api.meteofrance.fr/public/DPBulletinsMarine/v1",
+BMS_URL_TEMPLATE = os.environ.get(
+    "DEEPWEATHER_BMS_URL_TEMPLATE",
+    "https://meteofrance.s3.sbg.io.cloud.ovh.net/data/synchro_ftp/BULLETINS/BMS/bms_{year}.csv.gz",
 )
+
+# BMS broadcast areas (the CSV `zone` column) that can carry Channel bulletins.
+CHANNEL_AREAS = {
+    "Proche Atlantique et Manche Ouest",
+    "Manche Est et Sud Mer du Nord",
+    "Casquet/Antifer",
+    "Baie de Somme/Cap de la Hague",
+    "Cap de la Hague/Penmarc'h",
+}
+
+SEVERITY_WORDS = [
+    ("OURAGAN", "hurricane"),
+    ("FORTE TEMPETE", "violent-storm"),
+    ("TEMPETE", "storm"),
+    ("COUP DE VENT", "gale"),
+    ("GRAND FRAIS", "near-gale"),
+]
+
+# "JUSQU'AU 13 A 18H UTC" (large) or "JUSQU'AU LUNDI 13 JUILLET A 22H00 UTC" (côte)
+VALID_TO_RE = re.compile(
+    r"JUSQU'?\s?AU\s+(?:[A-Z]+\s+)?(\d{1,2})(?:\s+([A-Z]+))?\s+A\s+(\d{1,2})\s*H\s*(\d{2})?\s*UTC"
+)
+# "VALABLE DU VENDREDI 5 JUIN A 20H00 UTC AU SAMEDI 6 JUIN A 06H00 UTC" (côte, range form)
+VALID_RANGE_RE = re.compile(
+    r"VALABLE\s+DU\s+(?:[A-Z]+\s+)?(\d{1,2})(?:\s+([A-Z]+))?\s+A\s+(\d{1,2})\s*H\s*(\d{2})?\s*UTC"
+    r"\s+AU\s+(?:[A-Z]+\s+)?(\d{1,2})(?:\s+([A-Z]+))?\s+A\s+(\d{1,2})\s*H\s*(\d{2})?\s*UTC"
+)
+
+FR_MONTHS = {
+    "JANVIER": 1, "FEVRIER": 2, "MARS": 3, "AVRIL": 4, "MAI": 5, "JUIN": 6,
+    "JUILLET": 7, "AOUT": 8, "SEPTEMBRE": 9, "OCTOBRE": 10, "NOVEMBRE": 11, "DECEMBRE": 12,
+}
 
 GALE_WORDS = re.compile(
     r"\b(gale|storm|BMS|coup de vent|tempête|avis de grand frais|force\s*[89]|force\s*1[012])\b",
@@ -103,43 +139,130 @@ def parse_manual_bulletin(raw_text: str, zone_id: str, valid_hours: int = 24) ->
     return doc
 
 
-def fetch_live() -> dict:
-    """Portal API client — ready for when a Météo-France account exists."""
-    token = os.environ.get("DEEPWEATHER_MF_API_TOKEN")
-    doc = _base_doc(Mode.LIVE, "Météo-France BMS")
-    if not token:
-        doc["feed_status"] = "unavailable"
-        doc["coverage_note"] = (
-            "live mode configured but DEEPWEATHER_MF_API_TOKEN is not set — "
-            "create a (free) account on the Météo-France API portal"
-        )
-        return doc
+def _normalize(text: str) -> str:
+    """Uppercase and strip accents for tolerant matching against bulletin text."""
+    stripped = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
+    return stripped.upper()
+
+
+def _route_zone_tokens() -> list[tuple[str, str, list[str]]]:
+    """(zone_id, zone_name, match_tokens) for every FR zone in route-zones.json."""
+    zones_doc = json.loads((config_dir() / "route-zones.json").read_text())
+    out: list[tuple[str, str, list[str]]] = []
+    seen: set[str] = set()
+    for entry in zones_doc.get("routes", {}).values():
+        for zone in entry.get("fr_zones", []):
+            if zone["zone_id"] in seen:
+                continue
+            seen.add(zone["zone_id"])
+            tokens = zone.get("match_tokens") or [_normalize(zone["zone_id"].replace("-", " "))]
+            out.append((zone["zone_id"], zone.get("zone_name", zone["zone_id"]), tokens))
+    return out
+
+
+def _resolve_day(day: int, month_word: str | None, hour: int, minute: int, issued: datetime) -> str | None:
+    year, month = issued.year, issued.month
+    if month_word in FR_MONTHS:
+        month = FR_MONTHS[month_word]
+        if month < issued.month:  # year rollover (issued in December, valid into January)
+            year += 1
+    elif day < issued.day - 15:
+        # no month word: same month as issue unless the day implies a rollover
+        month += 1
+        if month > 12:
+            month, year = 1, year + 1
     try:
-        response = requests.get(
-            f"{LIVE_ENDPOINT}/bulletins",
-            headers={"Authorization": f"Bearer {token}"},
-            timeout=20,
-        )
-        response.raise_for_status()
-        payload = response.json()
+        resolved = datetime(year, month, day, hour, minute, tzinfo=timezone.utc)
+    except ValueError:
+        return None
+    return resolved.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _parse_validity(norm_text: str, issued: datetime) -> tuple[str | None, str | None, float]:
+    """Best-effort (valid_from, valid_to, confidence) from the bulletin's VALABLE line."""
+    range_match = VALID_RANGE_RE.search(norm_text)
+    if range_match:
+        d1, m1, h1, mi1, d2, m2, h2, mi2 = range_match.groups()
+        valid_from = _resolve_day(int(d1), m1, int(h1), int(mi1 or 0), issued)
+        valid_to = _resolve_day(int(d2), m2, int(h2), int(mi2 or 0), issued)
+        if valid_from and valid_to:
+            return valid_from, valid_to, 0.85
+    match = VALID_TO_RE.search(norm_text)
+    if match:
+        day, month_word, hour, minute = match.groups()
+        valid_to = _resolve_day(int(day), month_word, int(hour), int(minute or 0), issued)
+        if valid_to:
+            return None, valid_to, 0.85
+    return None, None, 0.5
+
+
+def _severity(norm_text: str) -> str | None:
+    for word, severity in SEVERITY_WORDS:
+        if word in norm_text:
+            return severity
+    return None
+
+
+def fetch_live(now: datetime | None = None) -> dict:
+    """Live BMS from the official data.gouv mirror (daily-synced current-year CSV)."""
+    now = now or datetime.now(timezone.utc)
+    doc = _base_doc(Mode.LIVE, "Météo-France BMS (data.gouv daily mirror)")
+    years = {now.year} | ({now.year - 1} if now.month == 1 else set())
+    rows: list[dict] = []
+    try:
+        for year in sorted(years):
+            response = requests.get(BMS_URL_TEMPLATE.format(year=year), timeout=60)
+            response.raise_for_status()
+            text = gzip.decompress(response.content).decode("utf-8")
+            rows.extend(csv.DictReader(io.StringIO(text), delimiter=";"))
     except Exception as error:  # noqa: BLE001 — any feed failure must degrade, not crash
         doc["feed_status"] = "unavailable"
         doc["coverage_note"] = f"live fetch failed: {error}"
         return doc
-    # Portal payload shape to be confirmed against a real token; keep raw + defensive.
-    for item in payload.get("bulletins", []):
-        doc["bulletins"].append(
-            {
-                "zone_id": str(item.get("zone", "unknown")).lower(),
-                "zone_name": item.get("zoneName", ""),
-                "kind": item.get("type", "BMS"),
-                "severity": item.get("severity"),
-                "valid_from": item.get("validFrom", _now_iso()),
-                "valid_to": item.get("validTo", _now_iso()),
-                "raw_text": json.dumps(item, ensure_ascii=False),
-                "parse_confidence": 0.9,
-            }
-        )
+
+    last_issued: datetime | None = None
+    zone_tokens = _route_zone_tokens()
+    for row in rows:
+        issued = datetime.strptime(row["date"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+        if last_issued is None or issued > last_issued:
+            last_issued = issued
+        if row["langue"] != "FR" or row["zone"] not in CHANNEL_AREAS:
+            continue
+        if issued < now - timedelta(days=7):
+            continue
+        norm = _normalize(row["contenu"])
+        valid_from, valid_to, confidence = _parse_validity(norm, issued)
+        if valid_from is None:
+            valid_from = issued.strftime("%Y-%m-%dT%H:%M:%SZ")
+        if valid_to is None:
+            valid_to = (issued + timedelta(hours=24)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        # drop bulletins that expired more than a day ago
+        if datetime.fromisoformat(valid_to.replace("Z", "+00:00")) < now - timedelta(hours=24):
+            continue
+        kind = f"BMS-{_normalize(row['type']).lower().replace(' ', '-')}"
+        for zone_id, zone_name, tokens in zone_tokens:
+            if not any(token in norm for token in tokens):
+                continue
+            doc["bulletins"].append(
+                {
+                    "zone_id": zone_id,
+                    "zone_name": zone_name,
+                    "kind": kind,
+                    "severity": _severity(norm),
+                    "valid_from": valid_from,
+                    "valid_to": valid_to,
+                    "raw_text": row["contenu"].strip(),
+                    "parse_confidence": confidence,
+                }
+            )
+
+    freshness = last_issued.strftime("%Y-%m-%dT%H:%M:%SZ") if last_issued else "unknown"
+    doc["coverage_note"] = (
+        "FR Channel BMS via the official data.gouv mirror, synced daily (~05:45 UTC): "
+        "bulletins issued after the last sync are not yet visible — absence of a "
+        f"warning is not absence of risk. Newest bulletin in feed: {freshness}. "
+        "UK shipping-forecast zones modeled but not fetched."
+    )
     return doc
 
 
