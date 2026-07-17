@@ -160,6 +160,69 @@
           }
         }
       }
+    },
+    "brisbane-gladstone-v1": {
+      "region": "au-queensland",
+      "currents_bounds": { "min_lat": -27.6, "max_lat": -23.5, "min_lon": 151.2, "max_lon": 153.7 },
+      "observations": {
+        "synthetic_source_name": "synthetic-qld-coast-stations",
+        "live_source_name": "qld-coastal-data-system (Queensland wave monitoring buoys — waves and SST only, no wind)",
+        "live_source": {
+          "kind": "qld_waves",
+          "base_url": "https://www.data.qld.gov.au",
+          "resource_id": "2bbef99e-9974-49b9-a316-57402b00609c"
+        },
+        "live_stations": [
+          { "station_id": "north-moreton-bay", "site": "North Moreton Bay", "name": "North Moreton Bay wave buoy", "lat": -26.899, "lon": 153.282 },
+          { "station_id": "mooloolaba", "site": "Mooloolaba", "name": "Mooloolaba wave buoy", "lat": -26.566, "lon": 153.181 },
+          { "station_id": "wide-bay", "site": "Wide Bay", "name": "Wide Bay wave buoy (off Double Island Point)", "lat": -25.759, "lon": 153.204 },
+          { "station_id": "bundaberg", "site": "Bundaberg", "name": "Bundaberg wave buoy", "lat": -24.670, "lon": 152.499 },
+          { "station_id": "gladstone", "site": "Gladstone", "name": "Gladstone wave buoy", "lat": -23.895, "lon": 151.503 }
+        ],
+        "synthetic_stations": [
+          { "station_id": "moreton-bay-exit", "name": "Moreton Bay north exit (synthetic)", "lat": -26.95, "lon": 153.25 },
+          { "station_id": "kgari-offing", "name": "K'gari offing (synthetic)", "lat": -25.0, "lon": 153.45 },
+          { "station_id": "curtis-channel", "name": "Curtis Channel (synthetic)", "lat": -24.05, "lon": 152.3 }
+        ]
+      },
+      "tides": {
+        "artifact_name": "brisbane-gladstone",
+        "live_source": { "kind": "qld_msq", "base_url": "https://www.data.qld.gov.au", "utc_offset_hours": 10 },
+        "ports": {
+          "brisbane-bar": {
+            "name": "Brisbane Bar",
+            "lat": -27.37,
+            "lon": 153.16,
+            "z0": 1.3,
+            "qld_package": "brisbane-bar-tide-gauge-predicted-high-low-data",
+            "constituents": { "M2": [0.72, 285], "S2": [0.2, 310], "N2": [0.14, 265], "K1": [0.24, 150], "O1": [0.13, 120] }
+          },
+          "mooloolaba": {
+            "name": "Mooloolaba",
+            "lat": -26.68,
+            "lon": 153.13,
+            "z0": 1.0,
+            "qld_package": "mooloolaba-tide-gauge-predicted-high-low-data",
+            "constituents": { "M2": [0.55, 275], "S2": [0.15, 300], "N2": [0.11, 255], "K1": [0.22, 145], "O1": [0.12, 115] }
+          },
+          "burnett-heads": {
+            "name": "Burnett Heads (Bundaberg)",
+            "lat": -24.76,
+            "lon": 152.4,
+            "z0": 1.5,
+            "qld_package": "bundaberg-tide-gauge-predicted-high-low-data",
+            "constituents": { "M2": [0.95, 290], "S2": [0.3, 320], "N2": [0.18, 270], "K1": [0.25, 155], "O1": [0.13, 125] }
+          },
+          "gladstone": {
+            "name": "Gladstone (Auckland Point)",
+            "lat": -23.83,
+            "lon": 151.25,
+            "z0": 2.3,
+            "qld_package": "gladstone-auckland-point-tide-gauge-predicted-high-low-data",
+            "constituents": { "M2": [1.55, 300], "S2": [0.5, 330], "N2": [0.3, 280], "K1": [0.28, 160], "O1": [0.15, 130] }
+          }
+        }
+      }
     }
   }
 }

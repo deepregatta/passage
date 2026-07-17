@@ -12,7 +12,8 @@
     "warnings_uk": { "mode": "live", "note": "Met Office shipping-forecast print page (no API exists); gale warnings between issues invisible until next forecast" },
     "warnings_us": { "mode": "live", "note": "NWS api.weather.gov active alerts per marine zone (official structured API); merged for routes with us_zones" },
     "warnings_meteoalarm": { "mode": "live", "note": "Meteoalarm CAP JSON per country (national services aggregated); coastal zones only — high-seas bulletins not distributed via Meteoalarm; merged for routes with meteoalarm_zones" },
-    "tides": { "mode": "live", "note": "per route: NOAA CO-OPS official predictions (US) or CMEMS 15-min model SSH (IBI Channel, Med); degrades to synthetic harmonics on fetch failure" },
-    "observations": { "mode": "live", "note": "per route: NDBC realtime2 (GTS/C-MAN) or Copernicus In Situ TAC NRT moorings (Med); recent past only — future windows report not_independently_observed" }
+    "warnings_au": { "mode": "live", "note": "BOM marine wind warning summary XML per state via anonymous FTP (structured hazards, UTC validity); coastal waters zones only — BOM high-seas products not fetched; merged for routes with au_zones" },
+    "tides": { "mode": "live", "note": "per route: NOAA CO-OPS official predictions (US), MSQ official predictions on data.qld.gov.au (QLD), or CMEMS 15-min model SSH (IBI Channel, Med); degrades to synthetic harmonics on fetch failure" },
+    "observations": { "mode": "live", "note": "per route: NDBC realtime2 (GTS/C-MAN), Copernicus In Situ TAC NRT moorings (Med), or QLD Coastal Data System wave buoys (AU, waves only); recent past only — future windows report not_independently_observed" }
   }
 }

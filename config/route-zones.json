@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "comment": "Marine forecast zone coverage per route. FR zones: Météo-France côte/large (BMS via data.gouv mirror). UK zones: Met Office shipping forecast areas (gale warnings from the print page). US zones: NWS coastal marine zones (active alerts via api.weather.gov, keyed by nws_zone UGC code). Meteoalarm zones: national CAP warnings aggregated by meteoalarm.org, keyed by EMMA_ID geocode + feed country — coastal zones only, high-seas bulletins are not distributed via Meteoalarm.",
+  "comment": "Marine forecast zone coverage per route. FR zones: Météo-France côte/large (BMS via data.gouv mirror). UK zones: Met Office shipping forecast areas (gale warnings from the print page). US zones: NWS coastal marine zones (active alerts via api.weather.gov, keyed by nws_zone UGC code). Meteoalarm zones: national CAP warnings aggregated by meteoalarm.org, keyed by EMMA_ID geocode + feed country — coastal zones only, high-seas bulletins are not distributed via Meteoalarm. AU zones: BOM marine wind warning summaries via anonymous FTP XML, keyed by AAC area code + state product id (e.g. IDQ20085 Queensland) — coastal waters zones only, BOM high-seas products not fetched.",
   "routes": {
     "cherbourg-plymouth-v1": {
       "fr_zones": [
@@ -27,6 +27,14 @@
         { "zone_id": "costa-sur-de-mallorca", "zone_name": "Costa - Sur de Mallorca", "kind": "meteoalarm-coastal", "emma_id": "ES874", "country": "spain" },
         { "zone_id": "costa-sierra-tramontana", "zone_name": "Costa - Sierra Tramontana", "kind": "meteoalarm-coastal", "emma_id": "ES875", "country": "spain" },
         { "zone_id": "costa-litoral-de-barcelona", "zone_name": "Costa - Litoral de Barcelona", "kind": "meteoalarm-coastal", "emma_id": "ES869", "country": "spain" }
+      ]
+    },
+    "brisbane-gladstone-v1": {
+      "au_zones": [
+        { "zone_id": "moreton-bay", "zone_name": "Moreton Bay", "kind": "bom-coastal", "aac": "QLD_MW013", "bom_product": "IDQ20085" },
+        { "zone_id": "sunshine-coast-waters", "zone_name": "Sunshine Coast Waters: Double Island Point to Cape Moreton", "kind": "bom-coastal", "aac": "QLD_MW012", "bom_product": "IDQ20085" },
+        { "zone_id": "kgari-coast", "zone_name": "K'gari Coast: Sandy Cape to Double Island Point", "kind": "bom-coastal", "aac": "QLD_MW011", "bom_product": "IDQ20085" },
+        { "zone_id": "capricornia-coast", "zone_name": "Capricornia Coast: St Lawrence to Burnett Heads", "kind": "bom-coastal", "aac": "QLD_MW009", "bom_product": "IDQ20085" }
       ]
     }
   }

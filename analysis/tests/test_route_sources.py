@@ -138,6 +138,32 @@ def test_med_route_currents_bounds_resolve_to_ibi():
     assert detect_region({"min_lat": 41.5, "max_lat": 43.2, "min_lon": 6.0, "max_lon": 9.5}) == "MED"
 
 
+def test_brisbane_gladstone_route_registered():
+    route = rs.route_sources("brisbane-gladstone-v1")
+    assert route["region"] == "au-queensland"
+
+    tides = rs.tides_live_source("brisbane-gladstone-v1")
+    assert tides["kind"] == "qld_msq"
+    assert tides["utc_offset_hours"] == 10  # AEST, Queensland keeps no DST
+    ports = rs.tide_ports("brisbane-gladstone-v1")
+    assert list(ports) == ["brisbane-bar", "mooloolaba", "burnett-heads", "gladstone"]
+    # every QLD port needs its open-data package name for the live path
+    assert all("qld_package" in port for port in ports.values())
+    assert ports["gladstone"]["qld_package"].startswith("gladstone-auckland-point")
+    assert rs.tides_artifact_name("brisbane-gladstone-v1") == "brisbane-gladstone"
+
+    observations = rs.observations_live_source("brisbane-gladstone-v1")
+    assert observations["kind"] == "qld_waves"
+    assert observations["base_url"].startswith("https://")
+    assert "waves and SST only" in rs.live_observations_source_name("brisbane-gladstone-v1")
+
+
+def test_au_route_currents_bounds_resolve_to_global_model():
+    from deepweather_analysis.environment_fetcher import detect_region
+
+    assert detect_region(rs.currents_bounds("brisbane-gladstone-v1")) == "GLO"
+
+
 def test_pt15m_datasets_are_resolvable_currents():
     """MED anfc publishes currents only as PT15M-i — the resolver must accept it."""
     from deepweather_analysis.environment_fetcher import (

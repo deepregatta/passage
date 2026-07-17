@@ -15,6 +15,13 @@ cmems_insitu_nrt — Copernicus Marine In Situ TAC NRT moorings (Med routes:
   IR_TS_MO_6100430 (Dragonera). Variables WSPD/GSPD/WDIR/ATMS|ATMP/VHM0 at
   a single met level, masked by their _QC flags.
 
+qld_waves — Queensland Coastal Data System wave monitoring buoys (AU routes)
+  via the tokenless data.qld.gov.au CKAN datastore API: one shared
+  near-real-time resource, 30-min cadence, ~7-day rolling window; stations
+  carry a 'site' name matching the resource's Site column. Wave buoys only —
+  Hsig maps to hs_m and nothing else: wind is NOT observed, so wind legs stay
+  'not_independently_observed' even where wave coverage exists.
+
 Either way a future passage window honestly yields empty station records,
 which the matcher reports as 'not_independently_observed'.
 
@@ -452,14 +459,112 @@ def fetch_live_insitu(
     return doc
 
 
+# QLD Coastal Data System missing-value sentinel
+QLD_WAVES_MISSING = -99.0
+
+
+def records_from_qld_waves(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Parse QLD datastore rows (one site) into schema records, chronological.
+
+    Only significant wave height is taken (wave buoys carry no anemometer);
+    the epoch 'Seconds' column is UTC (DateTime is local AEST). Sentinel
+    values (-99.9) mean missing and drop the record.
+    """
+    records: List[Dict[str, Any]] = []
+    for row in rows:
+        try:
+            t = datetime.fromtimestamp(int(float(row["Seconds"])), tz=timezone.utc)
+            hs = float(row["Hsig"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if hs <= QLD_WAVES_MISSING:
+            continue
+        records.append({"time": _iso_z(t), "hs_m": round(hs, 2)})
+    records.sort(key=lambda r: r["time"])
+    return records
+
+
+def fetch_live_qld_waves(
+    start_iso: str,
+    end_iso: str,
+    *,
+    generated_at: Optional[str] = None,
+    route_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Fetch real wave observations from the QLD Coastal Data System datastore.
+
+    One datastore_search per station (filtered by Site). Stations whose fetch
+    fails are skipped; if every station fails, raises so the dispatcher
+    degrades to synthetic. A future window keeps stations with empty records
+    ('not_independently_observed').
+    """
+    import requests
+
+    source = observations_live_source(route_id)
+    base_url = source.get("base_url", "https://www.data.qld.gov.au").rstrip("/")
+    resource_id = source["resource_id"]
+    headers = {"User-Agent": "passage-deepregatta (davivasconcellos@gmail.com)"}
+    start = _parse_iso(start_iso) - timedelta(minutes=WINDOW_SLACK_MIN)
+    end = _parse_iso(end_iso) + timedelta(minutes=WINDOW_SLACK_MIN)
+
+    stations_out: List[Dict[str, Any]] = []
+    failures: List[str] = []
+    for station in live_stations(route_id):
+        try:
+            resp = requests.get(
+                f"{base_url}/api/3/action/datastore_search",
+                params={
+                    "resource_id": resource_id,
+                    "filters": json.dumps({"Site": station["site"]}),
+                    "limit": 32000,
+                },
+                headers=headers,
+                timeout=60,
+            )
+            resp.raise_for_status()
+            rows = resp.json()["result"]["records"]
+        except Exception as exc:  # noqa: BLE001 — one station down must not sink the doc
+            failures.append(f"{station['station_id']}: {exc}")
+            continue
+        records = [
+            r for r in records_from_qld_waves(rows) if start <= _parse_iso(r["time"]) <= end
+        ]
+        stations_out.append(
+            {
+                "station_id": station["station_id"],
+                "name": station["name"],
+                "lat": station["lat"],
+                "lon": station["lon"],
+                "quality_flags": ["qld-waves-30min", "waves-only"],
+                "records": records,
+            }
+        )
+    if not stations_out:
+        raise RuntimeError(f"all QLD wave station fetches failed: {'; '.join(failures)}")
+
+    doc = {
+        "schema_version": SCHEMA_VERSION,
+        "generated_at": generated_at or _iso_z(datetime.now(timezone.utc)),
+        "source": {"mode": "live", "name": live_observations_source_name(route_id)},
+        "stations": stations_out,
+    }
+    validate_observations(doc)
+    return doc
+
+
 def fetch_observations(
     start_iso: str, end_iso: str, *, route_id: Optional[str] = None
 ) -> Dict[str, Any]:
     """Provider-mode dispatch: live buoys (per-route source), degrading visibly to synthetic."""
     if provider_mode("observations") is Mode.LIVE:
         try:
-            if observations_live_source(route_id)["kind"] == "cmems_insitu_nrt":
+            kind = observations_live_source(route_id)["kind"]
+            if kind == "cmems_insitu_nrt":
                 return fetch_live_insitu(start_iso, end_iso, route_id=route_id)
+            if kind == "qld_waves":
+                return fetch_live_qld_waves(start_iso, end_iso, route_id=route_id)
             return fetch_live(start_iso, end_iso, route_id=route_id)
         except Exception as exc:  # degrade, but never silently
             doc = generate_observations(start_iso, end_iso, route_id=route_id)
@@ -491,10 +596,12 @@ __all__ = [
     "VARIABLES",
     "fetch_live",
     "fetch_live_insitu",
+    "fetch_live_qld_waves",
     "fetch_observations",
     "generate_observations",
     "parse_realtime2",
     "records_from_insitu_nc",
+    "records_from_qld_waves",
     "validate_observations",
     "window_label",
     "write_observations",
