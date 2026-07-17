@@ -1,28 +1,69 @@
-"""Synthetic buoy/station observations for the verification layer (brief §9).
+"""Buoy/station observations for the verification layer (brief §9).
 
-SYNTHETIC provider (config/providers.json: observations.mode == 'synthetic').
-Every document carries source.mode == 'synthetic'; the matcher (§9 honesty
-rule) forces the coverage class of anything matched against these to
-'emulated' — fake observations can never claim real verification. The first
-easy live swap is EMODnet ERDDAP.
+LIVE (config/providers.json: observations.mode == 'live'): real Channel buoys
+via NDBC's realtime2 mirror of the GTS marine network — Channel Lightship
+(62103, mid-Channel) and E1 (62050, Plymouth approach), both UK Met Office
+moorings reporting hourly wind/direction/pressure. No account or token needed.
+Records only exist for the past (~45-day rolling window at hourly cadence);
+a future passage window honestly yields empty station records, which the
+matcher reports as 'not_independently_observed'.
 
-Fully deterministic: 'noise' is sin-based (no RNG), phases/biases derive from
-a stable per-station hash, so the same window always yields the same document.
+SYNTHETIC fallback: kept for fixture mode and for graceful degradation when
+the live fetch fails. Every synthetic document carries source.mode ==
+'synthetic'; the matcher (§9 honesty rule) forces the coverage class of
+anything matched against these to 'emulated' — fake observations can never
+claim real verification.
+
+The synthetic generator is fully deterministic: 'noise' is sin-based (no RNG),
+phases/biases derive from a stable per-station hash, so the same window always
+yields the same document.
 """
 
 from __future__ import annotations
 
 import json
 import math
+import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
 from .paths import contracts_dir, processed_dir
+from .providers import Mode, provider_mode
 
 SCHEMA_VERSION = 1
 SOURCE_NAME = "synthetic-channel-stations"
 RECORD_STEP_MIN = 10
+
+# --- live source: NDBC realtime2 mirror of Met Office GTS buoys -------------
+
+NDBC_URL_TEMPLATE = os.environ.get(
+    "DEEPWEATHER_NDBC_URL_TEMPLATE",
+    "https://www.ndbc.noaa.gov/data/realtime2/{station_id}.txt",
+)
+LIVE_SOURCE_NAME = "ndbc-realtime2 (Met Office GTS buoys)"
+KT_PER_MS = 1.9438445
+
+# Real moorings on the Cherbourg-Plymouth track. Coordinates from the NDBC
+# station table. Legs beyond ~25 km of these stay 'not_independently_observed'.
+LIVE_STATIONS: tuple[Dict[str, Any], ...] = (
+    {
+        "station_id": "62103",
+        "name": "Channel Lightship",
+        "lat": 49.900,
+        "lon": -2.900,
+    },
+    {
+        "station_id": "62050",
+        "name": "E1 buoy (Plymouth approach)",
+        "lat": 50.000,
+        "lon": -4.400,
+    },
+)
+
+# Keep records this far outside the requested window so the matcher's
+# nearest-in-time search (max 40 min) never starves at the edges.
+WINDOW_SLACK_MIN = 40
 
 # Fixed synthetic station set (Channel verification geometry).
 STATIONS: tuple[Dict[str, Any], ...] = (
@@ -191,6 +232,113 @@ def generate_observations(
     return doc
 
 
+def parse_realtime2(raw_text: str) -> List[Dict[str, Any]]:
+    """
+    Parse an NDBC realtime2 station file into schema records.
+
+    Columns (fixed order): YY MM DD hh mm WDIR WSPD GST WVHT DPD APD MWD PRES
+    ... — 'MM' means missing. Wind speeds arrive in m/s and convert to knots.
+    Input rows are newest-first; the result is chronological.
+    """
+    records: List[Dict[str, Any]] = []
+    for line in raw_text.splitlines():
+        if not line.strip() or line.startswith("#"):
+            continue
+        parts = line.split()
+        if len(parts) < 13:
+            continue
+
+        def _num(token: str) -> Optional[float]:
+            return None if token == "MM" else float(token)
+
+        try:
+            t = datetime(
+                int(parts[0]), int(parts[1]), int(parts[2]),
+                int(parts[3]), int(parts[4]), tzinfo=timezone.utc,
+            )
+        except ValueError:
+            continue
+        wdir, wspd, gust, wvht = (_num(parts[i]) for i in (5, 6, 7, 8))
+        pres = _num(parts[12])
+        records.append(
+            {
+                "time": _iso_z(t),
+                "wind_kt": round(wspd * KT_PER_MS, 1) if wspd is not None else None,
+                "gust_kt": round(gust * KT_PER_MS, 1) if gust is not None else None,
+                "wind_dir_deg": round(wdir, 0) if wdir is not None else None,
+                "pressure_hpa": round(pres, 1) if pres is not None else None,
+                "hs_m": round(wvht, 2) if wvht is not None else None,
+            }
+        )
+    records.reverse()
+    return records
+
+
+def fetch_live(
+    start_iso: str, end_iso: str, *, generated_at: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Fetch real observations from NDBC realtime2 for the window.
+
+    Stations whose fetch fails are skipped; if every station fails, raises so
+    the dispatcher can degrade to synthetic (badged). Stations that respond
+    but have no records inside the window (e.g. a future passage) are kept
+    with empty records — the matcher then reports those legs as
+    'not_independently_observed', which is the honest answer.
+    """
+    import requests
+
+    start = _parse_iso(start_iso) - timedelta(minutes=WINDOW_SLACK_MIN)
+    end = _parse_iso(end_iso) + timedelta(minutes=WINDOW_SLACK_MIN)
+
+    stations_out: List[Dict[str, Any]] = []
+    failures: List[str] = []
+    for station in LIVE_STATIONS:
+        url = NDBC_URL_TEMPLATE.format(station_id=station["station_id"])
+        try:
+            resp = requests.get(url, timeout=30)
+            resp.raise_for_status()
+        except requests.RequestException as exc:
+            failures.append(f"{station['station_id']}: {exc}")
+            continue
+        records = [
+            r for r in parse_realtime2(resp.text) if start <= _parse_iso(r["time"]) <= end
+        ]
+        stations_out.append(
+            {
+                "station_id": station["station_id"],
+                "name": station["name"],
+                "lat": station["lat"],
+                "lon": station["lon"],
+                "quality_flags": ["gts-hourly"],
+                "records": records,
+            }
+        )
+    if not stations_out:
+        raise RuntimeError(f"all NDBC station fetches failed: {'; '.join(failures)}")
+
+    doc = {
+        "schema_version": SCHEMA_VERSION,
+        "generated_at": generated_at or _iso_z(datetime.now(timezone.utc)),
+        "source": {"mode": "live", "name": LIVE_SOURCE_NAME},
+        "stations": stations_out,
+    }
+    validate_observations(doc)
+    return doc
+
+
+def fetch_observations(start_iso: str, end_iso: str) -> Dict[str, Any]:
+    """Provider-mode dispatch: live NDBC buoys, degrading visibly to synthetic."""
+    if provider_mode("observations") is Mode.LIVE:
+        try:
+            return fetch_live(start_iso, end_iso)
+        except Exception as exc:  # degrade, but never silently
+            doc = generate_observations(start_iso, end_iso)
+            doc["source"]["name"] = f"{SOURCE_NAME} (live fetch failed: {exc})"
+            return doc
+    return generate_observations(start_iso, end_iso)
+
+
 def validate_observations(doc: Dict[str, Any]) -> None:
     import jsonschema
 
@@ -208,9 +356,13 @@ def write_observations(doc: Dict[str, Any], start_iso: str, end_iso: str) -> Pat
 
 
 __all__ = [
+    "LIVE_STATIONS",
     "STATIONS",
     "VARIABLES",
+    "fetch_live",
+    "fetch_observations",
     "generate_observations",
+    "parse_realtime2",
     "validate_observations",
     "window_label",
     "write_observations",
