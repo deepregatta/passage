@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useApp } from '../stores/appStore.js';
 import { VerdictChip } from '../components/common.jsx';
 import { capitalize, fmtLocalTime, localTimeZoneName } from '../lib/format.js';
+import { translateText } from '../i18n.js';
 
 /** "cherbourg-plymouth-v1" / "my-passage-5wp" → "Cherbourg plymouth" / "My passage" */
 function routeName(routeId) {
@@ -81,7 +82,7 @@ export default function Snapshots() {
               title="Delete this briefing"
               disabled={loading}
               onClick={async () => {
-                if (!window.confirm(`Delete the briefing "${routeName(s.route_id)}" departing ${fmtLocalTime(s.departure_utc)} local time (${localTimeZoneName()})? This cannot be undone.`)) return;
+                if (!window.confirm(translateText(`Delete the briefing "${routeName(s.route_id)}" departing ${fmtLocalTime(s.departure_utc)} local time (${localTimeZoneName()})? This cannot be undone.`, document.documentElement.lang))) return;
                 try {
                   await deleteSnapshot(s.snapshot_id);
                 } catch (e) {

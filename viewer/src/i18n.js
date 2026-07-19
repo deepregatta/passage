@@ -202,8 +202,12 @@ const FR = {
   'The system is organizing west of the passage.': 'Le système s’organise à l’ouest de la traversée.',
   'The low and the boat occupy the same route window.': 'La dépression et le bateau occupent la même fenêtre sur la route.',
   'The system has crossed; the strongest route consequence is active.': 'Le système est passé ; son effet le plus fort sur la route est actif.',
+  'The system has crossed. Its strongest effect on your route is active.': 'Le système est passé. Son effet le plus fort sur votre route est actif.',
   'The low moves clear and the passage begins to ease.': 'La dépression s’éloigne et les conditions commencent à s’améliorer.',
   'No tracked system crosses your route window; this pattern still sets your wind.': 'Aucun système suivi ne traverse votre fenêtre de route; cette configuration détermine néanmoins votre vent.',
+  'No tracked system crosses your route window. The wider pattern still sets your wind.': 'Aucun système suivi ne traverse votre fenêtre de route. La configuration d’ensemble détermine néanmoins votre vent.',
+  'High pressure dominates the picture. Expect the pattern to change slowly.': 'Les hautes pressions dominent la situation. Attendez-vous à une évolution lente.',
+  'no closed pressure centres in the window': 'aucun centre de pression fermé dans la fenêtre',
   'Full screen': 'Plein écran',
   'Full chart': 'Carte entière',
   'Zoom to route': 'Zoomer sur la route',
@@ -295,6 +299,9 @@ const FR = {
   'easing off': 'en amélioration',
   'A weather system crosses your passage window': 'Un système météo traverse votre fenêtre de passage',
   'A low-pressure system crosses your passage window': 'Une dépression traverse votre fenêtre de passage',
+  'A deepening low crosses your passage window': 'Une dépression qui se creuse traverse votre fenêtre de passage',
+  'A high-pressure ridge crosses your passage window': 'Une dorsale anticyclonique traverse votre fenêtre de passage',
+  'A weather front crosses your passage window': 'Un front traverse votre fenêtre de passage',
   'A marine warning scenario covers part of your route; synthetic data, for testing the workflow only, never for a real passage decision.': 'Un scénario d’alerte marine couvre une partie de votre route; données synthétiques destinées uniquement à tester le fonctionnement, jamais à prendre une décision de traversée réelle.',
   'Why this assessment': 'Pourquoi cette évaluation',
   'Strongest': 'Conditions les plus fortes',
@@ -400,10 +407,116 @@ const FR = {
   'Wave height relative to wavelength. Steep waves break; short, steep seas are dangerous well below your height limit.': 'Rapport entre la hauteur et la longueur d’onde. Les vagues cambrées déferlent ; une mer courte et abrupte est dangereuse bien avant votre limite de hauteur.',
   'Wind blowing against the tidal stream; it makes waves shorter and steeper. Notorious in races like the Alderney Race.': 'Vent soufflant contre le courant de marée; il rend les vagues plus courtes et plus abruptes. Phénomène bien connu dans le raz Blanchard.',
   'A passage you must transit while the stream is fair (or slack). Miss the window and you fight a foul current; or worse seas.': 'Un passage à franchir lorsque le courant est favorable (ou à l’étale). Si vous manquez la fenêtre, vous affrontez un courant contraire; ou une mer plus difficile.',
+  // Current glossary wording (viewer/src/lib/glossary.jsx).
+  'A brief burst above the sustained wind. Gusts are often 20–40% stronger; squalls can double it.': 'Une brève pointe au-dessus du vent moyen. Les rafales sont souvent 20 à 40 % plus fortes ; les grains peuvent la doubler.',
+  'The ensemble members. "24 of 31 scenarios exceed your limit" is a raw count, not a calibrated probability. The total comes from the current run.': 'Les membres de l’ensemble. « 24 scénarios sur 31 dépassent votre limite » est un décompte brut, pas une probabilité étalonnée. Le total provient du cycle en cours.',
+  'Weather models restart from fresh observations every 6–12 h. A new run can shift the forecast, so recheck before departure.': 'Les modèles météo redémarrent à partir de nouvelles observations toutes les 6 à 12 h. Un nouveau cycle peut décaler la prévision ; vérifiez à nouveau avant le départ.',
+  'Wind against the tidal stream makes waves shorter and steeper. The Alderney Race is a well-known example.': 'Le vent contre le courant de marée rend les vagues plus courtes et plus abruptes. Le raz Blanchard en est un exemple bien connu.',
+  'A passage best crossed in fair or slack stream. Miss the window and you meet foul current, rougher seas, or both.': 'Un passage à franchir de préférence par courant favorable ou à l’étale. Si vous manquez la fenêtre, vous affrontez un courant contraire, une mer plus dure, ou les deux.',
+  // Briefing page — synoptic fallback, story bullets, decision band chrome.
+  'No synoptic chart was archived with this briefing, so here is your passage chart. New briefings show the pressure pattern behind your forecast.': 'Aucune carte synoptique n’a été archivée avec ce briefing, voici donc votre carte de traversée. Les nouveaux briefings montrent la configuration de pression derrière votre prévision.',
+  'The': 'La',
+  'Official advice takes priority over your personal limits.': 'Les consignes officielles prévalent sur vos limites personnelles.',
+  'Bulletin text not archived for this legacy snapshot. Use the source and validity details above to find the authority record.': 'Texte du bulletin non archivé pour cet ancien briefing. Utilisez la source et les informations de validité ci-dessus pour retrouver le document officiel.',
+  'The national weather service has an active marine warning for part of your route. Read the official bulletin first.': 'Le service météorologique national a émis une alerte marine active pour une partie de votre route. Lisez d’abord le bulletin officiel.',
+  // Boat picker.
+  'Type a model, for example First 36.7 or JPK 10.10': 'Saisissez un modèle, par exemple First 36.7 ou JPK 10.10',
+  'No ORC boat matches “': 'Aucun bateau ORC ne correspond à «',
+  '”. Choose a generic cruiser by length below. The briefing will identify the generic polar.': '». Choisissez un croiseur générique selon la longueur ci-dessous. Le briefing identifiera la polaire générique.',
+  'boat types from the ORC 2025 database. Start typing to search.': 'modèles de bateaux dans la base ORC 2025. Commencez à taper pour rechercher.',
+  // Planner errors, departure comparison and models-used panel.
+  'No limits profile available. Open My limits first.': 'Aucun profil de limites disponible. Ouvrez d’abord Mes limites.',
+  'Enter a valid departure date and 24-hour time.': 'Saisissez une date de départ valide et une heure au format 24 heures.',
+  'None of the candidate departures could be assessed. The live forecast may not reach that far ahead, or the forecast service may be unreachable. Try a departure within the next few days, or check your connection.': 'Aucun des départs candidats n’a pu être évalué. La prévision en direct ne va peut-être pas aussi loin, ou le service de prévision est peut-être injoignable. Essayez un départ dans les prochains jours, ou vérifiez votre connexion.',
+  '◎ Least exposure this window:': '◎ Exposition minimale sur cette fenêtre :',
+  'Click a time to use it': 'Cliquez sur une heure pour l’utiliser',
+  '(its route appears on the chart)': '(sa route apparaît sur la carte)',
+  ', then “Check this passage against my limits” for the full briefing.': ', puis « Vérifier cette traversée selon mes limites » pour le briefing complet.',
+  'The models disagree near your limits throughout this window. Open a briefing to see where they diverge and when the next update is due.': 'Les modèles divergent près de vos limites sur toute cette fenêtre. Ouvrez un briefing pour voir où ils divergent et quand la prochaine mise à jour est attendue.',
+  'Winds and gusts along your route: NOAA GFS 0.25°': 'Vent et rafales le long de votre route : NOAA GFS 0,25°',
+  '. Precomputed forecast tiles, updated four times a day, reaching 10 days ahead.': '. Tuiles de prévision précalculées, mises à jour quatre fois par jour, jusqu’à 10 jours d’échéance.',
+  'The “N forecast scenarios”: the GEFS ensemble, a set of plausible runs of the same model': 'Les « N scénarios de prévision » : l’ensemble GEFS, un jeu d’exécutions plausibles du même modèle',
+  ', reaching 16 days. The exact member count is read from the run, never assumed.': ', jusqu’à 16 jours. Le nombre exact de membres est lu depuis le cycle, jamais supposé.',
+  'The cross-check behind “models disagree”: GFS against ECMWF open data': 'La contre-vérification derrière « divergence des modèles » : GFS comparé aux données ouvertes ECMWF',
+  ', with the GEFS spread as an additional signal.': ', avec la dispersion GEFS comme signal supplémentaire.',
+  'Waves: NOAA GFS-Wave': 'Vagues : NOAA GFS-Wave',
+  ', same tile pipeline.': ', même chaîne de tuiles.',
+  'Tidal streams and gates: CMEMS IBI currents. Gate timing: HW/LW extracted from CMEMS IBI 15-minute sea-surface height at the reference ports': 'Courants et portes de marée : courants CMEMS IBI. Chronologie des portes : PM/BM extraites de la hauteur de mer CMEMS IBI à 15 minutes aux ports de référence',
+  'Official warnings: Météo-France BMS from the official open-data mirror (côte + large, synced daily) and Met Office shipping-forecast gale warnings (per issue). Both lag their source — a warning issued after the last sync is not yet visible, so absence of a warning here is not absence of risk.': 'Alertes officielles : BMS Météo-France depuis le miroir open data officiel (côte + large, synchronisé quotidiennement) et avis de coup de vent du bulletin maritime du Met Office (par émission). Les deux sont en retard sur leur source — une alerte émise après la dernière synchronisation n’est pas encore visible ; l’absence d’alerte ici n’est pas une absence de risque.',
+  'Routing wind: GFS 0.25° tiles mosaicked over a grid sized to your crossing': 'Vent pour le routage : tuiles GFS 0,25° assemblées sur une grille adaptée à votre traversée',
+  'Your boat: the ORC polar you picked, used as-is by the router.': 'Votre bateau : la polaire ORC choisie, utilisée telle quelle par le routeur.',
+  'Currents: Copernicus GLO12 surface currents (1/12°, 6-hourly) from the same tile pipeline. These are': 'Courants : courants de surface Copernicus GLO12 (1/12°, toutes les 6 h) issus de la même chaîne de tuiles. Ce ne sont',
+  'not': 'pas',
+  'tidal streams. Routing falls back to wind alone if unavailable.': 'des courants de marée. Le routage se rabat sur le vent seul s’ils sont indisponibles.',
+  // Changes page and change ledger vocabulary.
+  'Change ledger error:': 'Erreur du registre des évolutions :',
+  'Reassess after the next run at': 'Réévaluez après le prochain cycle à',
+  'the published update time': 'l’heure de publication annoncée',
+  'Full change ledger ·': 'Registre complet des évolutions ·',
+  'entries': 'entrées',
+  'material change': 'changement significatif',
+  'previous ·': 'précédente ·',
+  'latest ·': 'dernière ·',
+  'marine warning': 'alerte marine',
+  'wave-height limit': 'limite de hauteur de vagues',
+  'cross-sea': 'mer croisée',
+  'steep waves': 'vagues cambrées',
+  'wind against swell': 'vent contre houle',
+  'wind against current': 'vent contre courant',
+  'thunderstorm potential': 'potentiel orageux',
+  'visibility': 'visibilité',
+  'model disagreement': 'divergence des modèles',
+  'gust scenarios over your limit': 'scénarios de rafales au-dessus de votre limite',
+  'wind scenarios over your limit': 'scénarios de vent au-dessus de votre limite',
+  'the verdict changed': 'le verdict a changé',
+  'timing shifted': 'chronologie décalée',
+  'strength changed': 'intensité modifiée',
+  'new signal': 'nouveau signal',
+  'signal cleared': 'signal levé',
+  'newer model run': 'nouveau cycle du modèle',
+  'change': 'évolution',
+  'within your limits': 'dans vos limites',
+  'too uncertain to assess': 'trop incertain pour être évalué',
+  'official warning active': 'alerte officielle active',
+  'The action threshold changed; reassess the departure.': 'Le seuil d’action a changé ; réévaluez le départ.',
+  'Authority coverage changed for a crossed marine zone.': 'La couverture officielle a changé pour une zone marine traversée.',
+  'This is the rule currently driving the personal-limit assessment.': 'C’est la règle qui détermine actuellement l’évaluation selon vos limites.',
+  'The hazardous interval moved relative to the route ETA envelope.': 'L’intervalle dangereux s’est déplacé par rapport à la fenêtre d’arrivée estimée.',
+  'This remains in the full ledger because it may matter to passage margins.': 'Cette entrée reste dans le registre complet car elle peut influer sur les marges de la traversée.',
+  // Legacy fixture wording: empty next-run time slot, frozen in old snapshots.
+  'The next model run is expected around . Check again then, especially if conditions are close to your limits.': 'Le prochain cycle du modèle est attendu prochainement. Vérifiez à nouveau à ce moment-là, surtout si les conditions approchent vos limites.',
+  // Snapshots page and chart labels.
+  'manifest error:': 'erreur de manifeste :',
+  'NOW': 'MAINTENANT',
 };
 
 const FR_PATTERNS = [
   [/^A (strengthening )?low-pressure system sits (.+); that is what sets the wind pattern over your route\. The chart panels show how it moves over the next days\.$/, (_match, strengthening, position) => `Une dépression${strengthening ? ' qui se renforce' : ''} se trouve ${translateSynopticPosition(position)}; elle détermine le régime de vent sur votre route. Les cartes montrent son déplacement au cours des prochains jours.`],
+  [/^A (strengthening )?low-pressure system sits (.+)\. It sets the wind pattern over your route\. The charts track it over the next few days\.$/, (_match, strengthening, position) => `Une dépression${strengthening ? ' qui se renforce' : ''} se trouve ${translateSynopticPosition(position)}. Elle détermine le régime de vent sur votre route. Les cartes suivent son déplacement au cours des prochains jours.`],
+  [/^A (strengthening )?low-pressure system sits ((?:far out in the Atlantic|west of the approaches|near your waters), (?:to the north|to the south|at your latitude))\.$/, (_match, strengthening, position) => `Une dépression${strengthening ? ' qui se renforce' : ''} se trouve ${translateSynopticPosition(position)}.`],
+  [/^T\+(\d+): (.+?)\.( Tighter isobar spacing over (.+) means stronger wind there\.)?$/, (_match, step, body, tail, region) => translateSynopticCaption(step, body, tail ? region : null)],
+  [/^((?:A|An) [a-z-]+(?:[a-z -]*?) crosses your route\. )?(winds|gusts|seas|wind against the tide|squall risk|visibility|conditions) reach ([\d.]+) (kt|m|nm) (.+?), (close to|over) your ([\d.]+) (kt|m|nm) limit\.$/i, (_match, prefix, hazard, value, units, where, relation, limit, limitUnits) => translateDriverClause(prefix, hazard, value, units, where, relation, limit, limitUnits)],
+  [/^((?:A|An) [a-z-]+(?:[a-z -]*?) crosses your route\. )?(every forecast scenario shows|most forecast scenarios show|\d+ of \d+ forecast scenarios show) (winds|gusts|seas|wind against the tide|squall risk|visibility|conditions) over your ([\d.]+) kt limit (.+?)\.$/i, (_match, prefix, share, hazard, limit, where) => translateScenarioClause(prefix, share, hazard, limit, where)],
+  [/^next forecast ~(.+) · recheck before departure$/, 'prochaine prévision vers $1 · revérifiez avant le départ'],
+  [/^near waypoint (\d+)$/, 'près du point de route $1'],
+  [/^This run has no causal attribution\. Reason: (.+)\.$/, (_match, reason) => `Cette analyse ne comporte pas d’attribution causale. Raison : ${translateAttributionReason(reason)}.`],
+  [/^(.+) gate$/, 'porte $1'],
+  [/^YOUR LIMIT · ([\d.]+) (kt|m)$/, (_match, value, units) => `VOTRE LIMITE · ${value} ${units === 'kt' ? 'nd' : units}`],
+  [/^(\d+) of (\d+) departure times fall beyond the (live forecast|forecast) horizon and are not shown\. A missing cell does not mean safe conditions\.$/, (_match, hidden, total, kind) => `${hidden} sur ${total} heures de départ sont au-delà de l’horizon de ${kind === 'live forecast' ? 'la prévision en direct' : 'prévision'} et ne sont pas affichées. Une case manquante ne signifie pas des conditions sûres.`],
+  [/^Delete the briefing "(.+)" departing (.+) local time \((.+)\)\? This cannot be undone\.$/, 'Supprimer le briefing « $1 » partant $2 heure locale ($3) ? Cette action est irréversible.'],
+  // Change-ledger entries (engine diff.ts descriptions and headlines).
+  [/^Assessment changed: (.+) → (.+)\.$/, (_match, from, to) => `Évaluation modifiée : ${translateVerdictLabel(from)} → ${translateVerdictLabel(to)}.`],
+  [/^New signal: (.+?)( around (.+) UTC)?\.$/, (_match, phrase, _tail, time) => `Nouveau signal : ${translateChangePhrase(phrase)}${time ? ` vers ${time} UTC` : ''}.`],
+  [/^(.+): (\w{3} \d+ \w{3} \d{2}:\d{2}) → (\w{3} \d+ \w{3} \d{2}:\d{2}) UTC \((\d+) h (later|earlier)\)\.$/, (_match, phrase, prev, next, hours, direction) => `${translateChangePhrase(phrase)} : ${prev} → ${next} UTC (${hours} h ${direction === 'later' ? 'plus tard' : 'plus tôt'}).`],
+  [/^(.+): (-?\d+) → (-?\d+) ?(\S*) \((up|down) (\d+)\)\.$/, (_match, phrase, prev, next, units, direction, delta) => `${translateChangePhrase(phrase)} : ${prev} → ${next}${units ? ` ${units === 'kt' ? 'nd' : units}` : ''} (${direction === 'up' ? 'en hausse' : 'en baisse'} de ${delta}).`],
+  [/^(.+): (\d+) of (\d+) → (\d+) of (\d+) scenarios exceed\.$/, (_match, phrase, a, b, c, d) => `${translateChangePhrase(phrase)} : ${a} sur ${b} → ${c} sur ${d} scénarios en dépassement.`],
+  [/^(.+) no longer flagged\.$/, (_match, phrase) => `${translateChangePhrase(phrase)} n’est plus signalé.`],
+  [/^(.+) is the same system as in the previous briefing\. It now reaches the route (\d+) h (earlier|later)\.$/, (_match, name, hours, direction) => `${name} est le même système que dans le briefing précédent. Il atteint désormais la route ${hours} h ${direction === 'earlier' ? 'plus tôt' : 'plus tard'}.`],
+  [/^Model run updated: (.+) → (.+)\.$/, 'Cycle du modèle mis à jour : $1 → $2.'],
+  [/^The verdict changed from “(.+)” to “(.+)”\.$/, (_match, from, to) => `Le verdict est passé de « ${translateVerdictLabel(from)} » à « ${translateVerdictLabel(to)} ».`],
+  [/^The verdict is still “(.+)”, but the timing or strength changed\.$/, (_match, state) => `Le verdict reste « ${translateVerdictLabel(state)} », mais la chronologie ou l’intensité a changé.`],
+  [/^The new run keeps the same verdict: (.+)\.$/, (_match, state) => `Le nouveau cycle conserve le même verdict : ${translateVerdictLabel(state)}.`],
+  [/^The assessment remains (.+), with updated detail\.$/, (_match, state) => `L’évaluation reste ${translateVerdictLabel(state)}, avec des détails mis à jour.`],
   [/^Low (L\d+) deepens west of the route\.$/, 'La dépression $1 se creuse à l’ouest de la route.'],
   [/^(.+): (light|moderate|fresh|strong|near-gale|gale-force) winds while you are on this stretch \((.+) UTC\)\.(.*)$/, (_match, leg, strength, window, suffix) => `${translateRouteName(leg)} : ${translateWindStrength(strength)} pendant ce tronçon (${window} UTC).${translateExceedanceSuffix(suffix)}`],
   [/^The forecasts disagree too much to assess this passage against your limits\. Reassess after the next model run\.(.*)$/, (_match, suffix) => `Les prévisions divergent trop pour évaluer cette traversée par rapport à vos limites. Réévaluez-la après le prochain cycle du modèle.${translateMainSignal(suffix)}`],
@@ -471,7 +584,6 @@ const FR_PATTERNS = [
   [/^near (.+)$/, 'près de $1'],
   [/^at (.+)$/, 'à $1'],
   [/^waypoint (\d+)$/, 'point de route $1'],
-  [/^T\+(\d+): high ([^(]+) \((\d+) hPa\) (.+), building ([^,]+), quasi-stationary\. Tighter isobar spacing over (.+) means stronger wind there\.$/, 'T+$1 : anticyclone $2 ($3 hPa) $4, se renforçant de $5, quasi stationnaire. Le resserrement des isobares sur $6 y indique un vent plus fort.'],
   [/^T\+(\d+): low ([^(]+) \((\d+) hPa\) (.+), deepening ([^,]+), (.+)\.$/, 'T+$1 : dépression $2 ($3 hPa) $4, se creusant de $5, $6.'],
   [/^(\d+) waypoints$/, '$1 points de route'],
   [/^(\d+)\/2 endpoints$/, '$1/2 extrémités'],
@@ -487,6 +599,187 @@ const FR_PATTERNS = [
   [/^(.+) run$/, 'analyse $1'],
   [/^(.+) tracked positions$/, '$1 positions suivies'],
 ];
+
+// Chart-caption grammar mirrors analysis/synoptic/render.py: system sentences
+// joined by "; ", each "kind ID (P hPa) <place>, <trend>, <motion>".
+const FR_PLACES = {
+  'Iceland': 'l’Islande',
+  'the Faroes': 'les Féroé',
+  'Scotland': 'l’Écosse',
+  'Ireland': 'l’Irlande',
+  'west of Ireland': 'l’ouest de l’Irlande',
+  'the Irish Sea': 'la mer d’Irlande',
+  'the North Sea': 'la mer du Nord',
+  'the western Channel': 'la Manche occidentale',
+  'the eastern Channel': 'la Manche orientale',
+  'Brittany': 'la Bretagne',
+  'the Bay of Biscay': 'le golfe de Gascogne',
+  'Iberia': 'la péninsule Ibérique',
+  'the Azores': 'les Açores',
+  'the Gulf of Lion': 'le golfe du Lion',
+  'the Gulf of Genoa': 'le golfe de Gênes',
+  'the mid-Atlantic': 'le milieu de l’Atlantique',
+};
+
+const FR_COMPASS8 = {
+  'north': 'au nord', 'north-east': 'au nord-est', 'east': 'à l’est', 'south-east': 'au sud-est',
+  'south': 'au sud', 'south-west': 'au sud-ouest', 'west': 'à l’ouest', 'north-west': 'au nord-ouest',
+};
+
+/** "de" + article-bearing place name, with the usual contractions. */
+function frDe(placeFr) {
+  if (placeFr.startsWith('le ')) return `du ${placeFr.slice(3)}`;
+  if (placeFr.startsWith('les ')) return `des ${placeFr.slice(4)}`;
+  if (placeFr.startsWith('la ') || placeFr.startsWith('l’')) return `de ${placeFr}`;
+  return `de ${placeFr}`;
+}
+
+function translateCaptionPlace(place) {
+  let match = place.match(/^over (.+)$/);
+  if (match) return `sur ${FR_PLACES[match[1]] ?? match[1]}`;
+  match = place.match(/^(north|north-east|east|south-east|south|south-west|west|north-west) of (.+)$/);
+  if (match) return `${FR_COMPASS8[match[1]]} ${frDe(FR_PLACES[match[2]] ?? match[2])}`;
+  match = place.match(/^near (.+)$/);
+  if (match) return `près de ${match[1]}`;
+  return place;
+}
+
+function translateCaptionSystem(sentence) {
+  const match = sentence.match(/^(low|high) (\S+) \((\d+) hPa\) (.+?)((?:, [^,]+)*)$/);
+  if (!match) return sentence;
+  const kind = match[1] === 'low' ? 'dépression' : 'anticyclone';
+  const rest = match[5]
+    .replace(/, deepening ([\d.]+) hPa\/24h/g, ', se creusant de $1 hPa/24 h')
+    .replace(/, filling ([\d.]+) hPa\/24h/g, ', se comblant de $1 hPa/24 h')
+    .replace(/, building ([\d.]+) hPa\/24h/g, ', se renforçant de $1 hPa/24 h')
+    .replace(/, declining ([\d.]+) hPa\/24h/g, ', s’affaiblissant de $1 hPa/24 h')
+    .replace(/, steady/g, ', stable')
+    .replace(/, quasi-stationary/g, ', quasi stationnaire')
+    .replace(/, moving ([A-Z]+) (\d+) kt/g, (_m, dir, speed) => `, se déplaçant vers le ${dir.replace(/W/g, 'O')} à ${speed} nd`);
+  return `${kind} ${match[2]} (${match[3]} hPa) ${translateCaptionPlace(match[4])}${rest}`;
+}
+
+function translateSynopticCaption(step, body, gradientRegion) {
+  const bodyFr = body === 'no closed pressure centres in the window'
+    ? 'aucun centre de pression fermé dans la fenêtre'
+    : body.split('; ').map(translateCaptionSystem).join(' ; ');
+  const tail = gradientRegion
+    ? ` Le resserrement des isobares sur ${FR_PLACES[gradientRegion] ?? gradientRegion} y indique un vent plus fort.`
+    : '';
+  return `T+${step} : ${bodyFr}.${tail}`;
+}
+
+function translateAttributionReason(reason) {
+  return {
+    'the prepared synoptic run contains no tracked systems': 'le cycle synoptique préparé ne contient aucun système suivi',
+    'no prepared synoptic run was supplied': 'aucun cycle synoptique préparé n’a été fourni',
+  }[reason] ?? reason;
+}
+
+// Change-ledger vocabulary (engine diff.ts RULE_LABEL + subject()).
+const FR_RULE_LABELS = {
+  'sustained wind vs your limit': 'vent moyen par rapport à votre limite',
+  'gusts vs your limit': 'rafales par rapport à votre limite',
+  'wind scenarios over your limit': 'scénarios de vent au-dessus de votre limite',
+  'gust scenarios over your limit': 'scénarios de rafales au-dessus de votre limite',
+  'wave height vs your limit': 'hauteur de vagues par rapport à votre limite',
+  'cross-sea': 'mer croisée',
+  'steep waves': 'vagues cambrées',
+  'wind against swell': 'vent contre houle',
+  'wind against current': 'vent contre courant',
+  'tidal gate fit': 'compatibilité de porte de marée',
+  'official marine warning': 'alerte marine officielle',
+  'model disagreement': 'divergence des modèles',
+  'thunderstorm potential': 'potentiel orageux',
+  'visibility': 'visibilité',
+};
+
+function translateChangePhrase(phrase) {
+  let out = phrase;
+  for (const [en, fr] of Object.entries(FR_RULE_LABELS)) {
+    if (out.startsWith(en)) {
+      out = fr + out.slice(en.length);
+      break;
+    }
+  }
+  return out
+    .replace(/ near waypoint (\d+)$/, ' près du point de route $1')
+    .replace(/ near (.+)$/, ' près de $1')
+    .replace(/ on leg (\S+)$/, ' sur le tronçon $1')
+    .replace(/ for zone (.+)$/, ' pour la zone $1')
+    .replace(/ for the route$/, ' pour la route');
+}
+
+function translateVerdictLabel(label) {
+  return {
+    'within your limits': 'dans vos limites',
+    'close to your limits': 'proche de vos limites',
+    'beyond your limits': 'au-delà de vos limites',
+    'too uncertain to assess': 'trop incertain pour être évalué',
+    'official warning active': 'alerte officielle active',
+  }[label] ?? label;
+}
+
+// Decision-band cause sentence (viewer pages/Briefing.jsx DecisionBand).
+const FR_HAZARD_REACH = {
+  'winds': 'Le vent atteint',
+  'gusts': 'Les rafales atteignent',
+  'seas': 'La mer atteint',
+  'wind against the tide': 'Le vent contre le courant atteint',
+  'squall risk': 'Le risque de grains atteint',
+  'visibility': 'La visibilité atteint',
+  'conditions': 'Les conditions atteignent',
+};
+
+const FR_HAZARD_NOUN = {
+  'winds': 'du vent',
+  'gusts': 'des rafales',
+  'seas': 'une mer',
+  'wind against the tide': 'du vent contre le courant',
+  'squall risk': 'un risque de grains',
+  'visibility': 'une visibilité',
+  'conditions': 'des conditions',
+};
+
+const FR_UNITS = { kt: 'nd', m: 'm', nm: 'M' };
+
+function translateEventPrefix(prefix) {
+  if (!prefix) return '';
+  return prefix
+    .replace(/^A deepening low crosses your route\. $/, 'Une dépression qui se creuse traverse votre route. ')
+    .replace(/^A low-pressure system crosses your route\. $/, 'Une dépression traverse votre route. ')
+    .replace(/^A high-pressure ridge crosses your route\. $/, 'Une dorsale anticyclonique traverse votre route. ')
+    .replace(/^A weather front crosses your route\. $/, 'Un front traverse votre route. ')
+    .replace(/^A weather system crosses your route\. $/, 'Un système météo traverse votre route. ');
+}
+
+function translateDriverPlace(where) {
+  const match = where.match(/^near (.+)$/i);
+  if (!match) return where;
+  const spot = match[1].match(/^waypoint (\d+)$/i);
+  return spot ? `près du point de route ${spot[1]}` : `près de ${match[1]}`;
+}
+
+function translateDriverClause(prefix, hazard, value, units, where, relation, limit, limitUnits) {
+  const subject = FR_HAZARD_REACH[hazard.toLowerCase()] ?? `${hazard} atteint`;
+  const plural = hazard.toLowerCase() === 'gusts' || hazard.toLowerCase() === 'conditions';
+  const relationFr = relation === 'over'
+    ? `au-dessus de votre limite de ${limit} ${FR_UNITS[limitUnits] ?? limitUnits}`
+    : `${plural ? 'proches' : 'proche'} de votre limite de ${limit} ${FR_UNITS[limitUnits] ?? limitUnits}`;
+  const sentence = `${subject} ${value} ${FR_UNITS[units] ?? units} ${translateDriverPlace(where)}, ${relationFr}.`;
+  return `${translateEventPrefix(prefix)}${sentence}`;
+}
+
+function translateScenarioClause(prefix, share, hazard, limit, where) {
+  const shareMatch = share.match(/^(\d+) of (\d+) forecast scenarios show$/i);
+  const shareFr = shareMatch
+    ? `${shareMatch[1]} scénarios de prévision sur ${shareMatch[2]} montrent`
+    : /^every/i.test(share)
+      ? 'Tous les scénarios de prévision montrent'
+      : 'La plupart des scénarios de prévision montrent';
+  const sentence = `${shareFr} ${FR_HAZARD_NOUN[hazard.toLowerCase()] ?? hazard} au-dessus de votre limite de ${limit} nd ${translateDriverPlace(where)}.`;
+  return `${translateEventPrefix(prefix)}${sentence}`;
+}
 
 function translateSynopticPosition(position) {
   const positions = {
@@ -606,6 +899,12 @@ function translateCapabilityList(value) {
 }
 
 const FR_FRAGMENTS = [
+  [/The (.+?) gate does not fit this departure: you would reach it (.+?) UTC, outside the favorable stream \((.+?)\)\. Shifting departure may fix this\./g, 'La porte $1 ne convient pas à ce départ : vous l’atteindriez $2 UTC, hors du courant favorable ($3). Décaler le départ peut y remédier.'],
+  [/The (.+?) gate only partly fits: aim for the (.+?)-referenced window \((.+?)\)\./g, 'La porte $1 ne convient que partiellement : visez la fenêtre référencée sur $2 ($3).'],
+  [/Wind opposes the swell here, making the sea steeper and less comfortable\./g, 'Le vent s’oppose à la houle ici, rendant la mer plus cambrée et moins confortable.'],
+  [/The stream will be against you\./g, 'Le courant vous sera contraire.'],
+  [/\bExpect short, steep seas\b/g, 'Attendez-vous à une mer courte et abrupte'],
+  [/\bYOUR LIMIT\b/g, 'VOTRE LIMITE'],
   [/\bofficial marine warnings \(no feed configured\)/gi, 'alertes marines officielles (aucun flux configuré)'],
   [/\bmoderate winds while you are on this stretch\b/gi, 'vents modérés pendant ce tronçon'],
   [/\bClaim-level evidence\b/g, 'Éléments probants au niveau de l’affirmation'],
@@ -725,6 +1024,7 @@ const FR_FRAGMENTS = [
   [/votre (\d+(?:\.\d+)?) nd limite/gi, 'votre limite de $1 nd'],
   [/ limite on /gi, ' limite sur '],
   [/près de approche de Plymouth/gi, 'près de l’approche de Plymouth'],
+  [/près de point de route/gi, 'près du point de route'],
   [/mise à jour des prévisions\s*~/gi, 'mise à jour des prévisions vers '],
   [/default-limites\.json/g, 'default-limits.json'],
 ];
