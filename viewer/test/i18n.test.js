@@ -65,7 +65,35 @@ describe('language selection', () => {
     expect(translateText(
       'T+0: high H2 (1020 hPa) west of the Gulf of Lion, building 1 hPa/24h, quasi-stationary. Tighter isobar spacing over the eastern Channel means stronger wind there.',
       'fr',
-    )).toBe('T+0 : anticyclone H2 (1020 hPa) à l’ouest du golfe du Lion, se renforçant de 1 hPa/24h, quasi stationnaire. Le resserrement des isobares sur l’est de la Manche y indique un vent plus fort.');
+    )).toBe('T+0 : anticyclone H2 (1020 hPa) à l’ouest du golfe du Lion, se renforçant de 1 hPa/24 h, quasi stationnaire. Le resserrement des isobares sur la Manche orientale y indique un vent plus fort.');
+  });
+
+  it('translates multi-system captions and decision-band clauses', () => {
+    const samples = {
+      'T+0: high H5 (1022 hPa) over the Gulf of Genoa, building 1.7 hPa/24h, quasi-stationary; high H7 (1019 hPa) south of Iberia, steady, quasi-stationary. Tighter isobar spacing over the North Sea means stronger wind there.':
+        'T+0 : anticyclone H5 (1022 hPa) sur le golfe de Gênes, se renforçant de 1.7 hPa/24 h, quasi stationnaire ; anticyclone H7 (1019 hPa) au sud de la péninsule Ibérique, stable, quasi stationnaire. Le resserrement des isobares sur la mer du Nord y indique un vent plus fort.',
+      'T+24: low L1 (996 hPa) west of Ireland, deepening 3 hPa/24h, moving NE 20 kt.':
+        'T+24 : dépression L1 (996 hPa) à l’ouest de l’Irlande, se creusant de 3 hPa/24 h, se déplaçant vers le NE à 20 nd.',
+      'T+48: no closed pressure centres in the window.':
+        'T+48 : aucun centre de pression fermé dans la fenêtre.',
+      'Winds reach 17 kt near waypoint 2, close to your 18 kt limit.':
+        'Le vent atteint 17 nd près du point de route 2, proche de votre limite de 18 nd.',
+      'A low-pressure system crosses your route. gusts reach 22 kt near Barcelona, over your 20 kt limit.':
+        'Une dépression traverse votre route. Les rafales atteignent 22 nd près de Barcelona, au-dessus de votre limite de 20 nd.',
+      'Every forecast scenario shows gusts over your 18 kt limit near waypoint 2.':
+        'Tous les scénarios de prévision montrent des rafales au-dessus de votre limite de 18 nd près du point de route 2.',
+      'No tracked system crosses your route window. The wider pattern still sets your wind.':
+        'Aucun système suivi ne traverse votre fenêtre de route. La configuration d’ensemble détermine néanmoins votre vent.',
+      'A low-pressure system sits near your waters, to the north.':
+        'Une dépression se trouve près de votre zone de navigation, au nord.',
+      'A strengthening low-pressure system sits west of the approaches, at your latitude. It sets the wind pattern over your route. The charts track it over the next few days.':
+        'Une dépression qui se renforce se trouve à l’ouest des approches, à votre latitude. Elle détermine le régime de vent sur votre route. Les cartes suivent son déplacement au cours des prochains jours.',
+      'next forecast ~Sun 19 Jul 18:00 UTC · recheck before departure':
+        'prochaine prévision vers dim. 19 juil. 18:00 UTC · revérifiez avant le départ',
+    };
+    for (const [english, french] of Object.entries(samples)) {
+      expect(translateText(english, 'fr')).toBe(french);
+    }
   });
 
   it('translates expanded briefing sections', () => {

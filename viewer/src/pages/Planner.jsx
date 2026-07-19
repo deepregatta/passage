@@ -748,9 +748,7 @@ function DepartureComparison({ scan, departureLocal, onPick }) {
 
       {scan.requested > scan.candidates.length && (
         <p className="font-sans text-[12px] text-ink-soft mt-2">
-          {scan.requested - scan.candidates.length} of {scan.requested} departure times fall beyond
-          the {scan.rerouted ? 'live forecast' : 'forecast'} horizon and are not shown. A missing
-          cell does not mean safe conditions.
+          {`${scan.requested - scan.candidates.length} of ${scan.requested} departure times fall beyond the ${scan.rerouted ? 'live forecast' : 'forecast'} horizon and are not shown. A missing cell does not mean safe conditions.`}
         </p>
       )}
       <div className="flex flex-wrap items-baseline justify-between gap-2 mt-3">
