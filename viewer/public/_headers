@@ -19,3 +19,9 @@
 
 /index.html
   Cache-Control: public, max-age=0, must-revalidate, no-transform
+
+/fr/
+  Cache-Control: public, max-age=0, must-revalidate, no-transform
+
+/fr/index.html
+  Cache-Control: public, max-age=0, must-revalidate, no-transform

@@ -26,7 +26,8 @@ createServer(async (req, res) => {
     return;
   }
   const pathname = decodeURIComponent(new URL(req.url, 'http://x').pathname);
-  let file = normalize(join(root, pathname === '/' ? 'index.html' : pathname));
+  // Pages resolves directory requests to their index.html (e.g. /fr/)
+  let file = normalize(join(root, pathname.endsWith('/') ? `${pathname}index.html` : pathname));
   if (!file.startsWith(root)) {
     res.writeHead(403).end();
     return;

@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { initialPage } from '../lib/routes.js';
 import { localSnapshots, fetchSnapshotJson, snapshotTombstones } from '../lib/localSnapshots.js';
 import { preparedRun } from '../lib/preparedRun.js';
-import { getInitialLanguage, LANGUAGE_STORAGE_KEY } from '../i18n.js';
+import { getInitialLanguage, getLanguageFromPath, LANGUAGE_STORAGE_KEY } from '../i18n.js';
 
 async function fetchJson(url) {
   const response = await fetch(url);
@@ -43,6 +43,14 @@ export const useApp = create((set, get) => ({
       localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
     } catch {
       // The selection still applies for this session when storage is blocked.
+    }
+    // /fr/ is the crawlable French URL: keep the path in step with the
+    // language so the served head, client head and content always agree.
+    if (typeof location !== 'undefined') {
+      const onFrenchPath = getLanguageFromPath(location.pathname) === 'fr';
+      if ((language === 'fr') !== onFrenchPath) {
+        history.replaceState(null, '', `${language === 'fr' ? '/fr/' : '/'}${location.search}${location.hash}`);
+      }
     }
     set({ language });
   },

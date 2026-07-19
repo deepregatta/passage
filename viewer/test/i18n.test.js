@@ -1,10 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { getDefaultLanguage, getInitialLanguage, translateText } from '../src/i18n.js';
+import { getDefaultLanguage, getInitialLanguage, getLanguageFromPath, translateText } from '../src/i18n.js';
 
 afterEach(() => {
   vi.restoreAllMocks();
   localStorage.clear();
+  history.replaceState(null, '', '/');
 });
 
 describe('language selection', () => {
@@ -22,6 +23,20 @@ describe('language selection', () => {
     vi.spyOn(window.navigator, 'languages', 'get').mockReturnValue(['fr-FR']);
     localStorage.setItem('passage-language', 'en');
     expect(getInitialLanguage()).toBe('en');
+  });
+
+  it('recognises only the /fr/ path prefix as French', () => {
+    expect(getLanguageFromPath('/fr/')).toBe('fr');
+    expect(getLanguageFromPath('/fr')).toBe('fr');
+    expect(getLanguageFromPath('/')).toBe(null);
+    expect(getLanguageFromPath('/france')).toBe(null);
+  });
+
+  it('lets the /fr/ URL win over saved choice and browser detection', () => {
+    vi.spyOn(window.navigator, 'languages', 'get').mockReturnValue(['en-US']);
+    localStorage.setItem('passage-language', 'en');
+    history.replaceState(null, '', '/fr/');
+    expect(getInitialLanguage()).toBe('fr');
   });
 
   it('translates dynamic briefing narratives and dates', () => {

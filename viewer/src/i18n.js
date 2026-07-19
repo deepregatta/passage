@@ -10,7 +10,16 @@ export function getDefaultLanguage() {
   return preferred.some((language) => String(language).toLowerCase().startsWith('fr')) ? 'fr' : 'en';
 }
 
+/** The crawlable French page lives under /fr/; on that path the URL wins. */
+export function getLanguageFromPath(pathname) {
+  return /^\/fr(\/|$)/.test(pathname) ? 'fr' : null;
+}
+
 export function getInitialLanguage() {
+  if (typeof location !== 'undefined') {
+    const fromPath = getLanguageFromPath(location.pathname);
+    if (fromPath) return fromPath;
+  }
   try {
     const saved = localStorage.getItem(LANGUAGE_STORAGE_KEY);
     if (saved === 'en' || saved === 'fr') return saved;
