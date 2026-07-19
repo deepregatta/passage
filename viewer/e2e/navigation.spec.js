@@ -2,6 +2,9 @@ import { expect, test } from '@playwright/test';
 import { openAuditedSnapshot } from './helpers.js';
 
 test('Plan and Verify stage checkpoints keep URL-deep-linked subviews', async ({ page }) => {
+  // freeze the clock so the default departure date (now + 24h) renders the same
+  // date on every run — otherwise the screenshot baselines drift daily
+  await page.clock.setFixedTime(new Date('2026-07-20T06:00:00Z'));
   await openAuditedSnapshot(page);
   await page.getByRole('button', { name: /Plan/ }).first().click();
   await expect(page).toHaveURL(/#plan\/planner$/);
