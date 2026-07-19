@@ -45,6 +45,18 @@ test('Verify renders complete French copy, including dynamic counts and analysis
   await expect(page.getByText('DÉMONSTRATION SIMULÉE · AUCUN RÉSULTAT RÉEL')).toBeVisible();
 });
 
+test('the /fr/ URL renders French and the switcher navigates between language URLs', async ({ page }) => {
+  await page.goto('/fr/');
+  await expect(page).toHaveTitle(/Planification météo explicable/);
+  await expect(page.getByRole('heading', { name: 'Planifier une traversée' })).toBeVisible();
+  await page.getByRole('button', { name: 'English', exact: true }).click();
+  await expect(page).toHaveURL(/127\.0\.0\.1:5174\/#plan\/planner$/);
+  await expect(page.getByRole('heading', { name: 'Plan a passage' })).toBeVisible();
+  await page.getByRole('button', { name: 'Français', exact: true }).click();
+  await expect(page).toHaveURL(/\/fr\/#plan\/planner$/);
+  await expect(page.getByRole('heading', { name: 'Planifier une traversée' })).toBeVisible();
+});
+
 test('core flow emits no data 404s or uncaught page errors', async ({ page }) => {
   const failures = [];
   page.on('response', (response) => { if (response.status() === 404 && response.url().includes('/data/')) failures.push(response.url()); });
