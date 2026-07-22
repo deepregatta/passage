@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Archived on 2026-07-22. The prepare-synoptic workflow replaced this local
+# production stand-in; retain it only as implementation history.
 # Watch mode (local stand-in for the future scheduled shared-prep job):
 # every INTERVAL seconds, refresh prepared data and re-run the audit for a passage.
 # Snapshots are write-once and keyed by input digests, so a re-run with unchanged

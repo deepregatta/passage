@@ -153,6 +153,7 @@ def _fetch_port_ssh_events(
     import copernicusmarine
     import numpy as np
     import xarray as xr
+
     cache_dir = data_root() / "cache" / "tides"
     cache_dir.mkdir(parents=True, exist_ok=True)
     nc_path = cache_dir / f"{port_id}.nc"

@@ -135,7 +135,9 @@ def test_med_route_currents_bounds_resolve_to_ibi():
 
     assert detect_region(rs.currents_bounds("palma-barcelona-v1")) == "IBI"
     # a corridor east of IBI's 5°E cut (e.g. Corsica) must resolve to MED
-    assert detect_region({"min_lat": 41.5, "max_lat": 43.2, "min_lon": 6.0, "max_lon": 9.5}) == "MED"
+    assert (
+        detect_region({"min_lat": 41.5, "max_lat": 43.2, "min_lon": 6.0, "max_lon": 9.5}) == "MED"
+    )
 
 
 def test_brisbane_gladstone_route_registered():
@@ -171,8 +173,13 @@ def test_pt15m_datasets_are_resolvable_currents():
         _temporal_resolution_from_dataset_id,
     )
 
-    assert _temporal_resolution_from_dataset_id("cmems_mod_med_phy-cur_anfc_4.2km_PT15M-i") == "15-min"
-    assert _temporal_resolution_from_dataset_id("cmems_mod_ibi_phy_anfc_0.027deg-3D_PT1H-m") == "hourly"
+    assert (
+        _temporal_resolution_from_dataset_id("cmems_mod_med_phy-cur_anfc_4.2km_PT15M-i") == "15-min"
+    )
+    assert (
+        _temporal_resolution_from_dataset_id("cmems_mod_ibi_phy_anfc_0.027deg-3D_PT1H-m")
+        == "hourly"
+    )
     assert _format_temporal_resolution(0.25, "fallback") == "15-min"
 
 

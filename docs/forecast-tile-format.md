@@ -1,4 +1,4 @@
-# Forecast tiles — PFT1 format and publishing protocol
+# PFT1 forecast tile format and publishing protocol
 
 Canonical specification for the precomputed forecast tiles that replace
 Open-Meteo in the production runtime. The ingestion pipeline lives in the

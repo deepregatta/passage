@@ -1,7 +1,7 @@
 /**
  * Point-forecast shapes consumed by the findings assembler, and the request
  * metadata recorded in findings provenance. Data comes from precomputed PFT1
- * forecast tiles (docs/forecast-tiles-spec.md) — run ids and cycles are exact,
+ * forecast tiles (docs/forecast-tile-format.md) — run ids and cycles are exact,
  * never inferred.
  */
 

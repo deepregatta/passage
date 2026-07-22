@@ -62,8 +62,18 @@ VALID_RANGE_RE = re.compile(
 )
 
 FR_MONTHS = {
-    "JANVIER": 1, "FEVRIER": 2, "MARS": 3, "AVRIL": 4, "MAI": 5, "JUIN": 6,
-    "JUILLET": 7, "AOUT": 8, "SEPTEMBRE": 9, "OCTOBRE": 10, "NOVEMBRE": 11, "DECEMBRE": 12,
+    "JANVIER": 1,
+    "FEVRIER": 2,
+    "MARS": 3,
+    "AVRIL": 4,
+    "MAI": 5,
+    "JUIN": 6,
+    "JUILLET": 7,
+    "AOUT": 8,
+    "SEPTEMBRE": 9,
+    "OCTOBRE": 10,
+    "NOVEMBRE": 11,
+    "DECEMBRE": 12,
 }
 
 GALE_WORDS = re.compile(
@@ -152,7 +162,9 @@ def _route_zone_tokens() -> list[tuple[str, str, list[str]]]:
     return out
 
 
-def _resolve_day(day: int, month_word: str | None, hour: int, minute: int, issued: datetime) -> str | None:
+def _resolve_day(
+    day: int, month_word: str | None, hour: int, minute: int, issued: datetime
+) -> str | None:
     year, month = issued.year, issued.month
     if month_word in FR_MONTHS:
         month = FR_MONTHS[month_word]
@@ -296,12 +308,16 @@ def _merge_uk_warnings(doc: dict) -> dict:
         bulletins, uk_note = fetch_uk_gale_bulletins(_route_zones("uk_zones"))
     except Exception as error:  # noqa: BLE001 — any feed failure must degrade, not crash
         doc["feed_status"] = "parse-degraded"
-        doc["coverage_note"] = f"{doc.get('coverage_note', '')} UK feed unavailable: {error}".strip()
+        doc["coverage_note"] = (
+            f"{doc.get('coverage_note', '')} UK feed unavailable: {error}".strip()
+        )
         return doc
     doc["bulletins"].extend(bulletins)
     doc["source"]["name"] = f"{doc['source'].get('name', '')} + Met Office shipping forecast"
     base_note = doc.get("coverage_note", "")
-    doc["coverage_note"] = f"{base_note.replace('UK shipping-forecast zones modeled but not fetched.', '').strip()} {uk_note}".strip()
+    doc["coverage_note"] = (
+        f"{base_note.replace('UK shipping-forecast zones modeled but not fetched.', '').strip()} {uk_note}".strip()
+    )
     return doc
 
 
@@ -313,7 +329,9 @@ def _merge_us_warnings(doc: dict) -> dict:
         bulletins, us_note = fetch_us_bulletins(_route_zones("us_zones"))
     except Exception as error:  # noqa: BLE001 — any feed failure must degrade, not crash
         doc["feed_status"] = "parse-degraded"
-        doc["coverage_note"] = f"{doc.get('coverage_note', '')} US feed unavailable: {error}".strip()
+        doc["coverage_note"] = (
+            f"{doc.get('coverage_note', '')} US feed unavailable: {error}".strip()
+        )
         return doc
     doc["bulletins"].extend(bulletins)
     doc["source"]["name"] = f"{doc['source'].get('name', '')} + NWS active alerts"
@@ -347,7 +365,9 @@ def _merge_au_warnings(doc: dict) -> dict:
         bulletins, note = fetch_au_bulletins(_route_zones("au_zones"))
     except Exception as error:  # noqa: BLE001 — any feed failure must degrade, not crash
         doc["feed_status"] = "parse-degraded"
-        doc["coverage_note"] = f"{doc.get('coverage_note', '')} AU feed unavailable: {error}".strip()
+        doc["coverage_note"] = (
+            f"{doc.get('coverage_note', '')} AU feed unavailable: {error}".strip()
+        )
         return doc
     doc["bulletins"].extend(bulletins)
     doc["source"]["name"] = f"{doc['source'].get('name', '')} + BOM marine wind warnings"

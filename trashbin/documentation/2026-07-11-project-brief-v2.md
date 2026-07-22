@@ -1,5 +1,8 @@
 # Passage Risk Audit — explainable weather analysis for sailors
 
+> Archived on 2026-07-22. This pre-implementation brief is historical; use
+> [`docs/product-brief.md`](../../docs/product-brief.md) for current product scope.
+
 *Project brief v2 — 2026-07-11. Full rewrite after external review: repositioned away from "go/no-go dashboard" (a crowded category), technical corrections folded in. `deepweather` is the internal project code name only — the product name will be chosen later (see §14). No code exists yet.*
 
 ---
@@ -281,9 +284,9 @@ The product is a decision *aid* and must behave like one structurally, not just 
 
 These generated concepts establish a visual direction, not a locked component specification. The intended character is sober marine cartography: chart-paper surfaces, ink-navy structure, restrained hazard colors, evidence-dense layouts, and minimal dashboard-card chrome.
 
-1. [Main causal briefing](./passage-brief-main-briefing.png) — synoptic system, route impact, plain-language story, timeline, and source evidence on one screen.
-2. [Evidence and uncertainty](./passage-brief-evidence-uncertainty.png) — ensemble plume as the primary visualization, raw scenario fraction, deterministic model comparison, and rule/run provenance.
-3. [Forecast-run changes](./passage-brief-forecast-changes.png) — previous/latest synoptic comparison, evidence-backed change ledger, shifted event timing, and the official-warning authority layer.
+1. [Main causal briefing](../design-concepts/passage-brief-main-briefing.png) — synoptic system, route impact, plain-language story, timeline, and source evidence on one screen.
+2. [Evidence and uncertainty](../design-concepts/passage-brief-evidence-uncertainty.png) — ensemble plume as the primary visualization, raw scenario fraction, deterministic model comparison, and rule/run provenance.
+3. [Forecast-run changes](../design-concepts/passage-brief-forecast-changes.png) — previous/latest synoptic comparison, evidence-backed change ledger, shifted event timing, and the official-warning authority layer.
 
 **Mockup review notes (carry into implementation):**
 - The evidence footer on the main briefing labels each model "High/Medium confidence" — that is exactly the blended-confidence wording §6 forbids. Replace with run age + agreement/divergence status per model.

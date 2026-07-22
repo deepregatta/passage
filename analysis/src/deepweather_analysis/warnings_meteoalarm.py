@@ -51,9 +51,7 @@ LEVEL_SEVERITY = {"yellow": "near-gale", "orange": "gale", "red": "storm"}
 def _iso_utc(value: str | None) -> str | None:
     if not value:
         return None
-    return (
-        datetime.fromisoformat(value).astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    )
+    return datetime.fromisoformat(value).astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _parameter(info: dict[str, Any], name: str) -> str | None:

@@ -26,16 +26,21 @@ SHIPPING_FORECAST_URL = (
 )
 
 # "10:30 (UTC+1) on Fri 17 Jul 2026" — offset absent means UTC (winter)
-TIME_RE = re.compile(r"(\d{1,2}):(\d{2})\s*\(UTC([+-]\d{1,2})?\)\s*on\s*\w+\s+(\d{1,2})\s+(\w{3})\s+(\d{4})")
+TIME_RE = re.compile(
+    r"(\d{1,2}):(\d{2})\s*\(UTC([+-]\d{1,2})?\)\s*on\s*\w+\s+(\d{1,2})\s+(\w{3})\s+(\d{4})"
+)
 GALES_RE = re.compile(r"warnings of gales\s+in\s+(.*?)\.", re.IGNORECASE | re.DOTALL)
 AREA_RE = re.compile(
     r'<h3 class="area-forecast-heading">(.*?)</h3>\s*<p class="area-forecast">(.*?)</p>',
     re.DOTALL,
 )
 
-MONTHS = {m: i + 1 for i, m in enumerate(
-    ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-)}
+MONTHS = {
+    m: i + 1
+    for i, m in enumerate(
+        ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    )
+}
 
 
 def _flatten(raw_html: str) -> str:
@@ -46,9 +51,9 @@ def _flatten(raw_html: str) -> str:
 def _parse_time(match: re.Match) -> datetime:
     hour, minute, offset, day, month, year = match.groups()
     tz = timezone(timedelta(hours=int(offset or 0)))
-    return datetime(int(year), MONTHS[month], int(day), int(hour), int(minute), tzinfo=tz).astimezone(
-        timezone.utc
-    )
+    return datetime(
+        int(year), MONTHS[month], int(day), int(hour), int(minute), tzinfo=tz
+    ).astimezone(timezone.utc)
 
 
 def parse_shipping_forecast(raw_html: str) -> dict:
@@ -86,7 +91,9 @@ def _area_matches(zone_name: str, area: str) -> bool:
     return zone_name.lower() in area.lower()
 
 
-def fetch_uk_gale_bulletins(route_uk_zones: list[dict], now: datetime | None = None) -> tuple[list[dict], str]:
+def fetch_uk_gale_bulletins(
+    route_uk_zones: list[dict], now: datetime | None = None
+) -> tuple[list[dict], str]:
     """(bulletins for route zones under gale warning, status note). Raises on fetch/parse failure."""
     now = now or datetime.now(timezone.utc)
     response = requests.get(SHIPPING_FORECAST_URL, timeout=30)

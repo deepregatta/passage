@@ -31,7 +31,6 @@ import re
 import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
-from typing import Any
 
 BOM_FTP_URL_TEMPLATE = os.environ.get(
     "DEEPWEATHER_BOM_FTP_URL_TEMPLATE",

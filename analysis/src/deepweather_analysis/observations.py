@@ -248,8 +248,12 @@ def parse_realtime2(raw_text: str) -> List[Dict[str, Any]]:
 
         try:
             t = datetime(
-                int(parts[0]), int(parts[1]), int(parts[2]),
-                int(parts[3]), int(parts[4]), tzinfo=timezone.utc,
+                int(parts[0]),
+                int(parts[1]),
+                int(parts[2]),
+                int(parts[3]),
+                int(parts[4]),
+                tzinfo=timezone.utc,
             )
         except ValueError:
             continue
@@ -300,9 +304,7 @@ def fetch_live(
         except requests.RequestException as exc:
             failures.append(f"{station['station_id']}: {exc}")
             continue
-        records = [
-            r for r in parse_realtime2(resp.text) if start <= _parse_iso(r["time"]) <= end
-        ]
+        records = [r for r in parse_realtime2(resp.text) if start <= _parse_iso(r["time"]) <= end]
         stations_out.append(
             {
                 "station_id": station["station_id"],
@@ -528,9 +530,7 @@ def fetch_live_qld_waves(
         except Exception as exc:  # noqa: BLE001 — one station down must not sink the doc
             failures.append(f"{station['station_id']}: {exc}")
             continue
-        records = [
-            r for r in records_from_qld_waves(rows) if start <= _parse_iso(r["time"]) <= end
-        ]
+        records = [r for r in records_from_qld_waves(rows) if start <= _parse_iso(r["time"]) <= end]
         stations_out.append(
             {
                 "station_id": station["station_id"],

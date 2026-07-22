@@ -41,7 +41,11 @@ def test_registry_station_sites_are_consistent():
     assert source["resource_id"]
     stations = rs.live_stations("brisbane-gladstone-v1")
     assert [s["station_id"] for s in stations] == [
-        "north-moreton-bay", "mooloolaba", "wide-bay", "bundaberg", "gladstone",
+        "north-moreton-bay",
+        "mooloolaba",
+        "wide-bay",
+        "bundaberg",
+        "gladstone",
     ]
     # the Site column value is what the datastore filter joins on
     assert all("site" in s for s in stations)

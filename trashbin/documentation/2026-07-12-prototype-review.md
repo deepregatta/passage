@@ -1,5 +1,8 @@
 # Deepweather prototype review
 
+> Archived on 2026-07-22. This audit predates later implementation work; its
+> test counts, screenshots, and product-gap findings are historical.
+
 **Review date:** 2026-07-12  
 **Prototype:** local React viewer at 1568 x 1003 desktop and 390 x 844 mobile  
 **Reference concepts:** [main causal briefing](./passage-brief-main-briefing.png), [evidence and uncertainty](./passage-brief-evidence-uncertainty.png), [forecast-run changes](./passage-brief-forecast-changes.png)  

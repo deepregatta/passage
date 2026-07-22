@@ -1,4 +1,4 @@
-"""M0 scaffold tests: contracts parse, configs validate, provider framework loads."""
+"""Repository contracts, configuration, and provider-mode validation."""
 
 import json
 

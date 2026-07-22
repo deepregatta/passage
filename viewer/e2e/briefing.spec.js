@@ -2,8 +2,16 @@ import { expect, test } from '@playwright/test';
 import { openAuditedSnapshot } from './helpers.js';
 
 test('briefing checkpoint', async ({ page }) => {
+  // Keep model-age labels aligned with the reference fixture. Otherwise this
+  // full-page baseline changes every day and wraps differently on mobile.
+  await page.clock.setFixedTime(new Date('2026-07-19T18:00:00Z'));
   await openAuditedSnapshot(page);
-  await expect(page).toHaveScreenshot('briefing.png', { fullPage: true });
+  await expect(page).toHaveScreenshot('briefing.png', {
+    fullPage: true,
+    // CARTO/OSM can move a handful of labels between otherwise identical
+    // tiles. This remains below the time/layout drift this test guards.
+    maxDiffPixels: 1_000,
+  });
 });
 
 test('emulated warning uses a neutral test-pattern band', async ({ page }) => {

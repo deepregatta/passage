@@ -1,6 +1,6 @@
 /**
  * Tile geometry and time-axis helpers for PFT1 forecast tiles
- * (docs/forecast-tiles-spec.md): 10°×10° tiles named by their SW corner,
+ * (docs/forecast-tile-format.md): 10°×10° tiles named by their SW corner,
  * half-open on both axes, longitudes in [−180, 180).
  */
 

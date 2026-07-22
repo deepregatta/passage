@@ -1,18 +1,19 @@
 # Passage by DeepRegatta
 
-Explainable passage-weather risk audit for sailors. Local prototype — see [PROJECT_BRIEF.md](PROJECT_BRIEF.md) for the product spec.
+Explainable passage-weather risk audit for sailors. See the
+[current product brief](docs/product-brief.md) for scope and product principles.
 
 The product name is **Passage by DeepRegatta**; `deepweather` was the dev codename and survives in internal identifiers (package names, CLI commands, localStorage keys).
 
 ## Architecture (factory / showroom / warehouse — mirrors coachregatta)
 
-| Part | Role | Future deployment |
+| Part | Role | Runtime / deployment |
 |---|---|---|
-| [forecast-tiles](https://github.com/deepregatta/forecast-tiles) (public repo) | Scheduled ingestion factory: NOAA GFS/GEFS/GFS-Wave, ECMWF open data, Copernicus GLO12 currents → quantized, immutable **PFT1 forecast tiles** on Cloudflare R2 (`docs/forecast-tiles-spec.md`). | Already its production shape: GitHub Actions cron per layer |
-| `analysis/` | Python factory: the remaining **route-independent** prep — synoptic feature detection, warnings, tides, verification, scenario bundles. Publishes compact JSON artifacts per model run. | Scheduled shared-prep job, publishing to R2 |
+| [forecast-tiles](https://github.com/deepregatta/forecast-tiles) (public repo) | Scheduled ingestion factory: NOAA GFS/GEFS/GFS-Wave, ECMWF open data, Copernicus GLO12 currents → quantized, immutable **PFT1 forecast tiles** on Cloudflare R2 ([format specification](docs/forecast-tile-format.md)). | GitHub Actions cron per layer |
+| `analysis/` | Python factory: the remaining **route-independent** prep — synoptic feature detection, warnings, tides, verification, scenario bundles. Publishes compact JSON artifacts per model run. | Scheduled shared-prep job publishing to R2 |
 | `engine/` | TypeScript pure library: everything **per-user** — route geometry, ForecastStore tile reads, ETA ranges, limits, ensemble exceedance, verdicts, briefing text, isochrone routing. Zero DOM deps, no weather APIs. | Runs unchanged **in the user's browser** (no per-user server compute, no runtime API quotas) |
 | `viewer/` | React + Vite showroom. Dev middleware serves `/data/*` from `../data/processed`, including a local fixture tile run at `/data/forecast/`. Forecast tiles cache in IndexedDB per immutable run id. | Cloudflare Pages + R2 (`VITE_FORECAST_BASE_URL`) |
-| `data/` | Git-ignored warehouse: caches, prepared runs, immutable snapshots. | Local today; planned R2 bucket with the same layout |
+| `data/` | Git-ignored warehouse: caches, prepared runs, and immutable local snapshots. | Local working data; published artifacts use R2 |
 | `contracts/` | JSON Schemas — the treaty between Python and TypeScript, including the forecast tile/manifest/latest schemas vendored into the pipeline repo. | The API between the shared jobs and every browser |
 
 ## Data providers
@@ -35,8 +36,11 @@ cd analysis && uv sync --all-extras && uv run pytest
 # Engine + viewer
 npm install
 npm test
-npm run dev            # viewer at http://localhost:5174, /data/* served from data/processed
 ```
+
+Use the `viewer-demo` launch configuration in `.claude/launch.json` for the
+fixture-backed viewer. The complete command and test catalog lives in
+[docs/testing.md](docs/testing.md).
 
 ## Product flow
 
@@ -63,10 +67,13 @@ The builder runs the engine CLI twice with a fixed clock and rebuilds the commit
 ```bash
 npm test                                      # engine + viewer unit/contract suites
 npm run build                                 # TypeScript + production Vite chunks
-cd viewer && npx playwright test              # 1568×1003 + 390×844 visual/core-flow suite
+npm run test:e2e                              # 1568×1003 + 390×844 visual/core-flow suite
 cd analysis && uv run pytest                  # factory + verification tests
 cd analysis && uv run deepweather-analysis corpus --no-fetch
 ```
+
+See [Testing and maintenance](docs/testing.md) for suite ownership, fixture
+policy, generated outputs, and maintenance scripts.
 
 The full corpus command without `--no-fetch` uses CDS credentials and may be slow. Calibration excludes every record whose `observation_source` or coverage class is `emulated`; demo cases are displayed but never contribute to skill claims.
 
@@ -80,3 +87,9 @@ keeps a real `404.html` for missing data artifacts.
 This is a decision *aid*: it never says "GO", official warnings override the personal-limit summary,
 unsupported hazards are disclosed in every report. Skippers remain solely responsible; official
 marine forecasts remain the authority of record.
+
+## Documentation
+
+The maintained documentation index is [docs/README.md](docs/README.md).
+Superseded reports and one-off design material are retained under
+[`trashbin/`](trashbin/README.md) for history and are not authoritative.

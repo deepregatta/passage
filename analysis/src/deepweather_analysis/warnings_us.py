@@ -55,11 +55,7 @@ def _is_bulletin_event(event: str) -> bool:
 def _iso_utc(value: str | None) -> str | None:
     if not value:
         return None
-    return (
-        datetime.fromisoformat(value)
-        .astimezone(timezone.utc)
-        .strftime("%Y-%m-%dT%H:%M:%SZ")
-    )
+    return datetime.fromisoformat(value).astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _event_slug(event: str) -> str:
