@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://deepweather.local/contracts/forecast-tile.schema.json",
-  "title": "PFT1 forecast tile JSON header — see docs/forecast-tiles-spec.md for the binary layout around it.",
+  "title": "PFT1 forecast tile JSON header — see docs/forecast-tile-format.md for the binary layout around it.",
   "type": "object",
   "required": ["spec", "schema_version", "layer", "model", "run_id", "cycle", "generated_at", "tile_id", "lat0", "lon0", "dlat", "dlon", "nlat", "nlon", "time_axes", "member_count", "variables"],
   "properties": {

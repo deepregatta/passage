@@ -17,10 +17,10 @@ const roots = [
   join(repo, 'data', 'processed', 'snapshots'),
 ];
 
-describe('legacy snapshot degradation', () => {
+describe('saved snapshot compatibility', () => {
   it('renders every local snapshot and derives contradiction-free warning coverage', () => {
     const dirs = roots.flatMap((root) => existsSync(root) ? readdirSync(root).map((name) => join(root, name)) : []);
-    dirs.push(join(repo, 'viewer', 'test', 'fixtures', '20260720T060000Z_44d2cd5f_4196266b'));
+    dirs.push(join(repo, 'viewer', 'test', 'fixtures', 'compatibility', '20260720T060000Z_44d2cd5f_4196266b'));
     expect(dirs.length).toBeGreaterThanOrEqual(3);
     for (const dir of dirs) {
       const findings = JSON.parse(readFileSync(join(dir, 'findings.json'), 'utf8'));

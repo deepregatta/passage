@@ -1,7 +1,7 @@
 /**
  * PFT1 forecast-tile codec (TypeScript side). Must decode the shared golden
  * fixtures identically to the pipeline's Python reference implementation —
- * the format is specified in docs/forecast-tiles-spec.md and the header is
+ * the format is specified in docs/forecast-tile-format.md and the header is
  * validated by contracts/forecast-tile.schema.json.
  *
  * Decode input is the UNCOMPRESSED tile bytes; gzip is the transport's job.

@@ -23,9 +23,24 @@ BIZKAIA = {
     "country": "spain",
 }
 ROUTE_ZONES = [
-    {"zone_id": "costa-sur-de-mallorca", "zone_name": "Costa - Sur de Mallorca", "emma_id": "ES874", "country": "spain"},
-    {"zone_id": "costa-sierra-tramontana", "zone_name": "Costa - Sierra Tramontana", "emma_id": "ES875", "country": "spain"},
-    {"zone_id": "costa-litoral-de-barcelona", "zone_name": "Costa - Litoral de Barcelona", "emma_id": "ES869", "country": "spain"},
+    {
+        "zone_id": "costa-sur-de-mallorca",
+        "zone_name": "Costa - Sur de Mallorca",
+        "emma_id": "ES874",
+        "country": "spain",
+    },
+    {
+        "zone_id": "costa-sierra-tramontana",
+        "zone_name": "Costa - Sierra Tramontana",
+        "emma_id": "ES875",
+        "country": "spain",
+    },
+    {
+        "zone_id": "costa-litoral-de-barcelona",
+        "zone_name": "Costa - Litoral de Barcelona",
+        "emma_id": "ES869",
+        "country": "spain",
+    },
 ]
 
 
@@ -52,8 +67,10 @@ def test_green_entries_are_all_clear_never_bulletins():
 
 def test_non_marine_warnings_are_counted_not_emitted():
     mallorca_interior = {
-        "zone_id": "interior-mallorca", "zone_name": "Interior de Mallorca",
-        "emma_id": "ES116", "country": "spain",
+        "zone_id": "interior-mallorca",
+        "zone_name": "Interior de Mallorca",
+        "emma_id": "ES116",
+        "country": "spain",
     }
     bulletins, note = parse_meteoalarm(FEED, [mallorca_interior], "spain", now=NOW)
     assert bulletins == []
@@ -90,7 +107,8 @@ def test_orange_maps_to_gale_and_unknown_colour_keeps_null_severity():
 def test_cancelled_and_superseded_alerts_are_dropped():
     doc = json.loads(json.dumps(FEED))
     galerna = next(
-        w["alert"] for w in doc["warnings"]
+        w["alert"]
+        for w in doc["warnings"]
         if any("galerna" in (i.get("event") or "") for i in w["alert"]["info"])
     )
     galerna["msgType"] = "Cancel"
@@ -99,13 +117,20 @@ def test_cancelled_and_superseded_alerts_are_dropped():
 
     doc = json.loads(json.dumps(FEED))
     galerna = next(
-        w["alert"] for w in doc["warnings"]
+        w["alert"]
+        for w in doc["warnings"]
         if any("galerna" in (i.get("event") or "") for i in w["alert"]["info"])
     )
     doc["warnings"].append(
-        {"alert": {"identifier": "x", "status": "Actual", "msgType": "Update",
-                   "references": f"www.aemet.es,{galerna['identifier']},2026-07-12T09:00:00+00:00",
-                   "info": []}}
+        {
+            "alert": {
+                "identifier": "x",
+                "status": "Actual",
+                "msgType": "Update",
+                "references": f"www.aemet.es,{galerna['identifier']},2026-07-12T09:00:00+00:00",
+                "info": [],
+            }
+        }
     )
     bulletins, _ = parse_meteoalarm(doc, [BIZKAIA], "spain", now=NOW)
     assert bulletins == []

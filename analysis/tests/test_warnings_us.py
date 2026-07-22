@@ -6,9 +6,7 @@ from pathlib import Path
 
 from deepweather_analysis.warnings_us import _severity, parse_alerts
 
-ALERTS = json.loads(
-    (Path(__file__).parent / "fixtures" / "nws-alerts-2026-07-17.json").read_text()
-)
+ALERTS = json.loads((Path(__file__).parent / "fixtures" / "nws-alerts-2026-07-17.json").read_text())
 
 ROUTE_ZONES = [
     {"zone_id": "rhode-island-sound", "zone_name": "Rhode Island Sound", "nws_zone": "ANZ235"},
@@ -64,7 +62,12 @@ def test_route_zones_config_matches_real_nws_ugc_codes():
 
     zones = _route_zones("us_zones")
     assert [z["nws_zone"] for z in zones] == [
-        "ANZ235", "ANZ237", "ANZ350", "ANZ353", "ANZ355", "ANZ338",
+        "ANZ235",
+        "ANZ237",
+        "ANZ350",
+        "ANZ353",
+        "ANZ355",
+        "ANZ338",
     ]
     bulletins, _ = parse_alerts(ALERTS, zones)
     assert {b["zone_id"] for b in bulletins} == {"rhode-island-sound", "block-island-sound"}

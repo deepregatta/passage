@@ -128,7 +128,7 @@ describe('language selection', () => {
 
   it('leaves no generated English briefing prose in the bundled snapshots', () => {
     const fixtures = [
-      './fixtures/20260720T060000Z_44d2cd5f_4196266b/briefing.json',
+      './fixtures/compatibility/20260720T060000Z_44d2cd5f_4196266b/briefing.json',
       './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_7b2600cd/briefing.json',
       './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/briefing.json',
     ];

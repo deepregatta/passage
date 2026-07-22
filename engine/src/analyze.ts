@@ -1,7 +1,7 @@
 /**
  * Browser-safe analysis orchestration: the SAME pipeline the CLI runs, callable
  * from the viewer. In production this is per-user compute in the user's browser —
- * weather comes from precomputed forecast tiles on R2 (docs/forecast-tiles-spec.md),
+ * weather comes from precomputed forecast tiles on R2 (docs/forecast-tile-format.md),
  * downloaded per-route and cached locally; routing and audit never leave the browser.
  */
 

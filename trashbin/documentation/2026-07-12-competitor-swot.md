@@ -1,5 +1,8 @@
 # DeepWeather competitor SWOT report
 
+> Archived on 2026-07-22. This is a point-in-time market review and is not
+> maintained as current competitive evidence.
+
 *Competitive landscape snapshot — 2026-07-12*
 
 ## Purpose and method

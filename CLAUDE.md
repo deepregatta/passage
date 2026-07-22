@@ -1,6 +1,6 @@
 # Passage by DeepRegatta
 
-Explainable passage-weather risk audit for sailors. Live product (local prototype stage). Product spec: [PROJECT_BRIEF.md](PROJECT_BRIEF.md); architecture detail: [README.md](README.md).
+Explainable passage-weather risk audit for sailors. Live product (local prototype stage). Product spec: [docs/product-brief.md](docs/product-brief.md); architecture detail: [README.md](README.md).
 
 Dev codename `deepweather` survives in internal identifiers (package names, CLI commands, localStorage keys) — don't rename them, and don't introduce the codename in new user-facing text.
 

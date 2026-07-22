@@ -32,7 +32,9 @@ def test_window_filter():
     start = datetime(2026, 7, 18, tzinfo=timezone.utc)
     end = datetime(2026, 7, 19, tzinfo=timezone.utc)
     events = _coops_events_from_json(COOPS, start, end)
-    assert all(start.strftime("%Y-%m-%d") <= e["time"][:10] <= end.strftime("%Y-%m-%d") for e in events)
+    assert all(
+        start.strftime("%Y-%m-%d") <= e["time"][:10] <= end.strftime("%Y-%m-%d") for e in events
+    )
     assert 3 <= len(events) <= 5
 
 

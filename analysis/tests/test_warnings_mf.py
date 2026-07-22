@@ -51,7 +51,9 @@ def test_parse_validity_range_form():
 
 def test_parse_validity_year_rollover_with_month_name():
     issued = datetime(2026, 12, 31, 20, 0, tzinfo=timezone.utc)
-    _, valid_to, _ = _parse_validity(_normalize("VALABLE JUSQU'AU JEUDI 1 JANVIER A 06H00 UTC"), issued)
+    _, valid_to, _ = _parse_validity(
+        _normalize("VALABLE JUSQU'AU JEUDI 1 JANVIER A 06H00 UTC"), issued
+    )
     assert valid_to == "2027-01-01T06:00:00Z"
 
 
