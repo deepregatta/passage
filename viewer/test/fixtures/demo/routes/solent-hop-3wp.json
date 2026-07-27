@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "route_id": "solent-hop-3wp",
+  "name": "Solent hop",
+  "mode": "user",
+  "waypoints": [
+    {
+      "id": "wp1",
+      "lat": 50.1,
+      "lon": -1.4
+    },
+    {
+      "id": "wp2",
+      "lat": 49.6,
+      "lon": -2.2
+    },
+    {
+      "id": "wp3",
+      "lat": 49.3,
+      "lon": -2.6
+    }
+  ],
+  "speeds_kt": {
+    "slow": 4.5,
+    "nominal": 5.5,
+    "fast": 6.5
+  }
+}
