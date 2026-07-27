@@ -81,7 +81,21 @@ export default function Planner() {
   const departureLocal = usePlanner((s) => s.departureLocal);
   const scan = usePlanner((s) => s.scan);
   const patch = usePlanner((s) => s.patch);
-  const setMode = (value) => patch({ mode: value });
+  /** Switching tabs carries the route across: a drawn route hands its first and
+   * last waypoint to the router as start/finish, and endpoints hand themselves
+   * back — so "Compute route" is ready to run straight after a switch. */
+  const setMode = (value) => {
+    if (value === mode) return;
+    const next = { mode: value };
+    if (value === 'compute' && endpoints.length === 0 && waypoints.length >= 2) {
+      next.endpoints = [waypoints[0], waypoints[waypoints.length - 1]];
+    }
+    if (value === 'draw' && waypoints.length === 0 && endpoints.length === 2) {
+      next.waypoints = [...endpoints];
+    }
+    patch(next);
+    if (next.endpoints || next.waypoints) setFitNonce((n) => n + 1);
+  };
   const setWaypoints = (value) => patch({ waypoints: typeof value === 'function' ? value(usePlanner.getState().waypoints) : value });
   const setEndpoints = (value) => patch({ endpoints: typeof value === 'function' ? value(usePlanner.getState().endpoints) : value });
   const setComputed = (value) => patch({ computed: value });
@@ -257,20 +271,24 @@ export default function Planner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoScan, route]);
 
-  const run = async () => {
-    if (!route) return;
+  /** Picking a departure from the comparison checks it immediately, so the route
+   * and departure it just chose are passed in — React state has not flushed yet. */
+  const run = async (overrides = {}) => {
+    const checkRoute = overrides.route ?? route;
+    const checkDepartureUtc = overrides.departureUtc ?? departureUtc;
+    if (!checkRoute) return;
     setBusy('starting');
     setError(null);
     try {
       const profileDraft = localStorage.getItem('deepweather.profile-draft');
       const profile = profileDraft ? JSON.parse(profileDraft) : profileDefaults;
       if (!profile) throw new Error('No limits profile available. Open My limits first.');
-      if (!departureUtc) throw new Error('Enter a valid departure date and 24-hour time.');
-      await saveRoute(route);
+      if (!checkDepartureUtc) throw new Error('Enter a valid departure date and 24-hour time.');
+      await saveRoute(checkRoute);
       const { snapshotId } = await analyzeInBrowser({
-        route,
+        route: checkRoute,
         profile,
-        departureUtc,
+        departureUtc: checkDepartureUtc,
         onProgress: setBusy,
       });
       setBusy(null);
@@ -321,7 +339,9 @@ export default function Planner() {
             <FitRoute
               positions={
                 mode === 'compute'
-                  ? (computed?.route.waypoints ?? []).map((wp) => [wp.lat, wp.lon])
+                  ? computed
+                    ? computed.route.waypoints.map((wp) => [wp.lat, wp.lon])
+                    : endpoints.map((p) => [p.lat, p.lng])
                   : waypoints.map((wp) => [wp.lat, wp.lng])
               }
               fitKey={`${fitNonce}:${mode === 'compute' ? computed?.arrival_utc ?? '' : ''}`}
@@ -498,7 +518,7 @@ export default function Planner() {
 
             <button
               type="button"
-              onClick={run}
+              onClick={() => run()}
               disabled={!route || !departureUtc || busy !== null}
               className="w-full bg-ink text-paper font-medium rounded-sm px-3 py-2.5 hover:bg-ink-deep disabled:opacity-40"
             >
@@ -545,10 +565,14 @@ export default function Planner() {
         <DepartureComparison
           scan={scan}
           departureLocal={departureLocal}
+          busy={busy}
           onPick={(candidate) => {
+            if (busy !== null) return;
             setDepartureLocal(toLocalDateTimeValue(candidate.departure_utc));
             const rerouted = scan.routes?.[candidate.departure_utc];
             if (rerouted) setComputed(rerouted);
+            // go straight to the briefing for the time just picked
+            run({ departureUtc: candidate.departure_utc, route: rerouted?.route ?? route });
           }}
         />
       )}
@@ -674,7 +698,7 @@ function ModelsUsed() {
  * (same verdict colors as everywhere else). Click a cell to adopt that
  * departure; in compute mode the cell also carries its own weather-routed track.
  */
-function DepartureComparison({ scan, departureLocal, onPick }) {
+function DepartureComparison({ scan, departureLocal, busy, onPick }) {
   if (scan.candidates.length === 0) {
     return (
       <section className="mt-6 border-t border-ink/40 pt-3">
@@ -729,9 +753,10 @@ function DepartureComparison({ scan, departureLocal, onPick }) {
                     key={c.departure_utc}
                     type="button"
                     onClick={() => onPick(c)}
+                    disabled={busy !== null}
                     title={`${fmtLocalTime(c.departure_utc)} local time (${localTimeZoneName()}) · ${parts.join(' · ')}`}
                     className={clsx(
-                      'w-[66px] h-[54px] rounded-sm text-white flex flex-col items-center justify-center gap-0.5',
+                      'w-[66px] h-[54px] rounded-sm text-white flex flex-col items-center justify-center gap-0.5 disabled:opacity-40',
                       localDateTimeToIso(departureLocal) === c.departure_utc && 'outline outline-2 outline-ink outline-offset-1',
                     )}
                     style={{ backgroundColor: v.hex }}
@@ -759,8 +784,7 @@ function DepartureComparison({ scan, departureLocal, onPick }) {
               {'. '}
             </>
           )}
-          Click a time to use it{scan.rerouted ? ' (its route appears on the chart)' : ''}, then
-          “Check this passage against my limits” for the full briefing.
+          Click a time to check that departure against your limits{scan.rerouted ? ' (it sails its own computed route)' : ''} — the full briefing opens straight away.
           {allInsufficient && (
             <> The models disagree near your limits throughout this window. Open a briefing to see
             where they diverge and when the next update is due.</>
