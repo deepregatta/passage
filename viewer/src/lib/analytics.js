@@ -52,8 +52,8 @@ function readJsonItem(storage, key) {
 }
 
 // Capture campaign parameters on arrival: last-touch for this session,
-// first-touch forever. Then strip them from the address bar so shared and
-// canonical URLs stay clean.
+// first-touch forever. Keep the landing URL intact so a campaign redirect can
+// be independently verified after the SPA has settled.
 function captureUtm() {
   try {
     const url = new URL(window.location.href);
@@ -73,8 +73,6 @@ function captureUtm() {
       /* ignore */
     }
 
-    for (const key of UTM_KEYS) url.searchParams.delete(key);
-    window.history.replaceState(window.history.state, '', url.toString());
   } catch {
     /* ignore */
   }
@@ -196,8 +194,8 @@ export function track(event, props = {}) {
 
 // Appends the visitor's campaign parameters to a cross-product link so
 // attribution survives the subdomain hop (each subdomain has its own
-// localStorage). Canonical URLs stay clean: the receiving client strips
-// them again on arrival.
+// localStorage). The receiving client preserves those parameters so the
+// original campaign destination remains inspectable throughout navigation.
 export function withUtm(href) {
   try {
     const utm = getUtm();
