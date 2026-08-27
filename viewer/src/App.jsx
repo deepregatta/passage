@@ -36,7 +36,9 @@ export default function App() {
 
   useEffect(() => {
     const hash = PAGE_HASH[page] ?? PAGE_HASH.planner;
-    if (location.hash.slice(1) !== hash) history.replaceState(null, '', `#${hash}`);
+    if (location.hash.slice(1) !== hash) {
+      history.replaceState(null, '', `${location.pathname}${location.search}#${hash}`);
+    }
   }, [page]);
 
   useEffect(() => {

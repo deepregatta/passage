@@ -1,6 +1,21 @@
 import { expect, test } from '@playwright/test';
 import { openAuditedSnapshot } from './helpers.js';
 
+test('campaign UTM parameters survive initial hash routing and client navigation', async ({ page }) => {
+  const query = new URLSearchParams({
+    utm_source: 'instagram',
+    utm_medium: 'social',
+    utm_campaign: 'deepregatta-evidence-loop-2026-08',
+    utm_content: 'passage-demo-warning-authority-en-2026-08',
+  });
+
+  await page.goto(`/?${query}`);
+  await expect(page).toHaveURL(`/?${query}#plan/planner`);
+
+  await page.getByRole('button', { name: /Verify/ }).first().click();
+  await expect(page).toHaveURL(`/?${query}#verify/record`);
+});
+
 test('Plan and Verify stage checkpoints keep URL-deep-linked subviews', async ({ page }) => {
   // freeze the clock so the default departure date (now + 24h) renders the same
   // date on every run — otherwise the screenshot baselines drift daily
