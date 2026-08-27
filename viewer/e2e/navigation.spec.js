@@ -5,7 +5,7 @@ test('campaign UTM parameters survive initial hash routing and client navigation
   const query = new URLSearchParams({
     utm_source: 'instagram',
     utm_medium: 'social',
-    utm_campaign: 'deepregatta-evidence-loop-2026-08',
+    utm_campaign: 'deepregatta-evidence-loop-2026',
     utm_content: 'passage-demo-warning-authority-en-2026-08',
   });
 
