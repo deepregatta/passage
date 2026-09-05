@@ -16,6 +16,7 @@ export const useApp = create((set, get) => ({
   manifest: null,
   manifestError: null,
 
+  measurementAttempt: null,
   snapshotId: null,
   findings: null,
   briefing: null,
@@ -91,8 +92,8 @@ export const useApp = create((set, get) => ({
     }
   },
 
-  openSnapshot: async (snapshotId) => {
-    set({ loading: true, loadError: null, snapshotId, inspectorOpen: false });
+  openSnapshot: async (snapshotId, measurementAttempt = null) => {
+    set({ loading: true, loadError: null, snapshotId, inspectorOpen: false, measurementAttempt });
     try {
       await preparedRun(); // settle the runs/… base before chart <img> URLs render
       const file = (name) => fetchSnapshotJson(snapshotId, name);

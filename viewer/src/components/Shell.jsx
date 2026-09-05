@@ -1,3 +1,4 @@
+import { withUtm } from '../lib/analytics.js';
 import clsx from 'clsx';
 import { useApp } from '../stores/appStore.js';
 import FooterActions from './FooterActions.jsx';
@@ -96,7 +97,7 @@ function SiteFooter({ onNavigate }) {
           </p>
           <nav aria-label="DeepRegatta legal and contact links" className="flex flex-wrap gap-x-5 gap-y-2">
             {links.map(([label, href]) => (
-              <a key={href} href={href} className="text-event underline-offset-4 hover:underline">
+              <a key={href} href={withUtm(href)} className="text-event underline-offset-4 hover:underline">
                 {label}
               </a>
             ))}
