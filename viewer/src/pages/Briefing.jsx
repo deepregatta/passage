@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { track } from '../lib/analytics.js';
+import { trackOnce } from '../lib/analytics.js';
 import { useApp } from '../stores/appStore.js';
 import RouteMap from '../components/lazy/LeafletLazy.jsx';
 import RouteTimeline from '../components/RouteTimeline.jsx';
@@ -49,11 +49,16 @@ export default function Briefing() {
   const synoptic = useApp((s) => s.synoptic);
   const route = useApp((s) => s.route);
   const [bulletinOpen, setBulletinOpen] = useState(false);
-  const ready = Boolean(findings && briefing);
+  const snapshotId = useApp((s) => s.snapshotId);
+  const attempt = useApp((s) => s.measurementAttempt);
+  const example = useApp((s) => s.manifest?.snapshots?.find(item => item.snapshot_id === s.snapshotId)?.demo === true);
+  const loading = useApp((s) => s.loading);
+  const ready = !loading && Boolean(findings?.verdict?.state && briefing?.sections?.length && findings?.legs?.length);
   useEffect(() => {
-    // passage_run: the visitor submitted a scenario and is seeing its output.
-    if (ready) track('passage_run', { verdict: findings?.verdict?.state ?? null });
-  }, [ready]);
+    if (!ready || !snapshotId) return;
+    const event = attempt ? 'passage_run' : example ? 'passage_example_view' : 'passage_briefing_view';
+    trackOnce(`${event}:${attempt || snapshotId}`, event, { verdict: findings.verdict.state, result_rendered: true });
+  }, [ready, snapshotId, attempt, example, findings]);
   if (!findings || !briefing) return <EmptyState />;
   const warningEvidence = findings.evidence.find((item) => item.rule_id === 'A-WARN-01');
   // the synoptic chart is the product's differentiator: it renders whenever the

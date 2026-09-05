@@ -1,3 +1,4 @@
+import { track } from '../lib/analytics.js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
@@ -284,6 +285,9 @@ export default function Planner() {
       const profile = profileDraft ? JSON.parse(profileDraft) : profileDefaults;
       if (!profile) throw new Error('No limits profile available. Open My limits first.');
       if (!checkDepartureUtc) throw new Error('Enter a valid departure date and 24-hour time.');
+      if (checkRoute.waypoints?.length < 2 || !checkRoute.waypoints?.every(wp => Number.isFinite(wp.lat) && Number.isFinite(wp.lon))) throw new Error('Specify at least two valid waypoints.');
+      const measurementAttempt = crypto.randomUUID();
+      track('passage_attempt', { route_specified: true });
       await saveRoute(checkRoute);
       const { snapshotId } = await analyzeInBrowser({
         route: checkRoute,
@@ -292,7 +296,7 @@ export default function Planner() {
         onProgress: setBusy,
       });
       setBusy(null);
-      await openSnapshot(snapshotId);
+      await openSnapshot(snapshotId, measurementAttempt);
     } catch (e) {
       setBusy(null);
       setError(e.message);
