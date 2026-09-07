@@ -38,6 +38,7 @@ import requests
 from .paths import config_dir, contracts_dir, processed_dir
 from .providers import Mode, provider_mode
 from .route_sources import fr_broadcast_areas
+from .timeutil import parse_iso_utc
 
 BMS_URL_TEMPLATE = os.environ.get(
     "DEEPWEATHER_BMS_URL_TEMPLATE",
@@ -275,7 +276,7 @@ def fetch_live(now: datetime | None = None) -> dict:
         if valid_to is None:
             valid_to = (issued + timedelta(hours=24)).strftime("%Y-%m-%dT%H:%M:%SZ")
         # drop bulletins that expired more than a day ago
-        if datetime.fromisoformat(valid_to.replace("Z", "+00:00")) < now - timedelta(hours=24):
+        if parse_iso_utc(valid_to) < now - timedelta(hours=24):
             continue
         kind = f"BMS-{_normalize(row['type']).lower().replace(' ', '-')}"
         for zone_id, zone_name, tokens in zone_tokens:

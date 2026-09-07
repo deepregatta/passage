@@ -23,6 +23,8 @@ from typing import Any
 
 import requests
 
+from .timeutil import parse_iso_utc
+
 NWS_ALERTS_URL = "https://api.weather.gov/alerts/active"
 # api.weather.gov rejects requests without an identifying User-Agent
 NWS_USER_AGENT = "passage-deepregatta (davivasconcellos@gmail.com)"
@@ -55,7 +57,7 @@ def _is_bulletin_event(event: str) -> bool:
 def _iso_utc(value: str | None) -> str | None:
     if not value:
         return None
-    return datetime.fromisoformat(value).astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return parse_iso_utc(value).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _event_slug(event: str) -> str:

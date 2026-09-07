@@ -54,6 +54,7 @@ from .route_sources import (
     synthetic_observations_source_name,
     synthetic_stations,
 )
+from .timeutil import parse_iso_utc
 
 SCHEMA_VERSION = 1
 SOURCE_NAME = synthetic_observations_source_name()
@@ -90,11 +91,6 @@ def _station_hash(station_id: str) -> int:
     for ch in station_id:
         h = (h * 31 + ord(ch)) % 100003
     return h
-
-
-def _parse_iso(value: str) -> datetime:
-    dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    return dt.astimezone(timezone.utc) if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
 def _iso_z(dt: datetime) -> str:
@@ -144,8 +140,8 @@ def _noise_and_bias(station_id: str, variable: str, minutes: float) -> float:
 
 
 def window_label(start_iso: str, end_iso: str) -> str:
-    start = _parse_iso(start_iso)
-    end = _parse_iso(end_iso)
+    start = parse_iso_utc(start_iso)
+    end = parse_iso_utc(end_iso)
     return f"{start:%Y%m%dT%H%M}Z-{end:%Y%m%dT%H%M}Z"
 
 
@@ -174,8 +170,8 @@ def generate_observations(
     Returns:
         schema-valid observations dict, source.mode == 'synthetic'.
     """
-    start = _parse_iso(start_iso)
-    end = _parse_iso(end_iso)
+    start = parse_iso_utc(start_iso)
+    end = parse_iso_utc(end_iso)
     if end < start:
         raise ValueError(f"end {end_iso} before start {start_iso}")
     base_series = base_series or {}
@@ -291,8 +287,8 @@ def fetch_live(
     """
     import requests
 
-    start = _parse_iso(start_iso) - timedelta(minutes=WINDOW_SLACK_MIN)
-    end = _parse_iso(end_iso) + timedelta(minutes=WINDOW_SLACK_MIN)
+    start = parse_iso_utc(start_iso) - timedelta(minutes=WINDOW_SLACK_MIN)
+    end = parse_iso_utc(end_iso) + timedelta(minutes=WINDOW_SLACK_MIN)
 
     stations_out: List[Dict[str, Any]] = []
     failures: List[str] = []
@@ -304,7 +300,9 @@ def fetch_live(
         except requests.RequestException as exc:
             failures.append(f"{station['station_id']}: {exc}")
             continue
-        records = [r for r in parse_realtime2(resp.text) if start <= _parse_iso(r["time"]) <= end]
+        records = [
+            r for r in parse_realtime2(resp.text) if start <= parse_iso_utc(r["time"]) <= end
+        ]
         stations_out.append(
             {
                 "station_id": station["station_id"],
@@ -400,8 +398,8 @@ def fetch_live_insitu(
 
     source = observations_live_source(route_id)
     base_url = source["base_url"].rstrip("/")
-    start = _parse_iso(start_iso) - timedelta(minutes=WINDOW_SLACK_MIN)
-    end = _parse_iso(end_iso) + timedelta(minutes=WINDOW_SLACK_MIN)
+    start = parse_iso_utc(start_iso) - timedelta(minutes=WINDOW_SLACK_MIN)
+    end = parse_iso_utc(end_iso) + timedelta(minutes=WINDOW_SLACK_MIN)
     today = datetime.now(timezone.utc).date()
     days = []
     day = start.date()
@@ -437,7 +435,7 @@ def fetch_live_insitu(
                 failures.append(f"{prefix} {stamp}: unparseable ({exc})")
                 continue
             fetched_files += 1
-            records.extend(r for r in day_records if start <= _parse_iso(r["time"]) <= end)
+            records.extend(r for r in day_records if start <= parse_iso_utc(r["time"]) <= end)
         stations_out.append(
             {
                 "station_id": station["station_id"],
@@ -508,8 +506,8 @@ def fetch_live_qld_waves(
     base_url = source.get("base_url", "https://www.data.qld.gov.au").rstrip("/")
     resource_id = source["resource_id"]
     headers = {"User-Agent": "passage-deepregatta (davivasconcellos@gmail.com)"}
-    start = _parse_iso(start_iso) - timedelta(minutes=WINDOW_SLACK_MIN)
-    end = _parse_iso(end_iso) + timedelta(minutes=WINDOW_SLACK_MIN)
+    start = parse_iso_utc(start_iso) - timedelta(minutes=WINDOW_SLACK_MIN)
+    end = parse_iso_utc(end_iso) + timedelta(minutes=WINDOW_SLACK_MIN)
 
     stations_out: List[Dict[str, Any]] = []
     failures: List[str] = []
@@ -530,7 +528,9 @@ def fetch_live_qld_waves(
         except Exception as exc:  # one station down must not sink the doc
             failures.append(f"{station['station_id']}: {exc}")
             continue
-        records = [r for r in records_from_qld_waves(rows) if start <= _parse_iso(r["time"]) <= end]
+        records = [
+            r for r in records_from_qld_waves(rows) if start <= parse_iso_utc(r["time"]) <= end
+        ]
         stations_out.append(
             {
                 "station_id": station["station_id"],

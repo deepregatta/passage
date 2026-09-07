@@ -14,10 +14,11 @@ from __future__ import annotations
 
 import json
 import math
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from .paths import data_root
+from .timeutil import parse_iso_utc
 
 N_POINTS = 6  # engine evaluates leg midpoints of cherbourg-plymouth (6 legs)
 N_MEMBERS = 51
@@ -102,9 +103,7 @@ def _times(departure: datetime) -> list[str]:
 def generate_scenario(name: str, departure_iso: str = DEFAULT_DEPARTURE) -> Path:
     if name not in SCENARIOS:
         raise ValueError(f"unknown scenario '{name}' (choose from {SCENARIOS})")
-    departure = datetime.fromisoformat(departure_iso.replace("Z", "+00:00")).astimezone(
-        timezone.utc
-    )
+    departure = parse_iso_utc(departure_iso)
     times = _times(departure)
     out_dir = data_root() / "scenarios" / name
     out_dir.mkdir(parents=True, exist_ok=True)

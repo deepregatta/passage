@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from ..paths import processed_dir
+from ..timeutil import parse_iso_utc
 
 SCHEMA_VERSION = 1
 
@@ -39,11 +40,6 @@ def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     dlmb = math.radians(lon2 - lon1)
     a = math.sin(dphi / 2.0) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlmb / 2.0) ** 2
     return 2.0 * EARTH_RADIUS_KM * math.asin(math.sqrt(a))
-
-
-def _parse_iso(value: str) -> datetime:
-    dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    return dt.astimezone(timezone.utc) if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
 def _iso_z(dt: datetime) -> str:
@@ -69,7 +65,7 @@ def _nearest_record(
     for record in station.get("records", []):
         if record.get("wind_kt") is None:
             continue
-        offset_min = abs((_parse_iso(record["time"]) - valid_time).total_seconds()) / 60.0
+        offset_min = abs((parse_iso_utc(record["time"]) - valid_time).total_seconds()) / 60.0
         if offset_min <= max_min and (best is None or offset_min < best[1]):
             best = (record, offset_min)
     return best
@@ -99,7 +95,7 @@ def match_snapshot(
     stations = list(observations.get("stations", []))
     synthetic = (observations.get("source") or {}).get("mode") == "synthetic"
     generated_at_raw = findings.get("generated_at") or findings.get("departure_utc")
-    generated_at = _parse_iso(generated_at_raw) if generated_at_raw else None
+    generated_at = parse_iso_utc(generated_at_raw) if generated_at_raw else None
 
     pairs: List[Dict[str, Any]] = []
     uncovered: List[str] = []
@@ -121,7 +117,7 @@ def match_snapshot(
             forecast = hour.get("wind_kt")
             if forecast is None or not hour.get("valid_time"):
                 continue
-            valid_time = _parse_iso(hour["valid_time"])
+            valid_time = parse_iso_utc(hour["valid_time"])
             matched = _nearest_record(station, valid_time, max_min)
             if matched is None:
                 continue

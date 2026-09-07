@@ -34,6 +34,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
 from ..paths import cache_dir
+from ..timeutil import parse_iso_utc
 
 logger = logging.getLogger(__name__)
 
@@ -157,8 +158,8 @@ def _extent_matches(
             return False
     time_range = existing.get("time_range") or {}
     try:
-        old_start = datetime.fromisoformat(str(time_range["start"]))
-        old_end = datetime.fromisoformat(str(time_range["end"]))
+        old_start = parse_iso_utc(str(time_range["start"]))
+        old_end = parse_iso_utc(str(time_range["end"]))
     except (KeyError, ValueError, TypeError):
         return False
     if abs((old_start - start_time).total_seconds()) > 3600:

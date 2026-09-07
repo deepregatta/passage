@@ -28,6 +28,7 @@ from . import environment_fetcher as fetcher
 from .environment_grid import EnvironmentGrid
 from .paths import contracts_dir, processed_dir
 from .route_sources import currents_bounds
+from .timeutil import parse_iso_utc
 
 logger = logging.getLogger(__name__)
 
@@ -41,17 +42,6 @@ TARGET_RESOLUTION_DEG = 0.05
 DEFAULT_WINDOW_HOURS = 120  # CMEMS IBI publishes ~5 days of forecast currents
 MS_TO_KNOTS = 1.9438445
 SCHEMA_VERSION = 1
-
-
-def _parse_iso_utc(value: str | datetime) -> datetime:
-    """Parse an ISO timestamp (accepts trailing 'Z') into an aware UTC datetime."""
-    if isinstance(value, datetime):
-        dt = value
-    else:
-        dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(timezone.utc)
 
 
 def _iso_z(dt: datetime) -> str:
@@ -110,12 +100,12 @@ def prepare_current_grid(
     """
     bounds = dict(bounds or currents_bounds(route_id))
     start_time = (
-        _parse_iso_utc(start)
+        parse_iso_utc(start)
         if start is not None
         else datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
     )
     end_time = (
-        _parse_iso_utc(end)
+        parse_iso_utc(end)
         if end is not None
         else start_time + timedelta(hours=DEFAULT_WINDOW_HOURS)
     )
@@ -276,7 +266,7 @@ def _build_grid_artifact(
     def _to_json_list(arr: np.ndarray) -> List[Optional[float]]:
         return [None if not math.isfinite(x) else float(x) for x in arr.tolist()]
 
-    fetched_dt = _parse_iso_utc(fetched_at)
+    fetched_dt = parse_iso_utc(fetched_at)
     run_id = f"cmems-{region.lower()}-{fetched_dt.strftime('%Y%m%dT%H')}Z"
 
     resolution_deg = (
