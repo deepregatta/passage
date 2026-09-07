@@ -48,7 +48,7 @@ from pathlib import Path
 
 from .paths import contracts_dir, data_root, processed_dir
 from .providers import Mode, provider_mode
-from .route_sources import tide_ports, tides_artifact_name, tides_live_source
+from .route_sources import load_route_sources, tide_ports, tides_artifact_name, tides_live_source
 from .timeutil import parse_iso_utc
 
 logger = logging.getLogger(__name__)
@@ -405,6 +405,17 @@ def prepare_tides(
     schema = json.loads((contracts_dir() / "tides.schema.json").read_text())
     Draft202012Validator(schema).validate(doc)
 
-    out = processed_dir("tides") / f"{tides_artifact_name(route_id)}.json"
+    out_dir = processed_dir("tides")
+    out = out_dir / f"{tides_artifact_name(route_id)}.json"
     out.write_text(json.dumps(doc, indent=1))
+    # Advertise only registered artifacts actually present in this warehouse.
+    # Rebuilding also removes mappings for deleted files without inventing data.
+    routes = {
+        registered_id: f"{entry['tides']['artifact_name']}.json"
+        for registered_id, entry in load_route_sources()["routes"].items()
+        if (out_dir / f"{entry['tides']['artifact_name']}.json").is_file()
+    }
+    (out_dir / "index.json").write_text(
+        json.dumps({"schema_version": 1, "routes": routes}, indent=1) + "\n"
+    )
     return out

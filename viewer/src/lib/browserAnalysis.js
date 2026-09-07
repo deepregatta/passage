@@ -66,6 +66,13 @@ async function loadJson(url) {
   }
 }
 
+async function loadTides(routeId) {
+  const index = await loadJson('/data/tides/index.json');
+  const artifact = index?.routes?.[routeId];
+  if (typeof artifact !== 'string' || !/^[a-zA-Z0-9_-]+\.json$/.test(artifact)) return undefined;
+  return loadJson(`/data/tides/${artifact}`);
+}
+
 export async function analyzeInBrowser({ route, profile, departureUtc, onProgress }) {
   onProgress?.('loading prepared data');
   const { doc: latest } = await preparedRun();
@@ -74,13 +81,16 @@ export async function analyzeInBrowser({ route, profile, departureUtc, onProgres
     latest?.artifacts?.synoptic_features
       ? artifactUrl(latest.artifacts.synoptic_features).then(loadJson)
       : undefined,
-    loadJson('/data/tides/channel.json'),
+    loadTides(route.route_id),
     loadJson('/data/config/gates.json'),
     // warnings are a local-pipeline artifact with no production publisher yet;
     // requesting them from static hosting just logs a 404 in every briefing
     DEV_WRITES ? loadJson('/data/warnings/latest.json') : undefined,
     loadJson('/data/config/route-zones.json'),
   ]);
+  const gates = gatesDoc?.gates?.filter((gate) =>
+    tides?.ports?.some((port) => port.port_id === gate.reference_port),
+  );
   let warnings;
   if (warningsDoc) {
     const zoneEntry = zonesDoc?.routes?.[route.route_id];
@@ -104,7 +114,7 @@ export async function analyzeInBrowser({ route, profile, departureUtc, onProgres
     currentGrid,
     synoptic,
     tides,
-    gates: gatesDoc?.gates,
+    gates: gates?.length ? gates : undefined,
     warnings,
   });
   onProgress?.('saving immutable snapshot');
