@@ -173,8 +173,8 @@ describe('TileForecastStore grids', () => {
     expect(grid.run_id).toBe('weather-20260720T00Z');
     expect(grid.u_kt.every((v) => v === null || Math.abs(v - 10) < 0.02)).toBe(true);
 
-    const ajv = new Ajv2020.default({ strict: false });
-    addFormats.default(ajv);
+    const ajv = new Ajv2020({ strict: false });
+    addFormats(ajv);
     const schema = JSON.parse(
       readFileSync(join(REPO, 'contracts', 'region-grid.schema.json'), 'utf8'),
     );

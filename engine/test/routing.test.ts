@@ -96,7 +96,6 @@ describe('isochrone router', () => {
       departureUtc: '2026-07-20T00:00:00Z',
       polar: POLAR,
       windGrid: windGrid(180, 12), // southerly 12 kt -> beam reach heading east
-      stepMinutes: 30,
     });
     // beam reach at 12 kt TWS -> ~6.5 kt; 74 nm -> ~11.4 h (some zigzag tolerance)
     expect(result.duration_h).toBeGreaterThan(9);
@@ -116,7 +115,6 @@ describe('isochrone router', () => {
       polar: POLAR,
       windGrid: windGrid(270, 14), // westerly beam wind for N-S sailing
       landMask: wallMask(),
-      stepMinutes: 30,
       maxHours: 40,
     });
     // some waypoint must pass through the gap longitude band while crossing 50.0
@@ -136,7 +134,6 @@ describe('isochrone router', () => {
       departureUtc: '2026-07-20T00:00:00Z',
       polar: POLAR,
       windGrid: windGrid(180, 12),
-      stepMinutes: 30,
     };
     const slow = computeRoute({ ...base, polarScaling: 0.8 });
     const fast = computeRoute({ ...base, polarScaling: 1.2 });
