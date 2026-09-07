@@ -1,4 +1,4 @@
-"""UK gale warnings — Met Office shipping forecast (brief §7 authority layer).
+"""UK gale warnings — Met Office shipping forecast (authority layer).
 
 Feed spike (2026-07-17): the Met Office has NO API for the shipping forecast
 or its gale warnings — Weather DataHub is model/site data only, DataPoint is

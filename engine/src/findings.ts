@@ -80,19 +80,19 @@ export interface AssembleOptions {
   /** one forecast per leg (midpoint), index-aligned with derived legs */
   legForecasts: PointForecast[];
   requestMeta: TileRequestMeta[];
-  /** ensemble forecasts per leg midpoint (M2+); index-aligned with legs */
+  /** ensemble forecasts per leg midpoint; index-aligned with legs */
   legEnsembles?: EnsemblePointForecast[];
   ensembleMeta?: TileRequestMeta;
-  /** wave forecasts per leg midpoint (M3+) */
+  /** wave forecasts per leg midpoint */
   legMarine?: WavePointForecast[];
   marineMeta?: TileRequestMeta;
   /** per-model deterministic forecasts for hazards + disagreement (GFS + ECMWF layers) */
   multiModel?: { byModel: Record<string, HazardPointForecast[]>; meta: TileRequestMeta[] };
-  /** official marine warnings (M5 seam; live/synthetic feed lands at M9) */
+  /** official marine warnings (live or emulated inputs) */
   warnings?: WarningsInput;
-  /** prepared CMEMS surface-current region grid (M7+) */
+  /** prepared CMEMS surface-current region grid */
   currentGrid?: RegionGrid;
-  /** tidal gates (M10): HW/LW predictions + named-gate timing rules */
+  /** tidal gates: HW/LW predictions + named-gate timing rules */
   tides?: TidesDoc;
   gates?: GateDef[];
   /** prepared synoptic system tracks used for conservative route attribution */
@@ -235,7 +235,7 @@ export function assembleFindings(options: AssembleOptions): Findings {
         limit_status: { sustained: sustainedStatus, gust: gustStatus },
       };
 
-      // ---- surface current at this hour (M7, CMEMS region grid) ----
+      // ---- surface current at this hour (CMEMS region grid) ----
       if (gridSampler) {
         const sample = gridSampler.sample(midpointPos.lat, midpointPos.lon, parseUtc(validTime));
         if (sample) {
@@ -265,7 +265,7 @@ export function assembleFindings(options: AssembleOptions): Findings {
         }
       }
 
-      // ---- sea state (M3, deterministic wave model only) ----
+      // ---- sea state (deterministic wave model only) ----
       if (marine) {
         const mIdx = marineTimeIndex.get(parseUtc(validTime));
         if (mIdx !== undefined) {
@@ -319,7 +319,7 @@ export function assembleFindings(options: AssembleOptions): Findings {
         }
       }
 
-      // ---- convective screening + visibility/fog + model disagreement (M3) ----
+      // ---- convective screening + visibility/fog + model disagreement ----
       if (modelIndexes.length > 0) {
         const primary = modelIndexes.find((m) => m.model === model) ?? modelIndexes[0]!;
         const pIdx = primary.index.get(parseUtc(validTime));
@@ -381,7 +381,7 @@ export function assembleFindings(options: AssembleOptions): Findings {
       }
 
       // ensemble scenario exceedance for this hour (direction for the POS limit comes
-      // from the deterministic run; members carry speed/gusts only; documented in §6 layer)
+      // from the deterministic run; members carry speed/gusts only)
       if (ensemble) {
         const eIdx = ensembleTimeIndex.get(parseUtc(validTime));
         if (eIdx !== undefined) {
@@ -501,7 +501,7 @@ export function assembleFindings(options: AssembleOptions): Findings {
         ratio: fraction(worstEnsembleSustained.count) / scenarioFloor,
       });
     }
-    // ---- M7: wind-against-current (steep breaking seas; Alderney Race effect) ----
+    // ---- wind-against-current (steep breaking seas; Alderney Race effect) ----
     if (worstWac) {
       const c = worstWac.hour.current!;
       const e = nextEvidence({
@@ -524,7 +524,7 @@ export function assembleFindings(options: AssembleOptions): Findings {
       anyApproaching = true; // steep breaking seas deserve at least a look
     }
 
-    // ---- M3 hazard evidence ----
+    // ---- hazard evidence ----
     if (worstWave) {
       const e = nextEvidence({
         rule_id: RULES.WAVE_HEIGHT,
@@ -624,7 +624,7 @@ export function assembleFindings(options: AssembleOptions): Findings {
       });
     }
 
-    // ---- model disagreement (M3) ----
+    // ---- model disagreement ----
     let divergentHours: LegFinding['divergent_hours'];
     if (disagreementInput.length > 0) {
       const result = assessDisagreement(disagreementInput);
@@ -683,7 +683,7 @@ export function assembleFindings(options: AssembleOptions): Findings {
     };
   });
 
-  // ---- tidal gates (M10): transit timing vs favorable windows ----
+  // ---- tidal gates: transit timing vs favorable windows ----
   const gateAssessments =
     options.tides && options.gates
       ? assessGates(options.gates, options.tides, legs, schedules)
@@ -709,7 +709,7 @@ export function assembleFindings(options: AssembleOptions): Findings {
     if (gate.status === 'conflict' || gate.status === 'marginal') anyApproaching = true;
   }
 
-  // ---- official warnings: authority override (brief §7) ----
+  // ---- official warnings: authority override ----
   // A bulletin covering a route zone and overlapping the passage window forces the
   // authority state. It never claims a numeric limit was exceeded.
   const departureMs = parseUtc(departureUtc);

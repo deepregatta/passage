@@ -1,5 +1,5 @@
 /**
- * Visibility & fog (brief §5): visibility fields + dew-point spread screening.
+ * Visibility & fog: visibility fields + dew-point spread screening.
  * min_visibility_nm is a MINIMUM limit: exceeded when forecast visibility is BELOW it.
  */
 

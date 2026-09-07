@@ -27,7 +27,7 @@ import SynopticHero from '../components/SynopticHero.jsx';
 import { frameForCursor, usePlayback } from '../stores/playbackStore.js';
 import { usePlanner } from '../stores/plannerStore.js';
 
-/** the Jack layer: what each §7 state means for what you DO next (labels stay exact) */
+/** the plain-language layer: what each verdict state means for what you DO next (labels stay exact) */
 const NEXT_STEP = {
   within:
     'The forecast stays inside the limits you set. Check the latest run once more before you leave.',

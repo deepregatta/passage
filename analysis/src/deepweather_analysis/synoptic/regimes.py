@@ -1,4 +1,4 @@
-"""Named regional regime pattern rules (brief §4.1). Pure.
+"""Named regional regime pattern rules. Pure.
 
 These are gradient-wind events detected from pressure patterns — NOT
 convection. v0 ships one combined Mistral/Tramontane detector; thresholds

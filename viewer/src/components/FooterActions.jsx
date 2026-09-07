@@ -10,6 +10,7 @@ import { track } from '../lib/analytics.js';
 const FEEDBACK_ENDPOINT = 'https://oscar.deepregatta.com/api/feedback';
 const CONTACT_EMAIL = 'contact@deepregatta.com';
 
+// The shared inbox accepts race_request; keep its wire category until the API changes.
 const CATEGORIES = [
   ['race_request', 'Request a race'],
   ['bug', 'Report a data issue'],
@@ -72,6 +73,7 @@ function FeedbackDialog({ onNavigate, onClose }) {
           message: message.trim(),
           page_url: window.location.href,
           platform: deviceType(),
+          // Shared inbox wire keys: Passage supplies the snapshot id and route name.
           race_id: snapshotId || null,
           race_name: route?.name || null,
           website,

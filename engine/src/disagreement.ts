@@ -1,5 +1,5 @@
 /**
- * Model disagreement (brief §6.2): deterministic runs shown side by side.
+ * Model disagreement: deterministic runs shown side by side.
  * Agreement is not proof — divergence mainly tells us WHEN TO WAIT for the
  * next run. Triggers the 'insufficient' verdict state when models split on
  * hours that matter (near the declared limits).

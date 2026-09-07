@@ -24,10 +24,10 @@ export interface AnalyzeOptions {
   warnings?: WarningsInput;
   /** prepared CMEMS current grid override; when absent the store's currents layer is used */
   currentGrid?: import('./grids.js').RegionGrid;
-  /** HW/LW predictions + named tidal gates (M10) */
+  /** HW/LW predictions + named tidal gates */
   tides?: import('./hazards/tides.js').TidesDoc;
   gates?: import('./hazards/tides.js').GateDef[];
-  /** synoptic features from the prepared run (M8) — powers the weather story */
+  /** synoptic features from the prepared run — powers the weather story */
   synoptic?: SynopticFeatures;
   now?: () => number;
   onProgress?: (step: string) => void;

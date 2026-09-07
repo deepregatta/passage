@@ -1,4 +1,4 @@
-"""Australian marine warnings — BOM marine wind warning summaries (brief §7 authority layer).
+"""Australian marine warnings — BOM marine wind warning summaries (authority layer).
 
 Feed spike (2026-07-17): the Bureau of Meteorology has no public warnings API,
 but publishes every product as structured XML on its anonymous FTP server

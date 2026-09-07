@@ -1,6 +1,6 @@
 /**
- * Verdict-state harness (M5): the five synthetic scenario bundles must produce
- * the five §7 verdict states. Bundles are generated deterministically by
+ * Verdict-state harness: the five synthetic scenario bundles must produce
+ * the five verdict states. Bundles are generated deterministically by
  * `deepweather-analysis scenario all` and checked in as fixtures.
  */
 
@@ -86,7 +86,7 @@ async function runScenario(name: string) {
   return { findings, briefing: renderBriefing(findings, synoptic) };
 }
 
-describe('verdict-state harness: five scenarios -> five §7 states', () => {
+describe('verdict-state harness: five scenarios -> five states', () => {
   for (const [name, expected] of Object.entries(EXPECTED)) {
     it(`${name} -> ${expected}`, async () => {
       const { findings } = await runScenario(name);

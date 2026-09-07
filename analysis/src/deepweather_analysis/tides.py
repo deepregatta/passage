@@ -1,4 +1,4 @@
-"""Tidal predictions at reference ports — HW/LW series (M10).
+"""Tidal predictions at reference ports — HW/LW series.
 
 Modes (config/providers.json "tides"); the live source is per-route, from
 config/route-sources.json tides.live_source.kind:

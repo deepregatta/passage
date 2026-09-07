@@ -1,5 +1,5 @@
 /**
- * Ensemble scenario-exceedance (brief §6): the fraction of forecast scenarios
+ * Ensemble scenario-exceedance: the fraction of forecast scenarios
  * exceeding a declared limit. Raw member counts — presented as "N of M forecast
  * scenarios", NEVER as a calibrated probability.
  */
@@ -30,7 +30,7 @@ export function fraction(count: ExceedanceCount): number {
   return count.exceed / count.total;
 }
 
-/** Phrase used identically in both registers (brief §13 wording decision). */
+/** Phrase used identically in both registers. */
 export function phraseExceedance(count: ExceedanceCount, limitLabel: string): string {
   if (count.exceed === count.total) {
     return `all ${count.total} forecast scenarios exceed ${limitLabel}`;

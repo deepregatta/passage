@@ -2,7 +2,7 @@
  * Leg schedules: enter/exit times per speed scenario (slow/nominal/fast).
  * ETA uncertainty is explicit — conditions are evaluated across the whole
  * occupancy window [enter(fast), exit(slow)], never at a single instant.
- * Current correction lands at M7 (fixed-point SOG iteration).
+ * When currents are supplied, fixed-point iteration couples SOG and ETA.
  */
 
 import { interpolatePosition } from './geo.js';

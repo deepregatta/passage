@@ -1,10 +1,10 @@
-"""Calibration accumulation (brief §9). Records only — never weighting.
+"""Calibration accumulation. Records only — never weighting.
 
 Aggregates matched forecast/observation pairs into per-(variable, lead band,
 area) records: sample size, coverage-class counts, bias (mean error) and
 spread (population std of error).
 
-§9 rules (binding):
+Calibration rules:
 - every record carries its sample size (the contract makes n_pairs required);
 - NO weighting logic lives here — records are evidence, and nothing may turn
   them into model weights until the sample justifies it.

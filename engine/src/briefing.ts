@@ -1,10 +1,10 @@
 /**
- * Two-register briefing renderer (brief §8): plain language anyone can act on,
+ * Two-register briefing renderer: plain language anyone can act on,
  * plus the professional reasoning; generated from the SAME facts (findings JSON).
  * Bounded vocabulary, every sentence traceable via evidence_ids. This seam is
  * where an optional LLM writer could later swap in; all numbers stay deterministic.
  *
- * Wording rules (safety-critical, brief §6/§7):
+ * Wording rules (safety-critical):
  *  - never "GO", never "probability"/"confidence %" for raw scenario fractions
  *  - scenario fractions phrased as "N of M forecast scenarios exceed ..."
  *  - an active official warning always renders first and overrides the summary
@@ -204,7 +204,7 @@ export function renderBriefing(findings: Findings, synoptic?: SynopticFeatures):
       decisionPro += ` Driver: ${driver.rule_id} on ${driver.leg_id} at ${driver.valid_time}; ${driver.value} ${driver.units} vs declared ${driver.limit} ${driver.units}.`;
     }
   }
-  // tidal gates shape the decision (M10)
+  // tidal gates shape the decision
   const gateEvidence = findings.evidence.filter((e) => e.rule_id === 'T-GATE-01');
   for (const gate of findings.gates ?? []) {
     const badge = gate.rule_text.includes('unverified') ? ' (timing rule unverified)' : '';

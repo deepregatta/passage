@@ -1,4 +1,4 @@
-"""US marine warnings — NWS active alerts via api.weather.gov (brief §7 authority layer).
+"""US marine warnings — NWS active alerts via api.weather.gov (authority layer).
 
 Unlike FR (daily-lagged data.gouv mirror) and UK (print-page parse), the US has
 a real official API: api.weather.gov serves active CAP alerts per marine

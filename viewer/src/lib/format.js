@@ -1,4 +1,4 @@
-// Deterministic UTC formatting + verdict metadata (§7 wording, exactly).
+// Deterministic UTC formatting + verdict metadata (exact verdict wording).
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -65,7 +65,7 @@ export function runAge(fetchedAtIso, nowMs) {
   return h > 0 ? `${h} h ${String(m).padStart(2, '0')} min` : `${m} min`;
 }
 
-/** §7 verdict states; exact wording, never "GO". */
+/** Verdict states; exact wording, never "GO". */
 export const VERDICT = {
   within: { label: 'Within your declared limits', glyph: '✓', tw: 'verdict-within', hex: '#2F6E4F' },
   approaching: { label: 'Approaching your limits', glyph: '⚠', tw: 'verdict-approaching', hex: '#A87718' },

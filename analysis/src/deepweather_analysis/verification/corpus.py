@@ -1,10 +1,10 @@
-"""Retrospective corpus (brief §9): replay the PURE synoptic detector on
+"""Retrospective corpus: replay the PURE synoptic detector on
 archived ERA5 fields and score it against per-case expectations.
 
 The corpus validates the DETECTOR, not history trivia — expectations are
 deliberately generous (approximate positions, conservative depth thresholds).
 
-§9 caveat (binding, printed on every review sheet): this is
+Caveat (printed on every review sheet): this is
 'reanalysis-referenced' validation. ERA5 assimilates observations but is NOT
 independent ground truth.
 

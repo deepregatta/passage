@@ -2,7 +2,7 @@ import { useApp } from '../stores/appStore.js';
 import { runAge } from '../lib/format.js';
 
 /**
- * Model guidance footer; §16 correction enforced: run age + agreement status,
+ * Model guidance footer: run age + agreement status,
  * NEVER "High/Medium confidence".
  */
 export default function ModelFooter() {

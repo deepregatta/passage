@@ -1,4 +1,4 @@
-"""Buoy/station observations for the verification layer (brief §9).
+"""Buoy/station observations for the verification layer.
 
 LIVE (config/providers.json: observations.mode == 'live'): the per-route
 live source kind comes from route-sources.json observations.live_source:
@@ -27,7 +27,7 @@ which the matcher reports as 'not_independently_observed'.
 
 SYNTHETIC fallback: kept for fixture mode and for graceful degradation when
 the live fetch fails. Every synthetic document carries source.mode ==
-'synthetic'; the matcher (§9 honesty rule) forces the coverage class of
+'synthetic'; the matcher forces the coverage class of
 anything matched against these to 'emulated' — fake observations can never
 claim real verification.
 

@@ -1,6 +1,6 @@
 """Synoptic prepared-run publishing: ECMWF fields -> features/charts/wind grid/manifest.
 
-Orchestrates the route-independent per-model-run pipeline (brief §4.1):
+Orchestrates the route-independent per-model-run pipeline:
 1. fetch the ECMWF open-data cycle (ecmwf_open_data.fetch_fields);
 2. detect pressure systems per step, track them, run named-regime rules on
    the analysis step;
