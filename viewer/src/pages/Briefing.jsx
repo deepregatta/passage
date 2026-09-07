@@ -76,6 +76,7 @@ export default function Briefing() {
       <HeaderBar findings={findings} />
       <DecisionBand
         findings={findings}
+        example={example}
         sections={sections}
         synoptic={synoptic}
         warningEvidence={warningEvidence}
@@ -138,7 +139,7 @@ function HeaderBar({ findings }) {
  * The 10-second layer: can I go, why, what to do instead; before any chart.
  * One plain sentence, one limit, no decimals, no codenames.
  */
-function DecisionBand({ findings, sections, synoptic, warningEvidence, onOpenBulletin }) {
+function DecisionBand({ findings, sections, synoptic, warningEvidence, onOpenBulletin, example }) {
   const setPage = useApp((s) => s.setPage);
   const route = useApp((s) => s.route);
   const warningActive = findings.verdict.warning_override?.active;
@@ -176,7 +177,7 @@ function DecisionBand({ findings, sections, synoptic, warningEvidence, onOpenBul
   const change = sections.find((s) => s.id === 'what_could_change');
   const nextUpdate = change?.register_plain.match(/expected around ([^)]+)\)/)?.[1];
 
-  const offerScan = ['exceeds', 'approaching', 'warning_active'].includes(state) && route;
+  const offerScan = !example && ['exceeds', 'approaching', 'warning_active'].includes(state) && route;
   const findDeparture = () => {
     usePlanner.getState().patch({
       mode: 'draw',
@@ -228,7 +229,7 @@ function DecisionBand({ findings, sections, synoptic, warningEvidence, onOpenBul
           )}
           {warningActive && (
             <button type="button" onClick={onOpenBulletin} className={buttonClass}>
-              Open official bulletin
+              {example ? 'Inspect example bulletin' : 'Open official bulletin'}
             </button>
           )}
           {emulated && (

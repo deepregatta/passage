@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { resolve, join } from 'node:path';
-import { render, cleanup } from '@testing-library/react';
+import { render, cleanup, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import Briefing from '../src/pages/Briefing.jsx';
 import { useApp } from '../src/stores/appStore.js';
@@ -22,6 +22,8 @@ describe('rendered Passage measurement contract', () => {
   }
   it('example is separate from a planner run', () => {
     setup(null, true);
+    expect(screen.queryByRole('button', { name: 'Find a departure that fits' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Inspect example bulletin' })).toBeTruthy();
     expect(trackOnce).toHaveBeenCalledWith('passage_example_view:test-snapshot', 'passage_example_view', expect.objectContaining({ result_rendered: true }));
   });
   it('only a new attempt with rendered non-empty output activates', () => {
