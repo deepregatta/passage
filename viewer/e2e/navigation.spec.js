@@ -1,6 +1,8 @@
 import { expect, test } from '@playwright/test';
 import { openAuditedSnapshot } from './helpers.js';
 
+test.use({ timezoneId: 'Europe/Paris' });
+
 test('campaign UTM parameters survive initial hash routing and client navigation', async ({ page }) => {
   const query = new URLSearchParams({
     utm_source: 'instagram',
@@ -17,13 +19,16 @@ test('campaign UTM parameters survive initial hash routing and client navigation
 });
 
 test('Plan and Verify stage checkpoints keep URL-deep-linked subviews', async ({ page }) => {
-  // freeze the clock so the default departure date (now + 24h) renders the same
-  // date on every run — otherwise the screenshot baselines drift daily
+  // The planner defaults to the current local time. Freeze both the instant
+  // and browser timezone so its departure fields stay reproducible.
   await page.clock.setFixedTime(new Date('2026-07-20T06:00:00Z'));
+  // Keep map controls/attribution in the checkpoint without live tile drift.
+  await page.route(/^https:\/\/(basemaps\.cartocdn\.com|tiles\.openseamap\.org)\//, (route) => route.abort());
   await openAuditedSnapshot(page);
   await page.getByRole('button', { name: /Plan/ }).first().click();
   await expect(page).toHaveURL(/#plan\/planner$/);
   await expect(page.getByRole('heading', { name: 'Plan a passage' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'See an example briefing' })).toHaveAttribute('href', '#example');
   await page.locator('.leaflet-container').waitFor();
   await page.waitForTimeout(250);
   await expect(page).toHaveScreenshot('plan.png', { fullPage: true });
@@ -31,6 +36,22 @@ test('Plan and Verify stage checkpoints keep URL-deep-linked subviews', async ({
   await expect(page).toHaveURL(/#verify\/record$/);
   await expect(page.getByText(/Skill claims use 11 real ERA5 cases/i)).toBeVisible();
   await expect(page).toHaveScreenshot('verify.png', { fullPage: true });
+});
+
+test('planner example link survives reload and returns to passage planning', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('link', { name: 'See an example briefing' }).click();
+  await expect(page).toHaveURL(/#example$/);
+  const example = page.getByRole('region', { name: 'Example briefing' });
+  await expect(example.getByRole('heading', { name: 'Example briefing', exact: true })).toBeVisible();
+  await expect(example.getByText('Synthetic / emulated example. Not a live forecast or a safety decision.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Inspect example bulletin' })).toBeVisible();
+  await page.reload();
+  await expect(page).toHaveURL(/#example$/);
+  await expect(page.getByRole('button', { name: 'Inspect example bulletin' })).toBeVisible();
+  await example.getByRole('link', { name: 'Plan my own passage' }).click();
+  await expect(page).toHaveURL(/#plan\/planner$/);
+  await expect(page.getByRole('heading', { name: 'Plan a passage' })).toBeVisible();
 });
 
 test('visible stage targets are at least 44 pixels tall', async ({ page }) => {

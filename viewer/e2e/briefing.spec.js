@@ -1,17 +1,17 @@
 import { expect, test } from '@playwright/test';
 import { openAuditedSnapshot } from './helpers.js';
 
+test.use({ timezoneId: 'Europe/Paris' });
+
 test('briefing checkpoint', async ({ page }) => {
   // Keep model-age labels aligned with the reference fixture. Otherwise this
   // full-page baseline changes every day and wraps differently on mobile.
   await page.clock.setFixedTime(new Date('2026-07-19T18:00:00Z'));
+  // External tile availability/labels are not a UI baseline. Keep the route
+  // overlays, map controls and attribution, but omit live raster tiles.
+  await page.route(/^https:\/\/(basemaps\.cartocdn\.com|tiles\.openseamap\.org)\//, (route) => route.abort());
   await openAuditedSnapshot(page);
-  await expect(page).toHaveScreenshot('briefing.png', {
-    fullPage: true,
-    // CARTO/OSM can move a handful of labels between otherwise identical
-    // tiles. This remains below the time/layout drift this test guards.
-    maxDiffPixels: 1_000,
-  });
+  await expect(page).toHaveScreenshot('briefing.png', { fullPage: true });
 });
 
 test('emulated warning uses a neutral test-pattern band', async ({ page }) => {
@@ -41,12 +41,20 @@ test('playback scrub synchronizes the story phase and evidence focus', async ({ 
   await expect(page.getByText(/system L1 · boat L/i)).toBeVisible();
 });
 
-test('decision band answers can-I-go before any chart', async ({ page }) => {
+test('example decision band prioritizes bulletin inspection before charts', async ({ page }) => {
   await openAuditedSnapshot(page);
   const band = page.getByTestId('decision-band');
   await expect(band.getByRole('heading', { name: /official warning active/i })).toBeVisible();
-  await expect(band.getByRole('button', { name: /find a departure that fits/i })).toBeVisible();
+  await expect(band.getByText('EMULATED WARNING SCENARIO')).toBeVisible();
+  await expect(band.getByRole('button', { name: /find a departure that fits/i })).toHaveCount(0);
+  const inspectBulletin = band.getByRole('button', { name: 'Inspect example bulletin', exact: true });
+  await expect(inspectBulletin).toBeVisible();
   const bandBox = await band.boundingBox();
   const heroBox = await page.getByRole('button', { name: 'Full screen' }).boundingBox();
   expect(bandBox.y).toBeLessThan(heroBox.y);
+  await inspectBulletin.click();
+  const bulletin = page.getByRole('dialog');
+  await expect(bulletin.getByText('Source bulletin', { exact: true })).toBeVisible();
+  await bulletin.getByRole('button', { name: 'Close bulletin' }).click();
+  await expect(bulletin).toHaveCount(0);
 });
