@@ -120,7 +120,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Items: §7.1 (engines/.nvmrc, CI node-version, stale engine/dist)
 - Files: package.json (`engines`), package-lock.json (matching root metadata only), .nvmrc, .github/workflows/ci.yml, viewer/package.json (`predev`) or viewer/vite.config.js alias to engine/src
 - Done when: fresh clone → `npm install && npm run dev -w viewer` works without a manual engine build.
-- Status: in progress · Commit: — · Notes: Clean pre-flight at `9b57280`; verified previous step `d21ed21` scope. Full guardrails pass except the established six-file demo drift assigned to 1.15; saved regenerated baseline and restored tracked fixtures. Node 24 locally versus CI 22, no engines/.nvmrc or predev. Include matching root engines metadata in package-lock.json; no dependency changes.
+- Status: done · Commit: — · Notes: Clean pre-flight at `9b57280`; previous step `d21ed21` scope and full guardrails verified (known demo drift only). Set engines.node=24.x and .nvmrc=24; CI reads .nvmrc. Added viewer predev build using the full @deepweather/engine workspace name: npm's path selector `-w engine` fails from the viewer lifecycle cwd. Lockfile changes only matching root engines metadata; no dependency changes. Isolated local clone with no engine/dist: npm install succeeds, then viewer-demo previously returned HTTP 500 for browserAnalysis.js with unresolved engine imports; after the fix the same install/start sequence builds the engine automatically and returns HTTP 200. Stale dist sentinel also replaced with byte-identical current build by predev. Node v24.20.0/npm 11.9.0. Final npm test: typecheck plus 112 engine + 43 viewer tests passed; Python 3.12 pytest 157 passed (10 existing NumPy warnings); Ruff check/format passed (51 files). Engine goldens unchanged; regenerated demo byte-identical before/after; known six-file drift against HEAD remains assigned to 1.15 and tracked fixtures restored unchanged. Playwright verified fresh planner and example navigation at 1440x1000, no browser errors; screenshots output/playwright/review-0.6/fresh-planner.png (chart and route form) and fresh-example.png (emulated warning, synoptic chart and weather story). Used viewer-demo launch config on 127.0.0.2:5174 to preserve the existing localhost listener. Recorded CARTO tile watermark below. No unrelated dirty files, prose changes or phase gate.
 
 ### 0.7 Viewer dead code
 - Items: §7.2 viewer list (VerdictBanner.jsx, V15 `VITE_DW_MODE` branch, `.section-rule`, unused `buildOption` export)
@@ -375,6 +375,8 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 
 - [triaged] 0.3 — .github/workflows/ci.yml:14 — Successful CI run 34162993074 warns that checkout@v4, setup-python@v5 and setup-uv@v6 target deprecated Node 20 action runtimes and are being forced onto Node 24; assigned to 0.10 during 0.4.
 - [triaged] 0.4 — .github/workflows/prepare-synoptic.yml:44 — The sync comment says jsonschema is in dev; after 0.4 it is stale. Assigned to comment-only step 0.9; workflow behavior unchanged.
+
+- 0.6 — viewer/src/pages/Planner.jsx:328 — Fresh-checkout browser screenshot shows CARTO basemap tiles watermarked "API KEY REQUIRED" (also inspect RouteMap.jsx tile endpoints); UI renders with no console errors. Provider/configuration cause and production impact remain unverified; investigate separately.
 
 ## Decisions
 (record design choices made in steps 1.5, 3.5, 5.3 here)
