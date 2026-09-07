@@ -136,9 +136,10 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 
 ### 0.9 Stale comments and internal names
 - Items: §7.4 (milestone tags, "brief §N", Supabase, Open-Meteo mirrors, `openmeteo-*` fixture header, FooterActions `race_*` identifiers)
+- Files: comments/docstrings in engine/src, engine/test/{findings.golden,scenarios}.test.ts, viewer/src/{components/FooterActions.jsx,lib/glossary.jsx}, viewer/vite.config.js, analysis/src/deepweather_analysis; .github/workflows/prepare-synoptic.yml sync comment.
 - Rule: comments and internal identifiers only; **no user-facing copy** (that is Phase 3).
 - Done when: `grep -rnE "\bM[0-9]{1,2}\b|Supabase" engine/src viewer/src` is empty or each remaining hit is justified.
-- Status: todo · Commit: — · Notes:
+- Status: in progress · Commit: — · Notes: Clean pre-flight at `bd27e6d`; previous step `6b3396b` scope and full guardrails verified. npm test: 112 engine + 43 viewer passed; Python 3.12 pytest: 157 passed (10 existing NumPy warnings); Ruff lint/format passed (51 files). Demo regeneration reproduced the known six-file drift assigned to 1.15; captured generated baseline and restored tracked fixtures unchanged. No unrelated dirty files or untriaged notices. Preserve output text and protocol identifiers; justify remaining matches individually.
 
 ### 0.10 CI action runtime versions
 - Items: noticed during 0.3, triaged during 0.4.
