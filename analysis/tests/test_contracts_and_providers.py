@@ -35,9 +35,7 @@ def test_default_limits_profile_validates():
 def test_providers_load_with_valid_modes():
     providers = load_providers()
     expected = {
-        "openmeteo_forecast",
-        "openmeteo_ensemble",
-        "openmeteo_marine",
+        "forecast_tiles",
         "ecmwf_open_data",
         "cmems_currents",
         "era5",
@@ -47,8 +45,9 @@ def test_providers_load_with_valid_modes():
         "observations",
     }
     assert expected <= set(providers)
+    assert not any(name.startswith("openmeteo_") for name in providers)
     assert provider_mode("tides", providers) is Mode.LIVE
-    assert provider_mode("openmeteo_forecast", providers) is Mode.LIVE
+    assert provider_mode("forecast_tiles", providers) is Mode.LIVE
     assert provider_mode("observations", providers) is Mode.LIVE
 
 

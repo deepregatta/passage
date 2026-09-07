@@ -2,9 +2,7 @@
   "schema_version": 1,
   "comment": "Per-feed data mode: live | fixture | synthetic. Synthetic values are always badged 'emulated' in evidence and UI.",
   "providers": {
-    "openmeteo_forecast": { "mode": "live" },
-    "openmeteo_ensemble": { "mode": "live" },
-    "openmeteo_marine": { "mode": "live" },
+    "forecast_tiles": { "mode": "live" },
     "ecmwf_open_data": { "mode": "live" },
     "cmems_currents": { "mode": "live" },
     "era5": { "mode": "live" },
