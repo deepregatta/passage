@@ -134,7 +134,7 @@ export function assessGates(
         .filter((w) => w.toMs > transitFrom - 12 * 3600_000 && w.fromMs < transitTo + 12 * 3600_000)
         .map((w) => ({ from: toIso(w.fromMs), to: toIso(w.toMs) })),
       status,
-      rule_text: ruleText + (gates.find((g) => g.gate_id === gate.gate_id)?.verified ? '' : '. Timing rule unverified (pilot-book approximation)'),
+      rule_text: ruleText + (gate.verified ? '' : '. Timing rule unverified (pilot-book approximation)'),
     });
   }
   return out;

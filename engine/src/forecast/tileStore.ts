@@ -9,13 +9,12 @@
 
 import type { RegionGrid } from '../grids.js';
 import { toIso } from '../eta.js';
-import { decodeTile, type DecodedTile, type TileVariable } from './tileCodec.js';
+import { decodeTile, type DecodedTile } from './tileCodec.js';
 import {
   axisTimesMs,
   nearestGridIndex,
   resampleToHourly,
   tileIdFor,
-  tilesForBbox,
   type Bbox,
 } from './tileMath.js';
 import type {
