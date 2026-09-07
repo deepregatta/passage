@@ -153,7 +153,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Files: viewer/e2e/{briefing,navigation}.spec.js and their screenshot baselines.
 - Do: reconcile the obsolete example departure-button assertion and briefing/planner baselines with the existing example flow; inspect every intended baseline change without changing product behavior.
 - Done when: full e2e passes at desktop/mobile; updated screenshots are reviewed and each baseline change is explained.
-- Status: todo · Commit: — · Notes:
+- Status: in progress · Commit: — · Notes: Clean pre-flight at `58a7177`; previous step `6dc1e09` scope verified. npm test, Python pytest/Ruff and build:pages pass; known six-file demo drift reproduced and fixtures restored. Full e2e reproduces the same six existing failures (26 pass): briefing and planner baselines plus obsolete example departure assertion at both viewports. No failure caused by 0.10. viewer-demo launched from .claude/launch.json. No unrelated dirty files.
 
 ## Phase 1 — bugs (regression test first)
 
@@ -405,7 +405,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 
 - [triaged] 0.9 — engine/src/findings.ts:119 — The missing-speed diagnostic still says "polar-based ETA lands at M11" although polar routing exists; retained because 0.9 forbids user-facing copy changes. Assigned to 3.6 during 0.10 for prose cleanup with translation coverage.
 
-- 0.10 — .github/workflows/ci.yml:15 — CI run `34168375871` passes without Node 20 action-runtime warnings or check annotations, but setup-node@v5 emits upstream Node API deprecations DEP0040 (punycode) and DEP0169 (url.parse) in raw setup/cache logs; assess a later action major separately.
+- [triaged] 0.10 — .github/workflows/ci.yml:15 — dropped: DEP0040 (punycode) and DEP0169 (url.parse) are informational warnings inside upstream setup-node@v5; no repository call site to repair, no failed CI step or check annotation, and supported Node 24 runtime verified. Reconsider during routine dependency updates rather than adding a product-maintenance step.
 
 ## Decisions
 (record design choices made in steps 1.5, 3.5, 5.3 here)
