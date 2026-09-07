@@ -179,14 +179,15 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Items: E6
 - Files: engine/src/cli.ts, viewer/src/lib/browserAnalysis.js, test over every route in config/route-zones.json
 - Done when: US/Med/AU routes produce their own zone ids; the "all bulletin zones" fallback applies only to user-drawn routes.
-- Status: done · Commit: — · Notes: Clean pre-flight at `3e0b1c6`; previous step scope and exact-tree guardrails verified. Regression-first: 4 CLI and 7 browser failures reproduced. Both consumers now flatten every *_zones group; only unmapped mode=user routes use all bulletin zones. Fixed/computed routes and explicitly empty mappings cannot inherit unrelated warnings. Added CLI subprocess checks against every registered route and real engine authority evidence, plus browser pipeline input checks for all four regions and missing/empty mappings. Final `npm test`: build/typecheck plus 117 engine + 53 viewer passed; Python pytest 225 passed (10 existing NumPy warnings), Ruff lint/format passed (53 files). Generated demo output byte-identical to the pre-step output; tracked demo restored and engine goldens unchanged. Read viewer-demo launch config; reused its running port 5174 after configured launch reported port in use. Playwright opened the example and inspected the bulletin: screenshot output/playwright/review-1.4-bulletin.png shows synthetic Casquets notice, issue/validity times and original text in the side panel over the warning briefing. Regional selection is verified by regression tests, not this unchanged example. No phase gate, unrelated dirty files, or new Noticed findings.
+- Status: done · Commit: `c978506` · Notes: Clean pre-flight at `3e0b1c6`; previous step scope and exact-tree guardrails verified. Regression-first: 4 CLI and 7 browser failures reproduced. Both consumers now flatten every *_zones group; only unmapped mode=user routes use all bulletin zones. Fixed/computed routes and explicitly empty mappings cannot inherit unrelated warnings. Added CLI subprocess checks against every registered route and real engine authority evidence, plus browser pipeline input checks for all four regions and missing/empty mappings. Final `npm test`: build/typecheck plus 117 engine + 53 viewer passed; Python pytest 225 passed (10 existing NumPy warnings), Ruff lint/format passed (53 files). Generated demo output byte-identical to the pre-step output; tracked demo restored and engine goldens unchanged. Read viewer-demo launch config; reused its running port 5174 after configured launch reported port in use. Playwright opened the example and inspected the bulletin: screenshot output/playwright/review-1.4-bulletin.png shows synthetic Casquets notice, issue/validity times and original text in the side panel over the warning briefing. Regional selection is verified by regression tests, not this unchanged example. No phase gate, unrelated dirty files, or new Noticed findings.
 
 ### 1.5 Per-route tides
 - Items: E7
 - Design first (2 lines in Notes): a `tides/index.json` route→artifact map published by the factory, or `artifact_name` carried in the route doc.
 - Files: engine/src/cli.ts, viewer/src/lib/browserAnalysis.js, analysis tides publisher, viewer/public/data/tides
 - Done when: a non-Channel route never loads channel.json and coverage reports `tidal_gates: not_assessed` when no tide artifact exists.
-- Status: todo · Commit: — · Notes:
+- Status: in progress · Commit: — · Notes: Design: factory publishes tides/index.json as {schema_version: 1, routes: {route_id: artifact_filename}} for registered artifacts actually present beside the index.
+  Consumers resolve only the exact route mapping; missing index/mapping/file means no tides, no tidal-gate assessment. Public index initially lists only the existing Channel artifact. Clean pre-flight at `c978506`; previous commit scope and exact-tree full guardrails verified (117 engine + 53 viewer + 225 Python, Ruff lint/format, unchanged generated demo). No unrelated dirty files or untriaged findings.
 
 ### 1.6 Init poisoning (store + local snapshots)
 - Items: E2, V11
@@ -410,3 +411,5 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 
 ## Decisions
 (record design choices made in steps 1.5, 3.5, 5.3 here)
+
+- Step 1.5 — Use a tides/index.json route-to-relative-filename map. Factory rebuilds it from registered tide artifacts present in the output directory; the public index advertises only shipped artifacts. No implicit Channel fallback. Gate definitions must have a reference port in the loaded tide artifact.
