@@ -1,0 +1,27 @@
+[
+  {
+    "id": "list",
+    "sentence": "There are warnings of gales in Portland, Trafalgar, and West Forties.",
+    "expected_zones": ["Portland", "Trafalgar", "Forties"]
+  },
+  {
+    "id": "all-areas",
+    "sentence": "There are warnings of gales in all areas.",
+    "expected_zones": ["Portland", "Plymouth", "Trafalgar", "Forties"]
+  },
+  {
+    "id": "all-except-trafalgar",
+    "sentence": "There are warnings of gales in all areas except Trafalgar.",
+    "expected_zones": ["Portland", "Plymouth", "Forties"]
+  },
+  {
+    "id": "no-warnings",
+    "sentence": "There are no warnings of gales in force.",
+    "expected_zones": []
+  },
+  {
+    "id": "multiple-exclusions",
+    "sentence": "There are warnings of gales in ALL AREAS except trafalgar, Plymouth and Forties.",
+    "expected_zones": ["Portland"]
+  }
+]

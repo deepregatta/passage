@@ -8,7 +8,8 @@ server-rendered, minimal HTML, purpose-built for plain reading:
   https://weather.metoffice.gov.uk/specialist-forecasts/coast-and-sea/print/shipping-forecast
 It carries the gale-warnings-in-force list, issue time, validity period, and
 per-area forecast text. We parse that page defensively: bulletins are emitted
-ONLY for route UK zones named in the gale-warnings list (the engine treats any
+ONLY for route UK zones covered by the gale-warning statement, including its
+all-areas and exclusion forms (the engine treats any
 bulletin as an authority override, so routine area forecasts must not become
 bulletins). Raw text is always preserved; any parse surprise degrades.
 """
@@ -29,7 +30,11 @@ SHIPPING_FORECAST_URL = (
 TIME_RE = re.compile(
     r"(\d{1,2}):(\d{2})\s*\(UTC([+-]\d{1,2})?\)\s*on\s*\w+\s+(\d{1,2})\s+(\w{3})\s+(\d{4})"
 )
-GALES_RE = re.compile(r"warnings of gales\s+in\s+(.*?)\.", re.IGNORECASE | re.DOTALL)
+GALES_RE = re.compile(
+    r"\b(?P<no>no\s+)?warnings of gales\s+in\s+(?P<areas>.*?)\.",
+    re.IGNORECASE | re.DOTALL,
+)
+ALL_AREAS_RE = re.compile(r"all areas(?:\s+except\s+(.+))?", re.IGNORECASE)
 AREA_RE = re.compile(
     r'<h3 class="area-forecast-heading">(.*?)</h3>\s*<p class="area-forecast">(.*?)</p>',
     re.DOTALL,
@@ -57,7 +62,11 @@ def _parse_time(match: re.Match) -> datetime:
 
 
 def parse_shipping_forecast(raw_html: str) -> dict:
-    """Extract issue time, validity, gale areas, and per-area forecast text."""
+    """Extract times, gale areas, all-area scope/exclusions, and area forecasts.
+
+    For all-area statements, gale_areas expands the available forecast headings.
+    Retain the scope too: a missing area forecast must not suppress its warning.
+    """
     text = _flatten(raw_html)
 
     times = [_parse_time(m) for m in TIME_RE.finditer(text)]
@@ -66,24 +75,42 @@ def parse_shipping_forecast(raw_html: str) -> dict:
     valid_to = times[1] if len(times) >= 2 else None
     issued = times[2] if len(times) >= 3 else valid_from
 
-    gales_match = GALES_RE.search(text)
-    gale_areas: list[str] = []
-    if gales_match:
-        raw_list = re.sub(r"\band\b", ",", gales_match.group(1))
-        gale_areas = [a.strip() for a in raw_list.split(",") if a.strip()]
-
     areas: dict[str, str] = {}
     for heading, body in AREA_RE.findall(raw_html):
         for area in _flatten(heading).split(","):
             areas[area.strip()] = _flatten(body).strip()
+
+    gales_match = GALES_RE.search(text)
+    gale_areas: list[str] = []
+    excluded_areas: list[str] = []
+    all_areas = False
+    if gales_match and not gales_match.group("no"):
+        statement = gales_match.group("areas").strip()
+        all_match = ALL_AREAS_RE.fullmatch(statement)
+        if all_match:
+            all_areas = True
+            excluded_areas = _split_areas(all_match.group(1) or "")
+            gale_areas = [
+                area
+                for area in areas
+                if not any(_area_matches(excluded, area) for excluded in excluded_areas)
+            ]
+        else:
+            gale_areas = _split_areas(statement)
 
     return {
         "issued": issued,
         "valid_from": valid_from,
         "valid_to": valid_to,
         "gale_areas": gale_areas,
+        "gale_all_areas": all_areas,
+        "gale_excluded_areas": excluded_areas,
         "area_forecasts": areas,
     }
+
+
+def _split_areas(raw_list: str) -> list[str]:
+    return [a.strip() for a in re.split(r",|\band\b", raw_list, flags=re.IGNORECASE) if a.strip()]
 
 
 def _area_matches(zone_name: str, area: str) -> bool:
@@ -105,7 +132,17 @@ def fetch_uk_gale_bulletins(
     issued_iso = (parsed["issued"] or now).strftime("%Y-%m-%dT%H:%M:%SZ")
     bulletins: list[dict] = []
     for zone in route_uk_zones:
-        matched = [a for a in parsed["gale_areas"] if _area_matches(zone["zone_name"], a)]
+        if parsed["gale_all_areas"]:
+            matched = (
+                []
+                if any(
+                    _area_matches(excluded, zone["zone_name"])
+                    for excluded in parsed["gale_excluded_areas"]
+                )
+                else [zone["zone_name"]]
+            )
+        else:
+            matched = [a for a in parsed["gale_areas"] if _area_matches(zone["zone_name"], a)]
         if not matched:
             continue
         forecast_texts = [
@@ -128,9 +165,14 @@ def fetch_uk_gale_bulletins(
                 "parse_confidence": 0.85,
             }
         )
+    scope = f"{len(parsed['gale_areas'])} area(s)"
+    if parsed["gale_all_areas"]:
+        scope = "all areas"
+        if parsed["gale_excluded_areas"]:
+            scope += " except " + ", ".join(parsed["gale_excluded_areas"])
     note = (
         f"UK: Met Office shipping forecast issued {issued_iso}, gales in force for "
-        f"{len(parsed['gale_areas'])} area(s); gale warnings between issues are not visible "
+        f"{scope}; gale warnings between issues are not visible "
         "until the next forecast."
     )
     return bulletins, note
