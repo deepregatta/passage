@@ -96,7 +96,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Items: §7.1 tsconfig flags; §7.2 engine list (E10 `worstDet`, diff.ts unused `previous`, tileStore unused imports, `SQUALL_LABEL`, legacy `VIS_MODELS` names, briefing `generated_at ??` fallback, tides.ts self-lookup)
 - Files: engine/tsconfig.json, engine/src/{briefing,diff,findings}.ts, engine/src/forecast/tileStore.ts, engine/src/hazards/{convective,tides}.ts
 - Done when: `noUnusedLocals`/`noUnusedParameters` on and `npm run build -w engine` clean; goldens byte-identical.
-- Status: todo · Commit: — · Notes:
+- Status: in progress · Commit: — · Notes: Clean pre-flight at `af4bc83`; previous step `5001d47` contains only its lockfile and tracker. Pre-flight npm tests (112 engine + 43 viewer), pytest (157), Ruff check/format pass. Demo regeneration repeats the known six-file drift; saved generated output for byte comparison and restored tracked fixtures. Strict unused-symbol probe reproduces four TS6133 errors.
 
 ### 0.3 Type-check the engine tests
 - Items: §7.1 (tsconfig.test.json), §8 engine row; fixes for routing.test.ts `stepMinutes`, landmaskPack.test.ts, tileStore.test.ts `Ajv2020.default`
@@ -224,6 +224,13 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Items: P6, P7, P9
 - Files: analysis/src/deepweather_analysis/{cli.py,synoptic/regimes.py}, analysis/tests/test_polars.py + a committed 20-record ORC sample fixture
 - Done when: `verify` writes the verification document; NaN box returns None; polar tests run in CI without the full ORC db.
+- Status: todo · Commit: — · Notes:
+
+### 1.15 Demo generator and fixture consistency
+- Items: noticed during 0.1, triaged during 0.2; run after the prose reconciliation in 1.12.
+- Files: scripts/build-demo-snapshots.mjs; fixture/prose changes, if still required, belong to the explicitly authorized 1.12 scope.
+- Do: preserve required demo routes during generation and reconcile remaining generator/fixture differences without introducing new engine wording.
+- Done when: `node scripts/build-demo-snapshots.mjs` leaves `viewer/test/fixtures/demo` byte-identical to HEAD; npm tests pass.
 - Status: todo · Commit: — · Notes:
 
 ## Phase 2 — performance (behaviour-preserving)
@@ -356,7 +363,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 
 ## Noticed during steps
 (agents append here: `- <step> — <file:line> — <one line>`)
-- 0.1 — scripts/build-demo-snapshots.mjs:99 — Pre-existing demo regeneration drift: deletes routes/solent-hop-3wp.json and rewrites five snapshot JSON files (briefing next-run text, change descriptions, warning prose); reproduced with original commit `8971b65` and original dependencies, identical to updated-dependency output. Reconcile generator/fixtures in a separately scoped step; 0.1 preserves the tracked fixtures.
+- [triaged] 0.1 — scripts/build-demo-snapshots.mjs:99 — Pre-existing demo regeneration drift: deletes routes/solent-hop-3wp.json and rewrites five snapshot JSON files (briefing next-run text, change descriptions, warning prose); reproduced with original commit `8971b65` and original dependencies, identical to updated-dependency output. Assigned to 1.15 after prose reconciliation in 1.12; 0.1 preserves the tracked fixtures.
 
 ## Decisions
 (record design choices made in steps 1.5, 3.5, 5.3 here)
