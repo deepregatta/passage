@@ -1,10 +1,88 @@
 """Met Office shipping-forecast parsing, on the real 2026-07-17 page."""
 
+import json
+import re
 from pathlib import Path
 
-from deepweather_analysis.warnings_uk import _area_matches, parse_shipping_forecast
+import pytest
+
+from deepweather_analysis.warnings_uk import (
+    _area_matches,
+    fetch_uk_gale_bulletins,
+    parse_shipping_forecast,
+)
 
 FIXTURE = (Path(__file__).parent / "fixtures" / "shipping-forecast-2026-07-17.html").read_text()
+GALE_FORMS = json.loads(
+    (Path(__file__).parent / "fixtures" / "shipping-forecast-gale-forms.json").read_text()
+)
+ROUTE_ZONES = [
+    {"zone_id": name.lower(), "zone_name": name}
+    for name in ("Portland", "Plymouth", "Trafalgar", "Forties")
+]
+
+
+@pytest.fixture(params=GALE_FORMS, ids=lambda form: form["id"])
+def gale_form(request):
+    form = request.param
+    page = re.sub(
+        r'<p class="warning">.*?</p>',
+        f'<p class="warning">{form["sentence"]}</p>',
+        FIXTURE,
+    )
+    return page, form["expected_zones"]
+
+
+def mock_page(monkeypatch, page):
+    class Response:
+        text = page
+
+        def raise_for_status(self):
+            pass
+
+    monkeypatch.setattr(
+        "deepweather_analysis.warnings_uk.requests.get",
+        lambda *args, **kwargs: Response(),
+    )
+
+
+def test_gale_forms_parse(gale_form):
+    page, expected_zones = gale_form
+    parsed = parse_shipping_forecast(page)
+    assert [
+        zone["zone_name"]
+        for zone in ROUTE_ZONES
+        if any(_area_matches(zone["zone_name"], area) for area in parsed["gale_areas"])
+    ] == expected_zones
+    if not expected_zones:
+        assert parsed["gale_areas"] == []  # "in force" is not an area
+
+
+def test_gale_forms_emit_only_affected_route_bulletins(gale_form, monkeypatch):
+    page, expected_zones = gale_form
+    mock_page(monkeypatch, page)
+    bulletins, note = fetch_uk_gale_bulletins(ROUTE_ZONES)
+    assert [b["zone_name"] for b in bulletins] == expected_zones
+    assert [b["zone_id"] for b in bulletins] == [name.lower() for name in expected_zones]
+    for bulletin in bulletins:
+        assert bulletin["kind"] == "gale-warning"
+        assert bulletin["severity"] == "gale"
+        assert bulletin["valid_from"] == "2026-07-17T09:30:00Z"
+        assert bulletin["valid_to"] == "2026-07-18T11:00:00Z"
+        assert bulletin["zone_name"] in bulletin["raw_text"]
+    assert "issued 2026-07-17T09:30:00Z" in note
+
+
+def test_all_areas_warning_does_not_require_area_forecast_text(monkeypatch):
+    page = re.sub(
+        r'<p class="warning">.*?</p>',
+        '<p class="warning">There are warnings of gales in all areas except Trafalgar.</p>',
+        FIXTURE,
+    )
+    page = re.sub(r'<h3 class="area-forecast-heading">.*?</h3>', "", page)
+    mock_page(monkeypatch, page)
+    bulletins, _ = fetch_uk_gale_bulletins(ROUTE_ZONES)
+    assert [b["zone_name"] for b in bulletins] == ["Portland", "Plymouth", "Forties"]
 
 
 def test_parse_real_page():
