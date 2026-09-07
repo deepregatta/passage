@@ -114,7 +114,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Items: V16; analysis/tests/test_contracts_and_providers.py assertions
 - Files: config/providers.json, analysis/tests/test_contracts_and_providers.py
 - Done when: Settings page lists no `openmeteo_*`; pytest green; consider adding a `forecast_tiles` entry so the page still explains the wind source.
-- Status: todo · Commit: — · Notes:
+- Status: in progress · Commit: — · Notes: Clean pre-flight at `7458eab`; previous step `6dcda5b` scope verified. Full npm/Python/Ruff guardrails pass; known six-file demo drift remains assigned to 1.15, generated baseline saved and tracked fixtures restored. No untriaged notices or unrelated dirty files.
 
 ### 0.6 Node version + dev workflow
 - Items: §7.1 (engines/.nvmrc, CI node-version, stale engine/dist)
