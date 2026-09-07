@@ -146,7 +146,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Files: .github/workflows/ci.yml
 - Do: review checkout/setup-python/setup-uv versions against their supported action runtimes and update deprecated actions.
 - Done when: CI passes without the Node 20 action-runtime deprecation warning.
-- Status: todo · Commit: — · Notes:
+- Status: in progress · Commit: — · Notes: Clean pre-flight at `1512064`; previous step `f4cbd5f` scope and full guardrails verified (known six-file demo drift only, restored tracked fixtures). Reviewing action manifests and migration notes before upgrading the deprecated Node 20 runtimes.
 
 ### 0.11 Existing example-flow e2e expectations
 - Items: noticed during 0.7, triaged during 0.8.
@@ -343,6 +343,13 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Do: write docs/maintenance/briefing-message-ids.md (schema change to contracts/briefing.schema.json, migration for old snapshots). Implementation becomes new steps after review.
 - Status: todo · Commit: — · Notes:
 
+### 3.6 Stale missing-speed diagnostic
+- Items: noticed during 0.9, triaged during 0.10.
+- Files: engine/src/findings.ts, viewer/src/i18n.js; targeted diagnostic/translation tests.
+- Do: replace the obsolete "polar-based ETA lands at M11" diagnostic with current guidance and cover its French translation.
+- Done when: missing-speed input produces accurate guidance in English and French; existing goldens and demo fixtures unchanged.
+- Status: todo · Commit: — · Notes:
+
 ## Phase 4 — structure (goldens byte-identical unless stated)
 
 ### 4.1 Shared engine formulas and thresholds — §7.3 engine list
@@ -396,7 +403,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 
 - [triaged] 0.7 — viewer/e2e/briefing.spec.js:48 — Full e2e suite already fails six checks before removal: obsolete example departure-button expectation (hidden by !example at Briefing.jsx:180 before this step), briefing screenshots and planner screenshots (navigation.spec.js:29), each on desktop/mobile. Same six after removal; current screenshots unchanged except one desktop pixel. Assigned to 0.11 during 0.8; do not restore the hidden example action to satisfy a stale test.
 
-- 0.9 — engine/src/findings.ts:119 — The missing-speed diagnostic still says "polar-based ETA lands at M11" although polar routing exists; retained because 0.9 forbids user-facing copy changes. Include in later prose cleanup with translation coverage.
+- [triaged] 0.9 — engine/src/findings.ts:119 — The missing-speed diagnostic still says "polar-based ETA lands at M11" although polar routing exists; retained because 0.9 forbids user-facing copy changes. Assigned to 3.6 during 0.10 for prose cleanup with translation coverage.
 
 ## Decisions
 (record design choices made in steps 1.5, 3.5, 5.3 here)
