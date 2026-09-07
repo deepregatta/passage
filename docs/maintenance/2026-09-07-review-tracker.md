@@ -167,7 +167,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Items: P2, P3 (optionally P10)
 - Files: analysis/src/deepweather_analysis/warnings_mf.py, analysis/tests/test_warnings_mf.py
 - Done when: a malformed row degrades to `parse-degraded`/`unavailable` instead of raising; "FIN D'AVIS…" never publishes as an active gale.
-- Status: todo · Commit: — · Notes:
+- Status: in progress · Commit: — · Notes: Clean pre-flight at `096d5b5`; previous step `ff495d0` scope and full guardrails verified: 112 engine + 43 viewer + 168 Python tests, Ruff lint/format pass. Known six-file demo regeneration drift reproduced; compare generated output before/after and restore tracked fixtures. No untriaged findings or unrelated dirty files. Scope P2/P3; optional P10 remains deferred.
 
 ### 1.3 One UTC parser for the package
 - Items: P5 (tides.py, scenarios.py, warnings_us.py, warnings_meteoalarm.py, plus the other ISO parsers listed)
