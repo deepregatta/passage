@@ -11,6 +11,7 @@ dependencies = [
     "requests>=2.31,<3.0",
     "orjson>=3.9,<4.0",
     "global-land-mask>=1.0,<2.0",
+    "jsonschema>=4.21",
 ]
 
 [project.optional-dependencies]
@@ -30,7 +31,6 @@ deepweather-analysis = "deepweather_analysis.cli:main"
 [dependency-groups]
 dev = [
     "pytest>=8.0",
-    "jsonschema>=4.21",
     "ruff>=0.8",
 ]
 

@@ -336,6 +336,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "global-land-mask" },
+    { name = "jsonschema" },
     { name = "matplotlib" },
     { name = "numpy" },
     { name = "orjson" },
@@ -357,7 +358,6 @@ environment = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "jsonschema" },
     { name = "pytest" },
     { name = "ruff" },
 ]
@@ -371,6 +371,7 @@ requires-dist = [
     { name = "eccodeslib", marker = "(platform_machine == 'aarch64' and extra == 'environment') or (platform_machine == 'x86_64' and extra == 'environment')", specifier = ">=2.45" },
     { name = "ecmwf-opendata", marker = "extra == 'environment'", specifier = ">=0.3,<1.0" },
     { name = "global-land-mask", specifier = ">=1.0,<2.0" },
+    { name = "jsonschema", specifier = ">=4.21" },
     { name = "matplotlib", specifier = ">=3.8,<4.0" },
     { name = "netcdf4", marker = "extra == 'environment'", specifier = ">=1.6,<2.0" },
     { name = "numpy", specifier = ">=1.26,<3.0" },
@@ -383,7 +384,6 @@ provides-extras = ["environment"]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "jsonschema", specifier = ">=4.21" },
     { name = "pytest", specifier = ">=8.0" },
     { name = "ruff", specifier = ">=0.8" },
 ]
