@@ -102,6 +102,7 @@ function gateIcon(status) {
 export default function RouteMap({ height = 420 }) {
   const findings = useApp((s) => s.findings);
   const synoptic = useApp((s) => s.synoptic);
+  const example = useApp((s) => s.manifest?.snapshots?.some(item => item.snapshot_id === s.snapshotId && item.demo === true));
   const cursor = usePlayback((s) => s.cursorHours);
   const [routeDoc, setRouteDoc] = useState(null);
   const [gatePositions, setGatePositions] = useState({});
@@ -126,6 +127,13 @@ export default function RouteMap({ height = 420 }) {
         for (const g of doc?.gates ?? []) map[g.gate_id] = g;
         setGatePositions(map);
       });
+  }, [findings]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setWindGrid(null);
+    // A stored example must never mix in current forecast data.
+    if (!findings || example) return;
     preparedRun()
       .then(({ doc }) =>
         doc?.artifacts?.wind_grid
@@ -134,9 +142,10 @@ export default function RouteMap({ height = 420 }) {
               .then((r) => (r.ok ? r.json() : null))
           : null,
       )
-      .then(setWindGrid)
+      .then(grid => { if (!cancelled) setWindGrid(grid); })
       .catch(() => {});
-  }, [findings]);
+    return () => { cancelled = true; };
+  }, [findings, example]);
 
   const bounds = useMemo(() => {
     if (!routeDoc) return null;
@@ -150,7 +159,7 @@ export default function RouteMap({ height = 420 }) {
 
   // background wind field at mid-passage time, subsampled from the prepared grid
   const fieldArrows = useMemo(() => {
-    if (!windGrid || !findings || !bounds) return [];
+    if (example || !windGrid || !findings || !bounds) return [];
     const sampler = new GridSampler(windGrid);
     const midMs =
       (Date.parse(findings.departure_utc) +
@@ -170,7 +179,7 @@ export default function RouteMap({ height = 420 }) {
       }
     }
     return arrows;
-  }, [windGrid, findings, bounds]);
+  }, [windGrid, findings, bounds, example]);
 
   const legArrows = useMemo(() => {
     if (!findings) return [];
