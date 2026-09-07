@@ -90,7 +90,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Items: §1 npm audit (postcss, browserslist, nanoid, fast-uri, undici)
 - Do: `npm audit fix`; confirm the lockfile diff touches dev deps only; `npm test`.
 - Done when: `npm audit` reports 0 high; all suites green.
-- Status: todo · Commit: — · Notes:
+- Status: in progress · Commit: — · Notes: Clean working tree at pre-flight (`8971b65`); no previous completed review step or untriaged findings. Scope: package-lock.json and this tracker.
 
 ### 0.2 Engine unused-symbol gate + engine dead code
 - Items: §7.1 tsconfig flags; §7.2 engine list (E10 `worstDet`, diff.ts unused `previous`, tileStore unused imports, `SQUALL_LABEL`, legacy `VIS_MODELS` names, briefing `generated_at ??` fallback, tides.ts self-lookup)
