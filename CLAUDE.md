@@ -30,3 +30,7 @@ Dev servers — use `.claude/launch.json` configs, not ad-hoc commands:
 - Commit and push to main after edits — don't wait to be asked.
 - Every external feed runs `live` / `fixture` / `synthetic` (`config/providers.json`); every emulated value must carry `source_kind: "emulated"` and a visible UI badge.
 - Reuse from coachregatta (oscar) is by vendoring with a `Vendored from coachregatta <path>, <date>` header — never cross-repo imports.
+
+## Active maintenance campaign (September 2026)
+
+[docs/maintenance/2026-09-07-review-tracker.md](docs/maintenance/2026-09-07-review-tracker.md) drives review fixes one step per session. When asked to do a step, follow its session protocol and touch nothing outside that step. Remove this section when the tracker moves to `trashbin/`.
