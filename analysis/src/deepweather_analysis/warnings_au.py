@@ -132,7 +132,7 @@ def fetch_au_bulletins(
     notes: list[str] = []
     for product_id, zones in sorted(products.items()):
         url = BOM_FTP_URL_TEMPLATE.format(product_id=product_id)
-        with urllib.request.urlopen(url, timeout=60) as response:  # noqa: S310 — ftp:// by design
+        with urllib.request.urlopen(url, timeout=60) as response:  # ftp:// by design
             xml_text = response.read().decode("utf-8")
         product_bulletins, issue_time, cancelled = parse_bom_mww(xml_text, zones, now=now)
         bulletins.extend(product_bulletins)

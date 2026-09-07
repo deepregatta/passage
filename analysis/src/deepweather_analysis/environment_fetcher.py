@@ -32,6 +32,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
+import numpy as np
+
 from .paths import data_root
 
 logger = logging.getLogger(__name__)
@@ -396,12 +398,6 @@ def _downsample_currents_file(
         logger.warning("xarray not installed; skipping currents downsampling")
         return None
     try:
-        import numpy as np
-    except ImportError:
-        logger.warning("numpy not installed; skipping currents downsampling")
-        return None
-
-    try:
         ds = _open_nc_robust(path)
     except Exception as e:
         logger.warning("Failed to open currents for downsampling: %s", e)
@@ -512,12 +508,6 @@ def _validate_currents_file(path: Path, allow_daily: bool = False) -> tuple[bool
     if not _check_xarray():
         logger.warning("xarray not installed; skipping currents frequency validation")
         return True, None
-    try:
-        import numpy as np
-    except ImportError:
-        logger.warning("numpy not installed; skipping currents frequency validation")
-        return True, None
-
     try:
         ds = _open_nc_robust(path)
     except Exception as e:

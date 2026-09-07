@@ -399,7 +399,7 @@ def prepare_tides(
     if provider_mode("tides") is Mode.LIVE:
         try:
             doc = _live_doc(start, end, route_ports, tides_live_source(route_id))
-        except Exception as error:  # noqa: BLE001 — feed failure must degrade, not crash
+        except Exception as error:  # feed failure must degrade, not crash
             logger.warning("live tides fetch failed, degrading to synthetic: %s", error)
             doc = _synthetic_doc(start, end, route_ports, degraded_reason=str(error))
     else:

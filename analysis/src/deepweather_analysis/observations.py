@@ -45,7 +45,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
-from .paths import contracts_dir, data_root, processed_dir
+from .paths import contracts_dir, data_root
 from .providers import Mode, provider_mode
 from .route_sources import (
     live_observations_source_name,
@@ -432,7 +432,7 @@ def fetch_live_insitu(
                 nc_path.write_bytes(resp.content)
             try:
                 day_records = records_from_insitu_nc(nc_path)
-            except Exception as exc:  # noqa: BLE001 — one corrupt file must not sink the station
+            except Exception as exc:  # one corrupt file must not sink the station
                 nc_path.unlink(missing_ok=True)
                 failures.append(f"{prefix} {stamp}: unparseable ({exc})")
                 continue
@@ -527,7 +527,7 @@ def fetch_live_qld_waves(
             )
             resp.raise_for_status()
             rows = resp.json()["result"]["records"]
-        except Exception as exc:  # noqa: BLE001 — one station down must not sink the doc
+        except Exception as exc:  # one station down must not sink the doc
             failures.append(f"{station['station_id']}: {exc}")
             continue
         records = [r for r in records_from_qld_waves(rows) if start <= _parse_iso(r["time"]) <= end]
@@ -581,15 +581,6 @@ def validate_observations(doc: Dict[str, Any]) -> None:
     jsonschema.validate(instance=doc, schema=schema)
 
 
-def write_observations(doc: Dict[str, Any], start_iso: str, end_iso: str) -> Path:
-    """Validate and write to data/processed/verification/observations/<window>.json."""
-    validate_observations(doc)
-    out_dir = processed_dir("verification", "observations")
-    path = out_dir / f"{window_label(start_iso, end_iso)}.json"
-    path.write_text(json.dumps(doc, separators=(",", ":")) + "\n")
-    return path
-
-
 __all__ = [
     "LIVE_STATIONS",
     "STATIONS",
@@ -604,5 +595,4 @@ __all__ = [
     "records_from_qld_waves",
     "validate_observations",
     "window_label",
-    "write_observations",
 ]

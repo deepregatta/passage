@@ -11,21 +11,22 @@ COACHREGATTA_* -> DEEPWEATHER_*, weather (ERA5) accessors dropped
 explicit currents.nc path.
 
 Usage:
+    import numpy as np
     from deepweather_analysis.environment_grid import EnvironmentGrid
 
     grid = EnvironmentGrid("ibi-1a2b3c4d")
     if grid.has_currents:
-        u, v = grid.get_current(50.5, -5.2, datetime(2026, 7, 12, 12, 0))
+        u, v = grid.get_current_batch(
+            np.array([50.5]), np.array([-5.2]), np.array(["2026-07-12T12:00:00"], dtype="datetime64[s]")
+        )
 """
 
 from __future__ import annotations
 
 import json
 import logging
-import math
 import os
 from dataclasses import dataclass, field
-from datetime import datetime
 from pathlib import Path
 from typing import Any, List, Optional, Tuple, TYPE_CHECKING
 
@@ -79,9 +80,6 @@ class CoastalFillMetrics:
 
 # Cache directory (same as environment_fetcher)
 CACHE_ROOT = data_root() / "cache" / "environment"
-
-# Conversion factors
-MS_TO_KNOTS = 1.94384
 
 
 def _open_nc_robust(path: "Path") -> Any:
@@ -360,61 +358,6 @@ class EnvironmentGrid:
 
         return lat_coord, lon_coord, time_coord
 
-    def _interpolate_variable(
-        self,
-        ds: xr.Dataset,
-        var_name: str,
-        lat: float,
-        lon: float,
-        time: datetime,
-    ) -> Optional[float]:
-        """
-        Interpolate a variable at given location and time.
-
-        Uses linear interpolation with nearest-neighbor fallback.
-        Returns None if out of bounds or on NaN.
-        """
-        try:
-            lat_coord, lon_coord, time_coord = self._get_coord_names(ds)
-
-            # Use a naive datetime to avoid xarray dtype issues with np.datetime64.
-            if time.tzinfo is not None:
-                time = time.replace(tzinfo=None)
-            time_value = time
-
-            # Get variable
-            var = ds[var_name]
-
-            # Check if depth dimension exists and select surface
-            if "depth" in var.dims:
-                var = var.isel(depth=0)
-
-            # Interpolate
-            try:
-                result = var.interp(
-                    {lat_coord: lat, lon_coord: lon, time_coord: time_value},
-                    method="linear",
-                )
-                value = float(result.values)
-                if not np.isnan(value):
-                    return value
-            except (KeyError, ValueError, ImportError, TypeError):
-                pass
-
-            # Fall back to nearest neighbor (avoids scipy dependency/out-of-range NaNs).
-            result = var.sel(
-                {lat_coord: lat, lon_coord: lon, time_coord: time_value},
-                method="nearest",
-            )
-            value = float(result.values)
-            if np.isnan(value):
-                return None
-            return value
-
-        except Exception as e:
-            logger.debug("Interpolation failed for %s: %s", var_name, e)
-            return None
-
     def _interpolate_variable_batch(
         self,
         ds: xr.Dataset,
@@ -575,30 +518,6 @@ class EnvironmentGrid:
         if np.issubdtype(arr.dtype, np.datetime64):
             return arr.astype("datetime64[ns]")
         return arr.astype("datetime64[s]").astype("datetime64[ns]")
-
-    def get_current(self, lat: float, lon: float, time: datetime) -> Optional[Tuple[float, float]]:
-        """
-        Get interpolated current at location and time.
-
-        Args:
-            lat: Latitude in degrees
-            lon: Longitude in degrees
-            time: Datetime (UTC)
-
-        Returns:
-            Tuple (u, v) in m/s where u=eastward, v=northward, or None if unavailable
-        """
-        if not self.has_currents or self._currents_ds is None:
-            return None
-
-        # Regional models use uo, vo for surface currents
-        uo = self._interpolate_variable(self._currents_ds, "uo", lat, lon, time)
-        vo = self._interpolate_variable(self._currents_ds, "vo", lat, lon, time)
-
-        if uo is None or vo is None:
-            return None
-
-        return (uo, vo)
 
     def get_current_batch(
         self, lats: np.ndarray, lons: np.ndarray, times: np.ndarray
@@ -781,31 +700,6 @@ class EnvironmentGrid:
             self._coastal_fill_metrics.points_unfilled += len(nan_indices)
 
         return uo, vo
-
-    def get_current_polar(
-        self, lat: float, lon: float, time: datetime
-    ) -> Optional[Tuple[float, float]]:
-        """
-        Get current as speed and direction.
-
-        Args:
-            lat: Latitude in degrees
-            lon: Longitude in degrees
-            time: Datetime (UTC)
-
-        Returns:
-            Tuple (speed in knots, direction in degrees towards) or None
-        """
-        uv = self.get_current(lat, lon, time)
-        if uv is None:
-            return None
-
-        u, v = uv
-        speed = math.sqrt(u**2 + v**2) * MS_TO_KNOTS
-        # Direction the current is flowing TOWARDS (oceanographic convention)
-        direction = (90 - math.degrees(math.atan2(v, u))) % 360
-
-        return (speed, direction)
 
     def close(self):
         """Close any open datasets."""

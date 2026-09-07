@@ -219,7 +219,7 @@ def fetch_live(now: datetime | None = None) -> dict:
             response.raise_for_status()
             text = gzip.decompress(response.content).decode("utf-8")
             rows.extend(csv.DictReader(io.StringIO(text), delimiter=";"))
-    except Exception as error:  # noqa: BLE001 — any feed failure must degrade, not crash
+    except Exception as error:  # any feed failure must degrade, not crash
         doc["feed_status"] = "unavailable"
         doc["coverage_note"] = f"live fetch failed: {error}"
         return doc
@@ -306,7 +306,7 @@ def _merge_uk_warnings(doc: dict) -> dict:
 
     try:
         bulletins, uk_note = fetch_uk_gale_bulletins(_route_zones("uk_zones"))
-    except Exception as error:  # noqa: BLE001 — any feed failure must degrade, not crash
+    except Exception as error:  # any feed failure must degrade, not crash
         doc["feed_status"] = "parse-degraded"
         doc["coverage_note"] = (
             f"{doc.get('coverage_note', '')} UK feed unavailable: {error}".strip()
@@ -327,7 +327,7 @@ def _merge_us_warnings(doc: dict) -> dict:
 
     try:
         bulletins, us_note = fetch_us_bulletins(_route_zones("us_zones"))
-    except Exception as error:  # noqa: BLE001 — any feed failure must degrade, not crash
+    except Exception as error:  # any feed failure must degrade, not crash
         doc["feed_status"] = "parse-degraded"
         doc["coverage_note"] = (
             f"{doc.get('coverage_note', '')} US feed unavailable: {error}".strip()
@@ -345,7 +345,7 @@ def _merge_meteoalarm_warnings(doc: dict) -> dict:
 
     try:
         bulletins, note = fetch_meteoalarm_bulletins(_route_zones("meteoalarm_zones"))
-    except Exception as error:  # noqa: BLE001 — any feed failure must degrade, not crash
+    except Exception as error:  # any feed failure must degrade, not crash
         doc["feed_status"] = "parse-degraded"
         doc["coverage_note"] = (
             f"{doc.get('coverage_note', '')} Meteoalarm feed unavailable: {error}".strip()
@@ -363,7 +363,7 @@ def _merge_au_warnings(doc: dict) -> dict:
 
     try:
         bulletins, note = fetch_au_bulletins(_route_zones("au_zones"))
-    except Exception as error:  # noqa: BLE001 — any feed failure must degrade, not crash
+    except Exception as error:  # any feed failure must degrade, not crash
         doc["feed_status"] = "parse-degraded"
         doc["coverage_note"] = (
             f"{doc.get('coverage_note', '')} AU feed unavailable: {error}".strip()
