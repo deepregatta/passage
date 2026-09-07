@@ -90,7 +90,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Items: §1 npm audit (postcss, browserslist, nanoid, fast-uri, undici)
 - Do: `npm audit fix`; confirm the lockfile diff touches dev deps only; `npm test`.
 - Done when: `npm audit` reports 0 high; all suites green.
-- Status: in progress · Commit: — · Notes: Clean working tree at pre-flight (`8971b65`); no previous completed review step or untriaged findings. Scope: package-lock.json and this tracker.
+- Status: done · Commit: — · Notes: Clean pre-flight at `8971b65`; no previous done step. `npm audit fix` updated only dev lock entries: postcss 8.5.28, browserslist 4.28.9, nanoid 3.3.18, fast-uri 3.1.7, undici 7.29.1 and Browserslist data dependencies; npm also refreshed dev-only peer/license metadata. All 37 changed entries verified dev-only; production/workspace entries and manifests identical. Fresh full and `--omit=dev` audits: 0 vulnerabilities. `npm test`: 112 engine + 43 viewer tests passed; Python 3.12 `uv run pytest -q`: 157 passed (10 NumPy deprecation warnings); Ruff check/format passed (51 files); `npm run build:pages` passed. Demo guardrail has pre-existing drift (six files): isolated `8971b65` with its original lockfile installed via `npm ci` regenerates byte-identical output to the updated dependencies (`diff -r` clean). Restored tracked fixtures unchanged and recorded the drift below; regeneration itself is not clean against HEAD. Engine goldens unchanged. No viewer screen changed; screenshot/e2e phase gate not applicable. Used temporary npm/uv caches because home caches are read-only.
 
 ### 0.2 Engine unused-symbol gate + engine dead code
 - Items: §7.1 tsconfig flags; §7.2 engine list (E10 `worstDet`, diff.ts unused `previous`, tileStore unused imports, `SQUALL_LABEL`, legacy `VIS_MODELS` names, briefing `generated_at ??` fallback, tides.ts self-lookup)
@@ -356,6 +356,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 
 ## Noticed during steps
 (agents append here: `- <step> — <file:line> — <one line>`)
+- 0.1 — scripts/build-demo-snapshots.mjs:99 — Pre-existing demo regeneration drift: deletes routes/solent-hop-3wp.json and rewrites five snapshot JSON files (briefing next-run text, change descriptions, warning prose); reproduced with original commit `8971b65` and original dependencies, identical to updated-dependency output. Reconcile generator/fixtures in a separately scoped step; 0.1 preserves the tracked fixtures.
 
 ## Decisions
 (record design choices made in steps 1.5, 3.5, 5.3 here)
