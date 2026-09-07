@@ -40,8 +40,6 @@ logger = logging.getLogger(__name__)
 PARAMS = ["msl", "10u", "10v"]
 STEPS_SHORT = list(range(0, 91, 3))
 STEPS_LONG = list(range(0, 145, 3)) + list(range(150, 241, 6))
-# Backwards-compatible alias (short set is valid for every cycle).
-STEPS = STEPS_SHORT
 
 
 def steps_for_cycle(cycle_time: datetime) -> list[int]:
@@ -61,9 +59,6 @@ MODEL = "ifs"
 RESOL = "0p25"
 DATASET_ID = "ifs-0.25-open-data"
 LICENCE = "CC-BY-4.0, source: ECMWF open data"
-
-# A cycle stays "current" ~12 h (next-but-one cycle lands by then).
-CACHE_MAX_AGE_HOURS = 12.0
 
 
 def _iso_z(dt: datetime) -> str:
@@ -289,7 +284,6 @@ def fetch_fields(
 
 __all__ = [
     "PARAMS",
-    "STEPS",
     "STEPS_SHORT",
     "STEPS_LONG",
     "steps_for_cycle",
