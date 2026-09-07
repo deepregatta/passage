@@ -173,7 +173,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Items: P5 (tides.py, scenarios.py, warnings_us.py, warnings_meteoalarm.py, plus the other ISO parsers listed)
 - Files: new analysis/src/deepweather_analysis/timeutil.py, callers
 - Done when: naive input is treated as UTC everywhere; test runs with `TZ=Europe/Paris`.
-- Status: todo · Commit: — · Notes:
+- Status: in progress · Commit: — · Notes: Clean pre-flight at `76bd952`; previous step `1535325` scope and guardrails verified (112 engine + 43 viewer + 206 Python tests, Ruff lint/format; known six-file demo drift only). User explicitly authorized sequential steps 1.3–1.5, each with its own protocol and commits. No unrelated dirty files or untriaged findings.
 
 ### 1.4 Route zones for every region
 - Items: E6
