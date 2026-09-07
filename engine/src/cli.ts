@@ -15,6 +15,7 @@ import { HttpTileTransport } from './forecast/httpTransport.js';
 import { ScenarioBundleStore } from './forecast/scenarioStore.js';
 import { TileForecastStore } from './forecast/tileStore.js';
 import type { ForecastStore } from './forecast/store.js';
+import type { GateDef, TidesDoc } from './hazards/tides.js';
 import type { LimitsProfile, Route, WarningsInput } from './types.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -135,14 +136,26 @@ async function runCommand(args: Map<string, string>): Promise<number> {
   }
 
   // tides + gates (skipped in fixture mode — scenario bundles carry their own story)
-  let tides;
-  let gates;
+  let tides: TidesDoc | undefined;
+  let gates: GateDef[] | undefined;
   if (!fixtureDir) {
-    const tidesPath = join(REPO_ROOT, 'data', 'processed', 'tides', 'channel.json');
+    const tidesRoot = join(REPO_ROOT, 'data', 'processed', 'tides');
+    const indexPath = join(tidesRoot, 'index.json');
     const gatesPath = join(REPO_ROOT, 'config', 'gates.json');
-    if (existsSync(tidesPath) && existsSync(gatesPath)) {
-      tides = JSON.parse(readFileSync(tidesPath, 'utf8'));
-      gates = JSON.parse(readFileSync(gatesPath, 'utf8')).gates;
+    if (existsSync(indexPath)) {
+      const index = JSON.parse(readFileSync(indexPath, 'utf8'));
+      const artifact = index.routes?.[route.route_id];
+      if (typeof artifact === 'string' && /^[a-zA-Z0-9_-]+\.json$/.test(artifact)) {
+        const tidesPath = join(tidesRoot, artifact);
+        if (existsSync(tidesPath)) tides = JSON.parse(readFileSync(tidesPath, 'utf8'));
+      }
+    }
+    if (tides && existsSync(gatesPath)) {
+      const definitions = JSON.parse(readFileSync(gatesPath, 'utf8')).gates as GateDef[];
+      const matching = definitions.filter((gate) =>
+        tides!.ports.some((port) => port.port_id === gate.reference_port),
+      );
+      if (matching.length) gates = matching;
     }
   }
 
