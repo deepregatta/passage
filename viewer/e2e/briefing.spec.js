@@ -9,7 +9,7 @@ test('briefing checkpoint', async ({ page }) => {
   await page.clock.setFixedTime(new Date('2026-07-19T18:00:00Z'));
   // External tile availability/labels are not a UI baseline. Keep the route
   // overlays, map controls and attribution, but omit live raster tiles.
-  await page.route(/^https:\/\/(basemaps\.cartocdn\.com|tiles\.openseamap\.org)\//, (route) => route.abort());
+  await page.route(/^https:\/\/(tile\.openstreetmap\.org|tiles\.openseamap\.org)\//, (route) => route.abort());
   await openAuditedSnapshot(page);
   await expect(page).toHaveScreenshot('briefing.png', { fullPage: true });
 });

@@ -23,7 +23,7 @@ test('Plan and Verify stage checkpoints keep URL-deep-linked subviews', async ({
   // and browser timezone so its departure fields stay reproducible.
   await page.clock.setFixedTime(new Date('2026-07-20T06:00:00Z'));
   // Keep map controls/attribution in the checkpoint without live tile drift.
-  await page.route(/^https:\/\/(basemaps\.cartocdn\.com|tiles\.openseamap\.org)\//, (route) => route.abort());
+  await page.route(/^https:\/\/(tile\.openstreetmap\.org|tiles\.openseamap\.org)\//, (route) => route.abort());
   await openAuditedSnapshot(page);
   await page.getByRole('button', { name: /Plan/ }).first().click();
   await expect(page).toHaveURL(/#plan\/planner$/);
