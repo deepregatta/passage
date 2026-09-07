@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "predev": "npm run build -w @deepweather/engine",
     "dev": "vite",
     "build": "vite build && node scripts/prerender-fr.mjs",
     "preview": "vite preview",
