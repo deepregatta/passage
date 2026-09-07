@@ -161,7 +161,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Items: P1
 - Files: analysis/src/deepweather_analysis/warnings_uk.py, analysis/tests/test_warnings_uk.py (+ fixtures for: list form, "all areas", "all areas except X", "no warnings of gales")
 - Done when: the four forms parse correctly and "all areas except Trafalgar" yields a bulletin for every route zone not named.
-- Status: todo · Commit: — · Notes:
+- Status: in progress · Commit: — · Notes: Clean pre-flight at `98e0993`; previous step `01310d5` scope verified. Baseline npm test (112 engine + 43 viewer), Python 3.12 pytest (157 tests), Ruff lint/format pass. Known six-file demo regeneration drift reproduced, assigned to 1.15; preserve tracked fixtures and compare generated output before/after. No untriaged findings or unrelated dirty files.
 
 ### 1.2 Météo-France degrade path and cancellations
 - Items: P2, P3 (optionally P10)
