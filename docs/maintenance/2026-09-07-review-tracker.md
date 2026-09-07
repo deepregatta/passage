@@ -102,7 +102,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Items: §7.1 (tsconfig.test.json), §8 engine row; fixes for routing.test.ts `stepMinutes`, landmaskPack.test.ts, tileStore.test.ts `Ajv2020.default`
 - Files: engine/tsconfig.test.json (new), engine/package.json (`typecheck` script), package.json root `test`, .github/workflows/ci.yml, the three test files
 - Done when: `npm run typecheck -w engine` passes and runs in CI.
-- Status: todo · Commit: — · Notes:
+- Status: in progress · Commit: — · Notes: Clean pre-flight at `7d4edb7`; previous step `0aa2826` contains only its scoped files and tracker. Pre-flight npm tests (112 engine + 43 viewer), pytest (157), Ruff check/format pass. Known six-file demo drift persists; saved regenerated output for before/after comparison and restored tracked fixtures. No untriaged findings.
 
 ### 0.4 `jsonschema` as a runtime dependency
 - Items: P4
