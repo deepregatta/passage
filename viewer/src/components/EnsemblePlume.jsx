@@ -37,7 +37,7 @@ function quantile(sortedValues, q) {
   return sortedValues[lo] + (sortedValues[hi] - sortedValues[lo]) * (pos - lo);
 }
 
-export function buildOption(leg, legFindings, evidence, variable, mobile = false) {
+function buildOption(leg, legFindings, evidence, variable, mobile = false) {
   const members = variable === 'gust' ? leg.gust_members : leg.wind_members;
   const times = leg.times.map((t) => Date.parse(t));
   const limit = typeof evidence?.limit === 'number' ? evidence.limit : leg.gust_limit_kt;

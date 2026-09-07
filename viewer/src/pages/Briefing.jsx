@@ -144,7 +144,6 @@ function DecisionBand({ findings, sections, synoptic, warningEvidence, onOpenBul
   const route = useApp((s) => s.route);
   const warningActive = findings.verdict.warning_override?.active;
   const emulated = warningActive && warningEvidence?.source_kind === 'emulated';
-  const productionRefusal = emulated && import.meta.env.VITE_DW_MODE === 'production';
   const state = warningActive ? 'warning_active' : findings.verdict.state;
   const verdict = VERDICT[state];
   const event = findings.causal_events?.[0];
@@ -156,9 +155,7 @@ function DecisionBand({ findings, sections, synoptic, warningEvidence, onOpenBul
   let cause = null;
   if (warningActive) {
     cause = emulated
-      ? productionRefusal
-        ? 'Authority styling refused: this warning comes from synthetic data.'
-        : 'A synthetic warning scenario covers part of your route. It tests the workflow and must not inform a real passage decision.'
+      ? 'A synthetic warning scenario covers part of your route. It tests the workflow and must not inform a real passage decision.'
       : 'An official marine warning covers part of your route. Read the bulletin before anything else.';
   } else if (driver && (state === 'exceeds' || state === 'approaching')) {
     const prefix = event ? `${capitalize(plainEventNoun(event, synoptic))} crosses your route. ` : '';
