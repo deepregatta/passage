@@ -4,46 +4,83 @@ Companion to [2026-09-07-code-review.md](2026-09-07-code-review.md) (item ids E*
 Baseline: commit `08de648`. Rule: **one step per agent session, one commit per step.**
 When every step is done or deliberately dropped, move both files to `trashbin/documentation/`.
 
-## Session protocol (paste as the first message of every fresh session)
+## How to run the campaign
 
-```
-Read docs/maintenance/2026-09-07-code-review.md and docs/maintenance/2026-09-07-review-tracker.md.
-Work ONLY on step <ID> "<title>" from the tracker. Do not start other steps; if you notice
-adjacent problems, add a line under "Noticed during steps" in the tracker instead of fixing them.
+The human only ever sends one message per fresh session: **"Do the next review step."**
+(Or "Do review step 1.7." to force a specific one.) Everything else — picking the step,
+verifying the previous one, testing, committing, triaging — is the agent's job and is
+specified below. **The agent commits and pushes to main itself** (a "start" commit in
+pre-flight, the step commit at the end); the human never commits, reviews diffs, or runs
+tests by hand. Never do more than one step per session.
 
-1. Re-verify first: confirm the finding still reproduces at HEAD (the codebase has moved since
-   commit 08de648). If it does not, set the step status to "not reproducible" with the evidence,
-   commit the tracker, and stop.
-2. For bug steps write the failing regression test first, then the fix. For refactor steps the
+## Session protocol (the agent follows this in order, every session)
+
+### A. Pre-flight
+1. Read this tracker and the report. Pick the step: the one named by the user, else the
+   first row whose Status is `todo`, in file order, respecting the "Ordering rules".
+   If the previous session left a row `in progress`, that row is the current step.
+2. Verify the previous `done` step (the most recent row with a Commit):
+   - `git show --stat <commit>`: every file belongs to that step or is this tracker.
+     If not, note it in the row and continue (do not rewrite history).
+   - Run the full guardrails (section C). If anything is red and the cause is that
+     commit, `git revert` it, set the row to `todo` with a note, and make **that** row
+     the current step instead of the one picked in A.1.
+3. Triage "Noticed during steps": for each line not yet triaged, either add a new step
+   at the end of the phase it belongs to (status `todo`, same format as the others) or
+   mark the line `dropped: <reason>`. Prefix triaged lines with `[triaged]`.
+4. Set the current step's Status to `in progress`, commit the tracker alone
+   ("review-2026-09-07 <ID>: start"), push. This makes an interrupted session visible.
+5. `git status --short`: if files outside this step are dirty (another session's work),
+   record them in the row's Notes and never stage them. If `viewer/test/fixtures/demo`
+   is already dirty, record its `git diff --stat` so the byte-identical check in C can
+   compare against that state rather than HEAD.
+
+### B. Work
+1. Re-verify first: confirm the finding still reproduces at HEAD (the codebase moved since
+   `08de648`). If it does not, set Status `not reproducible` with the evidence, commit the
+   tracker, push, and end the session.
+2. Bug steps: write the failing regression test first, then the fix. Refactor steps: the
    engine goldens and the demo fixture must stay byte-identical.
-3. Guardrails before committing:
-   - npm test                          (engine build + engine and viewer unit suites)
-   - cd analysis && uv run pytest -q && uv run ruff check . && uv run ruff format --check .
-   - node scripts/build-demo-snapshots.mjs, then `git status viewer/test/fixtures/demo` must be
-     clean — unless the step says "prose changes expected"; then: UPDATE_GOLDEN=1 npm -w engine
-     test, regenerate the demo, update viewer/src/i18n.js FR patterns for every changed English
-     sentence, and show me the before/after of each changed sentence.
-   - viewer changes: verify in the browser with the viewer-demo launch config and paste a screenshot.
-4. Update the tracker row for this step (Status, Commit, Notes). Commit ONLY the files this step
-   touched plus the tracker, message "review-2026-09-07 <ID>: <title>", push to main.
-5. Final report: what changed, how you verified it, what you noticed but did not do.
-```
+3. Stay inside the step. Anything else you notice goes under "Noticed during steps" as
+   `- <step> — <file:line> — <one line>`; never fix it now.
+
+### C. Guardrails (all must pass before the commit in D)
+- `npm test` (engine build + engine and viewer unit suites)
+- `cd analysis && uv run pytest -q && uv run ruff check . && uv run ruff format --check .`
+- `node scripts/build-demo-snapshots.mjs` then `git status --short viewer/test/fixtures/demo`
+  is clean — unless the step says **prose changes expected**; then run
+  `UPDATE_GOLDEN=1 npm -w engine test`, regenerate the demo, update `viewer/src/i18n.js`
+  FR patterns for every changed English sentence, and list each before/after sentence
+  in the row's Notes.
+- Viewer steps: open the `viewer-demo` launch config, exercise the changed screen, take a
+  screenshot, and describe what it shows in the final report.
+- Phase gate — if this step is the last `todo` of its phase: also run `npm run test:e2e`
+  (run `npx playwright install chromium` first if browsers are missing) and
+  `npm run build:pages`. Screenshot baselines may be updated only when the diff is the
+  intended visual change; say which and why under "Phase gates".
+
+### D. Self-review and commit
+1. `git diff --stat` (unstaged + staged): every listed file is either this tracker or
+   inside the step's "Files". Remove anything else from the change set.
+2. Re-read the diff once as a reviewer: no debugging leftovers, no unrelated formatting,
+   comments updated, new user-facing English strings added to the FR catalogue.
+3. Fill the row: Status `done`, Commit (short sha, fill after committing), Notes (what was
+   verified, anything unusual, dirty files from A.5).
+4. Stage only those files by explicit path, commit
+   "review-2026-09-07 <ID>: <title>", push to main.
+   Then amend nothing; if the sha is needed in the row, make a second tiny tracker commit.
+5. Final message to the human: step id and title, what changed, how it was verified
+   (commands + screenshot description), what was added to "Noticed", and which step is
+   next.
 
 Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropped` (say why).
-
-## Human checklist per step (before starting the next session)
-
-- Read the commit diff; confirm only the step's files changed (plus the tracker).
-- Run `npm test` and `cd analysis && uv run pytest -q` yourself once per phase boundary, plus `npm run test:e2e` and `npm run build:pages` (neither runs in CI).
-- Check the tracker row is filled and "Noticed during steps" was updated, then re-triage those notes into new steps or drop them.
-- If a step went wrong: `git revert <commit>` and mark the row `todo` again with a note.
 
 ## Ordering rules
 
 - Phase 0 before anything else (0.2 and 0.3 give the type gates every later step relies on).
 - 1.7 (router) before 4.x refactors of routing; 1.12 (prose) before 3.x i18n work; 2.1 (chunking) before 2.2 (measure the win).
 - Steps that change engine wording (1.8, 1.12, 3.2) are the only ones allowed to update goldens and the demo fixture.
-- Uncommitted work from other sessions must be committed or stashed before an agent session starts (agents commit to main).
+- Never `git add -A`; other sessions may have uncommitted work in the tree.
 
 ---
 
@@ -313,6 +350,9 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Status: todo · Commit: — · Notes:
 
 ---
+
+## Phase gates
+(agent appends one line per closed phase: `- Phase N — <date> — e2e: pass/fail — build:pages: pass/fail — notes`)
 
 ## Noticed during steps
 (agents append here: `- <step> — <file:line> — <one line>`)
