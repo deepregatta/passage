@@ -32,6 +32,8 @@ import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 
+from .timeutil import parse_iso_utc
+
 BOM_FTP_URL_TEMPLATE = os.environ.get(
     "DEEPWEATHER_BOM_FTP_URL_TEMPLATE",
     "ftp://ftp.bom.gov.au/anon/gen/fwo/{product_id}.xml",
@@ -98,7 +100,7 @@ def parse_bom_mww(
             ]
             if not matched:
                 continue
-            if datetime.fromisoformat(valid_to.replace("Z", "+00:00")) < now:
+            if parse_iso_utc(valid_to) < now:
                 continue  # a past forecast period still present in the product
             phenomena = _hazard_text(hazard, "warning_phenomena") or ""
             areas_text = _hazard_text(hazard, "warning_areas") or ""

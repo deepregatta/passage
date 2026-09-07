@@ -35,6 +35,8 @@ from typing import Any
 
 import requests
 
+from .timeutil import parse_iso_utc
+
 METEOALARM_URL_TEMPLATE = os.environ.get(
     "DEEPWEATHER_METEOALARM_URL_TEMPLATE",
     "https://feeds.meteoalarm.org/api/v1/warnings/feeds-{country}",
@@ -51,7 +53,7 @@ LEVEL_SEVERITY = {"yellow": "near-gale", "orange": "gale", "red": "storm"}
 def _iso_utc(value: str | None) -> str | None:
     if not value:
         return None
-    return datetime.fromisoformat(value).astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return parse_iso_utc(value).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _parameter(info: dict[str, Any], name: str) -> str | None:
@@ -131,7 +133,7 @@ def parse_meteoalarm(
         valid_to = _iso_utc(info.get("expires"))
         if valid_to is None:
             continue  # a warning with no expiry at all — malformed, skip
-        if datetime.fromisoformat(valid_to.replace("Z", "+00:00")) < now:
+        if parse_iso_utc(valid_to) < now:
             continue  # expired
         awareness_type = _awareness_type(info)
         if awareness_type not in MARINE_AWARENESS_TYPES:

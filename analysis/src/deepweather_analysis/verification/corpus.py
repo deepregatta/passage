@@ -31,6 +31,7 @@ import numpy as np
 from ..paths import REPO_ROOT, processed_dir
 from ..synoptic import detect_mistral, detect_systems, track_systems
 from .era5 import fetch_era5_case, open_case_dataset
+from ..timeutil import parse_iso_utc
 
 logger = logging.getLogger(__name__)
 
@@ -65,11 +66,6 @@ def load_cases(case_ids: Optional[Sequence[str]] = None) -> List[Dict[str, Any]]
             raise KeyError(f"Unknown corpus case(s): {sorted(missing)}")
         cases = [c for c in cases if c["case_id"] in wanted]
     return sorted(cases, key=lambda c: c["case_id"])
-
-
-def _parse_iso(value: str) -> datetime:
-    dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    return dt.astimezone(timezone.utc) if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
 # =============================================================================
@@ -228,8 +224,8 @@ def evaluate_expectations(case: Dict[str, Any], detections: Dict[str, Any]) -> D
 
 def _detect_on_dataset(case: Dict[str, Any], ds: Any) -> Dict[str, Any]:
     """Run detect/track (and regimes when expected) per 3 h step in the window."""
-    start = _parse_iso(case["window"]["start"])
-    end = _parse_iso(case["window"]["end"])
+    start = parse_iso_utc(case["window"]["start"])
+    end = parse_iso_utc(case["window"]["end"])
 
     lats = np.asarray(ds["latitude"].values, dtype=float).reshape(-1)
     lons = np.asarray(ds["longitude"].values, dtype=float).reshape(-1)
@@ -281,8 +277,8 @@ def _route_conditions_note(case: Dict[str, Any]) -> Dict[str, Any]:
         0.5 * (bounds["min_lat"] + bounds["max_lat"]),
         0.5 * (bounds["min_lon"] + bounds["max_lon"]),
     )
-    start = _parse_iso(case["window"]["start"]).strftime("%Y-%m-%d")
-    end = _parse_iso(case["window"]["end"]).strftime("%Y-%m-%d")
+    start = parse_iso_utc(case["window"]["start"]).strftime("%Y-%m-%d")
+    end = parse_iso_utc(case["window"]["end"]).strftime("%Y-%m-%d")
     try:
         history = fetch_route_history([center], start, end)
         return {
@@ -303,8 +299,8 @@ def run_case(case: Dict[str, Any], *, fetch: bool = True) -> Dict[str, Any]:
     when the fields are not available the case comes back status 'pending'.
     """
     case_id = case["case_id"]
-    start = _parse_iso(case["window"]["start"])
-    end = _parse_iso(case["window"]["end"])
+    start = parse_iso_utc(case["window"]["start"])
+    end = parse_iso_utc(case["window"]["end"])
 
     if fetch:
         meta = fetch_era5_case(case_id, case["bounds"], start, end)

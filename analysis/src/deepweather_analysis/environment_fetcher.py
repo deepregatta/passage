@@ -35,6 +35,7 @@ from typing import Any, Dict, Optional, Tuple
 import numpy as np
 
 from .paths import data_root
+from .timeutil import parse_iso_utc
 
 logger = logging.getLogger(__name__)
 
@@ -888,11 +889,9 @@ def _metadata_expired(metadata: CurrentsMetadata, now: Optional[datetime] = None
     if now is None:
         now = datetime.now(timezone.utc)
     try:
-        valid_until = datetime.fromisoformat(str(metadata.valid_until))
+        valid_until = parse_iso_utc(str(metadata.valid_until))
     except (TypeError, ValueError):
         return True
-    if valid_until.tzinfo is None:
-        valid_until = valid_until.replace(tzinfo=timezone.utc)
     return now >= valid_until
 
 
@@ -917,8 +916,8 @@ def _extent_changed(
 
     time_range = existing.time_range or {}
     try:
-        old_start = datetime.fromisoformat(str(time_range["start"]))
-        old_end = datetime.fromisoformat(str(time_range["end"]))
+        old_start = parse_iso_utc(str(time_range["start"]))
+        old_end = parse_iso_utc(str(time_range["end"]))
     except (KeyError, ValueError, TypeError):
         return True
     if abs((old_start - start_time).total_seconds()) > 3600:

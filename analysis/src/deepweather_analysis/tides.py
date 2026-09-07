@@ -49,6 +49,7 @@ from pathlib import Path
 from .paths import contracts_dir, data_root, processed_dir
 from .providers import Mode, provider_mode
 from .route_sources import tide_ports, tides_artifact_name, tides_live_source
+from .timeutil import parse_iso_utc
 
 logger = logging.getLogger(__name__)
 
@@ -388,11 +389,7 @@ def prepare_tides(
 ) -> Path:
     from jsonschema import Draft202012Validator
 
-    start = (
-        datetime.fromisoformat(start_iso.replace("Z", "+00:00")).astimezone(timezone.utc)
-        if start_iso
-        else datetime.now(timezone.utc)
-    )
+    start = parse_iso_utc(start_iso) if start_iso else datetime.now(timezone.utc)
     end = start + timedelta(hours=hours)
     route_ports = tide_ports(route_id)
 
