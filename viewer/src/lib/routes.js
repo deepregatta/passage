@@ -1,5 +1,6 @@
 /** stage/subview deep links — shared by the store (initial page) and App (sync) */
 export const HASH_PAGE = {
+  'example': 'example',
   'plan/planner': 'planner',
   // Keep existing shared/bookmarked links working; new navigation writes the
   // canonical Brief-menu location below.

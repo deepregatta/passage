@@ -33,6 +33,16 @@ export function getInitialLanguage() {
 // This catalogue deliberately uses the English copy as its key, which lets old
 // snapshots and lazy-loaded panels participate without changing their schemas.
 const FR = {
+  "Inspect example bulletin": "Examiner le bulletin de l’exemple",
+  "Free · no signup · no route setup": "Gratuit · sans inscription · sans tracer de route",
+  "Synthetic / emulated example. Not a live forecast or a safety decision.": "Exemple synthétique / émulé. Ni prévision en direct, ni décision de sécurité.",
+  "Example briefing": "Exemple de briefing",
+  "First: inspect the warning and its bulletin. Official information and skipper judgement remain authoritative.": "Commencez par examiner l’avertissement et son bulletin. Les informations officielles et le jugement du skipper font autorité.",
+  "Plan my own passage": "Planifier ma propre traversée",
+  "The example could not be loaded. Try again or return to the planner.": "Impossible de charger l’exemple. Réessayez ou revenez au planificateur.",
+  "Try again": "Réessayer",
+  "Loading example briefing…": "Chargement de l’exemple de briefing…",
+
   'Loading passage instruments…': 'Chargement des instruments de navigation…',
   'Plan': 'Planifier',
   'Brief': 'Briefing',

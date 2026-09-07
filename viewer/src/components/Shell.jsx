@@ -5,7 +5,7 @@ import FooterActions from './FooterActions.jsx';
 
 const STAGES = [
   { id: 'plan', label: 'Plan', pages: ['planner', 'settings'], target: 'planner' },
-  { id: 'brief', label: 'Brief', pages: ['snapshots', 'briefing', 'evidence'], target: 'briefing' },
+  { id: 'brief', label: 'Brief', pages: ['snapshots', 'briefing', 'example', 'evidence'], target: 'briefing' },
   { id: 'watch', label: 'Watch', pages: ['changes'], target: 'changes' },
   { id: 'verify', label: 'Verify', pages: ['verification', 'caseStudy'], target: 'verification' },
 ];

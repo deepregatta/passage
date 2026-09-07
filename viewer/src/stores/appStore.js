@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { initialPage } from '../lib/routes.js';
+import { initialPage, PAGE_HASH } from '../lib/routes.js';
 import { localSnapshots, fetchSnapshotJson, snapshotTombstones } from '../lib/localSnapshots.js';
 import { preparedRun } from '../lib/preparedRun.js';
 import { getInitialLanguage, getLanguageFromPath, LANGUAGE_STORAGE_KEY } from '../i18n.js';
@@ -37,7 +37,29 @@ export const useApp = create((set, get) => ({
 
   nowMs: Date.now(),
 
-  setPage: (page) => set({ page }),
+  setPage: (page) => {
+    const hash = PAGE_HASH[page];
+    if (typeof location !== 'undefined' && hash && location.hash !== `#${hash}`) {
+      history.pushState(null, '', `${location.pathname}${location.search}#${hash}`);
+    }
+    set({ page });
+  },
+
+  // The public example is resolved from the served manifest, even when a
+  // returning visitor has hidden it from My briefings. No planner or forecast run.
+  loadExample: async () => {
+    set({ loading: true, loadError: null, findings: null, briefing: null, measurementAttempt: null });
+    try {
+      const served = await fetchJson('/data/snapshots/manifest.json');
+      const example = served.snapshots?.find((item) => item.demo === true);
+      if (!example) throw new Error('Example unavailable');
+      set({ manifest: { ...(get().manifest ?? served), snapshots: [example,
+        ...(get().manifest?.snapshots ?? []).filter((item) => item.snapshot_id !== example.snapshot_id)] } });
+      await get().openSnapshot(example.snapshot_id, null, 'example');
+    } catch (error) {
+      set({ loadError: error.message, loading: false });
+    }
+  },
   setLanguage: (language) => {
     if (language !== 'en' && language !== 'fr') return;
     try {
@@ -92,11 +114,13 @@ export const useApp = create((set, get) => ({
     }
   },
 
-  openSnapshot: async (snapshotId, measurementAttempt = null) => {
+  openSnapshot: async (snapshotId, measurementAttempt = null, targetPage = 'briefing') => {
     set({ loading: true, loadError: null, snapshotId, inspectorOpen: false, measurementAttempt });
     try {
-      await preparedRun(); // settle the runs/… base before chart <img> URLs render
-      const file = (name) => fetchSnapshotJson(snapshotId, name);
+      if (targetPage !== 'example') await preparedRun(); // live/saved runs only
+      const file = targetPage === 'example'
+        ? (name) => fetchJson(`/data/snapshots/${snapshotId}/${name}`)
+        : (name) => fetchSnapshotJson(snapshotId, name);
       const [snapshot, findings, briefing, plume, warnings, synoptic, route] = await Promise.all([
         file('snapshot.json').catch(() => null),
         file('findings.json'),
@@ -106,6 +130,8 @@ export const useApp = create((set, get) => ({
         file('synoptic.json').catch(() => null),
         file('route.json').catch(() => null),
       ]);
+      // A slow example request must not pull a visitor back from the planner.
+      if (targetPage === 'example' && get().page !== 'example') { set({ loading: false }); return; }
       const worstLeg =
         findings.evidence.find((e) => e.evidence_id === findings.verdict.driver_evidence_id)
           ?.leg_id ?? findings.legs[0]?.leg_id;
@@ -118,7 +144,7 @@ export const useApp = create((set, get) => ({
         synoptic,
         route,
         loading: false,
-        page: 'briefing',
+        page: targetPage,
         selectedLegId: worstLeg ?? null,
         selectedEvidenceId: findings.verdict.driver_evidence_id ??
           findings.evidence.find((item) => item.member_fraction)?.evidence_id ?? null,

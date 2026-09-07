@@ -120,7 +120,6 @@ export default function Planner() {
     if (language === 'fr' && name === 'My passage') patch({ name: 'Ma traversée' });
     if (language === 'en' && name === 'Ma traversée') patch({ name: 'My passage' });
   }, [language, name, patch]);
-  const demoSnapshot = manifest?.snapshots?.find((s) => s.demo);
 
   const route = useMemo(() => {
     if (mode === 'compute') return computed?.route ?? null;
@@ -309,20 +308,14 @@ export default function Planner() {
       <p className="font-sans text-sm text-ink-soft mb-4">
         Click the chart to drop waypoints (drag to adjust), or import a GPX file. The analysis
         runs right here in your browser.
-        {demoSnapshot && waypoints.length === 0 && !computed && (
-          <>
-            {' '}First time here?{' '}
-            <button
-              type="button"
-              className="underline underline-offset-2 text-ink hover:text-ink-deep"
-              onClick={() => openSnapshot(demoSnapshot.snapshot_id)}
-            >
-              See an example briefing
-            </button>
-            .
-          </>
-        )}
       </p>
+      <aside className="mb-5 border-l-4 border-ink bg-white/40 px-4 py-3">
+        <a href="#example" className="inline-flex min-h-11 items-center bg-ink text-paper px-4 py-2 font-instrument text-sm rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2">
+          See an example briefing
+        </a>
+        <p className="mt-2 text-sm text-ink-soft">Free · no signup · no route setup</p>
+        <p className="mt-1 text-sm text-ink-soft">Synthetic / emulated example. Not a live forecast or a safety decision.</p>
+      </aside>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 border border-ink/30 rounded-sm overflow-hidden" style={{ height: 480 }}>

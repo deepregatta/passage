@@ -93,3 +93,13 @@ marine forecasts remain the authority of record.
 The maintained documentation index is [docs/README.md](docs/README.md).
 Superseded reports and one-off design material are retained under
 [`trashbin/`](trashbin/README.md) for history and are not authoritative.
+
+## Public example entry
+
+`/#example` and `/fr/#example` resolve the served synthetic/emulated example on a
+fresh visit and reload, independently of a saved planner route or hidden local
+briefing. The planner keeps a visible example link. Inspecting it reads static
+snapshot artifacts and emits `passage_example_view`; it does not run a forecast,
+trigger a departure scan, or count as a completed planner activation. The bulletin
+and departure comparison retain their emulated labels. URL queries survive
+navigation.

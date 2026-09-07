@@ -7,6 +7,7 @@ import { LocalizedDocument } from './i18n.js';
 import { HeadMetadata } from './components/HeadMetadata.jsx';
 
 const PAGES = {
+  example: lazy(() => import('./pages/Example.jsx')),
   snapshots: lazy(() => import('./pages/Snapshots.jsx')),
   planner: lazy(() => import('./pages/Planner.jsx')),
   briefing: lazy(() => import('./pages/Briefing.jsx')),
