@@ -1,13 +1,13 @@
 """deepweather-analysis CLI.
 
-Subcommands land milestone by milestone:
-  prepare-run     M6/M8: fetch model cycle, detect synoptic features, publish artifacts
-  fetch-currents  M7:    CMEMS forecast currents -> region grid
-  fetch-warnings  M9:    marine bulletins -> warnings.json
-  tides           M10:   HW/LW series at reference ports
-  extract-polar   M11:   ORC database -> config/polars/<slug>.json
-  scenario        M5:    synthetic scenario bundles
-  corpus          M13:   archived-case replay + review sheet
+Preparation and verification subcommands:
+  prepare-run     fetch model cycle, detect synoptic features, publish artifacts
+  fetch-currents  CMEMS forecast currents -> region grid
+  fetch-warnings  marine bulletins -> warnings.json
+  tides           HW/LW series at reference ports
+  extract-polar   ORC database -> config/polars/<slug>.json
+  scenario        synthetic scenario bundles
+  corpus          archived-case replay + review sheet
 """
 
 from __future__ import annotations

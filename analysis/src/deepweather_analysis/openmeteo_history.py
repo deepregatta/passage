@@ -1,15 +1,14 @@
-"""Open-Meteo HISTORICAL FORECAST archive client (verification layer, §9).
+"""Open-Meteo HISTORICAL FORECAST archive client (verification layer).
 
 https://historical-forecast-api.open-meteo.com/v1/forecast takes the same
 parameters as the forecast API plus start_date/end_date, and replays what the
 named model FORECAST said at the time — which is exactly what a retrospective
 corpus wants on the route layer (the synoptic layer replays ERA5 instead).
 
-Fetch discipline mirrors engine/src/fetch/openMeteo.ts: cell-keyed file cache
-(points rounded to the 0.25 deg model cell) under data/cache/openmeteo-history/
-and exponential backoff on 429/5xx. Failures are NON-FATAL by design — the
-archive does not reach arbitrarily far back for every model, so corpus cases
-just record route_conditions_available: false.
+Requests use a cell-keyed file cache (points rounded to the 0.25 deg model
+cell) under data/cache/openmeteo-history/ and exponential backoff on 429/5xx.
+Failures are NON-FATAL by design — the archive does not reach arbitrarily far
+back for every model, so corpus cases just record route_conditions_available: false.
 """
 
 from __future__ import annotations
@@ -62,7 +61,7 @@ def _cache_path(model: str, cell: Tuple[float, float], start_date: str, end_date
 
 
 def _fetch_with_backoff(url: str) -> Dict[str, Any]:
-    """GET with exponential backoff on 429/5xx (openMeteo.ts discipline)."""
+    """GET with exponential backoff on 429/5xx."""
     last_error: Optional[str] = None
     for attempt in range(MAX_ATTEMPTS):
         try:

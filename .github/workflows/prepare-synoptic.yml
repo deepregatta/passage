@@ -41,7 +41,7 @@ jobs:
 
       - name: Sync analysis environment
         working-directory: analysis
-        run: uv sync --all-extras # GRIB/ECMWF/CMEMS deps live in the "environment" extra; jsonschema in dev
+        run: uv sync --all-extras # GRIB/ECMWF/CMEMS deps live in the "environment" extra; jsonschema is a runtime dependency
 
       - name: Prepare synoptic run (ECMWF features + charts + wind grid)
         working-directory: analysis

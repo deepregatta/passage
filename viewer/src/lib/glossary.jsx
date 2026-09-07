@@ -1,5 +1,5 @@
 // One shared glossary: tooltip terms in the briefing AND the reference list in
-// Settings. The tool should teach while briefing (brief §8).
+// Settings. The tool should teach while briefing.
 
 export const GLOSSARY = {
   gust: 'A brief burst above the sustained wind. Gusts are often 20–40% stronger; squalls can double it.',

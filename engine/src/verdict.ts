@@ -1,5 +1,5 @@
 /**
- * Verdict states (brief §7). The app NEVER says "GO".
+ * Verdict states. The app NEVER says "GO".
  *   within | approaching | exceeds | insufficient | warning_active
  * An active official warning is an authority state that overrides the
  * personal-limit summary (it does not claim a numeric limit was exceeded).
@@ -12,11 +12,11 @@ export interface VerdictInput {
   worstRatio: number | null;
   anyExceeded: boolean;
   anyApproaching: boolean;
-  /** M2+: max ensemble exceedance fraction vs profile floor */
+  /** max ensemble exceedance fraction vs profile floor */
   scenarioFractionAboveFloor?: boolean;
-  /** M3+: model disagreement makes the assessment unstable */
+  /** model disagreement makes the assessment unstable */
   insufficientConfidence?: boolean;
-  /** M9+: active official warning covering the route */
+  /** active official warning covering the route */
   warningActive?: boolean;
   warningBulletinRef?: string | null;
   driverEvidenceId: string | null;

@@ -1,8 +1,8 @@
 // Data middleware pattern vendored from coachregatta viewer2/vite.config.js (2026-07-11),
 // adapted for deepweather: snapshots manifest instead of race index, .png artifacts allowed,
 // and dev-only POST endpoints so the in-browser engine can persist routes and snapshots.
-// The current Pages build packages the demo data as static assets. R2-backed
-// reads and Supabase/Functions writes remain a future deployment stage.
+// The Pages build packages demo data as static assets, reads forecast tiles
+// from R2, and saves user snapshots in browser-local IndexedDB.
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';

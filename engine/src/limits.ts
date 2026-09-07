@@ -1,5 +1,5 @@
 /**
- * Declared-limits evaluation (brief §7): course-relative wind, per condition,
+ * Declared-limits evaluation: course-relative wind, per condition,
  * per hour. 25 kt on the beam is not 25 kt hard on the nose.
  */
 

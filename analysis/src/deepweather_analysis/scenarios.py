@@ -1,5 +1,5 @@
-"""Synthetic scenario generator (M5): coherent weather bundles shaped exactly like
-Open-Meteo responses, driving each of the five §7 verdict states on demand.
+"""Synthetic scenario generator: coherent weather bundles shaped exactly like
+Open-Meteo responses, driving each of the five verdict states on demand.
 
 Everything is deterministic (pure functions of hour/point/member index — no RNG),
 so scenario runs pin goldens and UI states reproducibly. Bundles are SYNTHETIC:

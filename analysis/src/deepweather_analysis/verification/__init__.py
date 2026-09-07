@@ -1,7 +1,7 @@
-"""Verification layer (brief §9): ERA5 reference fetch, observation matching,
+"""Verification layer: ERA5 reference fetch, observation matching,
 calibration accumulation, and the retrospective corpus.
 
-Honesty rules (binding, from §9):
+Honesty rules:
 - coverage classes on every result; synthetic observations can never claim
   real verification (they are always 'emulated');
 - calibration records always carry sample size; no weighting logic;

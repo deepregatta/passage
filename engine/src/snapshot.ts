@@ -1,8 +1,8 @@
 /**
- * Immutable snapshots (brief §9): every analysis is recorded write-once with
+ * Immutable snapshots: every analysis is recorded write-once with
  * everything needed to re-render it later; findings, briefing, plume, and
  * frozen copies of mutable inputs. Store interface keeps the core browser-safe
- * (NodeFs store locally; HTTP POST to the dev middleware / Supabase later).
+ * (filesystem storage for the CLI; dev HTTP writes or IndexedDB in the viewer).
  */
 
 import type { Briefing } from './briefing.js';

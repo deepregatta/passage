@@ -1,5 +1,5 @@
 /**
- * Minimal weather router (brief §4.0 / §13 fallback clause): time-dependent
+ * Minimal weather router: time-dependent
  * Dijkstra over a sea grid — earliest-arrival labels whose level sets are the
  * isochrones. Chosen over frontier-pruning isochrone expansion after that
  * approach demonstrably stalled on U-shaped land detours (wall-gap fixture:

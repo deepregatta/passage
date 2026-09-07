@@ -1,6 +1,6 @@
-"""Match a snapshot's findings against observations (brief §9). Pure core.
+"""Match a snapshot's findings against observations. Pure core.
 
-Coverage classes (§9, binding):
+Coverage classes:
 - 'verified_near_observation'  — pair within 10 km / 20 min of a real record;
 - 'partially_observed'         — matched, but only within 25 km / 40 min;
 - 'emulated'                   — FORCED whenever observations.source.mode ==
@@ -129,7 +129,7 @@ def match_snapshot(
             observed = float(record["wind_kt"])
 
             if synthetic:
-                # §9: synthetic observations can never claim real verification.
+                # Synthetic observations can never claim real verification.
                 coverage_class = "emulated"
             elif distance_km <= NEAR_KM and offset_min <= NEAR_MIN:
                 coverage_class = "verified_near_observation"

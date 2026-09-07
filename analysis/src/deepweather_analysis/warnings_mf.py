@@ -1,4 +1,4 @@
-"""Official marine warnings (brief §7 authority layer) — Météo-France BMS.
+"""Official marine warnings (authority layer) — Météo-France BMS.
 
 Live source (feed spike 2026-07-17): the portail-api.meteofrance.fr catalog has
 NO marine-bulletins API (checked every category). What does exist is the

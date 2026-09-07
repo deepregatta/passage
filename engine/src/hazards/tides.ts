@@ -1,5 +1,5 @@
 /**
- * Tidal gates (brief §5): named passages where transit must be timed against
+ * Tidal gates: named passages where transit must be timed against
  * HW/slack at a reference port ("slack at the Raz ≈ HW Brest −0h30").
  * v0: the gate rule defines one favorable transit window per HW cycle; the
  * boat's ETA range at the gate is compared against it. Direction nuance and

@@ -1,5 +1,5 @@
 /**
- * Convective screening (brief §5): CAPE (+ convective precip context) is a WEAK
+ * Convective screening: CAPE (+ convective precip context) is a WEAK
  * proxy for localized squalls. Output is a labeled screening level; "elevated
  * squall potential"; never a precise prediction, and never an 'exceeds' driver.
  * Official warnings are the authority for storms.

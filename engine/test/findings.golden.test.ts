@@ -1,5 +1,7 @@
 /**
- * Golden test: recorded Open-Meteo fixture + fixed clock -> byte-stable findings.
+ * Golden test: checked-in forecast bundles + fixed clock -> byte-stable findings.
+ * The legacy openmeteo-* filenames describe the hourly JSON fixture format;
+ * ScenarioBundleStore adapts it to ForecastStore without fetching live weather.
  * Regenerate the golden after intentional engine changes:
  *   UPDATE_GOLDEN=1 npm -w engine test
  */
@@ -113,7 +115,7 @@ describe('findings golden (Cherbourg → Plymouth, recorded fixture)', () => {
     expect(ids).toContain('decision');
     expect(ids).toContain('what_could_change');
     expect(ids).toContain('unsupported');
-    // §6/§7 wording bans: no GO verdict, no probability/confidence claims for raw
+    // Wording bans: no GO verdict, no probability/confidence claims for raw
     // fractions — the explicit DISCLAIMER "not a calibrated probability" is allowed.
     const allText = JSON.stringify(briefing)
       .toLowerCase()

@@ -1,4 +1,4 @@
-"""European marine warnings — Meteoalarm CAP aggregation (brief §7 authority layer).
+"""European marine warnings — Meteoalarm CAP aggregation (authority layer).
 
 Feed spike (2026-07-17): meteoalarm.org aggregates the official CAP warnings
 of ~35 European national weather services behind one tokenless JSON API per

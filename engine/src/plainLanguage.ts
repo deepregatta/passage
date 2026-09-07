@@ -1,5 +1,5 @@
 /**
- * Plain-register wording helpers (brief §8): the amateur layer never sees
+ * Plain-register wording helpers: the amateur layer never sees
  * rule ids, decimals, or a bare value/limit pair without a relation word.
  */
 

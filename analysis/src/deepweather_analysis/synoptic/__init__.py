@@ -1,4 +1,4 @@
-"""Synoptic feature layer (brief §4.1): pressure-system detection/tracking,
+"""Synoptic feature layer: pressure-system detection/tracking,
 named-regime pattern rules, and rendered synoptic charts.
 
 All detection here is route-independent and runs once per model run;

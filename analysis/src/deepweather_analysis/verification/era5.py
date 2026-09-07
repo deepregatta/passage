@@ -1,5 +1,5 @@
 # Vendored from coachregatta analysis/src/coachregatta_analysis/environment_fetcher.py, 2026-07-12
-"""ERA5/ERA5T reanalysis fetch for the verification layer (brief §9).
+"""ERA5/ERA5T reanalysis fetch for the verification layer.
 
 Vendored machinery from coachregatta's ``fetch_era5_weather``: cdsapi client,
 ERA5 vs ERA5T tier selection by event age (< 90 days -> ERA5T), request
@@ -18,7 +18,7 @@ deepweather adaptations (marked inline):
   not a different request;
 - env overrides use the DEEPWEATHER_* prefix.
 
-§9: ERA5 is a verification REFERENCE only — reanalysis assimilates
+ERA5 is a verification REFERENCE only — reanalysis assimilates
 observations but is not independent ground truth ('reanalysis-referenced').
 """
 

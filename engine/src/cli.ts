@@ -1,5 +1,5 @@
 /**
- * Node CLI runner (dev/test path — the same pipeline runs in the browser at M6).
+ * Node CLI runner (dev/test path — the same pipeline also runs in the browser).
  *
  * Usage:
  *   npm -w engine run cli -- run --route ../config/routes/cherbourg-plymouth.json \

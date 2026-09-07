@@ -1,7 +1,7 @@
 /**
- * Sea-state hazard (brief §5, corrections applied):
+ * Sea-state hazard:
  *  - steepness computed properly: deep-water wavelength L ≈ gT²/2π, steepness = H/L
- *    (NOT H/T — the review's correction)
+ *    (dimensionless; H and L use the same length unit)
  *  - wind-wave and swell components evaluated separately; cross-sea angle between them
  *  - directions are "coming from", degrees true (wave-model convention, matches GFS-Wave tiles)
  */
