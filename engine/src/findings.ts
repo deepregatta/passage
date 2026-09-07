@@ -150,8 +150,9 @@ export function assembleFindings(options: AssembleOptions): Findings {
   const ensembleModel = ensembleMeta ? `${ensembleMeta.model} ensemble` : null;
   const ensembleRun = ensembleMeta?.cycle ?? null;
   const marineModel = marineMeta ? `marine ${marineMeta.model}` : null;
-  /** visibility source order: GFS tiles first (the ECMWF open-data layer carries no
-   *  visibility); legacy scenario-bundle model names accepted as fallbacks */
+  /** Visibility source order: GFS tiles first (the ECMWF open-data layer carries no
+   *  visibility). ScenarioBundleStore preserves icon_eu/gfs_global fixture keys;
+   *  these fallbacks are required for scenario and golden visibility assessments. */
   const VIS_MODELS = ['gfs_0p25', 'icon_eu', 'gfs_global'];
 
   const nextEvidence = (partial: Omit<Evidence, 'evidence_id'>): Evidence => {

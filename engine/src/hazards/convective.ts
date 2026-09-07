@@ -13,9 +13,3 @@ export function squallPotential(capeJkg: number | null): SquallPotential | null 
   if (capeJkg >= 300) return 'elevated';
   return 'low';
 }
-
-export const SQUALL_LABEL: Record<SquallPotential, string> = {
-  low: 'low squall potential',
-  elevated: 'elevated squall potential (low-skill screening signal)',
-  high: 'high squall potential (low-skill screening signal, check official warnings)',
-};

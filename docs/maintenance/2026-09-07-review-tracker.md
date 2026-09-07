@@ -96,7 +96,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Items: §7.1 tsconfig flags; §7.2 engine list (E10 `worstDet`, diff.ts unused `previous`, tileStore unused imports, `SQUALL_LABEL`, legacy `VIS_MODELS` names, briefing `generated_at ??` fallback, tides.ts self-lookup)
 - Files: engine/tsconfig.json, engine/src/{briefing,diff,findings}.ts, engine/src/forecast/tileStore.ts, engine/src/hazards/{convective,tides}.ts
 - Done when: `noUnusedLocals`/`noUnusedParameters` on and `npm run build -w engine` clean; goldens byte-identical.
-- Status: in progress · Commit: — · Notes: Clean pre-flight at `af4bc83`; previous step `5001d47` contains only its lockfile and tracker. Pre-flight npm tests (112 engine + 43 viewer), pytest (157), Ruff check/format pass. Demo regeneration repeats the known six-file drift; saved generated output for byte comparison and restored tracked fixtures. Strict unused-symbol probe reproduces four TS6133 errors.
+- Status: done · Commit: — · Notes: Clean pre-flight at `af4bc83`; verified previous step `5001d47` scope and full guardrails (known demo drift only). Enabled both unused-symbol flags after reproducing four TS6133 errors. Removed unused deterministic ranking (ensemble ranking unchanged), buildStory parameter, tile imports, SQUALL_LABEL, required generated_at fallback, and redundant gate self-lookup. Retained VIS_MODELS fallbacks: removing icon_eu/gfs_global fails both findings/briefing goldens and changes visibility from exceeded/approaching to unknown; ScenarioBundleStore still emits those keys, so they are not dead. Added explanatory comment. Final `npm test` builds with both flags and passes 112 engine + 43 viewer tests; Python 3.12 pytest 157 passed (10 existing NumPy warnings), Ruff check/format passed (51 files). Goldens byte-identical. Generated demo output byte-identical before/after (`diff -r` clean); the known six-file drift against HEAD persists, and tracked fixtures were restored unchanged. Triaged demo drift into 1.15 after 1.12. No viewer screen change or phase gate; screenshot/e2e not applicable.
 
 ### 0.3 Type-check the engine tests
 - Items: §7.1 (tsconfig.test.json), §8 engine row; fixes for routing.test.ts `stepMinutes`, landmaskPack.test.ts, tileStore.test.ts `Ajv2020.default`
@@ -364,6 +364,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 ## Noticed during steps
 (agents append here: `- <step> — <file:line> — <one line>`)
 - [triaged] 0.1 — scripts/build-demo-snapshots.mjs:99 — Pre-existing demo regeneration drift: deletes routes/solent-hop-3wp.json and rewrites five snapshot JSON files (briefing next-run text, change descriptions, warning prose); reproduced with original commit `8971b65` and original dependencies, identical to updated-dependency output. Assigned to 1.15 after prose reconciliation in 1.12; 0.1 preserves the tracked fixtures.
+- [triaged] 0.2 — engine/src/findings.ts:156 — dropped: proposed removal of legacy VIS_MODELS names is not dead-code cleanup; ScenarioBundleStore emits those fixture model keys, and a removal probe fails two golden tests and loses visibility assessments. Preserve compatibility and the byte-identical requirement.
 
 ## Decisions
 (record design choices made in steps 1.5, 3.5, 5.3 here)

@@ -181,7 +181,7 @@ export function diffFindings(previous: Findings | null, latest: Findings): Chang
     previous_snapshot_id: previous.snapshot_id,
     verdict_transition: transition,
     entries,
-    story: buildStory(previous, latest, entries, transition),
+    story: buildStory(latest, entries, transition),
   };
 }
 
@@ -219,7 +219,6 @@ function subject(evidence: Evidence, findings: Findings): string {
 }
 
 function buildStory(
-  previous: Findings,
   latest: Findings,
   entries: ChangeEntry[],
   transition: { from: string; to: string },

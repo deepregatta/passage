@@ -128,8 +128,7 @@ export function renderBriefing(findings: Findings, synoptic?: SynopticFeatures):
   // 2. route impact, leg by leg
   const perLeg = findings.legs.map((leg) => {
     const legEvidence = findings.evidence.filter((e) => e.leg_id === leg.leg_id);
-    const worstDet = pickWorst(legEvidence, 'deterministic');
-    const worstEns = pickWorst(legEvidence, 'ensemble');
+    const worstEns = pickWorstEnsemble(legEvidence);
 
     const windRange = numericRange(leg.hours.map((h) => h.wind_kt));
     const gustMax = numericMax(leg.hours.map((h) => h.gust_kt));
@@ -229,7 +228,7 @@ export function renderBriefing(findings: Findings, synoptic?: SynopticFeatures):
   });
 
   // 4. what could change
-  const nextRun = nextEcmwfRun(findings.generated_at ?? findings.departure_utc);
+  const nextRun = nextEcmwfRun(findings.generated_at);
   sections.push({
     id: 'what_could_change',
     title: 'What could change',
@@ -285,15 +284,10 @@ export function renderBriefing(findings: Findings, synoptic?: SynopticFeatures):
   };
 }
 
-function pickWorst(evidence: Evidence[], kind: Evidence['source_kind']): Evidence | undefined {
-  const candidates = evidence.filter((e) => e.source_kind === kind);
-  if (kind === 'ensemble') {
-    return candidates.sort(
-      (a, b) => fraction(b.member_fraction!) - fraction(a.member_fraction!),
-    )[0];
-  }
+function pickWorstEnsemble(evidence: Evidence[]): Evidence | undefined {
+  const candidates = evidence.filter((e) => e.source_kind === 'ensemble');
   return candidates.sort(
-    (a, b) => (b.value as number) / (b.limit as number) - (a.value as number) / (a.limit as number),
+    (a, b) => fraction(b.member_fraction!) - fraction(a.member_fraction!),
   )[0];
 }
 
