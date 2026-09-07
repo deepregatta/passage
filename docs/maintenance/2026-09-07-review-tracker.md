@@ -126,7 +126,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Items: §7.2 viewer list (VerdictBanner.jsx, V15 `VITE_DW_MODE` branch, `.section-rule`, unused `buildOption` export)
 - Files: viewer/src/components/VerdictBanner.jsx (delete), viewer/src/pages/Briefing.jsx, viewer/src/index.css, viewer/src/components/EnsemblePlume.jsx
 - Done when: grep proves each symbol unused before deletion; viewer tests + e2e screenshots unchanged.
-- Status: todo · Commit: — · Notes:
+- Status: in progress · Commit: — · Notes: Clean pre-flight at `b747d57`; verified previous step `fb9e096` scope and full guardrails (known six-file demo drift only). Saved generated baseline and restored tracked fixtures. Triaged the 0.6 CARTO watermark notice into 1.16. No unrelated dirty files.
 
 ### 0.8 Analysis dead code and unused noqa
 - Items: §7.2 analysis list (environment_grid dead methods, `write_observations`, `CACHE_MAX_AGE_HOURS`, `STEPS` alias, numpy ImportError guards, `ruff --select RUF100`, stale `tests/__pycache__`)
@@ -238,6 +238,13 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Files: scripts/build-demo-snapshots.mjs; fixture/prose changes, if still required, belong to the explicitly authorized 1.12 scope.
 - Do: preserve required demo routes during generation and reconcile remaining generator/fixture differences without introducing new engine wording.
 - Done when: `node scripts/build-demo-snapshots.mjs` leaves `viewer/test/fixtures/demo` byte-identical to HEAD; npm tests pass.
+- Status: todo · Commit: — · Notes:
+
+### 1.16 Basemap provider watermark
+- Items: noticed during 0.6, triaged during 0.7.
+- Files: viewer/src/pages/Planner.jsx, viewer/src/components/RouteMap.jsx; shared basemap configuration if required.
+- Do: verify current CARTO endpoint requirements and production impact, then configure a supported basemap source with correct attribution.
+- Done when: planner and briefing maps render without API-key watermarks in desktop/mobile browser checks; document provider requirements and any remaining coverage limitations.
 - Status: todo · Commit: — · Notes:
 
 ## Phase 2 — performance (behaviour-preserving)
@@ -376,7 +383,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - [triaged] 0.3 — .github/workflows/ci.yml:14 — Successful CI run 34162993074 warns that checkout@v4, setup-python@v5 and setup-uv@v6 target deprecated Node 20 action runtimes and are being forced onto Node 24; assigned to 0.10 during 0.4.
 - [triaged] 0.4 — .github/workflows/prepare-synoptic.yml:44 — The sync comment says jsonschema is in dev; after 0.4 it is stale. Assigned to comment-only step 0.9; workflow behavior unchanged.
 
-- 0.6 — viewer/src/pages/Planner.jsx:328 — Fresh-checkout browser screenshot shows CARTO basemap tiles watermarked "API KEY REQUIRED" (also inspect RouteMap.jsx tile endpoints); UI renders with no console errors. Provider/configuration cause and production impact remain unverified; investigate separately.
+- [triaged] 0.6 — viewer/src/pages/Planner.jsx:328 — Fresh-checkout browser screenshot shows CARTO basemap tiles watermarked "API KEY REQUIRED" (also inspect RouteMap.jsx tile endpoints); UI renders with no console errors. Provider/configuration cause and production impact remain unverified; assigned to 1.16 during 0.7.
 
 ## Decisions
 (record design choices made in steps 1.5, 3.5, 5.3 here)
