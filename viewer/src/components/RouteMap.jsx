@@ -8,6 +8,7 @@ import { frameForCursor, usePlayback } from '../stores/playbackStore.js';
 import { STATUS_HEX, hourStatus, fmtTime } from '../lib/format.js';
 import { fetchSnapshotJson } from '../lib/localSnapshots.js';
 import { preparedRun, artifactUrl } from '../lib/preparedRun.js';
+import { BASEMAP } from '../lib/basemap.js';
 
 /**
  * The passage on a chart (mockup 1): marine-styled Leaflet; light base +
@@ -209,14 +210,7 @@ export default function RouteMap({ height = 420 }) {
   return (
     <div className="border border-ink/30 rounded-sm overflow-hidden" style={{ height }}>
       <MapContainer bounds={bounds} style={seaStyle} scrollWheelZoom={false} attributionControl>
-        <TileLayer
-          url="https://basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png"
-          attribution='&copy; OpenStreetMap &copy; CARTO'
-        />
-        <TileLayer
-          url="https://basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png"
-          opacity={0.75}
-        />
+        <TileLayer {...BASEMAP} />
         <TileLayer
           url="https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png"
           attribution='seamarks &copy; OpenSeaMap'

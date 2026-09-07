@@ -1,6 +1,7 @@
 import { track } from '../lib/analytics.js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, useMap, useMapEvents } from 'react-leaflet';
+import { BASEMAP } from '../lib/basemap.js';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import {
@@ -324,10 +325,7 @@ export default function Planner() {
             zoom={8}
             style={{ height: '100%', width: '100%', background: '#DCE5E6' }}
           >
-            <TileLayer
-              url="https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-              attribution='&copy; OpenStreetMap &copy; CARTO'
-            />
+            <TileLayer {...BASEMAP} />
             <TileLayer
               url="https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png"
               attribution='seamarks &copy; OpenSeaMap'
