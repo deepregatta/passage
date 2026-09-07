@@ -108,7 +108,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Items: P4
 - Files: analysis/pyproject.toml, analysis/uv.lock
 - Done when: `uv sync --no-dev` then `uv run --no-sync python -c "import deepweather_analysis.tides"` succeeds; pytest green.
-- Status: in progress · Commit: — · Notes: Clean pre-flight at `7c4f07a`; previous step `4c39ac0` scope verified, npm tests and Python pytest/Ruff guardrails pass. Known six-file demo regeneration drift persists (assigned to 1.15); saved generated baseline for byte comparison and restored tracked fixtures.
+- Status: done · Commit: — · Notes: Clean pre-flight at `7c4f07a`; previous step `4c39ac0` scope and full guardrails verified (known demo drift only). Moved jsonschema>=4.21 from dev to runtime dependencies and regenerated uv.lock; all 99 third-party package entries unchanged. In an isolated Python 3.12 environment, `uv sync --no-dev` reproduced ModuleNotFoundError from prepare_tides before the fix; importing the tides module alone already passed because jsonschema is imported lazily. After the fix, the prescribed `uv sync --no-dev` and `uv run --no-sync python -c "import deepweather_analysis.tides"` pass, plus the same synthetic tide publishing/schema-validation smoke check, with pytest/ruff absent and output confined to /tmp. Final `npm test`: typecheck plus 112 engine + 43 viewer tests passed; `uv run pytest -q`: 157 passed (10 existing NumPy warnings); Ruff check/format passed (51 files). Engine goldens unchanged; generated demo byte-identical before/after, with known six-file drift against HEAD assigned to 1.15; tracked fixtures restored unchanged. Triaged prior action-runtime warning into 0.10; stale prepare-synoptic jsonschema comment assigned to 0.9. Temporary uv cache/runtime used; no unrelated dirty files, UI change, screenshot, or phase gate.
 
 ### 0.5 Remove stale Open-Meteo providers
 - Items: V16; analysis/tests/test_contracts_and_providers.py assertions
@@ -374,6 +374,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - [triaged] 0.2 — engine/src/findings.ts:156 — dropped: proposed removal of legacy VIS_MODELS names is not dead-code cleanup; ScenarioBundleStore emits those fixture model keys, and a removal probe fails two golden tests and loses visibility assessments. Preserve compatibility and the byte-identical requirement.
 
 - [triaged] 0.3 — .github/workflows/ci.yml:14 — Successful CI run 34162993074 warns that checkout@v4, setup-python@v5 and setup-uv@v6 target deprecated Node 20 action runtimes and are being forced onto Node 24; assigned to 0.10 during 0.4.
+- [triaged] 0.4 — .github/workflows/prepare-synoptic.yml:44 — The sync comment says jsonschema is in dev; after 0.4 it is stale. Assigned to comment-only step 0.9; workflow behavior unchanged.
 
 ## Decisions
 (record design choices made in steps 1.5, 3.5, 5.3 here)
