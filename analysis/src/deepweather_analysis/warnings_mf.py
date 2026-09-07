@@ -13,7 +13,8 @@ must never read as absence of risk.
 Modes:
   live       — data.gouv BMS mirror: filter route broadcast areas, match
                route zones by name in the bulletin text, parse validity;
-               graceful feed_status "unavailable" on any fetch failure
+               "unavailable" on fetch/CSV failure, "parse-degraded" for bad rows;
+               cancellation notices are excluded from active bulletins
   synthetic  — clear conditions by default; --gale ZONE injects a gale bulletin
                (drives the warning_active verdict state end-to-end)
   manual     — parse a pasted bulletin text file (feed_status parse-degraded,
@@ -50,6 +51,10 @@ SEVERITY_WORDS = [
     ("COUP DE VENT", "gale"),
     ("GRAND FRAIS", "near-gale"),
 ]
+BMS_COLUMNS = {"date", "langue", "zone", "type", "contenu"}
+CANCELLATION_RE = re.compile(
+    r"\b(?:FIN\s+D['\s]*AVIS|LEVEE\s+(?:DE\s+L['\s]*AVIS|D['\s]*AVIS|DU\s+BMS))\b"
+)
 
 # "JUSQU'AU 13 A 18H UTC" (large) or "JUSQU'AU LUNDI 13 JUILLET A 22H00 UTC" (côte)
 VALID_TO_RE = re.compile(
@@ -123,6 +128,10 @@ def parse_manual_bulletin(raw_text: str, zone_id: str, valid_hours: int = 24) ->
     """Best-effort parse of a pasted bulletin. Raw text is always preserved."""
     doc = _base_doc(Mode.FIXTURE, "manual paste")
     doc["feed_status"] = "parse-degraded"
+    if CANCELLATION_RE.search(_normalize(raw_text)):
+        # Preserve the pasted notice as context without an active bulletin.
+        doc["coverage_note"] = raw_text.strip()
+        return doc
     severity = "gale" if GALE_WORDS.search(raw_text) else None
     confidence = 0.7 if severity else 0.4
     now = datetime.now(timezone.utc)
@@ -201,6 +210,8 @@ def _parse_validity(norm_text: str, issued: datetime) -> tuple[str | None, str |
 
 
 def _severity(norm_text: str) -> str | None:
+    if CANCELLATION_RE.search(norm_text):
+        return None
     for word, severity in SEVERITY_WORDS:
         if word in norm_text:
             return severity
@@ -218,7 +229,11 @@ def fetch_live(now: datetime | None = None) -> dict:
             response = requests.get(BMS_URL_TEMPLATE.format(year=year), timeout=60)
             response.raise_for_status()
             text = gzip.decompress(response.content).decode("utf-8")
-            rows.extend(csv.DictReader(io.StringIO(text), delimiter=";"))
+            reader = csv.DictReader(io.StringIO(text), delimiter=";", strict=True)
+            missing = BMS_COLUMNS - set(reader.fieldnames or [])
+            if missing:
+                raise ValueError(f"BMS CSV missing columns: {', '.join(sorted(missing))}")
+            rows.extend(reader)
     except Exception as error:  # any feed failure must degrade, not crash
         doc["feed_status"] = "unavailable"
         doc["coverage_note"] = f"live fetch failed: {error}"
@@ -229,8 +244,20 @@ def fetch_live(now: datetime | None = None) -> dict:
     # BMS broadcast areas (the CSV `zone` column) that can carry bulletins for
     # any registered route — from config/route-sources.json.
     route_areas = fr_broadcast_areas()
+    malformed_rows = 0
     for row in rows:
-        issued = datetime.strptime(row["date"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+        try:
+            # DictReader uses None for missing cells and surplus-column keys.
+            if None in row or any(
+                not isinstance(row[key], str) or not row[key].strip() for key in BMS_COLUMNS
+            ):
+                raise ValueError("BMS row has missing/empty cells or surplus columns")
+            issued = datetime.strptime(row["date"], "%Y-%m-%d %H:%M:%S").replace(
+                tzinfo=timezone.utc
+            )
+        except (KeyError, TypeError, ValueError):
+            malformed_rows += 1
+            continue
         if last_issued is None or issued > last_issued:
             last_issued = issued
         if row["langue"] != "FR" or row["zone"] not in route_areas:
@@ -238,6 +265,10 @@ def fetch_live(now: datetime | None = None) -> dict:
         if issued < now - timedelta(days=7):
             continue
         norm = _normalize(row["contenu"])
+        # A null severity still triggers the engine authority override: omit
+        # cancellations entirely, before inventing a fallback validity window.
+        if CANCELLATION_RE.search(norm):
+            continue
         valid_from, valid_to, confidence = _parse_validity(norm, issued)
         if valid_from is None:
             valid_from = issued.strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -270,6 +301,11 @@ def fetch_live(now: datetime | None = None) -> dict:
         f"warning is not absence of risk. Newest bulletin in feed: {freshness}. "
         "UK shipping-forecast zones modeled but not fetched."
     )
+    if malformed_rows:
+        doc["feed_status"] = "parse-degraded"
+        doc["coverage_note"] += (
+            f" Skipped {malformed_rows} malformed BMS row(s); feed coverage is incomplete."
+        )
     return doc
 
 
