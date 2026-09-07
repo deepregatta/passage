@@ -17,7 +17,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm test
+      - name: Build, type-check engine tests, and run unit suites
+        run: npm test
       - run: npm run build:pages
 
   python:

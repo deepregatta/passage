@@ -4,7 +4,10 @@ import type { LandMask } from '../src/routing/landmask.js';
 
 function pack(bits: number[]): Uint8Array {
   const bytes = new Uint8Array(Math.ceil(bits.length / 8));
-  bits.forEach((bit, i) => { if (bit) bytes[i >> 3] |= 1 << (i & 7); });
+  bits.forEach((bit, i) => {
+    // The allocation above includes a byte for every input bit.
+    if (bit) bytes[i >> 3] = bytes[i >> 3]! | (1 << (i & 7));
+  });
   return bytes;
 }
 
