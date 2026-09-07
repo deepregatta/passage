@@ -118,9 +118,9 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 
 ### 0.6 Node version + dev workflow
 - Items: §7.1 (engines/.nvmrc, CI node-version, stale engine/dist)
-- Files: package.json (`engines`), .nvmrc, .github/workflows/ci.yml, viewer/package.json (`predev`) or viewer/vite.config.js alias to engine/src
+- Files: package.json (`engines`), package-lock.json (matching root metadata only), .nvmrc, .github/workflows/ci.yml, viewer/package.json (`predev`) or viewer/vite.config.js alias to engine/src
 - Done when: fresh clone → `npm install && npm run dev -w viewer` works without a manual engine build.
-- Status: todo · Commit: — · Notes:
+- Status: in progress · Commit: — · Notes: Clean pre-flight at `9b57280`; verified previous step `d21ed21` scope. Full guardrails pass except the established six-file demo drift assigned to 1.15; saved regenerated baseline and restored tracked fixtures. Node 24 locally versus CI 22, no engines/.nvmrc or predev. Include matching root engines metadata in package-lock.json; no dependency changes.
 
 ### 0.7 Viewer dead code
 - Items: §7.2 viewer list (VerdictBanner.jsx, V15 `VITE_DW_MODE` branch, `.section-rule`, unused `buildOption` export)
