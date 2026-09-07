@@ -130,8 +130,9 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 
 ### 0.8 Analysis dead code and unused noqa
 - Items: §7.2 analysis list (environment_grid dead methods, `write_observations`, `CACHE_MAX_AGE_HOURS`, `STEPS` alias, numpy ImportError guards, `ruff --select RUF100`, stale `tests/__pycache__`)
+- Files: analysis/src/deepweather_analysis/{environment_grid,environment_fetcher,observations,ecmwf_open_data,warnings_au,warnings_mf,tides}.py; ignored analysis/tests/__pycache__/test_scaffold*.pyc (local cleanup).
 - Done when: each deletion justified by grep; pytest + ruff green. Leave `write_verification` for 1.14.
-- Status: todo · Commit: — · Notes:
+- Status: in progress · Commit: — · Notes: Clean pre-flight at `3e2efe1`; previous step `2dcb98f` scope verified. Baseline npm test: 112 engine + 43 viewer passed; Python 3.12 pytest: 157 passed (10 existing NumPy warnings), Ruff check/format passed. Demo regeneration reproduces the known six-file drift assigned to 1.15; captured generated output for before/after comparison and restored tracked fixtures unchanged. No unrelated dirty files. Triaged the 0.7 e2e failures into 0.11.
 
 ### 0.9 Stale comments and internal names
 - Items: §7.4 (milestone tags, "brief §N", Supabase, Open-Meteo mirrors, `openmeteo-*` fixture header, FooterActions `race_*` identifiers)
@@ -144,6 +145,13 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Files: .github/workflows/ci.yml
 - Do: review checkout/setup-python/setup-uv versions against their supported action runtimes and update deprecated actions.
 - Done when: CI passes without the Node 20 action-runtime deprecation warning.
+- Status: todo · Commit: — · Notes:
+
+### 0.11 Existing example-flow e2e expectations
+- Items: noticed during 0.7, triaged during 0.8.
+- Files: viewer/e2e/{briefing,navigation}.spec.js and their screenshot baselines.
+- Do: reconcile the obsolete example departure-button assertion and briefing/planner baselines with the existing example flow; inspect every intended baseline change without changing product behavior.
+- Done when: full e2e passes at desktop/mobile; updated screenshots are reviewed and each baseline change is explained.
 - Status: todo · Commit: — · Notes:
 
 ## Phase 1 — bugs (regression test first)
@@ -385,7 +393,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 
 - [triaged] 0.6 — viewer/src/pages/Planner.jsx:328 — Fresh-checkout browser screenshot shows CARTO basemap tiles watermarked "API KEY REQUIRED" (also inspect RouteMap.jsx tile endpoints); UI renders with no console errors. Provider/configuration cause and production impact remain unverified; assigned to 1.16 during 0.7.
 
-- 0.7 — viewer/e2e/briefing.spec.js:48 — Full e2e suite already fails six checks before removal: obsolete example departure-button expectation (hidden by !example at Briefing.jsx:180 before this step), briefing screenshots and planner screenshots (navigation.spec.js:29), each on desktop/mobile. Same six after removal; current screenshots unchanged except one desktop pixel. Reconcile assertions/baselines with the existing example flow in a separate test-maintenance step; do not restore the hidden example action to satisfy a stale test.
+- [triaged] 0.7 — viewer/e2e/briefing.spec.js:48 — Full e2e suite already fails six checks before removal: obsolete example departure-button expectation (hidden by !example at Briefing.jsx:180 before this step), briefing screenshots and planner screenshots (navigation.spec.js:29), each on desktop/mobile. Same six after removal; current screenshots unchanged except one desktop pixel. Assigned to 0.11 during 0.8; do not restore the hidden example action to satisfy a stale test.
 
 ## Decisions
 (record design choices made in steps 1.5, 3.5, 5.3 here)
