@@ -98,14 +98,19 @@ async function runCommand(args: Map<string, string>): Promise<number> {
     const doc = JSON.parse(readFileSync(warningsPath, 'utf8'));
     const zones = JSON.parse(readFileSync(join(REPO_ROOT, 'config', 'route-zones.json'), 'utf8'));
     const zoneEntry = zones.routes?.[route.route_id];
-    const routeZoneIds = [
-      ...(zoneEntry?.fr_zones ?? []).map((z: { zone_id: string }) => z.zone_id),
-      ...(zoneEntry?.uk_zones ?? []).map((z: { zone_id: string }) => z.zone_id),
-    ];
+    const routeZoneIds = Object.entries(zoneEntry ?? {}).flatMap(([key, zones]) =>
+      key.endsWith('_zones') && Array.isArray(zones)
+        ? zones.map((z: { zone_id: string }) => z.zone_id)
+        : [],
+    );
+    // Only unmapped user-drawn routes use the conservative all-bulletins fallback.
+    const zoneIds = !zoneEntry && route.mode === 'user'
+      ? doc.bulletins.map((b: { zone_id: string }) => b.zone_id)
+      : routeZoneIds;
     const repoRelativeRef = relative(REPO_ROOT, warningsPath);
     warnings = {
       doc,
-      routeZoneIds,
+      routeZoneIds: zoneIds,
       ref: repoRelativeRef.startsWith('..') ? warningsPath : repoRelativeRef,
     };
   }

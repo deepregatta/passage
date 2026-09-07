@@ -84,15 +84,14 @@ export async function analyzeInBrowser({ route, profile, departureUtc, onProgres
   let warnings;
   if (warningsDoc) {
     const zoneEntry = zonesDoc?.routes?.[route.route_id];
-    const routeZoneIds = [
-      ...(zoneEntry?.fr_zones ?? []).map((z) => z.zone_id),
-      ...(zoneEntry?.uk_zones ?? []).map((z) => z.zone_id),
-    ];
+    const routeZoneIds = Object.entries(zoneEntry ?? {}).flatMap(([key, zones]) =>
+      key.endsWith('_zones') && Array.isArray(zones) ? zones.map((z) => z.zone_id) : [],
+    );
     // user-drawn routes have no zone mapping yet: warn against ALL active zones
     // (conservative — a false authority banner beats a missed one)
-    const zoneIds = routeZoneIds.length
-      ? routeZoneIds
-      : warningsDoc.bulletins.map((b) => b.zone_id);
+    const zoneIds = !zoneEntry && route.mode === 'user'
+      ? warningsDoc.bulletins.map((b) => b.zone_id)
+      : routeZoneIds;
     warnings = { doc: warningsDoc, routeZoneIds: zoneIds, ref: '/data/warnings/latest.json' };
   }
 
