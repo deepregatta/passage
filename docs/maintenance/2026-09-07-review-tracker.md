@@ -108,7 +108,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Items: P4
 - Files: analysis/pyproject.toml, analysis/uv.lock
 - Done when: `uv sync --no-dev` then `uv run --no-sync python -c "import deepweather_analysis.tides"` succeeds; pytest green.
-- Status: todo · Commit: — · Notes:
+- Status: in progress · Commit: — · Notes: Clean pre-flight at `7c4f07a`; previous step `4c39ac0` scope verified, npm tests and Python pytest/Ruff guardrails pass. Known six-file demo regeneration drift persists (assigned to 1.15); saved generated baseline for byte comparison and restored tracked fixtures.
 
 ### 0.5 Remove stale Open-Meteo providers
 - Items: V16; analysis/tests/test_contracts_and_providers.py assertions
@@ -137,6 +137,13 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Items: §7.4 (milestone tags, "brief §N", Supabase, Open-Meteo mirrors, `openmeteo-*` fixture header, FooterActions `race_*` identifiers)
 - Rule: comments and internal identifiers only; **no user-facing copy** (that is Phase 3).
 - Done when: `grep -rnE "\bM[0-9]{1,2}\b|Supabase" engine/src viewer/src` is empty or each remaining hit is justified.
+- Status: todo · Commit: — · Notes:
+
+### 0.10 CI action runtime versions
+- Items: noticed during 0.3, triaged during 0.4.
+- Files: .github/workflows/ci.yml
+- Do: review checkout/setup-python/setup-uv versions against their supported action runtimes and update deprecated actions.
+- Done when: CI passes without the Node 20 action-runtime deprecation warning.
 - Status: todo · Commit: — · Notes:
 
 ## Phase 1 — bugs (regression test first)
@@ -366,7 +373,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - [triaged] 0.1 — scripts/build-demo-snapshots.mjs:99 — Pre-existing demo regeneration drift: deletes routes/solent-hop-3wp.json and rewrites five snapshot JSON files (briefing next-run text, change descriptions, warning prose); reproduced with original commit `8971b65` and original dependencies, identical to updated-dependency output. Assigned to 1.15 after prose reconciliation in 1.12; 0.1 preserves the tracked fixtures.
 - [triaged] 0.2 — engine/src/findings.ts:156 — dropped: proposed removal of legacy VIS_MODELS names is not dead-code cleanup; ScenarioBundleStore emits those fixture model keys, and a removal probe fails two golden tests and loses visibility assessments. Preserve compatibility and the byte-identical requirement.
 
-- 0.3 — .github/workflows/ci.yml:14 — Successful CI run 34162993074 warns that checkout@v4, setup-python@v5 and setup-uv@v6 target deprecated Node 20 action runtimes and are being forced onto Node 24; review action versions separately from this test type-checking step.
+- [triaged] 0.3 — .github/workflows/ci.yml:14 — Successful CI run 34162993074 warns that checkout@v4, setup-python@v5 and setup-uv@v6 target deprecated Node 20 action runtimes and are being forced onto Node 24; assigned to 0.10 during 0.4.
 
 ## Decisions
 (record design choices made in steps 1.5, 3.5, 5.3 here)
