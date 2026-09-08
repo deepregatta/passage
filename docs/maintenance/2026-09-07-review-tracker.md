@@ -203,9 +203,9 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 
 ### 1.8 Honesty: emulated badge, fake overlay, models panel
 - Items: V5, V4, V6 — **prose changes expected** (UI copy → i18n patterns, e2e screenshots)
-- Files: viewer/src/components/BulletinPanel.jsx, SynopticHero.jsx, viewer/src/pages/{Briefing,Planner}.jsx, viewer/src/i18n.js
+- Files: viewer/src/components/{BulletinPanel,SynopticHero,ModelsUsed}.jsx, viewer/src/pages/{Briefing,Planner}.jsx, viewer/src/i18n.js; viewer/test/honesty.test.jsx, viewer/e2e/briefing.spec.js and affected briefing/planner screenshot baselines.
 - Done when: demo bulletin shows an emulated badge; "Compare safer departure" removed; Models panel derived from `findings.coverage` + `inputs.forecast_tiles`.
-- Status: todo · Commit: — · Notes:
+- Status: in progress · Commit: — · Notes: Clean pre-flight at `4f64d69`; previous step `ef831dd` scope and full guardrails verified: 131 engine + 69 viewer tests, 227 Python tests, Ruff lint/format passed. Known six-file demo drift saved for before/after comparison; tracked fixtures restored. No unrelated dirty files. Added shared ModelsUsed component and scoped regression/screenshot paths to cover this UI step. Triaged the short-edge observation into 1.17.
 
 ### 1.9 Planner input bugs
 - Items: V2, V3, V13
@@ -255,6 +255,13 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Files: viewer/src/pages/Planner.jsx, viewer/src/components/RouteMap.jsx; shared basemap configuration if required.
 - Do: verify current CARTO endpoint requirements and production impact, then configure a supported basemap source with correct attribution.
 - Done when: planner and briefing maps render without API-key watermarks in desktop/mobile browser checks; document provider requirements and any remaining coverage limitations.
+- Status: todo · Commit: — · Notes:
+
+### 1.17 Router graph-edge land checks
+- Items: noticed during 1.7, triaged during 1.8.
+- Files: engine/src/routing/isochrone.ts, engine/test/routing.test.ts
+- Do: first reproduce a crossing between sea endpoints on a short graph edge using a finer land mask; if confirmed, check graph edges against the mask and add regression coverage.
+- Done when: the finding is either disproved with evidence or reproduced and fixed without changing engine prose or demo fixtures.
 - Status: todo · Commit: — · Notes:
 
 ## Phase 2 — performance (behaviour-preserving)
@@ -409,7 +416,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 
 - [triaged] 0.10 — .github/workflows/ci.yml:15 — dropped: DEP0040 (punycode) and DEP0169 (url.parse) are informational warnings inside upstream setup-node@v5; no repository call site to repair, no failed CI step or check annotation, and supported Node 24 runtime verified. Reconsider during routine dependency updates rather than adding a product-maintenance step.
 
-- 1.7 — engine/src/routing/isochrone.ts:205 — Graph edges with both index deltas <= 1 skip segmentCrossesLand; finer land masks could contain land between sea endpoints. This separate graph-acquisition path is unchanged by the simplification fix; crossing behavior needs a dedicated reproduction before triage.
+- [triaged] 1.7 — engine/src/routing/isochrone.ts:205 — Graph edges with both index deltas <= 1 skip segmentCrossesLand; finer land masks could contain land between sea endpoints. This separate graph-acquisition path is unchanged by the simplification fix; Assigned to 1.17 for reproduction and a scoped fix if confirmed.
 
 ## Decisions
 (record design choices made in steps 1.5, 3.5, 5.3 here)
