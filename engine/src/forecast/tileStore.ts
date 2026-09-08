@@ -68,7 +68,13 @@ export class TileForecastStore implements ForecastStore {
   }
 
   init(): Promise<void> {
-    this.initPromise ??= this.initOnce();
+    this.initPromise ??= this.initOnce().catch((error) => {
+      // Retry from a clean state after a transient latest/manifest failure.
+      this.layers.clear();
+      this.latest = null;
+      this.initPromise = null;
+      throw error;
+    });
     return this.initPromise;
   }
 

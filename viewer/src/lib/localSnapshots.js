@@ -18,6 +18,10 @@ function openDb() {
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
+  }).catch((error) => {
+    // A failed open must not poison every later storage attempt.
+    dbPromise = null;
+    throw error;
   });
   return dbPromise;
 }
@@ -37,9 +41,13 @@ const available = () => typeof indexedDB !== 'undefined';
 export const localSnapshots = {
   async exists(snapshotId) {
     if (!available()) return false;
-    const db = await openDb();
-    const record = await tx(db, 'readonly', (s) => s.get(`${snapshotId}/snapshot.json`));
-    return record != null;
+    try {
+      const db = await openDb();
+      const record = await tx(db, 'readonly', (s) => s.get(`${snapshotId}/snapshot.json`));
+      return record != null;
+    } catch {
+      return false;
+    }
   },
 
   async write(snapshotId, filename, content) {
