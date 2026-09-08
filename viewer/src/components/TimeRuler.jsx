@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { usePlayback } from '../stores/playbackStore.js';
 import { fmtLocalTime, localTimeZoneName } from '../lib/format.js';
 
@@ -7,6 +8,7 @@ export default function TimeRuler({ findings, maxHours }) {
   const setCursor = usePlayback((state) => state.setCursor);
   const play = usePlayback((state) => state.play);
   const pause = usePlayback((state) => state.pause);
+  useEffect(() => () => pause(), [pause]);
   const time = new Date(Date.parse(findings.departure_utc) + cursor * 3600_000).toISOString();
   return <div className="grid grid-cols-[44px_1fr_auto] gap-2 items-center border-t border-ink/30 pt-2">
     <button type="button" onClick={() => playing ? pause() : play(maxHours)} className="w-11 h-11 border border-ink/40" aria-label={playing ? 'Pause passage playback' : 'Play passage playback'}>{playing ? 'Ⅱ' : '▶'}</button>

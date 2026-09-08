@@ -20,6 +20,7 @@ export default function Snapshots() {
   const openSnapshot = useApp((s) => s.openSnapshot);
   const deleteSnapshot = useApp((s) => s.deleteSnapshot);
   const loading = useApp((s) => s.loading);
+  const loadError = useApp((s) => s.loadError);
   const [deleteError, setDeleteError] = useState(null);
 
   useEffect(() => {
@@ -37,6 +38,8 @@ export default function Snapshots() {
       {manifestError && (
         <p className="font-sans text-sm text-verdict-exceeds">manifest error: {manifestError}</p>
       )}
+
+      {loadError && <p role="alert" className="font-sans text-sm text-verdict-exceeds mb-3 break-words">{loadError}</p>}
 
       {manifest?.snapshots.length === 0 && (
         <div className="border border-dashed hairline rounded-sm p-6 bg-white/30">
