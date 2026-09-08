@@ -226,7 +226,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Items: V2, V3, V13
 - Files: viewer/src/pages/Planner.jsx, viewer/src/lib/format.js, new viewer/test/departureComparison.test.jsx
 - Done when: selected-departure outline renders; "Check this passage" works over plain http; empty/zero speed is rejected.
-- Status: todo · Commit: — · Notes:
+- Status: in progress · Commit: — · Notes: Clean pre-flight at `b58269b`; previous step `5be83cd` scope verified. Baseline npm tests (131 engine + 78 viewer), Python pytest (227), Ruff lint/format pass. Known six-file demo regeneration drift reproduced and tracked fixtures restored unchanged; assigned to 1.15.
 
 ### 1.10 Snapshot open lifecycle and playback
 - Items: V7, V8
