@@ -268,9 +268,9 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 
 ### 1.13 Small engine fixes
 - Items: E5, E8, E9, E11, E12
-- Files: engine/src/{cli,io/node,window,findings,grids}.ts + tests (new engine/test/window.test.ts)
+- Files: engine/src/{cli,io/node,window,findings,grids}.ts + tests (new engine/test/window.test.ts); viewer/src/pages/Planner.jsx, viewer/src/i18n.js + targeted tests for the required skipped-candidate display.
 - Done when: each item has a unit test; `scanDepartures` returns skipped-candidate reasons and the Planner shows them.
-- Status: todo · Commit: — · Notes:
+- Status: in progress · Commit: — · Notes: Clean pre-flight at `5465d1f`; previous step `3fb3838` scope verified, full guardrails passed (149 engine + 162 viewer, 227 Python, Ruff lint/format). Demo generation only deletes the known routes/solent-hop-3wp.json, restored; generated baseline saved for byte comparison. Planner and French catalogue explicitly included to satisfy this row's display acceptance criterion.
 
 ### 1.14 Small analysis fixes
 - Items: P6, P7, P9
