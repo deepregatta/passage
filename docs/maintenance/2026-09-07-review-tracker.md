@@ -244,7 +244,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Items: E3, E4 — **prose changes expected** (goldens, demo fixture, FR patterns)
 - Files: engine/src/{briefing,diff,analyze}.ts, engine/test goldens, viewer/src/i18n.js, viewer/test/fixtures/demo
 - Done when: position phrase is route-relative; one next-run helper fed by `store.describe()`; briefing and change story agree.
-- Status: todo · Commit: — · Notes:
+- Status: in progress · Commit: — · Notes: Clean pre-flight at `3d7306b`; previous step `2f585ef` scope verified. npm test passed (131 engine, 157 viewer); Python pytest 227 passed, Ruff lint/format passed. Reproduced known six-file demo drift; saved generated baseline in /tmp and restored tracked fixtures. No untriaged Noticed items or unrelated dirty files.
 
 ### 1.13 Small engine fixes
 - Items: E5, E8, E9, E11, E12
