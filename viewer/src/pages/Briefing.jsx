@@ -21,7 +21,8 @@ import {
 } from '../lib/format.js';
 import { Term } from '../lib/glossary.jsx';
 import clsx from 'clsx';
-import BulletinPanel from '../components/BulletinPanel.jsx';
+import BulletinPanel, { isEmulatedWarning } from '../components/BulletinPanel.jsx';
+import ModelsUsed from '../components/ModelsUsed.jsx';
 import { deriveCoverage } from '../lib/evidenceSelectors.js';
 import SynopticHero from '../components/SynopticHero.jsx';
 import { frameForCursor, usePlayback } from '../stores/playbackStore.js';
@@ -112,6 +113,7 @@ export default function Briefing() {
         </div>
 
         <ModelFooter />
+        <ModelsUsed />
       </div>
       {bulletinOpen && <BulletinPanel evidence={warningEvidence} onClose={() => setBulletinOpen(false)} />}
     </div>
@@ -142,8 +144,9 @@ function HeaderBar({ findings }) {
 function DecisionBand({ findings, sections, synoptic, warningEvidence, onOpenBulletin, example }) {
   const setPage = useApp((s) => s.setPage);
   const route = useApp((s) => s.route);
+  const warnings = useApp((s) => s.warnings);
   const warningActive = findings.verdict.warning_override?.active;
-  const emulated = warningActive && warningEvidence?.source_kind === 'emulated';
+  const emulated = warningActive && isEmulatedWarning(warningEvidence, warnings);
   const state = warningActive ? 'warning_active' : findings.verdict.state;
   const verdict = VERDICT[state];
   const event = findings.causal_events?.[0];
@@ -226,10 +229,10 @@ function DecisionBand({ findings, sections, synoptic, warningEvidence, onOpenBul
           )}
           {warningActive && (
             <button type="button" onClick={onOpenBulletin} className={buttonClass}>
-              {example ? 'Inspect example bulletin' : 'Open official bulletin'}
+              {example ? 'Inspect example bulletin' : emulated ? 'Inspect emulated bulletin' : 'Open official bulletin'}
             </button>
           )}
-          {emulated && (
+          {emulated && warningEvidence && (
             <EvidenceLink evidenceId={warningEvidence.evidence_id}>evidence</EvidenceLink>
           )}
           {nextUpdate && (
