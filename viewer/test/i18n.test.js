@@ -168,3 +168,16 @@ describe('review 1.12 briefing prose', () => {
     for (const [en, fr] of Object.entries(samples)) expect(translateText(en, 'fr')).toBe(fr);
   });
 });
+
+it('translates skipped-departure labels and unknown failures', () => {
+  for (const text of ['Unassessed departures', 'A missing cell does not mean safe conditions.', 'Unknown error', '2 of 21 departure times could not be assessed and are not shown.']) {
+    expect(translateText(text, 'fr')).not.toBe(text);
+  }
+});
+
+it('translates HTTP scan failure details while preserving the status and artifact path', () => {
+  expect(translateText('forecast fetch failed: HTTP 503 for latest.json', 'fr'))
+    .toBe('Échec du chargement des prévisions : HTTP 503 pour latest.json');
+  expect(translateText('forecast tile fetch failed: HTTP 404 for tiles/a.pft', 'fr'))
+    .toBe('Échec du chargement d’une tuile de prévision : HTTP 404 pour tiles/a.pft');
+});

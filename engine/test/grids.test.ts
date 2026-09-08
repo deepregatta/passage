@@ -105,3 +105,18 @@ describe('current-corrected schedules', () => {
     expect(schedules[0]!.sog_kt.slow).toBe(0.5);
   });
 });
+
+it('samples a single time slice only at its timestamp, retaining spatial interpolation and null coverage', () => {
+  const grid = makeGrid();
+  grid.time_axis = grid.time_axis.slice(0, 1);
+  grid.u_kt = [0, 2, null, 2, 4, null, null, null, null];
+  grid.v_kt = [2, 4, null, 4, 6, null, null, null, null];
+  const sampler = new GridSampler(grid);
+  const time = parseUtc(grid.time_axis[0]!);
+  expect(sampler.sample(49.25, -2.75, time)).toEqual({ u_kt: 2, v_kt: 4 });
+  expect(sampler.sample(49, -3, time)).toEqual({ u_kt: 0, v_kt: 2 });
+  expect(sampler.sample(49.25, -2.75, time - 1)).toBeNull();
+  expect(sampler.sample(49.25, -2.75, time + 1)).toBeNull();
+  expect(sampler.sample(50, -2, time)).toBeNull();
+  expect(sampler.sample(60, 10, time)).toBeNull();
+});

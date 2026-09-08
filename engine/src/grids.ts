@@ -80,8 +80,8 @@ export class GridSampler {
     if (!times.length || timeMs < times[0]! || timeMs > times[times.length - 1]!) return null;
     let k = times.findIndex((t) => t >= timeMs);
     if (k < 0) return null;
-    if (k === 0) k = 1;
-    const t0 = k - 1;
+    if (k === 0 && times.length > 1) k = 1;
+    const t0 = Math.max(0, k - 1);
     const t1 = k;
     const alpha = (timeMs - times[t0]!) / Math.max(1, times[t1]! - times[t0]!);
 

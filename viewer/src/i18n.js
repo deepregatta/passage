@@ -452,6 +452,10 @@ const FR = {
   // Planner errors, departure comparison and models-used panel.
   'No limits profile available. Open My limits first.': 'Aucun profil de limites disponible. Ouvrez d’abord Mes limites.',
   'Enter a valid departure date and 24-hour time.': 'Saisissez une date de départ valide et une heure au format 24 heures.',
+  'None of the candidate departures could be assessed.': 'Aucun des départs candidats n’a pu être évalué.',
+  'Unassessed departures': 'Départs non évalués',
+  'A missing cell does not mean safe conditions.': 'Une case manquante ne signifie pas des conditions sûres.',
+  'Unknown error': 'Erreur inconnue',
   'None of the candidate departures could be assessed. The live forecast may not reach that far ahead, or the forecast service may be unreachable. Try a departure within the next few days, or check your connection.': 'Aucun des départs candidats n’a pu être évalué. La prévision en direct ne va peut-être pas aussi loin, ou le service de prévision est peut-être injoignable. Essayez un départ dans les prochains jours, ou vérifiez votre connexion.',
   '◎ Least exposure this window:': '◎ Exposition minimale sur cette fenêtre :',
   'Click a time to check that departure against your limits': 'Cliquez sur une heure pour vérifier ce départ selon vos limites',
@@ -534,6 +538,9 @@ const FR_PATTERNS = [
   [/^This run has no causal attribution\. Reason: (.+)\.$/, (_match, reason) => `Cette analyse ne comporte pas d’attribution causale. Raison : ${translateAttributionReason(reason)}.`],
   [/^(.+) gate$/, 'porte $1'],
   [/^YOUR LIMIT · ([\d.]+) (kt|m)$/, (_match, value, units) => `VOTRE LIMITE · ${value} ${units === 'kt' ? 'nd' : units}`],
+  [/^forecast fetch failed: HTTP (\d+) for (.+)$/, 'Échec du chargement des prévisions : HTTP $1 pour $2'],
+  [/^forecast tile fetch failed: HTTP (\d+) for (.+)$/, 'Échec du chargement d’une tuile de prévision : HTTP $1 pour $2'],
+  [/^(\d+) of (\d+) departure times could not be assessed and are not shown\.$/, (_match, hidden, total) => `${hidden} sur ${total} heures de départ n’ont pas pu être évaluées et ne sont pas affichées.`],
   [/^(\d+) of (\d+) departure times fall beyond the (live forecast|forecast) horizon and are not shown\. A missing cell does not mean safe conditions\.$/, (_match, hidden, total, kind) => `${hidden} sur ${total} heures de départ sont au-delà de l’horizon de ${kind === 'live forecast' ? 'la prévision en direct' : 'prévision'} et ne sont pas affichées. Une case manquante ne signifie pas des conditions sûres.`],
   [/^Delete the briefing "(.+)" departing (.+) local time \((.+)\)\? This cannot be undone\.$/, 'Supprimer le briefing « $1 » partant $2 heure locale ($3) ? Cette action est irréversible.'],
   // Change-ledger entries (engine diff.ts descriptions and headlines).

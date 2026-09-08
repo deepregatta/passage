@@ -30,8 +30,10 @@ function parseArgs(argv: string[]): Map<string, string> {
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]!;
     if (arg.startsWith('--')) {
-      args.set(arg.slice(2), argv[i + 1] ?? '');
-      i++;
+      const next = argv[i + 1];
+      const hasValue = next !== undefined && !next.startsWith('--');
+      args.set(arg.slice(2), hasValue ? next : '');
+      if (hasValue) i++;
     } else if (!args.has('_command')) {
       args.set('_command', arg);
     }

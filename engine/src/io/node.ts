@@ -1,6 +1,6 @@
 /** Node-only IO adapters (kept out of the browser-safe core). */
 
-import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdirSync, readFileSync, readdirSync, writeFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { gunzipSync } from 'node:zlib';
 import type { LatestDoc, RunManifest, TileTransport } from '../forecast/store.js';
@@ -10,7 +10,8 @@ export class NodeFsSnapshotStore implements SnapshotStore {
   constructor(private root: string) {}
 
   async exists(snapshotId: string): Promise<boolean> {
-    return existsSync(join(this.root, snapshotId, 'snapshot.json'));
+    const directory = join(this.root, snapshotId);
+    return existsSync(directory) && readdirSync(directory).length > 0;
   }
 
   async write(snapshotId: string, filename: string, content: string): Promise<void> {

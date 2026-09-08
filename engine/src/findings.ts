@@ -1019,13 +1019,16 @@ function deriveCausalEvents(
   return causal;
 }
 
+/** Higher means worse: visibility is a minimum, other numeric limits are maxima. */
+export function evidenceLimitRatio(item: Evidence): number | null {
+  if (typeof item.value !== 'number' || typeof item.limit !== 'number' || item.limit <= 0) return null;
+  return item.rule_id === RULES.VISIBILITY ? item.limit / item.value : item.value / item.limit;
+}
+
 function evidenceMateriality(a: Evidence, b: Evidence): number {
   const ratio = (item: Evidence) => {
     if (item.member_fraction) return item.member_fraction.exceed / item.member_fraction.total;
-    if (typeof item.value === 'number' && typeof item.limit === 'number' && item.limit !== 0) {
-      return item.value / item.limit;
-    }
-    return 0;
+    return evidenceLimitRatio(item) ?? 0;
   };
   return ratio(b) - ratio(a);
 }
