@@ -145,3 +145,22 @@ it('allows polar-based computed routes when the hidden drawn-speed inputs are in
   fireEvent.click(checkButton());
   await waitFor(() => expect(openSnapshot).toHaveBeenCalled());
 });
+
+it.each([false, true])('shows actual skipped reasons when all candidates failed: %s', async (allFailed) => {
+  const candidates = allFailed ? [] : usePlanner.getState().scan.candidates.slice(0, 1);
+  usePlanner.setState({ scan: null });
+  scanDepartures.mockResolvedValue({ candidates, best_index: allFailed ? null : 0, skipped: [
+    { departure_utc: departure, reason: 'Tile service unavailable' },
+    { departure_utc: '2026-09-09T12:00:00Z', reason: 'No sea route found' },
+  ] });
+  render(<Planner />);
+  fireEvent.click(scanButton());
+  await waitFor(() => expect(screen.getByText('Tile service unavailable')).toBeInTheDocument());
+  expect(screen.getByText('No sea route found')).toBeInTheDocument();
+  expect(screen.getByText('Unassessed departures')).toBeInTheDocument();
+  expect(screen.getByText('A missing cell does not mean safe conditions.')).toBeInTheDocument();
+  expect(screen.queryByText(/fall beyond the .*horizon/)).not.toBeInTheDocument();
+  fireEvent.click(screen.getByText('Unassessed departures'));
+  const times = screen.getAllByRole('time');
+  expect(times.map(time => time.getAttribute('dateTime'))).toEqual([departure, '2026-09-09T12:00:00Z']);
+});

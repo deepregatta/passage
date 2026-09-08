@@ -31,7 +31,7 @@ const EXPECTED: Record<string, string> = {
   'reference-demo-prev': 'warning_active',
 };
 
-async function runScenario(name: string) {
+async function runScenario(name: string, visibilityM?: number) {
   const dir = join(SCENARIOS_DIR, name);
   const route = JSON.parse(
     readFileSync(join(REPO, 'config', 'routes', 'cherbourg-plymouth.json'), 'utf8'),
@@ -52,6 +52,11 @@ async function runScenario(name: string) {
   const ens = await store.getEnsembleForecasts(points, 0, 0);
   const marine = await store.getWaveForecasts(points, 0, 0);
   const multi = await store.getHazardForecasts(points, 0, 0);
+  if (visibilityM !== undefined && multi) {
+    for (const forecasts of Object.values(multi.byModel)) {
+      for (const forecast of forecasts) forecast.visibility_m = forecast.times.map(() => visibilityM);
+    }
+  }
 
   let warnings: WarningsInput | undefined;
   const warningsPath = join(dir, 'warnings.json');
@@ -143,4 +148,14 @@ describe('verdict-state harness: five scenarios -> five states', () => {
       ),
     ).toBe(true);
   });
+});
+
+it.each([0, 185.2])('causal story prioritises severe minimum visibility (%s m) over above-limit wind', async (visibilityM) => {
+  const { findings } = await runScenario('storm', visibilityM);
+  const events = findings.causal_events!.filter(event => {
+    const evidence = findings.evidence.filter(item => event.consequence.evidence_ids.includes(item.evidence_id));
+    return evidence.some(item => item.rule_id === 'V-VIS-01') && evidence.some(item => item.rule_id.startsWith('W-'));
+  });
+  expect(events.length).toBeGreaterThan(0);
+  for (const event of events) expect(event.consequence.register_plain).toMatch(/visibility/i);
 });

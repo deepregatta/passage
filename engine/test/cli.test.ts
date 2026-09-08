@@ -49,3 +49,14 @@ it('CLI only falls back to all warning zones for user-drawn routes', () => {
   expect(runRoute({ ...route, mode: 'fixed' })).toEqual([]);
   expect(runRoute({ ...route, mode: 'user' })).toEqual([...allZones].sort());
 });
+
+// Boolean flags must not consume the next option, including another boolean.
+it.each(['--print', '--no-snapshot'])('CLI preserves departure after %s', (flag) => {
+  const output = execFileSync(process.execPath, [
+    '--import', 'tsx', join(repo, 'engine/src/cli.ts'), 'run',
+    flag, '--departure', '2026-07-20T06:00:00Z', '--print', '--no-snapshot',
+    '--now', '2026-07-19T18:00:00Z',
+    '--fixture-dir', join(repo, 'engine/test/fixtures/scenarios/calm'),
+  ], { cwd: repo, encoding: 'utf8', maxBuffer: 5_000_000 });
+  expect((JSON.parse(output) as Findings).departure_utc).toBe('2026-07-20T06:00:00Z');
+});

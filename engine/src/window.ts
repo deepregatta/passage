@@ -5,12 +5,13 @@
  */
 
 import { runAnalysis, type AnalyzeOptions, type AnalyzeResult } from './analyze.js';
+import { evidenceLimitRatio } from './findings.js';
 import type { Route, VerdictState } from './types.js';
 
 export interface WindowCandidate {
   departure_utc: string;
   verdict: VerdictState;
-  /** worst value/limit ratio among evidence (deterministic) */
+  /** Worst deterministic limit ratio (limit/value for minimum visibility). Zero visibility gives Infinity. */
   worst_ratio: number | null;
   /** worst ensemble exceedance fraction across the passage */
   max_fraction: number | null;
@@ -32,6 +33,8 @@ export interface ScanOptions extends Omit<AnalyzeOptions, 'departureUtc'> {
 
 export interface WindowScan {
   candidates: WindowCandidate[];
+  /** Candidates that failed routing or analysis, with the actual failure reason. */
+  skipped: Array<{ departure_utc: string; reason: string }>;
   /** index into candidates of the least-bad window (never a GO) */
   best_index: number | null;
 }
@@ -53,6 +56,7 @@ export async function scanDepartures(
   // run, so the store's tile cache serves all candidates after the first
   const { routeFor, ...analyzeBase } = base;
   const candidates: WindowCandidate[] = [];
+  const skipped: WindowScan['skipped'] = [];
   const eventKeys: string[][] = [];
 
   for (const departureUtc of departures) {
@@ -60,15 +64,18 @@ export async function scanDepartures(
     try {
       const route = routeFor ? await routeFor(departureUtc) : analyzeBase.route;
       result = await runAnalysis({ ...analyzeBase, route, departureUtc });
-    } catch {
-      continue; // a failed candidate (e.g. beyond forecast horizon) is skipped, not fatal
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : error == null ? '' : String(error);
+      skipped.push({ departure_utc: departureUtc, reason: reason || 'Unknown error' });
+      continue;
     }
     const findings = result.findings;
     let worstRatio: number | null = null;
     let maxFraction: number | null = null;
     for (const e of findings.evidence) {
-      if (typeof e.value === 'number' && typeof e.limit === 'number' && e.limit > 0 && !e.member_fraction) {
-        worstRatio = Math.max(worstRatio ?? 0, e.value / e.limit);
+      const ratio = evidenceLimitRatio(e);
+      if (ratio !== null && !e.member_fraction) {
+        worstRatio = Math.max(worstRatio ?? 0, ratio);
       }
       if (e.member_fraction) {
         maxFraction = Math.max(maxFraction ?? 0, e.member_fraction.exceed / e.member_fraction.total);
@@ -123,7 +130,7 @@ export async function scanDepartures(
     }
   }
 
-  return { candidates, best_index: bestIndex };
+  return { candidates, best_index: bestIndex, skipped };
 }
 
 function passageMetrics(findings: AnalyzeResult['findings']) {

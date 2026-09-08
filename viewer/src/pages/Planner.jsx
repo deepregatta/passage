@@ -636,6 +636,33 @@ function DepartureField({ value, onChange }) {
   );
 }
 
+function SkippedDepartures({ scan }) {
+  const skipped = scan.skipped ?? [];
+  const missing = scan.requested != null ? scan.requested - scan.candidates.length : skipped.length;
+  if (missing <= 0) return null;
+  return (
+    <div className="font-sans text-[12px] text-ink-soft mt-2">
+      {scan.requested != null && (
+        <p>{`${missing} of ${scan.requested} departure times could not be assessed and are not shown.`}</p>
+      )}
+      <p>A missing cell does not mean safe conditions.</p>
+      {skipped.length > 0 && (
+        <details className="mt-2">
+          <summary className="cursor-pointer">Unassessed departures</summary>
+          <ul className="mt-1 space-y-1">
+            {skipped.map((item, index) => (
+              <li className="break-words" key={`${item.departure_utc}-${index}`}>
+                <time dateTime={item.departure_utc}>{fmtLocalTime(item.departure_utc)}</time>
+                {' · '}<span>{item.reason}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </div>
+  );
+}
+
 /**
  * Full-width departure calendar: days across, one colored cell per candidate
  * (same verdict colors as everywhere else). Click a cell to adopt that
@@ -644,13 +671,12 @@ function DepartureField({ value, onChange }) {
 function DepartureComparison({ scan, departureLocal, busy, disabled, onPick }) {
   if (scan.candidates.length === 0) {
     return (
-      <section className="mt-6 border-t border-ink/40 pt-3">
+      <section className="mt-6 border-t border-ink/40 pt-3" aria-label="Departure comparison">
         <h2 className="font-instrument font-semibold uppercase tracking-wider">Departure comparison</h2>
         <p className="font-sans text-sm text-ink-soft mt-2 max-w-[70ch]">
-          None of the candidate departures could be assessed. The live forecast may not reach
-          that far ahead, or the forecast service may be unreachable. Try a departure within
-          the next few days, or check your connection.
+          None of the candidate departures could be assessed.
         </p>
+        <SkippedDepartures scan={scan} />
       </section>
     );
   }
@@ -716,11 +742,7 @@ function DepartureComparison({ scan, departureLocal, busy, disabled, onPick }) {
         ))}
       </div>
 
-      {scan.requested > scan.candidates.length && (
-        <p className="font-sans text-[12px] text-ink-soft mt-2">
-          {`${scan.requested - scan.candidates.length} of ${scan.requested} departure times fall beyond the ${scan.rerouted ? 'live forecast' : 'forecast'} horizon and are not shown. A missing cell does not mean safe conditions.`}
-        </p>
-      )}
+      <SkippedDepartures scan={scan} />
       <div className="flex flex-wrap items-baseline justify-between gap-2 mt-3">
         <p className="font-sans text-[13px] max-w-[80ch]">
           {best && (
