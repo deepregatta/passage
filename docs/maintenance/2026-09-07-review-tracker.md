@@ -199,7 +199,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Items: E1
 - Files: engine/src/routing/isochrone.ts, engine/test/routing.test.ts (comb mask from report §1)
 - Done when: new test asserts no emitted leg crosses the mask and passes; existing routing tests and demo fixture unchanged.
-- Status: todo · Commit: — · Notes:
+- Status: in progress · Commit: — · Notes: Clean pre-flight at `55c8f40`; verified previous step `f232c7b` scope and full guardrails: 123 engine + 69 viewer tests, 227 Python tests, Ruff lint/format passed. Known six-file demo regeneration drift remains assigned to 1.15; saved pre-step generated output and restored tracked fixtures. No untriaged findings or unrelated dirty files. User explicitly requested the next step after completing 1.6.
 
 ### 1.8 Honesty: emulated badge, fake overlay, models panel
 - Items: V5, V4, V6 — **prose changes expected** (UI copy → i18n patterns, e2e screenshots)
