@@ -244,17 +244,21 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
     ...gridPath.slice(1, -1),
     { lat: finish.lat, lon: finish.lon, timeMs: arrival[finishId]! },
   ];
-  const thinned = path.filter((p, k) => {
-    if (k === 0 || k === path.length - 1) return true;
+  // Keep real corners regardless of waypoint count. Check each shortcut from
+  // the last retained point so consecutive removals cannot cut across land.
+  const kept = [path[0]!];
+  for (let k = 1; k < path.length - 1; k++) {
+    const p = path[k]!;
     const prev = path[k - 1]!;
     const next = path[k + 1]!;
     const straightOn =
       Math.abs(wrap180(bearingDegTrue(prev.lat, prev.lon, p.lat, p.lon) -
         bearingDegTrue(p.lat, p.lon, next.lat, next.lon))) < 12;
-    return !straightOn;
-  });
-  const keepEvery = Math.max(1, Math.floor(thinned.length / 16));
-  const kept = thinned.filter((_, k) => k === 0 || k === thinned.length - 1 || k % keepEvery === 0);
+    if (!straightOn || (landMask && segmentCrossesLand(landMask, kept.at(-1)!, next))) {
+      kept.push(p);
+    }
+  }
+  kept.push(path.at(-1)!);
 
   const waypoints: Waypoint[] = kept.map((n, k) => ({
     id: `wp${k + 1}`,

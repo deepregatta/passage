@@ -199,7 +199,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Items: E1
 - Files: engine/src/routing/isochrone.ts, engine/test/routing.test.ts (comb mask from report §1)
 - Done when: new test asserts no emitted leg crosses the mask and passes; existing routing tests and demo fixture unchanged.
-- Status: in progress · Commit: — · Notes: Clean pre-flight at `55c8f40`; verified previous step `f232c7b` scope and full guardrails: 123 engine + 69 viewer tests, 227 Python tests, Ruff lint/format passed. Known six-file demo regeneration drift remains assigned to 1.15; saved pre-step generated output and restored tracked fixtures. No untriaged findings or unrelated dirty files. User explicitly requested the next step after completing 1.6.
+- Status: done · Commit: — · Notes: Clean pre-flight at `55c8f40`; verified previous step `f232c7b` scope and full guardrails. Regression-first: a six-wall comb with alternating gaps and a closed border reproduced 6 land-crossing emitted legs with northerly wind and 9 with southerly wind. Removed index-based waypoint decimation; retain real corners and check each near-collinear shortcut from the last retained point against the supplied mask. All emitted legs now clear the regression mask for eight wind directions; exact endpoints/names preserved. Existing routing tests unchanged. Final `npm test`: engine build/typecheck plus 131 engine + 69 viewer tests passed; Python `uv run pytest -q`: 227 passed (10 existing NumPy warnings); Ruff lint/format passed (54 files). Engine goldens unchanged; generated demo output byte-identical before/after, known six-file drift remains assigned to 1.15 and tracked fixtures restored unchanged. No viewer source or screen changes and no phase gate, so screenshot/e2e not applicable. No unrelated dirty files. Recorded the separate unchecked short-graph-edge path under Noticed for follow-up; no claim that simplification repairs graph acquisition or improves land-mask resolution. User explicitly requested the next step after completing 1.6.
 
 ### 1.8 Honesty: emulated badge, fake overlay, models panel
 - Items: V5, V4, V6 — **prose changes expected** (UI copy → i18n patterns, e2e screenshots)
@@ -408,6 +408,8 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - [triaged] 0.9 — engine/src/findings.ts:119 — The missing-speed diagnostic still says "polar-based ETA lands at M11" although polar routing exists; retained because 0.9 forbids user-facing copy changes. Assigned to 3.6 during 0.10 for prose cleanup with translation coverage.
 
 - [triaged] 0.10 — .github/workflows/ci.yml:15 — dropped: DEP0040 (punycode) and DEP0169 (url.parse) are informational warnings inside upstream setup-node@v5; no repository call site to repair, no failed CI step or check annotation, and supported Node 24 runtime verified. Reconsider during routine dependency updates rather than adding a product-maintenance step.
+
+- 1.7 — engine/src/routing/isochrone.ts:205 — Graph edges with both index deltas <= 1 skip segmentCrossesLand; finer land masks could contain land between sea endpoints. This separate graph-acquisition path is unchanged by the simplification fix; crossing behavior needs a dedicated reproduction before triage.
 
 ## Decisions
 (record design choices made in steps 1.5, 3.5, 5.3 here)

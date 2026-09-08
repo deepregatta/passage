@@ -64,6 +64,26 @@ function wallMask(): LandMask {
   return { schema_version: 1, kind: 'land_mask', lat0, lon0, dlat, dlon, nlat, nlon, land };
 }
 
+/** Six walls with alternating north/south gaps; the border prevents going around them. */
+function combMask(): LandMask {
+  const nlat = 61;
+  const nlon = 81;
+  const land = Array<number>(nlat * nlon).fill(0);
+  for (let i = 0; i < nlat; i++) {
+    for (let j = 0; j < nlon; j++) {
+      const wall = [10, 22, 34, 46, 58, 70].indexOf(j);
+      if (i === 0 || i === nlat - 1 || j === 0 || j === nlon - 1 ||
+        (wall >= 0 && (wall % 2 === 0 ? i < 46 : i > 14))) {
+        land[i * nlon + j] = 1;
+      }
+    }
+  }
+  return {
+    schema_version: 1, kind: 'land_mask',
+    lat0: 49.1, lon0: -5.5, dlat: 0.02, dlon: 0.02, nlat, nlon, land,
+  };
+}
+
 describe('polar interpolation', () => {
   it('bilinear inside the table, clamped at edges, no-go below 33°', () => {
     expect(boatSpeedKt(POLAR, 12, 90)).toBe(6.5);
@@ -138,6 +158,28 @@ describe('isochrone router', () => {
     const slow = computeRoute({ ...base, polarScaling: 0.8 });
     const fast = computeRoute({ ...base, polarScaling: 1.2 });
     expect(fast.duration_h).toBeLessThan(slow.duration_h);
+  });
+
+  it.each([0, 45, 90, 135, 180, 225, 270, 315])('keeps every emitted leg in the sea through six alternating wall gaps (wind %s)', (direction) => {
+    const mask = combMask();
+    const start = { lat: 49.7, lon: -5.4, name: 'Maze entrance' };
+    const finish = { lat: 49.7, lon: -4.0, name: 'Maze exit' };
+    const { route } = computeRoute({
+      start, finish,
+      departureUtc: '2026-07-20T00:00:00Z',
+      polar: POLAR,
+      windGrid: windGrid(direction, 14, 97),
+      landMask: mask,
+      resolutionDeg: 0.02,
+      maxHours: 96,
+    });
+    expect(route.waypoints[0]).toMatchObject(start);
+    expect(route.waypoints.at(-1)).toMatchObject(finish);
+    expect(route.waypoints.length).toBeGreaterThan(2);
+    const crossings = route.waypoints.slice(1).flatMap((to, i) =>
+      segmentCrossesLand(mask, route.waypoints[i]!, to) ? [i] : [],
+    );
+    expect(crossings).toEqual([]);
   });
 
   it('no wind coverage -> clear error, not a bogus route', () => {
