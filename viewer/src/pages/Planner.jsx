@@ -46,6 +46,8 @@ const SCAN_VERDICT = {
   warning_active: 'official warning',
 };
 
+const validSpeed = (value) => Number.isFinite(value) && value > 0;
+
 function ClickCapture({ onClick }) {
   useMapEvents({ click: (e) => onClick(e.latlng) });
   return null;
@@ -145,7 +147,8 @@ export default function Planner() {
     if (!route) return null;
     return Math.round(totalDistanceNm(deriveLegs(route)) * 10) / 10;
   }, [route]);
-  const passageHours = distance ? Math.round(distance / speeds.nominal) : null;
+  const speedsValid = mode === 'compute' || ['slow', 'nominal', 'fast'].every(k => validSpeed(speeds[k]));
+  const passageHours = distance && validSpeed(speeds.nominal) ? Math.round(distance / speeds.nominal) : null;
   const departureUtc = localDateTimeToIso(departureLocal);
 
   const addWaypoint = useCallback(
@@ -218,7 +221,7 @@ export default function Planner() {
   };
 
   const runScan = async () => {
-    if (!route || !departureUtc) return;
+    if (!route || !departureUtc || !speedsValid) return;
     setBusy('scanning departures');
     setError(null);
     setScan(null);
@@ -278,7 +281,7 @@ export default function Planner() {
   const run = async (overrides = {}) => {
     const checkRoute = overrides.route ?? route;
     const checkDepartureUtc = overrides.departureUtc ?? departureUtc;
-    if (!checkRoute) return;
+    if (!checkRoute || !speedsValid) return;
     setBusy('starting');
     setError(null);
     try {
@@ -287,7 +290,9 @@ export default function Planner() {
       if (!profile) throw new Error('No limits profile available. Open My limits first.');
       if (!checkDepartureUtc) throw new Error('Enter a valid departure date and 24-hour time.');
       if (checkRoute.waypoints?.length < 2 || !checkRoute.waypoints?.every(wp => Number.isFinite(wp.lat) && Number.isFinite(wp.lon))) throw new Error('Specify at least two valid waypoints.');
-      const measurementAttempt = crypto.randomUUID();
+      // Same non-secure-context fallback as analyticsClient's event ids.
+      const measurementAttempt = globalThis.crypto?.randomUUID?.()
+        || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 14)}`;
       track('passage_attempt', { route_specified: true });
       await saveRoute(checkRoute);
       const { snapshotId } = await analyzeInBrowser({
@@ -416,8 +421,9 @@ export default function Planner() {
                       type="number"
                       step="0.5"
                       value={speeds[k]}
-                      onChange={(e) => setSpeeds({ ...speeds, [k]: Number(e.target.value) })}
-                      className="w-full bg-white/60 border hairline rounded-sm px-2 py-1.5 font-mono"
+                      onChange={(e) => setSpeeds({ ...speeds, [k]: e.target.value === '' ? '' : Number(e.target.value) })}
+                      aria-invalid={!validSpeed(speeds[k])}
+                      className="w-full bg-white/60 border hairline rounded-sm px-2 py-1.5 font-mono aria-[invalid=true]:border-verdict-exceeds"
                       aria-label={`${k} speed`}
                     />
                   ))}
@@ -470,8 +476,7 @@ export default function Planner() {
                   <>
                     {' · '}
                     <span className="font-mono">{distance} nm</span>
-                    {' · ~'}
-                    <span className="font-mono">{passageHours} h</span>
+                    {passageHours !== null && <>{' · ~'}<span className="font-mono">{passageHours} h</span></>}
                   </>
                 )}
               </span>
@@ -515,7 +520,7 @@ export default function Planner() {
             <button
               type="button"
               onClick={() => run()}
-              disabled={!route || !departureUtc || busy !== null}
+              disabled={!route || !departureUtc || !speedsValid || busy !== null}
               className="w-full bg-ink text-paper font-medium rounded-sm px-3 py-2.5 hover:bg-ink-deep disabled:opacity-40"
             >
               {busy ? `${busy}…` : 'Check this passage against my limits'}
@@ -536,7 +541,7 @@ export default function Planner() {
             <button
               type="button"
               onClick={runScan}
-              disabled={!route || !departureUtc || busy !== null}
+              disabled={!route || !departureUtc || !speedsValid || busy !== null}
               className="w-full border border-ink/50 rounded-sm px-3 py-2 hover:bg-white/50 disabled:opacity-40"
             >
               Compare departure times (next 5 days)
@@ -562,8 +567,9 @@ export default function Planner() {
           scan={scan}
           departureLocal={departureLocal}
           busy={busy}
+          disabled={!route || !speedsValid}
           onPick={(candidate) => {
-            if (busy !== null) return;
+            if (busy !== null || !speedsValid) return;
             setDepartureLocal(toLocalDateTimeValue(candidate.departure_utc));
             const rerouted = scan.routes?.[candidate.departure_utc];
             if (rerouted) setComputed(rerouted);
@@ -635,7 +641,7 @@ function DepartureField({ value, onChange }) {
  * (same verdict colors as everywhere else). Click a cell to adopt that
  * departure; in compute mode the cell also carries its own weather-routed track.
  */
-function DepartureComparison({ scan, departureLocal, busy, onPick }) {
+function DepartureComparison({ scan, departureLocal, busy, disabled, onPick }) {
   if (scan.candidates.length === 0) {
     return (
       <section className="mt-6 border-t border-ink/40 pt-3">
@@ -659,6 +665,7 @@ function DepartureComparison({ scan, departureLocal, busy, onPick }) {
   const best = scan.best_index !== null ? scan.candidates[scan.best_index] : null;
   const baseline = scan.candidates[0];
   const allInsufficient = scan.candidates.every((c) => c.verdict === 'insufficient');
+  const selectedDepartureMs = Date.parse(localDateTimeToIso(departureLocal));
 
   return (
     <section className="mt-6 border-t border-ink/40 pt-3" aria-label="Departure comparison">
@@ -690,11 +697,12 @@ function DepartureComparison({ scan, departureLocal, busy, onPick }) {
                     key={c.departure_utc}
                     type="button"
                     onClick={() => onPick(c)}
-                    disabled={busy !== null}
+                    disabled={disabled || busy !== null}
+                    aria-pressed={selectedDepartureMs === Date.parse(c.departure_utc)}
                     title={`${fmtLocalTime(c.departure_utc)} local time (${localTimeZoneName()}) · ${parts.join(' · ')}`}
                     className={clsx(
                       'w-[66px] h-[54px] rounded-sm text-white flex flex-col items-center justify-center gap-0.5 disabled:opacity-40',
-                      localDateTimeToIso(departureLocal) === c.departure_utc && 'outline outline-2 outline-ink outline-offset-1',
+                      selectedDepartureMs === Date.parse(c.departure_utc) && 'outline outline-2 outline-ink outline-offset-1',
                     )}
                     style={{ backgroundColor: v.hex }}
                   >
