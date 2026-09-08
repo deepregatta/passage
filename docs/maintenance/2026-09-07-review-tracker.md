@@ -232,7 +232,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Items: V7, V8
 - Files: viewer/src/stores/{appStore,playbackStore}.js, viewer/src/components/TimeRuler.jsx, viewer/src/pages/{Snapshots,Briefing}.jsx, new store tests
 - Done when: two rapid opens show the last one; `loadError` is visible on the briefing/snapshots pages; playback resets on open and stops on unmount.
-- Status: todo · Commit: — · Notes:
+- Status: in progress · Commit: — · Notes: Clean pre-flight at `2a6997d`; verified previous step `52b13fa` scope. npm tests and Python pytest/Ruff/format pass; known six-file demo regeneration drift remains assigned to 1.15, tracked fixtures restored unchanged. No untriaged notices or unrelated dirty files.
 
 ### 1.11 Storage and fetch guards
 - Items: V9, V10, V14, V18
