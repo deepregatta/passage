@@ -21,8 +21,6 @@ export default function SynopticHero() {
   const selectEvidence = useApp((state) => state.selectEvidence);
   const cursor = usePlayback((state) => state.cursorHours);
   const eventId = usePlayback((state) => state.focusedEventId);
-  const departureVariant = usePlayback((state) => state.departureVariant);
-  const setDepartureVariant = usePlayback((state) => state.setDepartureVariant);
   const [fullscreen, setFullscreen] = useState(false);
   const maxHours = findings ? Math.ceil((Date.parse(findings.legs.at(-1).eta_range.slow) - Date.parse(findings.departure_utc)) / 3600_000) : 36;
   const frame = useMemo(() => frameForCursor(findings, synoptic, route, cursor, eventId), [findings, synoptic, route, cursor, eventId]);
@@ -35,14 +33,14 @@ export default function SynopticHero() {
     return <div className="min-h-[430px] border border-dashed border-ink/30 bg-shoal/20 grid place-items-center p-8 text-center"><div><p className="font-story text-2xl">Synoptic chart unavailable</p><p className="font-instrument text-sm text-ink-soft mt-2">{findings ? 'This legacy run has route conditions, but no archived synoptic data.' : 'Open a passage briefing first.'}</p></div></div>;
   }
 
-  const content = <HeroCanvas findings={findings} synoptic={synoptic} route={route} frame={frame} cursor={cursor} maxHours={maxHours} departureVariant={departureVariant} setDepartureVariant={setDepartureVariant} />;
+  const content = <HeroCanvas findings={findings} synoptic={synoptic} route={route} frame={frame} cursor={cursor} maxHours={maxHours} />;
   return <>
     <div className="relative"><button type="button" onClick={() => setFullscreen(true)} className="absolute z-10 right-2 top-2 min-h-11 px-3 bg-paper/90 border border-ink/40 font-instrument text-xs">Full screen</button>{content}</div>
     <FullscreenChart open={fullscreen} title="Causal briefing playback" onClose={() => setFullscreen(false)}>{content}</FullscreenChart>
   </>;
 }
 
-function HeroCanvas({ findings, synoptic, route, frame, cursor, maxHours, departureVariant, setDepartureVariant }) {
+function HeroCanvas({ findings, synoptic, route, frame, cursor, maxHours }) {
   const event = frame.event ?? null;
   const system = synoptic.systems.find((item) => item.system_id === event?.system_id) ?? synoptic.systems[0] ?? null;
   const chart = nearestCaption(synoptic.chart_captions, cursor);
@@ -53,8 +51,8 @@ function HeroCanvas({ findings, synoptic, route, frame, cursor, maxHours, depart
 
   return <div className="chart-frame border border-ink/40 bg-shoal/30 p-3">
     {projector && url
-      ? <ChartCanvas url={url} projector={projector} route={route} system={system} frame={frame} event={event} departureVariant={departureVariant} zoomed={zoomed} onBroken={() => setChartBroken(true)} caption={chart?.caption} />
-      : <SchematicCanvas route={route} system={system} frame={frame} event={event} departureVariant={departureVariant} />}
+      ? <ChartCanvas url={url} projector={projector} route={route} system={system} frame={frame} event={event} zoomed={zoomed} onBroken={() => setChartBroken(true)} caption={chart?.caption} />
+      : <SchematicCanvas route={route} system={system} frame={frame} event={event} />}
     <div className="flex items-center justify-between gap-3 py-2 font-instrument text-xs">
       <span>
         {event
@@ -67,9 +65,6 @@ function HeroCanvas({ findings, synoptic, route, frame, cursor, maxHours, depart
             {zoomed ? 'Full chart' : 'Zoom to route'}
           </button>
         )}
-        {event && (
-          <button type="button" onClick={() => setDepartureVariant(departureVariant === 'alternative' ? 'nominal' : 'alternative')} className="min-h-11 px-3 border border-event text-event">{departureVariant === 'alternative' ? 'Hide safer departure' : 'Compare safer departure'}</button>
-        )}
       </span>
     </div>
     <TimeRuler findings={findings} maxHours={maxHours} />
@@ -77,7 +72,7 @@ function HeroCanvas({ findings, synoptic, route, frame, cursor, maxHours, depart
 }
 
 /** overlay drawn in the PNG's own pixel space so positions are geographically true */
-function Overlay({ w, xy, route, system, frame, event, departureVariant }) {
+function Overlay({ w, xy, route, system, frame, event }) {
   const routePoints = route.waypoints.map(xy).map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(' ');
   const track = system?.track ?? [];
   const trackPoints = track.map(xy).map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(' ');
@@ -85,7 +80,6 @@ function Overlay({ w, xy, route, system, frame, event, departureVariant }) {
   const boatPoint = frame.boatPosition ? xy(frame.boatPosition) : null;
   const u = w / 340; // hairline unit relative to chart resolution
   return <>
-    {departureVariant === 'alternative' && <polyline points={routePoints} fill="none" stroke="#176B87" strokeOpacity=".4" strokeWidth={u * 2.4} strokeDasharray={`${u * 2.5} ${u * 2.5}`} transform={`translate(0 ${-u * 5})`} />}
     <polyline points={routePoints} fill="none" stroke="#16283E" strokeWidth={u * 1.4} strokeDasharray={`${u * 1.2} ${u * 2}`} strokeLinecap="round" />
     {track.length > 0 && <polyline points={trackPoints} fill="none" stroke="#176B87" strokeWidth={u * 1.6} />}
     {track.map((point) => { const p = xy(point); return <circle key={point.valid_time} cx={p.x} cy={p.y} r={u * 0.9} fill="#176B87" />; })}
@@ -101,7 +95,7 @@ function Overlay({ w, xy, route, system, frame, event, departureVariant }) {
 }
 
 /** the real synoptic pressure chart with the story drawn on top of it */
-function ChartCanvas({ url, projector, route, system, frame, event, departureVariant, zoomed, onBroken, caption }) {
+function ChartCanvas({ url, projector, route, system, frame, event, zoomed, onBroken, caption }) {
   // zoom about the route's center in the chart's own pixel space; the overlay
   // shares the wrapper so route and isobars scale together and stay aligned
   const points = route.waypoints.map(projector.xy);
@@ -120,7 +114,7 @@ function ChartCanvas({ url, projector, route, system, frame, event, departureVar
     <div style={{ transform: `scale(${scale})`, transformOrigin: `${originX}% ${originY}%`, transition: 'transform .35s ease' }}>
       <img src={url} alt={caption ?? 'Synoptic pressure chart'} className="w-full block" onError={onBroken} />
       <svg viewBox={`0 0 ${projector.w} ${projector.h}`} preserveAspectRatio="none" className="absolute inset-0 w-full h-full pointer-events-none" role="img" aria-label={`${event?.name ?? 'Synoptic'} track and route occupancy`}>
-        <Overlay w={projector.w} xy={projector.xy} route={route} system={system} frame={frame} event={event} departureVariant={departureVariant} />
+        <Overlay w={projector.w} xy={projector.xy} route={route} system={system} frame={frame} event={event} />
       </svg>
     </div>
     <Banner frame={frame} event={event} />
@@ -129,7 +123,7 @@ function ChartCanvas({ url, projector, route, system, frame, event, departureVar
 }
 
 /** fallback when a chart image or its geometry is missing: bounds-fit schematic */
-function SchematicCanvas({ route, system, frame, event, departureVariant }) {
+function SchematicCanvas({ route, system, frame, event }) {
   const points = [...route.waypoints, ...(system?.track ?? [])];
   const lonMin = Math.min(...points.map((point) => point.lon)) - 1;
   const lonMax = Math.max(...points.map((point) => point.lon)) + 1;
@@ -140,7 +134,7 @@ function SchematicCanvas({ route, system, frame, event, departureVariant }) {
     <svg viewBox="0 0 100 90" className="absolute inset-0 w-full h-full" role="img" aria-label={`${event?.name ?? 'Synoptic'} track and route occupancy`}>
       <defs><pattern id="sea-grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M10 0H0V10" fill="none" stroke="#52739e" strokeOpacity=".12" strokeWidth=".2"/></pattern></defs>
       <rect width="100" height="90" fill="url(#sea-grid)"/>
-      <Overlay w={100} xy={xy} route={route} system={system} frame={frame} event={event} departureVariant={departureVariant} />
+      <Overlay w={100} xy={xy} route={route} system={system} frame={frame} event={event} />
     </svg>
     <Banner frame={frame} event={event} />
     <StatusChip frame={frame} event={event} />

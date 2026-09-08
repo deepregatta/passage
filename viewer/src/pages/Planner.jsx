@@ -1,4 +1,5 @@
 import { track } from '../lib/analytics.js';
+import ModelsUsed from '../components/ModelsUsed.jsx';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, useMap, useMapEvents } from 'react-leaflet';
 import { BASEMAP } from '../lib/basemap.js';
@@ -626,65 +627,6 @@ function DepartureField({ value, onChange }) {
         <span className="font-mono">{localTimeZoneName()}</span>
       </p>
     </fieldset>
-  );
-}
-
-/** which forecast models feed each calculation on this page; plain first, ids in mono */
-function ModelsUsed() {
-  const mono = (text) => <span className="font-mono text-[11px] text-ink-soft">{text}</span>;
-
-  return (
-    <details className="mt-6 border-t border-ink/40 pt-3">
-      <summary className="font-instrument font-semibold uppercase tracking-wider cursor-pointer">
-        Which models are behind these numbers?
-      </summary>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 mt-3 font-sans text-[13px] leading-relaxed max-w-[1100px]">
-        <div>
-          <p className="eyebrow mb-1.5">Checking a passage · comparing departures</p>
-          <ul className="space-y-1.5">
-            <li>
-              Winds and gusts along your route: NOAA GFS 0.25° {mono('gfs_0p25')}. Precomputed
-              forecast tiles, updated four times a day, reaching 10 days ahead.
-            </li>
-            <li>
-              The “N forecast scenarios”: the GEFS ensemble, a set of plausible runs of the same
-              model {mono('gefs_0p50 · 31 members')}, reaching 16 days. The exact member count is
-              read from the run, never assumed.
-            </li>
-            <li>
-              The cross-check behind “models disagree”: GFS against ECMWF open data{' '}
-              {mono('ecmwf_0p25 · ~10 days')}, with the GEFS spread as an additional signal.
-            </li>
-            <li>Waves: NOAA GFS-Wave {mono('gfswave_0p25')}, same tile pipeline.</li>
-            <li>
-              Tidal streams and gates: CMEMS IBI currents. Gate timing: HW/LW extracted from CMEMS
-              IBI 15-minute sea-surface height at the reference ports{' '}
-              {mono('ibi_phy_anfc_2D_PT15M')}.
-            </li>
-            <li>
-              Official warnings: Météo-France BMS from the official open-data mirror (côte + large,
-              synced daily) and Met Office shipping-forecast gale warnings (per issue). Both lag
-              their source — a warning issued after the last sync is not yet visible, so absence of
-              a warning here is not absence of risk.
-            </li>
-          </ul>
-        </div>
-        <div>
-          <p className="eyebrow mb-1.5">Computing a route (and per-departure routes)</p>
-          <ul className="space-y-1.5">
-            <li>
-              Routing wind: GFS 0.25° tiles mosaicked over a grid sized to your crossing
-              {mono('gfs_0p25 · up to 10 days')}.
-            </li>
-            <li>Your boat: the ORC polar you picked, used as-is by the router.</li>
-            <li>
-              Currents: Copernicus GLO12 surface currents (1/12°, 6-hourly) from the same tile
-              pipeline. These are <em>not</em> tidal streams. Routing falls back to wind alone if unavailable.
-            </li>
-          </ul>
-        </div>
-      </div>
-    </details>
   );
 }
 

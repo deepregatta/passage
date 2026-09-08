@@ -54,7 +54,31 @@ test('example decision band prioritizes bulletin inspection before charts', asyn
   expect(bandBox.y).toBeLessThan(heroBox.y);
   await inspectBulletin.click();
   const bulletin = page.getByRole('dialog');
-  await expect(bulletin.getByText('Source bulletin', { exact: true })).toBeVisible();
+  await expect(bulletin.getByText('Emulated bulletin', { exact: true })).toBeVisible();
+  await expect(bulletin.getByText('EMULATED WARNING SCENARIO')).toBeVisible();
+  await expect(bulletin.getByText('Emulated bulletin. Do not use for a real passage decision.')).toBeVisible();
   await bulletin.getByRole('button', { name: 'Close bulletin' }).click();
   await expect(bulletin).toHaveCount(0);
 });
+
+for (const language of ['en', 'fr']) {
+  test(`recorded models and emulated bulletin disclosure (${language})`, async ({ page }) => {
+    await page.clock.setFixedTime(new Date('2026-07-19T18:00:00Z'));
+    await openAuditedSnapshot(page);
+    if (language === 'fr') await page.getByRole('button', { name: 'Français' }).click();
+    const french = language === 'fr';
+    await expect(page.getByRole('button', { name: /safer departure|départ plus sûr/i })).toHaveCount(0);
+    const summary = page.getByText(french ? 'Modèles et couverture' : 'Models and coverage', { exact: true });
+    await summary.click();
+    const panel = summary.locator('..');
+    await expect(panel.getByText(french ? '51 membres' : '51 members')).toBeVisible();
+    await expect(panel.getByText(french ? 'scénario' : 'scenario', { exact: true })).toHaveCount(4);
+    await expect(panel.getByText(french ? 'Données de test' : 'Fixture data')).toHaveCount(4);
+    await expect(panel.getByText(french ? 'portes de marée' : 'tidal gates').locator('..')).toContainText(french ? 'non évalué' : 'not assessed');
+    await expect(panel.getByText(french ? 'alertes officielles' : 'official warnings').locator('..')).toContainText(french ? 'évalué (simulé)' : 'assessed emulated');
+    await page.getByRole('button', { name: french ? 'Examiner le bulletin de l’exemple' : 'Inspect example bulletin', exact: true }).click();
+    const bulletin = page.getByRole('dialog');
+    await expect(bulletin.getByText(french ? 'SCÉNARIO D’ALERTE SIMULÉ' : 'EMULATED WARNING SCENARIO')).toBeVisible();
+    await expect(bulletin.getByText(french ? 'Bulletin simulé. Ne l’utilisez pas pour prendre une décision de traversée réelle.' : 'Emulated bulletin. Do not use for a real passage decision.')).toBeVisible();
+  });
+}
