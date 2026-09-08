@@ -3,6 +3,16 @@ import { initialPage, PAGE_HASH } from '../lib/routes.js';
 import { localSnapshots, fetchSnapshotJson, snapshotTombstones } from '../lib/localSnapshots.js';
 import { preparedRun } from '../lib/preparedRun.js';
 import { getInitialLanguage, getLanguageFromPath, LANGUAGE_STORAGE_KEY } from '../i18n.js';
+import { usePlayback } from './playbackStore.js';
+
+// IndexedDB and shared prepared-run reads may finish after navigation. Only the
+// current open (including example manifest discovery) may publish its result.
+let openSequence = 0;
+const emptySnapshot = {
+  snapshotId: null, findings: null, briefing: null, plume: null, snapshot: null,
+  warnings: null, synoptic: null, route: null, measurementAttempt: null,
+  selectedEvidenceId: null, selectedLegId: null, inspectorOpen: false,
+};
 
 async function fetchJson(url) {
   const response = await fetch(url);
@@ -38,6 +48,10 @@ export const useApp = create((set, get) => ({
   nowMs: Date.now(),
 
   setPage: (page) => {
+    if (page !== get().page) {
+      openSequence += 1;
+      set({ loading: false });
+    }
     const hash = PAGE_HASH[page];
     if (typeof location !== 'undefined' && hash && location.hash !== `#${hash}`) {
       history.pushState(null, '', `${location.pathname}${location.search}#${hash}`);
@@ -48,15 +62,19 @@ export const useApp = create((set, get) => ({
   // The public example is resolved from the served manifest, even when a
   // returning visitor has hidden it from My briefings. No planner or forecast run.
   loadExample: async () => {
-    set({ loading: true, loadError: null, findings: null, briefing: null, measurementAttempt: null });
+    const sequence = ++openSequence;
+    usePlayback.getState().reset();
+    set({ ...emptySnapshot, loading: true, loadError: null });
     try {
       const served = await fetchJson('/data/snapshots/manifest.json');
+      if (sequence !== openSequence) return;
       const example = served.snapshots?.find((item) => item.demo === true);
       if (!example) throw new Error('Example unavailable');
       set({ manifest: { ...(get().manifest ?? served), snapshots: [example,
         ...(get().manifest?.snapshots ?? []).filter((item) => item.snapshot_id !== example.snapshot_id)] } });
       await get().openSnapshot(example.snapshot_id, null, 'example');
     } catch (error) {
+      if (sequence !== openSequence) return;
       set({ loadError: error.message, loading: false });
     }
   },
@@ -115,9 +133,12 @@ export const useApp = create((set, get) => ({
   },
 
   openSnapshot: async (snapshotId, measurementAttempt = null, targetPage = 'briefing') => {
-    set({ loading: true, loadError: null, snapshotId, inspectorOpen: false, measurementAttempt });
+    const sequence = ++openSequence;
+    usePlayback.getState().reset();
+    set({ ...emptySnapshot, loading: true, loadError: null, snapshotId, measurementAttempt });
     try {
       if (targetPage !== 'example') await preparedRun(); // live/saved runs only
+      if (sequence !== openSequence) return;
       const file = targetPage === 'example'
         ? (name) => fetchJson(`/data/snapshots/${snapshotId}/${name}`)
         : (name) => fetchSnapshotJson(snapshotId, name);
@@ -130,8 +151,7 @@ export const useApp = create((set, get) => ({
         file('synoptic.json').catch(() => null),
         file('route.json').catch(() => null),
       ]);
-      // A slow example request must not pull a visitor back from the planner.
-      if (targetPage === 'example' && get().page !== 'example') { set({ loading: false }); return; }
+      if (sequence !== openSequence) return;
       const worstLeg =
         findings.evidence.find((e) => e.evidence_id === findings.verdict.driver_evidence_id)
           ?.leg_id ?? findings.legs[0]?.leg_id;
@@ -151,6 +171,7 @@ export const useApp = create((set, get) => ({
         nowMs: Date.now(),
       });
     } catch (error) {
+      if (sequence !== openSequence) return;
       set({ loadError: error.message, loading: false });
     }
   },
@@ -170,7 +191,9 @@ export const useApp = create((set, get) => ({
     }
     const closingOpen = get().snapshotId === snapshotId;
     if (closingOpen) {
-      set({ snapshotId: null, findings: null, briefing: null, plume: null, snapshot: null, warnings: null, synoptic: null, route: null });
+      openSequence += 1;
+      usePlayback.getState().reset();
+      set({ ...emptySnapshot, loading: false, loadError: null });
     }
     await get().loadManifest();
   },

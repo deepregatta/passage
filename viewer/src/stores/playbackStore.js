@@ -61,6 +61,7 @@ export const usePlayback = create((set, get) => ({
   setDepartureVariant: (departureVariant) => set({ departureVariant }),
   setFocusedEvidence: (focusedEvidenceId) => set({ focusedEvidenceId }),
   play: (maxHours = 36) => {
+    if (get().playing) return;
     if (matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
     set({ playing: true });
     last = performance.now();
@@ -75,7 +76,11 @@ export const usePlayback = create((set, get) => ({
   },
   pause: () => {
     set({ playing: false });
-    if (raf) cancelAnimationFrame(raf);
+    if (raf !== null) cancelAnimationFrame(raf);
     raf = null;
+  },
+  reset: () => {
+    get().pause();
+    set({ cursorHours: 0, focusedEventId: null, departureVariant: 'nominal', focusedEvidenceId: null });
   },
 }));

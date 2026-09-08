@@ -54,12 +54,15 @@ export default function Briefing() {
   const attempt = useApp((s) => s.measurementAttempt);
   const example = useApp((s) => s.manifest?.snapshots?.find(item => item.snapshot_id === s.snapshotId)?.demo === true);
   const loading = useApp((s) => s.loading);
-  const ready = !loading && Boolean(findings?.verdict?.state && briefing?.sections?.length && findings?.legs?.length);
+  const loadError = useApp((s) => s.loadError);
+  const ready = !loading && !loadError && Boolean(findings?.verdict?.state && briefing?.sections?.length && findings?.legs?.length);
   useEffect(() => {
     if (!ready || !snapshotId) return;
     const event = attempt ? 'passage_run' : example ? 'passage_example_view' : 'passage_briefing_view';
     trackOnce(`${event}:${attempt || snapshotId}`, event, { verdict: findings.verdict.state, result_rendered: true });
   }, [ready, snapshotId, attempt, example, findings]);
+  if (loadError) return <p role="alert" className="p-6 font-sans text-sm text-verdict-exceeds break-words">{loadError}</p>;
+  if (loading) return <p role="status" className="p-6 font-instrument text-ink-soft">Loading passage instruments…</p>;
   if (!findings || !briefing) return <EmptyState />;
   const warningEvidence = findings.evidence.find((item) => item.rule_id === 'A-WARN-01');
   // the synoptic chart is the product's differentiator: it renders whenever the
