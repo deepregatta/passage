@@ -22,14 +22,15 @@ export default function SynopticHero() {
   const cursor = usePlayback((state) => state.cursorHours);
   const eventId = usePlayback((state) => state.focusedEventId);
   const [fullscreen, setFullscreen] = useState(false);
-  const maxHours = findings ? Math.ceil((Date.parse(findings.legs.at(-1).eta_range.slow) - Date.parse(findings.departure_utc)) / 3600_000) : 36;
+  const arrival = findings?.legs.at(-1)?.eta_range.slow;
+  const maxHours = arrival ? Math.ceil((Date.parse(arrival) - Date.parse(findings.departure_utc)) / 3600_000) : 36;
   const frame = useMemo(() => frameForCursor(findings, synoptic, route, cursor, eventId), [findings, synoptic, route, cursor, eventId]);
 
   useEffect(() => {
     if (frame.focusedEvidenceId) selectEvidence(frame.focusedEvidenceId);
   }, [frame.focusedEvidenceId, selectEvidence]);
 
-  if (!findings || !synoptic || !route) {
+  if (!findings?.legs.length || !synoptic || !route?.waypoints?.length) {
     return <div className="min-h-[430px] border border-dashed border-ink/30 bg-shoal/20 grid place-items-center p-8 text-center"><div><p className="font-story text-2xl">Synoptic chart unavailable</p><p className="font-instrument text-sm text-ink-soft mt-2">{findings ? 'This legacy run has route conditions, but no archived synoptic data.' : 'Open a passage briefing first.'}</p></div></div>;
   }
 

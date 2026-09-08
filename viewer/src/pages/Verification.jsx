@@ -11,9 +11,13 @@ const CLASS_LABEL = {
   emulated: 'emulated observations',
 };
 
-async function loadJson(url) {
-  const res = await fetch(url);
-  return res.ok ? res.json() : null;
+async function loadJson(url, signal) {
+  try {
+    const res = await fetch(url, { signal });
+    return res.ok ? await res.json() : null;
+  } catch {
+    return null;
+  }
 }
 
 export default function Verification() {
@@ -26,18 +30,25 @@ export default function Verification() {
   const [corpus, setCorpus] = useState(null);
 
   useEffect(() => {
-    Promise.all([
-      loadJson('/data/verification/calibration.json').then(setCalibration),
-      loadJson('/data/verification/cases/index.json').then(setCaseIndex),
-      loadJson('/data/verification/corpus.json').then(setCorpus),
-    ]);
+    const controller = new AbortController();
+    const load = (url, setValue) => loadJson(url, controller.signal).then((doc) => {
+      if (!controller.signal.aborted) setValue(doc);
+    });
+    load('/data/verification/calibration.json', setCalibration);
+    load('/data/verification/cases/index.json', setCaseIndex);
+    load('/data/verification/corpus.json', setCorpus);
+    return () => controller.abort();
   }, []);
   useEffect(() => {
-    if (!findings) return;
-    if (!caseIndex) return;
+    setCaseDoc(null);
+    if (!findings || !caseIndex) return;
     const exists = caseIndex.cases?.some((item) => (item.snapshot_id ?? item) === findings.snapshot_id);
-    if (!exists) return setCaseDoc(null);
-    loadJson(`/data/verification/cases/${findings.snapshot_id}.json`).then(setCaseDoc);
+    if (!exists) return;
+    const controller = new AbortController();
+    loadJson(`/data/verification/cases/${findings.snapshot_id}.json`, controller.signal).then((doc) => {
+      if (!controller.signal.aborted) setCaseDoc(doc);
+    });
+    return () => controller.abort();
   }, [findings, caseIndex]);
 
   return (

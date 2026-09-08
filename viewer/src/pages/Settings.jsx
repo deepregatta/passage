@@ -3,6 +3,24 @@ import { useApp } from '../stores/appStore.js';
 import { Panel, EmulatedStamp } from '../components/common.jsx';
 import { GLOSSARY } from '../lib/glossary.jsx';
 
+// Recover known editable fields while retaining defaults for missing or invalid values.
+function loadProfileDraft(defaults) {
+  let stored;
+  try {
+    stored = JSON.parse(localStorage.getItem('deepweather.profile-draft'));
+  } catch {
+    // A corrupt or inaccessible draft falls back to the declared defaults.
+  }
+  const merge = (base, value) => Object.fromEntries(Object.entries(base).map(([key, fallback]) => {
+    const candidate = value && !Array.isArray(value) ? value[key] : undefined;
+    return [key, fallback && typeof fallback === 'object'
+      ? merge(fallback, candidate)
+      : typeof candidate === typeof fallback && (typeof candidate !== 'number' || Number.isFinite(candidate))
+        ? candidate : fallback];
+  }));
+  return merge(defaults, stored);
+}
+
 export default function Settings() {
   const providers = useApp((s) => s.providers);
   const profileDefaults = useApp((s) => s.profileDefaults);
@@ -15,8 +33,7 @@ export default function Settings() {
 
   useEffect(() => {
     if (profileDefaults && !draft) {
-      const stored = localStorage.getItem('deepweather.profile-draft');
-      setDraft(stored ? JSON.parse(stored) : structuredClone(profileDefaults));
+      setDraft(loadProfileDraft(profileDefaults));
     }
   }, [profileDefaults, draft]);
 
@@ -26,7 +43,11 @@ export default function Settings() {
     for (let i = 0; i < path.length - 1; i++) obj = obj[path[i]];
     obj[path[path.length - 1]] = value;
     setDraft(next);
-    localStorage.setItem('deepweather.profile-draft', JSON.stringify(next));
+    try {
+      localStorage.setItem('deepweather.profile-draft', JSON.stringify(next));
+    } catch {
+      // Storage blocked/full: retain edits in this mounted page.
+    }
   };
 
   return (

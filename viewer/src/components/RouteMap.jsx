@@ -6,7 +6,6 @@ import { GridSampler } from '@deepweather/engine';
 import { useApp } from '../stores/appStore.js';
 import { frameForCursor, usePlayback } from '../stores/playbackStore.js';
 import { STATUS_HEX, hourStatus, fmtTime } from '../lib/format.js';
-import { fetchSnapshotJson } from '../lib/localSnapshots.js';
 import { preparedRun, artifactUrl } from '../lib/preparedRun.js';
 import { BASEMAP } from '../lib/basemap.js';
 
@@ -105,7 +104,7 @@ export default function RouteMap({ height = 420 }) {
   const synoptic = useApp((s) => s.synoptic);
   const example = useApp((s) => s.manifest?.snapshots?.some(item => item.snapshot_id === s.snapshotId && item.demo === true));
   const cursor = usePlayback((s) => s.cursorHours);
-  const [routeDoc, setRouteDoc] = useState(null);
+  const routeDoc = useApp((s) => s.route);
   const [gatePositions, setGatePositions] = useState({});
   const [windGrid, setWindGrid] = useState(null);
 
@@ -117,39 +116,41 @@ export default function RouteMap({ height = 420 }) {
   const activeLeg = findings?.legs.find((leg) => leg.leg_id === frame.activeLegId);
 
   useEffect(() => {
+    setGatePositions({});
     if (!findings) return;
-    fetchSnapshotJson(findings.snapshot_id, 'route.json')
-      .catch(() => null)
-      .then(setRouteDoc);
-    fetch('/data/config/gates.json')
+    const controller = new AbortController();
+    fetch('/data/config/gates.json', { signal: controller.signal })
       .then((r) => (r.ok ? r.json() : null))
       .then((doc) => {
+        if (controller.signal.aborted) return;
         const map = {};
         for (const g of doc?.gates ?? []) map[g.gate_id] = g;
         setGatePositions(map);
-      });
+      })
+      .catch(() => {}); // Optional gate markers are unavailable offline.
+    return () => controller.abort();
   }, [findings]);
 
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
     setWindGrid(null);
     // A stored example must never mix in current forecast data.
     if (!findings || example) return;
     preparedRun()
-      .then(({ doc }) =>
-        doc?.artifacts?.wind_grid
-          ? artifactUrl(doc.artifacts.wind_grid)
-              .then(fetch)
-              .then((r) => (r.ok ? r.json() : null))
-          : null,
-      )
-      .then(grid => { if (!cancelled) setWindGrid(grid); })
-      .catch(() => {});
-    return () => { cancelled = true; };
+      .then(async ({ doc }) => {
+        if (!doc?.artifacts?.wind_grid || controller.signal.aborted) return null;
+        const url = await artifactUrl(doc.artifacts.wind_grid);
+        if (controller.signal.aborted) return null;
+        const response = await fetch(url, { signal: controller.signal });
+        return response.ok ? response.json() : null;
+      })
+      .then(grid => { if (!controller.signal.aborted) setWindGrid(grid); })
+      .catch(() => {}); // Keep the route visible without the background field.
+    return () => controller.abort();
   }, [findings, example]);
 
   const bounds = useMemo(() => {
-    if (!routeDoc) return null;
+    if (!routeDoc?.waypoints?.length) return null;
     const lats = routeDoc.waypoints.map((w) => w.lat);
     const lons = routeDoc.waypoints.map((w) => w.lon);
     return [
@@ -160,7 +161,7 @@ export default function RouteMap({ height = 420 }) {
 
   // background wind field at mid-passage time, subsampled from the prepared grid
   const fieldArrows = useMemo(() => {
-    if (example || !windGrid || !findings || !bounds) return [];
+    if (example || !windGrid || !findings?.legs.length || !bounds) return [];
     const sampler = new GridSampler(windGrid);
     const midMs =
       (Date.parse(findings.departure_utc) +
@@ -230,6 +231,7 @@ export default function RouteMap({ height = 420 }) {
         {findings.legs.map((leg, i) => {
           const status = legWorstStatus(leg);
           const wp = routeDoc.waypoints[i + 1] ?? routeDoc.waypoints[i];
+          if (!wp) return null;
           return (
             <Marker
               key={leg.leg_id}
