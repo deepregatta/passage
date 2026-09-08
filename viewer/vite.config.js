@@ -66,9 +66,12 @@ function dataMiddleware() {
   return {
     name: 'data-middleware',
     configureServer(server) {
-      server.middlewares.use(async (req, res, next) => {
+      const handleRequest = async (req, res, next) => {
         const requestPath = req.url?.split('?')[0] || '';
         if (!requestPath.startsWith('/data/')) return next();
+
+        // Validate escapes before any branch can decode or use the request path.
+        decodeURIComponent(requestPath);
 
         // ---- dev-only persistence for the in-browser engine ----
         if (req.method === 'POST') {
@@ -251,7 +254,11 @@ function dataMiddleware() {
 
         res.statusCode = 404;
         res.end('Not found');
-      });
+      };
+      server.middlewares.use((req, res, next) => handleRequest(req, res, next).catch((error) => {
+        res.statusCode = error instanceof URIError || error instanceof SyntaxError ? 400 : 500;
+        res.end(res.statusCode === 400 ? 'Bad request' : 'Internal server error');
+      }));
     },
   };
 }

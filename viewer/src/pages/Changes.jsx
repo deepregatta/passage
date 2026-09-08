@@ -16,13 +16,21 @@ export default function Changes() {
   const [state, setState] = useState({ status: 'idle' });
   useEffect(() => { if (!manifest) loadManifest(); }, [manifest, loadManifest]);
   useEffect(() => {
+    setState({ status: 'idle' });
     if (!findings || !manifest) return;
+    // Snapshot reads can come from IndexedDB; ignore completions after cleanup.
+    let cancelled = false;
     const previous = manifest.snapshots.filter((item) => item.route_id === findings.route_id && item.departure_utc === findings.departure_utc && item.snapshot_id !== findings.snapshot_id).sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))[0];
     if (!previous) return setState({ status: 'first', changes: diffFindings(null, findings) });
     Promise.all([
       fetchSnapshotJson(previous.snapshot_id, 'findings.json'),
       fetchSnapshotJson(previous.snapshot_id, 'synoptic.json').catch(() => null),
-    ]).then(([previousFindings, previousSynoptic]) => setState({ status: 'ok', previous: previousFindings, previousSynoptic, previousId: previous.snapshot_id, changes: diffFindings(previousFindings, findings) })).catch((error) => setState({ status: 'error', error: error.message }));
+    ]).then(([previousFindings, previousSynoptic]) => {
+      if (!cancelled) setState({ status: 'ok', previous: previousFindings, previousSynoptic, previousId: previous.snapshot_id, changes: diffFindings(previousFindings, findings) });
+    }).catch((error) => {
+      if (!cancelled) setState({ status: 'error', error: error.message });
+    });
+    return () => { cancelled = true; };
   }, [findings, manifest]);
   if (!findings) return <p className="p-10 font-instrument text-ink-soft">Open a snapshot first.</p>;
   if (state.status === 'first') return <div className="p-8"><h1 className="font-story text-4xl">First analysis of this passage</h1><p className="mt-3">Nothing to compare yet. Reassess after the next model run.</p></div>;

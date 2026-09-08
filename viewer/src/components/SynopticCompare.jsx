@@ -2,7 +2,7 @@ import { chartUrl } from '../lib/synopticCharts.js';
 
 function systemSummary(synoptic) {
   const low = synoptic?.systems?.find((item) => item.kind === 'low');
-  if (!low) return null;
+  if (!low?.track?.length) return null;
   const deepest = [...low.track].sort((a, b) => a.center_hpa - b.center_hpa)[0];
   return { name: `Low ${low.system_id}`, pressure: Math.round(deepest.center_hpa), time: deepest.valid_time, track: low.track };
 }

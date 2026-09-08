@@ -19,7 +19,8 @@ export default function EnsemblePlume({ evidence, variable = 'gust', height = 43
     if (!plume || !findings || !legId) return null;
     const leg = plume.legs.find((l) => l.leg_id === legId);
     const legFindings = findings.legs.find((l) => l.leg_id === legId);
-    if (!leg || !legFindings) return null;
+    const members = variable === 'gust' ? leg?.gust_members : leg?.wind_members;
+    if (!leg?.times?.length || !legFindings || !members?.some((series) => series.some(Number.isFinite))) return null;
     return buildOption(leg, legFindings, evidence, variable, mobile);
   }, [plume, findings, legId, evidence, variable, mobile]);
 
@@ -40,7 +41,8 @@ function quantile(sortedValues, q) {
 function buildOption(leg, legFindings, evidence, variable, mobile = false) {
   const members = variable === 'gust' ? leg.gust_members : leg.wind_members;
   const times = leg.times.map((t) => Date.parse(t));
-  const limit = typeof evidence?.limit === 'number' ? evidence.limit : leg.gust_limit_kt;
+  // Frozen plumes archive a gust limit only. Wind needs its own evidence limit.
+  const limit = Number.isFinite(evidence?.limit) ? evidence.limit : variable === 'gust' && Number.isFinite(leg.gust_limit_kt) ? leg.gust_limit_kt : null;
   const units = evidence?.units ?? 'kt';
 
   const memberSeries = members.map((series, m) => ({
@@ -73,7 +75,7 @@ function buildOption(leg, legFindings, evidence, variable, mobile = false) {
   let start = null;
   for (let i = 0; i < times.length; i++) {
     const values = members.map((series) => series[i]).filter((value) => Number.isFinite(value));
-    const above = values.length > 0 && values.filter((value) => value > limit).length / values.length >= floor;
+    const above = limit !== null && values.length > 0 && values.filter((value) => value > limit).length / values.length >= floor;
     const t = times[i];
     if (above && start === null) start = t;
     if (!above && start !== null) {
@@ -119,7 +121,7 @@ function buildOption(leg, legFindings, evidence, variable, mobile = false) {
       axisLabel: { color: soft, fontFamily: 'ui-monospace, monospace', fontSize: 10 },
       splitLine: { lineStyle: { color: 'rgba(22,40,62,0.08)' } },
       min: 0,
-      max: Math.ceil(Math.max(dataMax, limit) * 1.12),
+      max: Math.ceil(Math.max(dataMax, limit ?? 0) * 1.12),
     },
     series: [
       ...memberSeries,
@@ -143,7 +145,7 @@ function buildOption(leg, legFindings, evidence, variable, mobile = false) {
         data: median,
         showSymbol: false,
         lineStyle: { color: ink, width: 2.2 },
-        markLine: {
+        markLine: limit === null ? undefined : {
           silent: true,
           symbol: 'none',
           data: [{ yAxis: limit }],

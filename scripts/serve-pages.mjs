@@ -25,7 +25,13 @@ createServer(async (req, res) => {
     res.writeHead(405).end('Method Not Allowed');
     return;
   }
-  const pathname = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+  let pathname;
+  try {
+    pathname = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+  } catch {
+    res.writeHead(400).end('Bad request');
+    return;
+  }
   // Pages resolves directory requests to their index.html (e.g. /fr/)
   let file = normalize(join(root, pathname.endsWith('/') ? `${pathname}index.html` : pathname));
   if (!file.startsWith(root)) {
