@@ -81,7 +81,6 @@ export default function Briefing() {
       <DecisionBand
         findings={findings}
         example={example}
-        sections={sections}
         synoptic={synoptic}
         warningEvidence={warningEvidence}
         onOpenBulletin={() => setBulletinOpen(true)}
@@ -144,7 +143,7 @@ function HeaderBar({ findings }) {
  * The 10-second layer: can I go, why, what to do instead; before any chart.
  * One plain sentence, one limit, no decimals, no codenames.
  */
-function DecisionBand({ findings, sections, synoptic, warningEvidence, onOpenBulletin, example }) {
+function DecisionBand({ findings, synoptic, warningEvidence, onOpenBulletin, example }) {
   const setPage = useApp((s) => s.setPage);
   const route = useApp((s) => s.route);
   const warnings = useApp((s) => s.warnings);
@@ -177,8 +176,8 @@ function DecisionBand({ findings, sections, synoptic, warningEvidence, onOpenBul
   }
 
   // when to look again; same source as the story-card bullet
-  const change = sections.find((s) => s.id === 'what_could_change');
-  const nextUpdate = change?.register_plain.match(/expected around ([^)]+)\)/)?.[1];
+  const nextRun = useApp((s) => s.briefing?.next_run ?? s.briefing?.next_runs?.[0]);
+  const nextUpdate = nextRun ? fmtTime(nextRun.expected_at) : null;
 
   const offerScan = !example && ['exceeds', 'approaching', 'warning_active'].includes(state) && route;
   const findDeparture = () => {
@@ -240,7 +239,7 @@ function DecisionBand({ findings, sections, synoptic, warningEvidence, onOpenBul
           )}
           {nextUpdate && (
             <span className={clsx('font-mono text-[12px] sm:ml-auto', emulated ? 'text-ink-soft' : 'opacity-85')}>
-              next forecast ~{nextUpdate} · recheck before departure
+              next forecast ~{nextUpdate} UTC · recheck before departure
             </span>
           )}
         </div>
@@ -264,6 +263,7 @@ function recomputePersonalState(findings) {
 /** the story as a headline card: one look = the message; prose lives behind "why" */
 function WeatherStoryCard({ findings, sections }) {
   const [expanded, setExpanded] = useState(false);
+  const nextRun = useApp((s) => s.briefing?.next_run ?? s.briefing?.next_runs?.[0]);
   const verdictHex = VERDICT[findings.verdict.state]?.hex ?? '#16283E';
   const cursor = usePlayback((state) => state.cursorHours);
   const synoptic = useApp((state) => state.synoptic);
@@ -324,12 +324,10 @@ function WeatherStoryCard({ findings, sections }) {
     );
   const change = sections.find((s) => s.id === 'what_could_change');
   if (change && bullets.length < 3) {
-    const at = change.register_plain.match(/expected around ([^)]+)\)/)?.[1];
     bullets.push(
-      <>
-        The forecast updates {at ? `around ${at}` : 'several times a day'}. Check again before
-        you cast off.
-      </>,
+      <>{nextRun
+        ? `Next forecast update estimated around ${fmtTime(nextRun.expected_at)} UTC. Check again before departure.`
+        : 'Next forecast update time unavailable. Check the published forecast before departure.'}</>,
     );
   }
 

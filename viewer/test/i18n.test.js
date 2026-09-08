@@ -144,3 +144,27 @@ describe('language selection', () => {
     }
   });
 });
+
+describe('review 1.12 briefing prose', () => {
+  it('translates route-relative positions, including shortened story headlines', () => {
+    const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+    const positions = ['near the centre of your route', 'at the charted position', ...directions.flatMap((dir) => ['within 100 nm', '100–300 nm', 'more than 300 nm'].map((band) => `${band} ${dir} of the centre of your route`))];
+    for (const position of positions) {
+      for (const suffix of ['', ' It sets the wind pattern over your route. The charts track it over the next few days.']) {
+        const text = `A strengthening low-pressure system sits ${position}.${suffix}`;
+        expect(translateText(text, 'fr')).not.toMatch(/strengthening|sits|centre of your route|within|more than|charted|It sets|charts track/);
+      }
+    }
+    expect(translateText('A low-pressure system sits within 100 nm W of the centre of your route.', 'fr')).toBe('Une dépression se trouve à moins de 100 M O du centre de votre route.');
+  });
+  it('translates estimated and unavailable updates without losing the timestamp', () => {
+    const samples = {
+      'Next forecast update time unavailable. Check the published forecast before departure.': 'Heure de la prochaine mise à jour indisponible. Consultez la prévision publiée avant le départ.',
+      'The next forecast update is estimated around Wed 9 Sep 04:20 UTC. Check again then, especially if conditions are close to your limits.': 'La prochaine mise à jour des prévisions est estimée vers mer. 9 sept. 04:20 UTC. Vérifiez à nouveau à ce moment-là, surtout si les conditions approchent vos limites.',
+      'Next forecast update estimated around Wed 9 Sep 04:20 UTC. Check again before departure.': 'Prochaine mise à jour des prévisions estimée vers mer. 9 sept. 04:20 UTC. Vérifiez à nouveau avant le départ.',
+      'Estimated next gfs_0p25 publication ~2026-09-09T04:20:00Z, using the loaded cycle, publication lag and tile-pipeline cadence. Publication may be delayed. Agreement between runs is not proof of accuracy.': 'Prochaine publication de gfs_0p25 estimée vers 2026-09-09T04:20:00Z, à partir du cycle chargé, du délai de publication et de la cadence de la chaîne de tuiles. La publication peut être retardée. La concordance entre les cycles ne prouve pas leur exactitude.',
+      'No future publication estimate is available from the loaded forecast metadata and known tile-pipeline schedules. Synthetic runs have no scheduled update.': 'Les métadonnées des prévisions chargées et les calendriers connus de la chaîne de tuiles ne permettent pas d’estimer une prochaine publication. Les cycles synthétiques n’ont aucune mise à jour programmée.',
+    };
+    for (const [en, fr] of Object.entries(samples)) expect(translateText(en, 'fr')).toBe(fr);
+  });
+});

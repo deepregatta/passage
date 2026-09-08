@@ -517,6 +517,12 @@ const FR = {
 
 const FR_PATTERNS = [
   [/^(\d+) members$/, '$1 membres'],
+  [/^The next forecast update is estimated around (.+) UTC\. Check again then, especially if conditions are close to your limits\.$/, 'La prochaine mise à jour des prévisions est estimée vers $1 UTC. Vérifiez à nouveau à ce moment-là, surtout si les conditions approchent vos limites.'],
+  [/^Next forecast update estimated around (.+) UTC\. Check again before departure\.$/, 'Prochaine mise à jour des prévisions estimée vers $1 UTC. Vérifiez à nouveau avant le départ.'],
+  [/^Next forecast update time unavailable\. Check the published forecast before departure\.$/, 'Heure de la prochaine mise à jour indisponible. Consultez la prévision publiée avant le départ.'],
+  [/^Estimated next (.+) publication ~(.+), using the loaded cycle, publication lag and tile-pipeline cadence\. Publication may be delayed\. Agreement between runs is not proof of accuracy\.$/, 'Prochaine publication de $1 estimée vers $2, à partir du cycle chargé, du délai de publication et de la cadence de la chaîne de tuiles. La publication peut être retardée. La concordance entre les cycles ne prouve pas leur exactitude.'],
+  [/^No future publication estimate is available from the loaded forecast metadata and known tile-pipeline schedules\. Synthetic runs have no scheduled update\.$/, 'Les métadonnées des prévisions chargées et les calendriers connus de la chaîne de tuiles ne permettent pas d’estimer une prochaine publication. Les cycles synthétiques n’ont aucune mise à jour programmée.'],
+  [/^A (strengthening )?low-pressure system sits (near the centre of your route|at the charted position|(?:within 100 nm|100–300 nm|more than 300 nm) [NSEW]+ of the centre of your route)\.$/, (_match, strengthening, position) => `Une dépression${strengthening ? ' qui se renforce' : ''} se trouve ${translateSynopticPosition(position)}.`],
   [/^A (strengthening )?low-pressure system sits (.+); that is what sets the wind pattern over your route\. The chart panels show how it moves over the next days\.$/, (_match, strengthening, position) => `Une dépression${strengthening ? ' qui se renforce' : ''} se trouve ${translateSynopticPosition(position)}; elle détermine le régime de vent sur votre route. Les cartes montrent son déplacement au cours des prochains jours.`],
   [/^A (strengthening )?low-pressure system sits (.+)\. It sets the wind pattern over your route\. The charts track it over the next few days\.$/, (_match, strengthening, position) => `Une dépression${strengthening ? ' qui se renforce' : ''} se trouve ${translateSynopticPosition(position)}. Elle détermine le régime de vent sur votre route. Les cartes suivent son déplacement au cours des prochains jours.`],
   [/^A (strengthening )?low-pressure system sits ((?:far out in the Atlantic|west of the approaches|near your waters), (?:to the north|to the south|at your latitude))\.$/, (_match, strengthening, position) => `Une dépression${strengthening ? ' qui se renforce' : ''} se trouve ${translateSynopticPosition(position)}.`],
@@ -808,6 +814,13 @@ function translateScenarioClause(prefix, share, hazard, limit, where) {
 }
 
 function translateSynopticPosition(position) {
+  if (position === 'near the centre of your route') return 'près du centre de votre route';
+  if (position === 'at the charted position') return 'à la position indiquée sur la carte';
+  const relative = position.match(/^(within 100 nm|100–300 nm|more than 300 nm) ([NSEW]+) of the centre of your route$/);
+  if (relative) {
+    const band = { 'within 100 nm': 'à moins de 100 M', '100–300 nm': 'à 100–300 M', 'more than 300 nm': 'à plus de 300 M' }[relative[1]];
+    return `${band} ${relative[2].replaceAll('W', 'O')} du centre de votre route`;
+  }
   const positions = {
     'far out in the Atlantic, to the north': 'loin dans l’Atlantique, au nord',
     'far out in the Atlantic, to the south': 'loin dans l’Atlantique, au sud',

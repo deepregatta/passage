@@ -34,7 +34,7 @@
     },
     "story": {
       "type": "object",
-      "required": ["headline_plain", "headline_pro", "material", "next_run"],
+      "required": ["headline_plain", "headline_pro", "material"],
       "properties": {
         "headline_plain": { "type": "string" },
         "headline_pro": { "type": "string" },

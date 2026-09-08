@@ -78,6 +78,7 @@ const engine = await import(pathToFileURL(join(repo, 'engine', 'dist', 'index.js
 const changes = engine.diffFindings(
   json(join(previousDir, 'findings.json')),
   json(join(latestDir, 'findings.json')),
+  json(join(latestDir, 'briefing.json')).next_run,
 );
 writeJson(join(latestDir, 'changes.json'), changes);
 
