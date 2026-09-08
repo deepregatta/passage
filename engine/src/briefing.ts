@@ -12,7 +12,9 @@
 
 import { fraction, phraseExceedance } from './exceedance.js';
 import { plainValueVsLimit } from './plainLanguage.js';
-import type { Evidence, Findings, SynopticFeatures } from './types.js';
+import { bearingDegTrue, haversineNm } from './geo.js';
+import type { LayerInfo } from './forecast/store.js';
+import type { Evidence, Findings, Route, SynopticFeatures } from './types.js';
 
 export interface BriefingSection {
   id:
@@ -63,7 +65,11 @@ const VERDICT_LABEL: Record<string, { plain: string; pro: string }> = {
   },
 };
 
-export function renderBriefing(findings: Findings, synoptic?: SynopticFeatures): Briefing {
+export function renderBriefing(
+  findings: Findings,
+  synoptic?: SynopticFeatures,
+  context: { route?: Route; nextRuns?: Briefing['next_runs'] } = {},
+): Briefing {
   const sections: BriefingSection[] = [];
   const evidenceById = new Map(findings.evidence.map((e) => [e.evidence_id, e]));
 
@@ -89,7 +95,7 @@ export function renderBriefing(findings: Findings, synoptic?: SynopticFeatures):
       id: 'synoptic_story',
       title: 'The weather system driving this',
       register_plain: plainLow
-        ? `A ${plainLow.deepening_hpa_per_24h != null && plainLow.deepening_hpa_per_24h < -1 ? 'strengthening ' : ''}low-pressure system sits ${positionPhrase(plainLow.track[0]!)}. It sets the wind pattern over your route. The charts track it over the next few days.`
+        ? `A ${plainLow.deepening_hpa_per_24h != null && plainLow.deepening_hpa_per_24h < -1 ? 'strengthening ' : ''}low-pressure system sits ${positionPhrase(plainLow.track[0]!, context.route)}. It sets the wind pattern over your route. The charts track it over the next few days.`
         : 'High pressure dominates the picture. Expect the pattern to change slowly.',
       register_pro: `Detected systems (${synoptic.run_id}): lows ${lows.map(describe).join('; ') || 'none'}; highs ${highs.map(describe).join('; ') || 'none'}.${synoptic.regimes.length ? ` Named regime active: ${synoptic.regimes.map((r) => r.regime_id).join(', ')}.` : ''} Front-type labels withheld pending corroboration (§4.1).`,
       evidence_ids: [],
@@ -228,12 +234,17 @@ export function renderBriefing(findings: Findings, synoptic?: SynopticFeatures):
   });
 
   // 4. what could change
-  const nextRun = nextEcmwfRun(findings.generated_at);
+  const nextRuns = context.nextRuns ?? [];
+  const nextRun = nextRuns[0];
   sections.push({
     id: 'what_could_change',
     title: 'What could change',
-    register_plain: `The next model run is expected around ${fmtTime(nextRun.expected_at)} UTC. Check again then, especially if conditions are close to your limits.`,
-    register_pro: `Next ${nextRun.model} cycle expected ~${nextRun.expected_at}. Model run ids in this analysis are inferred from publication schedules until the prepared-run pipeline provides authoritative cycles. Agreement between runs is not proof of accuracy.`,
+    register_plain: nextRun
+      ? `The next forecast update is estimated around ${fmtTime(nextRun.expected_at)} UTC. Check again then, especially if conditions are close to your limits.`
+      : 'Next forecast update time unavailable. Check the published forecast before departure.',
+    register_pro: nextRun
+      ? `Estimated next ${nextRun.model} publication ~${nextRun.expected_at}, using the loaded cycle, publication lag and tile-pipeline cadence. Publication may be delayed. Agreement between runs is not proof of accuracy.`
+      : 'No future publication estimate is available from the loaded forecast metadata and known tile-pipeline schedules. Synthetic runs have no scheduled update.',
     evidence_ids: [],
     glossary_terms: ['model run'],
   });
@@ -279,8 +290,8 @@ export function renderBriefing(findings: Findings, synoptic?: SynopticFeatures):
     schema_version: 1,
     snapshot_id: findings.snapshot_id,
     sections,
-    next_runs: [nextRun],
-    next_run: nextRun,
+    next_runs: nextRuns,
+    ...(nextRun ? { next_run: nextRun } : {}),
   };
 }
 
@@ -330,21 +341,63 @@ function compass(deg: number): string {
   return points[Math.round(((deg % 360) + 360) % 360 / 22.5) % 16]!;
 }
 
-function positionPhrase(p: { lat: number; lon: number }): string {
-  const ns = p.lat >= 52 ? 'to the north' : p.lat <= 47 ? 'to the south' : 'at your latitude';
-  const ew = p.lon <= -12 ? 'far out in the Atlantic' : p.lon <= -6 ? 'west of the approaches' : 'near your waters';
-  return `${ew}, ${ns}`;
+/** Bearing and broad distance band from the route bounding-box centre, not a named region. */
+function positionPhrase(p: { lat: number; lon: number }, route?: Route): string {
+  const points = route?.waypoints;
+  if (!points?.length || points.some((point) => !Number.isFinite(point.lat) || !Number.isFinite(point.lon))) {
+    return 'at the charted position';
+  }
+  const lat = (Math.min(...points.map((point) => point.lat)) + Math.max(...points.map((point) => point.lat))) / 2;
+  // The smallest longitude span is the complement of the largest circular gap.
+  // This keeps routes across 180 degrees centred at the date line, not Greenwich.
+  const lons = points.map((point) => ((point.lon % 360) + 360) % 360).sort((a, b) => a - b);
+  let gap = -1;
+  let start = lons[0]!;
+  for (let i = 0; i < lons.length; i++) {
+    const next = i + 1 < lons.length ? lons[i + 1]! : lons[0]! + 360;
+    if (next - lons[i]! > gap) {
+      gap = next - lons[i]!;
+      start = next;
+    }
+  }
+  const lon = ((start + (360 - gap) / 2 + 180) % 360) - 180;
+  const distance = haversineNm(lat, lon, p.lat, p.lon);
+  if (distance < 25) return 'near the centre of your route';
+  const band = distance < 100 ? 'within 100 nm' : distance <= 300 ? '100–300 nm' : 'more than 300 nm';
+  return `${band} ${compass(bearingDegTrue(lat, lon, p.lat, p.lon))} of the centre of your route`;
 }
 
-/** Next GFS cycle expected in the tile store (cycle cadence 6 h, ~4.5 h pipeline lag). */
-function nextEcmwfRun(afterIso: string): { model: string; expected_at: string } {
-  const t = Date.parse(afterIso);
-  const HOUR = 3600_000;
-  const LAG = 4.5 * HOUR;
-  const lastCycle = Math.floor((t - LAG) / (6 * HOUR)) * 6 * HOUR;
-  const nextAvailable = lastCycle + 6 * HOUR + LAG;
-  return {
-    model: 'gfs_0p25',
-    expected_at: new Date(nextAvailable).toISOString().replace(/\.\d{3}Z$/, 'Z'),
-  };
+/**
+ * Daily tile-publication cadence, verified against forecast-tiles ingest-*.yml
+ * on 2026-09-08. These are pipeline schedules, not model issuance cadences.
+ * Unknown layer/model pairs are deliberately excluded; update this table when
+ * the producer schedule changes. No schedule is inferred for scenario bundles.
+ */
+const PUBLICATION_SCHEDULE: Record<string, { model: string; cadenceHours: number }> = {
+  weather: { model: 'gfs_0p25', cadenceHours: 24 },
+  'weather-ecmwf': { model: 'ecmwf_ifs_0p25', cadenceHours: 24 },
+  ensemble: { model: 'gefs_0p50', cadenceHours: 24 },
+  waves: { model: 'gfswave_0p25', cadenceHours: 24 },
+  currents: { model: 'cmems_glo12', cadenceHours: 24 },
+  'currents-ibi': { model: 'cmems_ibi', cadenceHours: 24 },
+};
+
+/** One estimate shared by the briefing and change story, frozen at analysis time. */
+export function nextForecastRuns(layers: Record<string, LayerInfo>, afterIso: string): Briefing['next_runs'] {
+  const after = Date.parse(afterIso);
+  if (!Number.isFinite(after)) return [];
+  return Object.values(layers).flatMap((layer) => {
+    const schedule = PUBLICATION_SCHEDULE[layer.layer];
+    if (!schedule || schedule.model !== layer.model) return [];
+    const cycle = Date.parse(layer.cycle);
+    const published = Date.parse(layer.published_at);
+    const cadence = schedule.cadenceHours * 3600_000;
+    const lag = published - cycle;
+    // Stale/invalid metadata cannot support a future estimate. In particular,
+    // never roll an overdue publication forward and disguise a delayed feed.
+    if (!Number.isFinite(lag) || lag < 0 || lag >= cadence || published > after) return [];
+    const expected = cycle + cadence + lag;
+    if (expected <= after) return [];
+    return [{ model: layer.model, expected_at: new Date(expected).toISOString().replace(/\.\d{3}Z$/, 'Z') }];
+  }).sort((a, b) => a.expected_at.localeCompare(b.expected_at) || a.model.localeCompare(b.model));
 }

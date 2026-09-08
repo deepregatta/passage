@@ -6,7 +6,7 @@
  */
 
 import { assembleFindings } from './findings.js';
-import { renderBriefing, type Briefing } from './briefing.js';
+import { renderBriefing, nextForecastRuns, type Briefing } from './briefing.js';
 import { buildPlume, writeSnapshot, type Plume, type SnapshotStore } from './snapshot.js';
 import { deriveLegs, legMidpoints } from './route.js';
 import { computeSchedules, parseUtc, toIso } from './eta.js';
@@ -141,7 +141,7 @@ export async function runAnalysis(options: AnalyzeOptions): Promise<AnalyzeResul
     engineVersion: ENGINE_VERSION,
     nowMs,
   });
-  const briefing = renderBriefing(findings, options.synoptic);
+  const briefing = renderBriefing(findings, options.synoptic, { route, nextRuns: nextForecastRuns(layers, findings.generated_at) });
   const plume = buildPlume(findings, ens?.forecasts ?? [], profile.max_gust_kt, multi?.byModel);
   return {
     findings,

@@ -14,7 +14,7 @@
     {
       "id": "synoptic_story",
       "title": "The weather system driving this",
-      "register_plain": "A strengthening low-pressure system sits west of the approaches, at your latitude. It sets the wind pattern over your route. The charts track it over the next few days.",
+      "register_plain": "A strengthening low-pressure system sits 100–300 nm WSW of the centre of your route. It sets the wind pattern over your route. The charts track it over the next few days.",
       "register_pro": "Detected systems (reference-demo-20260719T12Z): lows L1 (1006 hPa near 49°N 7°W), deepening 18 hPa/24h, moving ENE 31 kt; highs none. Front-type labels withheld pending corroboration (§4.1).",
       "evidence_ids": [],
       "glossary_terms": [
@@ -105,8 +105,8 @@
     {
       "id": "what_could_change",
       "title": "What could change",
-      "register_plain": "The next model run is expected around . Check again then, especially if conditions are close to your limits.",
-      "register_pro": "Next gfs_0p25 cycle expected ~2026-07-19T22:30:00Z. Model run ids in this analysis are inferred from publication schedules until the prepared-run pipeline provides authoritative cycles. Agreement between runs is not proof of accuracy.",
+      "register_plain": "Next forecast update time unavailable. Check the published forecast before departure.",
+      "register_pro": "No future publication estimate is available from the loaded forecast metadata and known tile-pipeline schedules. Synthetic runs have no scheduled update.",
       "evidence_ids": [],
       "glossary_terms": [
         "model run"
@@ -129,14 +129,5 @@
       ]
     }
   ],
-  "next_runs": [
-    {
-      "model": "gfs_0p25",
-      "expected_at": "2026-07-19T22:30:00Z"
-    }
-  ],
-  "next_run": {
-    "model": "gfs_0p25",
-    "expected_at": "2026-07-19T22:30:00Z"
-  }
+  "next_runs": []
 }

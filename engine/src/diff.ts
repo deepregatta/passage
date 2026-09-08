@@ -4,7 +4,7 @@
  * timing shifts, value deltas, events appearing/vanishing, verdict transitions.
  */
 
-import { fmtTime } from './briefing.js';
+import { fmtTime, type Briefing } from './briefing.js';
 import type { Evidence, Findings } from './types.js';
 
 export interface ChangeEntry {
@@ -40,13 +40,13 @@ export interface Changes {
       why_it_matters: string;
       evidence_ids: string[];
     }>;
-    next_run: { model: string; expected_at: string };
+    next_run?: Briefing['next_run'];
   };
 }
 
 const VALUE_DELTA_MIN = 1.5; // kt; below this, wind deltas are noise, not news
 
-export function diffFindings(previous: Findings | null, latest: Findings): Changes {
+export function diffFindings(previous: Findings | null, latest: Findings, nextRun?: Briefing['next_run']): Changes {
   const entries: ChangeEntry[] = [];
 
   if (!previous) {
@@ -181,7 +181,7 @@ export function diffFindings(previous: Findings | null, latest: Findings): Chang
     previous_snapshot_id: previous.snapshot_id,
     verdict_transition: transition,
     entries,
-    story: buildStory(latest, entries, transition),
+    story: buildStory(latest, entries, transition, nextRun),
   };
 }
 
@@ -222,6 +222,7 @@ function buildStory(
   latest: Findings,
   entries: ChangeEntry[],
   transition: { from: string; to: string },
+  nextRun: Briefing['next_run'],
 ): NonNullable<Changes['story']> {
   const driver = latest.evidence.find((item) => item.evidence_id === latest.verdict.driver_evidence_id);
   const scored = entries.map((entry, index) => {
@@ -247,7 +248,7 @@ function buildStory(
       why_it_matters: humanizeChange(entry, latest),
       evidence_ids: entry.evidence_pair ?? [],
     })),
-    next_run: nextRun(latest.generated_at),
+    ...(nextRun ? { next_run: nextRun } : {}),
   };
 }
 
@@ -263,11 +264,4 @@ function humanizeChange(entry: ChangeEntry, latest: Findings): string {
   }
   if (entry.kind === 'event_shifted') return 'The hazardous interval moved relative to the route ETA envelope.';
   return 'This remains in the full ledger because it may matter to passage margins.';
-}
-
-function nextRun(afterIso: string): { model: string; expected_at: string } {
-  const HOUR = 3600_000;
-  const t = Date.parse(afterIso);
-  const lastCycle = Math.floor((t - 8 * HOUR) / (6 * HOUR)) * 6 * HOUR;
-  return { model: 'ecmwf_ifs025', expected_at: new Date(lastCycle + 14 * HOUR).toISOString().replace(/\.\d{3}Z$/, 'Z') };
 }

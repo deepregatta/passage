@@ -267,7 +267,7 @@
     },
     {
       "kind": "event_shifted",
-      "description": "Low L1 is the same system as before. It now reaches the route  h earlier.",
+      "description": "Low L1 is the same system as in the previous briefing. It now reaches the route 3 h earlier.",
       "previous": "2026-07-20T09:00:00Z",
       "latest": "2026-07-20T06:00:00Z",
       "evidence_pair": [
@@ -278,7 +278,7 @@
     },
     {
       "kind": "event_shifted",
-      "description": "Low L1 is the same system as before. It now reaches the route  h earlier.",
+      "description": "Low L1 is the same system as in the previous briefing. It now reaches the route 2 h earlier.",
       "previous": "2026-07-20T09:00:00Z",
       "latest": "2026-07-20T07:13:00Z",
       "evidence_pair": [
@@ -321,10 +321,6 @@
           "E7"
         ]
       }
-    ],
-    "next_run": {
-      "model": "ecmwf_ifs025",
-      "expected_at": "2026-07-19T20:00:00Z"
-    }
+    ]
   }
 }
