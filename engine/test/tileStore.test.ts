@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import { readFileSync } from 'node:fs';
@@ -236,6 +236,40 @@ describe('TileForecastStore grids', () => {
 });
 
 describe('TileForecastStore resilience', () => {
+  it('shares a failed latest read, then retries and keeps successful initialization', async () => {
+    const transport = buildFixtureRun([weatherSpec()]);
+    const error = new Error('temporary transport failure');
+    const fetchLatest = vi.spyOn(transport, 'fetchLatest').mockRejectedValueOnce(error);
+    const store = new TileForecastStore({ transport });
+    const first = store.init();
+    expect(store.init()).toBe(first);
+    await expect(first).rejects.toBe(error);
+
+    const retry = store.init();
+    expect(store.init()).toBe(retry);
+    await retry;
+    const { forecasts } = await store.getPointForecasts([POINT], START, END);
+    expect(forecasts[0]!.wind_kt[0]).toBeCloseTo(10, 1);
+    expect(store.init()).toBe(retry);
+    expect(fetchLatest).toHaveBeenCalledTimes(2);
+  });
+
+  it('retries failed weather manifests without retaining optional layers from the failed attempt', async () => {
+    const transport = buildFixtureRun([weatherSpec(), ensembleSpec()]);
+    const weatherRun = transport.latest.layers.weather!.run_id;
+    transport.failManifests.add(weatherRun);
+    const store = new TileForecastStore({ transport });
+    await expect(store.init()).rejects.toThrow('no readable weather run');
+
+    transport.failManifests.delete(weatherRun);
+    delete transport.latest.layers.ensemble;
+    await store.init();
+    expect(Object.keys(store.describe())).toEqual(['weather']);
+    expect(await store.getEnsembleForecasts([POINT], START, END)).toBeNull();
+    const { forecasts } = await store.getPointForecasts([POINT], START, END);
+    expect(forecasts[0]!.wind_kt[0]).toBeCloseTo(10, 1);
+  });
+
   it('falls back to the previous run when the current manifest is unreadable', async () => {
     const transport = buildFixtureRun([weatherSpec()]);
     const currentRunId = transport.latest.layers.weather!.run_id;
