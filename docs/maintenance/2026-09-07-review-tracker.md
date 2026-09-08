@@ -191,9 +191,9 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 
 ### 1.6 Init poisoning (store + local snapshots)
 - Items: E2, V11
-- Files: engine/src/forecast/tileStore.ts, viewer/src/lib/localSnapshots.js, engine/test/tileStore.test.ts
+- Files: engine/src/forecast/tileStore.ts, viewer/src/lib/localSnapshots.js, engine/test/tileStore.test.ts, viewer/test/localSnapshots.test.js
 - Done when: a transport that fails once then succeeds yields a working store on the second `init()`; `localSnapshots.exists()` returns false on IndexedDB failure.
-- Status: todo · Commit: — · Notes:
+- Status: in progress · Commit: — · Notes: Clean pre-flight at `f96e352`; verified previous step `9cf6956` scope and full guardrails: 121 engine + 61 viewer tests, 227 Python tests, Ruff lint/format passed. Known six-file demo regeneration drift remains assigned to 1.15; saved pre-step generated output for byte comparison and restored tracked fixtures. Added the localSnapshots regression test path to cover V11 directly. No untriaged findings or unrelated dirty files.
 
 ### 1.7 Router: emitted legs must not cross land
 - Items: E1
