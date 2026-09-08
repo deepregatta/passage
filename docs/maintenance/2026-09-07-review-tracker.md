@@ -238,7 +238,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Items: V9, V10, V14, V18
 - Files: viewer/src/pages/{Settings,Changes,Verification}.jsx, viewer/src/components/{RouteMap,SynopticCompare,SynopticHero,EnsemblePlume}.jsx, viewer/vite.config.js, scripts/serve-pages.mjs
 - Done when: corrupt localStorage draft, offline fetch, empty track/legs, malformed URL all fail soft.
-- Status: todo · Commit: — · Notes:
+- Status: in progress · Commit: — · Notes: Clean pre-flight; previous step `8364456` scope and full guardrails passed (131 engine + 121 viewer; Python 227, Ruff lint/format). Known six-file demo regeneration drift reproduced and restored; generated baseline saved for byte comparison. No unrelated dirty files.
 
 ### 1.12 Briefing prose: geography and next run
 - Items: E3, E4 — **prose changes expected** (goldens, demo fixture, FR patterns)
