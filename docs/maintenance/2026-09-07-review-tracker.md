@@ -276,7 +276,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Items: P6, P7, P9
 - Files: analysis/src/deepweather_analysis/{cli.py,synoptic/regimes.py}, analysis/tests/test_polars.py + a committed 20-record ORC sample fixture
 - Done when: `verify` writes the verification document; NaN box returns None; polar tests run in CI without the full ORC db.
-- Status: todo · Commit: — · Notes:
+- Status: in progress · Commit: — · Notes: Clean pre-flight; previous step 2151254 scope and full guardrails pass. Known demo generator deletion of routes/solent-hop-3wp.json preserved for 1.15.
 
 ### 1.15 Demo generator and fixture consistency
 - Items: noticed during 0.1, triaged during 0.2; run after the prose reconciliation in 1.12.
