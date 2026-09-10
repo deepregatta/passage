@@ -274,9 +274,9 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 
 ### 1.14 Small analysis fixes
 - Items: P6, P7, P9
-- Files: analysis/src/deepweather_analysis/{cli.py,synoptic/regimes.py}, analysis/tests/test_polars.py + a committed 20-record ORC sample fixture
+- Files: analysis/src/deepweather_analysis/{cli.py,synoptic/regimes.py}, analysis/tests/{test_polars,test_synoptic,test_verification}.py + a committed 20-record ORC sample fixture
 - Done when: `verify` writes the verification document; NaN box returns None; polar tests run in CI without the full ORC db.
-- Status: in progress · Commit: — · Notes: Clean pre-flight; previous step 2151254 scope and full guardrails pass. Known demo generator deletion of routes/solent-hop-3wp.json preserved for 1.15.
+- Status: done · Commit: pending · Notes: Clean pre-flight at 0cb00a7; verified previous step 2151254 scope and full guardrails. Reproduced eight failing regressions before fixes: CLI verification output for synthetic/live-labelled test observations, and nonfinite pressure means in both Biscay/Genoa boxes. P6 now writes and reports verification/cases/<snapshot_id>.json while retaining calibration; tests read back complete pairs and preserve emulated coverage. P7 returns None for all-NaN/nonfinite box means, retaining partial-NaN averaging. P9 commits 20 unchanged ORC 2025 records in the original Python-literal format (numeric angle keys); all extraction tests explicitly use this fixture. Added strict name/model matching and build_polar_db output/index/schema coverage. Empty-warehouse reproduction: old polar suite 4 pass/6 skip; new suite 12 pass/0 skip. Final npm test: 160 engine + 166 viewer pass, build/typecheck pass; Python 3.12 pytest: 238 pass (10 existing NumPy warnings), Ruff lint/format pass (54 files); build:pages passes. Engine goldens and tracked demo unchanged; generated demo matches pre-flight byte-for-byte, with known routes/solent-hop-3wp.json deletion restored for 1.15. Source membership check confirms all 20 sample records unchanged. No unrelated dirty work; no UI change or phase gate, so screenshots/E2E not applicable. Noticed: JSON-formatted ORC numeric-angle lookup failure recorded below; left outside this step. Hosted CI pending.
 
 ### 1.15 Demo generator and fixture consistency
 - Items: noticed during 0.1, triaged during 0.2; run after the prose reconciliation in 1.12.
@@ -458,6 +458,8 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - [triaged] 1.12 — viewer/src/components/SynopticCompare.jsx:21 — Existing archived captions “Previous run keeps the low west of the route longer.” and “Low L1 intersects the Casquets and mid-Channel legs.” remain partly English on the French changes screen; assigned to existing 3.1 coverage / 3.2 leak fixes, unchanged here.
 
 - [triaged] 1.13 — viewer/e2e/evidence.spec.js:8 — Optional full E2E captured “Drawing forecasts…” before both Evidence charts rendered (desktop/mobile); both checkpoints pass on focused retry with unchanged baselines. Add chart-readiness waiting to existing 4.9 test-gap sweep.
+
+- 1.14 — analysis/src/deepweather_analysis/polars.py:307 — JSON ORC input stringifies numeric VPP angle keys; transform_orc_vpp looks up integer keys and extraction/build then fail schema validation with empty twa_deg. Reproduced by JSON-serializing the sample; native Python-literal sample works. Defer JSON-format compatibility fix to a separate step.
 
 ## Decisions
 (record design choices made in steps 1.5, 3.5, 5.3 here)

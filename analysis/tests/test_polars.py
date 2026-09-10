@@ -1,7 +1,9 @@
 """M11 polar tests: vendored normalization/matching survive the port, and
 extract_polar publishes schema-valid artifacts with a maintained index."""
 
+import ast
 import json
+from pathlib import Path
 
 import pytest
 from jsonschema import Draft202012Validator
@@ -9,7 +11,7 @@ from jsonschema import Draft202012Validator
 from deepweather_analysis.paths import contracts_dir
 from deepweather_analysis.polars import (
     DEFAULT_POLARS,
-    default_polars_file,
+    build_polar_db,
     extract_polar,
     get_default_polars,
     load_orc_polars,
@@ -21,12 +23,12 @@ from deepweather_analysis.polars import (
 )
 
 
+ORC_SAMPLE = Path(__file__).parent / "fixtures" / "orc-2025-sample.txt"
+
+
 @pytest.fixture(scope="module")
 def orc_index():
-    index = load_orc_polars(default_polars_file())
-    if not index["by_model"]:
-        pytest.skip("large vendored ORC polar database is not part of the Git checkout")
-    return index
+    return load_orc_polars(ORC_SAMPLE)
 
 
 # --- normalization: special cases survive the port -------------------------
@@ -101,7 +103,7 @@ def _polar_schema():
 
 
 def test_extract_polar_schema_valid_and_plausible(tmp_path, orc_index):
-    path = extract_polar("Sun Fast 3200", out_dir=tmp_path)
+    path = extract_polar("Sun Fast 3200", out_dir=tmp_path, polars_file=ORC_SAMPLE)
     artifact = json.loads(path.read_text())
     Draft202012Validator(_polar_schema()).validate(artifact)
 
@@ -121,7 +123,7 @@ def test_extract_polar_schema_valid_and_plausible(tmp_path, orc_index):
 
 
 def test_extract_polar_generic_fallback(tmp_path):
-    path = extract_polar("Blorptron Qzx 9999", out_dir=tmp_path)
+    path = extract_polar("Blorptron Qzx 9999", out_dir=tmp_path, polars_file=ORC_SAMPLE)
     artifact = json.loads(path.read_text())
     Draft202012Validator(_polar_schema()).validate(artifact)
     assert artifact["source"]["kind"] == "generic"
@@ -132,10 +134,10 @@ def test_extract_polar_generic_fallback(tmp_path):
 
 
 def test_extract_polar_updates_index_without_duplicates(tmp_path, orc_index):
-    extract_polar("Sun Fast 3200", out_dir=tmp_path)
-    extract_polar("Sigma 38", out_dir=tmp_path)
+    extract_polar("Sun Fast 3200", out_dir=tmp_path, polars_file=ORC_SAMPLE)
+    extract_polar("Sigma 38", out_dir=tmp_path, polars_file=ORC_SAMPLE)
     # re-extract must not duplicate
-    extract_polar("Sun Fast 3200", out_dir=tmp_path)
+    extract_polar("Sun Fast 3200", out_dir=tmp_path, polars_file=ORC_SAMPLE)
 
     index = json.loads((tmp_path / "index.json").read_text())
     ids = [entry["polar_id"] for entry in index["polars"]]
@@ -155,3 +157,31 @@ def test_search_orc_returns_candidates(orc_index):
     assert 0 < len(results) <= 8
     assert all(set(item) == {"name", "type"} for item in results)
     assert any(normalize_model(item["type"]) == "SUNFAST3200" for item in results)
+
+
+def test_name_and_model_match(orc_index):
+    record = next(iter(orc_index["by_name"].values()))
+    result = match_polar(record["name"], record["boat"]["type"], orc_index)
+    assert result.match_type == "name_and_model"
+    assert result.polars
+
+
+def test_build_polar_db_from_sample(tmp_path):
+    records = ast.literal_eval(ORC_SAMPLE.read_text())
+    assert len(records) == 20
+    summary = build_polar_db(polars_file=ORC_SAMPLE, out_dir=tmp_path)
+    index = json.loads((tmp_path / "index.json").read_text())
+    entries = index["polars"]
+    assert summary["certs"] == 20
+    assert summary["types"] == len({normalize_model(r["boat"]["type"]) for r in records})
+    assert summary["generics"] > 0
+    assert len(entries) == summary["types"] + summary["generics"]
+    assert len({entry["polar_id"] for entry in entries}) == len(entries)
+    validator = Draft202012Validator(_polar_schema())
+    for entry in entries:
+        artifact = json.loads((tmp_path / "boats" / f"{entry['polar_id']}.json").read_text())
+        validator.validate(artifact)
+        assert artifact["polar_id"] == entry["polar_id"]
+        assert artifact["source"]["kind"] == entry["kind"]
+    sunfast = next(entry for entry in entries if normalize_model(entry["label"]) == "SUNFAST3200")
+    assert sunfast["certs"] == 10

@@ -99,7 +99,7 @@ def cmd_verify(args: argparse.Namespace) -> int:
     from .observations import fetch_observations
     from .paths import processed_dir
     from .verification.calibration import accumulate_calibration
-    from .verification.match import match_snapshot
+    from .verification.match import match_snapshot, write_verification
 
     snapshots = sorted(
         Path(processed_dir("snapshots")).glob("*/findings.json"), key=lambda p: p.stat().st_mtime
@@ -119,11 +119,13 @@ def cmd_verify(args: argparse.Namespace) -> int:
     last_hour = findings["legs"][-1]["hours"][-1]["valid_time"]
     observations = fetch_observations(first_hour, last_hour, route_id=args.route)
     verification = match_snapshot(findings, observations)
+    verification_path = write_verification(verification)
     calibration_path = accumulate_calibration([verification])
     source = observations["source"]
     print(f"verified {findings['snapshot_id']}")
     print(f"  observations: {source['mode'].upper()} ({source.get('name', '?')})")
     print(f"  pairs: {len(verification['pairs'])} | coverage: {verification['coverage_summary']}")
+    print(f"  verification: {verification_path}")
     print(f"  calibration: {calibration_path}")
     return 0
 
