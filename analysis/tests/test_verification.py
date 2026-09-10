@@ -322,3 +322,36 @@ class TestCalibration:
         out = accumulate_calibration([doc], path=tmp_path / "calibration.json")
         assert out["records"] == []
         assert out["skipped_pairs"] == 1
+
+
+@pytest.mark.parametrize("mode", ["synthetic", "live"])
+def test_verify_cli_writes_pairs_and_calibration(tmp_path, monkeypatch, capsys, mode):
+    from deepweather_analysis.cli import main
+
+    monkeypatch.setenv("DEEPWEATHER_DATA_ROOT", str(tmp_path))
+    findings = findings_doc([leg("leg-1", **CASQ, hours=[hour(WINDOW_START, 20.0)])])
+    snapshot_dir = tmp_path / "processed" / "snapshots" / findings["snapshot_id"]
+    snapshot_dir.mkdir(parents=True)
+    (snapshot_dir / "findings.json").write_text(json.dumps(findings))
+    observations = obs_doc(mode, [station("test", **CASQ, records=[hour(WINDOW_START, 18.0)])])
+    observations["stations"][0]["records"][0]["time"] = WINDOW_START
+
+    def fetch(start, end, route_id):
+        assert (start, end, route_id) == (WINDOW_START, WINDOW_START, "test-route")
+        return observations
+
+    monkeypatch.setattr("deepweather_analysis.observations.fetch_observations", fetch)
+    assert main(["verify", "--snapshot", findings["snapshot_id"], "--route", "test-route"]) == 0
+    output_dir = tmp_path / "processed" / "verification"
+    path = output_dir / "cases" / f"{findings['snapshot_id']}.json"
+    document = json.loads(path.read_text())
+    expected = match_snapshot(findings, observations)
+    document.pop("generated_at")
+    expected.pop("generated_at")
+    assert document == expected
+    assert document["pairs"][0]["error"] == 2.0
+    assert document["pairs"][0]["coverage_class"] == (
+        "emulated" if mode == "synthetic" else "verified_near_observation"
+    )
+    assert (output_dir / "calibration.json").is_file()
+    assert str(path) in capsys.readouterr().out

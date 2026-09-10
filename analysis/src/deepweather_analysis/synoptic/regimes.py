@@ -53,7 +53,11 @@ def _box_mean(field: np.ndarray, lats: np.ndarray, lons: np.ndarray, box) -> Opt
     ii, jj = _box_mask(lats, lons, box)
     if ii.size * jj.size < _MIN_BOX_CELLS:
         return None
-    return float(np.nanmean(field[np.ix_(ii, jj)]))
+    values = field[np.ix_(ii, jj)]
+    if np.isnan(values).all():
+        return None
+    mean = float(np.nanmean(values))
+    return mean if np.isfinite(mean) else None
 
 
 def _dir_from_deg(u_mean: float, v_mean: float) -> float:

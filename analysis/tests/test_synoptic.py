@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 
 from deepweather_analysis.synoptic.detect import detect_systems
-from deepweather_analysis.synoptic.regimes import detect_mistral
+from deepweather_analysis.synoptic.regimes import BISCAY_BOX, GENOA_BOX, _box_mean, detect_mistral
 from deepweather_analysis.synoptic.track import track_systems
 
 # =============================================================================
@@ -223,3 +223,19 @@ class TestDetectMistral:
         u10 = np.full(shape, 8.0)
         v10 = np.full(shape, -8.0)
         assert detect_mistral(mslp, u10, v10, lats, lons) is None
+
+
+@pytest.mark.parametrize("box", [BISCAY_BOX, GENOA_BOX])
+@pytest.mark.parametrize("missing", [np.nan, np.inf, -np.inf])
+def test_nonfinite_pressure_box_cannot_trigger_mistral(box, missing):
+    mslp, u10, v10 = mistral_pattern()
+    lo_lat, hi_lat, lo_lon, hi_lon = box
+    mask = np.ix_((RLATS >= lo_lat) & (RLATS <= hi_lat), (RLONS >= lo_lon) & (RLONS <= hi_lon))
+    mslp[mask] = missing
+    assert _box_mean(mslp, RLATS, RLONS, box) is None
+    assert detect_mistral(mslp, u10, v10, RLATS, RLONS) is None
+
+
+def test_box_mean_preserves_partial_nan_coverage():
+    field = np.array([[1024.0, np.nan], [1020.0, 1022.0]])
+    assert _box_mean(field, np.array([0, 1]), np.array([0, 1]), (0, 1, 0, 1)) == 1022.0
