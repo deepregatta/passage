@@ -346,9 +346,9 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 
 ### 2.7 Sampler and mosaic hot paths
 - Items: F7, F8
-- Files: engine/src/grids.ts, engine/src/forecast/tileStore.ts
+- Files: engine/src/grids.ts, engine/src/forecast/tileStore.ts; focused engine/test/{grids,tileStore}.test.ts regressions.
 - Done when: grids/tileStore tests green; routing test timing not worse.
-- Status: todo · Commit: — · Notes:
+- Status: in progress · Commit: — · Notes: Clean pre-flight at `bd631a6`; previous step `e3a9497` scope and full guardrails verified (173 engine + 183 viewer, 248 Python, Ruff lint/format, byte-identical demo, Pages build). F7/F8 still reproduce in source; capturing sampler/mosaic and routing baselines before implementation.
 
 ### 2.8 Transport resilience
 - Items: §4.2 (timeout/retry, cache modes, fnv64 self-heal, in-flight de-dupe)
