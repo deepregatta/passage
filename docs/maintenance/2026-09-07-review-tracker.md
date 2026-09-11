@@ -290,7 +290,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Files: viewer/src/pages/Planner.jsx, viewer/src/components/RouteMap.jsx; shared basemap configuration if required.
 - Do: verify current CARTO endpoint requirements and production impact, then configure a supported basemap source with correct attribution.
 - Done when: planner and briefing maps render without API-key watermarks in desktop/mobile browser checks; document provider requirements and any remaining coverage limitations.
-- Status: todo · Commit: — · Notes:
+- Status: in progress · Commit: — · Notes: Clean pre-flight at `3146982`; previous step `19668f9` scope verified; npm tests (160 engine + 166 viewer), Python (238), Ruff lint/format and demo byte-identity pass. Existing `98e0993` already replaces CARTO with shared OpenStreetMap; checking current browser evidence and provider requirements.
 
 ### 1.17 Router graph-edge land checks
 - Items: noticed during 1.7, triaged during 1.8.
