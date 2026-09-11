@@ -312,7 +312,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Items: F1
 - Files: viewer/vite.config.js, new scripts/check-dist.mjs (asserts dist/index.html preloads neither vendor-echarts nor vendor-leaflet), root package.json `build:pages`
 - Done when: assertion passes; `npm run build -w viewer` output shows React in vendor-react.
-- Status: todo · Commit: — · Notes:
+- Status: in progress · Commit: — · Notes: Clean pre-flight; previous step `2d20df3` scope and full guardrails verified (164 engine + 166 viewer, 248 Python; Ruff lint/format and demo byte-identity pass). F1 reproduced: HTML preloads both heavy vendors; vendor-react is only 543 bytes.
 
 ### 2.2 ECharts core
 - Items: F2
