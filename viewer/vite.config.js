@@ -278,12 +278,27 @@ export default defineConfig(({ mode }) => ({
     outDir: 'dist',
     chunkSizeWarningLimit: 1200,
     sourcemap: mode !== 'production',
-    rollupOptions: {
+    rolldownOptions: {
       output: {
-        manualChunks(id) {
-          if (id.includes('/node_modules/echarts') || id.includes('/node_modules/zrender') || id.includes('/node_modules/echarts-for-react')) return 'vendor-echarts';
-          if (id.includes('/node_modules/leaflet') || id.includes('/node_modules/react-leaflet')) return 'vendor-leaflet';
-          if (id.includes('/node_modules/react/') || id.includes('/node_modules/react-dom/')) return 'vendor-react';
+        codeSplitting: {
+          groups: [
+            // Claim React before the lazy vendors recursively claim their dependencies.
+            {
+              name: 'vendor-react',
+              test: /[\\/]node_modules[\\/](?:react|react-dom|scheduler)[\\/]/,
+              priority: 30,
+            },
+            {
+              name: 'vendor-echarts',
+              test: /[\\/]node_modules[\\/](?:echarts|zrender|echarts-for-react)[\\/]/,
+              priority: 20,
+            },
+            {
+              name: 'vendor-leaflet',
+              test: /[\\/]node_modules[\\/](?:leaflet|react-leaflet|@react-leaflet[\\/]core)[\\/]/,
+              priority: 10,
+            },
+          ],
         },
       },
     },
