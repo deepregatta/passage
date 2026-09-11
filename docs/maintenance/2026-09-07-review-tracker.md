@@ -304,7 +304,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Files: analysis/src/deepweather_analysis/polars.py; analysis/tests/test_polars.py
 - Do: support JSON-stringified VPP angle keys alongside native Python-literal numeric keys.
 - Done when: both formats extract and build schema-valid polars from the committed sample.
-- Status: todo · Commit: — · Notes:
+- Status: in progress · Commit: — · Notes: Clean pre-flight; previous step `6a57d86` scope and full guardrails verified (164 engine + 166 viewer, 238 Python; Ruff lint/format and demo byte-identity pass).
 
 ## Phase 2 — performance (behaviour-preserving)
 
