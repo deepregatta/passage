@@ -59,6 +59,59 @@ describe('GridSampler', () => {
     expect(nearLand!.u_kt).toBe(2);
   });
 
+  it('interpolates a spatial gradient across irregular time steps, including exact endpoints', () => {
+    const grid = makeGrid();
+    const start = parseUtc(grid.time_axis[0]!);
+    const hours = [0, 2, 7, 19];
+    grid.time_axis = hours.map(h => new Date(start + h * 3600_000).toISOString());
+    grid.nlat = grid.nlon = 2;
+    grid.u_kt = hours.flatMap(h => [2 * h, 2 * h + 8, 2 * h + 4, 2 * h + 12]);
+    grid.v_kt = hours.flatMap(h => [-h, -h - 4, -h + 2, -h - 2]);
+    const sampler = new GridSampler(grid);
+    for (const h of [0, 1, 2, 4.5, 7, 13, 19]) {
+      expect(sampler.sample(49.125, -2.625, start + h * 3600_000))
+        .toEqual({ u_kt: 7 + 2 * h, v_kt: -2.5 - h });
+    }
+    for (const time of [start - 1, start + 19 * 3600_000 + 1, NaN, Infinity, -Infinity]) {
+      expect(sampler.sample(49.125, -2.625, time)).toBeNull();
+    }
+    expect(new GridSampler({ ...grid, time_axis: [] }).sample(49, -3, start)).toBeNull();
+  });
+
+  it.each([
+    [0, null], [1, 10], [2, 20], [3, 10], [4, 30], [5, 10], [6, 20], [7, 10],
+    [8, 40], [9, 10], [10, 20], [11, 10], [12, 30], [13, 10], [14, 20], [15, 25],
+  ] as const)('preserves coastal corner order on equal weights (wet mask %s)', (mask, expected) => {
+    const grid = makeGrid();
+    grid.nlat = grid.nlon = 2;
+    grid.time_axis = grid.time_axis.slice(0, 1);
+    // Mask order is SW, NW, SE, NE; flat storage is latitude-major.
+    grid.u_kt = [0, 2, 1, 3].map(corner => (mask & (1 << corner)) ? (corner + 1) * 10 : null);
+    grid.v_kt = [1, 1, 1, 1];
+    expect(new GridSampler(grid).sample(49.25, -2.75, parseUtc(grid.time_axis[0]!)))
+      .toEqual(expected === null ? null : { u_kt: expected, v_kt: 1 });
+  });
+
+  it('chooses the highest-weight wet corner independently for u and v', () => {
+    const grid = makeGrid();
+    grid.nlat = grid.nlon = 2;
+    grid.time_axis = grid.time_axis.slice(0, 1);
+    grid.u_kt = [10, 30, 20, null];
+    grid.v_kt = [null, null, -20, -40];
+    expect(new GridSampler(grid).sample(49.125, -2.625, parseUtc(grid.time_axis[0]!)))
+      .toEqual({ u_kt: 30, v_kt: -40 });
+  });
+
+  it('retains null propagation from both bracketing slices even at exact timestamps', () => {
+    const grid = makeGrid();
+    const start = parseUtc(grid.time_axis[0]!);
+    grid.nlat = grid.nlon = 2;
+    grid.u_kt = [null, null, null, null, 2, 2, 2, 2];
+    grid.v_kt = Array(8).fill(0);
+    const sampler = new GridSampler(grid);
+    for (const h of [0, 3, 6]) expect(sampler.sample(49.25, -2.75, start + h * 3600_000)).toBeNull();
+  });
+
   it('vector helpers: 2 kt east-going has set 090, fair on an easterly course', () => {
     const sample = { u_kt: 2, v_kt: 0 };
     expect(currentSetDeg(sample)).toBe(90);
