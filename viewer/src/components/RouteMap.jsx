@@ -101,19 +101,10 @@ function gateIcon(status) {
 
 export default function RouteMap({ height = 420 }) {
   const findings = useApp((s) => s.findings);
-  const synoptic = useApp((s) => s.synoptic);
   const example = useApp((s) => s.manifest?.snapshots?.some(item => item.snapshot_id === s.snapshotId && item.demo === true));
-  const cursor = usePlayback((s) => s.cursorHours);
   const routeDoc = useApp((s) => s.route);
   const [gatePositions, setGatePositions] = useState({});
   const [windGrid, setWindGrid] = useState(null);
-
-  // same time cursor as the synoptic playback: the boat sails the route as it plays
-  const frame = useMemo(
-    () => frameForCursor(findings, synoptic, routeDoc, cursor),
-    [findings, synoptic, routeDoc, cursor],
-  );
-  const activeLeg = findings?.legs.find((leg) => leg.leg_id === frame.activeLegId);
 
   useEffect(() => {
     setGatePositions({});
@@ -250,14 +241,7 @@ export default function RouteMap({ height = 420 }) {
         {legArrows.map((a) => (
           <Marker key={`w${a.leg_id}`} position={[a.lat, a.lon]} icon={windArrowIcon(a.dir, a.kt)} interactive={false} />
         ))}
-        {frame.boatPosition && (
-          <Marker
-            position={[frame.boatPosition.lat, frame.boatPosition.lon]}
-            icon={boatIcon(activeLeg?.bearing_deg_true ?? 0)}
-            interactive={false}
-            zIndexOffset={500}
-          />
-        )}
+        <BoatMarker findings={findings} route={routeDoc} />
         {(findings.gates ?? []).map((g) => {
           const pos = gatePositions[g.gate_id];
           if (!pos) return null;
@@ -274,4 +258,14 @@ export default function RouteMap({ height = 420 }) {
       </MapContainer>
     </div>
   );
+}
+
+/** Keep frame updates inside the moving marker, away from the static map layers. */
+function BoatMarker({ findings, route }) {
+  const cursor = usePlayback((s) => s.cursorHours);
+  const frame = frameForCursor(findings, null, route, cursor);
+  const bearing = findings.legs.find((leg) => leg.leg_id === frame.activeLegId)?.bearing_deg_true ?? 0;
+  const icon = useMemo(() => boatIcon(bearing), [bearing]);
+  if (!frame.boatPosition) return null;
+  return <Marker position={[frame.boatPosition.lat, frame.boatPosition.lon]} icon={icon} interactive={false} zIndexOffset={500} />;
 }

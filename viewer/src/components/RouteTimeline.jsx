@@ -1,5 +1,5 @@
 import ReactECharts from './lazy/EChartsLazy.jsx';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../stores/appStore.js';
 import { STATUS_HEX, hourStatus, fmtHour } from '../lib/format.js';
 import { usePlayback } from '../stores/playbackStore.js';
@@ -12,17 +12,34 @@ import useViewport from '../hooks/useViewport.js';
  */
 export default function RouteTimeline() {
   const findings = useApp((s) => s.findings);
-  const cursor = usePlayback((state) => state.cursorHours);
   const mobile = useViewport();
   const [detailed, setDetailed] = useState(false);
   const option = useMemo(
-    () => (findings && detailed ? buildOption(findings, cursor, mobile) : null),
-    [findings, cursor, mobile, detailed],
+    () => (findings && detailed ? buildOption(findings, mobile) : null),
+    [findings, mobile, detailed],
   );
+  const [chart, setChart] = useState(null);
+  useEffect(() => {
+    if (!chart || !detailed || !option) return;
+    const gust = option.series.find((series) => series.id === 'gusts');
+    if (!gust.markLine) return;
+    const update = () => {
+      if (chart.isDisposed()) return;
+      const cursorTime = Date.parse(findings.departure_utc) + usePlayback.getState().cursorHours * 3600_000;
+      // Merge only mark-line data by series id; retain all weather data and bands.
+      chart.setOption({ series: [{ id: 'gusts', markLine: {
+        data: [gust.markLine.data[0], nowLine(cursorTime)],
+      } }] });
+    };
+    update();
+    return usePlayback.subscribe((state, previous) => {
+      if (state.cursorHours !== previous.cursorHours) update();
+    });
+  }, [chart, detailed, option, findings]);
   if (!findings) return null;
   return (
     <div>
-      <ConditionStrip findings={findings} cursor={cursor} />
+      <ConditionStrip findings={findings} />
       <button
         type="button"
         onClick={() => setDetailed(!detailed)}
@@ -33,7 +50,7 @@ export default function RouteTimeline() {
       </button>
       {detailed && option && (
         <>
-          <ReactECharts option={option} style={{ height: 330 }} notMerge lazyUpdate opts={{ renderer: 'svg' }} />
+          <ReactECharts onChartReady={setChart} option={option} style={{ height: 330 }} notMerge lazyUpdate opts={{ renderer: 'svg' }} />
           <div className="flex gap-5 justify-end font-sans text-[11px] text-ink-soft pr-2 -mt-1">
             <span className="flex items-center gap-1.5">
               <span className="w-3.5 h-2.5 inline-block rounded-[2px]" style={{ background: 'rgba(168,119,24,0.35)' }} />
@@ -58,7 +75,7 @@ export default function RouteTimeline() {
 const STRIP_LABEL = { ok: 'fine', approaching: 'close to your limits', exceeded: 'beyond your limits', unknown: 'not assessed' };
 
 /** One glanceable bar: each stretch of the passage colored by its worst condition status. */
-function ConditionStrip({ findings, cursor }) {
+function ConditionStrip({ findings }) {
   const rows = collectRows(findings);
   if (!rows.length) return null;
   const t0 = rows[0].t;
@@ -84,7 +101,6 @@ function ConditionStrip({ findings, cursor }) {
     flags.push({ label, at: Date.parse(ev.window.from) });
   }
 
-  const cursorTime = Date.parse(findings.departure_utc) + cursor * 3600_000;
   const ticks = [];
   for (let t = Math.ceil(t0 / (6 * 3600_000)) * 6 * 3600_000; t < t1; t += 6 * 3600_000) ticks.push(t);
   const summary = merged
@@ -117,9 +133,7 @@ function ConditionStrip({ findings, cursor }) {
             }}
           />
         ))}
-        {cursorTime >= t0 && cursorTime <= t1 && (
-          <div className="absolute top-0 bottom-0 w-[2px]" style={{ left: `${pct(cursorTime)}%`, backgroundColor: '#176B87' }} aria-hidden />
-        )}
+        <StripCursor departure={Date.parse(findings.departure_utc)} t0={t0} t1={t1} />
       </div>
       <div className="relative h-4" aria-hidden>
         {ticks.map((t) => (
@@ -141,6 +155,17 @@ function ConditionStrip({ findings, cursor }) {
       </div>
     </div>
   );
+}
+
+function StripCursor({ departure, t0, t1 }) {
+  const cursor = usePlayback((state) => state.cursorHours);
+  const time = departure + cursor * 3600_000;
+  if (time < t0 || time > t1) return null;
+  return <div className="absolute top-0 bottom-0 w-[2px]" style={{ left: `${((time - t0) / (t1 - t0)) * 100}%`, backgroundColor: '#176B87' }} aria-hidden />;
+}
+
+function nowLine(time) {
+  return { xAxis: time, label: { formatter: 'NOW', color: '#176B87' }, lineStyle: { color: '#176B87', type: 'solid', width: 1 } };
 }
 
 function TimelineTable({ findings }) {
@@ -172,13 +197,13 @@ function collectRows(findings) {
   return rows;
 }
 
-function buildOption(findings, cursorHours = 0, mobile = false) {
+function buildOption(findings, mobile = false) {
   const rows = collectRows(findings);
 
   const gustLimit = findings.evidence.find(
     (e) => e.rule_id === 'W-GUST-01' || e.rule_id === 'W-GUST-03',
   )?.limit;
-  const cursorTime = Date.parse(findings.departure_utc) + cursorHours * 3600_000;
+  const cursorTime = Date.parse(findings.departure_utc) + usePlayback.getState().cursorHours * 3600_000;
 
   const wind = rows.map((r) => [r.t, r.hour.wind_kt]);
   const gust = rows.map((r) => [r.t, r.hour.gust_kt]);
@@ -299,6 +324,7 @@ function buildOption(findings, cursorHours = 0, mobile = false) {
         markArea: bandAreas.length ? { silent: true, data: bandAreas } : undefined,
       },
       {
+        id: 'gusts',
         name: 'gusts',
         type: 'line',
         xAxisIndex: 1,
@@ -311,7 +337,7 @@ function buildOption(findings, cursorHours = 0, mobile = false) {
           ? {
               silent: true,
               symbol: 'none',
-              data: [{ yAxis: gustLimit }, { xAxis: cursorTime, label: { formatter: 'NOW', color: '#176B87' }, lineStyle: { color: '#176B87', type: 'solid', width: 1 } }],
+              data: [{ yAxis: gustLimit }, nowLine(cursorTime)],
               lineStyle: { color: '#A87718', type: 'dashed', width: 1.6 },
               label: {
                 formatter: `${gustLimit} kt\nyour limit`,
