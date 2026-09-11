@@ -297,7 +297,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Files: engine/src/routing/isochrone.ts, engine/test/routing.test.ts
 - Do: first reproduce a crossing between sea endpoints on a short graph edge using a finer land mask; if confirmed, check graph edges against the mask and add regression coverage.
 - Done when: the finding is either disproved with evidence or reproduced and fixed without changing engine prose or demo fixtures.
-- Status: todo · Commit: — · Notes:
+- Status: in progress · Commit: — · Notes: Clean pre-flight; previous done step `19668f9` scope and full guardrails verified (160 engine + 166 viewer tests, 238 Python tests, Ruff lint/format, byte-identical demo regeneration).
 
 ### 1.18 ORC JSON numeric angle keys
 - Items: noticed during 1.14, triaged during 1.15.
