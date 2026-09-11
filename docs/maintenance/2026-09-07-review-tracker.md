@@ -318,7 +318,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Items: F2
 - Files: viewer/src/components/lazy/EChartsLazy.jsx, chart components, viewer/vite.config.js (`chunkSizeWarningLimit` removed)
 - Done when: vendor-echarts chunk well under 500 KB raw; all charts render (screenshots at both viewports).
-- Status: todo · Commit: — · Notes:
+- Status: in progress · Commit: — · Notes: Clean pre-flight; previous step `431a1bd` scope and full guardrails pass; demo regeneration unchanged. Reproduced full vendor chunk: 1,135.55 KB raw / 377.27 KB gzip.
 
 ### 2.3 Tile cache metadata store
 - Items: V1, F3
