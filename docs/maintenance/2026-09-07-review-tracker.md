@@ -304,7 +304,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Files: analysis/src/deepweather_analysis/polars.py; analysis/tests/test_polars.py
 - Do: support JSON-stringified VPP angle keys alongside native Python-literal numeric keys.
 - Done when: both formats extract and build schema-valid polars from the committed sample.
-- Status: in progress · Commit: — · Notes: Clean pre-flight; previous step `6a57d86` scope and full guardrails verified (164 engine + 166 viewer, 238 Python; Ruff lint/format and demo byte-identity pass).
+- Status: done · Commit: — · Notes: Clean pre-flight; previous step `6a57d86` scope and full guardrails verified (164 engine + 166 viewer, 238 Python; Ruff lint/format and demo byte-identity pass). Reproduced four failing regressions before the fix (JSON extraction, index updates, database build, and speed-table parity). Angle lookup now falls back to the JSON string key, preserving native numeric-key precedence. Parameterized the committed 20-record sample across Python-literal and JSON inputs; both formats extract/build schema-valid polars and all 20 transformed speed tables match exactly. Final `npm test`: build/typecheck, 164 engine + 166 viewer pass; Python 3.12 pytest: 248 pass (10 existing NumPy warnings); Ruff lint/format pass (54 files). Demo regeneration byte-identical to HEAD; engine goldens and screenshot baselines unchanged. Phase gate: `npm run test:e2e` 38/38 desktop/mobile pass; `npm run build:pages` passes. Self-review and diff check pass; only the two scoped Python files and tracker changed. No unrelated dirty work, UI changes, or new findings. Red log: `/tmp/passage-118-red.log`.
 
 ## Phase 2 — performance (behaviour-preserving)
 
@@ -441,6 +441,8 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 ## Phase gates
 (agent appends one line per closed phase: `- Phase N — <date> — e2e: pass/fail — build:pages: pass/fail — notes`)
 - Phase 0 — 2026-09-08 — e2e: pass (34/34, desktop/mobile) — build:pages: pass — Reviewed briefing-desktop-linux.png: obsolete departure action removed and bulletin action relabelled Inspect example bulletin; dimensions remain 1568×1783. briefing-mobile-linux.png: same action change removes one wrapped button row (390×2647 → 390×2617). Both briefing baselines intentionally omit external raster tiles while preserving route markers, map controls, attribution, synoptic chart, story and conditions strip; this is test isolation, not proof of provider availability (1.16 remains open). Reviewed plan-desktop-linux.png (1568×1035 → 1568×1175) and plan-mobile-linux.png (390×1739 → 390×1879): existing example invitation/disclosure replaces the inline link and adds 140 px; departure changes from old July 21 06:00 default to current July 20 08:00 Europe/Paris at frozen 06:00Z. Planner map tiles are deliberately omitted too; controls/attribution remain. Mobile bottom navigation stays fixed at the viewport edge. All changes reflect existing product behavior; no product source, Verify/Evidence/Changes baseline, engine golden or tracked demo fixture changed. Known demo regeneration drift remains assigned to 1.15.
+
+- Phase 1 — 2026-09-11 — e2e: pass (38/38, desktop/mobile) — build:pages: pass — No screenshot baseline, engine golden, prose or demo fixture changes.
 
 ## Noticed during steps
 (agents append here: `- <step> — <file:line> — <one line>`)

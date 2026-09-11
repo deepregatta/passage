@@ -305,8 +305,8 @@ def transform_orc_vpp(orc_vpp: dict) -> dict[float, dict[float, float]]:
 
         # For each TWA (angles)
         for twa in angles:
-            # Get the speed array for this angle
-            speed_array = orc_vpp.get(twa, [])
+            # JSON stringifies angle keys; Python literals retain numeric keys.
+            speed_array = orc_vpp.get(twa, orc_vpp.get(str(twa), []))
             if speed_idx < len(speed_array):
                 boat_speed = speed_array[speed_idx]
                 result[float(tws)][float(twa)] = float(boat_speed)
