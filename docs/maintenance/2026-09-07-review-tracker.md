@@ -340,9 +340,9 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 
 ### 2.6 Parallel layer and manifest reads
 - Items: F6
-- Files: engine/src/analyze.ts, engine/src/forecast/tileStore.ts
+- Files: engine/src/analyze.ts, engine/src/forecast/tileStore.ts; focused engine/test/{analyze,tileStore}.test.ts regressions.
 - Done when: goldens byte-identical; progress messages preserved.
-- Status: todo · Commit: — · Notes:
+- Status: in progress · Commit: — · Notes: Clean pre-flight at `4c38899`; previous step `5b2b80d` scope and full guardrails verified (164 engine + 183 viewer tests; 248 Python tests with 10 existing warnings; Ruff lint/format and demo byte-identity pass). No unrelated dirty files or untriaged notices.
 
 ### 2.7 Sampler and mosaic hot paths
 - Items: F7, F8
