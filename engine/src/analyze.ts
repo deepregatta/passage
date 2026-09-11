@@ -95,15 +95,22 @@ export async function runAnalysis(options: AnalyzeOptions): Promise<AnalyzeResul
   await store.init();
   const layers = store.describe();
 
-  progress('reading deterministic forecast tiles');
-  const det = await store.getPointForecasts(points, startMs, endMs);
   const memberCount = layers.ensemble?.member_count;
-  progress(memberCount ? `reading ${memberCount}-member ensemble tiles` : 'checking ensemble tiles');
-  const ens = await store.getEnsembleForecasts(points, startMs, endMs);
-  progress('reading wave tiles');
-  const marine = await store.getWaveForecasts(points, startMs, endMs);
-  progress('reading hazard and model-comparison tiles');
-  const multi = await store.getHazardForecasts(points, startMs, endMs);
+  const readLayer = async <T>(message: string, read: () => Promise<T>): Promise<T> => {
+    progress(message);
+    return read();
+  };
+  const [det, ens, marine, multi] = await Promise.all([
+    readLayer('reading deterministic forecast tiles',
+      () => store.getPointForecasts(points, startMs, endMs)),
+    readLayer(
+      memberCount ? `reading ${memberCount}-member ensemble tiles` : 'checking ensemble tiles',
+      () => store.getEnsembleForecasts(points, startMs, endMs),
+    ),
+    readLayer('reading wave tiles', () => store.getWaveForecasts(points, startMs, endMs)),
+    readLayer('reading hazard and model-comparison tiles',
+      () => store.getHazardForecasts(points, startMs, endMs)),
+  ]);
 
   let currentGrid = options.currentGrid;
   if (!currentGrid) {
