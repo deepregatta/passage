@@ -1,6 +1,8 @@
+import { createElement } from 'react';
+import { render } from '@testing-library/react';
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { getDefaultLanguage, getInitialLanguage, getLanguageFromPath, translateText } from '../src/i18n.js';
+import { LocalizedDocument, getDefaultLanguage, getInitialLanguage, getLanguageFromPath, translateText } from '../src/i18n.js';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -180,4 +182,80 @@ it('translates HTTP scan failure details while preserving the status and artifac
     .toBe('Échec du chargement des prévisions : HTTP 503 pour latest.json');
   expect(translateText('forecast tile fetch failed: HTTP 404 for tiles/a.pft', 'fr'))
     .toBe('Échec du chargement d’une tuile de prévision : HTTP 404 pour tiles/a.pft');
+});
+
+// Real MutationObserver delivery verifies work scope as well as translated output.
+describe('document localiser scope', () => {
+  let host;
+  let view;
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+  const mount = (language) => {
+    host = document.createElement('div');
+    host.id = 'root';
+    host.innerHTML = '<section><span>Start</span></section><aside title="Finish">Finish</aside>';
+    document.body.append(host);
+    view = render(createElement(LocalizedDocument, { language }));
+  };
+  afterEach(() => { view?.unmount(); host?.remove(); });
+
+  it('does no DOM walk or observation in English, including mutations', async () => {
+    const walk = vi.spyOn(document, 'createTreeWalker');
+    const observe = vi.spyOn(MutationObserver.prototype, 'observe');
+    mount('en');
+    host.firstChild.firstChild.firstChild.data = 'Finish';
+    await settle();
+    expect(walk.mock.calls.filter(([, mask]) => mask === NodeFilter.SHOW_TEXT)).toEqual([]);
+    expect(observe).not.toHaveBeenCalled();
+  });
+
+  it('localises added subtrees and direct text/attribute edits without revisiting siblings', async () => {
+    mount('fr');
+    await settle();
+    const walk = vi.spyOn(document, 'createTreeWalker');
+    const siblingRead = vi.spyOn(host.lastChild, 'getAttribute');
+    const span = host.querySelector('span');
+    span.firstChild.data = 'Finish';
+    span.setAttribute('title', 'Start');
+    const added = document.createElement('div');
+    added.title = 'Finish';
+    added.innerHTML = '<b>Start</b><pre>Start</pre><code>Finish</code>';
+    host.firstChild.append(added);
+    await settle();
+    expect(span.textContent).toBe('Arrivée');
+    expect(span.title).toBe('Départ');
+    expect(added.title).toBe('Arrivée');
+    expect(added.querySelector('b').textContent).toBe('Départ');
+    expect(added.querySelector('pre').textContent).toBe('Start');
+    expect(added.querySelector('code').textContent).toBe('Finish');
+    expect(siblingRead).not.toHaveBeenCalled();
+    expect(walk.mock.calls.filter(([, mask]) => mask === NodeFilter.SHOW_TEXT).every(([root]) => root !== host && root !== host.firstChild)).toBe(true);
+    const count = walk.mock.calls.length;
+    await settle();
+    expect(walk).toHaveBeenCalledTimes(count);
+  });
+
+  it('restores current English values once and stops observing after a language switch', async () => {
+    mount('fr');
+    host.querySelector('span').firstChild.data = 'Finish';
+    await settle();
+    view.rerender(createElement(LocalizedDocument, { language: 'en' }));
+    expect(host.querySelector('span').textContent).toBe('Finish');
+    expect(host.lastChild.title).toBe('Finish');
+    const walk = vi.spyOn(document, 'createTreeWalker');
+    host.querySelector('span').firstChild.data = 'Start';
+    await settle();
+    expect(walk.mock.calls.filter(([, mask]) => mask === NodeFilter.SHOW_TEXT)).toEqual([]);
+    view.rerender(createElement(LocalizedDocument, { language: 'fr' }));
+    expect(host.querySelector('span').textContent).toBe('Départ');
+  });
+
+  it('does not restart observation when unmounted with mutations pending', async () => {
+    mount('fr');
+    host.querySelector('span').firstChild.data = 'Finish';
+    const observe = vi.spyOn(MutationObserver.prototype, 'observe');
+    view.unmount();
+    await settle();
+    expect(observe).not.toHaveBeenCalled();
+    expect(host.querySelector('span').textContent).toBe('Finish');
+  });
 });

@@ -1,4 +1,4 @@
-import { useLayoutEffect } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 
 export const LANGUAGE_STORAGE_KEY = 'passage-language';
 
@@ -1110,57 +1110,93 @@ const originalText = new WeakMap();
 const originalAttrs = new WeakMap();
 const ATTRIBUTES = ['aria-label', 'title', 'placeholder', 'alt'];
 
-function localize(root, language) {
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-  let node;
-  while ((node = walker.nextNode())) {
-    if (node.parentElement?.closest('script, style, pre, code')) continue;
-    let original = originalText.get(node);
-    if (original === undefined || (node.data !== original && node.data !== translateText(original, 'fr'))) {
-      original = node.data;
-      originalText.set(node, original);
+function localizeText(node, language) {
+  if (node.parentElement?.closest('script, style, pre, code')) return;
+  let original = originalText.get(node);
+  if (original === undefined || (node.data !== original && node.data !== translateText(original, 'fr'))) {
+    original = node.data;
+    originalText.set(node, original);
+  }
+  const next = translateText(original, language);
+  if (node.data !== next) node.data = next;
+}
+
+function localizeAttributes(element, language, attributes = ATTRIBUTES) {
+  let originals = originalAttrs.get(element);
+  if (!originals) {
+    originals = new Map();
+    originalAttrs.set(element, originals);
+  }
+  for (const attr of attributes) {
+    if (!element.hasAttribute(attr)) continue;
+    const current = element.getAttribute(attr);
+    let original = originals.get(attr);
+    if (original === undefined || (current !== original && current !== translateText(original, 'fr'))) {
+      original = current;
+      originals.set(attr, original);
     }
     const next = translateText(original, language);
-    if (node.data !== next) node.data = next;
-  }
-
-  for (const element of root.querySelectorAll('*')) {
-    let originals = originalAttrs.get(element);
-    if (!originals) {
-      originals = new Map();
-      originalAttrs.set(element, originals);
-    }
-    for (const attr of ATTRIBUTES) {
-      if (!element.hasAttribute(attr)) continue;
-      const current = element.getAttribute(attr);
-      let original = originals.get(attr);
-      if (original === undefined || (current !== original && current !== translateText(original, 'fr'))) {
-        original = current;
-        originals.set(attr, original);
-      }
-      const next = translateText(original, language);
-      if (current !== next) element.setAttribute(attr, next);
-    }
+    if (current !== next) element.setAttribute(attr, next);
   }
 }
 
+function localize(root, language) {
+  if (root.nodeType === Node.TEXT_NODE) {
+    localizeText(root, language);
+    return;
+  }
+  if (root.nodeType !== Node.ELEMENT_NODE) return;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let node;
+  while ((node = walker.nextNode())) localizeText(node, language);
+  if (root.nodeType === Node.ELEMENT_NODE) localizeAttributes(root, language);
+  for (const element of root.querySelectorAll('*')) localizeAttributes(element, language);
+}
+
 export function LocalizedDocument({ language }) {
+  const previousLanguage = useRef(null);
   useLayoutEffect(() => {
     const root = document.getElementById('root') ?? document.body;
     document.documentElement.lang = language;
-    let queued = false;
-    const observer = new MutationObserver(() => {
-      if (queued) return;
-      queued = true;
-      queueMicrotask(() => {
-        queued = false;
-        observer.disconnect();
-        localize(root, language);
-        observer.observe(root, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ATTRIBUTES });
-      });
+    const restoreEnglish = previousLanguage.current === 'fr';
+    previousLanguage.current = language;
+    if (language !== 'fr') {
+      // A language switch restores translated nodes once; English never observes.
+      if (restoreEnglish) localize(root, language);
+      return;
+    }
+
+    const options = { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ATTRIBUTES };
+    const observer = new MutationObserver((records) => {
+      // MutationObserver already batches writes. Process synchronously so cleanup
+      // cannot leave a queued callback that reattaches an obsolete observer.
+      observer.disconnect();
+      try {
+        const subtrees = new Set();
+        for (const record of records) {
+          if (record.type === 'childList') {
+            for (const node of record.addedNodes) subtrees.add(node);
+          }
+        }
+        const roots = [...subtrees].filter((node) => {
+          if (!root.contains(node)) return false;
+          for (let parent = node.parentNode; parent; parent = parent.parentNode) {
+            if (subtrees.has(parent)) return false;
+          }
+          return true;
+        });
+        for (const node of roots) localize(node, language);
+        for (const record of records) {
+          if (!root.contains(record.target) || roots.some((node) => node.contains(record.target))) continue;
+          if (record.type === 'characterData') localizeText(record.target, language);
+          if (record.type === 'attributes') localizeAttributes(record.target, language, [record.attributeName]);
+        }
+      } finally {
+        observer.observe(root, options);
+      }
     });
     localize(root, language);
-    observer.observe(root, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ATTRIBUTES });
+    observer.observe(root, options);
     return () => observer.disconnect();
   }, [language]);
 
