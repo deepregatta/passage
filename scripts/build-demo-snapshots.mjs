@@ -97,7 +97,10 @@ const verificationCase = {
 };
 writeJson(join(latestDir, 'verification.json'), verificationCase);
 
-rmSync(committedRoot, { recursive: true, force: true });
+// Replace only generated artifacts; routes are maintained separately for the demo.
+for (const directory of ['snapshots', 'verification']) {
+  rmSync(join(committedRoot, directory), { recursive: true, force: true });
+}
 mkdirSync(join(committedRoot, 'snapshots'), { recursive: true });
 
 for (const [name, id, sourceName] of [
