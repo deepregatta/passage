@@ -5,7 +5,9 @@
  */
 
 import { encodeTile, type TileHeader, type TileVariable } from '../../src/forecast/tileCodec.js';
-import type { LatestDoc, RunManifest, TileTransport } from '../../src/forecast/store.js';
+import { gzipSync } from 'node:zlib';
+import { fnv1a64Hex } from '../../src/hash.js';
+import type { LatestDoc, RunManifest, TileFetchOptions, TileTransport } from '../../src/forecast/store.js';
 
 export interface FixtureVariable {
   name: string;
@@ -50,10 +52,10 @@ export class MemoryTileTransport implements TileTransport {
     return manifest;
   }
 
-  async fetchTile(runId: string, path: string): Promise<Uint8Array> {
+  async fetchTile(runId: string, path: string, _options?: TileFetchOptions): Promise<Uint8Array> {
     const tile = this.tiles.get(`${runId}/${path}`);
     if (!tile) throw new Error(`no tile: ${runId}/${path}`);
-    return tile; // fixture tiles are stored uncompressed
+    return tile;
   }
 }
 
@@ -116,12 +118,12 @@ export function buildFixtureRun(
         }
         arrays[variable.name] = values;
       }
-      const encoded = encodeTile(
+      const encoded = new Uint8Array(gzipSync(encodeTile(
         { ...header, variables: spec.variables.map(({ value: _v, ...rest }) => rest) },
         arrays,
-      );
+      )));
       tiles.set(`${runId}/${spec.layer}/${zDir}/${tileId}.bin`, encoded);
-      manifestTiles[tileId] = { bytes: encoded.byteLength, fnv64: '0'.repeat(16) };
+      manifestTiles[tileId] = { bytes: encoded.byteLength, fnv64: fnv1a64Hex(encoded) };
     }
 
     manifests.set(runId, {

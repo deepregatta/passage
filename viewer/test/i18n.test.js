@@ -10,6 +10,17 @@ afterEach(() => {
   history.replaceState(null, '', '/');
 });
 
+it('translates transport timeouts, network errors and tile validation failures', () => {
+  expect(translateText('forecast fetch timed out after 15000 ms for latest.json', 'fr'))
+    .toBe('Délai de chargement des prévisions dépassé après 15000 ms pour latest.json');
+  expect(translateText('forecast fetch failed: network error for latest.json', 'fr'))
+    .toBe('Échec du chargement des prévisions : erreur réseau pour latest.json');
+  expect(translateText('forecast tile invalid: run/tile.bin (checksum mismatch)', 'fr'))
+    .toBe('Tuile de prévision invalide : run/tile.bin (somme de contrôle incorrecte)');
+  expect(translateText('forecast tile invalid: run/tile.bin (decode failed)', 'fr'))
+    .toBe('Tuile de prévision invalide : run/tile.bin (échec du décodage)');
+});
+
 describe('language selection', () => {
   it('selects French from a French browser preference', () => {
     vi.spyOn(window.navigator, 'languages', 'get').mockReturnValue(['fr-FR', 'en-US']);

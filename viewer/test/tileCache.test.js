@@ -23,6 +23,19 @@ afterEach(async () => {
 });
 
 describe('IndexedDbTileCache', () => {
+  it('deletes one corrupt entry and its metadata while retaining healthy tiles', async () => {
+    const cache = makeCache();
+    await cache.put('r/bad', new Uint8Array([1]), 'r');
+    await cache.put('r/good', new Uint8Array([2]), 'r');
+    await cache.get('r/bad');
+    await cache.delete('r/bad');
+    await cache.delete('missing');
+    expect(await cache.get('r/bad')).toBeNull();
+    expect(await cache.get('r/good')).toEqual(new Uint8Array([2]));
+    expect((await records(await cache.db(), 'metadata')).map(e => e.key)).toEqual(['r/good']);
+    expect(cache.touched.has('r/bad')).toBe(false);
+  });
+
   it('round trips only the supplied view and returns null on a miss', async () => {
     const cache = makeCache();
     expect(await cache.get('missing')).toBeNull();

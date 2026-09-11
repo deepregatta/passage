@@ -4,6 +4,8 @@ import addFormats from 'ajv-formats';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { gzipSync, gunzipSync } from 'node:zlib';
+import { fnv1a64Hex } from '../src/hash.js';
 import { TileForecastStore } from '../src/forecast/tileStore.js';
 import { decodeTile, encodeTile } from '../src/forecast/tileCodec.js';
 import { MemoryTileCache } from '../src/forecast/store.js';
@@ -177,9 +179,11 @@ describe('TileForecastStore grids', () => {
     // its 3h step is missing. Reusing the south tile's indices would shift data.
     const runId = transport.latest.layers.weather!.run_id;
     const key = `${runId}/weather/z1/N50W010.bin`;
-    const north = decodeTile(transport.tiles.get(key)!);
+    const north = decodeTile(gunzipSync(transport.tiles.get(key)!));
     north.header.time_axes.hourly = { base: CYCLE, offsets_h: [-3, 0, 9, 18] };
-    transport.tiles.set(key, encodeTile(north.header, north.arrays));
+    const bytes = new Uint8Array(gzipSync(encodeTile(north.header, north.arrays)));
+    transport.tiles.set(key, bytes);
+    transport.manifests.get(runId)!.tiles.N50W010 = { bytes: bytes.length, fnv64: fnv1a64Hex(bytes) };
     const store = new TileForecastStore({ transport, now: () => START });
     const bbox = { minLat: 49, maxLat: 50, minLon: -6, maxLon: -5 };
     const grid = await store.getWindGrid(bbox, '2026-07-20T04:00Z', 6);
@@ -283,6 +287,141 @@ describe('TileForecastStore grids', () => {
 });
 
 describe('TileForecastStore resilience', () => {
+  // Use real stored-object bytes here: manifest hashes cover gzip, not PFT1.
+  function storedFixture() {
+    const transport = buildFixtureRun([weatherSpec({ tiles: [[40, -10]] })]);
+    const runId = transport.latest.layers.weather!.run_id;
+    const manifest = transport.manifests.get(runId)!;
+    const path = manifest.tiling.path_template.replace('{tile_id}', 'N40W010');
+    const key = `${runId}/${path}`;
+    const bytes = transport.tiles.get(key)!;
+    return { transport, runId, key, bytes, manifest };
+  }
+
+  it('shares one cold fetch across deterministic, hazard and grid consumers', async () => {
+    const { transport } = storedFixture();
+    const fetches = vi.spyOn(transport, 'fetchTile');
+    const store = new TileForecastStore({ transport });
+    const [point, hazard, grid] = await Promise.all([
+      store.getPointForecasts([POINT], START, END),
+      store.getHazardForecasts([POINT], START, END),
+      store.getWindGrid({ minLat: 49, maxLat: 49.5, minLon: -5, maxLon: -4.5 }, CYCLE, 3),
+    ]);
+    expect(fetches).toHaveBeenCalledTimes(1);
+    expect(point.forecasts[0]!.wind_kt[0]).toBe(10);
+    expect(hazard!.byModel.gfs_0p25![0]!.wind_kt[0]).toBe(10);
+    expect(grid.u_kt[0]).toBe(10);
+    expect(point.meta.cached_tiles).toBe(0);
+    expect(hazard!.meta[0]!.cached_tiles).toBe(0);
+  });
+
+  it.each(['checksum', 'legacy raw'])('evicts %s cache bytes and shares one fresh refetch', async kind => {
+    const { transport, runId, key, bytes } = storedFixture();
+    const corrupt = bytes.slice();
+    corrupt[4] = corrupt[4]! ^ 1; // gzip mtime: still decodes, but the checksum differs
+    const cache = new MemoryTileCache();
+    await cache.put(key, kind === 'checksum' ? corrupt : new Uint8Array([80, 70, 84, 49]), runId);
+    await cache.put(`${runId}/healthy`, new Uint8Array([1]), runId);
+    const remove = vi.spyOn(cache, 'delete');
+    const fetches = vi.spyOn(transport, 'fetchTile').mockImplementation(async () => {
+      expect(await cache.get(key)).toBeNull();
+      return bytes;
+    });
+    const store = new TileForecastStore({ transport, cache });
+    const [point, hazard] = await Promise.all([
+      store.getPointForecasts([POINT], START, END), store.getHazardForecasts([POINT], START, END),
+    ]);
+    expect(point.forecasts[0]!.wind_kt[0]).toBe(10);
+    expect(hazard!.byModel.gfs_0p25![0]!.wind_kt[0]).toBe(10);
+    expect(point.meta.cached_tiles).toBe(0);
+    expect(remove).toHaveBeenCalledExactlyOnceWith(key);
+    expect(fetches).toHaveBeenCalledTimes(1);
+    expect(fetches.mock.calls[0]![2]).toEqual({ cache: 'reload' });
+    expect(await cache.get(key)).toEqual(bytes);
+    expect(await cache.get(`${runId}/healthy`)).toEqual(new Uint8Array([1]));
+    const nextStore = new TileForecastStore({ transport, cache });
+    const cached = await nextStore.getPointForecasts([POINT], START, END);
+    expect(cached.meta.cached_tiles).toBe(1);
+    expect(fetches).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['checksum', 'gzip', 'PFT1'])('bounds corrupt %s downloads and never caches them', async kind => {
+    const { transport, bytes, manifest, key } = storedFixture();
+    let bad = bytes.slice();
+    if (kind === 'checksum') bad[4] = bad[4]! ^ 1;
+    else {
+      bad = kind === 'gzip' ? new Uint8Array([1, 2, 3]) : new Uint8Array(gzipSync('not a tile'));
+      manifest.tiles.N40W010 = { bytes: bad.length, fnv64: fnv1a64Hex(Buffer.from(bad).toString('latin1')) };
+    }
+    const fetches = vi.spyOn(transport, 'fetchTile').mockResolvedValue(bad);
+    const cache = new MemoryTileCache();
+    const writes = vi.spyOn(cache, 'put');
+    const store = new TileForecastStore({ transport, cache });
+    await expect(store.getPointForecasts([POINT], START, END)).rejects.toThrow(`forecast tile invalid: ${key}`);
+    expect(fetches).toHaveBeenCalledTimes(2);
+    expect(fetches.mock.calls[1]![2]).toEqual({ cache: 'reload' });
+    expect(writes).not.toHaveBeenCalled();
+    expect(await cache.get(key)).toBeNull();
+  });
+
+  it('clears a failed shared fetch so a later analysis can recover', async () => {
+    const { transport, bytes } = storedFixture();
+    const error = new Error('offline');
+    const fetches = vi.spyOn(transport, 'fetchTile').mockRejectedValueOnce(error).mockResolvedValue(bytes);
+    const store = new TileForecastStore({ transport });
+    const results = await Promise.allSettled([
+      store.getPointForecasts([POINT], START, END), store.getHazardForecasts([POINT], START, END),
+    ]);
+    expect(results).toEqual([{ status: 'rejected', reason: error }, { status: 'rejected', reason: error }]);
+    expect(fetches).toHaveBeenCalledTimes(1);
+    expect((await store.getPointForecasts([POINT], START, END)).forecasts[0]!.wind_kt[0]).toBe(10);
+    expect(fetches).toHaveBeenCalledTimes(2);
+  });
+
+  it('bypasses one corrupt HTTP cache response and stores only the repaired tile', async () => {
+    const { transport, bytes, key } = storedFixture();
+    const corrupt = bytes.slice();
+    corrupt[4] = corrupt[4]! ^ 1;
+    const fetches = vi.spyOn(transport, 'fetchTile').mockResolvedValueOnce(corrupt).mockResolvedValue(bytes);
+    const cache = new MemoryTileCache();
+    const writes = vi.spyOn(cache, 'put');
+    const store = new TileForecastStore({ transport, cache });
+    expect((await store.getPointForecasts([POINT], START, END)).forecasts[0]!.wind_kt[0]).toBe(10);
+    expect(fetches).toHaveBeenCalledTimes(2);
+    expect(fetches.mock.calls[1]![2]).toEqual({ cache: 'reload' });
+    expect(writes).toHaveBeenCalledTimes(1);
+    expect(await cache.get(key)).toEqual(bytes);
+  });
+
+  it('allows only one refetch after cache corruption and recovers on a later call', async () => {
+    const { transport, bytes, key, runId } = storedFixture();
+    const corrupt = bytes.slice();
+    corrupt[4] = corrupt[4]! ^ 1;
+    const fetches = vi.spyOn(transport, 'fetchTile').mockResolvedValueOnce(corrupt).mockResolvedValue(bytes);
+    const cache = new MemoryTileCache();
+    await cache.put(key, corrupt, runId);
+    const store = new TileForecastStore({ transport, cache });
+    await expect(store.getPointForecasts([POINT], START, END)).rejects.toThrow('checksum mismatch');
+    expect(fetches).toHaveBeenCalledTimes(1);
+    expect(await cache.get(key)).toBeNull();
+    expect((await store.getPointForecasts([POINT], START, END)).forecasts[0]!.wind_kt[0]).toBe(10);
+    expect(fetches).toHaveBeenCalledTimes(2);
+  });
+
+  it('can use a fresh tile when cache reads, deletes and writes are unavailable', async () => {
+    const { transport, bytes } = storedFixture();
+    const cache = new MemoryTileCache();
+    vi.spyOn(cache, 'get').mockResolvedValueOnce(new Uint8Array([1])).mockRejectedValue(new Error('storage unavailable'));
+    vi.spyOn(cache, 'delete').mockRejectedValue(new Error('storage unavailable'));
+    vi.spyOn(cache, 'put').mockRejectedValue(new Error('storage unavailable'));
+    const fetches = vi.spyOn(transport, 'fetchTile').mockResolvedValue(bytes);
+    for (let i = 0; i < 2; i++) {
+      const store = new TileForecastStore({ transport, cache });
+      expect((await store.getPointForecasts([POINT], START, END)).forecasts[0]!.wind_kt[0]).toBe(10);
+    }
+    expect(fetches).toHaveBeenCalledTimes(2);
+  });
+
   it('reads layer manifests concurrently while preserving fallback, layer and eviction order', async () => {
     const transport = buildFixtureRun([weatherSpec(), ensembleSpec(), currentsSpec()]);
     const weatherRun = transport.latest.layers.weather!.run_id;

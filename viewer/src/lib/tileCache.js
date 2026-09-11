@@ -1,5 +1,5 @@
 /**
- * IndexedDB-backed TileCache. Immutable tile bytes live separately from small
+ * IndexedDB-backed TileCache. Immutable gzip tile bytes live separately from small
  * LRU/run metadata so budget checks and eviction never materialize the cache.
  * Storage failures are non-fatal: callers retain their in-memory fallback.
  */
@@ -123,6 +123,19 @@ export class IndexedDbTileCache {
       });
     } catch {
       // Includes quota errors: the transaction rolls back both stores together.
+    }
+  }
+
+  async delete(key) {
+    try {
+      const db = await this.db();
+      await tx(db, [STORE, METADATA], 'readwrite', t => {
+        t.objectStore(STORE).delete(key);
+        t.objectStore(METADATA).delete(key);
+      });
+      this.touched.delete(key);
+    } catch {
+      // Cache failures must not prevent a fresh network read.
     }
   }
 
