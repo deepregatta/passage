@@ -336,7 +336,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Items: F5
 - Files: viewer/src/i18n.js, viewer/test/i18n.test.js
 - Done when: no DOM walk in EN; FR localises only mutated subtrees; existing i18n tests green.
-- Status: todo · Commit: — · Notes:
+- Status: in progress · Commit: — · Notes: Clean pre-flight at 2bba56a; previous step 6f36629 scope and full guardrails verified (164 engine, 179 viewer, 248 Python, Ruff and byte-identical demo).
 
 ### 2.6 Parallel layer and manifest reads
 - Items: F6
