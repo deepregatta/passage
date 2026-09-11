@@ -324,7 +324,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Items: V1, F3
 - Files: viewer/src/lib/tileCache.js, new viewer/test/tileCache.test.js (fake-indexeddb)
 - Done when: no `getAll()` of tile bytes; `get()` does not rewrite bytes; budget from `navigator.storage.estimate()`; DB version bump migrates or clears old entries.
-- Status: todo · Commit: — · Notes:
+- Status: in progress · Commit: — · Notes: Clean pre-flight; previous step `87f307e` scope verified; full guardrails pass (164 engine, 166 viewer, 248 Python, Ruff and demo byte-identity). Add fake-indexeddb dev dependency and lockfile as required test support.
 
 ### 2.4 Playback subscriptions
 - Items: F4
