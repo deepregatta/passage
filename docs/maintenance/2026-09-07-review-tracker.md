@@ -322,9 +322,9 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 
 ### 2.3 Tile cache metadata store
 - Items: V1, F3
-- Files: viewer/src/lib/tileCache.js, new viewer/test/tileCache.test.js (fake-indexeddb)
+- Files: viewer/src/lib/tileCache.js, new viewer/test/tileCache.test.js (fake-indexeddb), viewer/package.json and package-lock.json (test dependency)
 - Done when: no `getAll()` of tile bytes; `get()` does not rewrite bytes; budget from `navigator.storage.estimate()`; DB version bump migrates or clears old entries.
-- Status: in progress · Commit: — · Notes: Clean pre-flight; previous step `87f307e` scope verified; full guardrails pass (164 engine, 166 viewer, 248 Python, Ruff and demo byte-identity). Add fake-indexeddb dev dependency and lockfile as required test support.
+- Status: done · Commit: — · Notes: Clean pre-flight; previous step `87f307e` scope and full guardrails verified. Reproduced six failing cache regressions before the fix. DB v2 clears disposable v1 entries and separates bytes from `{key, run_id, size, used_at}` metadata. Reads touch only metadata once per key per cache session; budget checks and run eviction never bulk-read tile bytes. Before insertion, one transaction budgets/evicts/writes both stores; replacement sizes and concurrent writers are handled atomically. Budget is min(1.5 GiB, 10% origin quota, half quota remaining after other storage); missing/invalid/denied estimates use 64 MiB. Oversized tiles are skipped; aborted writes roll back eviction and both stores. Added fake-indexeddb as a dev-only dependency. Final `npm test`: build/typecheck, 164 engine + 179 viewer pass, including 13 cache tests; Python pytest 248 pass (10 existing NumPy warnings), Ruff lint/format pass (54 files). Demo regeneration byte-identical; engine goldens unchanged; `npm run build:pages` and diff check pass. Real Chromium at viewer-demo port 5174 reads back DB v2, separate stores, exact bytes [1,2,3], and only one metadata write across two reads; navigator reports quota 3,221,372,928 bytes. Example briefing exercised and screenshot inspected at `output/playwright/review-2.3-demo.png`: emulated-warning disclosure and synoptic chart render. No product prose or screenshot baseline changes; no phase gate. Self-review scope includes only cache, test, necessary dependency files and tracker. New finding: existing Vitest moderate advisory recorded below; no dependency remediation in this step. Logs: `/tmp/passage-23-*`. Next: 2.4.
 
 ### 2.4 Playback subscriptions
 - Items: F4
@@ -469,6 +469,8 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - [triaged] 1.13 — viewer/e2e/evidence.spec.js:8 — Optional full E2E captured “Drawing forecasts…” before both Evidence charts rendered (desktop/mobile); both checkpoints pass on focused retry with unchanged baselines. Add chart-readiness waiting to existing 4.9 test-gap sweep.
 
 - [triaged] 1.14 — analysis/src/deepweather_analysis/polars.py:307 — JSON ORC input stringifies numeric VPP angle keys; transform_orc_vpp looks up integer keys and extraction/build then fail schema validation with empty twa_deg. Reproduced by JSON-serializing the sample; native Python-literal sample works. Assigned to 1.18 for JSON-format compatibility.
+
+- 2.3 — viewer/package.json:38 — npm audit reports two moderate entries for existing Vitest 4.1.10 / @vitest/mocker (GHSA-82fw-gwwq-j7x9); adding fake-indexeddb did not change those versions. Defer remediation to a separate dependency step.
 
 ## Decisions
 (record design choices made in steps 1.5, 3.5, 5.3 here)
