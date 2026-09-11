@@ -283,7 +283,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Files: scripts/build-demo-snapshots.mjs; fixture/prose changes, if still required, belong to the explicitly authorized 1.12 scope.
 - Do: preserve required demo routes during generation and reconcile remaining generator/fixture differences without introducing new engine wording.
 - Done when: `node scripts/build-demo-snapshots.mjs` leaves `viewer/test/fixtures/demo` byte-identical to HEAD; npm tests pass.
-- Status: todo · Commit: — · Notes:
+- Status: in progress · Commit: — · Notes: Clean pre-flight at `360c916`; previous step `040a5cd` scope verified. Full baseline npm/Python/Ruff guardrails pass; demo generation reproduces only deletion of `routes/solent-hop-3wp.json` (prose drift resolved in 1.12).
 
 ### 1.16 Basemap provider watermark
 - Items: noticed during 0.6, triaged during 0.7.
@@ -297,6 +297,13 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Files: engine/src/routing/isochrone.ts, engine/test/routing.test.ts
 - Do: first reproduce a crossing between sea endpoints on a short graph edge using a finer land mask; if confirmed, check graph edges against the mask and add regression coverage.
 - Done when: the finding is either disproved with evidence or reproduced and fixed without changing engine prose or demo fixtures.
+- Status: todo · Commit: — · Notes:
+
+### 1.18 ORC JSON numeric angle keys
+- Items: noticed during 1.14, triaged during 1.15.
+- Files: analysis/src/deepweather_analysis/polars.py; analysis/tests/test_polars.py
+- Do: support JSON-stringified VPP angle keys alongside native Python-literal numeric keys.
+- Done when: both formats extract and build schema-valid polars from the committed sample.
 - Status: todo · Commit: — · Notes:
 
 ## Phase 2 — performance (behaviour-preserving)
@@ -459,7 +466,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 
 - [triaged] 1.13 — viewer/e2e/evidence.spec.js:8 — Optional full E2E captured “Drawing forecasts…” before both Evidence charts rendered (desktop/mobile); both checkpoints pass on focused retry with unchanged baselines. Add chart-readiness waiting to existing 4.9 test-gap sweep.
 
-- 1.14 — analysis/src/deepweather_analysis/polars.py:307 — JSON ORC input stringifies numeric VPP angle keys; transform_orc_vpp looks up integer keys and extraction/build then fail schema validation with empty twa_deg. Reproduced by JSON-serializing the sample; native Python-literal sample works. Defer JSON-format compatibility fix to a separate step.
+- [triaged] 1.14 — analysis/src/deepweather_analysis/polars.py:307 — JSON ORC input stringifies numeric VPP angle keys; transform_orc_vpp looks up integer keys and extraction/build then fail schema validation with empty twa_deg. Reproduced by JSON-serializing the sample; native Python-literal sample works. Assigned to 1.18 for JSON-format compatibility.
 
 ## Decisions
 (record design choices made in steps 1.5, 3.5, 5.3 here)
