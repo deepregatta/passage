@@ -25,7 +25,7 @@ import BulletinPanel, { isEmulatedWarning } from '../components/BulletinPanel.js
 import ModelsUsed from '../components/ModelsUsed.jsx';
 import { deriveCoverage } from '../lib/evidenceSelectors.js';
 import SynopticHero from '../components/SynopticHero.jsx';
-import { frameForCursor, usePlayback } from '../stores/playbackStore.js';
+import { usePlayback } from '../stores/playbackStore.js';
 import { usePlanner } from '../stores/plannerStore.js';
 
 /** the plain-language layer: what each verdict state means for what you DO next (labels stay exact) */
@@ -265,10 +265,7 @@ function WeatherStoryCard({ findings, sections }) {
   const [expanded, setExpanded] = useState(false);
   const nextRun = useApp((s) => s.briefing?.next_run ?? s.briefing?.next_runs?.[0]);
   const verdictHex = VERDICT[findings.verdict.state]?.hex ?? '#16283E';
-  const cursor = usePlayback((state) => state.cursorHours);
   const synoptic = useApp((state) => state.synoptic);
-  const route = useApp((state) => state.route);
-  const playbackFrame = frameForCursor(findings, synoptic, route, cursor);
 
   const synopticSection = sections.find((s) => s.id === 'synoptic_story');
   const event = findings.causal_events?.[0];
@@ -335,9 +332,7 @@ function WeatherStoryCard({ findings, sections }) {
     <div className="bg-white/40 border hairline rounded-sm shadow-panel p-5 h-full flex flex-col">
       <span className="eyebrow">The weather story</span>
       {event && (
-        <span className="font-mono text-[10px] text-event mt-2 uppercase">
-          {PHASE_PLAIN[playbackFrame.phase] ?? playbackFrame.phase}
-        </span>
+        <StoryPhase findings={findings} event={event} />
       )}
       <h2 className="font-story text-[30px] leading-tight mt-2">{headline}</h2>
       {event && <p className="font-story text-[18px] leading-snug mt-2 text-event">{placeLabel(event.consequence.register_plain)}</p>}
@@ -378,6 +373,18 @@ function WeatherStoryCard({ findings, sections }) {
       </div>
     </div>
   );
+}
+
+/** Subscribe to the displayed phase, which changes only at event boundaries. */
+function StoryPhase({ findings, event }) {
+  const start = Date.parse(event.route_intersection?.window_start ?? findings.departure_utc);
+  const end = Date.parse(event.route_intersection?.window_end ?? findings.departure_utc);
+  const departure = Date.parse(findings.departure_utc);
+  const phase = usePlayback((state) => {
+    const time = departure + state.cursorHours * 3600_000;
+    return time < start ? 'cause' : time <= end ? 'interception' : time <= end + 6 * 3600_000 ? 'consequence' : 'easing';
+  });
+  return <span className="font-mono text-[10px] text-event mt-2 uppercase">{PHASE_PLAIN[phase]}</span>;
 }
 
 /** plain phase words for the story eyebrow; the pro phase names stay in the hero chart focus line */
