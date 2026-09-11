@@ -502,6 +502,8 @@ export class TileForecastStore implements ForecastStore {
     const nPoints = nlat * nlon;
     const u = new Array<number | null>(timeAxisMs.length * nPoints).fill(null);
     const v = new Array<number | null>(timeAxisMs.length * nPoints).fill(null);
+    // Align each tile once for this window; all its grid points share the axis.
+    const timeIndices = new Map<DecodedTile, Array<number | undefined>>();
     let anyData = false;
     for (let i = 0; i < nlat; i++) {
       for (let j = 0; j < nlon; j++) {
@@ -512,10 +514,14 @@ export class TileForecastStore implements ForecastStore {
         const uS = this.seriesAt(tile, uName, lat, lon);
         const vS = this.seriesAt(tile, vName, lat, lon);
         if (!uS || !vS) continue;
-        // map the tile's native axis onto the clipped grid axis by timestamp
-        const index = new Map(uS.timesMs.map((t, k) => [t, k]));
+        let indices = timeIndices.get(tile);
+        if (!indices) {
+          const index = new Map(uS.timesMs.map((t, k) => [t, k]));
+          indices = timeAxisMs.map((t) => index.get(t));
+          timeIndices.set(tile, indices);
+        }
         for (let t = 0; t < timeAxisMs.length; t++) {
-          const k = index.get(timeAxisMs[t]!);
+          const k = indices[t];
           if (k === undefined) continue;
           const uVal = uS.values[k] ?? null;
           const vVal = vS.values[k] ?? null;

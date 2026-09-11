@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { TileForecastStore } from '../src/forecast/tileStore.js';
+import { decodeTile, encodeTile } from '../src/forecast/tileCodec.js';
 import { MemoryTileCache } from '../src/forecast/store.js';
 import { parseUtc } from '../src/eta.js';
 import { computeRoute } from '../src/routing/isochrone.js';
@@ -160,6 +161,51 @@ describe('TileForecastStore ensemble', () => {
 });
 
 describe('TileForecastStore grids', () => {
+  it('maps each tile axis by timestamp and keeps clipped windows, missing steps and cells distinct', async () => {
+    const spec = weatherSpec({
+      resolution_deg: 1,
+      time_axes: { hourly: { base: CYCLE, offsets_h: [0, 3, 9, 18] } },
+      variables: [
+        { name: 'wind_u_kt', axis: 'hourly', dtype: 'i16', scale: 1,
+          value: (_m, t, i, j) => 100 * t + 10 * i + j },
+        { name: 'wind_v_kt', axis: 'hourly', dtype: 'i16', scale: 1,
+          value: (_m, t, i, j) => i === 0 && j === 5 ? NaN : -100 * t - 10 * i - j },
+      ],
+    });
+    const transport = buildFixtureRun([spec]);
+    // The north tile's first timestamp is absent from the manifest axis and
+    // its 3h step is missing. Reusing the south tile's indices would shift data.
+    const runId = transport.latest.layers.weather!.run_id;
+    const key = `${runId}/weather/z1/N50W010.bin`;
+    const north = decodeTile(transport.tiles.get(key)!);
+    north.header.time_axes.hourly = { base: CYCLE, offsets_h: [-3, 0, 9, 18] };
+    transport.tiles.set(key, encodeTile(north.header, north.arrays));
+    const store = new TileForecastStore({ transport, now: () => START });
+    const bbox = { minLat: 49, maxLat: 50, minLon: -6, maxLon: -5 };
+    const grid = await store.getWindGrid(bbox, '2026-07-20T04:00Z', 6);
+    expect(grid.time_axis).toEqual(['2026-07-20T03:00:00Z', '2026-07-20T09:00:00Z', '2026-07-20T18:00:00Z']);
+    expect(grid.u_kt).toEqual([194, 195, null, null, 294, 295, 204, 205, 394, 395, 304, 305]);
+    expect(grid.v_kt).toEqual([-194, -195, null, null, -294, -295, -204, null, -394, -395, -304, null]);
+
+    const early = await store.getWindGrid(bbox, CYCLE, 0);
+    expect(early.time_axis).toEqual(['2026-07-20T00:00:00Z']);
+    expect(early.u_kt).toEqual([94, 95, 104, 105]);
+    expect(early.v_kt).toEqual([-94, -95, -104, null]);
+  });
+
+  it('preserves nulls for absent tiles and reports wholly missing wind/current coverage', async () => {
+    const store = new TileForecastStore({ transport: buildFixtureRun([
+      weatherSpec({ tiles: [[40, -10]], resolution_deg: 1 }),
+      { ...currentsSpec(), tiles: [[40, -10]], resolution_deg: 1 },
+    ]) });
+    const grid = await store.getWindGrid({ minLat: 49, maxLat: 50, minLon: -6, maxLon: -5 }, CYCLE, 0);
+    expect(grid.u_kt).toEqual([10, 10, null, null]);
+    expect(grid.v_kt).toEqual([0, 0, null, null]);
+    const outside = { minLat: 60, maxLat: 61, minLon: -6, maxLon: -5 };
+    await expect(store.getWindGrid(outside, CYCLE, 0)).rejects.toThrow('Forecast tiles unavailable for this area');
+    expect(await store.getCurrentGrid(outside, CYCLE, 0)).toBeNull();
+  });
+
   it('mosaics a wind RegionGrid that validates against the region-grid contract', async () => {
     const store = new TileForecastStore({
       transport: buildFixtureRun([weatherSpec(), currentsSpec()]),

@@ -58,41 +58,58 @@ export class GridSampler {
     const wi = fi - i0;
     const wj = fj - j0;
 
-    const corners = [
-      { v: this.at(tIdx, i0, j0, component), w: (1 - wi) * (1 - wj) },
-      { v: this.at(tIdx, i0 + 1, j0, component), w: wi * (1 - wj) },
-      { v: this.at(tIdx, i0, j0 + 1, component), w: (1 - wi) * wj },
-      { v: this.at(tIdx, i0 + 1, j0 + 1, component), w: wi * wj },
-    ];
+    const v00 = this.at(tIdx, i0, j0, component);
+    const v10 = this.at(tIdx, i0 + 1, j0, component);
+    const v01 = this.at(tIdx, i0, j0 + 1, component);
+    const v11 = this.at(tIdx, i0 + 1, j0 + 1, component);
+    const w00 = (1 - wi) * (1 - wj);
+    const w10 = wi * (1 - wj);
+    const w01 = (1 - wi) * wj;
+    const w11 = wi * wj;
 
-    if (corners.every((c) => c.v !== null)) {
-      return corners.reduce((sum, c) => sum + (c.v as number) * c.w, 0);
+    if (v00 !== null && v10 !== null && v01 !== null && v11 !== null) {
+      return 0 + v00 * w00 + v10 * w10 + v01 * w01 + v11 * w11;
     }
-    // near the coast: nearest non-null corner (Python already gap-filled ≤5 km offshore)
-    const valid = corners.filter((c) => c.v !== null);
-    if (!valid.length) return null;
-    return valid.reduce((best, c) => (c.w > best.w ? c : best)).v;
+    // Near the coast, keep the first wet corner on equal weights, in the same
+    // order as the bilinear sum. No corner objects/arrays in this routing hot path.
+    let best = v00;
+    let weight = w00;
+    if (v10 !== null && (best === null || w10 > weight)) {
+      best = v10;
+      weight = w10;
+    }
+    if (v01 !== null && (best === null || w01 > weight)) {
+      best = v01;
+      weight = w01;
+    }
+    if (v11 !== null && (best === null || w11 > weight)) best = v11;
+    return best;
   }
 
   /** sample u/v at (lat, lon, time); null outside coverage (space or time) */
   sample(lat: number, lon: number, timeMs: number): GridSample | null {
     const times = this.timesMs;
-    if (!times.length || timeMs < times[0]! || timeMs > times[times.length - 1]!) return null;
-    let k = times.findIndex((t) => t >= timeMs);
-    if (k < 0) return null;
+    if (!times.length || !Number.isFinite(timeMs) || timeMs < times[0]! || timeMs > times[times.length - 1]!) return null;
+    // First timestamp >= timeMs on the ordered axis, including irregular steps.
+    let k = 0;
+    let hi = times.length - 1;
+    while (k < hi) {
+      const mid = Math.floor((k + hi) / 2);
+      if (times[mid]! < timeMs) k = mid + 1;
+      else hi = mid;
+    }
     if (k === 0 && times.length > 1) k = 1;
     const t0 = Math.max(0, k - 1);
     const t1 = k;
     const alpha = (timeMs - times[t0]!) / Math.max(1, times[t1]! - times[t0]!);
 
-    const parts: number[] = [];
-    for (const component of ['u_kt', 'v_kt'] as const) {
-      const v0 = this.sampleAtTime(t0, lat, lon, component);
-      const v1 = this.sampleAtTime(t1, lat, lon, component);
-      if (v0 === null || v1 === null) return null;
-      parts.push(v0 + (v1 - v0) * alpha);
-    }
-    return { u_kt: round2(parts[0]!), v_kt: round2(parts[1]!) };
+    const u0 = this.sampleAtTime(t0, lat, lon, 'u_kt');
+    const u1 = this.sampleAtTime(t1, lat, lon, 'u_kt');
+    if (u0 === null || u1 === null) return null;
+    const v0 = this.sampleAtTime(t0, lat, lon, 'v_kt');
+    const v1 = this.sampleAtTime(t1, lat, lon, 'v_kt');
+    if (v0 === null || v1 === null) return null;
+    return { u_kt: round2(u0 + (u1 - u0) * alpha), v_kt: round2(v0 + (v1 - v0) * alpha) };
   }
 }
 
