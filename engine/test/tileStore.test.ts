@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { TileForecastStore } from '../src/forecast/tileStore.js';
+import { MemoryTileCache } from '../src/forecast/store.js';
 import { parseUtc } from '../src/eta.js';
 import { computeRoute } from '../src/routing/isochrone.js';
 import { buildFixtureRun, type FixtureLayerSpec } from './helpers/fixtureRun.js';
@@ -236,6 +237,54 @@ describe('TileForecastStore grids', () => {
 });
 
 describe('TileForecastStore resilience', () => {
+  it('reads layer manifests concurrently while preserving fallback, layer and eviction order', async () => {
+    const transport = buildFixtureRun([weatherSpec(), ensembleSpec(), currentsSpec()]);
+    const weatherRun = transport.latest.layers.weather!.run_id;
+    const ensembleRun = transport.latest.layers.ensemble!.run_id;
+    const currentsRun = transport.latest.layers.currents!.run_id;
+    const brokenWeather = 'weather-20260720T06Z';
+    const brokenCurrents = 'currents-20260720T06Z';
+    Object.assign(transport.latest.layers.weather!, { run_id: brokenWeather, previous_run_id: weatherRun });
+    Object.assign(transport.latest.layers.currents!, { run_id: brokenCurrents, previous_run_id: currentsRun });
+    transport.failManifests.add(currentsRun);
+    const runIds = [brokenWeather, ensembleRun, brokenCurrents, weatherRun, currentsRun];
+    const releases = new Map<string, () => void>();
+    const gates = new Map(runIds.map((runId) => [runId, new Promise<void>((resolve) => releases.set(runId, resolve))]));
+    const fetchManifest = transport.fetchManifest.bind(transport);
+    const reads = vi.spyOn(transport, 'fetchManifest').mockImplementation(async (runId) => {
+      await gates.get(runId);
+      return fetchManifest(runId);
+    });
+    const cache = new MemoryTileCache();
+    const evict = vi.spyOn(cache, 'evictExcept');
+    const store = new TileForecastStore({ transport, cache });
+    const pending = store.init();
+    expect(store.init()).toBe(pending);
+    try {
+      await vi.waitFor(() => expect([...reads.mock.calls]).toEqual([
+        [brokenWeather], [ensembleRun], [brokenCurrents],
+      ]));
+      expect(evict).not.toHaveBeenCalled();
+      // Finish the later layers first; previous runs must wait for their own current failure.
+      releases.get(ensembleRun)!();
+      releases.get(brokenCurrents)!();
+      await vi.waitFor(() => expect(reads).toHaveBeenCalledWith(currentsRun));
+      expect(reads).not.toHaveBeenCalledWith(weatherRun);
+      releases.get(currentsRun)!();
+      releases.get(brokenWeather)!();
+      await vi.waitFor(() => expect(reads).toHaveBeenCalledWith(weatherRun));
+      expect(evict).not.toHaveBeenCalled();
+      releases.get(weatherRun)!();
+      await pending;
+      expect(Object.keys(store.describe())).toEqual(['weather', 'ensemble']);
+      expect(store.describe().weather!.run_id).toBe(weatherRun);
+      expect(evict).toHaveBeenCalledExactlyOnceWith([weatherRun, ensembleRun]);
+    } finally {
+      releases.forEach((release) => release());
+      await pending;
+    }
+  });
+
   it('shares a failed latest read, then retries and keeps successful initialization', async () => {
     const transport = buildFixtureRun([weatherSpec()]);
     const error = new Error('temporary transport failure');

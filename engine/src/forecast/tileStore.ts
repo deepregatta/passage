@@ -80,22 +80,30 @@ export class TileForecastStore implements ForecastStore {
 
   private async initOnce(): Promise<void> {
     this.latest = await this.transport.fetchLatest();
-    const liveRunIds: string[] = [];
-    for (const [layer, entry] of Object.entries(this.latest.layers)) {
-      // current run first; fall back to the retained previous run so a
-      // half-published or missing manifest never takes the layer down
-      for (const runId of [entry.run_id, entry.previous_run_id].filter(
-        (id): id is string => Boolean(id),
-      )) {
-        try {
-          const manifest = await this.transport.fetchManifest(runId);
-          this.layers.set(layer, { manifest, decoded: new Map() });
-          liveRunIds.push(runId);
-          break;
-        } catch {
-          // try the previous run / drop the layer
+    const loaded = await Promise.all(
+      Object.entries(this.latest.layers).map(async ([layer, entry]) => {
+        // current run first; fall back to the retained previous run so a
+        // half-published or missing manifest never takes the layer down
+        for (const runId of [entry.run_id, entry.previous_run_id].filter(
+          (id): id is string => Boolean(id),
+        )) {
+          try {
+            const manifest = await this.transport.fetchManifest(runId);
+            return { layer, runId, manifest };
+          } catch {
+            // try the previous run / drop the layer
+          }
         }
-      }
+        return null;
+      }),
+    );
+    // Publish in latest.json order, independent of fetch completion order, and
+    // only after all reads settle so a failed init cannot leave late layer writes.
+    const liveRunIds: string[] = [];
+    for (const result of loaded) {
+      if (!result) continue;
+      this.layers.set(result.layer, { manifest: result.manifest, decoded: new Map() });
+      liveRunIds.push(result.runId);
     }
     if (!this.layers.has('weather')) {
       throw new Error('Forecast tiles unavailable: no readable weather run');

@@ -342,7 +342,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Items: F6
 - Files: engine/src/analyze.ts, engine/src/forecast/tileStore.ts; focused engine/test/{analyze,tileStore}.test.ts regressions.
 - Done when: goldens byte-identical; progress messages preserved.
-- Status: in progress · Commit: — · Notes: Clean pre-flight at `4c38899`; previous step `5b2b80d` scope and full guardrails verified (164 engine + 183 viewer tests; 248 Python tests with 10 existing warnings; Ruff lint/format and demo byte-identity pass). No unrelated dirty files or untriaged notices.
+- Status: done · Commit: — · Notes: Clean pre-flight at `4c38899`; previous step `5b2b80d` scope and full guardrails verified. Reproduced two failing concurrency regressions before the fix. Deterministic, ensemble, wave and hazard reads now start together after initialization; existing progress text/order, result assignment, optional-layer handling and current-grid override/degradation are preserved. Layer manifests load concurrently, retaining sequential current/previous fallback per layer. Results publish in latest.json order after all reads settle; weather failure/retry, optional-layer omission and cache eviction semantics remain intact. Nine new tests cover held/reverse-completion reads, init ordering, forecast errors, optional/current behavior, manifest fallback and stable metadata/eviction order; focused suite 22/22 passes. Frozen reference-scenario analysis result plus complete progress sequence match pre-change bytes (`/tmp/passage-26-output-{before,after}.json`). Final `npm test`: build/typecheck, 173 engine + 183 viewer pass; Python pytest 248 pass (10 existing NumPy warnings); Ruff lint/format pass (54 files); demo regeneration byte-identical to HEAD, engine goldens unchanged; `npm run build:pages` and diff check pass. Self-review: only two scoped source files, their direct regression tests and tracker changed; no unrelated dirty work, prose or fixture edits. Engine-only step, no viewer screen change or phase gate; screenshot/E2E not applicable. Noticed: confirmed overlapping cold weather-tile fetches and recorded them under existing 2.8 de-duplication work below. Logs/probes: `/tmp/passage-26-*`. Next: 2.7.
 
 ### 2.7 Sampler and mosaic hot paths
 - Items: F7, F8
@@ -477,6 +477,8 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - [triaged] 1.14 — analysis/src/deepweather_analysis/polars.py:307 — JSON ORC input stringifies numeric VPP angle keys; transform_orc_vpp looks up integer keys and extraction/build then fail schema validation with empty twa_deg. Reproduced by JSON-serializing the sample; native Python-literal sample works. Assigned to 1.18 for JSON-format compatibility.
 
 - [triaged] 2.3 — viewer/package.json:38 — npm audit reports two moderate entries for existing Vitest 4.1.10 / @vitest/mocker (GHSA-82fw-gwwq-j7x9); adding fake-indexeddb did not change those versions. Assigned to 2.11.
+
+- [triaged] 2.6 — engine/src/forecast/tileStore.ts:142 — Parallel deterministic/hazard reads expose the existing missing in-flight tile de-duplication from §4.2, already assigned to 2.8. A synthetic cold-cache single-weather-tile analysis fetches the same tile twice after parallelization versus once before; verdict unchanged. Preserve the 2.6 scope; 2.8 should cover these overlapping consumers. Probe: `/tmp/passage-26-shared-tile.mjs`, output `/tmp/passage-26-shared-tile.log`.
 
 ## Decisions
 (record design choices made in steps 1.5, 3.5, 5.3 here)
