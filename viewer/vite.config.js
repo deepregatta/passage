@@ -276,7 +276,6 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     outDir: 'dist',
-    chunkSizeWarningLimit: 1200,
     sourcemap: mode !== 'production',
     rolldownOptions: {
       output: {
@@ -287,6 +286,12 @@ export default defineConfig(({ mode }) => ({
               name: 'vendor-react',
               test: /[\\/]node_modules[\\/](?:react|react-dom|scheduler)[\\/]/,
               priority: 30,
+            },
+            // Cache the SVG rendering engine separately from chart features.
+            {
+              name: 'vendor-zrender',
+              test: /[\\/]node_modules[\\/]zrender[\\/]/,
+              priority: 25,
             },
             {
               name: 'vendor-echarts',
