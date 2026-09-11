@@ -51,16 +51,22 @@ export interface RunManifest {
   published_at: string;
 }
 
+export interface TileFetchOptions {
+  cache?: 'force-cache' | 'reload';
+}
+
 export interface TileTransport {
   fetchLatest(): Promise<LatestDoc>;
   fetchManifest(runId: string): Promise<RunManifest>;
-  /** returns the UNCOMPRESSED tile bytes (transport handles gzip) */
-  fetchTile(runId: string, path: string): Promise<Uint8Array>;
+  /** Stored gzip bytes, so the store can verify the manifest hash before decoding. */
+  fetchTile(runId: string, path: string, options?: TileFetchOptions): Promise<Uint8Array>;
 }
 
 export interface TileCache {
   get(key: string): Promise<Uint8Array | null>;
   put(key: string, bytes: Uint8Array, runId: string): Promise<void>;
+  /** Remove one corrupt entry without evicting healthy tiles in the same run. */
+  delete(key: string): Promise<void>;
   /** drop everything not belonging to the given run ids */
   evictExcept(runIds: string[]): Promise<void>;
 }
@@ -72,6 +78,9 @@ export class MemoryTileCache implements TileCache {
   }
   async put(key: string, bytes: Uint8Array, runId: string): Promise<void> {
     this.store.set(key, { bytes, runId });
+  }
+  async delete(key: string): Promise<void> {
+    this.store.delete(key);
   }
   async evictExcept(runIds: string[]): Promise<void> {
     const keep = new Set(runIds);

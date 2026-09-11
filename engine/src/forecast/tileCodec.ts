@@ -4,7 +4,7 @@
  * the format is specified in docs/forecast-tile-format.md and the header is
  * validated by contracts/forecast-tile.schema.json.
  *
- * Decode input is the UNCOMPRESSED tile bytes; gzip is the transport's job.
+ * Decode input is UNCOMPRESSED PFT1; the store validates gzip bytes then decompresses.
  * The encoder exists for tests and fixture tooling only — production tiles
  * are built by the pipeline.
  */

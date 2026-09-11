@@ -9,6 +9,8 @@
 
 import type { RegionGrid } from '../grids.js';
 import { toIso } from '../eta.js';
+import { fnv1a64Hex } from '../hash.js';
+import { gunzip } from './httpTransport.js';
 import { decodeTile, type DecodedTile } from './tileCodec.js';
 import {
   axisTimesMs,
@@ -36,8 +38,9 @@ import type {
 
 interface LayerState {
   manifest: RunManifest;
-  /** decoded tiles by tile_id (in-memory; raw bytes live in the TileCache) */
+  /** decoded tiles by tile_id (in-memory; stored gzip bytes live in TileCache) */
   decoded: Map<string, DecodedTile | null>;
+  inFlight: Map<string, Promise<{ tile: DecodedTile; cached: boolean }>>;
 }
 
 interface SampledSeries {
@@ -102,7 +105,7 @@ export class TileForecastStore implements ForecastStore {
     const liveRunIds: string[] = [];
     for (const result of loaded) {
       if (!result) continue;
-      this.layers.set(result.layer, { manifest: result.manifest, decoded: new Map() });
+      this.layers.set(result.layer, { manifest: result.manifest, decoded: new Map(), inFlight: new Map() });
       liveRunIds.push(result.runId);
     }
     if (!this.layers.has('weather')) {
@@ -146,22 +149,64 @@ export class TileForecastStore implements ForecastStore {
       return memo;
     }
 
-    let decoded: DecodedTile | null = null;
-    if (state.manifest.tiles[tileId]) {
-      const path = state.manifest.tiling.path_template.replace('{tile_id}', tileId);
-      const key = `${state.manifest.run_id}/${path}`;
-      let bytes = await this.cache.get(key);
-      if (bytes) {
-        stats.cached += 1;
-      } else {
-        bytes = await this.transport.fetchTile(state.manifest.run_id, path);
-        await this.cache.put(key, bytes, state.manifest.run_id).catch(() => {});
-      }
-      decoded = decodeTile(bytes);
-    }
-    state.decoded.set(tileId, decoded);
     stats.tiles.add(tileId);
-    return decoded;
+    if (!state.manifest.tiles[tileId]) {
+      state.decoded.set(tileId, null);
+      return null;
+    }
+    let pending = state.inFlight.get(tileId);
+    if (!pending) {
+      pending = this.loadTile(state.manifest, tileId).then(result => {
+        state.decoded.set(tileId, result.tile);
+        return result;
+      }).finally(() => state.inFlight.delete(tileId));
+      state.inFlight.set(tileId, pending);
+    }
+    const result = await pending;
+    // Each caller owns its metadata; sharing a download is not a cache hit.
+    if (result.cached) stats.cached += 1;
+    return result.tile;
+  }
+
+  private async loadTile(manifest: RunManifest, tileId: string): Promise<{ tile: DecodedTile; cached: boolean }> {
+    const path = manifest.tiling.path_template.replace('{tile_id}', tileId);
+    const key = `${manifest.run_id}/${path}`;
+    const expected = manifest.tiles[tileId]!;
+    const validate = async (bytes: Uint8Array): Promise<DecodedTile> => {
+      if (bytes.byteLength !== expected.bytes || fnv1a64Hex(bytes) !== expected.fnv64) {
+        throw new Error(`forecast tile invalid: ${key} (checksum mismatch)`);
+      }
+      try {
+        return decodeTile(await gunzip(bytes));
+      } catch (cause) {
+        throw new Error(`forecast tile invalid: ${key} (decode failed)`, { cause });
+      }
+    };
+    const cached = await this.cache.get(key).catch(() => null);
+    let reload = false;
+    if (cached) {
+      try {
+        return { tile: await validate(cached), cached: true };
+      } catch {
+        // This also migrates old uncompressed cache entries on first use.
+        await this.cache.delete(key).catch(() => {});
+        reload = true;
+      }
+    }
+    for (;;) {
+      const bytes = await this.transport.fetchTile(manifest.run_id, path, { cache: reload ? 'reload' : 'force-cache' });
+      let tile: DecodedTile;
+      try {
+        tile = await validate(bytes);
+      } catch (error) {
+        // A corrupt browser HTTP cache gets one bypass, as does a bad TileCache.
+        if (reload) throw error;
+        reload = true;
+        continue;
+      }
+      await this.cache.put(key, bytes, manifest.run_id).catch(() => {});
+      return { tile, cached: false };
+    }
   }
 
   private newStats() {

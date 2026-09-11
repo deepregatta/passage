@@ -1,14 +1,14 @@
 /**
  * Deterministic, dependency-free content hashing for ids and input fingerprints.
- * FNV-1a 64-bit — NOT cryptographic; used only for stable identifiers.
+ * FNV-1a 64-bit — NOT cryptographic; identifiers and tile corruption checks.
  */
 
-export function fnv1a64Hex(input: string): string {
+export function fnv1a64Hex(input: string | Uint8Array): string {
   let h = 0xcbf29ce484222325n;
   const prime = 0x100000001b3n;
   const mask = 0xffffffffffffffffn;
   for (let i = 0; i < input.length; i++) {
-    h ^= BigInt(input.charCodeAt(i));
+    h ^= BigInt(typeof input === 'string' ? input.charCodeAt(i) : input[i]!);
     h = (h * prime) & mask;
   }
   return h.toString(16).padStart(16, '0');

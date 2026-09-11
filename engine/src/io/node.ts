@@ -2,7 +2,6 @@
 
 import { mkdirSync, readFileSync, readdirSync, writeFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { gunzipSync } from 'node:zlib';
 import type { LatestDoc, RunManifest, TileTransport } from '../forecast/store.js';
 import type { SnapshotStore } from '../snapshot.js';
 
@@ -44,6 +43,6 @@ export class FsTileTransport implements TileTransport {
 
   async fetchTile(runId: string, path: string): Promise<Uint8Array> {
     const bytes = readFileSync(join(this.root, 'forecast-runs', runId, path));
-    return new Uint8Array(gunzipSync(bytes));
+    return new Uint8Array(bytes);
   }
 }
