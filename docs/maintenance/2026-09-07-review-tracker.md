@@ -352,9 +352,9 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 
 ### 2.8 Transport resilience
 - Items: §4.2 (timeout/retry, cache modes, fnv64 self-heal, in-flight de-dupe)
-- Files: engine/src/forecast/{httpTransport,tileStore}.ts + tests
+- Files: engine/src/forecast/{httpTransport,tileStore,store}.ts; engine/src/{hash,io/node}.ts; viewer/src/lib/tileCache.js; focused tests/fixture adapter and viewer i18n error patterns.
 - Done when: a hung fetch times out with a clear error; a corrupt cached tile is evicted and refetched once; concurrent requests share one fetch.
-- Status: todo · Commit: — · Notes:
+- Status: in progress · Commit: — · Notes: Clean pre-flight at `2d24729`; previous step `a4bbd0a` scope and full guardrails verified (194 engine + 183 viewer, 248 Python, Ruff, demo byte identity). Producer `ingest/publish.py` and manifest schema confirm fnv64 covers stored gzip bytes, unlike the current uncompressed transport/cache. Supporting adapters are included to preserve those bytes for validation and add per-key cache deletion; no artifact schema or forecast output changes intended.
 
 ### 2.9 grids_prep direct sampling
 - Items: F9
