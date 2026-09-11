@@ -147,6 +147,50 @@ describe('isochrone router', () => {
     expect(crossing!.lon).toBeLessThan(-2.05);
   });
 
+  it.each([
+    { finishLat: 49.3, gap: false },
+    { finishLat: 49.4, gap: false },
+    { finishLat: 49.3, gap: true },
+    { finishLat: 49.4, gap: true },
+  ])('checks short graph edges against a finer mask ($finishLat, gap=$gap)', ({ finishLat, gap }) => {
+    // A 0.01° wall sits halfway along a 0.1° graph edge. Both its
+    // cardinal and diagonal endpoints are sea; node checks alone miss it.
+    const nlat = 61;
+    const nlon = 81;
+    const land = Array<number>(nlat * nlon).fill(0);
+    for (let i = 0; i < nlat; i++) {
+      if (!gap || i < 40 || i > 50) land[i * nlon + 25] = 1;
+    }
+    const mask: LandMask = {
+      schema_version: 1, kind: 'land_mask',
+      lat0: 49.1, lon0: -5.5, dlat: 0.01, dlon: 0.01, nlat, nlon, land,
+    };
+    const start = { lat: 49.3, lon: -5.3 };
+    const finish = { lat: finishLat, lon: -5.2 };
+    expect(isLand(mask, start.lat, start.lon)).toBe(false);
+    expect(isLand(mask, finish.lat, finish.lon)).toBe(false);
+    expect(segmentCrossesLand(mask, start, finish)).toBe(true);
+    const request = {
+      start, finish,
+      departureUtc: '2026-07-20T00:00:00Z',
+      polar: POLAR,
+      windGrid: windGrid(270, 14),
+      landMask: mask,
+      resolutionDeg: 0.1,
+    };
+    if (!gap) {
+      expect(() => computeRoute(request)).toThrow('No route found');
+      return;
+    }
+    const { route } = computeRoute(request);
+    expect(route.waypoints[0]).toMatchObject(start);
+    expect(route.waypoints.at(-1)).toMatchObject(finish);
+    expect(route.waypoints.some(wp => wp.lat >= 49.5)).toBe(true);
+    for (let i = 1; i < route.waypoints.length; i++) {
+      expect(segmentCrossesLand(mask, route.waypoints[i - 1]!, route.waypoints[i]!)).toBe(false);
+    }
+  });
+
   it('faster polar scaling arrives earlier (monotonicity)', () => {
     const base = {
       start,

@@ -200,9 +200,9 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
       const sog = stw + along;
       if (stw < MIN_SOG_KT || sog < MIN_SOG_KT) continue;
 
+      // Even adjacent sea nodes can straddle land in a finer-resolution mask.
       if (
         landMask &&
-        (Math.abs(di) > 1 || Math.abs(dj) > 1) &&
         segmentCrossesLand(landMask, { lat: fromLat, lon: fromLon }, { lat: toLat, lon: toLon })
       ) {
         continue;
