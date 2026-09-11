@@ -20,15 +20,25 @@ from deepweather_analysis.polars import (
     normalize_text,
     polar_table_to_axes,
     search_orc,
+    transform_orc_vpp,
 )
 
 
 ORC_SAMPLE = Path(__file__).parent / "fixtures" / "orc-2025-sample.txt"
 
 
+@pytest.fixture(scope="module", params=["python-literal", "json"])
+def orc_file(request, tmp_path_factory):
+    if request.param == "python-literal":
+        return ORC_SAMPLE
+    path = tmp_path_factory.mktemp("orc-json") / "sample.json"
+    path.write_text(json.dumps(ast.literal_eval(ORC_SAMPLE.read_text())))
+    return path
+
+
 @pytest.fixture(scope="module")
-def orc_index():
-    return load_orc_polars(ORC_SAMPLE)
+def orc_index(orc_file):
+    return load_orc_polars(orc_file)
 
 
 # --- normalization: special cases survive the port -------------------------
@@ -102,8 +112,8 @@ def _polar_schema():
     return json.loads((contracts_dir() / "polar.schema.json").read_text())
 
 
-def test_extract_polar_schema_valid_and_plausible(tmp_path, orc_index):
-    path = extract_polar("Sun Fast 3200", out_dir=tmp_path, polars_file=ORC_SAMPLE)
+def test_extract_polar_schema_valid_and_plausible(tmp_path, orc_file):
+    path = extract_polar("Sun Fast 3200", out_dir=tmp_path, polars_file=orc_file)
     artifact = json.loads(path.read_text())
     Draft202012Validator(_polar_schema()).validate(artifact)
 
@@ -122,8 +132,8 @@ def test_extract_polar_schema_valid_and_plausible(tmp_path, orc_index):
     assert speed > 4.0
 
 
-def test_extract_polar_generic_fallback(tmp_path):
-    path = extract_polar("Blorptron Qzx 9999", out_dir=tmp_path, polars_file=ORC_SAMPLE)
+def test_extract_polar_generic_fallback(tmp_path, orc_file):
+    path = extract_polar("Blorptron Qzx 9999", out_dir=tmp_path, polars_file=orc_file)
     artifact = json.loads(path.read_text())
     Draft202012Validator(_polar_schema()).validate(artifact)
     assert artifact["source"]["kind"] == "generic"
@@ -133,11 +143,11 @@ def test_extract_polar_generic_fallback(tmp_path):
     assert get_default_polars() == DEFAULT_POLARS
 
 
-def test_extract_polar_updates_index_without_duplicates(tmp_path, orc_index):
-    extract_polar("Sun Fast 3200", out_dir=tmp_path, polars_file=ORC_SAMPLE)
-    extract_polar("Sigma 38", out_dir=tmp_path, polars_file=ORC_SAMPLE)
+def test_extract_polar_updates_index_without_duplicates(tmp_path, orc_file):
+    extract_polar("Sun Fast 3200", out_dir=tmp_path, polars_file=orc_file)
+    extract_polar("Sigma 38", out_dir=tmp_path, polars_file=orc_file)
     # re-extract must not duplicate
-    extract_polar("Sun Fast 3200", out_dir=tmp_path, polars_file=ORC_SAMPLE)
+    extract_polar("Sun Fast 3200", out_dir=tmp_path, polars_file=orc_file)
 
     index = json.loads((tmp_path / "index.json").read_text())
     ids = [entry["polar_id"] for entry in index["polars"]]
@@ -166,10 +176,10 @@ def test_name_and_model_match(orc_index):
     assert result.polars
 
 
-def test_build_polar_db_from_sample(tmp_path):
+def test_build_polar_db_from_sample(tmp_path, orc_file):
     records = ast.literal_eval(ORC_SAMPLE.read_text())
     assert len(records) == 20
-    summary = build_polar_db(polars_file=ORC_SAMPLE, out_dir=tmp_path)
+    summary = build_polar_db(polars_file=orc_file, out_dir=tmp_path)
     index = json.loads((tmp_path / "index.json").read_text())
     entries = index["polars"]
     assert summary["certs"] == 20
@@ -185,3 +195,11 @@ def test_build_polar_db_from_sample(tmp_path):
         assert artifact["source"]["kind"] == entry["kind"]
     sunfast = next(entry for entry in entries if normalize_model(entry["label"]) == "SUNFAST3200")
     assert sunfast["certs"] == 10
+
+
+def test_json_vpp_preserves_every_sample_speed():
+    for record in ast.literal_eval(ORC_SAMPLE.read_text()):
+        vpp = record["vpp"]
+        native = transform_orc_vpp(vpp)
+        assert native and all(native.values())
+        assert transform_orc_vpp(json.loads(json.dumps(vpp))) == native
