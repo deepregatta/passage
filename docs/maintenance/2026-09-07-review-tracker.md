@@ -330,7 +330,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Items: F4
 - Files: viewer/src/components/{RouteMap,RouteTimeline}.jsx, viewer/src/pages/Briefing.jsx
 - Done when: React DevTools profiler shows only the cursor marker / NOW line re-rendering per frame.
-- Status: todo · Commit: — · Notes:
+- Status: in progress · Commit: — · Notes: Clean pre-flight; previous step 0e44370 scope and full guardrails pass; demo regeneration clean. F4 still reproduces in cursor subscriptions and render paths.
 
 ### 2.5 Localiser scope
 - Items: F5
@@ -365,6 +365,12 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 ### 2.10 Remaining caches
 - Items: F10, F11
 - Files: viewer/src/lib/localSnapshots.js, analysis warnings_mf.py, polars.py
+- Status: todo · Commit: — · Notes:
+
+### 2.11 Vitest dependency advisory
+- Items: noticed during 2.3; GHSA-82fw-gwwq-j7x9.
+- Files: viewer/package.json, package-lock.json
+- Done when: advisory resolved with compatible dev dependency updates; full guardrails pass.
 - Status: todo · Commit: — · Notes:
 
 ## Phase 3 — localisation
@@ -470,7 +476,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 
 - [triaged] 1.14 — analysis/src/deepweather_analysis/polars.py:307 — JSON ORC input stringifies numeric VPP angle keys; transform_orc_vpp looks up integer keys and extraction/build then fail schema validation with empty twa_deg. Reproduced by JSON-serializing the sample; native Python-literal sample works. Assigned to 1.18 for JSON-format compatibility.
 
-- 2.3 — viewer/package.json:38 — npm audit reports two moderate entries for existing Vitest 4.1.10 / @vitest/mocker (GHSA-82fw-gwwq-j7x9); adding fake-indexeddb did not change those versions. Defer remediation to a separate dependency step.
+- [triaged] 2.3 — viewer/package.json:38 — npm audit reports two moderate entries for existing Vitest 4.1.10 / @vitest/mocker (GHSA-82fw-gwwq-j7x9); adding fake-indexeddb did not change those versions. Assigned to 2.11.
 
 ## Decisions
 (record design choices made in steps 1.5, 3.5, 5.3 here)
