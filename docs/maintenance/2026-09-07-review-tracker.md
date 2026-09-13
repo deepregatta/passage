@@ -364,8 +364,8 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 
 ### 2.10 Remaining caches
 - Items: F10, F11
-- Files: viewer/src/lib/localSnapshots.js, analysis warnings_mf.py, polars.py
-- Status: todo · Commit: — · Notes:
+- Files: viewer/src/lib/localSnapshots.js, analysis/src/deepweather_analysis/{warnings_mf,polars}.py; focused viewer/test/localSnapshots.test.js and analysis/tests/test_{warnings_mf,polars}.py regressions.
+- Status: in progress · Commit: — · Notes: Clean pre-flight at `99f5f41`; previous step `1221e99` scope verified; full guardrails pass (220 engine + 185 viewer, 260 Python, Ruff, byte-identical demo). F10/F11 still reproduce in source; implementing selective snapshot listing and shared parsed factory inputs.
 
 ### 2.11 Vitest dependency advisory
 - Items: noticed during 2.3; GHSA-82fw-gwwq-j7x9.
