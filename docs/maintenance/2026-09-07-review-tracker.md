@@ -371,7 +371,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Items: noticed during 2.3; GHSA-82fw-gwwq-j7x9.
 - Files: viewer/package.json, package-lock.json
 - Done when: advisory resolved with compatible dev dependency updates; full guardrails pass.
-- Status: todo · Commit: — · Notes:
+- Status: in progress · Commit: — · Notes: Clean pre-flight at `cfa1a05`; previous step `a2aff36` scope and full guardrails verified (220 engine + 187 viewer tests, 267 Python tests, Ruff lint/format, byte-identical demo). Reproduced two moderate audit entries for Vitest / @vitest/mocker 4.1.10. Phase 2 gate required.
 
 ## Phase 3 — localisation
 
