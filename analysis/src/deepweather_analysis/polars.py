@@ -25,6 +25,7 @@ import json
 import re
 from datetime import datetime, timezone
 from difflib import SequenceMatcher
+from functools import lru_cache
 from pathlib import Path
 
 from .paths import config_dir, contracts_dir, data_root
@@ -314,11 +315,6 @@ def transform_orc_vpp(orc_vpp: dict) -> dict[float, dict[float, float]]:
     return result
 
 
-# Cache of loaded ORC indexes keyed by resolved file path (the db is a 12 MB
-# Python-literal file; parsing it takes a couple of seconds).
-_ORC_INDEX_CACHE: dict[str, dict[str, dict]] = {}
-
-
 def load_orc_polars(polars_file: Path) -> dict[str, dict]:
     """
     Load ORC polar data from JSON file.
@@ -334,11 +330,24 @@ def load_orc_polars(polars_file: Path) -> dict[str, dict]:
     if not polars_file.exists():
         return {"by_name": {}, "by_model": {}}
 
-    cache_key = str(polars_file.resolve())
-    cached = _ORC_INDEX_CACHE.get(cache_key)
-    if cached is not None:
-        return cached
+    return _orc_database(polars_file)[1]
 
+
+def _orc_database(polars_file: Path) -> tuple[list[dict], dict[str, dict]]:
+    path = polars_file.resolve()
+    stat = path.stat()
+    return _read_orc_database(path, stat.st_mtime_ns, stat.st_size)
+
+
+@lru_cache(maxsize=2)
+def _read_orc_database(
+    polars_file: Path, mtime_ns: int, size: int
+) -> tuple[list[dict], dict[str, dict]]:
+    """Cache complete certificates and lookup indices together per file revision.
+
+    The publisher needs every certificate, including duplicate names/models that
+    the matching index collapses. Keep both views backed by the same parsed data.
+    """
     with open(polars_file, "r", encoding="utf-8") as f:
         content = f.read()
 
@@ -385,8 +394,7 @@ def load_orc_polars(polars_file: Path) -> dict[str, dict]:
         "by_name": by_name,
         "by_model": by_model,
     }
-    _ORC_INDEX_CACHE[cache_key] = index
-    return index
+    return orc_data, index
 
 
 def _generic_match(query_or_model: str = "") -> MatchResult:
@@ -798,14 +806,7 @@ def build_polar_db(
     from jsonschema import Draft202012Validator
 
     source_file = polars_file or default_polars_file()
-    with open(source_file, "r", encoding="utf-8") as f:
-        content = f.read()
-    try:
-        records = json.loads(content)
-    except json.JSONDecodeError:
-        import ast
-
-        records = ast.literal_eval(content)
+    records, _ = _orc_database(source_file)
 
     schema = json.loads((contracts_dir() / "polar.schema.json").read_text(encoding="utf-8"))
     validator = Draft202012Validator(schema)

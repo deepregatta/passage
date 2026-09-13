@@ -203,3 +203,48 @@ def test_json_vpp_preserves_every_sample_speed():
         native = transform_orc_vpp(vpp)
         assert native and all(native.values())
         assert transform_orc_vpp(json.loads(json.dumps(vpp))) == native
+
+
+@pytest.mark.parametrize("build_first", [False, True])
+@pytest.mark.parametrize("as_json", [False, True])
+def test_orc_parse_shared_between_index_and_build(tmp_path, monkeypatch, build_first, as_json):
+    records = ast.literal_eval(ORC_SAMPLE.read_text())
+    content = json.dumps(records) if as_json else repr(records)
+    source = tmp_path / "orc.json"
+    source.write_text(content)
+    original = json.loads
+    parses = []
+
+    def loads(value, *args, **kwargs):
+        if value == content:
+            parses.append(value)
+        return original(value, *args, **kwargs)
+
+    monkeypatch.setattr(json, "loads", loads)
+
+    def build():
+        return build_polar_db(polars_file=source, out_dir=tmp_path / "out")
+
+    if build_first:
+        assert build()["certs"] == len(records)
+    index = load_orc_polars(source)
+    assert index["by_model"]
+    assert build()["certs"] == len(records)  # includes duplicate-model certificates
+    assert load_orc_polars(source.resolve()) is index
+    assert len(parses) == 1
+    # Replacing the source must invalidate both the raw records and the index.
+    source.write_text("[]")
+    assert load_orc_polars(source) == {"by_name": {}, "by_model": {}}
+    assert build()["certs"] == 0
+
+
+def test_orc_parse_failure_and_missing_file_can_recover(tmp_path):
+    source = tmp_path / "orc.json"
+    assert load_orc_polars(source) == {"by_name": {}, "by_model": {}}
+    with pytest.raises(FileNotFoundError):
+        build_polar_db(polars_file=source, out_dir=tmp_path / "out")
+    source.write_text("{broken")
+    with pytest.raises(ValueError):
+        load_orc_polars(source)
+    source.write_text(ORC_SAMPLE.read_text())
+    assert load_orc_polars(source)["by_model"]
