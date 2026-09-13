@@ -270,3 +270,48 @@ def test_route_zone_tokens_match_casquets_bulletin():
     assert any(tok in norm for tok in tokens["casquets"])
     # the Antifer-only bulletin must NOT match the Casquets zone
     assert not any(tok in _normalize(REAL_BULLETIN) for tok in tokens["casquets"])
+
+
+def test_route_registry_is_shared_refreshed_and_not_mutated(tmp_path, monkeypatch):
+    import json
+    from pathlib import Path
+    from deepweather_analysis import warnings_mf as mf
+
+    path = tmp_path / "route-zones.json"
+    zone = {"zone_id": "casquets", "match_tokens": ["CASQUETS"]}
+    doc = {"routes": {"a": {"fr_zones": [zone], "uk_zones": [zone]}, "b": {"uk_zones": [zone]}}}
+    path.write_text(json.dumps(doc))
+    monkeypatch.setattr(mf, "config_dir", lambda: tmp_path)
+    original = Path.read_text
+    reads = []
+
+    def read(file, *args, **kwargs):
+        if file == path:
+            reads.append(file)
+        return original(file, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", read)
+    assert mf._route_zone_tokens() == [("casquets", "casquets", ["CASQUETS"])]
+    assert mf._route_zones("uk_zones") == [zone]
+    assert mf._route_zones("missing") == []
+    assert len(reads) == 1
+    mf._route_zones("uk_zones")[0]["match_tokens"].append("MUTATED")
+    mf._route_zone_tokens()[0][2].append("MUTATED")
+    assert mf._route_zones("uk_zones") == [zone]
+    assert mf._route_zone_tokens()[0][2] == ["CASQUETS"]
+    path.write_text('{"routes": {}}')
+    assert mf._route_zones("uk_zones") == []
+    assert mf._route_zone_tokens() == []
+    assert len(reads) == 2
+
+
+def test_route_registry_parse_failure_can_recover(tmp_path, monkeypatch):
+    from deepweather_analysis import warnings_mf as mf
+
+    monkeypatch.setattr(mf, "config_dir", lambda: tmp_path)
+    path = tmp_path / "route-zones.json"
+    path.write_text("{bad")
+    with pytest.raises(ValueError):
+        mf._route_zones("uk_zones")
+    path.write_text('{"routes": {}}')
+    assert mf._route_zones("uk_zones") == []

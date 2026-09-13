@@ -11,12 +11,22 @@ let dbPromise = null;
 
 function openDb() {
   dbPromise ??= new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, 1);
-    req.onupgradeneeded = () => {
-      const store = req.result.createObjectStore(STORE, { keyPath: 'key' });
-      store.createIndex('snapshot_id', 'snapshot_id');
+    const req = indexedDB.open(DB_NAME, 2);
+    req.onupgradeneeded = (event) => {
+      const store = event.oldVersion < 1
+        ? req.result.createObjectStore(STORE, { keyPath: 'key' })
+        : req.transaction.objectStore(STORE);
+      if (event.oldVersion < 1) store.createIndex('snapshot_id', 'snapshot_id');
+      // IndexedDB backfills existing records without loading artifact bodies into JS.
+      store.createIndex('filename', 'filename');
     };
-    req.onsuccess = () => resolve(req.result);
+    req.onsuccess = () => {
+      req.result.onversionchange = () => {
+        req.result.close();
+        dbPromise = null;
+      };
+      resolve(req.result);
+    };
     req.onerror = () => reject(req.error);
   }).catch((error) => {
     // A failed open must not poison every later storage attempt.
@@ -75,9 +85,10 @@ export const localSnapshots = {
     if (!available()) return [];
     try {
       const db = await openDb();
-      const records = (await tx(db, 'readonly', (s) => s.getAll())) ?? [];
+      const records = (await tx(db, 'readonly', (s) =>
+        s.index('filename').getAll('snapshot.json'),
+      )) ?? [];
       return records
-        .filter((r) => r.filename === 'snapshot.json')
         .map((r) => {
           try {
             const doc = JSON.parse(r.content);

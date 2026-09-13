@@ -30,7 +30,9 @@ import json
 import os
 import re
 import unicodedata
+from copy import deepcopy
 from datetime import datetime, timedelta, timezone
+from functools import lru_cache
 from pathlib import Path
 
 import requests
@@ -157,9 +159,21 @@ def _normalize(text: str) -> str:
     return stripped.upper()
 
 
+@lru_cache(maxsize=8)
+def _read_route_zones(path: Path, mtime_ns: int, size: int) -> dict:
+    """Share one parse per file revision; exceptions are not cached."""
+    return json.loads(path.read_text())
+
+
+def _route_zones_doc() -> dict:
+    path = (config_dir() / "route-zones.json").resolve()
+    stat = path.stat()
+    return _read_route_zones(path, stat.st_mtime_ns, stat.st_size)
+
+
 def _route_zone_tokens() -> list[tuple[str, str, list[str]]]:
     """(zone_id, zone_name, match_tokens) for every FR zone in route-zones.json."""
-    zones_doc = json.loads((config_dir() / "route-zones.json").read_text())
+    zones_doc = _route_zones_doc()
     out: list[tuple[str, str, list[str]]] = []
     seen: set[str] = set()
     for entry in zones_doc.get("routes", {}).values():
@@ -168,7 +182,7 @@ def _route_zone_tokens() -> list[tuple[str, str, list[str]]]:
                 continue
             seen.add(zone["zone_id"])
             tokens = zone.get("match_tokens") or [_normalize(zone["zone_id"].replace("-", " "))]
-            out.append((zone["zone_id"], zone.get("zone_name", zone["zone_id"]), tokens))
+            out.append((zone["zone_id"], zone.get("zone_name", zone["zone_id"]), list(tokens)))
     return out
 
 
@@ -326,14 +340,14 @@ def write_warnings(doc: dict) -> Path:
 
 def _route_zones(kind: str) -> list[dict]:
     """Union of one zone kind ('uk_zones' / 'us_zones') across all routes."""
-    zones_doc = json.loads((config_dir() / "route-zones.json").read_text())
+    zones_doc = _route_zones_doc()
     out: list[dict] = []
     seen: set[str] = set()
     for entry in zones_doc.get("routes", {}).values():
         for zone in entry.get(kind, []):
             if zone["zone_id"] not in seen:
                 seen.add(zone["zone_id"])
-                out.append(zone)
+                out.append(deepcopy(zone))
     return out
 
 
