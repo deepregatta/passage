@@ -360,7 +360,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Items: F9
 - Files: analysis/src/deepweather_analysis/grids_prep.py, tests
 - Done when: output identical (or within 0.01 kt) to the current method on the test fixture; runtime measured before/after in Notes.
-- Status: todo · Commit: — · Notes:
+- Status: in progress · Commit: — · Notes: Clean pre-flight at `46055c1`; previous step `eb8c73b` scope verified, including checksum support and transport/cache regression helpers. Full guardrails pass: 220 engine + 185 viewer tests, 248 Python tests (10 existing NumPy warnings), Ruff lint/format, and byte-identical demo regeneration. No untriaged notices or unrelated dirty files.
 
 ### 2.10 Remaining caches
 - Items: F10, F11
