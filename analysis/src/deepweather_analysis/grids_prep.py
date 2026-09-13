@@ -196,18 +196,20 @@ def _build_grid_artifact(
 
     native_lats = np.asarray(ds[lat_coord].values, dtype=float).reshape(-1)
     native_lons = np.asarray(ds[lon_coord].values, dtype=float).reshape(-1)
+    lat_indices = np.arange(native_lats.size)
+    lon_indices = np.arange(native_lons.size)
     if native_lats[0] > native_lats[-1]:
         native_lats = native_lats[::-1]
+        lat_indices = lat_indices[::-1]
     if native_lons[0] > native_lons[-1]:
         native_lons = native_lons[::-1]
+        lon_indices = lon_indices[::-1]
 
     # Crop to the requested bounds (the fetch adds a small buffer window).
-    native_lats = native_lats[
-        (native_lats >= bounds["min_lat"] - 1e-9) & (native_lats <= bounds["max_lat"] + 1e-9)
-    ]
-    native_lons = native_lons[
-        (native_lons >= bounds["min_lon"] - 1e-9) & (native_lons <= bounds["max_lon"] + 1e-9)
-    ]
+    lat_mask = (native_lats >= bounds["min_lat"] - 1e-9) & (native_lats <= bounds["max_lat"] + 1e-9)
+    lon_mask = (native_lons >= bounds["min_lon"] - 1e-9) & (native_lons <= bounds["max_lon"] + 1e-9)
+    native_lats, lat_indices = native_lats[lat_mask], lat_indices[lat_mask]
+    native_lons, lon_indices = native_lons[lon_mask], lon_indices[lon_mask]
 
     _, native_dlat = _regular_axis(native_lats, "latitude")
     _, native_dlon = _regular_axis(native_lons, "longitude")
@@ -236,10 +238,13 @@ def _build_grid_artifact(
         )
 
     # Hourly time axis: the dataset's native (hourly) steps within the window.
-    native_times = np.sort(np.asarray(ds[time_coord].values).reshape(-1).astype("datetime64[s]"))
+    native_times = np.asarray(ds[time_coord].values).reshape(-1).astype("datetime64[s]")
+    time_indices = np.argsort(native_times)
+    native_times = native_times[time_indices]
     window_start = np.datetime64(start_time.replace(tzinfo=None), "s")
     window_end = np.datetime64(end_time.replace(tzinfo=None), "s")
-    times = native_times[(native_times >= window_start) & (native_times <= window_end)]
+    time_mask = (native_times >= window_start) & (native_times <= window_end)
+    times = native_times[time_mask]
     if times.size == 0:
         raise RuntimeError(
             f"No forecast timesteps within {start_time.isoformat()}..{end_time.isoformat()}"
@@ -250,14 +255,34 @@ def _build_grid_artifact(
     times_epoch = times.astype("int64")
     ntime = int(times.size)
 
-    # Flat query arrays ordered so index = (t*nlat + i)*nlon + j.
-    lat_flat = np.tile(np.repeat(target_lats, nlon), ntime)
-    lon_flat = np.tile(target_lons, nlat * ntime)
-    time_flat = np.repeat(times_epoch, nlat * nlon)
+    # These are exact native nodes and timesteps: select directly instead of
+    # interpolating (which can turn a wet cell beside a NaN into another NaN).
+    selected = ds.isel(
+        {
+            lat_coord: lat_indices[::stride_lat],
+            lon_coord: lon_indices[::stride_lon],
+            time_coord: time_indices[time_mask],
+        }
+    )
 
-    # 4. Sample + KDTree coastal gap-fill (values only within MAX_FILL_DISTANCE_KM
-    #    of a wet cell; unresolved land cells stay NaN -> null).
-    u_ms, v_ms = grid.get_current_batch(lat_flat, lon_flat, time_flat)
+    def _surface_values(name: str) -> np.ndarray:
+        var = selected[name]
+        if "depth" in var.dims:
+            var = var.isel(depth=0)
+        # Copy: coastal fill mutates arrays; never modify the source dataset.
+        # Match linear interpolation's float precision before knot rounding.
+        values = var.transpose(time_coord, lat_coord, lon_coord).values
+        return np.asarray(values, dtype=float).reshape(-1).copy()
+
+    u_ms, v_ms = _surface_values("uo"), _surface_values("vo")
+
+    # 4. Preserve the existing KDTree pair fill and distance limit. Only masked
+    # native cells need lookup; unresolved land cells remain NaN -> null.
+    if grid.has_coastal_fill:
+        lat_flat = np.tile(np.repeat(target_lats, nlon), ntime)
+        lon_flat = np.tile(target_lons, nlat * ntime)
+        time_flat = np.repeat(times_epoch, nlat * nlon)
+        u_ms, v_ms = grid._fill_coastal_gaps(u_ms, v_ms, lat_flat, lon_flat, time_flat)
 
     # 5. m/s -> knots, rounded to 0.01.
     u_kt = np.round(u_ms * MS_TO_KNOTS, 2)
