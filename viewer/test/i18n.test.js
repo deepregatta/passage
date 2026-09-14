@@ -59,7 +59,7 @@ describe('language selection', () => {
       'dep Wed 15 Jul 08:00 local time · Europe/Paris': 'départ mer. 15 juil. 08:00 heure locale · Europe/Paris',
       '24-hour clock (HH:mm) · your local time · Europe/Paris': 'format 24 heures (HH:mm) · votre heure locale · Europe/Paris',
       'local time · Europe/Paris': 'heure locale · Europe/Paris',
-      'Insufficient forecast confidence': 'Confiance insuffisante dans la prévision',
+      'Models disagree · reassess after the next run': 'Divergence des modèles · réévaluez après le prochain cycle',
       'forecast updates ~Mon 13 Jul 16:30 UTC; check again before you cast off': 'mise à jour des prévisions vers lun. 13 juil. 16:30 UTC; vérifiez à nouveau avant d’appareiller',
       'Wind opposes the current at waypoint 2 → waypoint 3, increasing the risk of short, steep seas.': 'Le vent s’oppose au courant au point de route 2 → point de route 3, ce qui augmente le risque de mer courte et abrupte.',
       'The forecast reaches 32 kt against your 28 kt limit near waypoint 8.': 'La prévision atteint 32 nd, pour une limite fixée à 28 nd, près du point de route 8.',
@@ -111,8 +111,7 @@ describe('language selection', () => {
 
   it('translates expanded briefing sections', () => {
     const samples = [
-      'The national weather service has an active marine warning covering part of your route. Official forecasts are the authority; read the bulletin before anything else.',
-      'A strengthening low-pressure system sits west of the approaches, at your latitude; that is what sets the wind pattern over your route. The chart panels show how it moves over the next days.',
+      'The national weather service has an active marine warning for part of your route. Read the official bulletin first.',
       'Mid-Channel → Plymouth approach: strong winds while you are on this stretch (Mon 20 Jul 17:28–Tue 21 Jul 04:04 UTC). All 51 forecast scenarios exceed your 18 kt wind limit around Tue 21 Jul 05:00 UTC.',
       'Forecasts update several times a day. Check again after the next model run (expected around Sun 19 Jul 22:30 UTC); especially if you are close to your limits.',
       'Not assessed: tidal currents (no prepared current grid), tidal gates & HW/LW heights (no tide data), tropical systems, ice. No flag does not mean no risk.',

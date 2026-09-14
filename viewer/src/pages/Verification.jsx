@@ -22,8 +22,6 @@ async function loadJson(url, signal) {
 
 export default function Verification() {
   const findings = useApp((s) => s.findings);
-  const language = useApp((s) => s.language);
-  const french = language === 'fr';
   const [caseDoc, setCaseDoc] = useState(null);
   const [calibration, setCalibration] = useState(null);
   const [caseIndex, setCaseIndex] = useState(null);
@@ -54,37 +52,29 @@ export default function Verification() {
   return (
     <div className="px-6 py-5 max-w-5xl space-y-4">
       <header>
-        <h1 className="font-chart text-3xl">{french ? 'Bilan de fiabilité' : 'Track record'}</h1>
+        <h1 className="font-chart text-3xl">Track record</h1>
         <p className="font-sans text-sm text-ink-soft mt-1 max-w-2xl">
-          {french
-            ? 'Comparez les prévisions de vos briefings avec les conditions réellement observées. Chaque résultat indique la taille de son échantillon et le degré d’indépendance des observations.'
-            : 'How the forecasts in your briefings compared with what actually happened. This is the page where Passage earns your trust. Every number carries its sample size and how independent the observation really was.'}
+          How the forecasts in your briefings compared with what actually happened. This is the page where Passage earns your trust. Every number carries its sample size and how independent the observation really was.
         </p>
       </header>
 
       <div className="border-y border-ink/40 py-3 flex flex-wrap gap-x-6 gap-y-2 font-instrument text-sm">
         <strong>
-          {french
-            ? `Les mesures de fiabilité reposent sur ${corpus?.cases ?? 0} cas ERA5 réels.`
-            : `Skill claims use ${corpus?.cases ?? 0} real ERA5 cases.`}
+          {`Skill claims use ${corpus?.cases ?? 0} real ERA5 cases.`}
         </strong>
         <span>
           {corpus
-            ? french
-              ? `${corpus.pass} ${corpus.pass === 1 ? 'réussite' : 'réussites'} · ${corpus.fail} ${corpus.fail === 1 ? 'échec' : 'échecs'} · ${corpus.pending} en attente`
-              : `${corpus.pass} pass · ${corpus.fail} fail · ${corpus.pending} pending`
-            : french ? 'Résumé du corpus indisponible.' : 'Corpus summary unavailable.'}
+            ? `${corpus.pass} pass · ${corpus.fail} fail · ${corpus.pending} pending`
+            : 'Corpus summary unavailable.'}
         </span>
-        <span>{emulatedCaseLabel(caseIndex, french)}</span>
+        <span>{emulatedCaseLabel(caseIndex)}</span>
       </div>
 
-      <Panel title={findings ? `${french ? 'Cette analyse' : 'This analysis'} · ${findings.snapshot_id}` : french ? 'Cette analyse' : 'This analysis'}>
-        {!findings && <p className="font-sans text-sm text-ink-soft">{french ? 'Ouvrez d’abord un briefing.' : 'Open a snapshot first.'}</p>}
+      <Panel title={findings ? `This analysis · ${findings.snapshot_id}` : 'This analysis'}>
+        {!findings && <p className="font-sans text-sm text-ink-soft">Open a snapshot first.</p>}
         {findings && !caseDoc && (
           <p className="font-sans text-sm text-ink-soft">
-            {french
-              ? 'Pas encore vérifiée. Une fois la traversée terminée, cette prévision figée sera comparée aux observations disponibles.'
-              : 'Not verified yet. After the passage window, the verification job will match this frozen forecast against later observations.'}
+            Not verified yet. After the passage window, the verification job will match this frozen forecast against later observations.
           </p>
         )}
         {caseDoc && (
@@ -95,7 +85,7 @@ export default function Verification() {
                   key={klass}
                   className="font-sans text-[12px] border hairline rounded-sm px-2 py-0.5 flex items-center gap-1.5"
                 >
-                  {klass === 'emulated' ? <EmulatedStamp /> : coverageLabel(klass, french)}
+                  {klass === 'emulated' ? <EmulatedStamp /> : coverageLabel(klass)}
                   <span className="font-mono">{count}</span>
                 </span>
               ))}
@@ -103,11 +93,11 @@ export default function Verification() {
             <table className="w-full font-sans text-[13px]">
               <thead>
                 <tr className="text-left border-b hairline">
-                  <th className="eyebrow py-1">{french ? 'tronçon · heure' : 'leg · hour'}</th>
+                  <th className="eyebrow py-1">leg · hour</th>
                   <th className="eyebrow">variable</th>
-                  <th className="eyebrow">{french ? 'prévision' : 'forecast'}</th>
-                  <th className="eyebrow">{french ? 'observation' : 'observed'}</th>
-                  <th className="eyebrow">{french ? 'écart' : 'error'}</th>
+                  <th className="eyebrow">forecast</th>
+                  <th className="eyebrow">observed</th>
+                  <th className="eyebrow">error</th>
                 </tr>
               </thead>
               <tbody>
@@ -131,12 +121,10 @@ export default function Verification() {
         )}
       </Panel>
 
-      <Panel title={french ? 'Historique d’étalonnage' : 'Calibration record'}>
+      <Panel title={'Calibration record'}>
         {!calibration && (
           <p className="font-sans text-sm text-ink-soft">
-            {french
-              ? 'Aucune donnée d’étalonnage pour le moment. Les analyses vérifiées construiront cet historique. Les observations simulées restent signalées et ne comptent jamais comme résultats réels.'
-              : 'No calibration data yet. Verified analyses will build this record over time. Emulated observations stay labeled and never count as real skill.'}
+            No calibration data yet. Verified analyses will build this record over time. Emulated observations stay labeled and never count as real skill.
           </p>
         )}
         {calibration && (
@@ -144,12 +132,12 @@ export default function Verification() {
             <thead>
               <tr className="text-left border-b hairline">
                 <th className="eyebrow py-1">variable</th>
-                <th className="eyebrow">{french ? 'échéance' : 'lead'}</th>
-                <th className="eyebrow">{french ? 'zone' : 'area'}</th>
+                <th className="eyebrow">lead</th>
+                <th className="eyebrow">area</th>
                 <th className="eyebrow">n</th>
-                <th className="eyebrow">{french ? 'biais' : 'bias'}</th>
-                <th className="eyebrow">{french ? 'dispersion' : 'spread'}</th>
-                <th className="eyebrow">{french ? 'couverture' : 'coverage'}</th>
+                <th className="eyebrow">bias</th>
+                <th className="eyebrow">spread</th>
+                <th className="eyebrow">coverage</th>
               </tr>
             </thead>
             <tbody>
@@ -176,29 +164,18 @@ export default function Verification() {
           </table>
         )}
         <p className="font-sans text-[12px] text-ink-soft mt-3">
-          {french
-            ? 'Les comparaisons fondées sur ERA5 utilisent une réanalyse qui assimile des observations, sans constituer une vérité terrain indépendante (spécification §9). La taille des échantillons est toujours indiquée. Passage ne qualifie une probabilité d’étalonnée que lorsque l’historique le permet.'
-            : 'ERA5 comparisons use a reanalysis that assimilates observations but is not independent ground truth (brief §9). Sample sizes are always shown. Passage calls a probability calibrated only when the record supports it.'}
+          ERA5 comparisons use a reanalysis that assimilates observations but is not independent ground truth (brief §9). Sample sizes are always shown. Passage calls a probability calibrated only when the record supports it.
         </p>
       </Panel>
     </div>
   );
 }
 
-function emulatedCaseLabel(caseIndex, french) {
+function emulatedCaseLabel(caseIndex) {
   const count = caseIndex?.cases?.filter((item) => item.observation_source === 'emulated').length ?? 0;
-  if (french) return `${count} ${count === 1 ? 'cas simulé affiché' : 'cas simulés affichés'} uniquement pour la démonstration.`;
   return `${count} emulated ${count === 1 ? 'case' : 'cases'} shown for demo only.`;
 }
 
-function coverageLabel(klass, french) {
-  if (!french) return CLASS_LABEL[klass] ?? klass;
-  const labels = {
-    verified_near_observation: 'vérifié près d’une observation',
-    partially_observed: 'partiellement observé',
-    reanalysis_referenced: 'référencé par réanalyse',
-    not_independently_observed: 'sans observation indépendante',
-    emulated: 'observations simulées',
-  };
-  return labels[klass] ?? klass;
+function coverageLabel(klass) {
+  return CLASS_LABEL[klass] ?? klass;
 }
