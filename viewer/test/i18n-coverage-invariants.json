@@ -1,0 +1,701 @@
+{
+  "description": "Reviewed identity values, not untranslated prose. The scanner excludes only syntax with a known AST role; these remaining exact file/text entries are classified as technical identifiers/markup, existing French, or invariant notation/names. Unknown and stale entries fail coverage. Never add English prose here.",
+  "categories": {
+    "technical": {
+      "engine/test/golden/briefing-cherbourg-plymouth.json": [
+        "20260712T060000Z_44d2cd5f_e56e8fe0",
+        "E1",
+        "E10",
+        "E11",
+        "E12",
+        "E13",
+        "E14",
+        "E15",
+        "E16",
+        "E17",
+        "E18",
+        "E19",
+        "E2",
+        "E20",
+        "E21",
+        "E22",
+        "E23",
+        "E24",
+        "E25",
+        "E26",
+        "E27",
+        "E3",
+        "E4",
+        "E5",
+        "E6",
+        "E7",
+        "E8",
+        "E9",
+        "L1",
+        "L2",
+        "L3",
+        "L4",
+        "L5",
+        "L6",
+        "decision",
+        "route_impact",
+        "synoptic_story",
+        "unavailable",
+        "unsupported",
+        "what_could_change"
+      ],
+      "viewer/src/App.jsx": [
+        "hashchange",
+        "page_view"
+      ],
+      "viewer/src/components/BoatPicker.jsx": [
+        "/data/config/polars/index.json",
+        "/data/polars/index.json",
+        "Enter",
+        "Escape",
+        "certs",
+        "generic",
+        "orc_vpp",
+        "pointerdown"
+      ],
+      "viewer/src/components/BulletinPanel.jsx": [
+        "Escape",
+        "keydown",
+        "synthetic"
+      ],
+      "viewer/src/components/EnsemblePlume.jsx": [
+        "#16283E",
+        "#4C5D73",
+        "#A63B2A",
+        "#A87718",
+        "#F3EEE3",
+        "axis",
+        "bold",
+        "dashed",
+        "insideStartTop",
+        "insideTop",
+        "line",
+        "none",
+        "rgba(166,59,42,0.10)",
+        "rgba(22,40,62,0.08)",
+        "rgba(22,40,62,0.10)",
+        "svg",
+        "time",
+        "transparent",
+        "ui-monospace, monospace",
+        "value"
+      ],
+      "viewer/src/components/EvidenceInspector.jsx": [
+        "Escape",
+        "Tab",
+        "button, a, input, [tabindex]:not([tabindex=\"-1\"])",
+        "keydown",
+        "marine",
+        "object"
+      ],
+      "viewer/src/components/FooterActions.jsx": [
+        "(pointer: coarse)",
+        "Content-Type",
+        "Escape",
+        "POST",
+        "application/json",
+        "bug",
+        "contact@deepregatta.com",
+        "desktop",
+        "feedback",
+        "footer",
+        "https://oscar.deepregatta.com/api/feedback",
+        "idle",
+        "keydown",
+        "mobile",
+        "planner",
+        "race_request",
+        "share_click",
+        "snapshots",
+        "submitting",
+        "success"
+      ],
+      "viewer/src/components/FullscreenChart.jsx": [
+        "Escape",
+        "keydown"
+      ],
+      "viewer/src/components/HeadMetadata.jsx": [
+        "content",
+        "description",
+        "en",
+        "fr",
+        "href",
+        "link[rel=\"canonical\"]",
+        "meta",
+        "meta[name=\"description\"]",
+        "meta[name=\"twitter:description\"]",
+        "meta[name=\"twitter:image\"]",
+        "meta[name=\"twitter:title\"]",
+        "meta[property=\"og:description\"]",
+        "meta[property=\"og:image\"]",
+        "meta[property=\"og:image:alt\"]",
+        "meta[property=\"og:locale\"]",
+        "meta[property=\"og:title\"]",
+        "meta[property=\"og:url\"]",
+        "og:description",
+        "og:image",
+        "og:image:alt",
+        "og:locale",
+        "og:title",
+        "og:url",
+        "passage-structured-data",
+        "twitter:description",
+        "twitter:image",
+        "twitter:title"
+      ],
+      "viewer/src/components/ModelComparison.jsx": [
+        "#16283E",
+        "#2F6E4F",
+        "#4C5D73",
+        "#5A6B82",
+        "#A87718",
+        "#F3EEE3",
+        "axis",
+        "insideTop",
+        "line",
+        "rect",
+        "rgba(22,40,62,0.08)",
+        "rgba(90,107,130,0.12)",
+        "svg",
+        "time",
+        "transparent",
+        "ui-monospace, monospace",
+        "value"
+      ],
+      "viewer/src/components/ModelFooter.jsx": [
+        "weather",
+        "weather-ecmwf",
+        "weather-multimodel"
+      ],
+      "viewer/src/components/ModelsUsed.jsx": [
+        "weather-ecmwf",
+        "weather-multimodel"
+      ],
+      "viewer/src/components/RouteMap.jsx": [
+        "\"\n        stroke=\"#52739E\" stroke-width=\"1.6\" fill=\"none\" stroke-linecap=\"round\"/>\n    </svg>",
+        "\" title=\"leg",
+        "\"></div>",
+        "#16283E",
+        "#2F6E4F",
+        "#A63B2A",
+        "#A87718",
+        "#CBDCE0",
+        "/data/config/gates.json",
+        ";color:#F3EEE3;\n      border:2px solid #F3EEE3;box-shadow:0 0 0 1.5px",
+        ";transform:rotate(45deg);\n      border:2px solid #F3EEE3;box-shadow:0 0 0 1px",
+        "</div>",
+        "<div style=\"display:flex;flex-direction:column;align-items:center;pointer-events:none\">\n      <svg width=\"30\" height=\"30\" viewBox=\"0 0 30 30\" style=\"transform:rotate(",
+        "<div style=\"pointer-events:none\">\n      <svg width=\"34\" height=\"34\" viewBox=\"0 0 34 34\" style=\"transform:rotate(",
+        "<div style=\"width:16px;height:16px;background:",
+        "<div style=\"width:22px;height:22px;border-radius:50%;background:",
+        "<svg width=\"22\" height=\"22\" viewBox=\"0 0 22 22\"\n      style=\"transform:rotate(",
+        "L11",
+        "L14",
+        "L8",
+        "M11",
+        "conflict",
+        "deg)\">\n        <circle cx=\"17\" cy=\"17\" r=\"12.5\" fill=\"#F3EEE3\" fill-opacity=\".25\" stroke=\"#A87718\" stroke-width=\"2\"/>\n        <path d=\"M17 8 L22.5 24 L17 20.6 L11.5 24 Z\" fill=\"#A87718\" stroke=\"#F3EEE3\" stroke-width=\"1.4\"/>\n      </svg>\n    </div>",
+        "deg);opacity:.5;pointer-events:none\">\n      <path d=\"M11",
+        "deg);opacity:.85\">\n        <path d=\"M15 4 L15 24 M15 4 L10 11 M15 4 L20 11\" stroke=\"#31445E\" stroke-width=\"2.4\"\n          fill=\"none\" stroke-linecap=\"round\"/>\n      </svg>\n      <span style=\"font:600 9px ui-monospace,monospace;color:#31445E;background:#F3EEE3cc;\n        padding:0 3px;border-radius:2px;margin-top:-4px\">",
+        "https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png",
+        "marginal",
+        "none",
+        "ok",
+        "repeating-linear-gradient(135deg,transparent 0 3px,rgba(255,255,255,.32) 3px 5px)",
+        "round",
+        "top",
+        "×"
+      ],
+      "viewer/src/components/RouteTimeline.jsx": [
+        "#16283E",
+        "#176B87",
+        "#4C5D73",
+        "#A63B2A",
+        "#A87718",
+        "#F3EEE3",
+        "W-GUST-01",
+        "W-GUST-03",
+        "axis",
+        "dashed",
+        "end",
+        "line",
+        "none",
+        "ok",
+        "pin",
+        "rgba(166,59,42,0.13)",
+        "rgba(168,119,24,0.13)",
+        "rgba(22,40,62,0.07)",
+        "rgba(22,40,62,0.25)",
+        "rgba(76,93,115,0.18)",
+        "right",
+        "solid",
+        "svg",
+        "time",
+        "top",
+        "transparent",
+        "ui-monospace, monospace",
+        "value"
+      ],
+      "viewer/src/components/Shell.jsx": [
+        "brief",
+        "briefing",
+        "caseStudy",
+        "changes",
+        "en",
+        "fr",
+        "https://deepregatta.com",
+        "https://deepregatta.com/legal",
+        "https://deepregatta.com/privacy",
+        "https://deepregatta.com/terms",
+        "plan",
+        "planner",
+        "settings",
+        "snapshots",
+        "verification",
+        "verify",
+        "views",
+        "watch"
+      ],
+      "viewer/src/components/SynopticCompare.jsx": [
+        "low"
+      ],
+      "viewer/src/lib/glossary.jsx": [
+        "term-"
+      ],
+      "viewer/src/main.jsx": [
+        "root"
+      ],
+      "viewer/src/pages/Briefing.jsx": [
+        "#16283E",
+        "A-WARN-01",
+        "border border-ink/50 px-3.5 py-2 min-h-11 font-sans text-[14px] hover:bg-ink/5",
+        "border border-white/70 px-3.5 py-2 min-h-11 font-sans text-[14px] hover:bg-white/10",
+        "border-l-4 border-authority pl-3",
+        "border-l-4 border-line pl-3",
+        "conflict",
+        "decision",
+        "draw",
+        "emulated_disclosure",
+        "gate",
+        "gust_kt",
+        "not_assessed",
+        "number",
+        "ok",
+        "passage_briefing_view",
+        "passage_example_view",
+        "passage_run",
+        "planner",
+        "route_impact",
+        "snapshots",
+        "synoptic_story",
+        "unsupported",
+        "warning_active",
+        "warnings",
+        "what_could_change",
+        "wind_against_current",
+        "wind_kt"
+      ],
+      "viewer/src/pages/CaseStudy.jsx": [
+        ".json",
+        "/data/verification/cases/",
+        "erreur",
+        "fr"
+      ],
+      "viewer/src/pages/Changes.jsx": [
+        "A-WARN-01",
+        "findings.json",
+        "first",
+        "idle",
+        "ok",
+        "synoptic.json",
+        "warning_active"
+      ],
+      "viewer/src/pages/Evidence.jsx": [
+        "GUST"
+      ],
+      "viewer/src/pages/Planner.jsx": [
+        "#16283E",
+        "#2F6E4F",
+        "<div style=\"width:14px;height:14px;border-radius:50%;background:#16283E;border:2px solid #F3EEE3;box-shadow:0 0 0 1px #16283E\"></div>",
+        "T",
+        "compute",
+        "deepweather.profile-draft",
+        "draw",
+        "en",
+        "fast",
+        "fr",
+        "function",
+        "gpx-import",
+        "https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png",
+        "insufficient",
+        "nominal",
+        "passage_attempt",
+        "route",
+        "slow",
+        "speed",
+        "user",
+        "waypoints",
+        "wp"
+      ],
+      "viewer/src/pages/Settings.jsx": [
+        "deepweather.profile-draft",
+        "downwind",
+        "max_gust_kt",
+        "max_steepness",
+        "max_sustained_kt",
+        "max_wave_height_m",
+        "min_visibility_nm",
+        "night_ok",
+        "number",
+        "object",
+        "scenario_fraction_floor",
+        "synthetic",
+        "upwind"
+      ],
+      "viewer/src/pages/Verification.jsx": [
+        ".json",
+        "/data/verification/calibration.json",
+        "/data/verification/cases/",
+        "/data/verification/cases/index.json",
+        "/data/verification/corpus.json",
+        "biais",
+        "couverture",
+        "dispersion",
+        "fr"
+      ],
+      "viewer/test/fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/briefing.json": [
+        "20260720T060000Z_44d2cd5f_64ea971e",
+        "E1",
+        "E10",
+        "E11",
+        "E12",
+        "E13",
+        "E14",
+        "E15",
+        "E16",
+        "E17",
+        "E18",
+        "E19",
+        "E2",
+        "E20",
+        "E21",
+        "E22",
+        "E23",
+        "E3",
+        "E4",
+        "E5",
+        "E6",
+        "E7",
+        "E8",
+        "E9",
+        "L1",
+        "L2",
+        "L3",
+        "L4",
+        "L5",
+        "L6",
+        "available",
+        "decision",
+        "emulated_disclosure",
+        "route_impact",
+        "synoptic_story",
+        "unsupported",
+        "warnings",
+        "what_could_change"
+      ],
+      "viewer/test/fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_7b2600cd/briefing.json": [
+        "20260720T060000Z_44d2cd5f_7b2600cd",
+        "E1",
+        "E10",
+        "E11",
+        "E12",
+        "E13",
+        "E14",
+        "E2",
+        "E3",
+        "E4",
+        "E5",
+        "E6",
+        "E7",
+        "E8",
+        "E9",
+        "L1",
+        "L2",
+        "L3",
+        "L4",
+        "L5",
+        "L6",
+        "available",
+        "decision",
+        "emulated_disclosure",
+        "route_impact",
+        "synoptic_story",
+        "unsupported",
+        "warnings",
+        "what_could_change"
+      ]
+    },
+    "french": {
+      "engine/test/golden/briefing-cherbourg-plymouth.json": [
+        "ensemble"
+      ],
+      "viewer/src/components/BulletinPanel.jsx": [
+        "Zones"
+      ],
+      "viewer/src/components/EvidenceInspector.jsx": [
+        "ensemble"
+      ],
+      "viewer/src/components/ModelComparison.jsx": [
+        "divergence"
+      ],
+      "viewer/src/components/ModelsUsed.jsx": [
+        "Ensemble"
+      ],
+      "viewer/src/components/Shell.jsx": [
+        "Choisir la langue"
+      ],
+      "viewer/src/pages/Briefing.jsx": [
+        "cause"
+      ],
+      "viewer/src/pages/CaseStudy.jsx": [
+        "Cas de vérification publié · briefing figé",
+        "Ce que prévoyait la météo et ce qui s’est produit",
+        "DÉMONSTRATION SIMULÉE · AUCUN RÉSULTAT RÉEL",
+        "Décomposition de l’erreur",
+        "Imprimer / enregistrer en PDF",
+        "Interprétation initiale",
+        "La prévision initiale reste figée. Ce rapport sera complété après la classification des observations.",
+        "La prévision sur la route a saisi l’évolution de l’événement. Le tableau consigne ses erreurs de chronologie et d’intensité sans réécriture a posteriori.",
+        "Leçon pour la prochaine traversée",
+        "L’analyse initiale ne permettait pas d’attribuer les conditions à un système météo.",
+        "Observations pas encore jointes",
+        "Ouvrez un briefing pour consulter son étude de cas.",
+        "SOURCE DES OBSERVATIONS",
+        "Traitez la chronologie de l’événement comme une fenêtre. Conservez votre limite personnelle, puis ajoutez l’erreur mesurée comme marge.",
+        "intensité utile",
+        "interprétation",
+        "observation ultérieure",
+        "prévision figée",
+        "tronçon · heure UTC",
+        "variable",
+        "écart significatif, marge à élargir"
+      ],
+      "viewer/src/pages/Evidence.jsx": [
+        "ensemble",
+        "maximum"
+      ],
+      "viewer/src/pages/Planner.jsx": [
+        "Ma traversée"
+      ],
+      "viewer/src/pages/Verification.jsx": [
+        "Aucune donnée d’étalonnage pour le moment. Les analyses vérifiées construiront cet historique. Les observations simulées restent signalées et ne comptent jamais comme résultats réels.",
+        "Bilan de fiabilité",
+        "Cette analyse",
+        "Comparez les prévisions de vos briefings avec les conditions réellement observées. Chaque résultat indique la taille de son échantillon et le degré d’indépendance des observations.",
+        "Historique d’étalonnage",
+        "Les comparaisons fondées sur ERA5 utilisent une réanalyse qui assimile des observations, sans constituer une vérité terrain indépendante (spécification §9). La taille des échantillons est toujours indiquée. Passage ne qualifie une probabilité d’étalonnée que lorsque l’historique le permet.",
+        "Les mesures de fiabilité reposent sur",
+        "Ouvrez d’abord un briefing.",
+        "Pas encore vérifiée. Une fois la traversée terminée, cette prévision figée sera comparée aux observations disponibles.",
+        "Résumé du corpus indisponible.",
+        "cas ERA5 réels.",
+        "cas simulé affiché",
+        "cas simulés affichés",
+        "en attente",
+        "observation",
+        "observations simulées",
+        "partiellement observé",
+        "prévision",
+        "référencé par réanalyse",
+        "réussite",
+        "réussites",
+        "sans observation indépendante",
+        "tronçon · heure",
+        "uniquement pour la démonstration.",
+        "variable",
+        "vérifié près d’une observation",
+        "zone",
+        "écart",
+        "échec",
+        "échecs",
+        "échéance"
+      ],
+      "viewer/test/fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/briefing.json": [
+        "ensemble"
+      ],
+      "viewer/test/fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_7b2600cd/briefing.json": [
+        "ensemble"
+      ]
+    },
+    "notation": {
+      "viewer/src/App.jsx": [
+        "#"
+      ],
+      "viewer/src/components/BoatPicker.jsx": [
+        "m",
+        "·",
+        "▴"
+      ],
+      "viewer/src/components/BulletinPanel.jsx": [
+        ",",
+        "UTC",
+        "·",
+        "→",
+        "✕"
+      ],
+      "viewer/src/components/EnsemblePlume.jsx": [
+        "P10",
+        "P90"
+      ],
+      "viewer/src/components/EvidenceInspector.jsx": [
+        "\u0000",
+        "/",
+        "UTC",
+        "·",
+        "✕"
+      ],
+      "viewer/src/components/FooterActions.jsx": [
+        "→",
+        "✕"
+      ],
+      "viewer/src/components/FullscreenChart.jsx": [
+        "✕"
+      ],
+      "viewer/src/components/HeadMetadata.jsx": [
+        "| DeepRegatta"
+      ],
+      "viewer/src/components/ModelFooter.jsx": [
+        "°",
+        "·"
+      ],
+      "viewer/src/components/ModelsUsed.jsx": [
+        "_",
+        "·"
+      ],
+      "viewer/src/components/RouteMap.jsx": [
+        "!",
+        "\">",
+        "1 7",
+        "100%",
+        ":",
+        "UTC",
+        "·",
+        "–"
+      ],
+      "viewer/src/components/RouteTimeline.jsx": [
+        ";",
+        "UTC",
+        "m",
+        "–"
+      ],
+      "viewer/src/components/Shell.jsx": [
+        "0",
+        "DeepRegatta",
+        "English",
+        "Français",
+        "Passage",
+        "©",
+        "·"
+      ],
+      "viewer/src/components/SynopticCompare.jsx": [
+        "+",
+        "hPa",
+        "·"
+      ],
+      "viewer/src/components/SynopticHero.jsx": [
+        ",",
+        ".12",
+        ".92",
+        "JetBrains Mono",
+        "·"
+      ],
+      "viewer/src/components/TimeRuler.jsx": [
+        "+",
+        "h",
+        "·",
+        "Ⅱ",
+        "▶"
+      ],
+      "viewer/src/components/common.jsx": [
+        "·"
+      ],
+      "viewer/src/lib/glossary.jsx": [
+        "-"
+      ],
+      "viewer/src/pages/Briefing.jsx": [
+        "(",
+        ")",
+        ",",
+        ".",
+        "0",
+        ":",
+        "_",
+        "h",
+        "m",
+        "·",
+        "…",
+        "→",
+        "▴",
+        "▸",
+        "▾"
+      ],
+      "viewer/src/pages/CaseStudy.jsx": [
+        "+",
+        "·"
+      ],
+      "viewer/src/pages/Changes.jsx": [
+        "h",
+        "·",
+        "→"
+      ],
+      "viewer/src/pages/Evidence.jsx": [
+        "%",
+        "/",
+        "UTC",
+        "·"
+      ],
+      "viewer/src/pages/Planner.jsx": [
+        "(?:[01][0-9]|2[0-3]):[0-5][0-9]",
+        ") ·",
+        "+",
+        "-",
+        ".",
+        "/",
+        "6 4",
+        ":",
+        "HH:mm",
+        "Passage",
+        "h",
+        "nm",
+        "·",
+        "· ~",
+        "…",
+        "≈",
+        "◎"
+      ],
+      "viewer/src/pages/Settings.jsx": [
+        "0–1",
+        "H/L",
+        "m",
+        "nm"
+      ],
+      "viewer/src/pages/Snapshots.jsx": [
+        "-",
+        "✕"
+      ],
+      "viewer/src/pages/Verification.jsx": [
+        "+",
+        ",",
+        "h",
+        "n",
+        "·",
+        "–"
+      ]
+    }
+  }
+}

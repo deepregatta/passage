@@ -7,6 +7,8 @@ import { briefingStrings, collectCoverage, identityEntries, jsxLiterals } from '
 const repoRoot = path.resolve(import.meta.dirname, '../..');
 const allowlist = JSON.parse(readFileSync(path.join(import.meta.dirname, 'i18n-coverage-allowlist.json'), 'utf8'));
 const coverage = collectCoverage(repoRoot);
+const invariants = JSON.parse(readFileSync(path.join(import.meta.dirname, 'i18n-coverage-invariants.json'), 'utf8'));
+const classified = Object.values(invariants.categories).flatMap((files) => Object.entries(files).flatMap(([file, texts]) => texts.map((text) => ({ text, source: file }))));
 
 describe('French translation coverage', () => {
   it('discovers JSX sources and both golden and demo briefings', () => {
@@ -15,14 +17,16 @@ describe('French translation coverage', () => {
     expect(coverage.demo.length).toBeGreaterThan(0);
   });
 
-  it('allows only explicitly recorded identity translations, with no stale entries', () => {
+  it('has no untranslated prose exceptions and only reviewed invariant identities', () => {
+    expect(allowlist.entries).toEqual({});
     const actual = identityEntries(coverage.samples, translateText);
-    const missing = coverage.samples.filter(({ text, source }) => {
-      const file = source.split(/#|:\d/)[0];
-      return translateText(text, 'fr') === text && !allowlist.entries[file]?.includes(text);
-    });
-    expect(missing, 'New identity translations (source location + exact text); translate them or explicitly review the allowlist').toEqual([]);
-    expect(actual, 'Remove stale/duplicate exceptions when text is translated or removed; keep entries sorted').toEqual(allowlist.entries);
+    const expected = identityEntries(classified, (text) => text);
+    expect(Object.keys(invariants.categories).sort()).toEqual(['french', 'notation', 'technical']);
+    expect(classified.length).toBe(Object.values(expected).flat().length);
+    const missing = coverage.samples.filter(({ text, source }) => translateText(text, 'fr') === text
+      && !expected[source.split(/#|:\d/)[0]]?.includes(text));
+    expect(missing, 'New identity translations with exact source locations').toEqual([]);
+    expect(actual, 'Translate new prose; review technical/French/notation identities explicitly and remove stale entries').toEqual(expected);
   });
 });
 
@@ -38,6 +42,13 @@ describe('coverage scanner regressions', () => {
       'First line second line', 'Pending text', 'Alternate text', 'h old', 'avg',
     ]);
     expect(samples.every(({ source }) => /^example\.jsx:\d+:\d+$/.test(source))).toBe(true);
+  });
+
+  it('excludes syntax by AST role but retains accessible copy and unknown expressions', () => {
+    const samples = jsxLiterals(`import thing from './module.js';
+      const view = <p className="text-sm" style={{ color: 'red' }} title="A new title" aria-label="A new label">
+        {flag ? 'New text' : 'Alternate text'}<Panel label="Custom label" name="Custom name" /></p>;`, 'example.jsx');
+    expect(samples.map(({ text }) => text)).toEqual(['A new title', 'A new label', 'New text', 'Alternate text', 'Custom label', 'Custom name']);
   });
 
   it('rejects malformed JSX rather than silently scanning a partial file', () => {

@@ -33,6 +33,137 @@ export function getInitialLanguage() {
 // This catalogue deliberately uses the English copy as its key, which lets old
 // snapshots and lazy-loaded panels participate without changing their schemas.
 const FR = {
+  "Previous run": "Analyse précédente",
+  "Latest run": "Dernière analyse",
+  "forecast scenarios exceed your wind limit": "scénarios de prévision dépassent votre limite de vent",
+  "forecast scenarios exceed your gust limit": "scénarios de prévision dépassent votre limite de rafales",
+  "local time · avg": "heure locale · moy.",
+  "contributors, seamarks © OpenSeaMap": "contributeurs, balisage © OpenSeaMap",
+  "contributors": "contributeurs",
+
+  "· arrives": "· arrivée",
+  "/2 endpoints": "/2 extrémités",
+  "h passage": "h de traversée",
+  "Causal attribution was unavailable in the original run.": "L’analyse initiale ne permettait pas d’attribuer les conditions à un système météo.",
+  "EMULATED DEMO · NOT A SKILL CLAIM": "DÉMONSTRATION SIMULÉE · AUCUN RÉSULTAT RÉEL",
+  "OBSERVATION SOURCE": "SOURCE DES OBSERVATIONS",
+  "leg · valid UTC": "tronçon · heure UTC",
+  "material miss; widen margin": "écart significatif, marge à élargir",
+  "useful magnitude": "intensité utile",
+  "ERA5 comparisons use a reanalysis that assimilates observations but is not independent ground truth (brief §9). Sample sizes are always shown. Passage calls a probability calibrated only when the record supports it.": "Les comparaisons fondées sur ERA5 utilisent une réanalyse qui assimile des observations, sans constituer une vérité terrain indépendante (spécification §9). La taille des échantillons est toujours indiquée. Passage ne qualifie une probabilité d’étalonnée que lorsque l’historique le permet.",
+  "How the forecasts in your briefings compared with what actually happened. This is the page where Passage earns your trust. Every number carries its sample size and how independent the observation really was.": "Comparez les prévisions de vos briefings avec les conditions réellement observées. Chaque résultat indique la taille de son échantillon et le degré d’indépendance des observations.",
+  "No calibration data yet. Verified analyses will build this record over time. Emulated observations stay labeled and never count as real skill.": "Aucune donnée d’étalonnage pour le moment. Les analyses vérifiées construiront cet historique. Les observations simulées restent signalées et ne comptent jamais comme résultats réels.",
+  "Not verified yet. After the passage window, the verification job will match this frozen forecast against later observations.": "Pas encore vérifiée. Une fois la traversée terminée, cette prévision figée sera comparée aux observations disponibles.",
+  "Skill claims use": "Les mesures de fiabilité reposent sur",
+  "real ERA5 cases.": "cas ERA5 réels.",
+  "shown for demo only.": "uniquement pour la démonstration.",
+  "emulated observations": "observations simulées",
+  "not independently observed": "sans observation indépendante",
+  "partially observed": "partiellement observé",
+  "reanalysis-referenced": "référencé par réanalyse",
+  "verified near observation": "vérifié près d’une observation",
+  "leg · hour": "tronçon · heure",
+  "pass ·": "réussites ·",
+  "fail ·": "échecs ·",
+  "pending": "en attente",
+  "case": "cas",
+  "cases": "cas",
+
+  "reading deterministic forecast tiles": "lecture des tuiles de prévision déterministe",
+  "checking ensemble tiles": "vérification des tuiles d’ensemble",
+  "reading wave tiles": "lecture des tuiles de vagues",
+  "reading hazard and model-comparison tiles": "lecture des tuiles de dangers et de comparaison des modèles",
+  "Route conditions and limit checks remain available, but this run does not attribute them to a weather system.": "Les conditions sur la route et les vérifications des limites restent disponibles, mais cette analyse ne les attribue pas à un système météo.",
+  "Synoptic availability: unavailable (no prepared synoptic run was supplied). Route conditions and limit checks remain available, but this run does not attribute them to a weather system.": "Disponibilité synoptique : indisponible (aucune analyse synoptique préparée n’a été fournie). Les conditions sur la route et les vérifications des limites restent disponibles, mais cette analyse ne les attribue pas à un système météo.",
+  "The forecasts disagree too much to assess this passage against your limits.": "Les prévisions divergent trop pour évaluer cette traversée par rapport à vos limites.",
+  "This state overrides the personal-limit summary and does not assert a numeric limit exceedance.": "Cet état prévaut sur le résumé des limites personnelles et n’affirme aucun dépassement chiffré.",
+  "All": "Tous",
+  "your": "votre",
+  "near": "près de",
+  "within": "dans les limites",
+  "reach": "atteignent",
+  "Delete the briefing \"": "Supprimer le briefing «",
+  ")? This cannot be undone.": ") ? Cette action est irréversible.",
+
+  // Production errors, progress, and independently rendered narrative fragments.
+  "No forecast tiles cover this area yet": "Aucune tuile de prévision ne couvre encore cette zone",
+  "Couldn't load the forecast tiles. Check your connection and try again.": "Impossible de charger les tuiles de prévision. Vérifiez votre connexion et réessayez.",
+  "This departure is beyond the forecast horizon": "Ce départ dépasse l’horizon des prévisions",
+  "Currents unavailable right now. This route uses wind alone.": "Courants indisponibles pour le moment. Cette route utilise uniquement le vent.",
+  "Drawing forecast…": "Tracé de la prévision…",
+  "Loading passage chart…": "Chargement de la carte de traversée…",
+  "reading forecast run manifest": "lecture du manifeste du cycle de prévision",
+  "evaluating against your limits": "évaluation par rapport à vos limites",
+  "reading current tiles": "lecture des tuiles de courants",
+  "loading coastline": "chargement du trait de côte",
+  "loading forecast tiles": "chargement des tuiles de prévision",
+  "loading current tiles": "chargement des tuiles de courants",
+  "loading prepared data": "chargement des données préparées",
+  "saving immutable snapshot": "enregistrement du briefing figé",
+  "starting": "démarrage",
+  "computing route": "calcul de la route",
+  "scanning departures": "comparaison des départs",
+  "Specify at least two valid waypoints.": "Indiquez au moins deux points de route valides.",
+  "Click a point in open water near both ends of the passage": "Cliquez en pleine eau près de chaque extrémité de la traversée",
+  "Couldn't load the coastline data needed for safe routing": "Impossible de charger les données côtières nécessaires au routage sécurisé",
+  "This browser cannot decompress the coastline data": "Ce navigateur ne peut pas décompresser les données côtières",
+  "Forecast tiles unavailable: no readable weather run": "Tuiles de prévision indisponibles : aucun cycle météo lisible",
+  "Forecast tiles unavailable for this area": "Tuiles de prévision indisponibles pour cette zone",
+  "Antimeridian-crossing routes are not supported yet": "Les routes traversant l’antiméridien ne sont pas encore prises en charge",
+  "Route is outside the coastline mask": "La route se trouve hors du masque côtier",
+  "Start or finish is on land": "Le départ ou l’arrivée se trouve à terre",
+  "No sea node near start/finish": "Aucun point en mer près du départ ou de l’arrivée",
+  "This browser cannot store briefings (no IndexedDB)": "Ce navigateur ne peut pas enregistrer de briefings (IndexedDB indisponible)",
+  "arrives": "arrivée",
+  "avg": "moy.",
+  "forecast scenarios exceed": "scénarios de prévision dépassent",
+  ". This is a raw count (": ". Il s’agit d’un décompte brut (",
+  "%), not a calibrated probability.": "%), et non d’une probabilité étalonnée.",
+  "not available": "indisponible",
+  "n/a": "s.o.",
+  "median (P50)": "médiane (P50)",
+  "control": "témoin",
+  "member": "membre",
+  "members": "membres",
+  "▾ search": "▾ rechercher",
+  "seamarks © OpenSeaMap": "balisage © OpenSeaMap",
+  "nm · arrive": "M · arrivée",
+  "Conditions along your route:": "Conditions le long de votre route :",
+  "Select language": "Choisir la langue",
+  "synoptic chart": "carte synoptique",
+  "tracked positions": "positions suivies",
+  "Synoptic": "Synoptique",
+  "h old": "h écoulées",
+  "Causal attribution unavailable for this legacy snapshot.": "Attribution causale indisponible pour ce briefing ancien.",
+  "UTC · recheck before departure": "UTC · revérifiez avant le départ",
+  "UTC. Check again before departure.": "UTC. Vérifiez à nouveau avant le départ.",
+  "close to": "proche de",
+  "crosses your passage window": "traverse votre fenêtre de passage",
+  "crosses your route.": "traverse votre route.",
+  "next forecast ~": "prochaine prévision vers",
+  "Selected evidence summary": "Résumé des éléments probants sélectionnés",
+  "% · not calibrated": "% · non étalonné",
+  "over ·": "en dépassement ·",
+  "My passage": "Ma traversée",
+  "departure times could not be assessed and are not shown.": "heures de départ n’ont pas pu être évaluées et ne sont pas affichées.",
+  "local time (": "heure locale (",
+  "Check the published forecast before departure.": "Consultez la prévision publiée avant le départ.",
+  "Next forecast update time unavailable.": "Heure de la prochaine mise à jour indisponible.",
+  "No future publication estimate is available from the loaded forecast metadata and known tile-pipeline schedules.": "Les métadonnées des prévisions chargées et les calendriers connus de la chaîne de tuiles ne permettent pas d’estimer une prochaine publication.",
+  "Synthetic runs have no scheduled update.": "Les cycles synthétiques n’ont aucune mise à jour programmée.",
+  "Absence of a flag must not be read as absence of risk (brief §5).": "L’absence de signalement ne doit pas être interprétée comme une absence de risque (briefing §5).",
+  "Reason: no prepared synoptic run was supplied.": "Raison : aucune analyse synoptique préparée n’a été fournie.",
+  "no prepared synoptic run was supplied": "aucune analyse synoptique préparée n’a été fournie",
+  "Synoptic availability: unavailable (no prepared synoptic run was supplied).": "Disponibilité synoptique : indisponible (aucune analyse synoptique préparée n’a été fournie).",
+  "This run has no causal attribution.": "Cette analyse ne comporte pas d’attribution causale.",
+  "Reassess after the next model run.": "Réévaluez après le prochain cycle du modèle.",
+  "Front-type labels withheld pending corroboration (§4.1).": "Les types de fronts ne sont pas indiqués dans l’attente d’une corroboration (§4.1).",
+  "Provider modes are recorded in the snapshot inputs.": "Les modes des fournisseurs sont consignés dans les données d’entrée du briefing.",
+  "Read the official bulletin first.": "Lisez d’abord le bulletin officiel.",
+  "The charts track it over the next few days.": "Les cartes suivent son déplacement au cours des prochains jours.",
+  "The national weather service has an active marine warning for part of your route.": "Le service météorologique national a émis une alerte marine active pour une partie de votre route.",
+  "Previous run keeps the low west of the route longer.": "L’analyse précédente maintient la dépression à l’ouest de la route plus longtemps.",
+
   "Inspect example bulletin": "Examiner le bulletin de l’exemple",
   "Free · no signup · no route setup": "Gratuit · sans inscription · sans tracer de route",
   "Synthetic / emulated example. Not a live forecast or a safety decision.": "Exemple synthétique / émulé. Ni prévision en direct, ni décision de sécurité.",
@@ -520,6 +651,30 @@ const FR = {
 };
 
 const FR_PATTERNS = [
+  [/^(reading deterministic forecast tiles|checking ensemble tiles|reading wave tiles|reading hazard and model-comparison tiles)(…)?$/, (_match, label, ellipsis = '') => `${FR[label]}${ellipsis}`],
+  [/^reading (\d+)-member ensemble tiles(…)?$/, (_match, members, ellipsis = '') => `lecture des tuiles d’ensemble à ${members} membres${ellipsis}`],
+  [/^No route found within (\d+) h \(wind coverage, land, or no-go conditions\)$/, 'Aucune route trouvée en $1 h (couverture du vent, terre ou conditions impraticables)'],
+  [/^Forecast grid coarsened to ([\d.]+)° to keep this crossing within the browser point budget\.$/, 'Grille de prévision ramenée à $1° pour respecter le nombre de points gérable par le navigateur pour cette traversée.'],
+  [/^Route save failed: HTTP (\d+)$/, 'Échec de l’enregistrement de la route : HTTP $1'],
+  [/^Snapshot write failed: HTTP (\d+)$/, 'Échec de l’enregistrement du briefing : HTTP $1'],
+  [/^Snapshot (\S+) already exists \(write-once\)$/, 'Le briefing $1 existe déjà (écriture unique)'],
+  [/^(.+): not stored with this briefing$/, '$1 : non enregistré avec ce briefing'],
+  [/^Ensemble \(.+\): .+\.$/, (value) => translateProfessionalLegSuffix(` ${value}`).trim()],
+  [/^Models diverge on \d+ h of this leg .+\.$/, (value) => translateProfessionalLegSuffix(` ${value}`).trim()],
+  [/^Driver: .+\.$/, (value) => translateProfessionalDecisionSuffix(` ${value}`).trim()],
+  [/^The main signal: .+\.$/, (value) => translateMainSignal(` ${value}`).trim()],
+  [/^(All \d+|\d+ of \d+) forecast scenarios exceed your [\d.]+ kt (gust|wind) limit around .+ UTC\.$/, (value) => translateExceedanceSuffix(` ${value}`).trim()],
+  [/^Unassessed hazard classes: ([^.]+)\.$/, (_match, capabilities) => `Catégories de dangers non évaluées : ${translateCapabilityList(capabilities)}.`],
+  [/^Partial capability coverage: (.+)\.$/, (_match, capabilities) => `Couverture partielle des capacités : ${translateCapabilityList(capabilities)}.`],
+  [/^(reading forecast run manifest|evaluating against your limits|reading current tiles|loading coastline|loading forecast tiles|loading current tiles|loading prepared data|saving immutable snapshot|starting|computing route|scanning departures)( \d+\/\d+)?(…)?$/, (_match, label, count = '', ellipsis = '') => `${FR[label]}${count}${ellipsis}`],
+  [/^(· )?(\d+) h old$/, (_match, separator = '', hours) => `${separator}il y a ${hours} h`],
+  [/^Seas to ([\d.]+) m significant \(deterministic wave model; no wave ensembles exist\)\.$/, 'Mer significative jusqu’à $1 m (modèle de vagues déterministe ; aucun ensemble de vagues).'],
+  [/^Authority override: bulletin (.+) active during the passage window\.$/, 'Priorité à l’autorité : le bulletin $1 est actif pendant la fenêtre de traversée.'],
+  [/^Emulated evidence entries: ([^.]+)\.$/, 'Entrées probantes simulées : $1.'],
+  [/^Low (L\d+) intersects the Casquets and mid-Channel legs\.$/, 'La dépression $1 traverse les tronçons des Casquets et du milieu de la Manche.'],
+  [/^Previous synoptic chart$/, 'Carte synoptique précédente'],
+  [/^Latest synoptic chart$/, 'Dernière carte synoptique'],
+  [/^Boat polar “(.+)” not found\. Regenerate and publish the ORC polar database\.$/, 'Polaire du bateau « $1 » introuvable. Régénérez et publiez la base de polaires ORC.'],
   [/^(\d+) members$/, '$1 membres'],
   [/^The next forecast update is estimated around (.+) UTC\. Check again then, especially if conditions are close to your limits\.$/, 'La prochaine mise à jour des prévisions est estimée vers $1 UTC. Vérifiez à nouveau à ce moment-là, surtout si les conditions approchent vos limites.'],
   [/^Next forecast update estimated around (.+) UTC\. Check again before departure\.$/, 'Prochaine mise à jour des prévisions estimée vers $1 UTC. Vérifiez à nouveau avant le départ.'],
@@ -641,6 +796,12 @@ const FR_PATTERNS = [
   [/^material change (\d+) · /, 'changement significatif $1 · '],
   [/^(.+) run$/, 'analyse $1'],
   [/^(.+) tracked positions$/, '$1 positions suivies'],
+  [/^([\d.]+) nm$/, '$1 M'],
+  [/^(≈?\d+) h passage$/, '$1 h de traversée'],
+  [/^member (\d+)$/, 'membre $1'],
+  [/^(\d+(?:\.\d+)?) nm · arrive$/, '$1 M · arrivée'],
+  [/^Detected systems \((.+)\): (.+)\.$/, (_match, run, systems) => `Systèmes détectés (${run}) : ${translateDetectedSystems(systems)}.`],
+  [/^This briefing does NOT cover: (.+)\.$/, (_match, capabilities) => `Ce briefing ne couvre PAS : ${translateCapabilityList(capabilities)}.`],
 ];
 
 // Chart-caption grammar mirrors analysis/synoptic/render.py: system sentences
@@ -889,15 +1050,18 @@ function translateExceedanceSuffix(suffix) {
 function translateProfessionalLeg(value) {
   const match = value.match(/^(L\d+) (.+) \(([\d.]+) nm, ([\d.]+)°T\): sustained ([\d–.]+) kt(?:, gusts to ([\d.]+) kt)? across the ETA window (.+) UTC\.(.*)$/);
   if (!match) return value;
-  let translated = `${match[1]} ${translateRouteName(match[2])} (${match[3]} M, ${match[4]}° vrais) : vent moyen ${match[5]} nd${match[6] ? `, rafales jusqu’à ${match[6]} nd` : ''} sur la fenêtre d’arrivée estimée ${match[7]} UTC.`;
-  translated += match[8]
+  const translated = `${match[1]} ${translateRouteName(match[2])} (${match[3]} M, ${match[4]}° vrais) : vent moyen ${match[5]} nd${match[6] ? `, rafales jusqu’à ${match[6]} nd` : ''} sur la fenêtre d’arrivée estimée ${match[7]} UTC.`;
+  return translated + translateProfessionalLegSuffix(match[8]);
+}
+
+function translateProfessionalLegSuffix(suffix) {
+  return suffix
     .replace(/ Seas to ([\d.]+) m significant \(deterministic wave model; no wave ensembles exist\)\./g, ' Mer significative jusqu’à $1 m (modèle de vagues déterministe ; aucun ensemble de vagues).')
     .replace(/ Wind against swell here; expect steeper, more uncomfortable seas\./g, ' Vent contre houle sur ce tronçon : attendez-vous à une mer plus abrupte et inconfortable.')
     .replace(/ Wind-against-swell flagged\./g, ' Vent contre houle signalé.')
     .replace(/ Models diverge on (\d+) h of this leg \(max spread ([\d.]+) kt\); agreement is not proof, divergence says wait for the next run\./g, ' Les modèles divergent pendant $1 h sur ce tronçon (écart maximal de $2 nd) ; la concordance ne constitue pas une preuve et la divergence invite à attendre le prochain cycle.')
     .replace(/ Ensemble \((.+)\): all (\d+) forecast scenarios exceed your ([\d.]+) kt (gust|wind) limit at (.+) \(raw scenario fraction; not a calibrated probability\)\./gi, (_m, model, count, limit, kind, time) => ` Ensemble (${model}) : les ${count} scénarios de prévision dépassent votre limite de ${kind.toLowerCase() === 'gust' ? 'rafales' : 'vent'} de ${limit} nd à ${time} (fraction brute de scénarios, et non probabilité étalonnée).`)
     .replace(/ Ensemble \((.+)\): (\d+) of (\d+) forecast scenarios exceed your ([\d.]+) kt (gust|wind) limit at (.+) \(raw scenario fraction; not a calibrated probability\)\./gi, (_m, model, exceed, total, limit, kind, time) => ` Ensemble (${model}) : ${exceed} scénarios sur ${total} dépassent votre limite de ${kind.toLowerCase() === 'gust' ? 'rafales' : 'vent'} de ${limit} nd à ${time} (fraction brute de scénarios, et non probabilité étalonnée).`);
-  return translated;
 }
 
 function translateProfessionalAssessment(assessment) {
@@ -935,6 +1099,7 @@ function translateExceedanceClaim(claim) {
 
 function translateCapabilityList(value) {
   return value
+    .replace(/causal synoptic attribution \(no prepared synoptic run\)/gi, 'attribution synoptique causale (aucune analyse synoptique préparée)')
     .replace(/official marine warnings \(no feed configured\)/gi, 'alertes marines officielles (aucun flux configuré)')
     .replace(/official marine warnings/gi, 'alertes marines officielles')
     .replace(/tidal currents & gates/gi, 'courants et portes de marée')
