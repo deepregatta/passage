@@ -400,7 +400,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 ### 3.5 Design: message ids for engine prose
 - Items: §6 structural risk
 - Do: write docs/maintenance/briefing-message-ids.md (schema change to contracts/briefing.schema.json, migration for old snapshots). Implementation becomes new steps after review.
-- Status: todo · Commit: — · Notes:
+- Status: in progress · Commit: — · Notes: Clean pre-flight at `86b8640`; previous step `a9eeef6` scope verified; full JavaScript/Python/Ruff guardrails pass and regenerated demo is unchanged. Design-only scope; no runtime or schema edits in this step.
 
 ### 3.6 Stale missing-speed diagnostic
 - Items: noticed during 0.9, triaged during 0.10.
@@ -496,7 +496,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 
 - [triaged] 3.2 — viewer/src/pages/Planner.jsx:110 — Changing departure and then failing a route recomputation leaves the prior computed summary visible. Native browser QA with an explicitly synthetic computed result retained its 2026 arrival after selecting 2030 and receiving the horizon error; Assigned to 3.7 for computed-result invalidation.
 
-- 3.4 — viewer/src/pages/Verification.jsx:91 and viewer/src/pages/CaseStudy.jsx:20 — At 390px, adjacent verification/case-study table headers and values crowd together in EN and FR; existing layout unchanged by catalogue consolidation. Screenshots: `output/playwright/review-3.4/{verification-en-mobile,case-study-fr-mobile}.png`. Parked for responsive-table review.
+- [triaged] 3.4 — viewer/src/pages/Verification.jsx:91 and viewer/src/pages/CaseStudy.jsx:20 — At 390px, adjacent verification/case-study table headers and values crowd together in EN and FR; existing layout unchanged by catalogue consolidation. Screenshots: `output/playwright/review-3.4/{verification-en-mobile,case-study-fr-mobile}.png`. Assigned to 3.8 for responsive-table review.
 
 ## Decisions
 (record design choices made in steps 1.5, 3.5, 5.3 here)
