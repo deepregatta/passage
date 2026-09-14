@@ -628,6 +628,7 @@ const FR_PATTERNS = [
   [/^Low (L\d+) intersects the Casquets and mid-Channel legs\.$/, 'La dépression $1 traverse les tronçons des Casquets et du milieu de la Manche.'],
   [/^Previous synoptic chart$/, 'Carte synoptique précédente'],
   [/^Latest synoptic chart$/, 'Dernière carte synoptique'],
+  [/^Route (.+) has no speeds_kt\. Provide speeds for the slow, nominal and fast scenarios before running the passage audit\.$/, 'La route $1 ne contient pas de vitesses (speeds_kt). Renseignez les vitesses lente, nominale et rapide avant de lancer l’analyse de la traversée.', true],
   [/^Boat polar “(.+)” not found\. Regenerate and publish the ORC polar database\.$/, 'Polaire du bateau « $1 » introuvable. Régénérez et publiez la base de polaires ORC.'],
   [/^(\d+) members$/, '$1 membres'],
   [/^The next forecast update is estimated around (.+) UTC\. Check again then, especially if conditions are close to your limits\.$/, 'La prochaine mise à jour des prévisions est estimée vers $1 UTC. Vérifiez à nouveau à ce moment-là, surtout si les conditions approchent vos limites.'],
@@ -1214,9 +1215,11 @@ export function translateText(value, language) {
   if (!key) return value;
   let translated = FR[key];
   if (!translated) {
-    for (const [pattern, replacement] of FR_PATTERNS) {
+    for (const [pattern, replacement, complete = false] of FR_PATTERNS) {
       if (pattern.test(key)) {
         translated = key.replace(pattern, replacement);
+        // Complete diagnostics preserve identifiers without fragment/date substitutions.
+        if (complete) return `${leading}${translated}${trailing}`;
         break;
       }
     }

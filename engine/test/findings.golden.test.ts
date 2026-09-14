@@ -74,6 +74,26 @@ async function computePipeline() {
 
 const computeFindings = async () => (await computePipeline()).findings;
 
+it('guides missing-speed routes to supply the three audit speeds', () => {
+  const route = JSON.parse(
+    readFileSync(join(REPO, 'config', 'routes', 'cherbourg-plymouth.json'), 'utf8'),
+  ) as Route;
+  delete route.speeds_kt;
+  const profile = JSON.parse(
+    readFileSync(join(REPO, 'config', 'profiles', 'default-limits.json'), 'utf8'),
+  ) as LimitsProfile;
+
+  expect(() => assembleFindings({
+    route,
+    profile,
+    departureUtc: DEPARTURE,
+    legForecasts: [],
+    requestMeta: [],
+    engineVersion: ENGINE_VERSION,
+    nowMs: FIXED_NOW,
+  })).toThrow(`Route ${route.route_id} has no speeds_kt. Provide speeds for the slow, nominal and fast scenarios before running the passage audit.`);
+});
+
 describe('findings golden (Cherbourg → Plymouth, recorded fixture)', () => {
   it('matches the checked-in golden byte for byte', async () => {
     const findings = await computeFindings();
