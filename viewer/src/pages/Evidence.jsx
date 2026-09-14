@@ -43,7 +43,7 @@ export default function Evidence() {
         <div className="grid lg:grid-cols-[1fr_auto] gap-4 items-end">
           <h1 className="font-story text-4xl sm:text-5xl leading-[0.98] max-w-4xl">
             <span className="text-verdict-exceeds">{evidence.member_fraction.exceed} of {evidence.member_fraction.total}</span>{' '}
-            forecast scenarios exceed your {variable} limit
+            {`forecast scenarios exceed your ${variable} limit`}
           </h1>
           <div className="lg:text-right">
             <div className="font-mono text-4xl">{pct}%</div>

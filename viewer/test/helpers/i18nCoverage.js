@@ -10,8 +10,32 @@ export function walkFiles(root, accept) {
     });
 }
 
-// Keep all non-empty literals, including technical tokens and existing French.
-// Their identity results must be explicit too: no prose-detection regex can hide a leak.
+// Exclude syntax by AST role, never by whether text looks like prose. Keep unknown
+// contexts, template fragments and both conditional branches for explicit review.
+const technicalAttributes = new Set([
+  'className', 'style', 'id', 'key', 'type', 'role', 'name', 'href', 'src',
+  'aria-hidden', 'aria-modal', 'aria-labelledby', 'aria-describedby', 'aria-current',
+  'data-testid', 'viewBox', 'd', 'fill', 'stroke', 'strokeWidth', 'strokeLinecap',
+  'strokeDasharray', 'strokeLinejoin', 'textAnchor', 'dominantBaseline', 'transform',
+  'width', 'height', 'x', 'y', 'x1', 'x2', 'y1', 'y2', 'offset', 'stopColor',
+  'preserveAspectRatio', 'patternUnits', 'patternTransform', 'xmlns',
+  'inputMode', 'autoComplete', 'accept', 'min', 'max', 'step',
+]);
+
+function isTechnicalLiteral(node) {
+  for (let parent = node.parent; parent; parent = parent.parent) {
+    if (ts.isJsxAttribute(parent)) {
+      const name = parent.name.text;
+      const tag = parent.parent.parent.tagName;
+      const intrinsic = ts.isIdentifier(tag) && /^[a-z]/.test(tag.text);
+      // Custom props may contain visible copy even when named name/type/src.
+      return (intrinsic || ['className', 'style', 'key'].includes(name)) && technicalAttributes.has(name);
+    }
+    if (ts.isImportDeclaration(parent) || ts.isExportDeclaration(parent)) return true;
+    if (ts.isCallExpression(parent) && parent.expression.kind === ts.SyntaxKind.ImportKeyword) return true;
+  }
+  return false;
+}
 export function jsxLiterals(source, file) {
   const tree = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.JSX);
   if (tree.parseDiagnostics.length) throw new Error(`Cannot parse ${file}: ${tree.parseDiagnostics[0].messageText}`);
@@ -29,7 +53,7 @@ export function jsxLiterals(source, file) {
       }
       text = text.trim();
       if (ts.isJsxText(node)) text = text.replace(/\s+/g, ' ');
-      if (text) {
+      if (text && !isTechnicalLiteral(node)) {
         const { line, character } = tree.getLineAndCharacterOfPosition(node.getStart(tree));
         samples.push({ text, source: `${file}:${line + 1}:${character + 1}` });
       }
