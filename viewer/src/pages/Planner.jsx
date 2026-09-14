@@ -46,6 +46,11 @@ const SCAN_VERDICT = {
   warning_active: 'official warning',
 };
 
+// Persist the routing inputs with each result so restored drafts can be checked too.
+const routingInputKey = ({ endpoints, polarId, departureLocal }) => JSON.stringify([
+  endpoints.map(({ lat, lng }) => [lat, lng]), polarId, localDateTimeToIso(departureLocal),
+]);
+
 const validSpeed = (value) => Number.isFinite(value) && value > 0;
 
 function ClickCapture({ onClick }) {
@@ -77,7 +82,7 @@ export default function Planner() {
   // working state survives stage switches; see plannerStore.js
   const mode = usePlanner((s) => s.mode);
   const waypoints = usePlanner((s) => s.waypoints);
-  const computed = usePlanner((s) => s.computed);
+  const storedComputed = usePlanner((s) => s.computed);
   const endpoints = usePlanner((s) => s.endpoints);
   const polarId = usePlanner((s) => s.polarId);
   const polarLabel = usePlanner((s) => s.polarLabel);
@@ -86,6 +91,12 @@ export default function Planner() {
   const departureLocal = usePlanner((s) => s.departureLocal);
   const scan = usePlanner((s) => s.scan);
   const patch = usePlanner((s) => s.patch);
+  const inputKey = routingInputKey({ endpoints, polarId, departureLocal });
+  const computed = storedComputed?.inputKey === inputKey ? storedComputed : null;
+  useEffect(() => {
+    // Discard legacy/unmatched results; never render or audit them as current.
+    if (storedComputed && !computed) patch({ computed: null });
+  }, [storedComputed, computed, patch]);
   /** Switching tabs carries the route across: a drawn route hands its first and
    * last waypoint to the router as start/finish, and endpoints hand themselves
    * back — so "Compute route" is ready to run straight after a switch. */
@@ -188,16 +199,18 @@ export default function Planner() {
 
   const runRouting = async () => {
     if (endpoints.length !== 2 || !polarId || !departureUtc) return;
+    setComputed(null);
     setBusy('computing route');
     setError(null);
     try {
       const inputs = await loadRoutingInputs();
+      if (routingInputKey(usePlanner.getState()) !== inputKey) return;
       setBusy('computing route');
-      setComputed({ ...routeForDeparture(inputs, departureUtc), notes: inputs.notes });
-      setBusy(null);
+      setComputed({ ...routeForDeparture(inputs, departureUtc), notes: inputs.notes, inputKey });
     } catch (e) {
+      if (routingInputKey(usePlanner.getState()) === inputKey) setError(e.message);
+    } finally {
       setBusy(null);
-      setError(e.message);
     }
   };
 
@@ -238,7 +251,10 @@ export default function Planner() {
         const inputs = await loadRoutingInputs(true);
         scanPassageHours = inputs.maxHours;
         routeFor = (departureUtc) => {
-          const result = { ...routeForDeparture(inputs, departureUtc), notes: inputs.notes };
+          const result = {
+            ...routeForDeparture(inputs, departureUtc), notes: inputs.notes,
+            inputKey: routingInputKey({ endpoints, polarId, departureLocal: toLocalDateTimeValue(departureUtc) }),
+          };
           routes[departureUtc] = result;
           return result.route;
         };
