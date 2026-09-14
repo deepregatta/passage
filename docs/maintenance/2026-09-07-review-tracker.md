@@ -400,7 +400,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 ### 3.5 Design: message ids for engine prose
 - Items: §6 structural risk
 - Do: write docs/maintenance/briefing-message-ids.md (schema change to contracts/briefing.schema.json, migration for old snapshots). Implementation becomes new steps after review.
-- Status: in progress · Commit: — · Notes: Clean pre-flight at `86b8640`; previous step `a9eeef6` scope verified; full JavaScript/Python/Ruff guardrails pass and regenerated demo is unchanged. Design-only scope; no runtime or schema edits in this step.
+- Status: done · Commit: — · Notes: Clean pre-flight at `86b8640`; previous step `a9eeef6` scope and full guardrails verified; start marker `aef4215`. Reconfirmed English-only section/leg registers, unconstrained schema version and regex/fragment translation. Added [design](briefing-message-ids.md) for briefing v2 message references, typed parameter registry/schema generation, canonical English and French ownership, whole-field fallback, DOM ownership, immutable legacy adaptation, reader-first rollout/rollback, acceptance tests and five proposed implementation slices after review. Gate/coverage prose dependencies and remaining findings/change prose explicitly bounded. No schema/runtime changes or new behaviour tests: design-only row. Example JSON parsed and legacy required fields checked; source/consumer references and rollout ordering self-reviewed. Final `npm test`: engine build/typecheck, 220 engine + 360 viewer tests pass; Python pytest 267 pass (10 existing warnings), Ruff lint/format pass (55 files); `npm run build:pages` passes. Demo regeneration and engine goldens unchanged. No screen changes or phase gate, so screenshots/e2e not applicable. Prior mobile-table observation triaged into 3.8; no new adjacent findings or unrelated dirty work. Logs: `/tmp/passage-35-*`. Diff check passes. Next: 3.6.
 
 ### 3.6 Stale missing-speed diagnostic
 - Items: noticed during 0.9, triaged during 0.10.
@@ -414,6 +414,13 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Files: viewer/src/pages/Planner.jsx; targeted planner regression tests.
 - Do: reproduce a departure change followed by failed route recomputation; invalidate any computed summary that no longer matches the inputs.
 - Done when: a failed recomputation cannot leave an earlier arrival/route summary visible as current.
+- Status: todo · Commit: — · Notes:
+
+### 3.8 Verification and case-study mobile tables
+- Items: noticed during 3.4, triaged during 3.5.
+- Files: viewer/src/pages/{Verification,CaseStudy}.jsx; shared table styles if needed; targeted responsive tests.
+- Do: reproduce crowded table headers and values at 390px in EN/FR; make the tables readable without losing columns or labels.
+- Done when: both pages render readable tables at desktop/mobile sizes in EN/FR with screenshot evidence.
 - Status: todo · Commit: — · Notes:
 
 ## Phase 4 — structure (goldens byte-identical unless stated)
@@ -502,3 +509,5 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 (record design choices made in steps 1.5, 3.5, 5.3 here)
 
 - Step 1.5 — Use a tides/index.json route-to-relative-filename map. Factory rebuilds it from registered tide artifacts present in the output directory; the public index advertises only shipped artifacts. No implicit Channel fallback. Gate definitions must have a reference port in the loaded tide artifact.
+
+- Step 3.5 — [Message-ID design](briefing-message-ids.md): proposed briefing v2 adds typed, ordered message references alongside retained English fields; pure shared English rendering, viewer French rendering, whole-field fallback and read-only legacy adaptation. Implementation slices remain proposals pending design review; no current contract/runtime changes.
