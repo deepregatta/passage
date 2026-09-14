@@ -384,7 +384,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 ### 3.2 Fix the leaks
 - Items: §6 untranslated list — **prose changes expected**
 - Done when: allowlist from 3.1 is empty.
-- Status: todo · Commit: — · Notes:
+- Status: in progress · Commit: — · Notes: Clean pre-flight; previous step `3d51952` scope and full guardrails verified (220 engine + 193 viewer tests, 267 Python tests, Ruff lint/format, unchanged regenerated demo). Classify technical/invariant identity results separately while clearing prose leaks; cover runtime progress/errors and split text nodes from §6.
 
 ### 3.3 French no-JS body
 - Items: §6 `/fr/index.html`
