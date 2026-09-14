@@ -390,7 +390,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 ### 3.3 French no-JS body
 - Items: §6 `/fr/index.html`
 - Files: viewer/scripts/prerender-fr.mjs, viewer/src/metadata.js, viewer/test/prerender-fr.test.js
-- Status: todo · Commit: — · Notes:
+- Status: in progress · Commit: — · Notes: Clean pre-flight at `eb09eed`; previous step `14e74ec` scope and full guardrails verified (220 engine + 338 viewer tests, 267 Python tests, Ruff lint/format, unchanged demo fixtures).
 
 ### 3.4 Catalogue hygiene
 - Items: §6 stale/duplicate keys; single mechanism for Verification/CaseStudy
@@ -406,6 +406,13 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Files: engine/src/findings.ts, viewer/src/i18n.js; targeted diagnostic/translation tests.
 - Do: replace the obsolete "polar-based ETA lands at M11" diagnostic with current guidance and cover its French translation.
 - Done when: missing-speed input produces accurate guidance in English and French; existing goldens and demo fixtures unchanged.
+- Status: todo · Commit: — · Notes:
+
+### 3.7 Invalidate stale computed route summaries
+- Items: noticed during 3.2.
+- Files: viewer/src/pages/Planner.jsx; targeted planner regression tests.
+- Do: reproduce a departure change followed by failed route recomputation; invalidate any computed summary that no longer matches the inputs.
+- Done when: a failed recomputation cannot leave an earlier arrival/route summary visible as current.
 - Status: todo · Commit: — · Notes:
 
 ## Phase 4 — structure (goldens byte-identical unless stated)
@@ -486,7 +493,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 
 - [triaged] 2.9 — analysis/src/deepweather_analysis/environment_grid.py:596 — Existing nearest coastal-fill selection requires a monotonic source time index; shuffling synthetic times to `[2,0,3,1]` raises `ValueError: index must be monotonic increasing or decreasing` internally and leaves additional nulls. Reproduced only on synthetic data; no evidence current feeds are affected. Assigned to existing 5.6 grid edge cases; fill implementation unchanged in 2.9. Evidence: `/tmp/passage-29-noticed.log`.
 
-- 3.2 — viewer/src/pages/Planner.jsx:110 — Changing departure and then failing a route recomputation leaves the prior computed summary visible. Native browser QA with an explicitly synthetic computed result retained its 2026 arrival after selecting 2030 and receiving the horizon error; inspect invalidation of computed results in a separate step.
+- [triaged] 3.2 — viewer/src/pages/Planner.jsx:110 — Changing departure and then failing a route recomputation leaves the prior computed summary visible. Native browser QA with an explicitly synthetic computed result retained its 2026 arrival after selecting 2030 and receiving the horizon error; Assigned to 3.7 for computed-result invalidation.
 
 ## Decisions
 (record design choices made in steps 1.5, 3.5, 5.3 here)
