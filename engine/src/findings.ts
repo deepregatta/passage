@@ -116,7 +116,7 @@ export function assembleFindings(options: AssembleOptions): Findings {
     multiModel,
   } = options;
   if (!route.speeds_kt) {
-    throw new Error(`Route ${route.route_id} has no speeds_kt (polar-based ETA lands at M11)`);
+    throw new Error(`Route ${route.route_id} has no speeds_kt. Provide speeds for the slow, nominal and fast scenarios before running the passage audit.`);
   }
 
   const legs = deriveLegs(route);

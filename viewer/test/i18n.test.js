@@ -21,6 +21,14 @@ it('translates transport timeouts, network errors and tile validation failures',
     .toBe('Tuile de prévision invalide : run/tile.bin (échec du décodage)');
 });
 
+it.each(['cherbourg-plymouth', 'computed-2026071206-boat.v2'])('translates missing-speed guidance while preserving route %s', (routeId) => {
+  const message = `Route ${routeId} has no speeds_kt. Provide speeds for the slow, nominal and fast scenarios before running the passage audit.`;
+  expect(translateText(message, 'en')).toBe(message);
+  expect(translateText(message, 'fr')).toBe(
+    `La route ${routeId} ne contient pas de vitesses (speeds_kt). Renseignez les vitesses lente, nominale et rapide avant de lancer l’analyse de la traversée.`,
+  );
+});
+
 describe('language selection', () => {
   it('selects French from a French browser preference', () => {
     vi.spyOn(window.navigator, 'languages', 'get').mockReturnValue(['fr-FR', 'en-US']);
