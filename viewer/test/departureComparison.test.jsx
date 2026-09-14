@@ -133,7 +133,7 @@ it.each([0, -1, NaN, Infinity, null, ''])('blocks automatic scans with invalid r
 it('allows polar-based computed routes when the hidden drawn-speed inputs are invalid', async () => {
   usePlanner.setState({
     mode: 'compute', speeds: { slow: '', nominal: 0, fast: -1 },
-    computed: { route: {
+    computed: { inputKey: JSON.stringify([[], 'sun-fast-3200', new Date(departure).toISOString()]), route: {
       schema_version: 1, route_id: 'computed', name: 'Computed', mode: 'computed',
       waypoints: [{ id: 'a', lat: 50.5, lon: -1.5 }, { id: 'b', lat: 50.6, lon: -1.4 }],
       polar_ref: 'sun-fast-3200',
