@@ -407,7 +407,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Files: engine/src/findings.ts, viewer/src/i18n.js; targeted diagnostic/translation tests.
 - Do: replace the obsolete "polar-based ETA lands at M11" diagnostic with current guidance and cover its French translation.
 - Done when: missing-speed input produces accurate guidance in English and French; existing goldens and demo fixtures unchanged.
-- Status: todo · Commit: — · Notes:
+- Status: in progress · Commit: — · Notes: Clean pre-flight at `25ebb3c`; previous step `1917322` scope verified; npm tests, Python pytest/Ruff/format and demo byte-identity pass. All noticed items already triaged.
 
 ### 3.7 Invalidate stale computed route summaries
 - Items: noticed during 3.2.
