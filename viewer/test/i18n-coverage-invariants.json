@@ -302,9 +302,7 @@
       ],
       "viewer/src/pages/CaseStudy.jsx": [
         ".json",
-        "/data/verification/cases/",
-        "erreur",
-        "fr"
+        "/data/verification/cases/"
       ],
       "viewer/src/pages/Changes.jsx": [
         "A-WARN-01",
@@ -362,11 +360,7 @@
         "/data/verification/calibration.json",
         "/data/verification/cases/",
         "/data/verification/cases/index.json",
-        "/data/verification/corpus.json",
-        "biais",
-        "couverture",
-        "dispersion",
-        "fr"
+        "/data/verification/corpus.json"
       ],
       "viewer/test/fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/briefing.json": [
         "20260720T060000Z_44d2cd5f_64ea971e",
@@ -463,27 +457,7 @@
         "cause"
       ],
       "viewer/src/pages/CaseStudy.jsx": [
-        "Cas de vérification publié · briefing figé",
-        "Ce que prévoyait la météo et ce qui s’est produit",
-        "DÉMONSTRATION SIMULÉE · AUCUN RÉSULTAT RÉEL",
-        "Décomposition de l’erreur",
-        "Imprimer / enregistrer en PDF",
-        "Interprétation initiale",
-        "La prévision initiale reste figée. Ce rapport sera complété après la classification des observations.",
-        "La prévision sur la route a saisi l’évolution de l’événement. Le tableau consigne ses erreurs de chronologie et d’intensité sans réécriture a posteriori.",
-        "Leçon pour la prochaine traversée",
-        "L’analyse initiale ne permettait pas d’attribuer les conditions à un système météo.",
-        "Observations pas encore jointes",
-        "Ouvrez un briefing pour consulter son étude de cas.",
-        "SOURCE DES OBSERVATIONS",
-        "Traitez la chronologie de l’événement comme une fenêtre. Conservez votre limite personnelle, puis ajoutez l’erreur mesurée comme marge.",
-        "intensité utile",
-        "interprétation",
-        "observation ultérieure",
-        "prévision figée",
-        "tronçon · heure UTC",
-        "variable",
-        "écart significatif, marge à élargir"
+        "variable"
       ],
       "viewer/src/pages/Evidence.jsx": [
         "ensemble",
@@ -493,37 +467,7 @@
         "Ma traversée"
       ],
       "viewer/src/pages/Verification.jsx": [
-        "Aucune donnée d’étalonnage pour le moment. Les analyses vérifiées construiront cet historique. Les observations simulées restent signalées et ne comptent jamais comme résultats réels.",
-        "Bilan de fiabilité",
-        "Cette analyse",
-        "Comparez les prévisions de vos briefings avec les conditions réellement observées. Chaque résultat indique la taille de son échantillon et le degré d’indépendance des observations.",
-        "Historique d’étalonnage",
-        "Les comparaisons fondées sur ERA5 utilisent une réanalyse qui assimile des observations, sans constituer une vérité terrain indépendante (spécification §9). La taille des échantillons est toujours indiquée. Passage ne qualifie une probabilité d’étalonnée que lorsque l’historique le permet.",
-        "Les mesures de fiabilité reposent sur",
-        "Ouvrez d’abord un briefing.",
-        "Pas encore vérifiée. Une fois la traversée terminée, cette prévision figée sera comparée aux observations disponibles.",
-        "Résumé du corpus indisponible.",
-        "cas ERA5 réels.",
-        "cas simulé affiché",
-        "cas simulés affichés",
-        "en attente",
-        "observation",
-        "observations simulées",
-        "partiellement observé",
-        "prévision",
-        "référencé par réanalyse",
-        "réussite",
-        "réussites",
-        "sans observation indépendante",
-        "tronçon · heure",
-        "uniquement pour la démonstration.",
-        "variable",
-        "vérifié près d’une observation",
-        "zone",
-        "écart",
-        "échec",
-        "échecs",
-        "échéance"
+        "variable"
       ],
       "viewer/test/fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/briefing.json": [
         "ensemble"
