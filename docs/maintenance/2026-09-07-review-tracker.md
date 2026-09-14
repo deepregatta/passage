@@ -414,7 +414,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Files: viewer/src/pages/Planner.jsx; targeted planner regression tests.
 - Do: reproduce a departure change followed by failed route recomputation; invalidate any computed summary that no longer matches the inputs.
 - Done when: a failed recomputation cannot leave an earlier arrival/route summary visible as current.
-- Status: todo · Commit: — · Notes:
+- Status: in progress · Commit: — · Notes: Clean pre-flight at `21e24ce`; previous step `6ce9f6a` scope verified. Full guardrails pass: 221 engine + 362 viewer tests; Python 267 tests, Ruff lint/format; demo regeneration unchanged. UV cache redirected to writable /tmp. No unrelated dirty work; all Noticed entries already triaged.
 
 ### 3.8 Verification and case-study mobile tables
 - Items: noticed during 3.4, triaged during 3.5.
