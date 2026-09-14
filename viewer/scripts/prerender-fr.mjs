@@ -1,14 +1,14 @@
 #!/usr/bin/env node
-// Emits dist/fr/index.html: the built shell with the French head baked in, so
+// Emits dist/fr/index.html: the built shell with the French head and body baked in, so
 // non-JS scrapers (link previews) and Google's English-Accept-Language crawler
-// see the FR metadata without hydration. Strings come from src/metadata.js —
-// the same module HeadMetadata.jsx uses — so the copy exists exactly once.
+// see French content without hydration. Strings come from src/metadata.js,
+// which also supplies the client-side HeadMetadata.jsx component.
 // Runs after `vite build` (wired into the viewer build script).
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { COPY, ogLocale, pageUrl, softwareApplication } from '../src/metadata.js';
+import { COPY, NO_JS_COPY, ogLocale, pageUrl, softwareApplication } from '../src/metadata.js';
 
 function escapeHtml(value) {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -16,7 +16,7 @@ function escapeHtml(value) {
 
 // Every rewrite must land exactly once; anything else means the built HTML no
 // longer looks like this script expects, and silently shipping a half-French
-// head would be worse than failing the build. `replacement` is always a
+// page would be worse than failing the build. `replacement` is always a
 // function so capture groups need no $n expansion.
 function replaceOnce(html, pattern, replacement, what) {
   let count = 0;
@@ -57,6 +57,22 @@ export function renderFrenchHtml(html) {
     (_match, open, close) => `${open}\n      ${JSON.stringify(softwareApplication('fr'))}\n    ${close}`,
     'structured data',
   );
+  out = replaceOnce(out, /(<main>)([\s\S]*?)(<\/main>)/g, (_match, open, body, close) => {
+    const seen = new Set();
+    const translated = `${open}${body}${close}`.replace(/>([^<]+)(?=<)/g, (_textMatch, text) => {
+      const normalized = text.replace(/\s+/g, ' ').trim();
+      if (!normalized) return `>${text}`;
+      const copy = NO_JS_COPY.find(({ en }) => en === normalized || escapeHtml(en) === normalized);
+      if (!copy) throw new Error(`prerender-fr: untranslated static body text: ${normalized}`);
+      if (seen.has(copy)) throw new Error(`prerender-fr: duplicate static body text: ${normalized}`);
+      seen.add(copy);
+      return `>${text.replace(text.trim(), () => escapeHtml(copy.fr))}`;
+    });
+    if (seen.size !== NO_JS_COPY.length) {
+      throw new Error(`prerender-fr: expected ${NO_JS_COPY.length} static body translations, got ${seen.size}`);
+    }
+    return translated;
+  }, 'static main body');
   return out;
 }
 
