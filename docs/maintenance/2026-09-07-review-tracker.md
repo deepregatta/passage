@@ -394,7 +394,8 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 
 ### 3.4 Catalogue hygiene
 - Items: §6 stale/duplicate keys; single mechanism for Verification/CaseStudy
-- Status: todo · Commit: — · Notes:
+- Files: viewer/src/i18n.js, viewer/src/pages/{Verification,CaseStudy}.jsx; targeted catalogue/localisation tests and coverage classifications.
+- Status: in progress · Commit: — · Notes: Clean pre-flight at `dfdd757`; previous step `4ef3090` scope and full guardrails verified. No unrelated dirty work.
 
 ### 3.5 Design: message ids for engine prose
 - Items: §6 structural risk
