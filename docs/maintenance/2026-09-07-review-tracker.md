@@ -378,7 +378,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 ### 3.1 Coverage test (with allowlist)
 - Items: §6, §8 viewer i18n row
 - Do: test walks src/**/*.jsx string literals + every golden/demo briefing sentence through `translateText`; identity results fail unless listed in an explicit allowlist file. Land with the allowlist full.
-- Status: todo · Commit: — · Notes:
+- Status: in progress · Commit: — · Notes: Clean pre-flight at `ded6f71`; previous step `490d8ac` scope verified. Full baseline guardrails pass: 220 engine + 187 viewer tests, 267 Python tests (10 existing warnings), Ruff lint/format and byte-identical demo regeneration. No unrelated dirty files or untriaged notices.
 
 ### 3.2 Fix the leaks
 - Items: §6 untranslated list — **prose changes expected**
