@@ -426,7 +426,8 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 ## Phase 4 — structure (goldens byte-identical unless stated)
 
 ### 4.1 Shared engine formulas and thresholds — §7.3 engine list
-- Status: todo · Commit: — · Notes:
+- Files: engine/src/{vectors,limits,plainLanguage,eta,grids,findings,briefing,diff}.ts, engine/src/{routing/isochrone,forecast/tileStore,fetch/liveGrids,hazards/waves,hazards/convective}.ts; targeted engine tests.
+- Status: in progress · Commit: — · Notes: Clean pre-flight at `8eba8ac`; previous step `5c31e67` scope verified. Full guardrails pass: 221 engine + 373 viewer tests; Python 267 tests (10 existing NumPy warnings), Ruff lint/format; regenerated demo unchanged. Confirmed duplicate vector formulas, threshold literals, grid-note prose and evidence allocation. Preserve caller rounding, wording, evidence order and snapshot fields; next_run remains the compatibility alias for the first next_runs item. No unrelated dirty files; all Noticed entries already triaged.
 ### 4.2 Split findings.ts — §7.4
 - Status: todo · Commit: — · Notes:
 ### 4.3 Split Planner.jsx — §7.4
