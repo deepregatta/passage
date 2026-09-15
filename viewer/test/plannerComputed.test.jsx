@@ -8,10 +8,15 @@ import { loadRoutingInputs } from '../src/lib/routingInputs.js';
 import { analyzeInBrowser, saveRoute } from '../src/lib/browserAnalysis.js';
 import { localDateTimeToIso, toLocalDateTimeValue } from '../src/lib/format.js';
 
+const mapEvents = vi.hoisted(() => ({ click: null, fitBounds: vi.fn() }));
+
 vi.mock('react-leaflet', () => ({
   MapContainer: ({ children }) => <div>{children}</div>, TileLayer: () => null,
-  Marker: () => null, Polyline: () => <div data-testid="route-line" />,
-  useMap: () => ({ fitBounds: vi.fn() }), useMapEvents: vi.fn(),
+  Marker: ({ position, draggable, eventHandlers }) => <button aria-label={`Waypoint ${position.lat},${position.lng}`}
+    disabled={!draggable} onClick={() => eventHandlers.dragend({ target: { getLatLng: () => ({ lat: 51, lng: -2 }) } })} />,
+  Polyline: () => <div data-testid="route-line" />,
+  useMap: () => ({ fitBounds: mapEvents.fitBounds }),
+  useMapEvents: (events) => { mapEvents.click = events.click; },
 }));
 vi.mock('../src/components/BoatPicker.jsx', () => ({ default: ({ onSelect }) =>
   <button onClick={() => onSelect({ polar_id: 'other-boat', label: 'Other boat' })}>Other boat</button>,
@@ -144,4 +149,58 @@ it('selects a rerouted scan candidate with its matching summary and checks that 
   expect(analyzeInBrowser.mock.calls[0][0].departureUtc).toBe(departure);
   expect(saveRoute).toHaveBeenCalledWith(usePlanner.getState().computed.route);
   expect(localDateTimeToIso(usePlanner.getState().departureLocal)).toBe(new Date(departure).toISOString());
+});
+
+it('edits map points, carries endpoints between modes, and clears the draft', () => {
+  usePlanner.setState({ mode: 'draw', endpoints: [] });
+  render(<Planner />);
+  act(() => mapEvents.click({ latlng: { lat: 50.5, lng: -1.5 } }));
+  act(() => mapEvents.click({ latlng: { lat: 50.6, lng: -1.4 } }));
+  expect(checkButton()).toBeEnabled();
+  fireEvent.click(screen.getByRole('button', { name: 'Waypoint 50.6,-1.4' }));
+  expect(usePlanner.getState().waypoints[1]).toEqual({ lat: 51, lng: -2 });
+  fireEvent.click(screen.getByRole('tab', { name: 'Compute a route' }));
+  expect(usePlanner.getState().endpoints).toEqual(usePlanner.getState().waypoints);
+  expect(mapEvents.fitBounds).toHaveBeenCalled();
+  act(() => mapEvents.click({ latlng: { lat: 49, lng: -3 } }));
+  expect(usePlanner.getState().endpoints).toEqual([{ lat: 49, lng: -3 }]);
+  expect(computeButton()).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: 'clear', exact: true }));
+  act(() => mapEvents.click({ latlng: { lat: 50, lng: -1 } }));
+  act(() => mapEvents.click({ latlng: { lat: 51, lng: -2 } }));
+  fireEvent.click(screen.getByRole('tab', { name: 'Draw my route' }));
+  expect(usePlanner.getState().waypoints).toEqual(usePlanner.getState().endpoints);
+  fireEvent.click(screen.getByRole('button', { name: 'undo', exact: true }));
+  expect(usePlanner.getState().waypoints).toHaveLength(1);
+  expect(checkButton()).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: 'clear', exact: true }));
+  expect(usePlanner.getState()).toMatchObject({ waypoints: [], endpoints: [], computed: null });
+});
+
+it('imports GPX into the draft and fits the imported route without running an audit', async () => {
+  usePlanner.setState({ mode: 'draw' });
+  const view = render(<Planner />);
+  const input = view.container.querySelector('input[type="file"]');
+  fireEvent.change(input, { target: { files: [{ text: async () =>
+    '<gpx><rte><name>Imported passage</name><rtept lat="50.5" lon="-1.5"/><rtept lat="51" lon="-2"/></rte></gpx>' }] } });
+  await waitFor(() => expect(usePlanner.getState().name).toBe('Imported passage'));
+  expect(usePlanner.getState().waypoints).toEqual([{ lat: 50.5, lng: -1.5 }, { lat: 51, lng: -2 }]);
+  expect(mapEvents.fitBounds).toHaveBeenCalled();
+  expect(input.value).toBe('');
+  expect(checkButton()).toBeEnabled();
+  expect(analyzeInBrowser).not.toHaveBeenCalled();
+});
+
+it('keeps partial departure times local to the field and restores the valid time on blur', () => {
+  render(<Planner />);
+  const input = screen.getByLabelText('Departure time, 24-hour clock');
+  fireEvent.change(input, { target: { value: '2' } });
+  expect(input).toHaveAttribute('aria-invalid', 'true');
+  expect(usePlanner.getState().departureLocal).toBe('2026-09-15T08:00');
+  fireEvent.blur(input);
+  expect(input).toHaveValue('08:00');
+  fireEvent.change(input, { target: { value: '23:45' } });
+  expect(usePlanner.getState().departureLocal).toBe('2026-09-15T23:45');
+  changeDate('2026-09-16');
+  expect(usePlanner.getState().departureLocal).toBe('2026-09-16T23:45');
 });
