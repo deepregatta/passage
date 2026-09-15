@@ -5,6 +5,7 @@
  * Land cells are null; sampling falls back to the nearest non-null corner.
  */
 
+import { alongCourseComponentKt } from './vectors.js';
 import { parseUtc } from './eta.js';
 
 export interface RegionGrid {
@@ -117,7 +118,7 @@ const DEG = Math.PI / 180;
 
 /** current component along a course (°true): + fair, − foul */
 export function alongCourseKt(sample: GridSample, courseDegTrue: number): number {
-  return round2(sample.u_kt * Math.sin(courseDegTrue * DEG) + sample.v_kt * Math.cos(courseDegTrue * DEG));
+  return round2(alongCourseComponentKt(sample, courseDegTrue));
 }
 
 export function crossCourseKt(sample: GridSample, courseDegTrue: number): number {

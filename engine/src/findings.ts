@@ -20,10 +20,10 @@ import {
 } from './grids.js';
 import { contentHash } from './hash.js';
 import { haversineNm, interpolatePosition, wrap180 } from './geo.js';
-import { squallPotential } from './hazards/convective.js';
+import { squallPotential, CAPE_ELEVATED_JKG, CAPE_HIGH_JKG } from './hazards/convective.js';
 import { assessGates, type GateDef, type TidesDoc } from './hazards/tides.js';
 import { evaluateMinVisibility, fogRisk, visibilityNm } from './hazards/visibility.js';
-import { assessCrossSea, steepness, windAgainstSwell } from './hazards/waves.js';
+import { assessCrossSea, steepness, windAgainstSwell, CROSS_SEA_ANGLE_DEG } from './hazards/waves.js';
 import {
   approachingRatio,
   evaluateAgainstLimit,
@@ -426,9 +426,7 @@ export function assembleFindings(options: AssembleOptions): Findings {
     }
 
     if (worstSustained) {
-      evidenceCounter += 1;
-      const e: Evidence = {
-        evidence_id: `E${evidenceCounter}`,
+      const e = nextEvidence({
         rule_id: RULES.SUSTAINED,
         model,
         run,
@@ -438,14 +436,11 @@ export function assembleFindings(options: AssembleOptions): Findings {
         limit: worstSustained.limit,
         units: 'kt',
         source_kind: 'deterministic',
-      };
-      evidence.push(e);
+      });
       verdictCandidates.push({ evidence: e, ratio: worstSustained.ratio });
     }
     if (worstGust) {
-      evidenceCounter += 1;
-      const e: Evidence = {
-        evidence_id: `E${evidenceCounter}`,
+      const e = nextEvidence({
         rule_id: RULES.GUST,
         model,
         run,
@@ -455,14 +450,11 @@ export function assembleFindings(options: AssembleOptions): Findings {
         limit: profile.max_gust_kt,
         units: 'kt',
         source_kind: 'deterministic',
-      };
-      evidence.push(e);
+      });
       verdictCandidates.push({ evidence: e, ratio: worstGust.ratio });
     }
     if (worstEnsembleGust && worstEnsembleGust.count.exceed > 0) {
-      evidenceCounter += 1;
-      const e: Evidence = {
-        evidence_id: `E${evidenceCounter}`,
+      const e = nextEvidence({
         rule_id: RULES.GUST_ENSEMBLE,
         model: ensembleModel,
         run: ensembleRun,
@@ -473,17 +465,14 @@ export function assembleFindings(options: AssembleOptions): Findings {
         units: 'kt',
         source_kind: 'ensemble',
         member_fraction: worstEnsembleGust.count,
-      };
-      evidence.push(e);
+      });
       verdictCandidates.push({
         evidence: e,
         ratio: fraction(worstEnsembleGust.count) / scenarioFloor,
       });
     }
     if (worstEnsembleSustained && worstEnsembleSustained.count.exceed > 0) {
-      evidenceCounter += 1;
-      const e: Evidence = {
-        evidence_id: `E${evidenceCounter}`,
+      const e = nextEvidence({
         rule_id: RULES.SUSTAINED_ENSEMBLE,
         model: ensembleModel,
         run: ensembleRun,
@@ -494,8 +483,7 @@ export function assembleFindings(options: AssembleOptions): Findings {
         units: 'kt',
         source_kind: 'ensemble',
         member_fraction: worstEnsembleSustained.count,
-      };
-      evidence.push(e);
+      });
       verdictCandidates.push({
         evidence: e,
         ratio: fraction(worstEnsembleSustained.count) / scenarioFloor,
@@ -561,7 +549,7 @@ export function assembleFindings(options: AssembleOptions): Findings {
         leg_id: leg.leg_id,
         valid_time: crossSeaHour.valid_time,
         value: crossSeaHour.waves?.cross_sea_deg ?? null,
-        limit: 45,
+        limit: CROSS_SEA_ANGLE_DEG,
         units: 'deg',
         source_kind: 'deterministic',
       });
@@ -599,7 +587,7 @@ export function assembleFindings(options: AssembleOptions): Findings {
         leg_id: leg.leg_id,
         valid_time: maxCape.hour.valid_time,
         value: maxCape.hour.cape_jkg ?? null,
-        limit: maxCape.level === 'high' ? 1000 : 300,
+        limit: maxCape.level === 'high' ? CAPE_HIGH_JKG : CAPE_ELEVATED_JKG,
         units: 'J/kg',
         source_kind: 'deterministic',
       });

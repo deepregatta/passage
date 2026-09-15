@@ -5,6 +5,7 @@
  * When currents are supplied, fixed-point iteration couples SOG and ETA.
  */
 
+import { alongCourseComponentKt } from './vectors.js';
 import { interpolatePosition } from './geo.js';
 import type { Leg, SpeedsKt } from './types.js';
 
@@ -28,7 +29,6 @@ export type CurrentSampler = (
 ) => { u_kt: number; v_kt: number } | null;
 
 const SCENARIOS = ['slow', 'nominal', 'fast'] as const;
-const DEG = Math.PI / 180;
 const MIN_SOG_KT = 0.5;
 /** ETA and the current you meet are coupled — a few fixed-point rounds converge fast */
 const CURRENT_ITERATIONS = 3;
@@ -74,9 +74,7 @@ export function computeSchedules(
             sog[s][i] = speeds[s];
             return;
           }
-          const along =
-            sample.u_kt * Math.sin(leg.bearing_deg_true * DEG) +
-            sample.v_kt * Math.cos(leg.bearing_deg_true * DEG);
+          const along = alongCourseComponentKt(sample, leg.bearing_deg_true);
           sog[s][i] = Math.max(MIN_SOG_KT, speeds[s] + along);
         });
       }

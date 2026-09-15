@@ -11,7 +11,7 @@
  */
 
 import { fraction, phraseExceedance } from './exceedance.js';
-import { plainValueVsLimit } from './plainLanguage.js';
+import { plainValueVsLimit, VERDICT_TEXT } from './plainLanguage.js';
 import { bearingDegTrue, haversineNm } from './geo.js';
 import type { LayerInfo } from './forecast/store.js';
 import type { Evidence, Findings, Route, SynopticFeatures } from './types.js';
@@ -34,36 +34,19 @@ export interface BriefingSection {
   availability?: { status: 'available' | 'unavailable'; reason?: string };
 }
 
+export interface NextForecastRun {
+  model: string;
+  expected_at: string;
+}
+
 export interface Briefing {
   schema_version: number;
   snapshot_id: string;
   sections: BriefingSection[];
-  next_runs: Array<{ model: string; expected_at: string }>;
-  next_run?: { model: string; expected_at: string };
+  next_runs: NextForecastRun[];
+  /** Compatibility alias for the first next_runs entry; retained in persisted snapshots. */
+  next_run?: NextForecastRun;
 }
-
-const VERDICT_LABEL: Record<string, { plain: string; pro: string }> = {
-  within: {
-    plain: 'Forecast conditions stay inside the limits you declared for this departure.',
-    pro: 'All evaluated condition-hours remain below declared thresholds.',
-  },
-  approaching: {
-    plain: 'Forecast conditions come close to the limits you declared. Look at what is driving this before deciding.',
-    pro: 'One or more condition-hours reach ≥75% of a declared limit, or the ensemble scenario fraction is above your declared floor.',
-  },
-  exceeds: {
-    plain: 'Forecast conditions go beyond the limits you declared for this departure.',
-    pro: 'At least one condition-hour exceeds a declared threshold in the deterministic run.',
-  },
-  insufficient: {
-    plain: 'The forecasts disagree too much to assess this passage against your limits. Reassess after the next model run.',
-    pro: 'Deterministic model divergence exceeds assessment tolerance within the passage window.',
-  },
-  warning_active: {
-    plain: 'An official marine warning covers part of your route. That takes precedence over everything below.',
-    pro: 'Authority override active: an official bulletin covers route zones during the passage window.',
-  },
-};
 
 export function renderBriefing(
   findings: Findings,
@@ -194,7 +177,7 @@ export function renderBriefing(
   });
 
   // 3. decision
-  const verdictText = VERDICT_LABEL[findings.verdict.state]!;
+  const verdictText = VERDICT_TEXT[findings.verdict.state]!;
   const driver = findings.verdict.driver_evidence_id
     ? evidenceById.get(findings.verdict.driver_evidence_id)
     : undefined;

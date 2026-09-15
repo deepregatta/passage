@@ -4,6 +4,7 @@
  * timing shifts, value deltas, events appearing/vanishing, verdict transitions.
  */
 
+import { verdictLabel } from './plainLanguage.js';
 import { fmtTime, type Briefing } from './briefing.js';
 import type { Evidence, Findings } from './types.js';
 
@@ -250,10 +251,6 @@ function buildStory(
     })),
     ...(nextRun ? { next_run: nextRun } : {}),
   };
-}
-
-function verdictLabel(state: string) {
-  return ({ within: 'within your limits', approaching: 'close to your limits', exceeds: 'beyond your limits', insufficient: 'too uncertain to assess', warning_active: 'official warning active' } as Record<string, string>)[state] ?? state.replaceAll('_', ' ');
 }
 
 function humanizeChange(entry: ChangeEntry, latest: Findings): string {

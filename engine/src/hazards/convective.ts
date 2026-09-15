@@ -5,11 +5,14 @@
  * Official warnings are the authority for storms.
  */
 
+export const CAPE_ELEVATED_JKG = 300;
+export const CAPE_HIGH_JKG = 1000;
+
 export type SquallPotential = 'low' | 'elevated' | 'high';
 
 export function squallPotential(capeJkg: number | null): SquallPotential | null {
   if (capeJkg === null || !Number.isFinite(capeJkg)) return null;
-  if (capeJkg >= 1000) return 'high';
-  if (capeJkg >= 300) return 'elevated';
+  if (capeJkg >= CAPE_HIGH_JKG) return 'high';
+  if (capeJkg >= CAPE_ELEVATED_JKG) return 'elevated';
   return 'low';
 }

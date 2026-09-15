@@ -8,7 +8,7 @@ import type { LimitsProfile, PointOfSail } from './types.js';
 
 export type LimitStatus = 'ok' | 'approaching' | 'exceeded' | 'unknown';
 
-const DEFAULT_APPROACHING_RATIO = 0.75;
+export const DEFAULT_APPROACHING_RATIO = 0.75;
 
 /** True wind angle off the bow, degrees [0, 180]. windFromDeg is where the wind comes FROM. */
 export function trueWindAngle(windFromDeg: number, courseDegTrue: number): number {
