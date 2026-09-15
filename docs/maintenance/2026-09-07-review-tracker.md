@@ -421,7 +421,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Files: viewer/src/pages/{Verification,CaseStudy}.jsx; shared table styles if needed; targeted responsive tests.
 - Do: reproduce crowded table headers and values at 390px in EN/FR; make the tables readable without losing columns or labels.
 - Done when: both pages render readable tables at desktop/mobile sizes in EN/FR with screenshot evidence.
-- Status: todo · Commit: — · Notes:
+- Status: in progress · Commit: — · Notes: Clean pre-flight; previous step `1419cbf` scope verified. Full guardrails pass (221 engine + 373 viewer tests; Python 267, Ruff lint/format; demo unchanged). All Noticed entries triaged; no unrelated dirty work.
 
 ## Phase 4 — structure (goldens byte-identical unless stated)
 
