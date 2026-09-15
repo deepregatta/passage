@@ -271,31 +271,46 @@
         "root"
       ],
       "viewer/src/pages/Briefing.jsx": [
-        "#16283E",
         "A-WARN-01",
-        "border border-ink/50 px-3.5 py-2 min-h-11 font-sans text-[14px] hover:bg-ink/5",
-        "border border-white/70 px-3.5 py-2 min-h-11 font-sans text-[14px] hover:bg-white/10",
-        "border-l-4 border-authority pl-3",
-        "border-l-4 border-line pl-3",
-        "conflict",
         "decision",
-        "draw",
         "emulated_disclosure",
-        "gate",
-        "gust_kt",
-        "not_assessed",
-        "number",
-        "ok",
         "passage_briefing_view",
         "passage_example_view",
         "passage_run",
-        "planner",
         "route_impact",
         "snapshots",
         "synoptic_story",
         "unsupported",
-        "warning_active",
         "warnings",
+        "what_could_change"
+      ],
+      "viewer/src/pages/briefing/AssessmentDetails.jsx": [
+        "border-l-4 border-authority pl-3",
+        "border-l-4 border-line pl-3",
+        "emulated_disclosure",
+        "not_assessed",
+        "unsupported",
+        "warnings"
+      ],
+      "viewer/src/pages/briefing/DecisionBand.jsx": [
+        "border border-ink/50 px-3.5 py-2 min-h-11 font-sans text-[14px] hover:bg-ink/5",
+        "border border-white/70 px-3.5 py-2 min-h-11 font-sans text-[14px] hover:bg-white/10",
+        "draw",
+        "number",
+        "planner",
+        "warning_active"
+      ],
+      "viewer/src/pages/briefing/LegProgressBar.jsx": [
+        "ok"
+      ],
+      "viewer/src/pages/briefing/WeatherStoryCard.jsx": [
+        "#16283E",
+        "conflict",
+        "gate",
+        "gust_kt",
+        "number",
+        "ok",
+        "synoptic_story",
         "what_could_change",
         "wind_against_current",
         "wind_kt"
@@ -468,7 +483,7 @@
       "viewer/src/components/Shell.jsx": [
         "Choisir la langue"
       ],
-      "viewer/src/pages/Briefing.jsx": [
+      "viewer/src/pages/briefing/WeatherStoryCard.jsx": [
         "cause"
       ],
       "viewer/src/pages/CaseStudy.jsx": [
@@ -587,21 +602,39 @@
         "-"
       ],
       "viewer/src/pages/Briefing.jsx": [
-        "(",
-        ")",
+        ".",
+        ":"
+      ],
+      "viewer/src/pages/briefing/AssessmentDetails.jsx": [
+        ",",
+        "_"
+      ],
+      "viewer/src/pages/briefing/DecisionBand.jsx": [
         ",",
         ".",
+        ":"
+      ],
+      "viewer/src/pages/briefing/HeaderBar.jsx": [
+        "·"
+      ],
+      "viewer/src/pages/briefing/LegProgressBar.jsx": [
         "0",
-        ":",
-        "_",
         "h",
+        "→"
+      ],
+      "viewer/src/pages/briefing/WeatherStoryCard.jsx": [
+        "(",
+        ")",
+        ".",
         "m",
-        "·",
         "…",
-        "→",
         "▴",
         "▸",
         "▾"
+      ],
+      "viewer/src/pages/briefing/routeLabels.jsx": [
+        ",",
+        "→"
       ],
       "viewer/src/pages/CaseStudy.jsx": [
         "+",
