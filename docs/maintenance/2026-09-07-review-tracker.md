@@ -421,7 +421,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Files: viewer/src/pages/{Verification,CaseStudy}.jsx; shared table styles if needed; targeted responsive tests.
 - Do: reproduce crowded table headers and values at 390px in EN/FR; make the tables readable without losing columns or labels.
 - Done when: both pages render readable tables at desktop/mobile sizes in EN/FR with screenshot evidence.
-- Status: in progress · Commit: — · Notes: Clean pre-flight; previous step `1419cbf` scope verified. Full guardrails pass (221 engine + 373 viewer tests; Python 267, Ruff lint/format; demo unchanged). All Noticed entries triaged; no unrelated dirty work.
+- Status: done · Commit: — · Notes: Clean pre-flight at `07da9be`; previous step `1419cbf` scope and full guardrails verified; start commit `df11c4a`. Reproduced crowded EN/FR mobile headers, stacked dates and overflowing calibration values; all eight targeted browser regressions failed before the fix. Both Verification tables and Case Study now have spaced, unwrapped cells in named, keyboard-focusable horizontal scroll regions with visible focus; print styling wraps all columns within the page. Existing labels and semantic table headers retained; no new prose or data changes. Responsive tests cover both pages in EN/FR at 1568×1003 and 390×844, column counts/cell clipping, container bounds, arrow-key access to final columns, and Case Study print containment. Calibration test rows are explicitly emulated because the demo record is empty. Before/after screenshots, rightmost-column captures and print captures: `output/playwright/review-3.8/`; inspected clear desktop columns, compact mobile rows and reachable rightmost values/badges. Final `npm test`: 221 engine + 373 viewer pass; Python 267 pass (10 existing NumPy warnings), Ruff lint/format pass (55 files); demo regeneration and engine goldens unchanged. Phase gate: all 46 e2e tests and `npm run build:pages` pass. Only Verify desktop/mobile screenshot baselines changed for the intended table spacing/scroll containment. Self-review and diff check pass; no unrelated dirty files. Recorded the technical scope-attribute scanner false positive under Noticed for 4.9. Logs: `/tmp/passage38-*`. Next: 4.1.
 
 ## Phase 4 — structure (goldens byte-identical unless stated)
 
@@ -469,6 +469,8 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 
 - Phase 2 — 2026-09-13 — e2e: pass (38/38, desktop/mobile, fresh viewer-demo at configured URL) — build:pages: pass — No screenshot baseline, engine golden, prose or demo fixture changes. Initial stale Vite optimizer cache resolved by restarting the dev server after dependency reinstall.
 
+- Phase 3 — 2026-09-15 — e2e: pass (46/46, desktop/mobile, including eight EN/FR responsive-table checks) — build:pages: pass — Updated only `verify-desktop-linux.png` and `verify-mobile-linux.png`: spaced table cells and contained mobile horizontal scrolling replace crowded columns/date wrapping. No other screenshot baseline, engine golden, prose or demo fixture changes. Case Study print checks keep all columns within page width.
+
 ## Noticed during steps
 (agents append here: `- <step> — <file:line> — <one line>`)
 - [triaged] 0.1 — scripts/build-demo-snapshots.mjs:99 — Pre-existing demo regeneration drift: deletes routes/solent-hop-3wp.json and rewrites five snapshot JSON files (briefing next-run text, change descriptions, warning prose); reproduced with original commit `8971b65` and original dependencies, identical to updated-dependency output. Assigned to 1.15 after prose reconciliation in 1.12; 0.1 preserves the tracked fixtures.
@@ -504,6 +506,8 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - [triaged] 3.2 — viewer/src/pages/Planner.jsx:110 — Changing departure and then failing a route recomputation leaves the prior computed summary visible. Native browser QA with an explicitly synthetic computed result retained its 2026 arrival after selecting 2030 and receiving the horizon error; Assigned to 3.7 for computed-result invalidation.
 
 - [triaged] 3.4 — viewer/src/pages/Verification.jsx:91 and viewer/src/pages/CaseStudy.jsx:20 — At 390px, adjacent verification/case-study table headers and values crowd together in EN and FR; existing layout unchanged by catalogue consolidation. Screenshots: `output/playwright/review-3.4/{verification-en-mobile,case-study-fr-mobile}.png`. Assigned to 3.8 for responsive-table review.
+
+- [triaged] 3.8 — viewer/test/helpers/i18nCoverage.js:15 — Adding standard `scope="col"` to table headers produces 18 false untranslated-prose reports because `scope` is absent from technicalAttributes. Assigned to existing 4.9 test-gap sweep; this step retains the existing implicit header semantics and leaves the scanner unchanged.
 
 ## Decisions
 (record design choices made in steps 1.5, 3.5, 5.3 here)

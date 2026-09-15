@@ -67,3 +67,33 @@ select:focus-visible {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Keep verification columns legible; narrow screens scroll within each table. */
+.verification-table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: auto;
+}
+
+.verification-table-scroll:focus-visible {
+  @apply outline outline-2 outline-offset-2 outline-ink;
+}
+
+.verification-table th,
+.verification-table td {
+  padding: 0.5rem 0.75rem;
+  white-space: nowrap;
+  vertical-align: top;
+}
+
+/* Printed case studies must include columns beyond the screen's scroll area. */
+@media print {
+  .verification-table-scroll { overflow: visible; }
+  .verification-table { table-layout: fixed; }
+  .verification-table th,
+  .verification-table td {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    padding: 0.5rem 0.25rem;
+  }
+}
