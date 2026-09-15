@@ -5,11 +5,20 @@
 Run the same core checks used by CI from the repository root:
 
 ```bash
+npm run lint
 npm test
 npm run build:pages
 cd analysis && uv run pytest -q
 cd analysis && uv run ruff check . && uv run ruff format --check .
 ```
+
+The root `eslint.config.mjs` applies ESLint's recommended JavaScript rules,
+typescript-eslint's recommended rules, and React Hook order/dependency checks.
+`npm run lint` fails on errors or warnings, including unused suppression comments.
+Generated output, archived code, local browser artifacts and the Python factory
+are excluded; Ruff covers Python. TypeScript's existing build/test type checks
+remain separate. Unused `_`-prefixed TypeScript parameters and properties omitted
+via object rest destructuring follow the existing adapter/persistence conventions.
 
 Browser flow and screenshot coverage is separate because it starts the fixture
 viewer and requires Chromium:

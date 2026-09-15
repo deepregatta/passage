@@ -94,4 +94,18 @@ describe('live routing inputs', () => {
       start: { lat: 0, lon: 0 }, finish: { lat: 1, lon: 1 }, polarId: 'test', departureIso, now, store,
     })).rejects.toThrow(/open water/);
   });
+
+  it.each(['Decompression failed for coastline', 'Failed to fetch'])(
+    'retains the cause of a coastline failure (%s)', async (message) => {
+      const cause = new TypeError(message);
+      mocks.landMaskForBbox.mockRejectedValueOnce(cause);
+      await expect(loadRoutingInputs({
+        start: { lat: 0, lon: 0 }, finish: { lat: 1, lon: 1 }, polarId: 'test', departureIso, now, store,
+      })).rejects.toMatchObject({
+        message: /coastline|decompress/i.test(message)
+          ? message : "Couldn't load the coastline data needed for safe routing",
+        cause,
+      });
+    },
+  );
 });

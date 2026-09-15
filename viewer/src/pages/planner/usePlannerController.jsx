@@ -15,6 +15,18 @@ const routingInputKey = ({ endpoints, polarId, departureLocal }) => JSON.stringi
 
 export const validSpeed = (value) => Number.isFinite(value) && value > 0;
 
+const routeForDeparture = (inputs, departureUtc) =>
+  computeRoute({
+    start: inputs.start,
+    finish: inputs.finish,
+    departureUtc,
+    polar: inputs.polar,
+    windGrid: inputs.windGrid,
+    currentGrid: inputs.currentGrid ?? undefined,
+    landMask: inputs.landMask,
+    maxHours: inputs.maxHours,
+  });
+
 /** Owns the draft, routing, scan and audit lifecycle for the planner page. */
 export default function usePlannerController() {
   const openSnapshot = useApp((s) => s.openSnapshot);
@@ -57,13 +69,13 @@ export default function usePlannerController() {
     patch(next);
     if (next.endpoints || next.waypoints) setFitNonce((n) => n + 1);
   };
-  const setWaypoints = (value) => patch({ waypoints: typeof value === 'function' ? value(usePlanner.getState().waypoints) : value });
-  const setEndpoints = (value) => patch({ endpoints: typeof value === 'function' ? value(usePlanner.getState().endpoints) : value });
-  const setComputed = (value) => patch({ computed: value });
+  const setWaypoints = useCallback((value) => patch({ waypoints: typeof value === 'function' ? value(usePlanner.getState().waypoints) : value }), [patch]);
+  const setEndpoints = useCallback((value) => patch({ endpoints: typeof value === 'function' ? value(usePlanner.getState().endpoints) : value }), [patch]);
+  const setComputed = useCallback((value) => patch({ computed: value }), [patch]);
   const setName = (value) => patch({ name: value });
   const setSpeeds = (value) => patch({ speeds: typeof value === 'function' ? value(usePlanner.getState().speeds) : value });
   const setDepartureLocal = (value) => patch({ departureLocal: value });
-  const setScan = (value) => patch({ scan: value });
+  const setScan = useCallback((value) => patch({ scan: value }), [patch]);
 
   const [busy, setBusy] = useState(null);
   const [error, setError] = useState(null);
@@ -116,11 +128,11 @@ export default function usePlannerController() {
         setWaypoints((wps) => [...wps, latlng]);
       }
     },
-    [mode],
+    [mode, setComputed, setEndpoints, setWaypoints],
   );
 
   // shared by Compute route and the per-departure scan routing
-  const loadRoutingInputs = (scanning = false) =>
+  const loadRoutingInputs = useCallback((scanning = false) =>
     loadLiveRoutingInputs({
       start: { lat: endpoints[0].lat, lon: endpoints[0].lng, name: 'Start' },
       finish: { lat: endpoints[1].lat, lon: endpoints[1].lng, name: 'Finish' },
@@ -128,19 +140,7 @@ export default function usePlannerController() {
       departureIso: departureUtc,
       scanning,
       onProgress: setBusy,
-    });
-
-  const routeForDeparture = (inputs, departureUtc) =>
-    computeRoute({
-      start: inputs.start,
-      finish: inputs.finish,
-      departureUtc,
-      polar: inputs.polar,
-      windGrid: inputs.windGrid,
-      currentGrid: inputs.currentGrid ?? undefined,
-      landMask: inputs.landMask,
-      maxHours: inputs.maxHours,
-    });
+    }), [endpoints, polarId, departureUtc]);
 
   const runRouting = async () => {
     if (endpoints.length !== 2 || !polarId || !departureUtc) return;
@@ -178,7 +178,7 @@ export default function usePlannerController() {
     }
   };
 
-  const runScan = async () => {
+  const runScan = useCallback(async () => {
     if (!route || !departureUtc || !speedsValid) return;
     setBusy('scanning departures');
     setError(null);
@@ -225,7 +225,7 @@ export default function usePlannerController() {
       setBusy(null);
       setError(e.message);
     }
-  };
+  }, [route, departureUtc, speedsValid, setScan, profileDefaults, passageHours, mode, endpoints, polarId, loadRoutingInputs]);
 
   // arriving from a briefing's "Find a departure that fits": run the scan once, then clear the flag
   const autoScan = usePlanner((s) => s.autoScan);
@@ -234,8 +234,7 @@ export default function usePlannerController() {
       patch({ autoScan: false });
       runScan();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoScan, route]);
+  }, [autoScan, route, busy, patch, runScan]);
 
   /** Picking a departure from the comparison checks it immediately, so the route
    * and departure it just chose are passed in — React state has not flushed yet. */

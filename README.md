@@ -65,6 +65,7 @@ The builder runs the engine CLI twice with a fixed clock and rebuilds the commit
 ## Verification commands
 
 ```bash
+npm run lint                                 # JS/TS + React Hook order/dependencies (zero warnings)
 npm test                                      # engine + viewer unit/contract suites
 npm run build                                 # TypeScript + production Vite chunks
 npm run test:e2e                              # 1568×1003 + 390×844 visual/core-flow suite

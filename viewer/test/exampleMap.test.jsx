@@ -1,4 +1,3 @@
-import React from 'react';
 import { act, render, waitFor } from '@testing-library/react';
 import { expect, it, vi } from 'vitest';
 import { useApp } from '../src/stores/appStore.js';

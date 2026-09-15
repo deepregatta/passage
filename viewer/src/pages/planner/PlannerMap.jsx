@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -21,12 +21,15 @@ function ClickCapture({ onClick }) {
  * route arrives whole (computed / GPX); never while the user is drawing. */
 function FitRoute({ positions, fitKey }) {
   const map = useMap();
+  const lastFit = useRef(null);
   useEffect(() => {
+    // Positions change while drawing; only an explicit fit request moves the map.
+    if (lastFit.current?.map === map && lastFit.current.key === fitKey) return;
+    lastFit.current = { map, key: fitKey };
     if (positions.length >= 2) {
       map.fitBounds(L.latLngBounds(positions), { padding: [32, 32], maxZoom: 10 });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map, fitKey]);
+  }, [map, fitKey, positions]);
   return null;
 }
 
