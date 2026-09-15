@@ -9,6 +9,7 @@
 import { wrap180 } from '../geo.js';
 
 const G = 9.81;
+export const CROSS_SEA_ANGLE_DEG = 45;
 
 /** Deep-water wavelength in metres for period T seconds. */
 export function deepWaterWavelengthM(periodS: number): number {
@@ -44,7 +45,7 @@ export function assessCrossSea(
   const angle = crossSeaAngleDeg(windWaveFrom, swellFrom);
   return {
     angle_deg: Math.round(angle),
-    significant: angle > 45 && windWaveH >= 0.5 && swellH >= 0.5,
+    significant: angle > CROSS_SEA_ANGLE_DEG && windWaveH >= 0.5 && swellH >= 0.5,
   };
 }
 

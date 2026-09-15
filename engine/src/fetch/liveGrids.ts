@@ -112,7 +112,12 @@ export function planGrid(
     points,
     under_resolved_note:
       chosen.step > 0.25
-        ? `Forecast grid coarsened to ${chosen.step}° to keep this crossing within the browser point budget.`
+        ? coarsenedGridNote(chosen.step)
         : undefined,
   };
+}
+
+/** Shared disclosure; callers retain their own coarsening trigger and resolution precision. */
+export function coarsenedGridNote(resolutionDeg: number): string {
+  return `Forecast grid coarsened to ${resolutionDeg}° to keep this crossing within the browser point budget.`;
 }

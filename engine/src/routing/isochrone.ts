@@ -11,6 +11,7 @@
  * flagged as inheriting polar uncertainty.
  */
 
+import { alongCourseComponentKt, windFromDeg } from '../vectors.js';
 import { bearingDegTrue, haversineNm, wrap180 } from '../geo.js';
 import { toIso } from '../eta.js';
 import { GridSampler, type RegionGrid } from '../grids.js';
@@ -45,7 +46,6 @@ export interface RoutingResult {
   steps_used: number;
 }
 
-const DEG = Math.PI / 180;
 const MIN_SOG_KT = 0.3;
 
 /** 16-direction neighborhood: angular resolution ~22.5° */
@@ -180,7 +180,7 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
     const w = wind.sample(fromLat, fromLon, t);
     if (!w) continue; // outside wind coverage (space or time): branch ends
     const twsKt = Math.hypot(w.u_kt, w.v_kt);
-    const windFromDeg = (Math.atan2(-w.u_kt, -w.v_kt) / DEG + 360) % 360;
+    const windDirection = windFromDeg(w.u_kt, w.v_kt);
     const c = current?.sample(fromLat, fromLon, t) ?? { u_kt: 0, v_kt: 0 };
 
     for (const [di, dj] of NEIGHBORS) {
@@ -194,9 +194,9 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
       if (landMask && isLand(landMask, toLat, toLon)) continue;
 
       const heading = bearingDegTrue(fromLat, fromLon, toLat, toLon);
-      const twa = Math.abs(wrap180(windFromDeg - heading));
+      const twa = Math.abs(wrap180(windDirection - heading));
       const stw = boatSpeedKt(polar, twsKt, twa) * scaling;
-      const along = c.u_kt * Math.sin(heading * DEG) + c.v_kt * Math.cos(heading * DEG);
+      const along = alongCourseComponentKt(c, heading);
       const sog = stw + along;
       if (stw < MIN_SOG_KT || sog < MIN_SOG_KT) continue;
 

@@ -7,6 +7,8 @@
  * interpolates in time.
  */
 
+import { windFromDeg } from '../vectors.js';
+import { coarsenedGridNote } from '../fetch/liveGrids.js';
 import type { RegionGrid } from '../grids.js';
 import { toIso } from '../eta.js';
 import { fnv1a64Hex } from '../hash.js';
@@ -597,7 +599,7 @@ export class TileForecastStore implements ForecastStore {
       v_kt: v,
       under_resolved_note:
         stride > 1
-          ? `Forecast grid coarsened to ${round2(dlat)}° to keep this crossing within the browser point budget.`
+          ? coarsenedGridNote(round2(dlat))
           : undefined,
       source: {
         mode: 'live',
@@ -625,7 +627,7 @@ function windFromUv(
       continue;
     }
     speed[k] = round2(Math.hypot(uk, vk));
-    direction[k] = round1(((Math.atan2(-uk, -vk) * 180) / Math.PI + 360) % 360);
+    direction[k] = round1(windFromDeg(uk, vk));
   }
   return { speed, direction };
 }
