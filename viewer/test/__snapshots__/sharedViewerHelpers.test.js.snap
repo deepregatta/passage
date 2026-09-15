@@ -1,0 +1,159 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`preserves the complete rule vocabulary in English and French 1`] = `
+[
+  [
+    "W-GUST-01",
+    "gusts",
+    "rafales",
+  ],
+  [
+    "W-GUST-03",
+    "gust scenarios over your limit",
+    "scénarios de rafales au-dessus de votre limite",
+  ],
+  [
+    "W-SUST-01",
+    "wind",
+    "vent",
+  ],
+  [
+    "W-SUST-03",
+    "wind scenarios over your limit",
+    "scénarios de vent au-dessus de votre limite",
+  ],
+  [
+    "A-WARN-01",
+    "marine warning",
+    "alerte marine",
+  ],
+  [
+    "S-WAVE-01",
+    "wave-height limit",
+    "limite de hauteur de vagues",
+  ],
+  [
+    "S-CROSS-01",
+    "cross-sea",
+    "mer croisée",
+  ],
+  [
+    "S-STEEP-01",
+    "steep waves",
+    "vagues cambrées",
+  ],
+  [
+    "S-WAS-01",
+    "wind against swell",
+    "vent contre houle",
+  ],
+  [
+    "T-WAC-01",
+    "wind against current",
+    "vent contre courant",
+  ],
+  [
+    "T-GATE-01",
+    "tidal gate",
+    "porte de marée",
+  ],
+  [
+    "C-CAPE-01",
+    "thunderstorm potential",
+    "potentiel orageux",
+  ],
+  [
+    "V-VIS-01",
+    "visibility",
+    "visibilité",
+  ],
+  [
+    "D-DIVERGE-01",
+    "model disagreement",
+    "divergence des modèles",
+  ],
+]
+`;
+
+exports[`preserves the complete rule vocabulary in English and French 2`] = `
+[
+  "Nouveau signal : vent moyen par rapport à votre limite près du point de route 2 vers lun. 20 juil. 23:00 UTC.",
+  "Nouveau signal : rafales par rapport à votre limite près du point de route 2 vers lun. 20 juil. 23:00 UTC.",
+  "Nouveau signal : scénarios de vent au-dessus de votre limite près du point de route 2 vers lun. 20 juil. 23:00 UTC.",
+  "Nouveau signal : scénarios de rafales au-dessus de votre limite près du point de route 2 vers lun. 20 juil. 23:00 UTC.",
+  "Nouveau signal : hauteur de vagues par rapport à votre limite près du point de route 2 vers lun. 20 juil. 23:00 UTC.",
+  "Nouveau signal : mer croisée près du point de route 2 vers lun. 20 juil. 23:00 UTC.",
+  "Nouveau signal : vagues cambrées près du point de route 2 vers lun. 20 juil. 23:00 UTC.",
+  "Nouveau signal : vent contre houle près du point de route 2 vers lun. 20 juil. 23:00 UTC.",
+  "Nouveau signal : vent contre courant près du point de route 2 vers lun. 20 juil. 23:00 UTC.",
+  "Nouveau signal : compatibilité de porte de marée près du point de route 2 vers lun. 20 juil. 23:00 UTC.",
+  "Nouveau signal : alerte marine officielle près du point de route 2 vers lun. 20 juil. 23:00 UTC.",
+  "Nouveau signal : divergence des modèles près du point de route 2 vers lun. 20 juil. 23:00 UTC.",
+  "Nouveau signal : potentiel orageux près du point de route 2 vers lun. 20 juil. 23:00 UTC.",
+  "Nouveau signal : visibilité près du point de route 2 vers lun. 20 juil. 23:00 UTC.",
+]
+`;
+
+exports[`preserves theme colors and verdict/status metadata 1`] = `
+{
+  "STATUS_HEX": {
+    "approaching": "#A87718",
+    "exceeded": "#A63B2A",
+    "ok": "#2F6E4F",
+    "unknown": "#9AA6B5",
+  },
+  "VERDICT": {
+    "approaching": {
+      "glyph": "⚠",
+      "hex": "#A87718",
+      "label": "Approaching your limits",
+      "tw": "verdict-approaching",
+    },
+    "exceeds": {
+      "glyph": "⛔",
+      "hex": "#A63B2A",
+      "label": "Exceeds your limits",
+      "tw": "verdict-exceeds",
+    },
+    "insufficient": {
+      "glyph": "◌",
+      "hex": "#5A6B82",
+      "label": "Models disagree · reassess after the next run",
+      "tw": "verdict-insufficient",
+    },
+    "warning_active": {
+      "glyph": "🚩",
+      "hex": "#9E2B63",
+      "label": "Official warning active",
+      "tw": "authority",
+    },
+    "within": {
+      "glyph": "✓",
+      "hex": "#2F6E4F",
+      "label": "Within your declared limits",
+      "tw": "verdict-within",
+    },
+  },
+  "colors": {
+    "authority": "#9E2B63",
+    "event": "#176B87",
+    "ink": {
+      "DEFAULT": "#16283E",
+      "deep": "#0C1A2C",
+      "soft": "#4C5D73",
+    },
+    "line": "#D8CFBA",
+    "paper": {
+      "DEFAULT": "#F3EEE3",
+      "deep": "#EAE2CF",
+    },
+    "shoal": "#DCE5E6",
+    "verdict": {
+      "approaching": "#A87718",
+      "exceeds": "#A63B2A",
+      "insufficient": "#5A6B82",
+      "within": "#2F6E4F",
+    },
+  },
+}
+`;

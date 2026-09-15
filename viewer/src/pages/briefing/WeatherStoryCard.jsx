@@ -1,3 +1,4 @@
+import { palette } from '../../lib/palette.js';
 import { useState } from 'react';
 import { EvidenceLink } from '../../components/common.jsx';
 import { capitalize, fmtTime, hazardNoun, placeLabel, plainEventNoun, VERDICT } from '../../lib/format.js';
@@ -11,7 +12,7 @@ import { legPlace } from './routeLabels.jsx';
 export default function WeatherStoryCard({ findings, sections }) {
   const [expanded, setExpanded] = useState(false);
   const nextRun = useApp((s) => s.briefing?.next_run ?? s.briefing?.next_runs?.[0]);
-  const verdictHex = VERDICT[findings.verdict.state]?.hex ?? '#16283E';
+  const verdictHex = VERDICT[findings.verdict.state]?.hex ?? palette.ink.DEFAULT;
   const synoptic = useApp((state) => state.synoptic);
 
   const synopticSection = sections.find((s) => s.id === 'synoptic_story');

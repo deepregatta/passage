@@ -1,3 +1,4 @@
+import { palette } from './palette.js';
 // Deterministic UTC formatting + verdict metadata (exact verdict wording).
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -67,16 +68,16 @@ export function runAge(fetchedAtIso, nowMs) {
 
 /** Verdict states; exact wording, never "GO". */
 export const VERDICT = {
-  within: { label: 'Within your declared limits', glyph: '✓', tw: 'verdict-within', hex: '#2F6E4F' },
-  approaching: { label: 'Approaching your limits', glyph: '⚠', tw: 'verdict-approaching', hex: '#A87718' },
-  exceeds: { label: 'Exceeds your limits', glyph: '⛔', tw: 'verdict-exceeds', hex: '#A63B2A' },
+  within: { label: 'Within your declared limits', glyph: '✓', tw: 'verdict-within', hex: palette.verdict.within },
+  approaching: { label: 'Approaching your limits', glyph: '⚠', tw: 'verdict-approaching', hex: palette.verdict.approaching },
+  exceeds: { label: 'Exceeds your limits', glyph: '⛔', tw: 'verdict-exceeds', hex: palette.verdict.exceeds },
   insufficient: {
     label: 'Models disagree · reassess after the next run',
     glyph: '◌',
     tw: 'verdict-insufficient',
-    hex: '#5A6B82',
+    hex: palette.verdict.insufficient,
   },
-  warning_active: { label: 'Official warning active', glyph: '🚩', tw: 'authority', hex: '#9E2B63' },
+  warning_active: { label: 'Official warning active', glyph: '🚩', tw: 'authority', hex: palette.authority },
 };
 
 /** Drawn routes have machine waypoint ids (wp1, wp2…); spell them out for display. */
@@ -117,10 +118,10 @@ export function scenarioShare(memberFraction) {
 export const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
 export const STATUS_HEX = {
-  ok: '#2F6E4F',
-  approaching: '#A87718',
-  exceeded: '#A63B2A',
-  unknown: '#9AA6B5',
+  ok: palette.verdict.within,
+  approaching: palette.verdict.approaching,
+  exceeded: palette.verdict.exceeds,
+  unknown: palette.unknown,
 };
 
 /** worst per-hour condition status across all evaluated conditions */

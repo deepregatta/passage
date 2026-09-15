@@ -1,3 +1,4 @@
+import { palette, rgba } from '../lib/palette.js';
 import ReactECharts from './lazy/EChartsLazy.jsx';
 import { useMemo } from 'react';
 import { useApp } from '../stores/appStore.js';
@@ -51,7 +52,7 @@ function buildOption(leg, legFindings, evidence, variable, mobile = false) {
     data: series.map((v, i) => [times[i], v]),
     showSymbol: false,
     silent: true,
-    lineStyle: { color: 'rgba(22,40,62,0.10)', width: 0.8 },
+    lineStyle: { color: rgba(palette.ink.DEFAULT, '0.10'), width: 0.8 },
     emphasis: { disabled: true },
     tooltip: { show: false },
   }));
@@ -90,15 +91,15 @@ function buildOption(leg, legFindings, evidence, variable, mobile = false) {
   const finite = members.flat().filter((value) => Number.isFinite(value));
   const dataMax = finite.length ? Math.max(...finite) : limit;
 
-  const ink = '#16283E';
-  const soft = '#4C5D73';
+  const ink = palette.ink.DEFAULT;
+  const soft = palette.ink.soft;
 
   return {
     backgroundColor: 'transparent',
     animation: false,
     tooltip: {
       trigger: 'axis',
-      backgroundColor: '#F3EEE3',
+      backgroundColor: palette.paper.DEFAULT,
       borderColor: ink,
       textStyle: { color: ink, fontFamily: 'ui-monospace, monospace', fontSize: 11 },
     },
@@ -119,7 +120,7 @@ function buildOption(leg, legFindings, evidence, variable, mobile = false) {
       name: units,
       nameTextStyle: { color: soft },
       axisLabel: { color: soft, fontFamily: 'ui-monospace, monospace', fontSize: 10 },
-      splitLine: { lineStyle: { color: 'rgba(22,40,62,0.08)' } },
+      splitLine: { lineStyle: { color: rgba(palette.ink.DEFAULT, '0.08') } },
       min: 0,
       max: Math.ceil(Math.max(dataMax, limit ?? 0) * 1.12),
     },
@@ -149,11 +150,11 @@ function buildOption(leg, legFindings, evidence, variable, mobile = false) {
           silent: true,
           symbol: 'none',
           data: [{ yAxis: limit }],
-          lineStyle: { color: '#A87718', width: 1.8 },
+          lineStyle: { color: palette.verdict.approaching, width: 1.8 },
           label: {
             formatter: `YOUR LIMIT · ${limit} ${units}`,
             position: 'insideStartTop',
-            color: '#A87718',
+            color: palette.verdict.approaching,
             fontFamily: 'ui-monospace, monospace',
             fontSize: 10,
             fontWeight: 'bold',
@@ -162,11 +163,11 @@ function buildOption(leg, legFindings, evidence, variable, mobile = false) {
         markArea: windows.length
           ? {
               silent: true,
-              itemStyle: { color: 'rgba(166,59,42,0.10)' },
+              itemStyle: { color: rgba(palette.verdict.exceeds, '0.10') },
               label: {
                 show: true,
                 formatter: 'exceedance window',
-                color: '#A63B2A',
+                color: palette.verdict.exceeds,
                 fontFamily: 'ui-monospace, monospace',
                 fontSize: 10,
                 position: 'insideTop',

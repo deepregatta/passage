@@ -1,3 +1,4 @@
+import { evidenceById } from '../lib/evidenceSelectors.js';
 import { create } from 'zustand';
 import { initialPage, PAGE_HASH } from '../lib/routes.js';
 import { localSnapshots, fetchSnapshotJson, snapshotTombstones } from '../lib/localSnapshots.js';
@@ -203,8 +204,5 @@ export const useApp = create((set, get) => ({
   closeInspector: () => set({ inspectorOpen: false }),
   selectLeg: (legId) => set({ selectedLegId: legId }),
 
-  evidenceById: (evidenceId) => {
-    const { findings } = get();
-    return findings?.evidence.find((e) => e.evidence_id === evidenceId) ?? null;
-  },
+  evidenceById: (evidenceId) => evidenceById(get().findings, evidenceId),
 }));

@@ -1,3 +1,4 @@
+import { palette, rgba } from '../lib/palette.js';
 import ReactECharts from './lazy/EChartsLazy.jsx';
 import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../stores/appStore.js';
@@ -53,15 +54,15 @@ export default function RouteTimeline() {
           <ReactECharts onChartReady={setChart} option={option} style={{ height: 330 }} notMerge lazyUpdate opts={{ renderer: 'svg' }} />
           <div className="flex gap-5 justify-end font-sans text-[11px] text-ink-soft pr-2 -mt-1">
             <span className="flex items-center gap-1.5">
-              <span className="w-3.5 h-2.5 inline-block rounded-[2px]" style={{ background: 'rgba(168,119,24,0.35)' }} />
+              <span className="w-3.5 h-2.5 inline-block rounded-[2px]" style={{ background: rgba(palette.verdict.approaching, '0.35') }} />
               close to your limits
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="w-3.5 h-2.5 inline-block rounded-[2px]" style={{ background: 'rgba(166,59,42,0.35)' }} />
+              <span className="w-3.5 h-2.5 inline-block rounded-[2px]" style={{ background: rgba(palette.verdict.exceeds, '0.35') }} />
               beyond your limits
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="w-4 border-t-2 border-dashed inline-block" style={{ borderColor: '#A87718' }} />
+              <span className="w-4 border-t-2 border-dashed inline-block" style={{ borderColor: palette.verdict.approaching }} />
               the limit you set
             </span>
           </div>
@@ -114,7 +115,7 @@ function ConditionStrip({ findings }) {
           <span
             key={f.label}
             className="absolute -translate-x-1/2 font-sans text-[10px] text-paper px-1.5 py-0.5 rounded-sm whitespace-nowrap"
-            style={{ left: `${Math.min(94, Math.max(4, pct(f.at)))}%`, backgroundColor: '#A87718', top: i % 2 ? 2 : 0 }}
+            style={{ left: `${Math.min(94, Math.max(4, pct(f.at)))}%`, backgroundColor: palette.verdict.approaching, top: i % 2 ? 2 : 0 }}
           >
             {f.label}
           </span>
@@ -161,11 +162,11 @@ function StripCursor({ departure, t0, t1 }) {
   const cursor = usePlayback((state) => state.cursorHours);
   const time = departure + cursor * 3600_000;
   if (time < t0 || time > t1) return null;
-  return <div className="absolute top-0 bottom-0 w-[2px]" style={{ left: `${((time - t0) / (t1 - t0)) * 100}%`, backgroundColor: '#176B87' }} aria-hidden />;
+  return <div className="absolute top-0 bottom-0 w-[2px]" style={{ left: `${((time - t0) / (t1 - t0)) * 100}%`, backgroundColor: palette.event }} aria-hidden />;
 }
 
 function nowLine(time) {
-  return { xAxis: time, label: { formatter: 'NOW', color: '#176B87' }, lineStyle: { color: '#176B87', type: 'solid', width: 1 } };
+  return { xAxis: time, label: { formatter: 'NOW', color: palette.event }, lineStyle: { color: palette.event, type: 'solid', width: 1 } };
 }
 
 function TimelineTable({ findings }) {
@@ -226,7 +227,7 @@ function buildOption(findings, mobile = false) {
   const bandAreas = bands.map((b) => [
     {
       xAxis: b.from,
-      itemStyle: { color: b.status === 'exceeded' ? 'rgba(166,59,42,0.13)' : 'rgba(168,119,24,0.13)' },
+      itemStyle: { color: b.status === 'exceeded' ? rgba(palette.verdict.exceeds, '0.13') : rgba(palette.verdict.approaching, '0.13') },
     },
     { xAxis: b.to },
   ]);
@@ -247,24 +248,24 @@ function buildOption(findings, mobile = false) {
       label: {
         formatter: label,
         position: flags.length % 2 === 0 ? 'top' : 'right',
-        color: '#F3EEE3',
-        backgroundColor: '#A87718',
+        color: palette.paper.DEFAULT,
+        backgroundColor: palette.verdict.approaching,
         padding: [2, 5],
         borderRadius: 2,
         fontFamily: 'system-ui',
         fontSize: 10,
       },
-      itemStyle: { color: '#A87718' },
+      itemStyle: { color: palette.verdict.approaching },
     });
   }
 
-  const ink = '#16283E';
-  const soft = '#4C5D73';
+  const ink = palette.ink.DEFAULT;
+  const soft = palette.ink.soft;
   const axisBase = {
-    axisLine: { lineStyle: { color: 'rgba(22,40,62,0.25)' } },
+    axisLine: { lineStyle: { color: rgba(palette.ink.DEFAULT, '0.25') } },
     axisTick: { show: false },
     axisLabel: { color: soft, fontFamily: 'ui-monospace, monospace', fontSize: 10 },
-    splitLine: { lineStyle: { color: 'rgba(22,40,62,0.07)' } },
+    splitLine: { lineStyle: { color: rgba(palette.ink.DEFAULT, '0.07') } },
   };
   const rowName = (name, sub) => ({
     name: `${name}\n${sub}`,
@@ -288,7 +289,7 @@ function buildOption(findings, mobile = false) {
     animation: false,
     tooltip: {
       trigger: 'axis',
-      backgroundColor: '#F3EEE3',
+      backgroundColor: palette.paper.DEFAULT,
       borderColor: ink,
       textStyle: { color: ink, fontFamily: 'ui-monospace, monospace', fontSize: 11 },
       valueFormatter: (v) => (v == null ? 'n/a' : String(v)),
@@ -331,18 +332,18 @@ function buildOption(findings, mobile = false) {
         yAxisIndex: 1,
         data: gust,
         showSymbol: false,
-        lineStyle: { color: '#A63B2A', width: 2 },
+        lineStyle: { color: palette.verdict.exceeds, width: 2 },
         markArea: bandAreas.length ? { silent: true, data: bandAreas } : undefined,
         markLine: gustLimit
           ? {
               silent: true,
               symbol: 'none',
               data: [{ yAxis: gustLimit }, nowLine(cursorTime)],
-              lineStyle: { color: '#A87718', type: 'dashed', width: 1.6 },
+              lineStyle: { color: palette.verdict.approaching, type: 'dashed', width: 1.6 },
               label: {
                 formatter: `${gustLimit} kt\nyour limit`,
                 position: 'end',
-                color: '#A87718',
+                color: palette.verdict.approaching,
                 fontFamily: 'ui-monospace, monospace',
                 fontSize: 10,
                 lineHeight: 13,
@@ -360,7 +361,7 @@ function buildOption(findings, mobile = false) {
         yAxisIndex: 2,
         data: hs,
         showSymbol: false,
-        areaStyle: { color: 'rgba(76,93,115,0.18)' },
+        areaStyle: { color: rgba(palette.ink.soft, '0.18') },
         lineStyle: { color: soft, width: 1.6 },
       },
     ],

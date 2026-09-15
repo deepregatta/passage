@@ -1,3 +1,4 @@
+import { palette } from '../lib/palette.js';
 import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../stores/appStore.js';
 import { frameForCursor, usePlayback } from '../stores/playbackStore.js';
@@ -81,16 +82,16 @@ function Overlay({ w, xy, route, system, frame }) {
   const boatPoint = frame.boatPosition ? xy(frame.boatPosition) : null;
   const u = w / 340; // hairline unit relative to chart resolution
   return <>
-    <polyline points={routePoints} fill="none" stroke="#16283E" strokeWidth={u * 1.4} strokeDasharray={`${u * 1.2} ${u * 2}`} strokeLinecap="round" />
-    {track.length > 0 && <polyline points={trackPoints} fill="none" stroke="#176B87" strokeWidth={u * 1.6} />}
-    {track.map((point) => { const p = xy(point); return <circle key={point.valid_time} cx={p.x} cy={p.y} r={u * 0.9} fill="#176B87" />; })}
+    <polyline points={routePoints} fill="none" stroke={palette.ink.DEFAULT} strokeWidth={u * 1.4} strokeDasharray={`${u * 1.2} ${u * 2}`} strokeLinecap="round" />
+    {track.length > 0 && <polyline points={trackPoints} fill="none" stroke={palette.event} strokeWidth={u * 1.6} />}
+    {track.map((point) => { const p = xy(point); return <circle key={point.valid_time} cx={p.x} cy={p.y} r={u * 0.9} fill={palette.event} />; })}
     {systemPoint && <g transform={`translate(${systemPoint.x} ${systemPoint.y})`}>
-      <circle r={u * 5} fill="#F3EEE3" fillOpacity=".92" stroke="#176B87" strokeWidth={u * 1.1} />
-      <text textAnchor="middle" y={u * 1.4} fontSize={u * 3.6} fill="#176B87" fontFamily="JetBrains Mono">{Math.round(frame.systemPosition.center_hpa)}</text>
+      <circle r={u * 5} fill={palette.paper.DEFAULT} fillOpacity=".92" stroke={palette.event} strokeWidth={u * 1.1} />
+      <text textAnchor="middle" y={u * 1.4} fontSize={u * 3.6} fill={palette.event} fontFamily="JetBrains Mono">{Math.round(frame.systemPosition.center_hpa)}</text>
     </g>}
     {boatPoint && <g transform={`translate(${boatPoint.x} ${boatPoint.y})`}>
-      <path d={`M0 ${-u * 2.4} L${u * 2} ${u * 2.4} L0 ${u * 1.6} L${-u * 2} ${u * 2.4} Z`} fill="#A87718" stroke="#F3EEE3" strokeWidth={u * 0.6} />
-      <circle r={u * 3.6} fill="none" stroke="#A87718" strokeWidth={u * 0.55} />
+      <path d={`M0 ${-u * 2.4} L${u * 2} ${u * 2.4} L0 ${u * 1.6} L${-u * 2} ${u * 2.4} Z`} fill={palette.verdict.approaching} stroke={palette.paper.DEFAULT} strokeWidth={u * 0.6} />
+      <circle r={u * 3.6} fill="none" stroke={palette.verdict.approaching} strokeWidth={u * 0.55} />
     </g>}
   </>;
 }
@@ -111,7 +112,7 @@ function ChartCanvas({ url, projector, route, system, frame, event, zoomed, onBr
   );
   const scale = zoomed ? Math.min(5, Math.max(2, 0.45 / span)) : 1;
 
-  return <div className="relative border border-ink/25 overflow-hidden bg-[#F3EEE3]">
+  return <div className="relative border border-ink/25 overflow-hidden bg-paper">
     <div style={{ transform: `scale(${scale})`, transformOrigin: `${originX}% ${originY}%`, transition: 'transform .35s ease' }}>
       <img src={url} alt={caption ?? 'Synoptic pressure chart'} className="w-full block" onError={onBroken} />
       <svg viewBox={`0 0 ${projector.w} ${projector.h}`} preserveAspectRatio="none" className="absolute inset-0 w-full h-full pointer-events-none" role="img" aria-label={`${event?.name ?? 'Synoptic'} track and route occupancy`}>
@@ -131,9 +132,9 @@ function SchematicCanvas({ route, system, frame, event }) {
   const latMin = Math.min(...points.map((point) => point.lat)) - .5;
   const latMax = Math.max(...points.map((point) => point.lat)) + .5;
   const xy = (point) => ({ x: 6 + ((point.lon - lonMin) / (lonMax - lonMin)) * 88, y: 7 + ((latMax - point.lat) / (latMax - latMin)) * 76 });
-  return <div className="relative min-h-[360px] overflow-hidden bg-[#cbdce0] border border-ink/25">
+  return <div className="relative min-h-[360px] overflow-hidden border border-ink/25" style={{ background: palette.sea }}>
     <svg viewBox="0 0 100 90" className="absolute inset-0 w-full h-full" role="img" aria-label={`${event?.name ?? 'Synoptic'} track and route occupancy`}>
-      <defs><pattern id="sea-grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M10 0H0V10" fill="none" stroke="#52739e" strokeOpacity=".12" strokeWidth=".2"/></pattern></defs>
+      <defs><pattern id="sea-grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M10 0H0V10" fill="none" stroke={palette.wave} strokeOpacity=".12" strokeWidth=".2"/></pattern></defs>
       <rect width="100" height="90" fill="url(#sea-grid)"/>
       <Overlay w={100} xy={xy} route={route} system={system} frame={frame} />
     </svg>

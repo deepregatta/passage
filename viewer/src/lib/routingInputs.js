@@ -3,7 +3,7 @@ import { landMaskForBbox } from './landMask.js';
 import { forecastStore, friendlyForecastError } from './forecastStore.js';
 
 /** deterministic tile horizon (GFS 240 h); scans beyond it fail with a clear message */
-const FORECAST_HOURS = 240;
+export const FORECAST_HOURS = 240;
 
 async function loadJson(url) {
   const response = await fetch(url);
