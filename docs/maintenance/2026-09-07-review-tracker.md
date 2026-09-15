@@ -423,6 +423,11 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Done when: both pages render readable tables at desktop/mobile sizes in EN/FR with screenshot evidence.
 - Status: done · Commit: `5c31e67` · Notes: Clean pre-flight at `07da9be`; previous step `1419cbf` scope and full guardrails verified; start commit `df11c4a`. Reproduced crowded EN/FR mobile headers, stacked dates and overflowing calibration values; all eight targeted browser regressions failed before the fix. Both Verification tables and Case Study now have spaced, unwrapped cells in named, keyboard-focusable horizontal scroll regions with visible focus; print styling wraps all columns within the page. Existing labels and semantic table headers retained; no new prose or data changes. Responsive tests cover both pages in EN/FR at 1568×1003 and 390×844, column counts/cell clipping, container bounds, arrow-key access to final columns, and Case Study print containment. Calibration test rows are explicitly emulated because the demo record is empty. Before/after screenshots, rightmost-column captures and print captures: `output/playwright/review-3.8/`; inspected clear desktop columns, compact mobile rows and reachable rightmost values/badges. Final `npm test`: 221 engine + 373 viewer pass; Python 267 pass (10 existing NumPy warnings), Ruff lint/format pass (55 files); demo regeneration and engine goldens unchanged. Phase gate: all 46 e2e tests and `npm run build:pages` pass. Only Verify desktop/mobile screenshot baselines changed for the intended table spacing/scroll containment. Self-review and diff check pass; no unrelated dirty files. Recorded the technical scope-attribute scanner false positive under Noticed for 4.9. Logs: `/tmp/passage38-*`. Hosted [CI 34945754640](https://github.com/deepregatta/passage/actions/runs/34945754640) passed JavaScript and Python on `5c31e67`. Next: 4.1.
 
+### 3.9 Responsive Evidence charts — noticed in 4.9
+- Files: viewer/src/pages/Evidence.jsx and relevant styles/tests
+- Done when: EN/FR Evidence charts fit a 390px viewport with explicit document-width assertions.
+- Status: todo · Commit: — · Notes: Existing mobile baseline is 1160px wide; preserve it until the intended responsive fix.
+
 ## Phase 4 — structure (goldens byte-identical unless stated)
 
 ### 4.1 Shared engine formulas and thresholds — §7.3 engine list
@@ -460,7 +465,8 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 ## Phase 5 — pipeline
 
 ### 5.1 Atomic `latest.json` helper — P15
-- Status: todo · Commit: — · Notes:
+- Files: analysis/src/deepweather_analysis/{latest,grids_prep,synoptic_prep,land_mask}.py; analysis/tests/test_latest.py
+- Status: in progress · Commit: — · Notes: Clean pre-flight at `7d8fe1a`; previous 4.9 scope verified; npm tests (289 engine + 402 viewer), Python 320 tests, Ruff lint/format and demo byte-identity pass. Reproduced three direct pointer writes; shared helper will serialize merges and atomically replace the pointer.
 ### 5.2 Uploader content hash + per-family pruning — P8
 - Status: todo · Commit: — · Notes:
 ### 5.3 Route-aware synoptic windows or explicit "Channel-only prepared run" coverage disclosure — §4.1
@@ -524,7 +530,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 
 - [triaged] 3.8 — viewer/test/helpers/i18nCoverage.js:15 — Adding standard `scope="col"` to table headers produces 18 false untranslated-prose reports because `scope` is absent from technicalAttributes. Assigned to existing 4.9 test-gap sweep; this step retains the existing implicit header semantics and leaves the scanner unchanged.
 
-- 4.9 — viewer/src/pages/Evidence.jsx:73 — Visual QA confirms Evidence charts overflow a 390px viewport to 1160px in EN/FR; existing evidence-mobile-linux.png already has width 1160. Track a separate responsive Evidence fix with explicit document-width assertions; do not update baselines to hide it.
+- [triaged] 4.9 — viewer/src/pages/Evidence.jsx:73 — Visual QA confirms Evidence charts overflow a 390px viewport to 1160px in EN/FR; existing evidence-mobile-linux.png already has width 1160. Assigned to 3.9 with explicit document-width assertions; do not update baselines to hide it.
 
 ## Decisions
 (record design choices made in steps 1.5, 3.5, 5.3 here)
