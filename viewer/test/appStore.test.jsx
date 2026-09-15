@@ -2,7 +2,7 @@ import { act, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useApp } from '../src/stores/appStore.js';
 import { usePlayback } from '../src/stores/playbackStore.js';
-import { fetchSnapshotJson, localSnapshots } from '../src/lib/localSnapshots.js';
+import { fetchSnapshotJson, localSnapshots, snapshotTombstones } from '../src/lib/localSnapshots.js';
 import { preparedRun } from '../src/lib/preparedRun.js';
 import Briefing from '../src/pages/Briefing.jsx';
 import Snapshots from '../src/pages/Snapshots.jsx';
@@ -10,7 +10,7 @@ import Snapshots from '../src/pages/Snapshots.jsx';
 vi.mock('../src/lib/localSnapshots.js', () => ({
   fetchSnapshotJson: vi.fn(),
   localSnapshots: { list: vi.fn(async () => []), remove: vi.fn(async () => true) },
-  snapshotTombstones: { all: () => new Set() },
+  snapshotTombstones: { all: vi.fn(() => new Set()) },
 }));
 vi.mock('../src/lib/preparedRun.js', () => ({ preparedRun: vi.fn(async () => {}) }));
 
@@ -30,6 +30,9 @@ const initial = useApp.getInitialState();
 beforeEach(() => {
   useApp.setState({ ...initial, page: 'snapshots' }, true);
   usePlayback.setState(usePlayback.getInitialState(), true);
+  localSnapshots.list.mockReset().mockResolvedValue([]);
+  localSnapshots.remove.mockReset().mockResolvedValue(true);
+  snapshotTombstones.all.mockReset().mockReturnValue(new Set());
   preparedRun.mockReset().mockResolvedValue(undefined);
   fetchSnapshotJson.mockReset().mockImplementation(async (id, name) => artifact(id, name));
 });
@@ -192,5 +195,51 @@ describe('snapshot load feedback', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Loading passage instruments…');
     await act(async () => { gate.reject(new Error('load failed')); await pending; });
     expect(screen.getByRole('alert')).toHaveTextContent('load failed');
+  });
+});
+
+describe('manifest merging and deletion', () => {
+  const served = [{ snapshot_id: 'duplicate', name: 'served' }, { snapshot_id: 'hidden' }, { snapshot_id: 'public' }];
+  beforeEach(() => {
+    globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({ schema_version: 1, snapshots: served })));
+  });
+
+  it('prefers local duplicates, preserves order, filters tombstones and clears old errors', async () => {
+    const local = [{ snapshot_id: 'newest' }, { snapshot_id: 'duplicate', name: 'local' }];
+    localSnapshots.list.mockResolvedValue(local);
+    snapshotTombstones.all.mockReturnValue(new Set(['hidden']));
+    useApp.setState({ manifestError: 'old failure' });
+    await useApp.getState().loadManifest();
+    expect(useApp.getState()).toMatchObject({ manifestError: null, manifest: { schema_version: 1, snapshots: [...local, served[2]] } });
+    expect(globalThis.fetch).toHaveBeenCalledWith('/data/snapshots/manifest.json');
+  });
+
+  it('uses local snapshots after an HTTP failure and reports failure when neither source is available', async () => {
+    globalThis.fetch.mockResolvedValue(new Response('offline', { status: 503 }));
+    localSnapshots.list.mockResolvedValue([{ snapshot_id: 'local' }]);
+    await useApp.getState().loadManifest();
+    expect(useApp.getState()).toMatchObject({ manifestError: null, manifest: { snapshots: [{ snapshot_id: 'local' }] } });
+    localSnapshots.list.mockResolvedValue([]);
+    await useApp.getState().loadManifest();
+    expect(useApp.getState().manifestError).toContain('503');
+  });
+
+  it('deletes another local snapshot without clearing the open briefing and refreshes the list', async () => {
+    await useApp.getState().openSnapshot('keep');
+    await useApp.getState().deleteSnapshot('remove');
+    expect(localSnapshots.remove).toHaveBeenCalledWith('remove');
+    expect(localSnapshots.list).toHaveBeenCalledTimes(1);
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+    expect(useApp.getState()).toMatchObject({ snapshotId: 'keep', findings: { snapshot_id: 'keep' }, manifest: { snapshots: served } });
+  });
+
+  it('preserves the open briefing and rejects a failed dev deletion', async () => {
+    await useApp.getState().openSnapshot('keep');
+    localSnapshots.remove.mockResolvedValue(false);
+    globalThis.fetch.mockResolvedValue(new Response('read-only fixture', { status: 403 }));
+    await expect(useApp.getState().deleteSnapshot('keep')).rejects.toThrow('Could not delete: read-only fixture');
+    expect(globalThis.fetch).toHaveBeenCalledWith('/data/snapshots/keep', { method: 'DELETE' });
+    expect(localSnapshots.list).not.toHaveBeenCalled();
+    expect(useApp.getState()).toMatchObject({ snapshotId: 'keep', findings: { snapshot_id: 'keep' } });
   });
 });

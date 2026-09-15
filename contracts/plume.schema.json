@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://deepweather.local/contracts/plume.schema.json",
+  "title": "Ensemble plume",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "snapshot_id",
+    "model",
+    "legs"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "snapshot_id": {
+      "type": "string"
+    },
+    "model": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "legs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "leg_id",
+          "times",
+          "gust_limit_kt",
+          "gust_members",
+          "wind_members"
+        ],
+        "properties": {
+          "leg_id": {
+            "type": "string"
+          },
+          "times": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "gust_limit_kt": {
+            "type": "number"
+          },
+          "gust_members": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              }
+            }
+          },
+          "wind_members": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              }
+            }
+          },
+          "deterministic_times": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "deterministic": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

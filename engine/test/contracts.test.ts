@@ -25,23 +25,19 @@ describe('contracts', () => {
     }
   });
 
-  it('canonical route validates against route.schema.json', () => {
-    const ajv = new Ajv2020({ strict: false });
-    addFormats(ajv);
-    const validate = ajv.compile(loadSchema('route.schema.json'));
-    const route = JSON.parse(
-      readFileSync(join(CONFIG_DIR, 'routes', 'cherbourg-plymouth.json'), 'utf8'),
-    );
-    expect(validate(route), JSON.stringify(validate.errors, null, 2)).toBe(true);
-  });
-
-  it('default limits profile validates against limits-profile.schema.json', () => {
-    const ajv = new Ajv2020({ strict: false });
-    addFormats(ajv);
-    const validate = ajv.compile(loadSchema('limits-profile.schema.json'));
-    const profile = JSON.parse(
-      readFileSync(join(CONFIG_DIR, 'profiles', 'default-limits.json'), 'utf8'),
-    );
-    expect(validate(profile), JSON.stringify(validate.errors, null, 2)).toBe(true);
-  });
+  for (const [directory, schemaName] of [
+    ['routes', 'route'], ['profiles', 'limits-profile'], ['polars', 'polar'],
+  ]) {
+    const files = readdirSync(join(CONFIG_DIR, directory!)).filter(file => file.endsWith('.json') && file !== 'index.json');
+    it(`${directory} corpus is nonempty`, () => expect(files.length).toBeGreaterThan(0));
+    for (const file of files) {
+      it(`${directory}/${file} validates`, () => {
+        const ajv = new Ajv2020({ strict: false });
+        addFormats(ajv);
+        const validate = ajv.compile(loadSchema(`${schemaName}.schema.json`));
+        const value = JSON.parse(readFileSync(join(CONFIG_DIR, directory!, file), 'utf8'));
+        expect(validate(value), JSON.stringify(validate.errors)).toBe(true);
+      });
+    }
+  }
 });

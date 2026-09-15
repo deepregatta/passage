@@ -19,11 +19,24 @@ test('emulated warning uses a neutral test-pattern band', async ({ page }) => {
   await expect(page.getByText('EMULATED WARNING SCENARIO')).toBeVisible();
 });
 
-test('mobile shell has no permanent rail or horizontal overflow', async ({ page }) => {
+test('responsive shell uses horizontal stages without overflow', async ({ page }) => {
   await openAuditedSnapshot(page);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
   expect(overflow).toBe(false);
-  await expect(page.locator('nav.w-44')).toHaveCount(0);
+  const stages = page.getByRole('navigation', { name: 'Passage stages', exact: true });
+  await expect(stages).toHaveCount(1);
+  await expect(stages.getByRole('button')).toHaveCount(4);
+  await expect(stages.getByRole('button', { name: /Brief$/ })).toHaveAttribute('aria-current', 'page');
+  const box = await stages.boundingBox();
+  const viewport = page.viewportSize();
+  expect(box.width).toBeGreaterThan(box.height * 3);
+  if (viewport.width < 768) {
+    expect(box.x).toBe(0);
+    expect(box.width).toBe(viewport.width);
+    expect(box.y + box.height).toBe(viewport.height);
+  } else {
+    expect(box.y).toBeLessThan(60);
+  }
 });
 
 test('playback scrub synchronizes the story phase and evidence focus', async ({ page }) => {

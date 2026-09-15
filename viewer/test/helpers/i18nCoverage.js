@@ -13,7 +13,7 @@ export function walkFiles(root, accept) {
 // Exclude syntax by AST role, never by whether text looks like prose. Keep unknown
 // contexts, template fragments and both conditional branches for explicit review.
 const technicalAttributes = new Set([
-  'className', 'style', 'id', 'key', 'type', 'role', 'name', 'href', 'src',
+  'scope', 'className', 'style', 'id', 'key', 'type', 'role', 'name', 'href', 'src',
   'aria-hidden', 'aria-modal', 'aria-labelledby', 'aria-describedby', 'aria-current',
   'data-testid', 'viewBox', 'd', 'fill', 'stroke', 'strokeWidth', 'strokeLinecap',
   'strokeDasharray', 'strokeLinejoin', 'textAnchor', 'dominantBaseline', 'transform',

@@ -8,6 +8,10 @@ import { describe, expect, it } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import Ajv2020 from 'ajv/dist/2020.js';
+import addFormats from 'ajv-formats';
+import { buildPlume, writeSnapshot } from '../src/snapshot.js';
+import { diffFindings } from '../src/diff.js';
 import { assembleFindings } from '../src/findings.js';
 import { renderBriefing } from '../src/briefing.js';
 import { ScenarioBundleStore } from '../src/forecast/scenarioStore.js';
@@ -88,7 +92,7 @@ async function runScenario(name: string, visibilityM?: number) {
     engineVersion: ENGINE_VERSION,
     nowMs: FIXED_NOW,
   });
-  return { findings, briefing: renderBriefing(findings, synoptic) };
+  return { findings, briefing: renderBriefing(findings, synoptic), route, plume: buildPlume(findings, ens?.forecasts, profile.max_gust_kt, multi?.byModel) };
 }
 
 describe('verdict-state harness: five scenarios -> five states', () => {
@@ -159,3 +163,27 @@ it.each([0, 185.2])('causal story prioritises severe minimum visibility (%s m) o
   expect(events.length).toBeGreaterThan(0);
   for (const event of events) expect(event.consequence.register_plain).toMatch(/visibility/i);
 });
+
+const ajv = new Ajv2020({ strict: false });
+addFormats(ajv);
+const validators = Object.fromEntries(['findings', 'briefing', 'snapshot', 'changes', 'plume'].map(name => [
+  name, ajv.compile(JSON.parse(readFileSync(join(REPO, 'contracts', `${name}.schema.json`), 'utf8'))),
+]));
+for (const name of Object.keys(EXPECTED)) {
+  it(`${name}: serialized engine artifacts satisfy their contracts`, async () => {
+    const { findings, briefing, route, plume } = await runScenario(name);
+    const files = new Map<string, string>();
+    await writeSnapshot({ exists: async () => false, write: async (_id, file, body) => { files.set(file, body); } }, findings, briefing, { route, plume }, FIXED_NOW);
+    const previous = (await runScenario('reference-demo-prev')).findings;
+    files.set('changes.json', JSON.stringify(diffFindings(previous, findings)));
+    for (const [artifact, validate] of Object.entries(validators)) {
+      expect(files.has(`${artifact}.json`)).toBe(true);
+      const value = JSON.parse(files.get(`${artifact}.json`)!);
+      expect(validate(value), `${name}/${artifact}: ${JSON.stringify(validate.errors)}`).toBe(true);
+      // Prove each validator rejects a broken required field, not just any object.
+      delete value.snapshot_id;
+      expect(validate(value), `${artifact} must require snapshot_id`).toBe(false);
+    }
+    expect(JSON.parse(files.get('snapshot.json')!).artifacts.plume).toBe('plume.json');
+  });
+}
