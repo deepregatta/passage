@@ -150,6 +150,7 @@ def fetch_route_history(
                 "model": model,
                 "hourly": payload.get("hourly"),
             }
+            path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(json.dumps(record, separators=(",", ":")) + "\n")
             entry.update(status="ok", hourly=payload.get("hourly"))
         except Exception as exc:  # non-fatal by design

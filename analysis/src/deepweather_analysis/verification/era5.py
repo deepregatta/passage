@@ -111,10 +111,8 @@ def _estimate_request_grid_points(
 
 
 def get_case_cache_dir(case_id: str) -> Path:
-    """Cache directory for one corpus case: data/cache/era5/<case-id>/."""
-    path = cache_dir("era5") / case_id
-    path.mkdir(parents=True, exist_ok=True)
-    return path
+    """Resolve data/cache/era5/<case-id>/ without creating it."""
+    return cache_dir("era5") / case_id
 
 
 def _load_case_metadata(case_id: str) -> Optional[Dict[str, Any]]:
@@ -130,6 +128,7 @@ def _load_case_metadata(case_id: str) -> Optional[Dict[str, Any]]:
 
 def _save_case_metadata(case_id: str, metadata: Dict[str, Any]) -> Path:
     meta_path = get_case_cache_dir(case_id) / "metadata.json"
+    meta_path.parent.mkdir(parents=True, exist_ok=True)
     meta_path.write_text(json.dumps(metadata, indent=2) + "\n")
     return meta_path
 
