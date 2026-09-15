@@ -35,6 +35,7 @@ from typing import Any
 
 import requests
 
+from .timeutil import optional_iso_utc as _iso_utc
 from .timeutil import parse_iso_utc
 
 METEOALARM_URL_TEMPLATE = os.environ.get(
@@ -48,12 +49,6 @@ MARINE_AWARENESS_TYPES = {"wind", "coastalevent"}
 # awareness_level colour -> our severity vocabulary (approximate: CAP carries
 # no wind force; aligned with the FR/US scale where advisory-grade == near-gale)
 LEVEL_SEVERITY = {"yellow": "near-gale", "orange": "gale", "red": "storm"}
-
-
-def _iso_utc(value: str | None) -> str | None:
-    if not value:
-        return None
-    return parse_iso_utc(value).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _parameter(info: dict[str, Any], name: str) -> str | None:

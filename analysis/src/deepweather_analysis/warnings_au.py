@@ -27,11 +27,11 @@ fetched, so offshore legs beyond coastal waters carry no BOM coverage here.
 from __future__ import annotations
 
 import os
-import re
 import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 
+from .textutil import slugify as _slug
 from .timeutil import parse_iso_utc
 
 BOM_FTP_URL_TEMPLATE = os.environ.get(
@@ -58,10 +58,6 @@ def _severity(phenomena: str, severity_attr: str) -> str | None:
         if lowered.startswith(prefix):
             return severity
     return ATTR_SEVERITY.get(severity_attr.upper())
-
-
-def _slug(text: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
 
 
 def _hazard_text(hazard: ET.Element, kind: str) -> str | None:

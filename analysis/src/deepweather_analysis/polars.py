@@ -29,6 +29,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from .paths import config_dir, contracts_dir, data_root
+from .textutil import slugify
 
 __all__ = [
     "load_orc_polars",
@@ -511,8 +512,7 @@ def get_default_polars() -> dict[float, dict[float, float]]:
 
 
 def _slugify(text: str) -> str:
-    slug = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
-    return slug or "polar"
+    return slugify(text) or "polar"
 
 
 def _interpolate_in_row(twa: float, known_angles: list[float], row: dict[float, float]) -> float:

@@ -45,6 +45,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
+from .http import USER_AGENT
 from .paths import contracts_dir, data_root
 from .providers import Mode, provider_mode
 from .route_sources import (
@@ -54,7 +55,9 @@ from .route_sources import (
     synthetic_observations_source_name,
     synthetic_stations,
 )
+from .timeutil import iso_z as _iso_z
 from .timeutil import parse_iso_utc
+from .units import MS_TO_KNOTS as KT_PER_MS
 
 SCHEMA_VERSION = 1
 SOURCE_NAME = synthetic_observations_source_name()
@@ -68,7 +71,6 @@ NDBC_URL_TEMPLATE = os.environ.get(
 )
 # Default route's source label; per-route lookups go through the registry.
 LIVE_SOURCE_NAME = live_observations_source_name()
-KT_PER_MS = 1.9438445
 
 # Real moorings on the route track, from config/route-sources.json (default
 # route). Legs beyond ~25 km of these stay 'not_independently_observed'.
@@ -91,10 +93,6 @@ def _station_hash(station_id: str) -> int:
     for ch in station_id:
         h = (h * 31 + ord(ch)) % 100003
     return h
-
-
-def _iso_z(dt: datetime) -> str:
-    return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _interp_hourly(series: Sequence[float], hours: float) -> float:
@@ -505,7 +503,7 @@ def fetch_live_qld_waves(
     source = observations_live_source(route_id)
     base_url = source.get("base_url", "https://www.data.qld.gov.au").rstrip("/")
     resource_id = source["resource_id"]
-    headers = {"User-Agent": "passage-deepregatta (davivasconcellos@gmail.com)"}
+    headers = {"User-Agent": USER_AGENT}
     start = parse_iso_utc(start_iso) - timedelta(minutes=WINDOW_SLACK_MIN)
     end = parse_iso_utc(end_iso) + timedelta(minutes=WINDOW_SLACK_MIN)
 

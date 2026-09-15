@@ -22,7 +22,7 @@ from typing import Dict, Optional
 
 import numpy as np
 
-MS_TO_KNOTS = 1.9438445
+from ..units import MS_TO_KNOTS
 
 RULE_ID = "R-MISTRAL-01"
 

@@ -33,11 +33,12 @@ import numpy as np
 from .ecmwf_open_data import fetch_fields, parse_cycle
 from .paths import contracts_dir, processed_dir
 from .synoptic import detect_systems, detect_mistral, render_panels, track_systems
+from .timeutil import iso_z as _iso_z
+from .units import MS_TO_KNOTS, mslp_hpa
 
 logger = logging.getLogger(__name__)
 
 SCHEMA_VERSION = 1
-MS_TO_KNOTS = 1.9438445
 RUN_ID_PREFIX = "ecmwf-ifs025"
 MODEL_NAME = "ECMWF IFS 0.25 deg (open data)"
 VALID_HOURS = 12  # next-but-one cycle supersedes this run
@@ -51,10 +52,6 @@ WIND_BOUNDS: Dict[str, float] = {
 }
 
 DEFAULT_PANEL_STEPS = (0, 24, 48, 72)
-
-
-def _iso_z(dt: datetime) -> str:
-    return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _validate(artifact: Dict[str, Any], schema_file: str) -> None:
@@ -72,10 +69,7 @@ def _write_json(path: Path, artifact: Dict[str, Any], schema_file: str) -> None:
 
 
 def _mslp_hpa(values: np.ndarray) -> np.ndarray:
-    values = np.asarray(values, dtype=float)
-    if np.nanmean(values) > 10000.0:  # tolerate Pa input
-        values = values / 100.0
-    return values
+    return mslp_hpa(np.asarray(values, dtype=float))
 
 
 def _build_features(
