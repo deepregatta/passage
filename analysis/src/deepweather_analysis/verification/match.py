@@ -15,12 +15,14 @@ accumulator never drops the sample size.
 from __future__ import annotations
 
 import json
-import math
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from ..geo import EARTH_RADIUS_KM as EARTH_RADIUS_KM
+from ..geo import haversine_km
 from ..paths import processed_dir
+from ..timeutil import iso_z as _iso_z
 from ..timeutil import parse_iso_utc
 
 SCHEMA_VERSION = 1
@@ -29,21 +31,6 @@ DEFAULT_MAX_KM = 25.0
 DEFAULT_MAX_MIN = 40.0
 NEAR_KM = 10.0
 NEAR_MIN = 20.0
-
-EARTH_RADIUS_KM = 6371.0
-
-
-def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """Great-circle distance in km."""
-    phi1, phi2 = math.radians(lat1), math.radians(lat2)
-    dphi = math.radians(lat2 - lat1)
-    dlmb = math.radians(lon2 - lon1)
-    a = math.sin(dphi / 2.0) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlmb / 2.0) ** 2
-    return 2.0 * EARTH_RADIUS_KM * math.asin(math.sqrt(a))
-
-
-def _iso_z(dt: datetime) -> str:
-    return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _nearest_station(

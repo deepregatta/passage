@@ -28,7 +28,9 @@ from . import environment_fetcher as fetcher
 from .environment_grid import EnvironmentGrid
 from .paths import contracts_dir, processed_dir
 from .route_sources import currents_bounds
+from .timeutil import iso_z as _iso_z
 from .timeutil import parse_iso_utc
+from .units import MS_TO_KNOTS
 
 logger = logging.getLogger(__name__)
 
@@ -40,12 +42,7 @@ CHANNEL_BOUNDS: Dict[str, float] = currents_bounds()
 
 TARGET_RESOLUTION_DEG = 0.05
 DEFAULT_WINDOW_HOURS = 120  # CMEMS IBI publishes ~5 days of forecast currents
-MS_TO_KNOTS = 1.9438445
 SCHEMA_VERSION = 1
-
-
-def _iso_z(dt: datetime) -> str:
-    return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _regular_axis(values: np.ndarray, name: str) -> tuple[float, float]:

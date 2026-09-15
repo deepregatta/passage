@@ -21,17 +21,18 @@ from __future__ import annotations
 
 import json
 import logging
-import math
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
 import numpy as np
 
+from ..geo import separation_deg as _sep_deg
 from ..paths import REPO_ROOT, processed_dir
 from ..synoptic import detect_mistral, detect_systems, track_systems
 from .era5 import fetch_era5_case, open_case_dataset
 from ..timeutil import parse_iso_utc
+from ..units import mslp_hpa
 
 logger = logging.getLogger(__name__)
 
@@ -71,14 +72,6 @@ def load_cases(case_ids: Optional[Sequence[str]] = None) -> List[Dict[str, Any]]
 # =============================================================================
 # Expectation evaluation (PURE — unit-testable without network/files)
 # =============================================================================
-
-
-def _sep_deg(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """Separation in degrees, longitude scaled by cos(mean lat) (track.py convention)."""
-    dlat = lat1 - lat2
-    coslat = math.cos(math.radians(0.5 * (lat1 + lat2)))
-    dlon = (lon1 - lon2) * coslat
-    return math.hypot(dlat, dlon)
 
 
 def evaluate_expectations(case: Dict[str, Any], detections: Dict[str, Any]) -> Dict[str, Any]:
@@ -247,9 +240,7 @@ def _detect_on_dataset(case: Dict[str, Any], ds: Any) -> Dict[str, Any]:
         if hours_from_start % STEP_H != 0:
             continue
 
-        msl = np.asarray(ds["msl"].isel(time=t_idx).values, dtype=float)
-        if np.nanmean(msl) > 10000.0:  # tolerate Pa (synoptic_prep convention)
-            msl = msl / 100.0
+        msl = mslp_hpa(np.asarray(ds["msl"].isel(time=t_idx).values, dtype=float))
         per_step.append(detect_systems(msl, lats, lons))
         step_hours.append(int(hours_from_start))
         if wants_regime:

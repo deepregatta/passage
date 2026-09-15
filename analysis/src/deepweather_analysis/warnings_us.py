@@ -17,17 +17,16 @@ events keep severity null but still surface as bulletins).
 
 from __future__ import annotations
 
-import re
 from datetime import datetime, timezone
 from typing import Any
 
 import requests
 
-from .timeutil import parse_iso_utc
+from .http import USER_AGENT as NWS_USER_AGENT
+from .textutil import slugify as _event_slug
+from .timeutil import optional_iso_utc as _iso_utc
 
 NWS_ALERTS_URL = "https://api.weather.gov/alerts/active"
-# api.weather.gov rejects requests without an identifying User-Agent
-NWS_USER_AGENT = "passage-deepregatta (davivasconcellos@gmail.com)"
 
 # NWS event name (lowercased prefix) -> our severity vocabulary, aligned with
 # the FR SEVERITY_WORDS scale (near-gale, gale, storm, violent-storm, hurricane).
@@ -52,16 +51,6 @@ def _severity(event: str) -> str | None:
 
 def _is_bulletin_event(event: str) -> bool:
     return event.lower().endswith(("warning", "advisory"))
-
-
-def _iso_utc(value: str | None) -> str | None:
-    if not value:
-        return None
-    return parse_iso_utc(value).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
-def _event_slug(event: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "-", event.lower()).strip("-")
 
 
 def parse_alerts(

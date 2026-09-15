@@ -22,6 +22,8 @@ from typing import Dict, List, Sequence
 
 import numpy as np
 
+from ..geo import separation_deg
+
 # 6 deg per 3 h step ~ 40 kt system motion.
 MAX_DISPLACEMENT_DEG_PER_3H = 6.0
 MIN_TRACK_STEPS = 2
@@ -30,10 +32,7 @@ NM_PER_DEG = 60.0
 
 def _sep_deg(a: Dict, b: Dict) -> float:
     """Separation in degrees, longitude scaled by cos(mean lat)."""
-    dlat = a["lat"] - b["lat"]
-    coslat = math.cos(math.radians(0.5 * (a["lat"] + b["lat"])))
-    dlon = (a["lon"] - b["lon"]) * coslat
-    return math.hypot(dlat, dlon)
+    return separation_deg(a["lat"], a["lon"], b["lat"], b["lon"])
 
 
 def _motion(p_prev: Dict, p_last: Dict, dt_h: float) -> Dict | None:

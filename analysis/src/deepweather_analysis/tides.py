@@ -46,6 +46,7 @@ import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from .http import USER_AGENT
 from .paths import contracts_dir, data_root, processed_dir
 from .providers import Mode, provider_mode
 from .route_sources import load_route_sources, tide_ports, tides_artifact_name, tides_live_source
@@ -266,7 +267,7 @@ def _fetch_port_qld_events(
 
     base_url = live_source.get("base_url", "https://www.data.qld.gov.au").rstrip("/")
     offset_hours = float(live_source.get("utc_offset_hours", 10))
-    headers = {"User-Agent": "passage-deepregatta (davivasconcellos@gmail.com)"}
+    headers = {"User-Agent": USER_AGENT}
 
     package = requests.get(
         f"{base_url}/api/3/action/package_show",

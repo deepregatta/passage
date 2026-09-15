@@ -26,6 +26,8 @@ matplotlib.use("Agg")  # headless-safe; no DISPLAY/font-cache surprises
 import matplotlib.pyplot as plt
 import numpy as np
 
+from ..units import mslp_hpa
+
 PAPER = "#F3EEE3"
 INK = "#16283E"
 RED = "#A63B2A"
@@ -265,9 +267,7 @@ def render_panels(
         if step_h not in available:
             continue
         sel = dataset.sel(step=step_h)
-        mslp = np.asarray(sel["msl"].values, dtype=float)
-        if np.nanmean(mslp) > 10000.0:  # tolerate Pa input
-            mslp = mslp / 100.0
+        mslp = mslp_hpa(np.asarray(sel["msl"].values, dtype=float))
 
         valid: Optional[datetime] = None
         if "valid_time" in sel.coords:

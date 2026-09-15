@@ -7,8 +7,8 @@ with cfgrib/xarray, cropped to the North Atlantic window 35-65N, 35W-10E,
 and cached as NetCDF under data/cache/ecmwf/<cycle>/fields.nc alongside a
 metadata.json (cycle, fetched_at, checksum, licence, publication lag).
 
-Cached dataset conventions (normalised at ingest so downstream code never
-unit-sniffs):
+Cached dataset conventions (normalised at ingest; downstream readers also
+tolerate legacy/external Pa fields via the shared conversion helper):
 - dims: step (int forecast hours), latitude (ascending), longitude
   (ascending, -180..180)
 - variables: msl in hPa (attrs units="hPa"), u10/v10 in m/s
@@ -20,7 +20,6 @@ without any request.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 from datetime import datetime, timezone
@@ -30,7 +29,10 @@ from typing import Any, Dict, Tuple
 import numpy as np
 import xarray as xr
 
+from .fileutil import compute_file_checksum
 from .paths import cache_dir
+from .timeutil import iso_z as _iso_z
+from .units import mslp_hpa
 
 logger = logging.getLogger(__name__)
 
@@ -61,10 +63,6 @@ DATASET_ID = "ifs-0.25-open-data"
 LICENCE = "CC-BY-4.0, source: ECMWF open data"
 
 
-def _iso_z(dt: datetime) -> str:
-    return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
 def cycle_str(cycle_time: datetime) -> str:
     """Canonical cycle label, e.g. '20260712T00Z'."""
     return cycle_time.astimezone(timezone.utc).strftime("%Y%m%dT%HZ")
@@ -79,15 +77,6 @@ def parse_cycle(cycle: str) -> datetime:
     if dt.hour not in (0, 6, 12, 18):
         raise ValueError(f"cycle hour must be 00/06/12/18: {cycle!r}")
     return dt.replace(tzinfo=timezone.utc)
-
-
-def compute_file_checksum(file_path: Path) -> str:
-    """SHA256 checksum, 'sha256:<hex>' (same convention as environment_fetcher)."""
-    sha256 = hashlib.sha256()
-    with open(file_path, "rb") as fh:
-        for chunk in iter(lambda: fh.read(1 << 20), b""):
-            sha256.update(chunk)
-    return f"sha256:{sha256.hexdigest()}"
 
 
 def _normalise_lonlat(ds: xr.Dataset) -> xr.Dataset:
@@ -139,9 +128,7 @@ def _decode_grib(grib_path: Path, cycle_time: datetime) -> xr.Dataset:
     )
 
     # Pa -> hPa once, at ingest.
-    msl = ds["msl"]
-    if float(np.nanmean(msl.values)) > 10000.0:
-        ds["msl"] = msl / 100.0
+    ds["msl"] = mslp_hpa(ds["msl"])
     ds["msl"].attrs = {"units": "hPa", "long_name": "mean sea level pressure"}
     ds["u10"].attrs = {"units": "m s-1", "long_name": "10 metre U wind component"}
     ds["v10"].attrs = {"units": "m s-1", "long_name": "10 metre V wind component"}

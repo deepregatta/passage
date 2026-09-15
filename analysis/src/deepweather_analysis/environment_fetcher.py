@@ -34,6 +34,9 @@ from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
 
+from .fileutil import check_xarray as _check_xarray
+from .fileutil import compute_file_checksum
+from .fileutil import open_nc_robust as _open_nc_robust
 from .paths import data_root
 from .timeutil import parse_iso_utc
 
@@ -151,15 +154,6 @@ class CurrentsMetadata:
 # =============================================================================
 
 
-def compute_file_checksum(file_path: Path) -> str:
-    """Compute SHA256 checksum of a file."""
-    sha256 = hashlib.sha256()
-    with open(file_path, "rb") as f:
-        for chunk in iter(lambda: f.read(8192), b""):
-            sha256.update(chunk)
-    return f"sha256:{sha256.hexdigest()}"
-
-
 def _cleanup_partial_file(file_path: Path, label: str) -> None:
     """Remove a partial/corrupt download so later runs do not reuse it."""
     if not file_path.exists():
@@ -271,16 +265,6 @@ def save_currents_metadata(metadata: CurrentsMetadata) -> Path:
     with open(meta_path, "w", encoding="utf-8") as f:
         json.dump(metadata.to_dict(), f, indent=2)
     return meta_path
-
-
-def _check_xarray() -> bool:
-    """Check if xarray is available."""
-    try:
-        import xarray  # noqa: F401
-
-        return True
-    except ImportError:
-        return False
 
 
 def _normalize_lon_span(min_lon: float, max_lon: float) -> float:
@@ -488,19 +472,6 @@ def _get_time_coord_name(ds: Any) -> Optional[str]:
         if candidate in ds.coords:
             return candidate
     return None
-
-
-def _open_nc_robust(path: Path) -> Any:
-    """Open a NetCDF/HDF5 file trying netcdf4 then h5netcdf engines."""
-    import xarray as xr
-
-    last_exc: Exception = RuntimeError("No engines available")
-    for engine in ("netcdf4", "h5netcdf"):
-        try:
-            return xr.open_dataset(path, engine=engine)
-        except Exception as exc:
-            last_exc = exc
-    raise last_exc
 
 
 def _validate_currents_file(path: Path, allow_daily: bool = False) -> tuple[bool, Optional[str]]:

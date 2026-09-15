@@ -32,6 +32,8 @@ from typing import Any, List, Optional, Tuple, TYPE_CHECKING
 
 import numpy as np
 
+from .fileutil import check_xarray as _check_xarray
+from .fileutil import open_nc_robust as _open_nc_robust
 from .paths import data_root
 
 if TYPE_CHECKING:
@@ -80,29 +82,6 @@ class CoastalFillMetrics:
 
 # Cache directory (same as environment_fetcher)
 CACHE_ROOT = data_root() / "cache" / "environment"
-
-
-def _open_nc_robust(path: "Path") -> Any:
-    """Open a NetCDF/HDF5 file trying netcdf4 then h5netcdf engines."""
-    import xarray as xr
-
-    last_exc: Exception = RuntimeError("No engines available")
-    for engine in ("netcdf4", "h5netcdf"):
-        try:
-            return xr.open_dataset(path, engine=engine)
-        except Exception as exc:
-            last_exc = exc
-    raise last_exc
-
-
-def _check_xarray() -> bool:
-    """Check if xarray is available."""
-    try:
-        import xarray  # noqa: F401
-
-        return True
-    except ImportError:
-        return False
 
 
 def _load_source_status(cache_dir: Path, source_key: str) -> Optional[str]:

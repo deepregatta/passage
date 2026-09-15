@@ -30,6 +30,7 @@ import json
 import os
 import re
 import unicodedata
+from collections.abc import Callable
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache
@@ -351,79 +352,70 @@ def _route_zones(kind: str) -> list[dict]:
     return out
 
 
+def _merge_warning_feed(
+    doc: dict,
+    fetch_bulletins: Callable[[list[dict]], tuple[list[dict], str]],
+    zone_kind: str,
+    label: str,
+    source_name: str,
+    *,
+    remove_note: str = "",
+) -> dict:
+    """Append one feed in place; preserve source order and degrade on fetch failure."""
+    try:
+        bulletins, note = fetch_bulletins(_route_zones(zone_kind))
+    except Exception as error:  # any feed failure must degrade, not crash
+        doc["feed_status"] = "parse-degraded"
+        doc["coverage_note"] = (
+            f"{doc.get('coverage_note', '')} {label} feed unavailable: {error}".strip()
+        )
+        return doc
+    doc["bulletins"].extend(bulletins)
+    doc["source"]["name"] = f"{doc['source'].get('name', '')} + {source_name}"
+    base_note = doc.get("coverage_note", "")
+    if remove_note:
+        base_note = base_note.replace(remove_note, "").strip()
+    doc["coverage_note"] = f"{base_note} {note}".strip()
+    return doc
+
+
 def _merge_uk_warnings(doc: dict) -> dict:
     """Append live UK gale bulletins (Met Office shipping forecast) to the FR doc."""
     from .warnings_uk import fetch_uk_gale_bulletins
 
-    try:
-        bulletins, uk_note = fetch_uk_gale_bulletins(_route_zones("uk_zones"))
-    except Exception as error:  # any feed failure must degrade, not crash
-        doc["feed_status"] = "parse-degraded"
-        doc["coverage_note"] = (
-            f"{doc.get('coverage_note', '')} UK feed unavailable: {error}".strip()
-        )
-        return doc
-    doc["bulletins"].extend(bulletins)
-    doc["source"]["name"] = f"{doc['source'].get('name', '')} + Met Office shipping forecast"
-    base_note = doc.get("coverage_note", "")
-    doc["coverage_note"] = (
-        f"{base_note.replace('UK shipping-forecast zones modeled but not fetched.', '').strip()} {uk_note}".strip()
+    return _merge_warning_feed(
+        doc,
+        fetch_uk_gale_bulletins,
+        "uk_zones",
+        "UK",
+        "Met Office shipping forecast",
+        remove_note="UK shipping-forecast zones modeled but not fetched.",
     )
-    return doc
 
 
 def _merge_us_warnings(doc: dict) -> dict:
     """Append live US bulletins (NWS api.weather.gov active alerts) to the doc."""
     from .warnings_us import fetch_us_bulletins
 
-    try:
-        bulletins, us_note = fetch_us_bulletins(_route_zones("us_zones"))
-    except Exception as error:  # any feed failure must degrade, not crash
-        doc["feed_status"] = "parse-degraded"
-        doc["coverage_note"] = (
-            f"{doc.get('coverage_note', '')} US feed unavailable: {error}".strip()
-        )
-        return doc
-    doc["bulletins"].extend(bulletins)
-    doc["source"]["name"] = f"{doc['source'].get('name', '')} + NWS active alerts"
-    doc["coverage_note"] = f"{doc.get('coverage_note', '')} {us_note}".strip()
-    return doc
+    return _merge_warning_feed(doc, fetch_us_bulletins, "us_zones", "US", "NWS active alerts")
 
 
 def _merge_meteoalarm_warnings(doc: dict) -> dict:
     """Append live European bulletins (Meteoalarm CAP aggregation) to the doc."""
     from .warnings_meteoalarm import fetch_meteoalarm_bulletins
 
-    try:
-        bulletins, note = fetch_meteoalarm_bulletins(_route_zones("meteoalarm_zones"))
-    except Exception as error:  # any feed failure must degrade, not crash
-        doc["feed_status"] = "parse-degraded"
-        doc["coverage_note"] = (
-            f"{doc.get('coverage_note', '')} Meteoalarm feed unavailable: {error}".strip()
-        )
-        return doc
-    doc["bulletins"].extend(bulletins)
-    doc["source"]["name"] = f"{doc['source'].get('name', '')} + Meteoalarm CAP"
-    doc["coverage_note"] = f"{doc.get('coverage_note', '')} {note}".strip()
-    return doc
+    return _merge_warning_feed(
+        doc, fetch_meteoalarm_bulletins, "meteoalarm_zones", "Meteoalarm", "Meteoalarm CAP"
+    )
 
 
 def _merge_au_warnings(doc: dict) -> dict:
     """Append live Australian bulletins (BOM marine wind warning summaries) to the doc."""
     from .warnings_au import fetch_au_bulletins
 
-    try:
-        bulletins, note = fetch_au_bulletins(_route_zones("au_zones"))
-    except Exception as error:  # any feed failure must degrade, not crash
-        doc["feed_status"] = "parse-degraded"
-        doc["coverage_note"] = (
-            f"{doc.get('coverage_note', '')} AU feed unavailable: {error}".strip()
-        )
-        return doc
-    doc["bulletins"].extend(bulletins)
-    doc["source"]["name"] = f"{doc['source'].get('name', '')} + BOM marine wind warnings"
-    doc["coverage_note"] = f"{doc.get('coverage_note', '')} {note}".strip()
-    return doc
+    return _merge_warning_feed(
+        doc, fetch_au_bulletins, "au_zones", "AU", "BOM marine wind warnings"
+    )
 
 
 def fetch_warnings(gale_zone: str | None = None, paste_file: str | None = None) -> Path:

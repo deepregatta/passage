@@ -24,7 +24,6 @@ observations but is not independent ground truth ('reanalysis-referenced').
 
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 import math
@@ -33,6 +32,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
+from ..fileutil import compute_file_checksum
+from ..fileutil import open_nc_robust as _open_nc_robust
 from ..paths import cache_dir
 from ..timeutil import parse_iso_utc
 
@@ -49,15 +50,6 @@ ERA5_RESOLUTION_DEG = 0.25
 ERA5T_AGE_DAYS = 90  # events younger than this get the preliminary tier
 
 WEATHER_MAX_REQUEST_POINTS = int(os.getenv("DEEPWEATHER_ERA5_MAX_REQUEST_POINTS", "20000000"))
-
-
-def compute_file_checksum(file_path: Path) -> str:
-    """Compute SHA256 checksum of a file."""
-    sha256 = hashlib.sha256()
-    with open(file_path, "rb") as f:
-        for chunk in iter(lambda: f.read(8192), b""):
-            sha256.update(chunk)
-    return f"sha256:{sha256.hexdigest()}"
 
 
 def _cleanup_partial_file(file_path: Path, label: str) -> None:
@@ -350,19 +342,6 @@ def fetch_era5_case(
     }
     _save_case_metadata(case_id, metadata)
     return metadata
-
-
-def _open_nc_robust(path: Path) -> Any:
-    """Open a NetCDF/HDF5 file trying netcdf4 then h5netcdf engines."""
-    import xarray as xr
-
-    last_exc: Exception = RuntimeError("No engines available")
-    for engine in ("netcdf4", "h5netcdf"):
-        try:
-            return xr.open_dataset(path, engine=engine)
-        except Exception as exc:
-            last_exc = exc
-    raise last_exc
 
 
 def open_case_dataset(case_id: str) -> Tuple[Any, Dict[str, Any]]:
