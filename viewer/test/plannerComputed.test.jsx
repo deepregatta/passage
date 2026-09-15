@@ -194,7 +194,11 @@ it('runs a queued automatic scan once after an active audit finishes, using the 
   await act(async () => finishAudit({ snapshotId: 'checked' }));
   await waitFor(() => expect(scanDepartures).toHaveBeenCalledOnce());
   expect(usePlanner.getState().autoScan).toBe(false);
-  expect(Date.parse(scanDepartures.mock.calls[0][1][0])).toBe(Date.parse(localDateTimeToIso(usePlanner.getState().departureLocal)));
+  // Scan slots round up to a six-hour UTC boundary, independent of local time.
+  const selectedMs = Date.parse(localDateTimeToIso(usePlanner.getState().departureLocal));
+  const firstCandidateMs = Date.parse(scanDepartures.mock.calls[0][1][0]);
+  expect(firstCandidateMs).toBeGreaterThanOrEqual(selectedMs);
+  expect(firstCandidateMs).toBeLessThan(selectedMs + 6 * 3600_000);
   act(() => usePlanner.getState().patch({ name: 'Updated passage' }));
   expect(scanDepartures).toHaveBeenCalledOnce();
 });
