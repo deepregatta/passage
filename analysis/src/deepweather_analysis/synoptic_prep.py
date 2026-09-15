@@ -31,6 +31,7 @@ from typing import Any, Dict, List, Optional, Sequence
 import numpy as np
 
 from .ecmwf_open_data import fetch_fields, parse_cycle
+from .latest import update_latest
 from .paths import contracts_dir, processed_dir
 from .synoptic import detect_systems, detect_mistral, render_panels, track_systems
 from .timeutil import iso_z as _iso_z
@@ -164,26 +165,6 @@ def _build_wind_grid(ds, run_id: str, meta: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _merge_latest(runs_dir: Path, run_id: str, new_artifacts: Dict[str, Any]) -> Dict[str, Any]:
-    """Read-modify-write latest.json; existing keys (current_grid!) survive."""
-    latest_path = runs_dir / "latest.json"
-    latest: Dict[str, Any] = {}
-    if latest_path.exists():
-        try:
-            latest = json.loads(latest_path.read_text())
-        except (json.JSONDecodeError, OSError):
-            logger.warning("latest.json unreadable; rebuilding it")
-            latest = {}
-    latest["run_id"] = run_id
-    artifacts = latest.get("artifacts")
-    if not isinstance(artifacts, dict):
-        artifacts = {}
-    artifacts.update(new_artifacts)
-    latest["artifacts"] = artifacts
-    latest_path.write_text(json.dumps(latest, indent=2) + "\n")
-    return latest
-
-
 def prepare_synoptic(
     cycle: str | None = None,
     *,
@@ -302,7 +283,7 @@ def prepare_synoptic(
     _write_json(run_dir / "run.json", manifest, "prepared-run.schema.json")
 
     # f) latest.json merge (current_grid and anything else untouched).
-    latest = _merge_latest(
+    latest = update_latest(
         processed_dir("runs"),
         run_id,
         {

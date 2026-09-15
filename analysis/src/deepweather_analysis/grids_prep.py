@@ -26,6 +26,7 @@ import numpy as np
 
 from . import environment_fetcher as fetcher
 from .environment_grid import EnvironmentGrid
+from .latest import update_latest
 from .paths import contracts_dir, processed_dir
 from .route_sources import currents_bounds
 from .timeutil import iso_z as _iso_z
@@ -159,21 +160,9 @@ def prepare_current_grid(
     artifact_path = run_dir / "current_grid.json"
     artifact_path.write_text(json.dumps(artifact, separators=(",", ":")) + "\n")
 
-    runs_dir = processed_dir("runs")
-    latest_path = runs_dir / "latest.json"
-    latest: Dict[str, Any] = {}
-    if latest_path.exists():
-        try:
-            latest = json.loads(latest_path.read_text())
-        except (json.JSONDecodeError, OSError):
-            latest = {}
-    latest["run_id"] = run_id
-    artifacts = latest.get("artifacts")
-    if not isinstance(artifacts, dict):
-        artifacts = {}
-    artifacts["current_grid"] = f"runs/{run_id}/current_grid.json"
-    latest["artifacts"] = artifacts
-    latest_path.write_text(json.dumps(latest, indent=2) + "\n")
+    update_latest(
+        processed_dir("runs"), run_id, {"current_grid": f"runs/{run_id}/current_grid.json"}
+    )
 
     logger.info("Published %s (latest.json updated)", artifact_path)
     return artifact_path

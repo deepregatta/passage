@@ -9,13 +9,13 @@ data/processed/runs/latest.json under artifacts.land_mask.
 from __future__ import annotations
 
 import json
-import time
 from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
 from global_land_mask import globe
 
+from .latest import update_latest
 from .paths import processed_dir
 
 __all__ = ["publish_land_mask", "CHANNEL_BOUNDS"]
@@ -76,41 +76,5 @@ def publish_land_mask(
     out_path = target_dir / _ARTIFACT_FILENAME
     out_path.write_text(json.dumps(artifact) + "\n", encoding="utf-8")
 
-    _register_artifact(target_dir, "land_mask", f"runs/{_ARTIFACT_FILENAME}")
+    update_latest(target_dir, None, {"land_mask": f"runs/{_ARTIFACT_FILENAME}"})
     return out_path
-
-
-def _read_latest(latest_path: Path) -> dict:
-    """Read latest.json, retrying briefly if a concurrent writer left it
-    mid-write. Never silently discards existing content."""
-    if not latest_path.exists():
-        return {}
-    last_error: Exception | None = None
-    for _ in range(5):
-        text = latest_path.read_text(encoding="utf-8")
-        if not text.strip():
-            return {}
-        try:
-            return json.loads(text)
-        except json.JSONDecodeError as exc:  # concurrent writer mid-write?
-            last_error = exc
-            time.sleep(0.1)
-    raise RuntimeError(
-        f"Could not parse {latest_path} after retries; refusing to overwrite it"
-    ) from last_error
-
-
-def _register_artifact(runs_dir: Path, key: str, rel_path: str) -> None:
-    """Read-modify-write latest.json, merging artifacts.<key> = rel_path.
-
-    Re-reads the file immediately before writing and preserves every existing
-    key (current_grid, synoptic entries, etc. may be added concurrently).
-    """
-    latest_path = runs_dir / "latest.json"
-    latest = _read_latest(latest_path)
-    artifacts = latest.get("artifacts")
-    if not isinstance(artifacts, dict):
-        artifacts = {}
-    artifacts[key] = rel_path
-    latest["artifacts"] = artifacts
-    latest_path.write_text(json.dumps(latest, indent=2) + "\n", encoding="utf-8")
