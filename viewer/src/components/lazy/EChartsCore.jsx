@@ -1,6 +1,6 @@
 // Use the ESM adapter: the CommonJS core entry has a nested default in Rolldown.
 import ReactEChartsCore from 'echarts-for-react/esm/core';
-import { init, dispose, getInstanceByDom, use } from 'echarts/core';
+import { init, dispose, getInstanceByDom, use as registerECharts } from 'echarts/core';
 import { LineChart } from 'echarts/charts';
 import {
   GridComponent,
@@ -14,7 +14,7 @@ import { SVGRenderer } from 'echarts/renderers';
 
 // Shared by the route timeline, ensemble plume, and model comparison.
 // Keep registration behind EChartsLazy so planner startup stays chart-free.
-use([
+registerECharts([
   LineChart,
   GridComponent,
   TooltipComponent,

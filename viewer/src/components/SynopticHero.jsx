@@ -73,7 +73,7 @@ function HeroCanvas({ findings, synoptic, route, frame, cursor, maxHours }) {
 }
 
 /** overlay drawn in the PNG's own pixel space so positions are geographically true */
-function Overlay({ w, xy, route, system, frame, event }) {
+function Overlay({ w, xy, route, system, frame }) {
   const routePoints = route.waypoints.map(xy).map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(' ');
   const track = system?.track ?? [];
   const trackPoints = track.map(xy).map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(' ');
@@ -115,7 +115,7 @@ function ChartCanvas({ url, projector, route, system, frame, event, zoomed, onBr
     <div style={{ transform: `scale(${scale})`, transformOrigin: `${originX}% ${originY}%`, transition: 'transform .35s ease' }}>
       <img src={url} alt={caption ?? 'Synoptic pressure chart'} className="w-full block" onError={onBroken} />
       <svg viewBox={`0 0 ${projector.w} ${projector.h}`} preserveAspectRatio="none" className="absolute inset-0 w-full h-full pointer-events-none" role="img" aria-label={`${event?.name ?? 'Synoptic'} track and route occupancy`}>
-        <Overlay w={projector.w} xy={projector.xy} route={route} system={system} frame={frame} event={event} />
+        <Overlay w={projector.w} xy={projector.xy} route={route} system={system} frame={frame} />
       </svg>
     </div>
     <Banner frame={frame} event={event} />
@@ -135,7 +135,7 @@ function SchematicCanvas({ route, system, frame, event }) {
     <svg viewBox="0 0 100 90" className="absolute inset-0 w-full h-full" role="img" aria-label={`${event?.name ?? 'Synoptic'} track and route occupancy`}>
       <defs><pattern id="sea-grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M10 0H0V10" fill="none" stroke="#52739e" strokeOpacity=".12" strokeWidth=".2"/></pattern></defs>
       <rect width="100" height="90" fill="url(#sea-grid)"/>
-      <Overlay w={100} xy={xy} route={route} system={system} frame={frame} event={event} />
+      <Overlay w={100} xy={xy} route={route} system={system} frame={frame} />
     </svg>
     <Banner frame={frame} event={event} />
     <StatusChip frame={frame} event={event} />

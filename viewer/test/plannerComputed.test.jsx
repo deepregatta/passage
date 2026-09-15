@@ -15,7 +15,7 @@ vi.mock('react-leaflet', () => ({
   Marker: ({ position, draggable, eventHandlers }) => <button aria-label={`Waypoint ${position.lat},${position.lng}`}
     disabled={!draggable} onClick={() => eventHandlers.dragend({ target: { getLatLng: () => ({ lat: 51, lng: -2 }) } })} />,
   Polyline: () => <div data-testid="route-line" />,
-  useMap: () => ({ fitBounds: mapEvents.fitBounds }),
+  useMap: () => mapEvents,
   useMapEvents: (events) => { mapEvents.click = events.click; },
 }));
 vi.mock('../src/components/BoatPicker.jsx', () => ({ default: ({ onSelect }) =>
@@ -127,7 +127,7 @@ it('preserves matching results on remount and rejects restored results with chan
   noSummary();
   view.unmount();
   usePlanner.setState({ computed: { ...result('2026-09-15T06:00:00Z') }, departureLocal: '2026-09-15T08:00' });
-  view = render(<Planner />);
+  render(<Planner />);
   noSummary();
   expect(saved).not.toBeNull();
 });
@@ -156,12 +156,15 @@ it('edits map points, carries endpoints between modes, and clears the draft', ()
   render(<Planner />);
   act(() => mapEvents.click({ latlng: { lat: 50.5, lng: -1.5 } }));
   act(() => mapEvents.click({ latlng: { lat: 50.6, lng: -1.4 } }));
+  expect(mapEvents.fitBounds).not.toHaveBeenCalled();
   expect(checkButton()).toBeEnabled();
   fireEvent.click(screen.getByRole('button', { name: 'Waypoint 50.6,-1.4' }));
   expect(usePlanner.getState().waypoints[1]).toEqual({ lat: 51, lng: -2 });
+  expect(mapEvents.fitBounds).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole('tab', { name: 'Compute a route' }));
   expect(usePlanner.getState().endpoints).toEqual(usePlanner.getState().waypoints);
   expect(mapEvents.fitBounds).toHaveBeenCalled();
+  expect(mapEvents.fitBounds.mock.lastCall[0].getNorthEast()).toMatchObject({ lat: 51, lng: -1.5 });
   act(() => mapEvents.click({ latlng: { lat: 49, lng: -3 } }));
   expect(usePlanner.getState().endpoints).toEqual([{ lat: 49, lng: -3 }]);
   expect(computeButton()).toBeDisabled();
@@ -175,6 +178,34 @@ it('edits map points, carries endpoints between modes, and clears the draft', ()
   expect(checkButton()).toBeDisabled();
   fireEvent.click(screen.getByRole('button', { name: 'clear', exact: true }));
   expect(usePlanner.getState()).toMatchObject({ waypoints: [], endpoints: [], computed: null });
+});
+
+it('runs a queued automatic scan once after an active audit finishes, using the latest departure', async () => {
+  usePlanner.setState({ mode: 'draw', waypoints: [{ lat: 50.5, lng: -1.5 }, { lat: 50.6, lng: -1.4 }] });
+  let finishAudit;
+  analyzeInBrowser.mockReturnValueOnce(new Promise(resolve => { finishAudit = resolve; }));
+  scanDepartures.mockResolvedValue({ candidates: [], best_index: null });
+  render(<Planner />);
+  fireEvent.click(checkButton());
+  await waitFor(() => expect(analyzeInBrowser).toHaveBeenCalledOnce());
+  act(() => usePlanner.getState().patch({ autoScan: true }));
+  changeDate('2026-09-16');
+  expect(scanDepartures).not.toHaveBeenCalled();
+  await act(async () => finishAudit({ snapshotId: 'checked' }));
+  await waitFor(() => expect(scanDepartures).toHaveBeenCalledOnce());
+  expect(usePlanner.getState().autoScan).toBe(false);
+  expect(Date.parse(scanDepartures.mock.calls[0][1][0])).toBe(Date.parse(localDateTimeToIso(usePlanner.getState().departureLocal)));
+  act(() => usePlanner.getState().patch({ name: 'Updated passage' }));
+  expect(scanDepartures).toHaveBeenCalledOnce();
+});
+
+it('fits a restored or newly computed route without recentering on unrelated renders', async () => {
+  render(<Planner />);
+  expect(mapEvents.fitBounds).toHaveBeenCalledOnce();
+  await compute();
+  expect(mapEvents.fitBounds).toHaveBeenCalledTimes(2);
+  act(() => usePlanner.getState().patch({ name: 'Renamed passage' }));
+  expect(mapEvents.fitBounds).toHaveBeenCalledTimes(2);
 });
 
 it('imports GPX into the draft and fits the imported route without running an audit', async () => {

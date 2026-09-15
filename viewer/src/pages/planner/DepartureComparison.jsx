@@ -63,7 +63,6 @@ export default function DepartureComparison({ scan, departureLocal, busy, disabl
     days.at(-1).cells.push({ ...c, index: i, hhmm: stamp.slice(-5) });
   }
   const best = scan.best_index !== null ? scan.candidates[scan.best_index] : null;
-  const baseline = scan.candidates[0];
   const allInsufficient = scan.candidates.every((c) => c.verdict === 'insufficient');
   const selectedDepartureMs = Date.parse(localDateTimeToIso(departureLocal));
 

@@ -20,6 +20,16 @@ import type {
 } from './types.js';
 
 type BundleName = 'forecast' | 'ensemble' | 'marine' | 'multimodel';
+type ForecastVariable =
+  | 'wind_speed_10m' | 'wind_gusts_10m' | 'wind_direction_10m'
+  | 'wave_height' | 'wave_period' | 'wave_direction'
+  | 'wind_wave_height' | 'wind_wave_period' | 'wind_wave_direction'
+  | 'swell_wave_height' | 'swell_wave_period' | 'swell_wave_direction'
+  | 'visibility' | 'cape' | 'temperature_2m' | 'dew_point_2m' | 'precipitation';
+type ScenarioHourly = { time?: string[] } & Partial<
+  Record<ForecastVariable | `${ForecastVariable}_${string}`, Array<number | null>>
+>;
+type ScenarioLocation = { hourly?: ScenarioHourly };
 
 export interface ScenarioBundleStoreOptions {
   /** returns the parsed bundle JSON, or null when the scenario lacks it */
@@ -42,8 +52,9 @@ function uniqueIndex(points: Array<{ lat: number; lon: number }>): number[] {
   });
 }
 
-function locations(bundle: unknown): any[] {
-  return Array.isArray(bundle) ? bundle : [bundle];
+function locations(bundle: unknown): ScenarioLocation[] {
+  // This fixture-only boundary reads the legacy generator's per-location shape.
+  return (Array.isArray(bundle) ? bundle : [bundle]) as ScenarioLocation[];
 }
 
 function normalizeTimes(times: string[]): string[] {
@@ -51,9 +62,9 @@ function normalizeTimes(times: string[]): string[] {
 }
 
 /** member series keys in stable order: base (control), then _member01.._memberNN */
-function memberKeys(hourly: Record<string, unknown>, base: string): string[] {
+function memberKeys(hourly: ScenarioHourly, base: ForecastVariable): Array<ForecastVariable | `${ForecastVariable}_member${string}`> {
   const members = Object.keys(hourly)
-    .filter((k) => k.startsWith(`${base}_member`))
+    .filter((k): k is `${ForecastVariable}_member${string}` => k.startsWith(`${base}_member`))
     .sort();
   return hourly[base] !== undefined ? [base, ...members] : members;
 }
@@ -229,7 +240,7 @@ export class ScenarioBundleStore implements ForecastStore {
     for (const model of models) {
       byModel[model] = uniqueIndex(points).map((idx, i) => {
         const hourly = locs[Math.min(idx, locs.length - 1)]?.hourly ?? {};
-        const series = (base: string) => hourly[`${base}_${model}`] ?? hourly[base] ?? [];
+        const series = (base: ForecastVariable) => hourly[`${base}_${model}`] ?? hourly[base] ?? [];
         return {
           lat: points[i]!.lat,
           lon: points[i]!.lon,

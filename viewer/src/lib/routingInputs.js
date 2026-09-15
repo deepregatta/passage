@@ -45,6 +45,7 @@ export async function loadRoutingInputs({
       error instanceof Error && /coastline|decompress/i.test(error.message)
         ? error.message
         : "Couldn't load the coastline data needed for safe routing",
+      { cause: error },
     );
   }
   const snappedStart = snapToSea(landMask, start);
