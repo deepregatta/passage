@@ -22,7 +22,6 @@ beforeEach(() => {
     route: null,
     loadError: null,
     loading: false,
-    inspectorEvidenceId: null,
     selectedEvidenceId: null,
     inspectorOpen: false,
     selectedLegId: null,

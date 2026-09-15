@@ -71,3 +71,8 @@ describe('coverage scanner regressions', () => {
     expect(identityEntries(samples, (text) => text)).toEqual({ 'a.jsx': ['Start'], 'b.jsx': ['A new untranslated diagnostic.'] });
   });
 });
+
+it('ignores intrinsic table scope while retaining custom scope copy', () => {
+  const samples = jsxLiterals('<table><tr><th scope="col">Heading</th><th scope="row">Row</th></tr></table>; <Panel scope="Visible copy" />', 'table.jsx');
+  expect(samples.map(({ text }) => text)).toEqual(['Heading', 'Row', 'Visible copy']);
+});

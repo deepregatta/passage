@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { runAnalysis, type AnalyzeResult } from '../src/analyze.js';
-import { scanDepartures, type ScanOptions } from '../src/window.js';
+import { candidateDepartures, scanDepartures, type ScanOptions } from '../src/window.js';
 import type { Evidence, Findings, Route } from '../src/types.js';
 
 vi.mock('../src/analyze.js', () => ({ runAnalysis: vi.fn() }));
@@ -72,4 +72,20 @@ it('retains maximum-limit and ensemble ranking semantics', async () => {
 it('returns an empty scan without invoking analysis for no departures', async () => {
   expect(await scanDepartures(base, [])).toEqual({ candidates: [], best_index: null, skipped: [] });
   expect(runAnalysis).not.toHaveBeenCalled();
+});
+
+it('rounds candidate departures upward on the UTC grid and includes the horizon boundary', () => {
+  expect(candidateDepartures(Date.parse('2026-07-20T05:00:00Z'), 13, 6)).toEqual([
+    '2026-07-20T06:00:00Z', '2026-07-20T12:00:00Z', '2026-07-20T18:00:00Z',
+  ]);
+  expect(candidateDepartures(Date.parse('2026-07-20T06:00:00Z'), 0, 6)).toEqual(['2026-07-20T06:00:00Z']);
+});
+
+it('ranks verdict severity before ratios and retains the first candidate on ties', async () => {
+  const worse = result(10), better = result(1);
+  better.findings.verdict.state = 'within';
+  vi.mocked(runAnalysis).mockResolvedValueOnce(worse).mockResolvedValueOnce(better).mockResolvedValueOnce(better);
+  const scan = await scanDepartures(base, departures);
+  expect(scan.candidates.map(candidate => candidate.worst_ratio)).toEqual([0.2, 2, 2]);
+  expect(scan.best_index).toBe(1);
 });
