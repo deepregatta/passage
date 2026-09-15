@@ -1,3 +1,4 @@
+import { palette } from '../lib/palette.js';
 import { useEffect, useMemo, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, Tooltip } from 'react-leaflet';
 import L from 'leaflet';
@@ -15,7 +16,7 @@ import { BASEMAP } from '../lib/basemap.js';
  * worst limit status, wind arrows at each leg midpoint, and tidal-gate marks.
  */
 
-const seaStyle = { height: '100%', width: '100%', background: '#CBDCE0' };
+const seaStyle = { height: '100%', width: '100%', background: palette.sea };
 
 function legWorstStatus(leg) {
   let worst = 'ok';
@@ -31,8 +32,8 @@ function legMarkerIcon(label, color, status) {
   const mark = status === 'exceeded' ? '×' : status === 'approaching' ? '!' : '·';
   return L.divIcon({
     className: '',
-    html: `<div style="width:22px;height:22px;border-radius:50%;background:${color};color:#F3EEE3;
-      border:2px solid #F3EEE3;box-shadow:0 0 0 1.5px ${color};font:600 11px system-ui;
+    html: `<div style="width:22px;height:22px;border-radius:50%;background:${color};color:${palette.paper.DEFAULT};
+      border:2px solid ${palette.paper.DEFAULT};box-shadow:0 0 0 1.5px ${color};font:600 11px system-ui;
       display:flex;align-items:center;justify-content:center;background-image:${status === 'exceeded' ? 'repeating-linear-gradient(135deg,transparent 0 3px,rgba(255,255,255,.32) 3px 5px)' : 'none'}" title="leg ${label}: ${status}">${label}${mark}</div>`,
     iconSize: [22, 22],
     iconAnchor: [11, 11],
@@ -46,10 +47,10 @@ function windArrowIcon(windFromDeg, windKt) {
     className: '',
     html: `<div style="display:flex;flex-direction:column;align-items:center;pointer-events:none">
       <svg width="30" height="30" viewBox="0 0 30 30" style="transform:rotate(${rotation}deg);opacity:.85">
-        <path d="M15 4 L15 24 M15 4 L10 11 M15 4 L20 11" stroke="#31445E" stroke-width="2.4"
+        <path d="M15 4 L15 24 M15 4 L10 11 M15 4 L20 11" stroke="${palette.wind}" stroke-width="2.4"
           fill="none" stroke-linecap="round"/>
       </svg>
-      <span style="font:600 9px ui-monospace,monospace;color:#31445E;background:#F3EEE3cc;
+      <span style="font:600 9px ui-monospace,monospace;color:${palette.wind};background:${palette.paper.DEFAULT}cc;
         padding:0 3px;border-radius:2px;margin-top:-4px">${Math.round(windKt)}kt</span>
     </div>`,
     iconSize: [30, 40],
@@ -66,7 +67,7 @@ function fieldArrowIcon(windFromDeg, windKt) {
     html: `<svg width="22" height="22" viewBox="0 0 22 22"
       style="transform:rotate(${rotation}deg);opacity:.5;pointer-events:none">
       <path d="M11 ${11 - len / 2} L11 ${11 + len / 2} M11 ${11 - len / 2} L8 ${11 - len / 2 + 4} M11 ${11 - len / 2} L14 ${11 - len / 2 + 4}"
-        stroke="#52739E" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+        stroke="${palette.wave}" stroke-width="1.6" fill="none" stroke-linecap="round"/>
     </svg>`,
     iconSize: [22, 22],
     iconAnchor: [11, 11],
@@ -79,8 +80,8 @@ function boatIcon(bearingDeg) {
     className: '',
     html: `<div style="pointer-events:none">
       <svg width="34" height="34" viewBox="0 0 34 34" style="transform:rotate(${Math.round(bearingDeg)}deg)">
-        <circle cx="17" cy="17" r="12.5" fill="#F3EEE3" fill-opacity=".25" stroke="#A87718" stroke-width="2"/>
-        <path d="M17 8 L22.5 24 L17 20.6 L11.5 24 Z" fill="#A87718" stroke="#F3EEE3" stroke-width="1.4"/>
+        <circle cx="17" cy="17" r="12.5" fill="${palette.paper.DEFAULT}" fill-opacity=".25" stroke="${palette.verdict.approaching}" stroke-width="2"/>
+        <path d="M17 8 L22.5 24 L17 20.6 L11.5 24 Z" fill="${palette.verdict.approaching}" stroke="${palette.paper.DEFAULT}" stroke-width="1.4"/>
       </svg>
     </div>`,
     iconSize: [34, 34],
@@ -89,11 +90,11 @@ function boatIcon(bearingDeg) {
 }
 
 function gateIcon(status) {
-  const color = status === 'conflict' ? '#A63B2A' : status === 'marginal' ? '#A87718' : '#2F6E4F';
+  const color = status === 'conflict' ? palette.verdict.exceeds : status === 'marginal' ? palette.verdict.approaching : palette.verdict.within;
   return L.divIcon({
     className: '',
     html: `<div style="width:16px;height:16px;background:${color};transform:rotate(45deg);
-      border:2px solid #F3EEE3;box-shadow:0 0 0 1px ${color}"></div>`,
+      border:2px solid ${palette.paper.DEFAULT};box-shadow:0 0 0 1px ${color}"></div>`,
     iconSize: [16, 16],
     iconAnchor: [8, 8],
   });
@@ -217,7 +218,7 @@ export default function RouteMap({ height = 420 }) {
         ))}
         <Polyline
           positions={positions}
-          pathOptions={{ color: '#16283E', weight: 2.5, dashArray: '1 7', lineCap: 'round' }}
+          pathOptions={{ color: palette.ink.DEFAULT, weight: 2.5, dashArray: '1 7', lineCap: 'round' }}
         />
         {findings.legs.map((leg, i) => {
           const status = legWorstStatus(leg);

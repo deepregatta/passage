@@ -1,3 +1,4 @@
+import { loadProfileDraft } from '../../lib/profileDraft.js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { deriveLegs, totalDistanceNm, parseGpx, computeRoute, scanDepartures, candidateDepartures } from '@deepweather/engine';
 import { track } from '../../lib/analytics.js';
@@ -5,7 +6,7 @@ import { localDateTimeToIso, toLocalDateTimeValue } from '../../lib/format.js';
 import { useApp } from '../../stores/appStore.js';
 import { usePlanner } from '../../stores/plannerStore.js';
 import { analyzeInBrowser, saveRoute } from '../../lib/browserAnalysis.js';
-import { loadRoutingInputs as loadLiveRoutingInputs } from '../../lib/routingInputs.js';
+import { FORECAST_HOURS, loadRoutingInputs as loadLiveRoutingInputs } from '../../lib/routingInputs.js';
 import { forecastStore } from '../../lib/forecastStore.js';
 
 // Persist the routing inputs with each result so restored drafts can be checked too.
@@ -184,8 +185,7 @@ export default function usePlannerController() {
     setError(null);
     setScan(null);
     try {
-      const profileDraft = localStorage.getItem('deepweather.profile-draft');
-      const profile = profileDraft ? JSON.parse(profileDraft) : profileDefaults;
+      const profile = loadProfileDraft(profileDefaults);
       const departures = candidateDepartures(Date.parse(departureUtc), 120, 6);
       // weather-dependent routing: in compute mode every candidate departure
       // gets its own route through its own wind field
@@ -208,7 +208,7 @@ export default function usePlannerController() {
       // the same immutable tile run and share the tile cache
       const scanEndMs = Math.min(
         Date.parse(departures[departures.length - 1]) + (scanPassageHours + 24) * 3600_000,
-        Date.now() + 10 * 24 * 3600_000, // deterministic tile horizon (240 h)
+        Date.now() + FORECAST_HOURS * 3600_000,
       );
       const dateWindow = {
         startDate: departures[0].slice(0, 10),
@@ -245,8 +245,7 @@ export default function usePlannerController() {
     setBusy('starting');
     setError(null);
     try {
-      const profileDraft = localStorage.getItem('deepweather.profile-draft');
-      const profile = profileDraft ? JSON.parse(profileDraft) : profileDefaults;
+      const profile = loadProfileDraft(profileDefaults);
       if (!profile) throw new Error('No limits profile available. Open My limits first.');
       if (!checkDepartureUtc) throw new Error('Enter a valid departure date and 24-hour time.');
       if (checkRoute.waypoints?.length < 2 || !checkRoute.waypoints?.every(wp => Number.isFinite(wp.lat) && Number.isFinite(wp.lon))) throw new Error('Specify at least two valid waypoints.');

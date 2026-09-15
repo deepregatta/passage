@@ -1,3 +1,4 @@
+import { palette } from '../../lib/palette.js';
 import { useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
@@ -7,7 +8,7 @@ import { BASEMAP } from '../../lib/basemap.js';
 // ink-navy waypoint dots instead of Leaflet's default blue pin
 const waypointIcon = L.divIcon({
   className: '',
-  html: '<div style="width:14px;height:14px;border-radius:50%;background:#16283E;border:2px solid #F3EEE3;box-shadow:0 0 0 1px #16283E"></div>',
+  html: `<div style="width:14px;height:14px;border-radius:50%;background:${palette.ink.DEFAULT};border:2px solid ${palette.paper.DEFAULT};box-shadow:0 0 0 1px ${palette.ink.DEFAULT}"></div>`,
   iconSize: [14, 14],
   iconAnchor: [7, 7],
 });
@@ -39,7 +40,7 @@ export default function PlannerMap({ mode, waypoints, computed, endpoints, fitNo
       <MapContainer
         center={[49.9, -3.0]}
         zoom={8}
-        style={{ height: '100%', width: '100%', background: '#DCE5E6' }}
+        style={{ height: '100%', width: '100%', background: palette.shoal }}
       >
         <TileLayer {...BASEMAP} />
         <TileLayer
@@ -74,14 +75,14 @@ export default function PlannerMap({ mode, waypoints, computed, endpoints, fitNo
             />
           ))}
         {mode === 'draw' && waypoints.length >= 2 && (
-          <Polyline positions={waypoints} pathOptions={{ color: '#16283E', weight: 2.5, dashArray: '6 4' }} />
+          <Polyline positions={waypoints} pathOptions={{ color: palette.ink.DEFAULT, weight: 2.5, dashArray: '6 4' }} />
         )}
         {mode === 'compute' &&
           endpoints.map((p, i) => <Marker key={`ep${i}`} position={p} icon={waypointIcon} />)}
         {mode === 'compute' && computed && (
           <Polyline
             positions={computed.route.waypoints.map((wp) => [wp.lat, wp.lon])}
-            pathOptions={{ color: '#2F6E4F', weight: 3 }}
+            pathOptions={{ color: palette.verdict.within, weight: 3 }}
           />
         )}
       </MapContainer>

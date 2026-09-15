@@ -21,7 +21,7 @@ vi.mock('react-leaflet', () => ({
 vi.mock('../src/components/BoatPicker.jsx', () => ({ default: ({ onSelect }) =>
   <button onClick={() => onSelect({ polar_id: 'other-boat', label: 'Other boat' })}>Other boat</button>,
 }));
-vi.mock('../src/lib/routingInputs.js', () => ({ loadRoutingInputs: vi.fn() }));
+vi.mock('../src/lib/routingInputs.js', async (original) => ({ ...await original(), loadRoutingInputs: vi.fn() }));
 vi.mock('../src/lib/browserAnalysis.js', () => ({ analyzeInBrowser: vi.fn(), saveRoute: vi.fn() }));
 vi.mock('../src/lib/analytics.js', () => ({ track: vi.fn() }));
 vi.mock('../src/lib/forecastStore.js', () => ({ forecastStore: () => ({}) }));
@@ -238,4 +238,39 @@ it('keeps partial departure times local to the field and restores the valid time
   expect(usePlanner.getState().departureLocal).toBe('2026-09-15T23:45');
   changeDate('2026-09-16');
   expect(usePlanner.getState().departureLocal).toBe('2026-09-16T23:45');
+});
+
+it.each(['audit', 'scan'])('passes the saved profile unchanged to %s', async (action) => {
+  const profile = { max_gust_kt: 19, retained_extension: { value: 7 } };
+  localStorage.setItem('deepweather.profile-draft', JSON.stringify(profile));
+  scanDepartures.mockResolvedValue({ candidates: [] });
+  render(<Planner />);
+  await compute();
+  fireEvent.click(action === 'audit' ? checkButton() : scanButton());
+  const operation = action === 'audit' ? analyzeInBrowser : scanDepartures;
+  await waitFor(() => expect(operation).toHaveBeenCalled());
+  expect(operation.mock.calls[0][0].profile).toEqual(profile);
+});
+
+it.each(['audit', 'scan'])('retains the %s error when profile storage is blocked', async (action) => {
+  render(<Planner />);
+  await compute();
+  vi.spyOn(Storage.prototype, 'getItem').mockImplementation((key) => {
+    if (key === 'deepweather.profile-draft') throw new Error('Profile storage blocked');
+    return null;
+  });
+  fireEvent.click(action === 'audit' ? checkButton() : scanButton());
+  expect(await screen.findByText('Profile storage blocked')).toBeVisible();
+  expect(analyzeInBrowser).not.toHaveBeenCalled();
+  expect(scanDepartures).not.toHaveBeenCalled();
+});
+
+it.each(['audit', 'scan'])('retains the %s error for malformed profile JSON', async (action) => {
+  localStorage.setItem('deepweather.profile-draft', '{broken');
+  render(<Planner />);
+  await compute();
+  fireEvent.click(action === 'audit' ? checkButton() : scanButton());
+  await waitFor(() => expect(screen.getByText(/JSON/)).toBeVisible());
+  expect(analyzeInBrowser).not.toHaveBeenCalled();
+  expect(scanDepartures).not.toHaveBeenCalled();
 });

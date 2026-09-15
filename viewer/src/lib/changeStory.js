@@ -1,19 +1,4 @@
-export const ruleLabels = {
-  'W-GUST-01': 'gusts',
-  'W-GUST-03': 'gust scenarios over your limit',
-  'W-SUST-01': 'wind',
-  'W-SUST-03': 'wind scenarios over your limit',
-  'A-WARN-01': 'marine warning',
-  'S-WAVE-01': 'wave-height limit',
-  'S-CROSS-01': 'cross-sea',
-  'S-STEEP-01': 'steep waves',
-  'S-WAS-01': 'wind against swell',
-  'T-WAC-01': 'wind against current',
-  'T-GATE-01': 'tidal gate',
-  'C-CAPE-01': 'thunderstorm potential',
-  'V-VIS-01': 'visibility',
-  'D-DIVERGE-01': 'model disagreement',
-};
+export { ruleLabels } from './ruleLabels.js';
 
 export const kindLabels = {
   verdict_changed: 'the verdict changed',

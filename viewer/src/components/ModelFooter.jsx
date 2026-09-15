@@ -1,3 +1,4 @@
+import { palette } from '../lib/palette.js';
 import { useApp } from '../stores/appStore.js';
 import { runAge } from '../lib/format.js';
 
@@ -41,8 +42,8 @@ export default function ModelFooter() {
         className="font-sans text-[12px] px-2 py-0.5 rounded-sm border"
         style={
           divergentHours > 0
-            ? { color: '#5A6B82', borderColor: '#5A6B82' }
-            : { color: '#2F6E4F', borderColor: '#2F6E4F' }
+            ? { color: palette.verdict.insufficient, borderColor: palette.verdict.insufficient }
+            : { color: palette.verdict.within, borderColor: palette.verdict.within }
         }
       >
         {divergentHours > 0

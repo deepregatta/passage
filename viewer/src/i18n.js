@@ -1,3 +1,4 @@
+import { ruleLabelTranslations, ruleSubjectTranslations } from './lib/ruleLabels.js';
 import { useLayoutEffect, useRef } from 'react';
 
 export const LANGUAGE_STORAGE_KEY = 'passage-language';
@@ -447,7 +448,6 @@ const FR = {
   'A weather front crosses your passage window': 'Un front traverse votre fenêtre de passage',
   'Why this assessment': 'Pourquoi cette évaluation',
   'Strongest': 'Conditions les plus fortes',
-  'wind': 'vent',
   'around': 'vers',
   'professional register': 'registre professionnel',
   'No analysis open.': 'Aucune analyse ouverte.',
@@ -530,7 +530,6 @@ const FR = {
   'veer': 'adonnante',
   'significant wave height': 'hauteur significative des vagues',
   'steepness': 'cambrure',
-  'tidal gate': 'porte de marée',
   'The same model run ~30 times with slightly different starting conditions (31 members for GEFS). The spread between members shows how uncertain the forecast is.': 'Le même modèle est exécuté environ 30 fois avec des conditions initiales légèrement différentes (31 membres pour GEFS). La dispersion entre les membres montre l’incertitude de la prévision.',
   'Your arrival time is a range, not an instant: computed for your slow, usual and fast boat speeds. Conditions are checked across the whole window.': 'Votre heure d’arrivée est une plage, pas un instant : elle est calculée pour les vitesses lente, habituelle et rapide de votre bateau. Les conditions sont vérifiées sur toute la fenêtre.',
   'Wind direction turning clockwise (e.g. SW → NW). Common behind a cold front.': 'Rotation du vent dans le sens horaire (p. ex. SO → NO). Fréquente derrière un front froid.',
@@ -572,17 +571,6 @@ const FR = {
   'material change': 'changement significatif',
   'previous ·': 'précédente ·',
   'latest ·': 'dernière ·',
-  'marine warning': 'alerte marine',
-  'wave-height limit': 'limite de hauteur de vagues',
-  'cross-sea': 'mer croisée',
-  'steep waves': 'vagues cambrées',
-  'wind against swell': 'vent contre houle',
-  'wind against current': 'vent contre courant',
-  'thunderstorm potential': 'potentiel orageux',
-  'visibility': 'visibilité',
-  'model disagreement': 'divergence des modèles',
-  'gust scenarios over your limit': 'scénarios de rafales au-dessus de votre limite',
-  'wind scenarios over your limit': 'scénarios de vent au-dessus de votre limite',
   'the verdict changed': 'le verdict a changé',
   'timing shifted': 'chronologie décalée',
   'strength changed': 'intensité modifiée',
@@ -833,27 +821,9 @@ function translateAttributionReason(reason) {
   }[reason] ?? reason;
 }
 
-// Change-ledger vocabulary (engine diff.ts RULE_LABEL + subject()).
-const FR_RULE_LABELS = {
-  'sustained wind vs your limit': 'vent moyen par rapport à votre limite',
-  'gusts vs your limit': 'rafales par rapport à votre limite',
-  'wind scenarios over your limit': 'scénarios de vent au-dessus de votre limite',
-  'gust scenarios over your limit': 'scénarios de rafales au-dessus de votre limite',
-  'wave height vs your limit': 'hauteur de vagues par rapport à votre limite',
-  'cross-sea': 'mer croisée',
-  'steep waves': 'vagues cambrées',
-  'wind against swell': 'vent contre houle',
-  'wind against current': 'vent contre courant',
-  'tidal gate fit': 'compatibilité de porte de marée',
-  'official marine warning': 'alerte marine officielle',
-  'model disagreement': 'divergence des modèles',
-  'thunderstorm potential': 'potentiel orageux',
-  'visibility': 'visibilité',
-};
-
 function translateChangePhrase(phrase) {
   let out = phrase;
-  for (const [en, fr] of Object.entries(FR_RULE_LABELS)) {
+  for (const [en, fr] of Object.entries(ruleSubjectTranslations)) {
     if (out.startsWith(en)) {
       out = fr + out.slice(en.length);
       break;
@@ -1213,7 +1183,7 @@ export function translateText(value, language) {
   const trailing = value.match(/\s*$/)?.[0] ?? '';
   const key = value.trim();
   if (!key) return value;
-  let translated = FR[key];
+  let translated = FR[key] ?? ruleLabelTranslations[key];
   if (!translated) {
     for (const [pattern, replacement, complete = false] of FR_PATTERNS) {
       if (pattern.test(key)) {
