@@ -5,11 +5,11 @@ The viewer resolves `runs/…` artifact paths against
 `${VITE_FORECAST_BASE_URL}/prepared/` in production (viewer/src/lib/preparedRun.js),
 so the object layout mirrors the local one exactly:
 
-    prepared/runs/<run_id>/…      immutable, 1y cache
+    prepared/runs/<run_id>/…      1y cache (forced regeneration may replace content)
     prepared/latest.json          5 min cache, uploaded LAST (publish marker)
 
 Only artifacts referenced by latest.json are uploaded. Old prepared runs are
-pruned, keeping the referenced ones plus the newest few so recently saved
+pruned per timestamped family, keeping referenced runs plus the newest few others so saved
 briefings keep their chart images for a while.
 
 Env: R2_ENDPOINT, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET.
@@ -17,10 +17,13 @@ Env: R2_ENDPOINT, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import mimetypes
 import os
+import re
 import sys
+from datetime import datetime
 from pathlib import Path
 
 import boto3
@@ -48,13 +51,43 @@ def artifact_paths(latest: dict) -> list[str]:
     return rels
 
 
+def prune_keys(existing: dict[str, str | None], referenced: set[str]) -> list[str]:
+    """Retain references and six unreferenced cycles per family; unknown IDs are safe."""
+    families: dict[str, list[tuple[datetime, str]]] = {}
+    run_keys: dict[str, list[str]] = {}
+    for key in existing:
+        # Direct files such as runs/land_mask.json are not run directories.
+        parts = key.removeprefix(f"{PREFIX}runs/").split("/", 1)
+        if len(parts) != 2 or not parts[1]:
+            continue
+        run_keys.setdefault(parts[0], []).append(key)
+    for run_id in run_keys:
+        if run_id in referenced:
+            continue
+        match = re.fullmatch(r"(.+)-(\d{8}T\d{2}Z)", run_id)
+        if match is None:
+            continue
+        family, stamp = match.groups()
+        try:
+            timestamp = datetime.strptime(stamp, "%Y%m%dT%HZ")
+        except ValueError:
+            continue
+        families.setdefault(family, []).append((timestamp, run_id))
+    doomed = []
+    for runs in families.values():
+        for _, run_id in sorted(runs, reverse=True)[KEEP_UNREFERENCED_RUNS:]:
+            doomed.extend(run_keys[run_id])
+    return sorted(doomed)
+
+
 def main() -> int:
     latest_path = RUNS_DIR / "latest.json"
     if not latest_path.exists():
         print("no data/processed/runs/latest.json — run prepare-run first", file=sys.stderr)
         return 1
-    latest = json.loads(latest_path.read_text())
-    rels = artifact_paths(latest)
+    latest_bytes = latest_path.read_bytes()
+    latest = json.loads(latest_bytes)
+    rels = list(dict.fromkeys(artifact_paths(latest)))
     missing = [rel for rel in rels if not (RUNS_DIR.parent / rel).exists()]
     if missing:
         # never publish a pointer to artifacts that are not all present
@@ -70,21 +103,26 @@ def main() -> int:
         region_name="auto",
     )
 
-    existing = set()
+    existing = {}
     paginator = s3.get_paginator("list_objects_v2")
     for page in paginator.paginate(Bucket=bucket, Prefix=f"{PREFIX}runs/"):
-        existing.update(obj["Key"] for obj in page.get("Contents", []))
+        existing.update({obj["Key"]: obj.get("ETag") for obj in page.get("Contents", [])})
 
     uploaded = 0
     for rel in rels:
         key = f"{PREFIX}{rel}"
-        if key in existing:
-            continue  # run artifacts are immutable once written
         file_path = RUNS_DIR.parent / rel
+        body = file_path.read_bytes()
+        # Single-part R2 PUTs have MD5 ETags. Multipart/unknown ETags never
+        # compare equal, so conservatively replace rather than skip stale data.
+        digest = hashlib.md5(body, usedforsecurity=False).hexdigest()
+        remote_etag = existing.get(key)
+        if remote_etag is not None and remote_etag.strip('"') == digest:
+            continue
         s3.put_object(
             Bucket=bucket,
             Key=key,
-            Body=file_path.read_bytes(),
+            Body=body,
             ContentType=content_type(file_path),
             CacheControl=IMMUTABLE,
         )
@@ -94,16 +132,14 @@ def main() -> int:
     s3.put_object(
         Bucket=bucket,
         Key=f"{PREFIX}latest.json",
-        Body=latest_path.read_bytes(),
+        Body=latest_bytes,
         ContentType="application/json",
         CacheControl=POINTER,
     )
 
-    # prune: keep runs referenced by latest.json plus the newest few others
+    # Only prune after all uploads and the validated pointer have succeeded.
     referenced = {rel.split("/")[1] for rel in rels if rel.startswith("runs/")}
-    run_ids = sorted({key.split("/")[2] for key in existing if key.count("/") >= 3}, reverse=True)
-    keep = referenced | set(run_ids[:KEEP_UNREFERENCED_RUNS])
-    doomed = [key for key in existing if key.split("/")[2] not in keep]
+    doomed = prune_keys(existing, referenced)
     for i in range(0, len(doomed), 1000):
         s3.delete_objects(
             Bucket=bucket,
@@ -111,7 +147,7 @@ def main() -> int:
         )
 
     print(
-        f"published run {latest.get('run_id')}: {uploaded} new objects, "
+        f"published run {latest.get('run_id')}: {uploaded} uploaded objects, "
         f"{len(doomed)} pruned, pointer {PREFIX}latest.json updated"
     )
     return 0
