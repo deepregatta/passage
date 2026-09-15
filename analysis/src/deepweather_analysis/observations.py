@@ -60,7 +60,6 @@ from .timeutil import parse_iso_utc
 from .units import MS_TO_KNOTS as KT_PER_MS
 
 SCHEMA_VERSION = 1
-SOURCE_NAME = synthetic_observations_source_name()
 RECORD_STEP_MIN = 10
 
 # --- live source: NDBC realtime2 mirror of Met Office GTS buoys -------------
@@ -69,22 +68,32 @@ NDBC_URL_TEMPLATE = os.environ.get(
     "DEEPWEATHER_NDBC_URL_TEMPLATE",
     "https://www.ndbc.noaa.gov/data/realtime2/{station_id}.txt",
 )
-# Default route's source label; per-route lookups go through the registry.
-LIVE_SOURCE_NAME = live_observations_source_name()
-
-# Real moorings on the route track, from config/route-sources.json (default
-# route). Legs beyond ~25 km of these stay 'not_independently_observed'.
-LIVE_STATIONS: tuple[Dict[str, Any], ...] = live_stations()
-
 # Keep records this far outside the requested window so the matcher's
 # nearest-in-time search (max 40 min) never starves at the edges.
 WINDOW_SLACK_MIN = 40
 
-# Fixed synthetic station set (default route's verification geometry).
-STATIONS: tuple[Dict[str, Any], ...] = synthetic_stations()
-
 # Fields a base_series may carry (per-station hourly truth-ish arrays).
 VARIABLES = ("wind_kt", "gust_kt", "wind_dir_deg", "pressure_hpa", "hs_m")
+
+
+# Types for the legacy aliases resolved lazily by __getattr__.
+SOURCE_NAME: str
+LIVE_SOURCE_NAME: str
+LIVE_STATIONS: tuple[Dict[str, Any], ...]
+STATIONS: tuple[Dict[str, Any], ...]
+
+
+def __getattr__(name: str):
+    """Keep default-route aliases available without reading the registry on import."""
+    lookups = {
+        "SOURCE_NAME": synthetic_observations_source_name,
+        "LIVE_SOURCE_NAME": live_observations_source_name,
+        "LIVE_STATIONS": live_stations,
+        "STATIONS": synthetic_stations,
+    }
+    if name in lookups:
+        return lookups[name]()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def _station_hash(station_id: str) -> int:

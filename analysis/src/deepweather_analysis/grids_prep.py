@@ -34,15 +34,20 @@ from .units import MS_TO_KNOTS
 
 logger = logging.getLogger(__name__)
 
-# Default route's corridor window from config/route-sources.json (Channel:
-# IBI covers it; outside every regional model the global GLO product — ~1/12
-# deg, hourly total surface currents — takes over). Kept under the historical name for
-# direct callers/tests; per-route lookups go through route_sources.currents_bounds.
-CHANNEL_BOUNDS: Dict[str, float] = currents_bounds()
-
 TARGET_RESOLUTION_DEG = 0.05
 DEFAULT_WINDOW_HOURS = 120  # CMEMS IBI publishes ~5 days of forecast currents
 SCHEMA_VERSION = 1
+
+
+# Types for the legacy aliases resolved lazily by __getattr__.
+CHANNEL_BOUNDS: Dict[str, float]
+
+
+def __getattr__(name: str):
+    """Resolve the historical default-corridor alias only on explicit access."""
+    if name == "CHANNEL_BOUNDS":
+        return currents_bounds()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def _regular_axis(values: np.ndarray, name: str) -> tuple[float, float]:

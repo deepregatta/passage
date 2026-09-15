@@ -70,15 +70,24 @@ OMEGA = {"M2": 28.9841042, "S2": 30.0, "N2": 28.4397295, "K1": 15.0410686, "O1":
 # Reference ports come from config/route-sources.json per route. SYNTHETIC
 # constituent amplitudes (m) / phases (deg) there are plausible for each
 # region's character (large semidiurnal, marked spring/neap) but are NOT
-# surveyed values. Z0 = mean level above chart datum. PORTS is the default
-# route's registry, kept for direct callers/tests.
-PORTS: dict[str, dict] = tide_ports()
+# surveyed values. Z0 = mean level above chart datum.
 
 EPOCH = datetime(2026, 1, 1, tzinfo=timezone.utc)
 
 
+# Types for the legacy aliases resolved lazily by __getattr__.
+PORTS: dict[str, dict]
+
+
+def __getattr__(name: str):
+    """Resolve the legacy default-port alias only when a caller requests it."""
+    if name == "PORTS":
+        return tide_ports()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
 def height_m(port_id: str, when: datetime, *, ports: dict[str, dict] | None = None) -> float:
-    port = (ports or PORTS)[port_id]
+    port = (ports or tide_ports())[port_id]
     hours = (when - EPOCH).total_seconds() / 3600.0
     h = port["z0"]
     for name, (amp, phase) in port["constituents"].items():
@@ -90,6 +99,7 @@ def hw_lw_events(
     port_id: str, start: datetime, end: datetime, *, ports: dict[str, dict] | None = None
 ) -> list[dict]:
     """HW/LW via derivative sign change on a 6-min grid + quadratic refinement."""
+    ports = ports or tide_ports()
 
     def _h(when: datetime) -> float:
         return height_m(port_id, when, ports=ports)

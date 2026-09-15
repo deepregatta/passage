@@ -17,9 +17,8 @@ def data_root() -> Path:
 
 
 def cache_dir(kind: str) -> Path:
-    path = data_root() / "cache" / kind
-    path.mkdir(parents=True, exist_ok=True)
-    return path
+    """Resolve a cache path without creating it; writers create their parents."""
+    return data_root() / "cache" / kind
 
 
 def processed_dir(*parts: str) -> Path:

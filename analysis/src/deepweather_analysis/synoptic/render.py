@@ -19,11 +19,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence
 
-import matplotlib
-
-matplotlib.use("Agg")  # headless-safe; no DISPLAY/font-cache surprises
-
-import matplotlib.pyplot as plt
 import numpy as np
 
 from ..units import mslp_hpa
@@ -255,6 +250,11 @@ def render_panels(
     Returns:
         list of {step_h, file, caption} (file = absolute path as str).
     """
+    # Import only when rendering, and attach a headless canvas directly so a
+    # host application keeps its backend and any open pyplot figures.
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
+    from matplotlib.figure import Figure
+
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -274,7 +274,9 @@ def render_panels(
             raw = np.datetime64(sel["valid_time"].values, "s").astype("int64")
             valid = datetime.fromtimestamp(int(raw), tz=timezone.utc)
 
-        fig, ax = plt.subplots(figsize=(FIG_W_PX / DPI, FIG_H_PX / DPI), dpi=DPI)
+        fig = Figure(figsize=(FIG_W_PX / DPI, FIG_H_PX / DPI), dpi=DPI)
+        FigureCanvasAgg(fig)
+        ax = fig.subplots()
         fig.patch.set_facecolor(PAPER)
         ax.set_facecolor(PAPER)
 
@@ -374,7 +376,6 @@ def render_panels(
 
         file_path = out_dir / f"t{step_h:03d}.png"
         fig.savefig(file_path, dpi=DPI, facecolor=PAPER)
-        plt.close(fig)
 
         results.append(
             {

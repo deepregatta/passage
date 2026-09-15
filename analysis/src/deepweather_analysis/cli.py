@@ -13,6 +13,7 @@ Preparation and verification subcommands:
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 
 from . import __version__
@@ -64,7 +65,7 @@ def cmd_fetch_warnings(args: argparse.Namespace) -> int:
     from .warnings_mf import fetch_warnings
 
     path = fetch_warnings(gale_zone=args.gale, paste_file=args.paste)
-    doc = __import__("json").loads(path.read_text())
+    doc = json.loads(path.read_text())
     print(f"wrote {path} — feed_status={doc['feed_status']}, bulletins={len(doc['bulletins'])}")
     return 0
 
@@ -73,8 +74,6 @@ def cmd_tides(args: argparse.Namespace) -> int:
     from .tides import prepare_tides
 
     path = prepare_tides(start_iso=args.start, hours=args.hours, route_id=args.route)
-    import json
-
     mode = json.loads(path.read_text())["source"]["mode"]
     print(f"wrote {path} (source mode: {mode})")
     return 0
@@ -93,7 +92,6 @@ def cmd_corpus(args: argparse.Namespace) -> int:
 
 
 def cmd_verify(args: argparse.Namespace) -> int:
-    import json
     from pathlib import Path
 
     from .observations import fetch_observations
