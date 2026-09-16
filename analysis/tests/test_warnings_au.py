@@ -85,3 +85,76 @@ def test_severity_scale_matches_fr_vocabulary():
     # unknown phenomena falls back to the severity attribute, then to null
     assert _severity("", "GALE") == "gale"
     assert _severity("Mystery Warning", "UNK") is None
+
+
+def test_ftp_retries_open_and_read_errors_then_preserves_bulletins(monkeypatch):
+    import io
+    import time
+    import urllib.error
+    from deepweather_analysis import warnings_au as au
+
+    calls, delays, responses = [], [], []
+
+    class BrokenRead(io.BytesIO):
+        def read(self):
+            raise ConnectionResetError("transfer interrupted")
+
+    def open_url(url, timeout):
+        calls.append((url, timeout))
+        if len(calls) == 1:
+            raise urllib.error.URLError("temporarily offline")
+        response = BrokenRead() if len(calls) == 2 else io.BytesIO(XML.encode())
+        responses.append(response)
+        return response
+
+    monkeypatch.setattr(au.urllib.request, "urlopen", open_url)
+    monkeypatch.setattr(time, "sleep", delays.append)
+    zones = [{**zone, "bom_product": "IDQ20085"} for zone in ROUTE_ZONES]
+    bulletins, note = au.fetch_au_bulletins(zones, now=NOW)
+    assert bulletins == parse_bom_mww(XML, ROUTE_ZONES, now=NOW)[0]
+    assert len(calls) == 3 and len(set(calls)) == 1
+    assert calls[0][1] == 60
+    assert delays == [1, 2]
+    assert all(response.closed for response in responses)
+    assert "IDQ20085" in note
+
+
+def test_exhausted_ftp_retries_degrade_merged_feed(monkeypatch):
+    import time
+    from deepweather_analysis import warnings_au as au, warnings_mf as mf
+
+    calls, delays = [], []
+
+    def fail(*args, **kwargs):
+        calls.append(args)
+        raise TimeoutError("FTP timeout")
+
+    monkeypatch.setattr(au.urllib.request, "urlopen", fail)
+    monkeypatch.setattr(time, "sleep", delays.append)
+    doc = mf.synthetic_doc("casquets")
+    result = mf._merge_au_warnings(doc)
+    assert len(calls) == 3
+    assert delays == [1, 2]
+    assert result["feed_status"] == "parse-degraded"
+    assert result["bulletins"][0]["zone_id"] == "casquets"
+    assert "FTP timeout" in result["coverage_note"]
+
+
+def test_malformed_xml_is_not_retried(monkeypatch):
+    import io
+    import time
+    import pytest
+    import xml.etree.ElementTree as ET
+    from deepweather_analysis import warnings_au as au
+
+    calls, delays = [], []
+
+    def open_url(*args, **kwargs):
+        calls.append(args)
+        return io.BytesIO(b"not XML")
+
+    monkeypatch.setattr(au.urllib.request, "urlopen", open_url)
+    monkeypatch.setattr(time, "sleep", delays.append)
+    with pytest.raises(ET.ParseError):
+        au.fetch_au_bulletins([{**ROUTE_ZONES[0], "bom_product": "IDQ20085"}], now=NOW)
+    assert len(calls) == 1 and delays == []

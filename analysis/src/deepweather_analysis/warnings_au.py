@@ -26,7 +26,10 @@ fetched, so offshore legs beyond coastal waters carry no BOM coverage here.
 
 from __future__ import annotations
 
+import ftplib
 import os
+import time
+import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
@@ -117,6 +120,25 @@ def parse_bom_mww(
     return bulletins, issue_time, cancelled
 
 
+def _fetch_product(url: str) -> str:
+    """Retry open/read transport failures three times, with 1s/2s backoff.
+
+    Decode/parse failures are not transient transport errors; let the caller's
+    existing unavailable-feed handling report them without repeat downloads.
+    """
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(url, timeout=60) as response:  # ftp:// by design
+                payload = response.read()
+        except (OSError, EOFError, urllib.error.URLError, ftplib.error_temp):
+            if attempt == 2:
+                raise
+            time.sleep(2**attempt)
+        else:
+            return payload.decode("utf-8")
+    raise AssertionError("unreachable")
+
+
 def fetch_au_bulletins(
     route_au_zones: list[dict], now: datetime | None = None
 ) -> tuple[list[dict], str]:
@@ -130,8 +152,7 @@ def fetch_au_bulletins(
     notes: list[str] = []
     for product_id, zones in sorted(products.items()):
         url = BOM_FTP_URL_TEMPLATE.format(product_id=product_id)
-        with urllib.request.urlopen(url, timeout=60) as response:  # ftp:// by design
-            xml_text = response.read().decode("utf-8")
+        xml_text = _fetch_product(url)
         product_bulletins, issue_time, cancelled = parse_bom_mww(xml_text, zones, now=now)
         bulletins.extend(product_bulletins)
         note = (

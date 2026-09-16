@@ -80,3 +80,18 @@ def test_severity_scale_matches_fr_vocabulary():
     assert _severity("Small Craft Advisory for Hazardous Seas") == "near-gale"
     assert _severity("Special Marine Warning") == "storm"
     assert _severity("Dense Fog Advisory") is None
+
+
+def test_only_actual_alerts_emit_bulletins():
+    from copy import deepcopy
+
+    for status in ("Test", "Exercise", "System", "Draft", None, "", "Unknown"):
+        doc = deepcopy(ALERTS)
+        doc["features"][0]["properties"]["status"] = status
+        bulletins, _ = parse_alerts(doc, ROUTE_ZONES)
+        assert bulletins == [], status
+    doc = deepcopy(ALERTS)
+    del doc["features"][0]["properties"]["status"]
+    assert parse_alerts(doc, ROUTE_ZONES)[0] == []
+    doc["features"].append(deepcopy(ALERTS["features"][0]))
+    assert parse_alerts(doc, ROUTE_ZONES)[0] == parse_alerts(ALERTS, ROUTE_ZONES)[0]
