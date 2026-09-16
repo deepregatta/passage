@@ -1,3 +1,4 @@
+import { preparedSynopticCoverage } from '../synopticCoverage.js';
 import { RULES } from './rules.js';
 import type { CapabilityCoverage, Evidence, WarningsInput } from '../types.js';
 
@@ -11,6 +12,7 @@ interface CoverageInputs {
   hasCurrents: boolean;
   hasTides: boolean;
   hasSynoptic: boolean;
+  synopticRunId?: string;
   currentDetail?: string | null;
 }
 
@@ -83,7 +85,7 @@ export function deriveCoverage(input: CoverageInputs): CapabilityCoverage[] {
             : 'official warning feed assessed for route zones',
       evidence_ids: warningIds,
     },
-    {
+    (input.hasSynoptic && preparedSynopticCoverage(input.synopticRunId)) || {
       capability: 'synoptic_attribution',
       status: input.hasSynoptic ? 'assessed' : 'not_assessed',
       detail: input.hasSynoptic

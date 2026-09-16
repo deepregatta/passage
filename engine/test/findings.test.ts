@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { renderBriefing } from '../src/briefing.js';
 import { assembleFindings, RULES, type AssembleOptions } from '../src/findings.js';
 import type { HazardPointForecast } from '../src/forecast/types.js';
 
@@ -138,4 +139,29 @@ describe('findings assembly compatibility', () => {
     }
     expect(findings.events.at(-1)?.refs).toEqual(['E23']);
   });
+});
+
+it.each([
+  ['Channel', 50, -2],
+  ['Mediterranean', 43, 7],
+  ['US', 40, -70],
+])('discloses fixed prepared-run coverage for a %s route', (_region, lat, lon) => {
+  const options = inputs();
+  options.route.waypoints = [{ id: 'a', lat, lon }, { id: 'b', lat: lat + 0.1, lon }];
+  options.synoptic = { run_id: 'ecmwf-ifs025-20260916T00Z', systems: [], regimes: [] };
+  const findings = assembleFindings(options);
+  expect(findings.coverage?.find(item => item.capability === 'synoptic_attribution'))
+    .toMatchObject({ status: 'partially_assessed', detail: expect.stringContaining('Channel-only prepared run') });
+  expect(findings.coverage?.find(item => item.capability === 'sustained_wind')?.status).toBe('assessed');
+  expect(renderBriefing(findings).sections.find(section => section.id === 'unsupported')?.register_pro)
+    .toContain('Channel-only prepared run');
+});
+
+it('does not label an absent run or a synthetic scenario as Channel-only preparation', () => {
+  const options = inputs();
+  expect(assembleFindings(options).coverage?.find(item => item.capability === 'synoptic_attribution'))
+    .toMatchObject({ status: 'not_assessed', detail: 'causal synoptic attribution (no prepared synoptic run)' });
+  options.synoptic = { run_id: 'synthetic-reference-demo', systems: [], regimes: [] };
+  expect(assembleFindings(options).coverage?.find(item => item.capability === 'synoptic_attribution'))
+    .toMatchObject({ status: 'assessed', detail: 'system tracks assessed against the route ETA envelope' });
 });

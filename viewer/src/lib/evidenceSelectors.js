@@ -1,3 +1,5 @@
+import { preparedSynopticCoverage } from '@deepweather/engine';
+
 const CAPABILITY_RULES = {
   sustained_wind: ['W-SUST-01', 'W-SUST-03'],
   gusts: ['W-GUST-01', 'W-GUST-03'],
@@ -8,7 +10,17 @@ const CAPABILITY_RULES = {
   official_warnings: ['A-WARN-01'],
 };
 
+// Apply known prepared-run limits on read; archived snapshot bytes stay immutable.
 export function deriveCoverage(findings) {
+  const coverage = recordedOrLegacyCoverage(findings);
+  const prepared = preparedSynopticCoverage(findings?.inputs?.synoptic_run_id);
+  if (!prepared) return coverage;
+  return { ...coverage, items: coverage.items.map((item) => item.capability === 'synoptic_attribution'
+    ? { ...item, detail: prepared.detail, status: item.status === 'assessed' ? prepared.status : item.status }
+    : item) };
+}
+
+function recordedOrLegacyCoverage(findings) {
   if (findings?.coverage?.length) return { items: findings.coverage, derived: false };
   const evidence = findings?.evidence ?? [];
   const ids = (capability) =>

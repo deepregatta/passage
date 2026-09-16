@@ -1,3 +1,4 @@
+import { CHANNEL_PREPARED_COVERAGE } from '@deepweather/engine';
 import clsx from 'clsx';
 import { EvidenceLink } from '../../components/common.jsx';
 import { deriveCoverage } from '../../lib/evidenceSelectors.js';
@@ -76,11 +77,12 @@ function CoverageMatrix({ findings }) {
       </div>
       <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
         {coverage.items.map((item) => (
-          <li key={item.capability} className="flex items-baseline justify-between gap-2 border-b hairline py-1 font-instrument text-[12px]">
+          <li key={item.capability} className="flex flex-wrap items-baseline justify-between gap-2 border-b hairline py-1 font-instrument text-[12px]">
             <span>{item.capability.replaceAll('_', ' ')}</span>
             <span className={clsx('font-mono text-[10px]', item.status === 'not_assessed' ? 'text-verdict-insufficient' : item.status === 'assessed_emulated' ? 'stamp-emulated' : 'text-verdict-within')}>
               {item.status.replaceAll('_', ' ')}
             </span>
+            {item.detail === CHANNEL_PREPARED_COVERAGE && <p className="basis-full text-ink-soft leading-relaxed">{item.detail}</p>}
           </li>
         ))}
       </ul>
