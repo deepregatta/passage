@@ -428,6 +428,11 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Done when: EN/FR Evidence charts fit a 390px viewport with explicit document-width assertions.
 - Status: todo · Commit: — · Notes: Existing mobile baseline is 1160px wide; preserve it until the intended responsive fix.
 
+### 3.10 French limit fragment boundary — noticed in 5.3
+- Files: viewer/src/i18n.js and relevant translation tests
+- Done when: English limit fragments translate without corrupting already-French limitée.
+- Status: todo · Commit: — · Notes:
+
 ## Phase 4 — structure (goldens byte-identical unless stated)
 
 ### 4.1 Shared engine formulas and thresholds — §7.3 engine list
@@ -474,7 +479,9 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Files: engine/src/{findings.ts,findings/coverage.ts,index.ts,synopticCoverage.ts}; engine/test/findings.test.ts; viewer/src/{components/ModelsUsed.jsx,pages/briefing/AssessmentDetails.jsx,lib/evidenceSelectors.js,i18n.js}; viewer/test/honesty.test.jsx
 - Status: done · Commit: `3c02dfd` · Notes: Clean pre-flight at `7b1c576`; previous 5.2 scope and full guardrails pass; start marker `5e2b8b5`. Selected explicit coverage disclosure: existing `ecmwf-ifs025-<cycle>` synoptic runs now record partially_assessed, fixed NE Atlantic bounds (35–65N, 35W–10E), Channel wind bounds (49–51N, 6W–0), and separate forecast-tile coverage. Both coverage views show the scope in EN/FR; read-time adaptation adds it to older snapshots without mutating them, preserving not_assessed/emulated states. Regression-first: 3 engine and 2 viewer failures before fix; tests cover Channel/Mediterranean/US routes, missing/synthetic/unrelated provenance, archived immutability, and generated French professional prose. Final `TZ=Europe/Paris npm test`: 293 engine + 409 viewer pass; Python pytest: 347 pass (10 existing NumPy warnings); Ruff check/format, npm lint, Pages build and diff/self-review pass. Demo fixtures and engine goldens unchanged. Viewer-demo browser QA: both coverage views, EN/FR, 1440px/390px; disclosure readable, document width equals viewport. Eight screenshots under `output/playwright/review-5.3/`; synthetic network-intercept witness for historical ECMWF provenance, not live provider verification. No phase gate. Prior cache finding triaged to 5.7; French fragment collision recorded below. No unrelated dirty work. Logs: `/tmp/passage53-*`. Next pipeline step: 5.4; first todo in file order: 3.9. Hosted [CI 35071368229](https://github.com/deepregatta/passage/actions/runs/35071368229) passed JavaScript and Python on `3c02dfd`.
 ### 5.4 Warnings feed robustness (ETag, output pruning, NWS status filter, FTP retry) — §4.1
-- Status: todo · Commit: — · Notes:
+- Files: analysis/src/deepweather_analysis/warnings_{mf,us,au}.py; analysis/tests/test_warnings_{mf,us,au}.py
+- Done when: BMS downloads use validated persistent ETag caching; timestamped warning outputs have bounded retention; only Actual NWS alerts emit bulletins; BOM transport failures retry with bounded backoff and still degrade after exhaustion.
+- Status: in progress · Commit: — · Notes: Clean pre-flight at `5b59920`; previous 5.3 scope and full guardrails pass (293 engine + 409 viewer; 347 Python; Ruff; demo byte-identity).
 ### 5.5 Observations and tides tolerance — P11, §4.1 tides bullets
 - Status: todo · Commit: — · Notes:
 ### 5.6 Verification and grid edge cases — P12, P13, P14, P16
@@ -540,7 +547,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 
 - [triaged] 5.2 — scripts/upload-prepared-run.py:34 — Reused artifact URLs retain one-year immutable cache headers; content replacement repairs R2 origin bytes but previously cached browser/CDN copies can remain stale. Follow up with versioned URLs or a deliberate cache-policy/migration strategy; no cache invalidation performed in 5.2. Assigned to 5.7.
 
-- 5.3 — viewer/src/i18n.js:1151 — Existing English fragment replacement `/\blimit\b/gi` also matches the start of French `limitée`, yielding `limiteée` when post-processing translated copy. Reproduced during new-copy translation tests; this step uses `Préparation pour la Manche uniquement`, leaving the general fragment behavior for a separate i18n fix.
+- [triaged] 5.3 — viewer/src/i18n.js:1151 — Existing English fragment replacement `/\blimit\b/gi` also matches the start of French `limitée`, yielding `limiteée` when post-processing translated copy. Reproduced during new-copy translation tests; this step uses `Préparation pour la Manche uniquement`, leaving the general fragment behavior for a separate i18n fix. Assigned to 3.10.
 
 ## Decisions
 (record design choices made in steps 1.5, 3.5, 5.3 here)
