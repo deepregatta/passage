@@ -93,7 +93,7 @@ def evaluate_expectations(case: Dict[str, Any], detections: Dict[str, Any]) -> D
     expectations = case.get("expectations") or {}
     kind = expectations.get("kind")
     per_step: Sequence[Sequence[Dict[str, Any]]] = detections.get("per_step") or []
-    step_hours: Sequence[int] = detections.get("step_hours") or list(range(len(per_step)))
+    step_hours: Sequence[float] = detections.get("step_hours") or list(range(len(per_step)))
     regimes: Sequence[Optional[Dict[str, Any]]] = detections.get("regimes") or []
 
     lows: List[Dict[str, Any]] = []
@@ -102,7 +102,7 @@ def evaluate_expectations(case: Dict[str, Any], detections: Dict[str, Any]) -> D
         for det in dets:
             any_system = True
             if det.get("kind") == "low":
-                lows.append({**det, "step_h": int(step_hours[step_idx])})
+                lows.append({**det, "step_h": step_hours[step_idx]})
 
     deepest_low = min(lows, key=lambda d: d["center_hpa"]) if lows else None
     checks: List[Dict[str, Any]] = []
@@ -227,7 +227,7 @@ def _detect_on_dataset(case: Dict[str, Any], ds: Any) -> Dict[str, Any]:
 
     per_step: List[List[Dict[str, Any]]] = []
     regimes: List[Optional[Dict[str, Any]]] = []
-    step_hours: List[int] = []
+    step_hours: List[float] = []
 
     for t_idx in range(times.size):
         t = datetime.fromtimestamp(
@@ -237,12 +237,16 @@ def _detect_on_dataset(case: Dict[str, Any], ds: Any) -> Dict[str, Any]:
         if t < start or t > end:
             continue
         hours_from_start = (t - start).total_seconds() / 3600.0
-        if hours_from_start % STEP_H != 0:
+        # ERA5 requests use a UTC 00/03/06/... cadence, independent of the
+        # case's start minute. Select it in integer minutes, retaining exact
+        # elapsed hours (including fractions) for detection/tracking output.
+        utc_minutes = round(t.timestamp() / 60)
+        if utc_minutes % (STEP_H * 60) != 0:
             continue
 
         msl = mslp_hpa(np.asarray(ds["msl"].isel(time=t_idx).values, dtype=float))
         per_step.append(detect_systems(msl, lats, lons))
-        step_hours.append(int(hours_from_start))
+        step_hours.append(hours_from_start)
         if wants_regime:
             regimes.append(
                 detect_mistral(

@@ -337,6 +337,29 @@ class EnvironmentGrid:
 
         return lat_coord, lon_coord, time_coord
 
+    def _coverage_mask(
+        self, ds: xr.Dataset, lats: np.ndarray, lons: np.ndarray, times: np.ndarray
+    ) -> np.ndarray:
+        """Inclusive native coordinate bounds; never extrapolate in space or time."""
+        lat_coord, lon_coord, time_coord = self._get_coord_names(ds)
+        time_values = np.asarray(ds[time_coord].values)
+        time_targets = (
+            self._to_datetime64ns(times)
+            if np.issubdtype(time_values.dtype, np.datetime64)
+            else np.asarray(times)
+        )
+        mask = np.ones(np.asarray(lats).shape, dtype=bool)
+        for values, targets in (
+            (np.asarray(ds[lat_coord].values), np.asarray(lats)),
+            (np.asarray(ds[lon_coord].values), np.asarray(lons)),
+            (time_values, time_targets),
+        ):
+            finite = values[np.isfinite(values)]
+            if not finite.size:
+                return np.zeros_like(mask)
+            mask &= np.isfinite(targets) & (targets >= finite.min()) & (targets <= finite.max())
+        return mask
+
     def _interpolate_variable_batch(
         self,
         ds: xr.Dataset,
@@ -344,6 +367,8 @@ class EnvironmentGrid:
         lats: np.ndarray,
         lons: np.ndarray,
         times: np.ndarray,
+        *,
+        nearest_only: bool = False,
     ) -> np.ndarray:
         """
         Interpolate a variable for multiple points (vectorized).
@@ -373,7 +398,7 @@ class EnvironmentGrid:
                     lons.shape,
                     times.shape,
                 )
-                return np.full_like(lats, np.nan)
+                return np.full_like(lats, np.nan, dtype=float)
 
             if INTERP_BATCH_SIZE > 0 and lats.size > INTERP_BATCH_SIZE:
                 output = np.full_like(lats, np.nan, dtype=float)
@@ -385,8 +410,16 @@ class EnvironmentGrid:
                         lats[start:end],
                         lons[start:end],
                         times[start:end],
+                        nearest_only=nearest_only,
                     )
                 return output
+
+            covered = self._coverage_mask(ds, lats, lons, times)
+
+            def bounded(values):
+                return np.where(
+                    covered, self._normalize_batch_result(values, lats, var_name), np.nan
+                )
 
             # Convert timestamps to datetime64[ns] for xarray (silences precision warnings)
             times_dt = self._to_datetime64ns(times)
@@ -404,7 +437,7 @@ class EnvironmentGrid:
             lon_da = xr.DataArray(lons, dims="point")
             time_da = xr.DataArray(times_dt, dims="point")
 
-            use_linear = os.getenv("DEEPWEATHER_INTERP_NEAREST_ONLY") != "1"
+            use_linear = not nearest_only and os.getenv("DEEPWEATHER_INTERP_NEAREST_ONLY") != "1"
 
             if use_linear:
                 try:
@@ -420,7 +453,7 @@ class EnvironmentGrid:
                     # raveled-grid value.
                     values = np.asarray(result.values)
                     if result.dims == ("point",) and values.shape == lats.shape:
-                        return self._normalize_batch_result(values, lats, var_name)
+                        return bounded(values)
                     # Broadcast grid or unexpected dims: fall back to nearest.
                 except (KeyError, ValueError, ImportError, TypeError):
                     # Fallback to nearest if linear fails (e.g. boundary issues)
@@ -445,17 +478,17 @@ class EnvironmentGrid:
                         time_coord: xr.DataArray(time_idx, dims="point"),
                     }
                 )
-                return self._normalize_batch_result(result.values, lats, var_name)
+                return bounded(result.values)
             except Exception:
                 result = var.sel(
                     {lat_coord: lat_da, lon_coord: lon_da, time_coord: time_da},
                     method="nearest",
                 )
-                return self._normalize_batch_result(result.values, lats, var_name)
+                return bounded(result.values)
 
         except Exception as e:
             logger.debug("Batch interpolation failed for %s: %s", var_name, e)
-            return np.full_like(lats, np.nan)
+            return np.full_like(lats, np.nan, dtype=float)
 
     @staticmethod
     def _normalize_batch_result(values: np.ndarray, lats: np.ndarray, var_name: str) -> np.ndarray:
@@ -471,7 +504,7 @@ class EnvironmentGrid:
             arr.shape,
             lats.shape,
         )
-        return np.full_like(lats, np.nan)
+        return np.full_like(lats, np.nan, dtype=float)
 
     @staticmethod
     def _nearest_indices(coord_values: np.ndarray, targets: np.ndarray) -> np.ndarray:
@@ -479,24 +512,24 @@ class EnvironmentGrid:
         targets_arr = np.asarray(targets)
         if values.size <= 1:
             return np.zeros_like(targets_arr, dtype=int)
-        ascending = values[0] < values[-1]
-        if not ascending:
-            values = values[::-1]
+        order = np.argsort(values, kind="stable")
+        values = values[order]
         idx = np.searchsorted(values, targets_arr, side="left")
         idx = np.clip(idx, 1, values.size - 1)
         left = values[idx - 1]
         right = values[idx]
         idx -= (targets_arr - left) <= (right - targets_arr)
-        if not ascending:
-            idx = values.size - 1 - idx
-        return idx.astype(int)
+        return order[idx].astype(int)
 
     @staticmethod
     def _to_datetime64ns(times: np.ndarray) -> np.ndarray:
         arr = np.asarray(times)
         if np.issubdtype(arr.dtype, np.datetime64):
             return arr.astype("datetime64[ns]")
-        return arr.astype("datetime64[s]").astype("datetime64[ns]")
+        result = np.full(arr.shape, np.datetime64("NaT", "ns"))
+        finite = np.isfinite(arr)
+        result[finite] = (arr[finite] * 1_000_000_000).astype("datetime64[ns]")
+        return result
 
     def get_current_batch(
         self, lats: np.ndarray, lons: np.ndarray, times: np.ndarray
@@ -513,10 +546,11 @@ class EnvironmentGrid:
             times: Array of timestamps (seconds since epoch)
 
         Returns:
-            Tuple (u_array, v_array) in m/s. NaNs only where beyond fill threshold.
+            Tuple (u_array, v_array) in m/s. NaNs outside space/time coverage
+            or where no usable wet cell lies within the fill threshold.
         """
         if not self.has_currents or self._currents_ds is None:
-            nan = np.full_like(lats, np.nan)
+            nan = np.full_like(lats, np.nan, dtype=float)
             return nan, nan
 
         uo = self._interpolate_variable_batch(self._currents_ds, "uo", lats, lons, times)
@@ -550,37 +584,11 @@ class EnvironmentGrid:
         Returns:
             Array of sampled values
         """
-        try:
-            import xarray as xr
-
-            if self._currents_ds is None:
-                return np.full(len(lats), np.nan)
-            lat_coord, lon_coord, time_coord = self._get_coord_names(self._currents_ds)
-
-            # Convert timestamps to datetime64[ns] for xarray (silences precision warnings)
-            times_dt = self._to_datetime64ns(times)
-
-            # Get variable
-            var = self._currents_ds[var_name]
-
-            # Check if depth dimension exists and select surface
-            if "depth" in var.dims:
-                var = var.isel(depth=0)
-
-            # Use pure nearest-neighbor selection (not interpolation)
-            lat_da = xr.DataArray(lats, dims="point")
-            lon_da = xr.DataArray(lons, dims="point")
-            time_da = xr.DataArray(times_dt, dims="point")
-
-            result = var.sel(
-                {lat_coord: lat_da, lon_coord: lon_da, time_coord: time_da},
-                method="nearest",
-            )
-            return result.values
-
-        except Exception as e:
-            logger.debug("Nearest sampling failed for %s: %s", var_name, e)
-            return np.full_like(lats, np.nan)
+        if self._currents_ds is None:
+            return np.full(len(lats), np.nan)
+        return self._interpolate_variable_batch(
+            self._currents_ds, var_name, lats, lons, times, nearest_only=True
+        )
 
     def _fill_coastal_gaps(
         self,
@@ -625,8 +633,12 @@ class EnvironmentGrid:
             self._coastal_fill_metrics.points_unfilled += int(np.count_nonzero(nan_mask))
             return uo, vo
 
-        # Get indices of NaN points
-        nan_indices = np.where(nan_mask)[0]
+        # Coastal fill can bridge masked cells, but cannot extend dataset coverage.
+        covered = self._coverage_mask(self._currents_ds, lats, lons, times)
+        self._coastal_fill_metrics.points_unfilled += int(np.count_nonzero(nan_mask & ~covered))
+        nan_indices = np.where(nan_mask & covered)[0]
+        if not nan_indices.size:
+            return uo, vo
 
         # Query KDTree for nearest wet cells
         query_lats = lats[nan_indices]

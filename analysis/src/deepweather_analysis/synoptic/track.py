@@ -47,7 +47,7 @@ def _motion(p_prev: Dict, p_last: Dict, dt_h: float) -> Dict | None:
     return {"dir_deg": round(dir_deg, 0), "speed_kt": round(speed_kt, 1)}
 
 
-def _deepening(points: List[Dict], step_hours: Sequence[int]) -> float | None:
+def _deepening(points: List[Dict], step_hours: Sequence[float]) -> float | None:
     """Linear central-pressure trend (hPa per 24 h), signed."""
     if len(points) < 2:
         return None
@@ -59,7 +59,7 @@ def _deepening(points: List[Dict], step_hours: Sequence[int]) -> float | None:
 
 def track_systems(
     per_step_detections: Sequence[Sequence[Dict]],
-    step_hours: Sequence[int],
+    step_hours: Sequence[float],
     *,
     max_displacement_deg_per_3h: float = MAX_DISPLACEMENT_DEG_PER_3H,
     min_track_steps: int = MIN_TRACK_STEPS,
@@ -138,7 +138,7 @@ def track_systems(
             points = tr["points"]
             track = [
                 {
-                    "step_h": int(step_hours[p["step_idx"]]),
+                    "step_h": step_hours[p["step_idx"]],
                     "lat": p["lat"],
                     "lon": p["lon"],
                     "center_hpa": p["center_hpa"],
