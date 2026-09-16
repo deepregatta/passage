@@ -205,9 +205,11 @@ def test_pressure_preserves_xarray_coordinates_dtype_and_input(dtype, scale):
         assert result is field
 
 
-def test_identifying_user_agent_reaches_all_three_provider_paths(monkeypatch):
+def test_identifying_user_agent_reaches_all_three_provider_paths(monkeypatch, tmp_path):
     import requests
 
+    # Exercise a cold tide download without populating the real persistent cache.
+    monkeypatch.setattr(tides, "data_root", lambda: tmp_path)
     fixtures = Path(__file__).parent / "fixtures"
     calls = []
 

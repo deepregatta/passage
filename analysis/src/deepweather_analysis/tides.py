@@ -39,10 +39,13 @@ a local quadratic fit.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import math
 import os
+import tempfile
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -63,6 +66,9 @@ PORT_BOX_HALF_DEG = 0.14
 COOPS_URL = os.environ.get(
     "DEEPWEATHER_COOPS_URL", "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
 )
+# Reuse the large annual prediction CSV for at most a day. Package metadata
+# is still read each call so a newly published resource ID takes effect at once.
+QLD_CACHE_MAX_AGE_SECONDS = 24 * 60 * 60
 
 # angular speeds, degrees per hour (standard values)
 OMEGA = {"M2": 28.9841042, "S2": 30.0, "N2": 28.4397295, "K1": 15.0410686, "O1": 13.9430356}
@@ -183,21 +189,27 @@ def _fetch_port_ssh_events(
         overwrite=True,
     )
     with xr.open_dataset(nc_path) as ds:
-        zos = ds["zos"]
-        wet = ~np.isnan(zos.isel(time=0).values)
-        if not wet.any():
-            raise RuntimeError(f"no wet cells within {PORT_BOX_HALF_DEG}° of {port_id}")
+        zos = ds["zos"].transpose("time", "latitude", "longitude")
+        # Select one complete series; never interpolate a missing extremum or
+        # splice different cells into a tide that the source did not predict.
+        finite = np.isfinite(zos.values)
+        complete = finite.all(axis=0)
+        if zos.sizes["time"] < 3 or not complete.any():
+            raise RuntimeError(f"no complete SSH cells within {PORT_BOX_HALF_DEG}° of {port_id}")
         lats = ds["latitude"].values
         lons = ds["longitude"].values
         cos_lat = math.cos(math.radians(port["lat"]))
         lat_grid, lon_grid = np.meshgrid(lats, lons, indexing="ij")
         dist2 = (lat_grid - port["lat"]) ** 2 + ((lon_grid - port["lon"]) * cos_lat) ** 2
-        dist2[~wet] = np.inf
+        nearest_wet = np.where(finite.any(axis=0), dist2, np.inf).argmin()
+        if not complete.flat[nearest_wet]:
+            logger.warning(
+                "SSH at %s: nearest wet cell incomplete; using nearest complete cell", port_id
+            )
+        dist2[~complete] = np.inf
         i, j = np.unravel_index(int(np.argmin(dist2)), dist2.shape)
         series = zos.values[:, i, j].astype(float)
         times_ms = ds["time"].values.astype("datetime64[ms]").astype(float).tolist()
-    if np.isnan(series).any():
-        raise RuntimeError(f"NaN in SSH series at {port_id}")
     # approximate chart-datum transfer: model SSH (~MSL) + port mean level above CD
     heights = [h + port["z0"] for h in series.tolist()]
     return _events_from_samples(times_ms, heights)
@@ -236,6 +248,8 @@ def _fetch_port_coops_events(port: dict, start: datetime, end: datetime) -> list
             "time_zone": "gmt",
             "station": port["coops_station"],
             "begin_date": start.strftime("%Y%m%d"),
+            # NOAA includes the full end day (api.tidesandcurrents.noaa.gov/api/prod/).
+            # The parser then keeps the exact inclusive UTC start/end instants.
             "end_date": end.strftime("%Y%m%d"),
             "format": "json",
         },
@@ -254,18 +268,71 @@ def _qld_events_from_csv(
 
     offset = timedelta(hours=utc_offset_hours)
     events = []
-    for row in csv_module.DictReader(io.StringIO(csv_text)):
+    reader = csv_module.DictReader(io.StringIO(csv_text))
+    if not {"Date", "Time", "Ind", "Reading"} <= set(reader.fieldnames or []):
+        raise ValueError("QLD predictions CSV missing required columns")
+    row_count = 0
+    for row in reader:
+        row_count += 1
         local = datetime.strptime(f"{row['Date']} {row['Time']}", "%d/%m/%Y %H:%M")
         t = local.replace(tzinfo=timezone.utc) - offset
+        # Validate the whole cached year, including rows outside this call's window.
+        kind = (row["Ind"] or "").strip()
+        height = float(row["Reading"] or "nan")
+        if kind not in ("1", "-1") or not math.isfinite(height):
+            raise ValueError(f"invalid QLD predictions CSV row {row_count}")
         if not start <= t <= end:
             continue
         events.append(
             {
-                "kind": "HW" if row["Ind"].strip() == "1" else "LW",
+                "kind": "HW" if kind == "1" else "LW",
                 "time": t.strftime("%Y-%m-%dT%H:%M:%SZ"),
-                "height_m": round(float(row["Reading"]), 2),
+                "height_m": round(height, 2),
             }
         )
+    if not row_count:
+        raise ValueError("QLD predictions CSV contains no predictions")
+    return events
+
+
+def _qld_year_events(
+    url: str, headers: dict, start: datetime, end: datetime, offset_hours: float
+) -> list[dict]:
+    """Cache a validated annual CSV by source URL; never fall back to stale bytes."""
+    import requests
+
+    path = (
+        data_root() / "cache" / "tides" / "qld" / f"{hashlib.sha256(url.encode()).hexdigest()}.json"
+    )
+    now = time.time()
+    try:
+        cached = json.loads(path.read_text(encoding="utf-8"))
+        if cached["url"] == url and 0 <= now - cached["fetched_at"] < QLD_CACHE_MAX_AGE_SECONDS:
+            return _qld_events_from_csv(cached["text"], start, end, offset_hours)
+    except (OSError, ValueError, TypeError, KeyError):
+        pass
+
+    response = requests.get(url, headers=headers, timeout=60)
+    response.raise_for_status()
+    # Parse before caching: error pages and malformed data must not poison later calls.
+    events = _qld_events_from_csv(response.text, start, end, offset_hours)
+    temporary_path = None
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=path.parent, delete=False
+        ) as f:
+            temporary_path = Path(f.name)
+            json.dump({"url": url, "fetched_at": now, "text": response.text}, f)
+        os.replace(temporary_path, path)
+    except OSError as exc:
+        logger.warning("QLD tide cache write failed: %s", exc)
+    finally:
+        if temporary_path is not None:
+            try:
+                temporary_path.unlink(missing_ok=True)
+            except OSError as exc:
+                logger.warning("QLD tide cache cleanup failed: %s", exc)
     return events
 
 
@@ -290,7 +357,7 @@ def _fetch_port_qld_events(
 
     # the window's local dates decide which yearly CSVs are needed
     offset = timedelta(hours=offset_hours)
-    years = sorted({(start + offset).year, (end + offset).year})
+    years = range((start + offset).year, (end + offset).year + 1)
     events: list[dict] = []
     for year in years:
         resource = next(
@@ -304,11 +371,11 @@ def _fetch_port_qld_events(
         )
         if resource is None:
             raise RuntimeError(f"no {year} predictions published for {port['qld_package']}")
-        dump = requests.get(
-            f"{base_url}/datastore/dump/{resource['id']}", headers=headers, timeout=60
+        events.extend(
+            _qld_year_events(
+                f"{base_url}/datastore/dump/{resource['id']}", headers, start, end, offset_hours
+            )
         )
-        dump.raise_for_status()
-        events.extend(_qld_events_from_csv(dump.text, start, end, offset_hours))
     return events
 
 
@@ -338,7 +405,7 @@ def _live_doc(
         )
         note = (
             f"HW/LW extracted from CMEMS model sea-surface height "
-            f"({dataset_id}) at the nearest wet cell to each reference "
+            f"({dataset_id}) at the nearest wet cell with a complete series for each reference "
             "port. Heights = model SSH + port mean level above chart datum "
             "(approximate datum transfer); use for gate timing, not clearances."
         )
@@ -366,6 +433,7 @@ def _synthetic_doc(
     end: datetime,
     route_ports: dict[str, dict],
     degraded_reason: str | None = None,
+    provider: str = "configured tide provider",
 ) -> dict:
     note = (
         "SYNTHETIC harmonic constituents — plausible regional character, not "
@@ -373,7 +441,7 @@ def _synthetic_doc(
         "(SHOM/UKHO/FES) is a data swap behind the same contract."
     )
     if degraded_reason:
-        note = f"live CMEMS fetch failed ({degraded_reason}); degraded to synthetic. " + note
+        note = f"live {provider} fetch failed ({degraded_reason}); degraded to synthetic. " + note
     return {
         "schema_version": 1,
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -405,11 +473,18 @@ def prepare_tides(
     route_ports = tide_ports(route_id)
 
     if provider_mode("tides") is Mode.LIVE:
+        provider = "configured tide provider"
         try:
-            doc = _live_doc(start, end, route_ports, tides_live_source(route_id))
+            live_source = tides_live_source(route_id)
+            provider = live_source.get("kind", provider)
+            doc = _live_doc(start, end, route_ports, live_source)
         except Exception as error:  # feed failure must degrade, not crash
-            logger.warning("live tides fetch failed, degrading to synthetic: %s", error)
-            doc = _synthetic_doc(start, end, route_ports, degraded_reason=str(error))
+            logger.warning(
+                "live %s tides fetch failed, degrading to synthetic: %s", provider, error
+            )
+            doc = _synthetic_doc(
+                start, end, route_ports, degraded_reason=str(error), provider=provider
+            )
     else:
         doc = _synthetic_doc(start, end, route_ports)
 
