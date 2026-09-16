@@ -1,3 +1,4 @@
+import { CHANNEL_PREPARED_COVERAGE } from '@deepweather/engine';
 import { ruleLabelTranslations, ruleSubjectTranslations } from './lib/ruleLabels.js';
 import { useLayoutEffect, useRef } from 'react';
 
@@ -34,6 +35,7 @@ export function getInitialLanguage() {
 // This catalogue deliberately uses the English copy as its key, which lets old
 // snapshots and lazy-loaded panels participate without changing their schemas.
 const FR = {
+  [CHANNEL_PREPARED_COVERAGE]: 'Préparation pour la Manche uniquement : domaine synoptique fixe sur l’Atlantique nord-est (35–65°N, 35°O–10°E) et grille de vent de la Manche (49–51°N, 6°O–0°). Ces domaines ne suivent pas votre route ; la couverture synoptique hors de la Manche n’est pas établie. La couverture des tuiles de prévision est distincte.',
   "Previous run": "Analyse précédente",
   "Latest run": "Dernière analyse",
   "forecast scenarios exceed your wind limit": "scénarios de prévision dépassent votre limite de vent",
@@ -1022,6 +1024,8 @@ function translateExceedanceClaim(claim) {
 
 function translateCapabilityList(value) {
   return value
+    .replaceAll(CHANNEL_PREPARED_COVERAGE, FR[CHANNEL_PREPARED_COVERAGE])
+    .replaceAll('synoptic_attribution', 'attribution synoptique')
     .replace(/causal synoptic attribution \(no prepared synoptic run\)/gi, 'attribution synoptique causale (aucune analyse synoptique préparée)')
     .replace(/official marine warnings \(no feed configured\)/gi, 'alertes marines officielles (aucun flux configuré)')
     .replace(/official marine warnings/gi, 'alertes marines officielles')

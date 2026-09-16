@@ -223,6 +223,7 @@ export function assembleFindings(options: AssembleOptions): Findings {
     hasCurrents: Boolean(grid),
     hasTides: Boolean(options.tides && options.gates),
     hasSynoptic: Boolean(options.synoptic),
+    synopticRunId: options.synoptic?.run_id,
     currentDetail: grid?.under_resolved_note,
   });
 

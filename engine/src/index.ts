@@ -6,6 +6,8 @@
  * routing grids can also be assembled live in the browser.
  */
 
+export { preparedSynopticCoverage, CHANNEL_PREPARED_COVERAGE } from './synopticCoverage.js';
+
 export { ENGINE_VERSION } from './version.js';
 
 export { runAnalysis, persistSnapshot } from './analyze.js';

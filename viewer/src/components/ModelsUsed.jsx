@@ -1,3 +1,5 @@
+import { CHANNEL_PREPARED_COVERAGE } from '@deepweather/engine';
+import { deriveCoverage } from '../lib/evidenceSelectors.js';
 import { useApp } from '../stores/appStore.js';
 import { fmtLocalTime, localTimeZoneName } from '../lib/format.js';
 
@@ -12,7 +14,7 @@ const SOURCES = { tiles: 'Forecast tiles', fixture: 'Fixture data', synthetic: '
 export default function ModelsUsed() {
   const findings = useApp((s) => s.findings);
   const inputs = findings?.inputs?.forecast_tiles ?? [];
-  const coverage = findings?.coverage ?? [];
+  const coverage = findings?.coverage?.length ? deriveCoverage(findings).items : [];
   return (
     <details className="mt-6 border-t border-ink/40 pt-3">
       <summary className="font-instrument font-semibold uppercase tracking-wider cursor-pointer">Models and coverage</summary>
@@ -44,6 +46,7 @@ export default function ModelsUsed() {
                 <li key={item.capability} className="flex flex-wrap justify-between gap-x-3 gap-y-1 border-b hairline py-1">
                   <span>{item.capability.replaceAll('_', ' ')}</span>
                   <span className={item.status === 'assessed_emulated' ? 'stamp-emulated' : 'text-ink-soft'}>{item.status.replaceAll('_', ' ')}</span>
+                  {item.detail === CHANNEL_PREPARED_COVERAGE && <p className="basis-full text-ink-soft leading-relaxed">{item.detail}</p>}
                 </li>
               ))}</ul> : <p>Coverage records unavailable for this briefing.</p>}
             </section>

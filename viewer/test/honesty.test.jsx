@@ -9,6 +9,8 @@ import Briefing from '../src/pages/Briefing.jsx';
 import { useApp } from '../src/stores/appStore.js';
 import { usePlayback } from '../src/stores/playbackStore.js';
 import { translateText } from '../src/i18n.js';
+import { deriveCoverage } from '../src/lib/evidenceSelectors.js';
+import { renderBriefing } from '@deepweather/engine';
 
 vi.mock('react-leaflet', () => ({
   MapContainer: ({ children }) => <div>{children}</div>, TileLayer: () => null,
@@ -104,4 +106,53 @@ it('translates the new disclosure copy and recorded fields into French', () => {
   for (const [english, french] of Object.entries(translations)) {
     expect(translateText(english, 'fr')).toBe(french);
   }
+});
+
+it.each(['planner', 'briefing'])('discloses fixed prepared windows in archived %s coverage without changing the snapshot', (page) => {
+  findings.inputs.synoptic_run_id = 'ecmwf-ifs025-20260916T00Z';
+  const before = structuredClone(findings);
+  render(page === 'planner' ? <Planner /> : <Briefing />);
+  if (page === 'planner') fireEvent.click(screen.getByText('Models and coverage'));
+  else fireEvent.click(screen.getByRole('button', { name: 'Why this assessment' }));
+  const coverage = screen.getByRole('region', { name: page === 'planner' ? 'Recorded coverage' : 'Capability coverage' });
+  const synoptic = within(coverage).getByText('synoptic attribution').closest('li');
+  expect(synoptic).toHaveTextContent('partially assessed');
+  expect(synoptic).toHaveTextContent('Channel-only prepared run');
+  expect(synoptic).toHaveTextContent('35–65°N, 35°W–10°E');
+  expect(synoptic).toHaveTextContent('49–51°N, 6°W–0°');
+  expect(synoptic).toHaveTextContent('Forecast-tile coverage is separate');
+  const detail = within(synoptic).getByText(/Channel-only prepared run/).textContent;
+  expect(translateText(detail, 'fr')).toContain('Préparation pour la Manche uniquement');
+  expect(translateText(`Partial capability coverage: synoptic_attribution (${detail}).`, 'fr'))
+    .not.toMatch(/Channel-only|Forecast-tile|synoptic_attribution/);
+  expect(findings).toEqual(before);
+});
+
+it('does not label a demo or a briefing without synoptic provenance as a Channel-only prepared run', () => {
+  render(<Planner />);
+  expect(screen.queryByText(/Channel-only prepared run/)).toBeNull();
+});
+
+// Regional context cannot upgrade a previously unknown or emulated assessment.
+it.each(['not_assessed', 'assessed_emulated'])('preserves archived %s synoptic status when adding the scope', (status) => {
+  findings.inputs.synoptic_run_id = 'ecmwf-ifs025-20260916T00Z';
+  findings.coverage.find(item => item.capability === 'synoptic_attribution').status = status;
+  expect(deriveCoverage(findings).items.find(item => item.capability === 'synoptic_attribution'))
+    .toMatchObject({ status, detail: expect.stringContaining('Channel-only prepared run') });
+});
+
+it('uses synoptic provenance, never a current-grid or forecast-tile run id, to identify prepared scope', () => {
+  delete findings.inputs.synoptic_run_id;
+  findings.inputs.prepared_run_id = 'ecmwf-ifs025-20260916T00Z';
+  expect(deriveCoverage(findings).items).toEqual(findings.coverage);
+});
+
+it('translates the generated professional coverage paragraph with the new scope', () => {
+  findings.inputs.synoptic_run_id = 'ecmwf-ifs025-20260916T00Z';
+  findings.coverage = deriveCoverage(findings).items;
+  const paragraph = renderBriefing(findings).sections.find(section => section.id === 'unsupported').register_pro;
+  expect(paragraph).toContain('Channel-only prepared run');
+  const french = translateText(paragraph, 'fr');
+  expect(french).toContain('Préparation pour la Manche uniquement');
+  expect(french).not.toMatch(/Channel-only|Forecast-tile|synoptic_attribution|These windows/);
 });
