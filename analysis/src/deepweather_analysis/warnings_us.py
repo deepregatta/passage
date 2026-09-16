@@ -6,7 +6,9 @@ forecast zone, free, tokenless, structured JSON — no scraping and no sync lag.
 Route zones live in config/route-zones.json as us_zones entries whose nws_zone
 is the NWS UGC code (e.g. ANZ237 Block Island Sound).
 
-Bulletin policy: an alert becomes a bulletin only when its event name ends in
+Bulletin policy: only status Actual is eligible; test/exercise/system/draft
+and missing or unknown statuses never become authority warnings. An alert
+becomes a bulletin only when its event name ends in
 "Warning" or "Advisory" (Small Craft Advisory, Gale/Storm/Hurricane Force Wind
 Warning, Special Marine Warning, ...). Watches and Statements are counted in
 the coverage note but are NOT emitted — the engine treats any bulletin as an
@@ -63,6 +65,8 @@ def parse_alerts(
     skipped_events: list[str] = []
     for feature in alerts_doc.get("features", []):
         props = feature.get("properties", {})
+        if props.get("status") != "Actual":
+            continue
         event = props.get("event", "")
         ugc_codes = props.get("geocode", {}).get("UGC", [])
         matched = [zones_by_ugc[code] for code in ugc_codes if code in zones_by_ugc]

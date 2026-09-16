@@ -25,10 +25,12 @@ from __future__ import annotations
 
 import csv
 import gzip
+import hashlib
 import io
 import json
 import os
 import re
+import tempfile
 import unicodedata
 from collections.abc import Callable
 from copy import deepcopy
@@ -38,7 +40,7 @@ from pathlib import Path
 
 import requests
 
-from .paths import config_dir, contracts_dir, processed_dir
+from .paths import cache_dir, config_dir, contracts_dir, processed_dir
 from .providers import Mode, provider_mode
 from .route_sources import fr_broadcast_areas
 from .timeutil import parse_iso_utc
@@ -234,6 +236,69 @@ def _severity(norm_text: str) -> str | None:
     return None
 
 
+def _csv_rows(text: str) -> list[dict]:
+    reader = csv.DictReader(io.StringIO(text), delimiter=";", strict=True)
+    missing = BMS_COLUMNS - set(reader.fieldnames or [])
+    if missing:
+        raise ValueError(f"BMS CSV missing columns: {', '.join(sorted(missing))}")
+    return list(reader)
+
+
+def _fetch_bms_rows(url: str) -> list[dict]:
+    """Revalidate a persistent, URL-specific source cache on every call.
+
+    Cache the source, not bulletins: route selection and expiry must run again
+    even on HTTP 304. Never serve cached data after a network/server failure.
+    The ETag and CSV share one atomic file so interrupted/concurrent writers
+    cannot pair an old body with a new validator. Cache I/O is best-effort.
+    """
+    path = cache_dir("warnings-mf") / f"{hashlib.sha256(url.encode()).hexdigest()}.json"
+    cached_rows = None
+    headers = {}
+    try:
+        cached = json.loads(path.read_text(encoding="utf-8"))
+        if (
+            isinstance(cached, dict)
+            and cached.get("url") == url
+            and isinstance(cached.get("etag"), str)
+            and cached["etag"]
+            and isinstance(cached.get("text"), str)
+        ):
+            cached_rows = _csv_rows(cached["text"])
+            headers["If-None-Match"] = cached["etag"]
+    except (OSError, ValueError, csv.Error):
+        pass  # missing/corrupt cache: request the complete source
+
+    response = requests.get(url, headers=headers, timeout=60)
+    response.raise_for_status()
+    if response.status_code == 304:
+        if cached_rows is None:
+            raise ValueError("BMS returned 304 without a usable cached source")
+        return cached_rows
+    text = gzip.decompress(response.content).decode("utf-8")
+    rows = _csv_rows(text)
+    temporary_path = None
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=path.parent, suffix=".tmp", delete=False
+        ) as temporary:
+            temporary_path = Path(temporary.name)
+            json.dump({"url": url, "etag": response.headers.get("ETag"), "text": text}, temporary)
+            temporary.flush()
+            os.fsync(temporary.fileno())
+        os.replace(temporary_path, path)
+    except OSError:
+        pass  # a read-only/full cache must not discard a successful live fetch
+    finally:
+        if temporary_path is not None:
+            try:
+                temporary_path.unlink(missing_ok=True)
+            except OSError:
+                pass
+    return rows
+
+
 def fetch_live(now: datetime | None = None) -> dict:
     """Live BMS from the official data.gouv mirror (daily-synced current-year CSV)."""
     now = now or datetime.now(timezone.utc)
@@ -242,14 +307,7 @@ def fetch_live(now: datetime | None = None) -> dict:
     rows: list[dict] = []
     try:
         for year in sorted(years):
-            response = requests.get(BMS_URL_TEMPLATE.format(year=year), timeout=60)
-            response.raise_for_status()
-            text = gzip.decompress(response.content).decode("utf-8")
-            reader = csv.DictReader(io.StringIO(text), delimiter=";", strict=True)
-            missing = BMS_COLUMNS - set(reader.fieldnames or [])
-            if missing:
-                raise ValueError(f"BMS CSV missing columns: {', '.join(sorted(missing))}")
-            rows.extend(reader)
+            rows.extend(_fetch_bms_rows(BMS_URL_TEMPLATE.format(year=year)))
     except Exception as error:  # any feed failure must degrade, not crash
         doc["feed_status"] = "unavailable"
         doc["coverage_note"] = f"live fetch failed: {error}"
@@ -325,6 +383,28 @@ def fetch_live(now: datetime | None = None) -> dict:
     return doc
 
 
+# Bound local history independently of fetch frequency; latest and the current
+# snapshot are always retained, including backdated/manual publications.
+WARNING_SNAPSHOT_KEEP = 48
+
+
+def _prune_warning_snapshots(out_dir: Path, current: Path) -> None:
+    snapshots = []
+    for path in out_dir.glob("*.json"):
+        if path.is_symlink() or not path.is_file():
+            continue
+        if not re.fullmatch(r"\d{8}T\d{6}Z\.json", path.name):
+            continue
+        try:
+            datetime.strptime(path.stem, "%Y%m%dT%H%M%SZ")
+        except ValueError:
+            continue
+        if path != current:
+            snapshots.append(path)
+    for path in sorted(snapshots, reverse=True)[WARNING_SNAPSHOT_KEEP - 1 :]:
+        path.unlink(missing_ok=True)
+
+
 def write_warnings(doc: dict) -> Path:
     from jsonschema import Draft202012Validator
 
@@ -333,9 +413,11 @@ def write_warnings(doc: dict) -> Path:
 
     out_dir = processed_dir("warnings")
     stamp = doc["fetched_at"].replace("-", "").replace(":", "")
-    (out_dir / f"{stamp}.json").write_text(json.dumps(doc, indent=1, ensure_ascii=False))
+    snapshot = out_dir / f"{stamp}.json"
+    snapshot.write_text(json.dumps(doc, indent=1, ensure_ascii=False))
     latest = out_dir / "latest.json"
     latest.write_text(json.dumps(doc, indent=1, ensure_ascii=False))
+    _prune_warning_snapshots(out_dir, snapshot)
     return latest
 
 
