@@ -17,10 +17,12 @@ import math
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from .paths import data_root
+from jsonschema import Draft202012Validator, FormatChecker
+
+from .paths import config_dir, contracts_dir, data_root
+from .route_sources import DEFAULT_ROUTE_ID
 from .timeutil import parse_iso_utc
 
-N_POINTS = 6  # engine evaluates leg midpoints of cherbourg-plymouth (6 legs)
 N_MEMBERS = 51
 WINDOW_H = 72
 DEFAULT_DEPARTURE = "2026-07-20T06:00:00Z"
@@ -100,12 +102,38 @@ def _times(departure: datetime) -> list[str]:
     return [(start + timedelta(hours=h)).strftime("%Y-%m-%dT%H:%M") for h in range(WINDOW_H)]
 
 
-def generate_scenario(name: str, departure_iso: str = DEFAULT_DEPARTURE) -> Path:
+def generate_scenario(
+    name: str, departure_iso: str = DEFAULT_DEPARTURE, *, route_id: str | None = None
+) -> Path:
     if name not in SCENARIOS:
         raise ValueError(f"unknown scenario '{name}' (choose from {SCENARIOS})")
+    route_id = route_id or DEFAULT_ROUTE_ID
+    route = next(
+        (
+            doc
+            for path in sorted((config_dir() / "routes").glob("*.json"))
+            if (doc := json.loads(path.read_text()))["route_id"] == route_id
+        ),
+        None,
+    )
+    if route is None or len(route["waypoints"]) < 2:
+        raise ValueError(f"Unknown or invalid scenario route '{route_id}'")
+    # Match the engine's representative point per leg (linear midpoint).
+    points = [
+        ((a["lat"] + b["lat"]) / 2, (a["lon"] + b["lon"]) / 2)
+        for a, b in zip(route["waypoints"], route["waypoints"][1:])
+    ]
+    route_zones = json.loads((config_dir() / "route-zones.json").read_text())["routes"]
+    zones = [zone for group in route_zones.get(route_id, {}).values() for zone in group]
+    if name == "warning" and not zones:
+        raise ValueError(f"No warning zones configured for scenario route '{route_id}'")
     departure = parse_iso_utc(departure_iso)
     times = _times(departure)
-    out_dir = data_root() / "scenarios" / name
+    out_root = data_root() / "scenarios"
+    # Keep the original default location; other routes must not overwrite it.
+    if route_id != "cherbourg-plymouth-v1":
+        out_root /= route_id
+    out_dir = out_root / name
     out_dir.mkdir(parents=True, exist_ok=True)
 
     def series(fn) -> list[float]:
@@ -113,13 +141,13 @@ def generate_scenario(name: str, departure_iso: str = DEFAULT_DEPARTURE) -> Path
 
     # ---- forecast.json (primary deterministic = ecmwf-shaped) ----
     forecast = []
-    for p in range(N_POINTS):
+    for p, (lat, lon) in enumerate(points):
         winds = [_wind(name, h, p) for h in range(WINDOW_H)]
         off = _MODEL_OFFSET["diverging" if name == "diverging" else "default"]["ecmwf_ifs025"]
         forecast.append(
             {
-                "latitude": 49.7 + p * 0.1,
-                "longitude": -1.8 - p * 0.4,
+                "latitude": lat,
+                "longitude": lon,
                 "hourly": {
                     "time": times,
                     "wind_speed_10m": [round(w + off, 2) for w, _, _ in winds],
@@ -132,7 +160,7 @@ def generate_scenario(name: str, departure_iso: str = DEFAULT_DEPARTURE) -> Path
 
     # ---- ensemble.json ----
     ensemble = []
-    for p in range(N_POINTS):
+    for p, (lat, lon) in enumerate(points):
         winds = [_wind(name, h, p) for h in range(WINDOW_H)]
         hourly: dict[str, list] = {"time": times}
         for m in range(N_MEMBERS):
@@ -143,23 +171,23 @@ def generate_scenario(name: str, departure_iso: str = DEFAULT_DEPARTURE) -> Path
             hourly[f"wind_gusts_10m{suffix}"] = [
                 round(g + _member_offset(m, h), 2) for h, (_, g, _) in enumerate(winds)
             ]
-        ensemble.append({"latitude": 49.7 + p * 0.1, "longitude": -1.8 - p * 0.4, "hourly": hourly})
+        ensemble.append({"latitude": lat, "longitude": lon, "hourly": hourly})
     (out_dir / "ensemble.json").write_text(json.dumps(ensemble))
 
     # ---- marine.json ----
     marine = []
-    for p in range(N_POINTS):
+    for p, (lat, lon) in enumerate(points):
         hourly = {"time": times}
         keys = _waves(name, 0).keys()
         for key in keys:
             hourly[key] = [_waves(name, h)[key] for h in range(WINDOW_H)]
-        marine.append({"latitude": 49.7 + p * 0.1, "longitude": -1.8 - p * 0.4, "hourly": hourly})
+        marine.append({"latitude": lat, "longitude": lon, "hourly": hourly})
     (out_dir / "marine.json").write_text(json.dumps(marine))
 
     # ---- multimodel.json ----
     offsets = _MODEL_OFFSET["diverging" if name == "diverging" else "default"]
     multimodel = []
-    for p in range(N_POINTS):
+    for p, (lat, lon) in enumerate(points):
         winds = [_wind(name, h, p) for h in range(WINDOW_H)]
         hourly = {"time": times}
         for model, off in offsets.items():
@@ -181,23 +209,21 @@ def generate_scenario(name: str, departure_iso: str = DEFAULT_DEPARTURE) -> Path
                 else 0.0
                 for h in range(WINDOW_H)
             ]
-        multimodel.append(
-            {"latitude": 49.7 + p * 0.1, "longitude": -1.8 - p * 0.4, "hourly": hourly}
-        )
+        multimodel.append({"latitude": lat, "longitude": lon, "hourly": hourly})
     (out_dir / "multimodel.json").write_text(json.dumps(multimodel))
 
     # ---- warnings.json (only the warning scenario ships a bulletin) ----
     if name == "warning":
         warnings = {
             "schema_version": 1,
-            "fetched_at": departure_iso,
-            "source": {"mode": "synthetic", "name": "Météo-France BMS (synthetic)"},
+            "fetched_at": departure.isoformat(),
+            "source": {"mode": "synthetic", "name": "Passage scenario harness (synthetic)"},
             "feed_status": "ok",
             "bulletins": [
                 {
-                    "zone_id": "casquets",
-                    "zone_name": "Casquets",
-                    "kind": "BMS-large",
+                    "zone_id": zone["zone_id"],
+                    "zone_name": zone.get("zone_name", zone["zone_id"]),
+                    "kind": "gale",
                     "severity": "gale",
                     "valid_from": (departure + timedelta(hours=6)).strftime("%Y-%m-%dT%H:%M:%SZ"),
                     "valid_to": (departure + timedelta(hours=30)).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -206,15 +232,21 @@ def generate_scenario(name: str, departure_iso: str = DEFAULT_DEPARTURE) -> Path
                     "never use for a real passage decision.",
                     "parse_confidence": 1.0,
                 }
+                for zone in zones
             ],
             "coverage_note": "synthetic scenario bundle — every value emulated",
         }
+        Draft202012Validator(
+            json.loads((contracts_dir() / "warnings.schema.json").read_text()),
+            format_checker=FormatChecker(),
+        ).validate(warnings)
         (out_dir / "warnings.json").write_text(json.dumps(warnings, indent=1))
 
     (out_dir / "scenario.json").write_text(
         json.dumps(
             {
                 "scenario": name,
+                "route_id": route_id,
                 "departure": departure_iso,
                 "expected_verdict": EXPECTED_VERDICT[name],
                 "synthetic": True,
@@ -225,5 +257,7 @@ def generate_scenario(name: str, departure_iso: str = DEFAULT_DEPARTURE) -> Path
     return out_dir
 
 
-def generate_all(departure_iso: str = DEFAULT_DEPARTURE) -> list[Path]:
-    return [generate_scenario(name, departure_iso) for name in SCENARIOS]
+def generate_all(
+    departure_iso: str = DEFAULT_DEPARTURE, *, route_id: str | None = None
+) -> list[Path]:
+    return [generate_scenario(name, departure_iso, route_id=route_id) for name in SCENARIOS]

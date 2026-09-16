@@ -224,3 +224,37 @@ class TestCorpusCaseFiles:
         assert e["kind"] == "storm"
         assert e["min_center_hpa_below"] == 968
         assert e["expect_low_near"]["tol_deg"] == 4.0
+
+
+@pytest.mark.parametrize(
+    "start,expected",
+    [
+        ("2023-11-01T00:00:00Z", [0, 3, 6, 9]),
+        ("2023-11-01T00:30:00Z", [2.5, 5.5, 8.5]),
+        ("2023-11-01T01:00:00Z", [2, 5, 8]),
+        ("2023-11-01T02:30:00+02:00", [2.5, 5.5, 8.5]),
+    ],
+)
+def test_replay_uses_utc_analysis_cadence_for_off_hour_windows(monkeypatch, start, expected):
+    import numpy as np
+    import xarray as xr
+    from deepweather_analysis.verification import corpus
+
+    times = np.arange("2023-11-01T00", "2023-11-01T12", dtype="datetime64[h]")
+    ds = xr.Dataset(
+        {"msl": (("time", "latitude", "longitude"), np.full((12, 2, 2), 99000.0))},
+        coords={
+            "time": times.astype("datetime64[ns]"),
+            "latitude": [49.0, 50.0],
+            "longitude": [-5.0, -4.0],
+        },
+    )
+    monkeypatch.setattr(corpus, "detect_systems", lambda *args: [low(49.0, -5.0, 990.0)])
+    case = storm_case()
+    case["window"] = {"start": start, "end": "2023-11-01T09:30:00Z"}
+    result = corpus._detect_on_dataset(case, ds)
+    assert result["step_hours"] == expected
+    assert len(result["per_step"]) == len(expected)
+    assert [p["step_h"] for p in result["tracks"][0]["track"]] == expected
+    evaluation = corpus.evaluate_expectations(case, result)
+    assert evaluation["deepest_low"]["step_h"] == expected[0]

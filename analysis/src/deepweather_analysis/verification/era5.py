@@ -28,8 +28,10 @@ import json
 import logging
 import math
 import os
+from contextlib import ExitStack
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Any, Dict, Optional, Tuple
 
 from ..fileutil import compute_file_checksum
@@ -207,11 +209,10 @@ def fetch_era5_weather(
         dates.append(current)
         current += timedelta(days=1)
 
-    # Group by year/month for the API (vendored shape; corpus windows sit
-    # within one month so the cartesian product is exact).
-    years = sorted(set(d.year for d in dates))
-    months = sorted(set(d.month for d in dates))
-    days = sorted(set(d.day for d in dates))
+    # Each CDS request is a Cartesian product: keep each month's days separate.
+    month_days: dict[tuple[int, int], list[str]] = {}
+    for day in dates:
+        month_days.setdefault((day.year, day.month), []).append(f"{day.day:02d}")
 
     estimated_points = _estimate_request_grid_points(
         bounds,
@@ -242,9 +243,6 @@ def fetch_era5_weather(
         "data_format": "netcdf",
         "download_format": "unarchived",
         "variable": ERA5_VARIABLES,
-        "year": [str(y) for y in years],
-        "month": [f"{m:02d}" for m in months],
-        "day": [f"{d:02d}" for d in days],
         "time": [f"{h:02d}:00" for h in range(0, 24, max(1, time_step_h))],
         "area": [
             bounds["max_lat"],  # North
@@ -262,7 +260,30 @@ def fetch_era5_weather(
         key = os.getenv("DEEPWEATHER_CDSAPI_KEY")
         client = cdsapi.Client(url=url, key=key) if url or key else cdsapi.Client()
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        client.retrieve("reanalysis-era5-single-levels", request, str(output_path))
+        with TemporaryDirectory(prefix="era5-", dir=output_path.parent) as temp_dir:
+            parts = []
+            for (year, month), days in month_days.items():
+                part = Path(temp_dir) / f"{year}-{month:02d}.nc"
+                client.retrieve(
+                    "reanalysis-era5-single-levels",
+                    {**request, "year": [str(year)], "month": [f"{month:02d}"], "day": days},
+                    str(part),
+                )
+                parts.append(part)
+            if not parts:
+                raise ValueError("ERA5 window ends before it starts")
+            merged_path = parts[0]
+            if len(parts) > 1:
+                import xarray as xr
+
+                with ExitStack() as stack:
+                    datasets = [stack.enter_context(_open_nc_robust(part)) for part in parts]
+                    time_coord = "valid_time" if "valid_time" in datasets[0].coords else "time"
+                    merged = xr.concat(datasets, dim=time_coord, join="exact").sortby(time_coord)
+                    merged_path = Path(temp_dir) / "merged.nc"
+                    merged.to_netcdf(merged_path)
+            # Publish only a complete download/merge; temporary parts are always removed.
+            os.replace(merged_path, output_path)
 
         checksum = compute_file_checksum(output_path)
         return {
