@@ -471,13 +471,18 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 - Files: scripts/upload-prepared-run.py; analysis/tests/test_upload_prepared_run.py
 - Status: done · Commit: `0f41c46` · Notes: Clean pre-flight at `95b62e0`; previous 5.1 scope and full guardrails pass; start marker `cfda08d`. Compare local content MD5 against listed single-part R2 ETags; replace changed/missing/unverifiable objects, skip identical bytes, deduplicate references. Upload the exact validated pointer bytes after artifacts succeed. Prune by parsed trailing UTC cycle per full model/region family, retaining all referenced runs plus six unreferenced runs per family; preserve direct files and unknown/invalid run IDs. Regression-first: 8 failures before fix; 15 uploader cases now pass, covering pagination, multiple regions, chronology, duplicate/repeat uploads, unknown/multipart ETags, pointer snapshot, missing/upload failures and 1000-object delete batching. Final `TZ=Europe/Paris npm test`: 289 engine + 402 viewer pass; Python pytest: 347 pass (10 existing NumPy warnings); Ruff lint/format including uploader, npm lint and Pages build pass. Demo fixtures and engine goldens unchanged. Self-review/diff check pass; no unrelated dirty work. No viewer changes or phase gate, so screenshots/E2E not applicable. S3 behavior verified with an in-memory double; no live R2 mutation. Existing immutable-cache limitation recorded under Noticed. Logs: `/tmp/passage52-*`. Next pipeline step: 5.3; first todo in file order: 3.9. Hosted [CI 35031578067](https://github.com/deepregatta/passage/actions/runs/35031578067) passed JavaScript and Python on `0f41c46`.
 ### 5.3 Route-aware synoptic windows or explicit "Channel-only prepared run" coverage disclosure — §4.1
-- Status: todo · Commit: — · Notes:
+- Files: engine/src/{findings.ts,findings/coverage.ts,index.ts,synopticCoverage.ts}; engine/test/findings.test.ts; viewer/src/{components/ModelsUsed.jsx,pages/briefing/AssessmentDetails.jsx,lib/evidenceSelectors.js,i18n.js}; viewer/test/honesty.test.jsx
+- Status: in progress · Commit: — · Notes: Clean pre-flight at `7b1c576`; previous 5.2 scope and full guardrails pass. Reproduced fixed ECMWF NE Atlantic crop and Channel wind window with unconditional assessed synoptic coverage; coverage views omit detail. Choose explicit disclosure for this existing prepared-run family, preserving forecast tiles and immutable demo fixtures.
 ### 5.4 Warnings feed robustness (ETag, output pruning, NWS status filter, FTP retry) — §4.1
 - Status: todo · Commit: — · Notes:
 ### 5.5 Observations and tides tolerance — P11, §4.1 tides bullets
 - Status: todo · Commit: — · Notes:
 ### 5.6 Verification and grid edge cases — P12, P13, P14, P16
 - Status: todo · Commit: — · Notes:
+### 5.7 Prepared artifact cache freshness — noticed in 5.2
+- Files: scripts/upload-prepared-run.py; analysis/tests/test_upload_prepared_run.py; prepared-run consumers as required
+- Do: Version reused artifact URLs or define a cache-policy and migration strategy so updated origin content reaches existing clients.
+- Status: todo · Commit: — · Notes: Existing one-year immutable cache headers outlive content replacements; no invalidation performed in 5.2.
 
 ---
 
@@ -533,7 +538,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 
 - [triaged] 4.9 — viewer/src/pages/Evidence.jsx:73 — Visual QA confirms Evidence charts overflow a 390px viewport to 1160px in EN/FR; existing evidence-mobile-linux.png already has width 1160. Assigned to 3.9 with explicit document-width assertions; do not update baselines to hide it.
 
-- 5.2 — scripts/upload-prepared-run.py:34 — Reused artifact URLs retain one-year immutable cache headers; content replacement repairs R2 origin bytes but previously cached browser/CDN copies can remain stale. Follow up with versioned URLs or a deliberate cache-policy/migration strategy; no cache invalidation performed in 5.2.
+- [triaged] 5.2 — scripts/upload-prepared-run.py:34 — Reused artifact URLs retain one-year immutable cache headers; content replacement repairs R2 origin bytes but previously cached browser/CDN copies can remain stale. Follow up with versioned URLs or a deliberate cache-policy/migration strategy; no cache invalidation performed in 5.2. Assigned to 5.7.
 
 ## Decisions
 (record design choices made in steps 1.5, 3.5, 5.3 here)
