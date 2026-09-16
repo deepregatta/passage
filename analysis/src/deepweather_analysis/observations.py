@@ -39,6 +39,7 @@ yields the same document.
 from __future__ import annotations
 
 import json
+import logging
 import math
 import os
 from datetime import datetime, timedelta, timezone
@@ -58,6 +59,8 @@ from .route_sources import (
 from .timeutil import iso_z as _iso_z
 from .timeutil import parse_iso_utc
 from .units import MS_TO_KNOTS as KT_PER_MS
+
+logger = logging.getLogger(__name__)
 
 SCHEMA_VERSION = 1
 RECORD_STEP_MIN = 10
@@ -239,7 +242,7 @@ def parse_realtime2(raw_text: str) -> List[Dict[str, Any]]:
     Input rows are newest-first; the result is chronological.
     """
     records: List[Dict[str, Any]] = []
-    for line in raw_text.splitlines():
+    for line_number, line in enumerate(raw_text.splitlines(), 1):
         if not line.strip() or line.startswith("#"):
             continue
         parts = line.split()
@@ -247,7 +250,16 @@ def parse_realtime2(raw_text: str) -> List[Dict[str, Any]]:
             continue
 
         def _num(token: str) -> Optional[float]:
-            return None if token == "MM" else float(token)
+            if token == "MM":
+                return None
+            try:
+                value = float(token)
+                if math.isfinite(value):
+                    return value
+            except ValueError:
+                pass
+            logger.warning("NDBC line %s: invalid numeric token %r", line_number, token)
+            return None
 
         try:
             t = datetime(
@@ -258,7 +270,8 @@ def parse_realtime2(raw_text: str) -> List[Dict[str, Any]]:
                 int(parts[4]),
                 tzinfo=timezone.utc,
             )
-        except ValueError:
+        except ValueError as exc:
+            logger.warning("NDBC line %s: invalid timestamp (%s)", line_number, exc)
             continue
         wdir, wspd, gust, wvht = (_num(parts[i]) for i in (5, 6, 7, 8))
         pres = _num(parts[12])
@@ -305,6 +318,7 @@ def fetch_live(
             resp = requests.get(url, timeout=30)
             resp.raise_for_status()
         except requests.RequestException as exc:
+            logger.warning("NDBC station %s fetch failed: %s", station["station_id"], exc)
             failures.append(f"{station['station_id']}: {exc}")
             continue
         records = [
@@ -349,8 +363,8 @@ def records_from_insitu_nc(nc_path: Path) -> List[Dict[str, Any]]:
     """
     Parse one In Situ TAC daily mooring NetCDF into schema records.
 
-    Variables are dimensioned (TIME, DEPTH) with met sensors on a single
-    level; per timestep the first finite value across DEPTH is taken. Values
+    Variables may be time-only or include DEPTH in either dimension order;
+    per timestep the first finite value across DEPTH is taken. Values
     whose <VAR>_QC flag is outside INSITU_GOOD_QC are dropped (kept as None).
     """
     import numpy as np
@@ -358,20 +372,46 @@ def records_from_insitu_nc(nc_path: Path) -> List[Dict[str, Any]]:
 
     records: Dict[str, Dict[str, Any]] = {}
     with xr.open_dataset(nc_path) as ds:
-        times = [
-            _iso_z(datetime.fromtimestamp(t / 1e9, tz=timezone.utc))
-            for t in ds["TIME"].values.astype("datetime64[ns]").astype("int64")
-        ]
+        time_coord = ds["TIME"]
+        if time_coord.ndim != 1:
+            raise ValueError("In Situ TIME must have one dimension")
+        time_dim = time_coord.dims[0]
+        times = []
+        for t in time_coord.values.astype("datetime64[ns]"):
+            if np.isnat(t):
+                logger.warning("In Situ %s: invalid TIME sample skipped", nc_path.name)
+                times.append(None)
+            else:
+                times.append(_iso_z(datetime.fromtimestamp(t.astype("int64") / 1e9, timezone.utc)))
         for field, candidates, factor, digits in INSITU_VARIABLES:
             name = next((v for v in candidates if v in ds), None)
             if name is None:
                 continue
-            values = np.atleast_2d(ds[name].values.astype(float))
-            qc_name = f"{name}_QC"
-            if qc_name in ds:
-                qc = np.atleast_2d(ds[qc_name].values.astype(float))
-                values = np.where(np.isin(qc, INSITU_GOOD_QC), values, np.nan)
+            try:
+                variable = ds[name]
+                if time_dim not in variable.dims or any(
+                    dim not in (time_dim, "DEPTH") and variable.sizes[dim] != 1
+                    for dim in variable.dims
+                ):
+                    raise ValueError(f"unsupported dimensions {variable.dims}")
+                variable = variable.transpose(time_dim, ...)
+                values = variable.values.astype(float)
+                qc_name = f"{name}_QC"
+                if qc_name in ds:
+                    qc_variable = ds[qc_name]
+                    if not set(qc_variable.dims) <= set(variable.dims):
+                        raise ValueError(f"incompatible QC dimensions {qc_variable.dims}")
+                    qc = qc_variable.broadcast_like(variable).transpose(*variable.dims)
+                    values = np.where(
+                        np.isin(qc.values.astype(float), INSITU_GOOD_QC), values, np.nan
+                    )
+                values = values.reshape(len(times), -1)
+            except (ValueError, TypeError) as exc:
+                logger.warning("In Situ %s: skipping variable %s (%s)", nc_path.name, name, exc)
+                continue
             for i, t in enumerate(times):
+                if t is None:
+                    continue
                 finite = values[i][np.isfinite(values[i])]
                 if not len(finite):
                     continue
@@ -432,12 +472,14 @@ def fetch_live_insitu(
                     resp = requests.get(f"{base_url}/{stamp}/{prefix}_{stamp}.nc", timeout=60)
                     resp.raise_for_status()
                 except requests.RequestException as exc:
+                    logger.warning("In Situ %s %s fetch failed: %s", prefix, stamp, exc)
                     failures.append(f"{prefix} {stamp}: {exc}")
                     continue
                 nc_path.write_bytes(resp.content)
             try:
                 day_records = records_from_insitu_nc(nc_path)
             except Exception as exc:  # one corrupt file must not sink the station
+                logger.warning("In Situ %s %s unparseable: %s", prefix, stamp, exc)
                 nc_path.unlink(missing_ok=True)
                 failures.append(f"{prefix} {stamp}: unparseable ({exc})")
                 continue
@@ -533,6 +575,7 @@ def fetch_live_qld_waves(
             resp.raise_for_status()
             rows = resp.json()["result"]["records"]
         except Exception as exc:  # one station down must not sink the doc
+            logger.warning("QLD wave station %s fetch failed: %s", station["station_id"], exc)
             failures.append(f"{station['station_id']}: {exc}")
             continue
         records = [
@@ -574,6 +617,7 @@ def fetch_observations(
                 return fetch_live_qld_waves(start_iso, end_iso, route_id=route_id)
             return fetch_live(start_iso, end_iso, route_id=route_id)
         except Exception as exc:  # degrade, but never silently
+            logger.warning("live observations fetch failed, degrading to synthetic: %s", exc)
             doc = generate_observations(start_iso, end_iso, route_id=route_id)
             source_name = synthetic_observations_source_name(route_id)
             doc["source"]["name"] = f"{source_name} (live fetch failed: {exc})"
