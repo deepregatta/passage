@@ -6,7 +6,7 @@ The original [review](../../trashbin/documentation/2026-09-07-code-review.md) an
 
 **The campaign implemented most of its scoped work, but the full review is not completely resolved.** Existing checks all pass. A new endpoint case still produces a computed leg crossing land, and several original findings were omitted from the tracker or deferred without a follow-up row. The archive's “none open” statement describes its task statuses, not complete resolution of the original report.
 
-The findings and verification tables below describe the original reviewed head. Subsequent implementation status is recorded under each finding. IV-1 is resolved; IV-2 is implemented pending validation; IV-3 through IV-8 remain open.
+The findings and verification tables below describe the original reviewed head. Subsequent implementation status is recorded under each finding. IV-1 and IV-2 are resolved; IV-3 through IV-8 remain open.
 
 ## Findings and follow-up status
 
@@ -31,9 +31,9 @@ Ten new regression cases cover both endpoint directions for closed/gapped walls,
 - The parser assumes every earlier explicit month belongs to the following year. It cannot distinguish a recently elapsed validity date from a future one. This can corrupt active/expired warning selection; the separate seven-day issue-age filter does not correct the date.
 - Required follow-up: resolve candidate dates around the issue time using a bounded validity window, including previous-month and previous-year cases. Existing tests cover forward rollover only.
 
-**Implemented; validation in progress:** `_resolve_day()` now chooses the nearest valid candidate within an inclusive ±7-day window around issue time, as proposed by P10. Explicit months consider the previous, current, and next year; omitted months consider adjacent months across year boundaries. Impossible dates, unknown month names, and dates outside the window return no inferred date, preserving the existing low-confidence parse and 24-hour fallback in `fetch_live()`.
+**Resolved in `f9a2d54` — [CI 35280904719 passed](https://github.com/deepregatta/passage/actions/runs/35280904719):** `_resolve_day()` now chooses the nearest valid candidate within an inclusive ±7-day window around issue time, as proposed by P10. Explicit months consider the previous, current, and next year; omitted months consider adjacent months across year boundaries. Impossible dates, unknown month names, and dates outside the window return no inferred date, preserving the existing low-confidence parse and 24-hour fallback in `fetch_live()`.
 
-Twenty new regression cases cover previous-month/year expiry, forward month/year rollover, leap day, both window boundaries, invalid/distant dates, ranges spanning month/year boundaries, and mocked CSV expiry filtering while issue age is still below seven days. Thirteen failed before the fix. Local validation passes: 80 Météo-France tests and all 450 Python tests under `TZ=Europe/Paris` (12 existing upstream deprecation warnings), 303 engine tests, 428 viewer tests, lint, Ruff check/format, and the Pages build. Demo regeneration leaves tracked artifacts unchanged. Hosted CI is pending. The feed's existing one-day expiry retention grace is unchanged.
+Twenty new regression cases cover previous-month/year expiry, forward month/year rollover, leap day, both window boundaries, invalid/distant dates, ranges spanning month/year boundaries, and mocked CSV expiry filtering while issue age is still below seven days. Thirteen failed before the fix. Local validation passes: 80 Météo-France tests and all 450 Python tests under `TZ=Europe/Paris` (12 existing upstream deprecation warnings), 303 engine tests, 428 viewer tests, lint, Ruff check/format, and the Pages build. Demo regeneration leaves tracked artifacts unchanged. Hosted JavaScript and Python CI jobs passed. The feed's existing one-day expiry retention grace is unchanged.
 
 ### IV-3 — P2: “Share this analysis” does not identify or reopen the analysis
 
