@@ -492,7 +492,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 ### 5.7 Prepared artifact cache freshness — noticed in 5.2
 - Files: scripts/upload-prepared-run.py; analysis/tests/test_upload_prepared_run.py; prepared-run consumers as required
 - Do: Version reused artifact URLs or define a cache-policy and migration strategy so updated origin content reaches existing clients.
-- Status: todo · Commit: — · Notes: Existing one-year immutable cache headers outlive content replacements; no invalidation performed in 5.2.
+- Status: in progress · Commit: — · Notes: Clean pre-flight at `70941df`; previous 5.6 scope and full guardrails pass (293 engine, 409 viewer, 414 Python, Ruff, byte-identical demo). Implementing content-versioned publication, including embedded chart/manifest references, to bypass legacy immutable cache entries.
 
 
 ### 5.8 In Situ observation cache retention — §4.1, triaged in 5.5
