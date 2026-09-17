@@ -431,7 +431,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 ### 3.10 French limit fragment boundary — noticed in 5.3
 - Files: viewer/src/i18n.js and relevant translation tests
 - Done when: English limit fragments translate without corrupting already-French limitée.
-- Status: todo · Commit: — · Notes:
+- Status: in progress · Commit: — · Notes: Clean pre-flight at `3768d34`; previous 3.9 commit `af8b68e` scope verified. Baseline npm tests (293 engine + 411 viewer), Python pytest (430), Ruff check/format and demo byte identity pass. No unrelated dirty files.
 
 ## Phase 4 — structure (goldens byte-identical unless stated)
 
