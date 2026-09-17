@@ -53,7 +53,7 @@ export default function Evidence() {
         <p className="font-instrument text-sm mt-3">{evidence.leg_id} · {leg?.name} · limit {evidence.limit} {evidence.units} · <EvidenceLink evidenceId={evidence.evidence_id}>inspect claim</EvidenceLink></p>
       </header>
 
-      <div className="grid xl:grid-cols-[14rem_minmax(0,1fr)] 2xl:grid-cols-[14rem_minmax(0,1fr)_20rem] gap-4">
+      <div className="grid grid-cols-1 xl:grid-cols-[14rem_minmax(0,1fr)] 2xl:grid-cols-[14rem_minmax(0,1fr)_20rem] gap-4">
         <aside className="border-t border-ink/40 xl:border-r xl:border-t-0 xl:pr-3" aria-label="Evidence claims">
           <p className="eyebrow py-2">Choose a claim</p>
           <div className="flex xl:flex-col gap-1 overflow-x-auto pb-2">
