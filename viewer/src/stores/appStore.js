@@ -1,6 +1,6 @@
 import { evidenceById } from '../lib/evidenceSelectors.js';
 import { create } from 'zustand';
-import { initialPage, PAGE_HASH } from '../lib/routes.js';
+import { initialPage, pageHash, validSnapshotId } from '../lib/routes.js';
 import { localSnapshots, fetchSnapshotJson, snapshotTombstones } from '../lib/localSnapshots.js';
 import { preparedRun } from '../lib/preparedRun.js';
 import { getInitialLanguage, getLanguageFromPath, LANGUAGE_STORAGE_KEY } from '../i18n.js';
@@ -10,7 +10,7 @@ import { usePlayback } from './playbackStore.js';
 // current open (including example manifest discovery) may publish its result.
 let openSequence = 0;
 const emptySnapshot = {
-  snapshotId: null, findings: null, briefing: null, plume: null, snapshot: null,
+  snapshotId: null, snapshotSource: null, findings: null, briefing: null, plume: null, snapshot: null,
   warnings: null, synoptic: null, route: null, measurementAttempt: null,
   selectedEvidenceId: null, selectedLegId: null, inspectorOpen: false,
 };
@@ -29,6 +29,7 @@ export const useApp = create((set, get) => ({
 
   measurementAttempt: null,
   snapshotId: null,
+  snapshotSource: null,
   findings: null,
   briefing: null,
   plume: null,
@@ -48,13 +49,13 @@ export const useApp = create((set, get) => ({
 
   nowMs: Date.now(),
 
-  setPage: (page) => {
+  setPage: (page, writeHistory = true) => {
     if (page !== get().page) {
       openSequence += 1;
       set({ loading: false });
     }
-    const hash = PAGE_HASH[page];
-    if (typeof location !== 'undefined' && hash && location.hash !== `#${hash}`) {
+    const hash = pageHash(page, get().snapshotSource === 'served' ? get().snapshotId : null);
+    if (writeHistory && typeof location !== 'undefined' && hash && location.hash !== `#${hash}`) {
       history.pushState(null, '', `${location.pathname}${location.search}#${hash}`);
     }
     set({ page });
@@ -73,7 +74,7 @@ export const useApp = create((set, get) => ({
       if (!example) throw new Error('Example unavailable');
       set({ manifest: { ...(get().manifest ?? served), snapshots: [example,
         ...(get().manifest?.snapshots ?? []).filter((item) => item.snapshot_id !== example.snapshot_id)] } });
-      await get().openSnapshot(example.snapshot_id, null, 'example');
+      await get().openSnapshot(example.snapshot_id, null, 'example', 'served');
     } catch (error) {
       if (sequence !== openSequence) return;
       set({ loadError: error.message, loading: false });
@@ -133,14 +134,17 @@ export const useApp = create((set, get) => ({
     }
   },
 
-  openSnapshot: async (snapshotId, measurementAttempt = null, targetPage = 'briefing') => {
+  openSnapshot: async (snapshotId, measurementAttempt = null, targetPage = 'briefing', source = null) => {
     const sequence = ++openSequence;
     usePlayback.getState().reset();
     set({ ...emptySnapshot, loading: true, loadError: null, snapshotId, measurementAttempt });
     try {
+      if (!validSnapshotId(snapshotId)) throw new Error('Invalid snapshot identifier');
+      const snapshotSource = source === 'served' || targetPage === 'example'
+        ? 'served' : await localSnapshots.exists(snapshotId) ? 'local' : 'served';
       if (targetPage !== 'example') await preparedRun(); // live/saved runs only
       if (sequence !== openSequence) return;
-      const file = targetPage === 'example'
+      const file = source === 'served' || targetPage === 'example'
         ? (name) => fetchJson(`/data/snapshots/${snapshotId}/${name}`)
         : (name) => fetchSnapshotJson(snapshotId, name);
       const [snapshot, findings, briefing, plume, warnings, synoptic, route] = await Promise.all([
@@ -157,6 +161,7 @@ export const useApp = create((set, get) => ({
         findings.evidence.find((e) => e.evidence_id === findings.verdict.driver_evidence_id)
           ?.leg_id ?? findings.legs[0]?.leg_id;
       set({
+        snapshotSource,
         findings,
         briefing,
         plume,
@@ -171,9 +176,13 @@ export const useApp = create((set, get) => ({
           findings.evidence.find((item) => item.member_fraction)?.evidence_id ?? null,
         nowMs: Date.now(),
       });
+      if (typeof location !== 'undefined') {
+        const hash = pageHash(targetPage, snapshotSource === 'served' ? snapshotId : null);
+        history.replaceState(null, '', `${location.pathname}${location.search}#${hash}`);
+      }
     } catch (error) {
       if (sequence !== openSequence) return;
-      set({ loadError: error.message, loading: false });
+      set({ loadError: source === 'served' ? 'This shared analysis is unavailable.' : error.message, loading: false });
     }
   },
 

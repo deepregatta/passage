@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import clsx from 'clsx';
 import { useApp } from '../stores/appStore.js';
 import { track } from '../lib/analytics.js';
+import { analysisShareUrl } from '../lib/routes.js';
 
 const FEEDBACK_ENDPOINT = 'https://oscar.deepregatta.com/api/feedback';
 const CONTACT_EMAIL = 'contact@deepregatta.com';
@@ -193,17 +194,29 @@ function FeedbackDialog({ onNavigate, onClose }) {
 
 /** Share + feedback actions for the site footer, on every Passage view. */
 export default function FooterActions({ onNavigate }) {
-  const [copied, setCopied] = useState(false);
+  const snapshotId = useApp((state) => state.snapshotId);
+  const snapshotSource = useApp((state) => state.snapshotSource);
+  const ready = useApp((state) => !state.loading && !state.loadError && Boolean(state.findings && state.briefing));
+  const shareUrl = ready && snapshotSource === 'served' ? analysisShareUrl(snapshotId, window.location.href) : null;
+  const [copiedUrl, setCopiedUrl] = useState(null);
+  const [failedUrl, setFailedUrl] = useState(null);
+  const copied = Boolean(shareUrl && copiedUrl === shareUrl);
+  useEffect(() => {
+    if (!copiedUrl) return;
+    const timer = window.setTimeout(() => setCopiedUrl(null), 6000);
+    return () => window.clearTimeout(timer);
+  }, [copiedUrl]);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   async function share() {
+    if (!shareUrl) return;
+    setFailedUrl(null);
     track('share_click', { surface: 'footer' });
     try {
-      await navigator.clipboard.writeText(`${document.title}\n${window.location.href}`);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 6000);
+      await navigator.clipboard.writeText(shareUrl);
+      setCopiedUrl(shareUrl);
     } catch {
-      // clipboard unavailable; nothing else to do
+      setFailedUrl(shareUrl);
     }
   }
 
@@ -212,7 +225,9 @@ export default function FooterActions({ onNavigate }) {
       <button
         type="button"
         onClick={share}
-        className="font-instrument text-sm text-event underline-offset-4 hover:underline"
+        disabled={!shareUrl}
+        aria-describedby={ready && snapshotSource === 'local' ? 'local-sharing-note' : undefined}
+        className="font-instrument text-sm text-event underline-offset-4 hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {copied ? 'Link copied' : 'Share this analysis'}
       </button>
@@ -223,6 +238,14 @@ export default function FooterActions({ onNavigate }) {
       >
         Request a race / report a data issue
       </button>
+      {ready && snapshotSource === 'local' && (
+        <span id="local-sharing-note" className="font-instrument text-xs text-ink-soft">
+          This briefing is stored only in this browser and cannot be shared by link.
+        </span>
+      )}
+      {shareUrl && failedUrl === shareUrl && (
+        <span role="alert" className="font-instrument text-xs text-event">Could not copy the link. Please try again.</span>
+      )}
       {copied && <NextStep onNavigate={onNavigate} />}
       {feedbackOpen && (
         <FeedbackDialog onNavigate={onNavigate} onClose={() => setFeedbackOpen(false)} />

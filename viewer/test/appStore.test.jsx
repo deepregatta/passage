@@ -9,7 +9,7 @@ import Snapshots from '../src/pages/Snapshots.jsx';
 
 vi.mock('../src/lib/localSnapshots.js', () => ({
   fetchSnapshotJson: vi.fn(),
-  localSnapshots: { list: vi.fn(async () => []), remove: vi.fn(async () => true) },
+  localSnapshots: { exists: vi.fn(async () => false), list: vi.fn(async () => []), remove: vi.fn(async () => true) },
   snapshotTombstones: { all: vi.fn(() => new Set()) },
 }));
 vi.mock('../src/lib/preparedRun.js', () => ({ preparedRun: vi.fn(async () => {}) }));
@@ -51,7 +51,7 @@ describe('snapshot open ownership', () => {
   it('keeps every artifact and selection from the last request when the first finishes last', async () => {
     const first = delaySnapshot('A');
     const a = useApp.getState().openSnapshot('A');
-    await Promise.resolve();
+    await vi.waitFor(() => expect(fetchSnapshotJson).toHaveBeenCalledWith('A', 'findings.json'));
     await useApp.getState().openSnapshot('B', 'attempt-B');
     first.resolve();
     await a;
@@ -66,7 +66,7 @@ describe('snapshot open ownership', () => {
   it('ignores a stale rejection after the latest request succeeds', async () => {
     const first = delaySnapshot('A');
     const a = useApp.getState().openSnapshot('A');
-    await Promise.resolve();
+    await vi.waitFor(() => expect(fetchSnapshotJson).toHaveBeenCalledWith('A', 'findings.json'));
     await useApp.getState().openSnapshot('B');
     first.reject(new Error('old failure'));
     await a;
@@ -80,7 +80,7 @@ describe('snapshot open ownership', () => {
       return artifact(id, name);
     });
     const a = useApp.getState().openSnapshot('A');
-    await Promise.resolve();
+    await vi.waitFor(() => expect(fetchSnapshotJson).toHaveBeenCalledWith('A', 'findings.json'));
     const b = useApp.getState().openSnapshot('B');
     aGate.resolve();
     await a;
@@ -92,7 +92,7 @@ describe('snapshot open ownership', () => {
   it('does not replace the latest error with an older success', async () => {
     const first = delaySnapshot('A');
     const a = useApp.getState().openSnapshot('A');
-    await Promise.resolve();
+    await vi.waitFor(() => expect(fetchSnapshotJson).toHaveBeenCalledWith('A', 'findings.json'));
     preparedRun.mockRejectedValueOnce(new Error('latest failure'));
     await useApp.getState().openSnapshot('B');
     first.resolve();
@@ -115,7 +115,7 @@ describe('snapshot open ownership', () => {
   it.each(['resolve', 'reject'])('navigation cancels an open before its %s', async (settle) => {
     const gate = delaySnapshot('A');
     const a = useApp.getState().openSnapshot('A');
-    await Promise.resolve();
+    await vi.waitFor(() => expect(fetchSnapshotJson).toHaveBeenCalledWith('A', 'findings.json'));
     useApp.getState().setPage('planner');
     gate[settle](new Error('late failure'));
     await a;
@@ -125,7 +125,7 @@ describe('snapshot open ownership', () => {
   it('same-page synchronization does not cancel an open', async () => {
     const gate = delaySnapshot('A');
     const a = useApp.getState().openSnapshot('A');
-    await Promise.resolve();
+    await vi.waitFor(() => expect(fetchSnapshotJson).toHaveBeenCalledWith('A', 'findings.json'));
     useApp.getState().setPage('snapshots');
     gate.resolve();
     await a;
@@ -136,7 +136,7 @@ describe('snapshot open ownership', () => {
     const gate = deferred();
     preparedRun.mockReturnValueOnce(gate.promise);
     const a = useApp.getState().openSnapshot('A');
-    await Promise.resolve();
+    await vi.waitFor(() => expect(preparedRun).toHaveBeenCalled());
     await useApp.getState().openSnapshot('B');
     gate.resolve();
     await a;
@@ -171,7 +171,7 @@ describe('snapshot open ownership', () => {
   it('deleting a pending snapshot prevents its later completion from reopening it', async () => {
     const gate = delaySnapshot('A');
     const a = useApp.getState().openSnapshot('A');
-    await Promise.resolve();
+    await vi.waitFor(() => expect(fetchSnapshotJson).toHaveBeenCalledWith('A', 'findings.json'));
     await useApp.getState().deleteSnapshot('A');
     gate.resolve();
     await a;
