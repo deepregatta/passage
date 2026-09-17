@@ -1148,7 +1148,8 @@ const FR_FRAGMENTS = [
   [/\bboat\b/gi, 'bateau'],
   [/\bcause · Wind against current\b/gi, 'cause · Vent contre courant'],
   [/\blimits\b/gi, 'limites'],
-  [/\blimit\b/gi, 'limite'],
+  // ASCII \b treats accented letters as boundaries, corrupting French « limitée ».
+  [/(?<![\p{L}\p{M}\p{N}_])limit(?![\p{L}\p{M}\p{N}_])/giu, 'limite'],
   [/\bkt\b/g, 'nd'],
   [/(\d)kt\b/g, '$1 nd'],
   [/(\d+) NM\b/g, '$1 M'],
