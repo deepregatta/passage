@@ -128,13 +128,14 @@ describe('isochrone router', () => {
   });
 
   it('a land wall forces the route through the gap', () => {
+    const mask = wallMask();
     const result = computeRoute({
       start: { lat: 49.3, lon: -4.0 },
       finish: { lat: 50.8, lon: -4.0 }, // due north, wall at 50.0 except gap at -2.6..-2.2
       departureUtc: '2026-07-20T00:00:00Z',
       polar: POLAR,
       windGrid: windGrid(270, 14), // westerly beam wind for N-S sailing
-      landMask: wallMask(),
+      landMask: mask,
       maxHours: 40,
     });
     // some waypoint must pass through the gap longitude band while crossing 50.0
@@ -145,6 +146,9 @@ describe('isochrone router', () => {
     expect(crossing).toBeDefined();
     expect(crossing!.lon).toBeGreaterThan(-2.75);
     expect(crossing!.lon).toBeLessThan(-2.05);
+    for (let i = 1; i < result.route.waypoints.length; i++) {
+      expect(segmentCrossesLand(mask, result.route.waypoints[i - 1]!, result.route.waypoints[i]!)).toBe(false);
+    }
   });
 
   it.each([
@@ -202,6 +206,119 @@ describe('isochrone router', () => {
     const slow = computeRoute({ ...base, polarScaling: 0.8 });
     const fast = computeRoute({ ...base, polarScaling: 1.2 });
     expect(fast.duration_h).toBeLessThan(slow.duration_h);
+  });
+
+  it.each([
+    { reverse: false, gap: false },
+    { reverse: true, gap: false },
+    { reverse: false, gap: true },
+    { reverse: true, gap: true },
+  ])('checks endpoint connections across a finer wall (reverse=$reverse, gap=$gap)', ({ reverse, gap }) => {
+    const nlat = 61;
+    const nlon = 81;
+    const land = Array<number>(nlat * nlon).fill(0);
+    for (let i = 0; i < nlat; i++) {
+      if (!gap || i < 40 || i > 50) land[i * nlon + 23] = 1;
+    }
+    const mask: LandMask = {
+      schema_version: 1, kind: 'land_mask',
+      lat0: 49.1, lon0: -5.5, dlat: 0.01, dlon: 0.01, nlat, nlon, land,
+    };
+    const endpoints = [{ lat: 49.3, lon: -5.26 }, { lat: 49.3, lon: -5.4 }];
+    const start = endpoints[reverse ? 1 : 0]!;
+    const finish = endpoints[reverse ? 0 : 1]!;
+    expect(isLand(mask, start.lat, start.lon)).toBe(false);
+    expect(isLand(mask, finish.lat, finish.lon)).toBe(false);
+    expect(segmentCrossesLand(mask, start, finish)).toBe(true);
+    const request = {
+      start, finish, departureUtc: '2026-07-20T00:00:00Z',
+      polar: POLAR, windGrid: windGrid(180, 12), landMask: mask, resolutionDeg: 0.1,
+    };
+    if (!gap) {
+      expect(() => computeRoute(request)).toThrow('No route found');
+      return;
+    }
+    const { route } = computeRoute(request);
+    expect(route.waypoints[0]).toMatchObject(start);
+    expect(route.waypoints.at(-1)).toMatchObject(finish);
+    expect(route.waypoints.some(wp => wp.lat >= 49.5)).toBe(true);
+    for (let i = 1; i < route.waypoints.length; i++) {
+      expect(segmentCrossesLand(mask, route.waypoints[i - 1]!, route.waypoints[i]!)).toBe(false);
+    }
+  });
+
+  it.each([false, true])('retains the shared connection node when the direct endpoint leg crosses land (reverse=%s)', (reverse) => {
+    // Both endpoints snap to (49.3, -5.3). The two connectors avoid the
+    // small island between the endpoints, so replacing that node is unsafe.
+    const nlat = 61;
+    const nlon = 81;
+    const land = Array<number>(nlat * nlon).fill(0);
+    land[22 * nlon + 22] = 1;
+    const mask: LandMask = {
+      schema_version: 1, kind: 'land_mask',
+      lat0: 49.1, lon0: -5.5, dlat: 0.01, dlon: 0.01, nlat, nlon, land,
+    };
+    const endpoints = [{ lat: 49.34, lon: -5.3 }, { lat: 49.3, lon: -5.26 }];
+    const start = endpoints[reverse ? 1 : 0]!;
+    const finish = endpoints[reverse ? 0 : 1]!;
+    expect(segmentCrossesLand(mask, start, finish)).toBe(true);
+    const { route } = computeRoute({
+      start, finish, departureUtc: '2026-07-20T00:00:00Z',
+      polar: POLAR, windGrid: windGrid(225, 12), landMask: mask, resolutionDeg: 0.1,
+    });
+    expect(route.waypoints[0]).toMatchObject(start);
+    expect(route.waypoints.at(-1)).toMatchObject(finish);
+    expect(route.waypoints).toHaveLength(3);
+    for (let i = 1; i < route.waypoints.length; i++) {
+      expect(segmentCrossesLand(mask, route.waypoints[i - 1]!, route.waypoints[i]!)).toBe(false);
+    }
+  });
+
+  it.each([false, true])('rejects an emitted endpoint rounded onto land (reverse=%s)', (reverse) => {
+    // The land-cell boundary is at -5.30004: the requested endpoint is
+    // sea, but its four-decimal output (-5.3) is land.
+    const nlat = 61;
+    const nlon = 81;
+    const land = Array<number>(nlat * nlon).fill(0);
+    for (let i = 0; i < nlat; i++) land[i * nlon + 20] = 1;
+    const mask: LandMask = {
+      schema_version: 1, kind: 'land_mask',
+      lat0: 49.1, lon0: -5.49504, dlat: 0.01, dlon: 0.01, nlat, nlon, land,
+    };
+    const endpoints = [{ lat: 49.3, lon: -5.300049 }, { lat: 49.3, lon: -5.4 }];
+    const start = endpoints[reverse ? 1 : 0]!;
+    const finish = endpoints[reverse ? 0 : 1]!;
+    expect(isLand(mask, start.lat, start.lon)).toBe(false);
+    expect(isLand(mask, finish.lat, finish.lon)).toBe(false);
+    expect(isLand(mask, 49.3, -5.3)).toBe(true);
+    expect(() => computeRoute({
+      start, finish, departureUtc: '2026-07-20T00:00:00Z',
+      polar: POLAR, windGrid: windGrid(180, 12), landMask: mask, resolutionDeg: 0.1,
+    })).toThrow(/land/);
+  });
+
+  it.each([false, true])('rejects an endpoint enclosed away from every routing node (reverse=%s)', (reverse) => {
+    const nlat = 61;
+    const nlon = 81;
+    const land = Array<number>(nlat * nlon).fill(0);
+    for (let i = 23; i <= 25; i++) {
+      for (let j = 23; j <= 25; j++) {
+        if (i !== 24 || j !== 24) land[i * nlon + j] = 1;
+      }
+    }
+    const mask: LandMask = {
+      schema_version: 1, kind: 'land_mask',
+      lat0: 49.1, lon0: -5.5, dlat: 0.01, dlon: 0.01, nlat, nlon, land,
+    };
+    const endpoints = [{ lat: 49.34, lon: -5.26 }, { lat: 49.3, lon: -5.4 }];
+    const start = endpoints[reverse ? 1 : 0]!;
+    const finish = endpoints[reverse ? 0 : 1]!;
+    expect(isLand(mask, start.lat, start.lon)).toBe(false);
+    expect(isLand(mask, finish.lat, finish.lon)).toBe(false);
+    expect(() => computeRoute({
+      start, finish, departureUtc: '2026-07-20T00:00:00Z',
+      polar: POLAR, windGrid: windGrid(180, 12), landMask: mask, resolutionDeg: 0.1,
+    })).toThrow('No sea node near start/finish');
   });
 
   it.each([0, 45, 90, 135, 180, 225, 270, 315])('keeps every emitted leg in the sea through six alternating wall gaps (wind %s)', (direction) => {
