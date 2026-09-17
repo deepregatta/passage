@@ -5,7 +5,8 @@
  * approach demonstrably stalled on U-shaped land detours (wall-gap fixture:
  * outward hulls cannot retract, convergent hulls pin against the wall, and
  * upwind returns lose every bucket contest). Dijkstra is provably optimal on
- * the graph, obstacle-proof, and fast enough for the browser.
+ * the graph and fast enough for the browser. Land checks use the supplied
+ * mask and its segment sampler; they are not a navigation safety guarantee.
  *
  * Routing is route ACQUISITION: the computed route feeds the unchanged audit,
  * flagged as inheriting polar uncertainty.
@@ -90,8 +91,11 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
   const nlat = Math.max(3, Math.round((lat1 - lat0) / res) + 1);
   const nlon = Math.max(3, Math.round((lon1 - lon0) / res) + 1);
 
-  const latOf = (i: number) => lat0 + i * res;
-  const lonOf = (j: number) => lon0 + j * res;
+  // Search on the coordinates we can actually emit: rounding a grid node
+  // only after routing can move an otherwise valid coastal edge onto land.
+  const rounded = (value: number) => Math.round(value * 10000) / 10000;
+  const latOf = (i: number) => rounded(lat0 + i * res);
+  const lonOf = (j: number) => rounded(lon0 + j * res);
   const id = (i: number, j: number) => i * nlon + j;
 
   const wind = new GridSampler(windGrid);
@@ -103,15 +107,19 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
     let bj = Math.round((p.lon - lon0) / res);
     bi = Math.max(0, Math.min(nlat - 1, bi));
     bj = Math.max(0, Math.min(nlon - 1, bj));
-    if (landMask && isLand(landMask, latOf(bi), lonOf(bj))) {
-      // spiral out to the nearest sea node
+    const connects = (i: number, j: number) => !landMask ||
+      !segmentCrossesLand(landMask, p, { lat: latOf(i), lon: lonOf(j) });
+    if (!connects(bi, bj)) {
+      // A sea node can still be across a peninsula or a thin wall. Search
+      // nearby rings for a node with a checked connection to the endpoint.
       for (let r = 1; r < 8; r++) {
         for (let di = -r; di <= r; di++) {
           for (let dj = -r; dj <= r; dj++) {
+            if (Math.max(Math.abs(di), Math.abs(dj)) !== r) continue;
             const i = bi + di;
             const j = bj + dj;
             if (i < 0 || i >= nlat || j < 0 || j >= nlon) continue;
-            if (!isLand(landMask, latOf(i), lonOf(j))) return [i, j];
+            if (connects(i, j)) return [i, j];
           }
         }
       }
@@ -238,12 +246,14 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
     gridPath.unshift({ lat: latOf(Math.floor(n / nlon)), lon: lonOf(n % nlon), timeMs: arrival[n]! });
   }
 
-  // exact endpoints + collinear thinning
+  // Keep the checked endpoint-to-grid connections. Replacing the first/last
+  // grid nodes can create unchecked legs, even when both snap to one node.
   const path = [
     { lat: start.lat, lon: start.lon, timeMs: departureMs },
-    ...gridPath.slice(1, -1),
+    ...gridPath,
     { lat: finish.lat, lon: finish.lon, timeMs: arrival[finishId]! },
-  ];
+  ].filter((p, k, points) => k === 0 ||
+    p.lat !== points[k - 1]!.lat || p.lon !== points[k - 1]!.lon);
   // Keep real corners regardless of waypoint count. Check each shortcut from
   // the last retained point so consecutive removals cannot cut across land.
   const kept = [path[0]!];
@@ -264,9 +274,18 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
     id: `wp${k + 1}`,
     ...(k === 0 && start.name ? { name: start.name } : {}),
     ...(k === kept.length - 1 && finish.name ? { name: finish.name } : {}),
-    lat: Math.round(n.lat * 10000) / 10000,
-    lon: Math.round(n.lon * 10000) / 10000,
+    lat: rounded(n.lat),
+    lon: rounded(n.lon),
   }));
+
+  // Rounding can move a checked point onto land or change the sampled leg.
+  // Fail closed for the actual emitted coordinates, including two-point paths.
+  if (landMask && waypoints.some((to, k) => k > 0 &&
+    segmentCrossesLand(landMask, waypoints[k - 1]!, to))) {
+    throw new Error(
+      `No route found within ${request.maxHours ?? 48} h (wind coverage, land, or no-go conditions)`,
+    );
+  }
 
   let distance = 0;
   for (let k = 1; k < path.length; k++) {
