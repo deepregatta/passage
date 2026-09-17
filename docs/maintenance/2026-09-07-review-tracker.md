@@ -498,7 +498,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 ### 5.8 In Situ observation cache retention — §4.1, triaged in 5.5
 - Files: analysis/src/deepweather_analysis/observations.py; analysis/tests/test_observations_*.py
 - Do: Bound retention of daily In Situ NetCDF files while preserving the active requested window and refetching today's changing file.
-- Status: todo · Commit: — · Notes: Existing cache has no age/count pruning; separate from P11 parsing tolerance and the tides bullets scoped to 5.5.
+- Status: in progress · Commit: — · Notes: Clean pre-flight at `0d8e0ec`; previous 5.7 commit scope and full guardrails pass (293 engine, 411 viewer, 421 Python tests; Ruff check/format, Pages build, demo byte identity). Reconfirmed daily NetCDF cache has no pruning. Scope: 31 UTC dates plus active requested days including matching slack; today's file still refetched. Phase 5 gate applies. No unrelated dirty work.
 
 ---
 
