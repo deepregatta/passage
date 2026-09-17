@@ -20,6 +20,13 @@ Archived on 2026-07-22:
 - `scripts/local-refresh-watch.sh` — local stand-in for a scheduled refresh;
   production preparation is now handled by `.github/workflows/prepare-synoptic.yml`.
 
+Archived on 2026-09-17:
+
+- [September code review](documentation/2026-09-07-code-review.md) and
+  [completed step tracker](documentation/2026-09-07-review-tracker.md) —
+  maintenance campaign closed after task 3.10; 66 tasks done and one not
+  reproducible, with no open steps. Original findings are historical.
+
 When restoring an item, move it back into the maintained tree, update it to the
 current implementation, restore any references, and validate the relevant
 tests.

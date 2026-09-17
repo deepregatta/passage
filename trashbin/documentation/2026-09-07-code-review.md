@@ -1,4 +1,4 @@
-> Companion tracker: [2026-09-07-review-tracker.md](2026-09-07-review-tracker.md). One step per agent session; move both files to `trashbin/documentation/` when the campaign is closed.
+> Companion tracker: [2026-09-07-review-tracker.md](2026-09-07-review-tracker.md). Campaign completed and archived on 2026-09-17. Historical findings below describe the original review baseline, not the current application.
 
 # Passage — exhaustive code review (2026-09-07)
 
