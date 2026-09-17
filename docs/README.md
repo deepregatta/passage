@@ -6,6 +6,7 @@ This directory contains the maintained documentation for Passage.
 |---|---|
 | [Product brief](product-brief.md) | Current audience, value proposition, scope, safety principles, and product status |
 | [Testing and maintenance](testing.md) | Test suites, fixtures, scripts, generated files, and routine validation |
+| [2026-09-17 implementation verification](maintenance/2026-09-17-implementation-verification.md) | Follow-up verification of the archived September review, passing checks, and confirmed unresolved findings |
 | [PFT1 forecast tile format](forecast-tile-format.md) | Binary forecast-tile and publication contract shared with `forecast-tiles` |
 
 Repository-level entry points remain at the root:
