@@ -6,7 +6,7 @@ The original [review](../../trashbin/documentation/2026-09-07-code-review.md) an
 
 **The campaign implemented most of its scoped work, but the full review is not completely resolved.** Existing checks all pass. A new endpoint case still produces a computed leg crossing land, and several original findings were omitted from the tracker or deferred without a follow-up row. The archive's “none open” statement describes its task statuses, not complete resolution of the original report.
 
-The findings and verification tables below describe the original reviewed head. Subsequent implementation status is recorded under each finding.
+The findings and verification tables below describe the original reviewed head. Subsequent implementation status is recorded under each finding. IV-1 is resolved; IV-2 through IV-8 remain open.
 
 ## Findings and follow-up status
 
@@ -19,7 +19,7 @@ The findings and verification tables below describe the original reviewed head. 
 - Existing eight-direction comb-mask and short graph-edge regressions pass. They do not cover this endpoint-to-grid connection.
 - Required follow-up: validate endpoint connections during acquisition, preserve required connection nodes, and validate the final emitted legs after coordinate rounding. Add both start and finish regression cases. Do not describe the router as preventing all mask crossings while this remains open.
 
-**Implementation follow-up — awaiting hosted CI:** endpoint acquisition now checks the exact endpoint-to-grid segment for every candidate, including an initially selected sea node. The reconstructed path retains its connection nodes before checked thinning, the search uses grid coordinates rounded to output precision, and every final emitted leg is checked again after rounding. A failed final check rejects the route. The original reproduction below now throws `No route found`.
+**Resolved in `0b823ec` — [CI 35278728323 passed](https://github.com/deepregatta/passage/actions/runs/35278728323):** endpoint acquisition now checks the exact endpoint-to-grid segment for every candidate, including an initially selected sea node. The reconstructed path retains its connection nodes before checked thinning, the search uses grid coordinates rounded to output precision, and every final emitted leg is checked again after rounding. A failed final check rejects the route. The original reproduction below now throws `No route found`.
 
 Ten new regression cases cover both endpoint directions for closed/gapped walls, a shared connection node around an island, endpoints rounded onto land, and an enclosed endpoint with no accessible grid node. Eight cases were observed failing before the fix; the original wall-gap test now also checks every emitted leg. Local validation: 303 engine tests, 428 viewer tests, 430 Python tests, 50 desktop/mobile browser tests, lint, Ruff check/format, and the Pages build pass; demo regeneration leaves tracked artifacts unchanged. These checks retain the existing mask coverage and approximately 0.4 nm segment-sampling limits; they do not certify navigation safety. Other findings remain outside this change.
 
