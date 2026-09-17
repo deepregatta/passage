@@ -42,7 +42,7 @@ import json
 import logging
 import math
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
@@ -349,6 +349,9 @@ def fetch_live(
 
 # CMEMS In Situ TAC QC flags accepted as usable (0 no-QC, 1 good, 2 probably good)
 INSITU_GOOD_QC = (0, 1, 2)
+# Keep today plus the previous 30 UTC dates, matching the upstream rolling window.
+# An older active request (including matching slack) is exempt until the next call.
+INSITU_CACHE_DAYS = 31
 # (record field, candidate NetCDF variables in preference order, unit conversion)
 INSITU_VARIABLES = (
     ("wind_kt", ("WSPD",), KT_PER_MS, 1),
@@ -423,6 +426,33 @@ def records_from_insitu_nc(nc_path: Path) -> List[Dict[str, Any]]:
     return [records[t] for t in sorted(records)]
 
 
+def _prune_insitu_cache(cache_dir: Path, today: date, requested_days: set[date]) -> None:
+    """Best-effort expiry by the daily filename date, never file modification time.
+
+    Scan all stations so changing routes cannot leave abandoned caches behind.
+    Unknown names, invalid dates, directories and symlinks are not cache entries.
+    """
+    oldest = today - timedelta(days=INSITU_CACHE_DAYS - 1)
+    try:
+        for path in cache_dir.iterdir():
+            prefix, _, stamp = path.stem.rpartition("_")
+            if path.suffix != ".nc" or not prefix or len(stamp) != 8 or not stamp.isdecimal():
+                continue
+            try:
+                cached_day = date.fromisoformat(stamp)
+            except ValueError:
+                continue
+            if cached_day >= oldest or cached_day in requested_days:
+                continue
+            try:
+                if not path.is_symlink() and path.is_file():
+                    path.unlink(missing_ok=True)
+            except OSError as exc:
+                logger.warning("In Situ cache cleanup failed for %s: %s", path.name, exc)
+    except OSError as exc:
+        logger.warning("In Situ cache scan failed: %s", exc)
+
+
 def fetch_live_insitu(
     start_iso: str,
     end_iso: str,
@@ -456,6 +486,7 @@ def fetch_live_insitu(
 
     cache_dir = data_root() / "cache" / "observations" / "insitu"
     cache_dir.mkdir(parents=True, exist_ok=True)
+    _prune_insitu_cache(cache_dir, today, set(days))
 
     stations_out: List[Dict[str, Any]] = []
     fetched_files = 0
