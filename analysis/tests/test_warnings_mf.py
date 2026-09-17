@@ -263,6 +263,81 @@ def test_parse_validity_missing_degrades():
     assert confidence == 0.5
 
 
+@pytest.mark.parametrize(
+    "issued, date_text, expected",
+    [
+        ("2026-09-01", "31 AOUT", "2026-08-31T18:00:00Z"),
+        ("2026-01-01", "31 DECEMBRE", "2025-12-31T18:00:00Z"),
+        ("2026-08-31", "1 SEPTEMBRE", "2026-09-01T18:00:00Z"),
+        ("2026-12-31", "1 JANVIER", "2027-01-01T18:00:00Z"),
+        ("2026-09-01", "31", "2026-08-31T18:00:00Z"),
+        ("2026-01-01", "31", "2025-12-31T18:00:00Z"),
+        ("2024-03-01", "29 FEVRIER", "2024-02-29T18:00:00Z"),
+        ("2026-07-13", "6 JUILLET", "2026-07-06T18:00:00Z"),
+        ("2026-07-13", "20 JUILLET", "2026-07-20T18:00:00Z"),
+    ],
+)
+def test_validity_resolves_near_issue_time(issued, date_text, expected):
+    issued = datetime.fromisoformat(issued).replace(hour=18, tzinfo=timezone.utc)
+    assert _parse_validity(f"VALABLE JUSQU'AU {date_text} A 18H UTC", issued) == (
+        None,
+        expected,
+        0.85,
+    )
+
+
+@pytest.mark.parametrize(
+    "date_text",
+    ["5 JUILLET", "21 JUILLET", "13 JANVIER", "31 JUIN", "29 FEVRIER", "13 INCONNU"],
+)
+def test_distant_or_invalid_explicit_validity_degrades(date_text):
+    assert _parse_validity(f"VALABLE JUSQU'AU {date_text} A 18H UTC", NOW) == (None, None, 0.5)
+
+
+@pytest.mark.parametrize(
+    "issued, start, end, expected_start, expected_end",
+    [
+        ("2026-09-01", "31 AOUT", "1 SEPTEMBRE", "2026-08-31", "2026-09-01"),
+        ("2026-01-01", "31 DECEMBRE", "1 JANVIER", "2025-12-31", "2026-01-01"),
+        ("2026-12-31", "31 DECEMBRE", "1 JANVIER", "2026-12-31", "2027-01-01"),
+    ],
+)
+def test_validity_range_across_month_and_year(issued, start, end, expected_start, expected_end):
+    issued = datetime.fromisoformat(issued).replace(tzinfo=timezone.utc)
+    assert _parse_validity(f"VALABLE DU {start} A 18H UTC AU {end} A 06H UTC", issued) == (
+        f"{expected_start}T18:00:00Z",
+        f"{expected_end}T06:00:00Z",
+        0.85,
+    )
+
+
+@pytest.mark.parametrize(
+    "issued, date_text, expected",
+    [
+        ("2026-09-01", "31 AOUT", "2026-08-31T18:00:00Z"),
+        ("2026-01-01", "31 DECEMBRE", "2025-12-31T18:00:00Z"),
+    ],
+)
+def test_fetch_live_expires_previous_month_validity(monkeypatch, issued, date_text, expected):
+    mock_csv(
+        monkeypatch,
+        [
+            {
+                **ACTIVE_ROW,
+                "date": f"{issued} 00:00:00",
+                "contenu": f"COUP DE VENT POUR CASQUETS. VALABLE JUSQU'AU {date_text} A 18H UTC.",
+            }
+        ],
+    )
+    now = datetime.fromisoformat(issued).replace(tzinfo=timezone.utc)
+    # The existing one-day retention grace keeps the real expiry, never next year's date.
+    recent = fetch_live(now)["bulletins"]
+    assert recent
+    assert {b["valid_to"] for b in recent} == {expected}
+    # Issue age is still below seven days: filtering must use the parsed expiry.
+    assert fetch_live(now + timedelta(days=2))["bulletins"] == []
+
+
 def test_severity_ladder():
     assert _severity(_normalize(REAL_BULLETIN)) == "gale"
     assert _severity(_normalize("AVIS DE TEMPETE")) == "storm"

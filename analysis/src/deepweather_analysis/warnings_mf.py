@@ -87,6 +87,10 @@ FR_MONTHS = {
     "DECEMBRE": 12,
 }
 
+# Yearless BMS validity is only inferred within this inclusive window around
+# issue time. This is a parser bound, independent of the feed's issue-age filter.
+VALIDITY_WINDOW = timedelta(days=7)
+
 GALE_WORDS = re.compile(
     r"\b(gale|storm|BMS|coup de vent|tempête|avis de grand frais|force\s*[89]|force\s*1[012])\b",
     re.IGNORECASE,
@@ -192,20 +196,28 @@ def _route_zone_tokens() -> list[tuple[str, str, list[str]]]:
 def _resolve_day(
     day: int, month_word: str | None, hour: int, minute: int, issued: datetime
 ) -> str | None:
-    year, month = issued.year, issued.month
-    if month_word in FR_MONTHS:
-        month = FR_MONTHS[month_word]
-        if month < issued.month:  # year rollover (issued in December, valid into January)
-            year += 1
-    elif day < issued.day - 15:
-        # no month word: same month as issue unless the day implies a rollover
-        month += 1
-        if month > 12:
-            month, year = 1, year + 1
-    try:
-        resolved = datetime(year, month, day, hour, minute, tzinfo=timezone.utc)
-    except ValueError:
+    """Resolve the nearest valid date within seven days before or after issue."""
+    if month_word is not None:
+        if month_word not in FR_MONTHS:
+            return None
+        year_months = [(issued.year + offset, FR_MONTHS[month_word]) for offset in (-1, 0, 1)]
+    else:
+        # A missing month can refer to either side of a month/year boundary too.
+        year_months = []
+        for offset in (-1, 0, 1):
+            year, month0 = divmod(issued.year * 12 + issued.month - 1 + offset, 12)
+            year_months.append((year, month0 + 1))
+    candidates = []
+    for year, month in year_months:
+        try:
+            candidate = datetime(year, month, day, hour, minute, tzinfo=timezone.utc)
+        except ValueError:
+            continue
+        if abs(candidate - issued) <= VALIDITY_WINDOW:
+            candidates.append(candidate)
+    if not candidates:
         return None
+    resolved = min(candidates, key=lambda candidate: abs(candidate - issued))
     return resolved.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
