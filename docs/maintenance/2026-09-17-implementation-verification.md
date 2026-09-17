@@ -43,6 +43,12 @@ Twenty new regression cases cover previous-month/year expiry, forward month/year
 - Browser reproduction: open the served example through My briefings, click Share this analysis (the button reports Link copied), then open its `/#brief/story` URL in a new tab. The new tab displays **“No analysis open.”** This also fails for a served snapshot; local IndexedDB briefings additionally cannot be read by another browser.
 - Required follow-up: give served snapshots a resolvable identity in shared URLs; disable or accurately relabel sharing for local-only briefings until a supported transfer mechanism exists.
 
+**Implemented; hosted CI pending:** sharing now copies a URL containing the served snapshot ID (`#brief/story?snapshot=<id>`), preserving the English/French path. Opening it loads that frozen analysis from the served artifact directory, including in another browser, without substituting a browser-local copy. Snapshot IDs are validated before fetching. Missing or invalid shared snapshots show a translated error; failed clipboard writes no longer fail silently. The snapshot's own demo flag preserves the example treatment on a fresh load without a briefing-list manifest.
+
+Local-only briefings have a disabled Share action and a visible explanation that they cannot be shared by link. Sharing is also disabled while loading, after a load error, or without an open analysis. This adds no upload or transfer mechanism; served links depend on continued availability of the named artifacts.
+
+Ten new unit/integration regressions cover copied identity and reopening, local-only/absent analyses, conflicting local copies, unavailable/invalid IDs, French paths, navigation during loading, and clipboard failure. The initial eight cases failed before implementation. Eight desktop/mobile browser cases exercise real clipboard reads, independent browser contexts, EN/FR reopening, reload/Back navigation, local IndexedDB briefings, and unavailable links. Local checks pass: 303 engine tests, 438 viewer tests, all 58 desktop/mobile browser tests (unchanged screenshot baselines), lint, and the Pages build. The served demo index matches the committed fixture byte-for-byte. Hosted CI is recorded at closeout. Other IV findings remain outside this change.
+
 ### IV-4 — P2: negative UTC offsets still fail in the engine
 
 - Related review: §4.2 `eta.ts`; not covered by the Python-only UTC consolidation in 1.3.

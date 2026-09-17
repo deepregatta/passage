@@ -45,8 +45,10 @@
         "what_could_change"
       ],
       "viewer/src/App.jsx": [
+        "briefing",
         "hashchange",
-        "page_view"
+        "page_view",
+        "served"
       ],
       "viewer/src/components/BoatPicker.jsx": [
         "/data/config/polars/index.json",
@@ -101,9 +103,11 @@
         "https://oscar.deepregatta.com/api/feedback",
         "idle",
         "keydown",
+        "local",
         "mobile",
         "planner",
         "race_request",
+        "served",
         "share_click",
         "snapshots",
         "submitting",

@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect } from 'react';
 import { useApp } from './stores/appStore.js';
 import Shell from './components/Shell.jsx';
-import { HASH_PAGE, PAGE_HASH } from './lib/routes.js';
+import { parseRoute, pageHash } from './lib/routes.js';
 import { track } from './lib/analytics.js';
 import { LocalizedDocument } from './i18n.js';
 import { HeadMetadata } from './components/HeadMetadata.jsx';
@@ -27,20 +27,21 @@ export default function App() {
 
   useEffect(() => {
     const sync = () => {
-      const target = HASH_PAGE[location.hash.slice(1)];
-      if (target) setPage(target);
+      const { page: target, snapshotId } = parseRoute(location.hash);
+      if (target) {
+        setPage(target, false);
+        const state = useApp.getState();
+        if (snapshotId !== null && (state.snapshotId !== snapshotId || state.snapshotSource !== 'served')) {
+          void state.openSnapshot(snapshotId, null, 'briefing', 'served');
+        }
+      } else {
+        history.replaceState(null, '', `${location.pathname}${location.search}#${pageHash(useApp.getState().page)}`);
+      }
     };
     sync();
     window.addEventListener('hashchange', sync);
     return () => window.removeEventListener('hashchange', sync);
   }, [setPage]);
-
-  useEffect(() => {
-    const hash = PAGE_HASH[page] ?? PAGE_HASH.planner;
-    if (location.hash.slice(1) !== hash) {
-      history.replaceState(null, '', `${location.pathname}${location.search}#${hash}`);
-    }
-  }, [page]);
 
   useEffect(() => {
     track('page_view', { page });

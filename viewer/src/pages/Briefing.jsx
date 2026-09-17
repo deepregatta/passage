@@ -22,7 +22,7 @@ export default function Briefing() {
   const [bulletinOpen, setBulletinOpen] = useState(false);
   const snapshotId = useApp((s) => s.snapshotId);
   const attempt = useApp((s) => s.measurementAttempt);
-  const example = useApp((s) => s.manifest?.snapshots?.find(item => item.snapshot_id === s.snapshotId)?.demo === true);
+  const example = useApp((s) => s.snapshot?.demo === true || s.manifest?.snapshots?.find(item => item.snapshot_id === s.snapshotId)?.demo === true);
   const loading = useApp((s) => s.loading);
   const loadError = useApp((s) => s.loadError);
   const ready = !loading && !loadError && Boolean(findings?.verdict?.state && briefing?.sections?.length && findings?.legs?.length);
