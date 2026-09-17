@@ -3,6 +3,7 @@ import ReactECharts from './lazy/EChartsLazy.jsx';
 import { useMemo } from 'react';
 import { useApp } from '../stores/appStore.js';
 import { fmtHour } from '../lib/format.js';
+import useViewport from '../hooks/useViewport.js';
 
 const MODEL_COLORS = {
   ecmwf_ifs025: palette.ink.DEFAULT,
@@ -15,6 +16,7 @@ export default function ModelComparison() {
   const plume = useApp((s) => s.plume);
   const findings = useApp((s) => s.findings);
   const legId = useApp((s) => s.selectedLegId);
+  const mobile = useViewport();
 
   const option = useMemo(() => {
     const leg = plume?.legs.find((l) => l.leg_id === legId);
@@ -46,7 +48,7 @@ export default function ModelComparison() {
         itemWidth: 14,
         itemHeight: 3,
       },
-      grid: { left: 48, right: 18, top: 34, bottom: 36 },
+      grid: { left: 48, right: 18, top: mobile ? 56 : 34, bottom: 36 },
       xAxis: {
         type: 'time',
         axisLine: { lineStyle: { color: soft } },
@@ -54,6 +56,7 @@ export default function ModelComparison() {
           color: soft,
           fontFamily: 'ui-monospace, monospace',
           fontSize: 10,
+          hideOverlap: true,
           formatter: (v) => fmtHour(new Date(v).toISOString()),
         },
         splitLine: { show: false },
@@ -61,7 +64,7 @@ export default function ModelComparison() {
       yAxis: {
         type: 'value',
         name: 'kt (10 m sustained)',
-        nameTextStyle: { color: soft, fontSize: 10 },
+        nameTextStyle: { color: soft, fontSize: 10, align: 'left' },
         axisLabel: { color: soft, fontFamily: 'ui-monospace, monospace', fontSize: 10 },
         splitLine: { lineStyle: { color: rgba(palette.ink.DEFAULT, '0.08') } },
       },
@@ -90,7 +93,7 @@ export default function ModelComparison() {
             : undefined,
       })),
     };
-  }, [plume, findings, legId]);
+  }, [plume, findings, legId, mobile]);
 
   if (!option) {
     return <p className="text-sm text-ink-soft">No multi-model data in this snapshot.</p>;
