@@ -426,7 +426,7 @@ Status values: `todo` · `in progress` · `done` · `not reproducible` · `dropp
 ### 3.9 Responsive Evidence charts — noticed in 4.9
 - Files: viewer/src/pages/Evidence.jsx and relevant styles/tests
 - Done when: EN/FR Evidence charts fit a 390px viewport with explicit document-width assertions.
-- Status: todo · Commit: — · Notes: Existing mobile baseline is 1160px wide; preserve it until the intended responsive fix.
+- Status: in progress · Commit: — · Notes: Clean pre-flight at `103fd53`; previous 5.8 commit `54eec93` scope and full guardrails pass (293 engine, 411 viewer, 430 Python tests; Ruff; demo fixtures unchanged). Existing mobile baseline is 1160px wide; preserve it until the intended responsive fix.
 
 ### 3.10 French limit fragment boundary — noticed in 5.3
 - Files: viewer/src/i18n.js and relevant translation tests
