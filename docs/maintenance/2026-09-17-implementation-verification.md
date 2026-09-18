@@ -6,7 +6,7 @@ The original [review](../../trashbin/documentation/2026-09-07-code-review.md) an
 
 **The campaign implemented most of its scoped work, but the full review is not completely resolved.** Existing checks all pass. A new endpoint case still produces a computed leg crossing land, and several original findings were omitted from the tracker or deferred without a follow-up row. The archive's “none open” statement describes its task statuses, not complete resolution of the original report.
 
-The findings and verification tables below describe the original reviewed head. Subsequent implementation status is recorded under each finding. IV-1 through IV-3 are resolved; IV-4 through IV-8 remain open.
+The findings and verification tables below describe the original reviewed head. Subsequent implementation status is recorded under each finding. IV-1 through IV-3 are resolved; IV-4 is implemented with hosted CI pending; IV-5 through IV-8 remain open.
 
 ## Findings and follow-up status
 
@@ -55,6 +55,12 @@ Ten new unit/integration regressions cover copied identity and reopening, local-
 - Code: [eta.ts](../../engine/src/eta.ts), lines 122–124.
 - These inputs represent the same instant: `2026-09-17T10:00:00Z`, `2026-09-17T12:00:00+02:00`, and `2026-09-17T05:00:00-05:00`. `parseUtc()` accepts the first two and throws `Invalid UTC timestamp` for the third because it appends `Z` to a negative-offset timestamp.
 - Required follow-up: recognize both offset signs and retain the explicit naive-as-UTC policy; cover the public scheduling/analysis path as well as the parser.
+
+**Implemented; hosted CI pending:** `parseUtc()` now recognizes trailing `Z`, `+HH:mm` / `-HH:mm`, and compact `+HHmm` / `-HHmm` offsets. Only timestamps without a zone receive an appended `Z`, preserving the naive-as-UTC policy. Invalid timestamps still throw the existing error.
+
+Twenty-six new regressions cover both offset signs, half-hour and zero offsets, compact offsets, fractional seconds, date-only/naive timestamps, invalid offsets, and UTC date rollover. Public `computeSchedules()` and `runAnalysis()` cases verify identical ETAs, occupancy hours, forecast-read windows, findings, briefing content, and plume data for equivalent departures, including a previous-local-day departure at the UTC 06:00 boundary. Existing input spelling in departure metadata and snapshot identities is preserved. Ten cases failed before the fix; all 34 focused tests now pass under `TZ=Europe/Paris`.
+
+Local validation passes: 329 engine tests, 438 viewer tests, 450 Python tests (12 existing upstream deprecation warnings), engine build/typecheck, lint, Ruff check/format, and the Pages build. JavaScript/Python tests and demo regeneration ran under `TZ=Europe/Paris`; regenerated demo fixtures are unchanged. No viewer behavior or screenshot baseline changes. Other IV findings remain outside this change.
 
 ### IV-5 — P2: decoded forecast tiles still have no memory bound
 
