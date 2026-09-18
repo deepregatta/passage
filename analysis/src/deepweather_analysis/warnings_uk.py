@@ -30,6 +30,16 @@ SHIPPING_FORECAST_URL = (
 TIME_RE = re.compile(
     r"(\d{1,2}):(\d{2})\s*\(UTC([+-]\d{1,2})?\)\s*on\s*\w+\s+(\d{1,2})\s+(\w{3})\s+(\d{4})"
 )
+VALIDITY_RE = re.compile(
+    r"Forecast valid from:\s*(?P<valid_from>.*?)\s+until\s+(?P<valid_to>.*?)\.?",
+    re.IGNORECASE,
+)
+ISSUE_RE = re.compile(
+    r"(?:The shipping forecast )?Issued by the Met Office, "
+    r"on behalf of the Maritime and Coastguard Agency, at\s+(?P<issued>.*?)"
+    r"(?:\s+for the period\s+(?P<valid_from>.*?)\s+to\s+(?P<valid_to>.*?))?\.?",
+    re.IGNORECASE,
+)
 GALES_RE = re.compile(
     r"\b(?P<no>no\s+)?warnings of gales\s+in\s+(?P<areas>.*?)\.",
     re.IGNORECASE | re.DOTALL,
@@ -61,19 +71,54 @@ def _parse_time(match: re.Match) -> datetime:
     ).astimezone(timezone.utc)
 
 
+def _forecast_times(raw_html: str) -> dict[str, datetime]:
+    """Read labeled paragraphs, requiring repeated header/body values to agree.
+
+    Use displayed offsets: the fixture's datetime attributes incorrectly mark
+    local summer times as Z. Never infer an issue time from validity or fetch time.
+    """
+    times: dict[str, datetime] = {}
+    for paragraph in re.findall(r"<p\b[^>]*>(.*?)</p\s*>", raw_html, re.IGNORECASE | re.DOTALL):
+        text = _flatten(paragraph).strip()
+        if text.lower().startswith("forecast valid from"):
+            match = VALIDITY_RE.fullmatch(text)
+        elif text.lower().startswith(("issued by the met office", "the shipping forecast issued")):
+            match = ISSUE_RE.fullmatch(text)
+        else:
+            continue
+        if match is None:
+            raise ValueError("shipping forecast page: malformed labeled times — layout changed?")
+        for field, value in match.groupdict().items():
+            if value is None:
+                continue
+            timestamp = TIME_RE.fullmatch(value.strip())
+            if timestamp is None:
+                raise ValueError(f"shipping forecast page: malformed {field}")
+            try:
+                parsed = _parse_time(timestamp)
+            except (ValueError, KeyError, OverflowError) as error:
+                raise ValueError(f"shipping forecast page: invalid {field}") from error
+            if field in times and times[field] != parsed:
+                raise ValueError(f"shipping forecast page: conflicting {field}")
+            times[field] = parsed
+
+    if not {"issued", "valid_from", "valid_to"} <= times.keys():
+        raise ValueError("shipping forecast page: labeled times not found — layout changed?")
+    if times["valid_from"] >= times["valid_to"] or times["issued"] >= times["valid_to"]:
+        raise ValueError("shipping forecast page: inconsistent validity interval")
+    return times
+
+
 def parse_shipping_forecast(raw_html: str) -> dict:
     """Extract times, gale areas, all-area scope/exclusions, and area forecasts.
 
     For all-area statements, gale_areas expands the available forecast headings.
     Retain the scope too: a missing area forecast must not suppress its warning.
+    Missing, malformed, conflicting, or inconsistent labeled times raise ValueError.
     """
     text = _flatten(raw_html)
 
-    times = [_parse_time(m) for m in TIME_RE.finditer(text)]
-    # page order: valid-from, valid-until, issued-at (header), then repeats in body
-    valid_from = times[0] if len(times) >= 2 else None
-    valid_to = times[1] if len(times) >= 2 else None
-    issued = times[2] if len(times) >= 3 else valid_from
+    times = _forecast_times(raw_html)
 
     areas: dict[str, str] = {}
     for heading, body in AREA_RE.findall(raw_html):
@@ -99,9 +144,7 @@ def parse_shipping_forecast(raw_html: str) -> dict:
             gale_areas = _split_areas(statement)
 
     return {
-        "issued": issued,
-        "valid_from": valid_from,
-        "valid_to": valid_to,
+        **times,
         "gale_areas": gale_areas,
         "gale_all_areas": all_areas,
         "gale_excluded_areas": excluded_areas,
@@ -122,14 +165,10 @@ def fetch_uk_gale_bulletins(
     route_uk_zones: list[dict], now: datetime | None = None
 ) -> tuple[list[dict], str]:
     """(bulletins for route zones under gale warning, status note). Raises on fetch/parse failure."""
-    now = now or datetime.now(timezone.utc)
     response = requests.get(SHIPPING_FORECAST_URL, timeout=30)
     response.raise_for_status()
     parsed = parse_shipping_forecast(response.text)
-    if parsed["valid_from"] is None or parsed["valid_to"] is None:
-        raise ValueError("shipping forecast page: validity times not found — layout changed?")
-
-    issued_iso = (parsed["issued"] or now).strftime("%Y-%m-%dT%H:%M:%SZ")
+    issued_iso = parsed["issued"].strftime("%Y-%m-%dT%H:%M:%SZ")
     bulletins: list[dict] = []
     for zone in route_uk_zones:
         if parsed["gale_all_areas"]:
