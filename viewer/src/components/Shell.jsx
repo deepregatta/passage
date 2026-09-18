@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { withUtm } from '../lib/analytics.js';
 import clsx from 'clsx';
 import { useApp } from '../stores/appStore.js';
@@ -18,6 +19,7 @@ const SUBVIEWS = {
 };
 
 export default function Shell({ page, onNavigate, children }) {
+  const mainRef = useRef(null);
   const snapshotId = useApp((state) => state.snapshotId);
   const language = useApp((state) => state.language);
   const setLanguage = useApp((state) => state.setLanguage);
@@ -28,7 +30,11 @@ export default function Shell({ page, onNavigate, children }) {
   };
   return (
     <div className="min-h-screen bg-paper pb-16 md:pb-0 flex flex-col">
-      <a href="#main-content" className="sr-only focus:not-sr-only fixed left-3 top-3 z-[100] bg-paper border border-ink px-3 py-2">Skip to briefing content</a>
+      <a href="#main-content" onClick={(event) => {
+        // The fragment belongs to the application router, not in-page navigation.
+        event.preventDefault();
+        mainRef.current?.focus();
+      }} className="sr-only focus:not-sr-only fixed left-3 top-3 z-[100] bg-paper border border-ink px-3 py-2">Skip to briefing content</a>
       <header className="sticky top-0 z-30 bg-ink-deep text-paper border-b border-paper/20">
         <div className="h-14 px-3 sm:px-5 flex items-center gap-4">
           <button type="button" onClick={() => onNavigate('snapshots')} className="min-h-11 flex items-center gap-2" aria-label="Passage home">
@@ -63,7 +69,7 @@ export default function Shell({ page, onNavigate, children }) {
           ))}
         </nav>
       </header>
-      <main id="main-content" className="min-w-0 flex-1">{children}</main>
+      <main ref={mainRef} id="main-content" tabIndex={-1} className="min-w-0 flex-1">{children}</main>
       <SiteFooter onNavigate={onNavigate} />
       <nav aria-label="Passage stages" className="md:hidden fixed bottom-0 inset-x-0 h-16 z-40 bg-ink-deep text-paper grid grid-cols-4 border-t border-paper/20">
         {STAGES.map((stage, index) => <StageButton key={stage.id} stage={stage} index={index} active={active.id === stage.id} onClick={() => navigateStage(stage)} mobile />)}
