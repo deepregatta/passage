@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
-import { runAnalysis } from '../src/analyze.js';
+import { runAnalysis } from '../src/index.js';
 import { ScenarioBundleStore } from '../src/forecast/scenarioStore.js';
 import type { RegionGrid } from '../src/grids.js';
 import type { LimitsProfile, Route } from '../src/types.js';
@@ -29,6 +29,35 @@ function gate() {
   const promise = new Promise<void>((resolve) => { release = resolve; });
   return { promise, release };
 }
+
+describe('public analysis with UTC offsets', () => {
+  it.each([
+    '2026-07-20T01:00:00-05:00',
+    '2026-07-19T23:00:00-07:00',
+    '2026-07-20T08:00:00+02:00',
+    '2026-07-20T06:00:00',
+  ])('preserves forecast windows and assessment for departure %s', async (departureUtc) => {
+    const expected = await runAnalysis({ ...options, store: fixtureStore() });
+    const store = fixtureStore();
+    const reads = methods.map((method) => vi.spyOn(store, method));
+    const actual = await runAnalysis({ ...options, departureUtc, store });
+
+    for (const readLayer of reads) {
+      expect(readLayer).toHaveBeenCalledExactlyOnceWith(
+        expect.any(Array), Date.UTC(2026, 6, 20), Date.UTC(2026, 6, 23),
+      );
+    }
+    // Input spelling remains in departure metadata and snapshot identities.
+    expect(actual.findings).toEqual({
+      ...expected.findings,
+      departure_utc: departureUtc,
+      snapshot_id: actual.findings.snapshot_id,
+    });
+    expect(actual.briefing).toEqual({ ...expected.briefing, snapshot_id: actual.findings.snapshot_id });
+    expect(actual.plume).toEqual({ ...expected.plume, snapshot_id: actual.findings.snapshot_id });
+    expect(actual.snapshotInputs).toEqual(expected.snapshotInputs);
+  });
+});
 
 describe('analysis layer reads', () => {
   it('starts every forecast read before any finishes and preserves results and progress', async () => {

@@ -120,7 +120,9 @@ export function hourlyRange(startMs: number, endMs: number): string[] {
 }
 
 export function parseUtc(iso: string): number {
-  const ms = Date.parse(iso.endsWith('Z') || iso.includes('+') ? iso : `${iso}Z`);
+  // Honor either offset sign; timestamps without a zone are explicitly UTC.
+  const hasZone = /(?:Z|[+-]\d{2}:?\d{2})$/.test(iso);
+  const ms = Date.parse(hasZone ? iso : `${iso}Z`);
   if (Number.isNaN(ms)) throw new Error(`Invalid UTC timestamp: ${iso}`);
   return ms;
 }
