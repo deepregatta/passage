@@ -121,6 +121,26 @@ axes, variables, per-tile `{bytes, fnv64}`, totals, validation results.
 Clients must treat a `run_id` as immutable and may cache its tiles forever
 (IndexedDB, evicted by run id).
 
+### Passage decoded-memory policy
+
+`TileForecastStore` retains at most **64 MiB of decoded Float32 array bytes**
+by default, shared across all layers. `maxDecodedBytes` can override that
+budget with a non-negative safe integer; zero disables decoded retention.
+The viewer singleton uses the default. Reads refresh recency, and loading a
+tile evicts the least recently used entries until its arrays fit. Missing
+tiles are checked against the manifest without retaining negative entries.
+
+Tiles larger than the budget remain usable by current callers but are not
+retained. Eviction drops references without mutating arrays; in-flight loads
+remain shared and failures remain retryable. Later reads decode the stored
+gzip bytes again, or fetch them if the compressed cache no longer has them.
+Grid time-index memoization uses weak references so it does not retain
+evicted tiles for the whole mosaic operation.
+
+This is a retained-array budget, not a total browser-memory limit: tile
+headers, compressed cache bytes, active fetch/decode work and consumer output
+arrays are outside it. IndexedDB storage quotas remain a separate policy.
+
 ## Golden fixtures
 
 Shared between both repos; regenerate only with the pipeline repo's
