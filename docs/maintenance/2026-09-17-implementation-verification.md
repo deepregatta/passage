@@ -96,6 +96,12 @@ Thirty new regression cases cover the reported prepended timestamp, timestamps b
 - Browser reproduction: activate Skip to briefing content while viewing `#brief/story`. The URL becomes `#main-content`; reloading then opens `#plan/planner`, because that fragment is not a recognized application route.
 - Required follow-up: focus the main content without changing the routing fragment, with keyboard and reload coverage.
 
+**Implementation in progress:** the skip link now cancels native fragment navigation and focuses the main region through a React ref. The main region has `tabIndex={-1}`, so it accepts programmatic focus without adding a sequential Tab stop. The full URL, including language path, query parameters, and served snapshot identity, remains unchanged; skipping adds no browser-history entry.
+
+Six new unit regressions cover keyboard and pointer activation on the original `#brief/story` route, a snapshot-bearing briefing route, and the limits route, including focus transfer and the next Tab entering content. Four browser cases cover English/French at desktop/mobile sizes, keyboard visibility and activation, unchanged URL/history, content focus, and reloading the same served briefing. All ten cases failed before implementation and pass after the fix.
+
+Local validation passes: 343 engine tests, 444 viewer tests, 480 Python tests (12 existing upstream deprecation warnings), all 62 desktop/mobile browser cases with unchanged screenshot baselines, engine build/typecheck, lint, Ruff check/format, and the Pages build. Focused-link screenshots were reviewed in English/French at both viewports. The served demo index matches the committed fixture byte-for-byte, and demo regeneration leaves tracked fixtures unchanged. Hosted CI closeout is pending. Other IV findings remain outside this change.
+
 ### IV-8 — P3: one-point synoptic tracks still crash when requested
 
 - Related review: §4.1 `min_track_steps = 1`; not addressed by 5.6's fractional replay-offset work.
