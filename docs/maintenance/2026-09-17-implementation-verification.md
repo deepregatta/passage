@@ -6,7 +6,7 @@ The original [review](../../trashbin/documentation/2026-09-07-code-review.md) an
 
 **The campaign implemented most of its scoped work, but the full review is not completely resolved.** Existing checks all pass. A new endpoint case still produces a computed leg crossing land, and several original findings were omitted from the tracker or deferred without a follow-up row. The archive's “none open” statement describes its task statuses, not complete resolution of the original report.
 
-The findings and verification tables below describe the original reviewed head. Subsequent implementation status is recorded under each finding. IV-1 through IV-6 are resolved; IV-7 and IV-8 remain open.
+The findings and verification tables below describe the original reviewed head. Subsequent implementation status is recorded under each finding. IV-1 through IV-7 are resolved; IV-8 remains open.
 
 ## Findings and follow-up status
 
@@ -96,11 +96,11 @@ Thirty new regression cases cover the reported prepended timestamp, timestamps b
 - Browser reproduction: activate Skip to briefing content while viewing `#brief/story`. The URL becomes `#main-content`; reloading then opens `#plan/planner`, because that fragment is not a recognized application route.
 - Required follow-up: focus the main content without changing the routing fragment, with keyboard and reload coverage.
 
-**Implementation in progress:** the skip link now cancels native fragment navigation and focuses the main region through a React ref. The main region has `tabIndex={-1}`, so it accepts programmatic focus without adding a sequential Tab stop. The full URL, including language path, query parameters, and served snapshot identity, remains unchanged; skipping adds no browser-history entry.
+**Resolved in `8e89223` — [CI 35321256538 passed](https://github.com/deepregatta/passage/actions/runs/35321256538):** the skip link now cancels native fragment navigation and focuses the main region through a React ref. The main region has `tabIndex={-1}`, so it accepts programmatic focus without adding a sequential Tab stop. The full URL, including language path, query parameters, and served snapshot identity, remains unchanged; skipping adds no browser-history entry.
 
 Six new unit regressions cover keyboard and pointer activation on the original `#brief/story` route, a snapshot-bearing briefing route, and the limits route, including focus transfer and the next Tab entering content. Four browser cases cover English/French at desktop/mobile sizes, keyboard visibility and activation, unchanged URL/history, content focus, and reloading the same served briefing. All ten cases failed before implementation and pass after the fix.
 
-Local validation passes: 343 engine tests, 444 viewer tests, 480 Python tests (12 existing upstream deprecation warnings), all 62 desktop/mobile browser cases with unchanged screenshot baselines, engine build/typecheck, lint, Ruff check/format, and the Pages build. Focused-link screenshots were reviewed in English/French at both viewports. The served demo index matches the committed fixture byte-for-byte, and demo regeneration leaves tracked fixtures unchanged. Hosted CI closeout is pending. Other IV findings remain outside this change.
+Local validation passes: 343 engine tests, 444 viewer tests, 480 Python tests (12 existing upstream deprecation warnings), all 62 desktop/mobile browser cases with unchanged screenshot baselines, engine build/typecheck, lint, Ruff check/format, and the Pages build. Focused-link screenshots were reviewed in English/French at both viewports. The served demo index matches the committed fixture byte-for-byte, and demo regeneration leaves tracked fixtures unchanged. Hosted JavaScript and Python CI jobs passed. Other IV findings remain outside this change.
 
 ### IV-8 — P3: one-point synoptic tracks still crash when requested
 
