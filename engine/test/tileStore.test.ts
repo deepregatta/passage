@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { gzipSync, gunzipSync } from 'node:zlib';
 import { fnv1a64Hex } from '../src/hash.js';
 import { TileForecastStore } from '../src/forecast/tileStore.js';
-import { decodeTile, encodeTile } from '../src/forecast/tileCodec.js';
+import { decodeTile, encodeTile, type DecodedTile } from '../src/forecast/tileCodec.js';
 import { MemoryTileCache } from '../src/forecast/store.js';
 import { parseUtc } from '../src/eta.js';
 import { computeRoute } from '../src/routing/isochrone.js';
@@ -526,5 +526,189 @@ describe('TileForecastStore resilience', () => {
     await store.init();
     expect(store.describe().ensemble).toBeUndefined();
     expect(await store.getEnsembleForecasts([POINT], START, END)).toBeNull();
+  });
+});
+
+describe('TileForecastStore decoded memory budget', () => {
+  // Inspect retained arrays, not process heap/GC timing. Compressed cache bytes
+  // are separate and must remain available after decoded eviction.
+  function retained(store: TileForecastStore) {
+    const layers = (store as unknown as {
+      layers: Map<string, { decoded: Map<string, DecodedTile | null> }>;
+    }).layers;
+    const entries = [...layers.values()].flatMap(state => [...state.decoded.values()]);
+    return {
+      count: entries.length,
+      bytes: entries.reduce((sum, tile) => sum + (tile
+        ? Object.values(tile.arrays).reduce((n, array) => n + array.byteLength, 0) : 0), 0),
+    };
+  }
+  const smallWeather = (tiles: Array<[number, number]> = [[40, -10], [50, -10], [60, -10]]) =>
+    weatherSpec({ resolution_deg: 1, tiles });
+  // 100 cells, three 9-step and five 5-step Float32 variables.
+  const weatherBytes = 100 * (3 * 9 + 5 * 5) * 4;
+  const pointAt = (lat: number) => ({ lat, lon: -5 });
+
+  it('bounds twelve consecutive tiles and re-decodes evicted bytes without downloading again', async () => {
+    const tiles: Array<[number, number]> = Array.from({ length: 12 }, (_, i) => [-60 + i * 10, -10]);
+    const transport = buildFixtureRun([smallWeather(tiles)]);
+    const fetches = vi.spyOn(transport, 'fetchTile');
+    const cache = new MemoryTileCache();
+    const reads = vi.spyOn(cache, 'get');
+    const store = new TileForecastStore({ transport, cache, maxDecodedBytes: weatherBytes * 2 });
+    for (const [lat] of tiles) {
+      const result = await store.getPointForecasts([pointAt(lat + 1)], START, END);
+      expect(result.forecasts[0]!.wind_kt[0]).toBe(10);
+      expect(retained(store).bytes).toBeLessThanOrEqual(weatherBytes * 2);
+    }
+    expect(retained(store)).toEqual({ count: 2, bytes: weatherBytes * 2 });
+    const again = await store.getPointForecasts([pointAt(-59)], START, END);
+    expect(again.forecasts[0]!.wind_kt[0]).toBe(10);
+    expect(again.meta.cached_tiles).toBe(1);
+    expect(reads).toHaveBeenCalledTimes(13);
+    expect(fetches).toHaveBeenCalledTimes(12);
+  });
+
+  it('refreshes recency on hits and evicts the least recently used tile', async () => {
+    const transport = buildFixtureRun([smallWeather()]);
+    const cache = new MemoryTileCache();
+    const reads = vi.spyOn(cache, 'get');
+    const store = new TileForecastStore({ transport, cache, maxDecodedBytes: weatherBytes * 2 });
+    const read = (lat: number) => store.getPointForecasts([pointAt(lat)], START, END);
+    await read(41);
+    await read(51);
+    await read(41);
+    await read(61); // 51 was oldest
+    await read(41);
+    expect(reads).toHaveBeenCalledTimes(3);
+    await read(51);
+    expect(reads).toHaveBeenCalledTimes(4);
+    expect(retained(store)).toEqual({ count: 2, bytes: weatherBytes * 2 });
+  });
+
+  it('shares one byte budget across layers with different decoded sizes', async () => {
+    const transport = buildFixtureRun([smallWeather(), { ...ensembleSpec(), resolution_deg: 1 }]);
+    const cache = new MemoryTileCache();
+    const reads = vi.spyOn(cache, 'get');
+    const store = new TileForecastStore({ transport, cache, maxDecodedBytes: weatherBytes });
+    await store.getPointForecasts([pointAt(41)], START, END);
+    const ensemble = await store.getEnsembleForecasts([pointAt(41)], START, END);
+    expect(ensemble!.forecasts[0]!.wind_kt_members.map(m => m[0])).toEqual([8, 10, 12, 14, 16]);
+    // Mean plus five anomaly members, five steps, 100 cells, float32.
+    expect(retained(store)).toEqual({ count: 1, bytes: 6 * 5 * 100 * 4 });
+    await store.getPointForecasts([pointAt(41)], START, END);
+    expect(reads).toHaveBeenCalledTimes(3);
+    expect(retained(store)).toEqual({ count: 1, bytes: weatherBytes });
+  });
+
+  it.each([0, weatherBytes - 1])('serves but does not retain oversized tiles with budget %s', async maxDecodedBytes => {
+    const transport = buildFixtureRun([smallWeather()]);
+    const cache = new MemoryTileCache();
+    const reads = vi.spyOn(cache, 'get');
+    const fetches = vi.spyOn(transport, 'fetchTile');
+    const store = new TileForecastStore({ transport, cache, maxDecodedBytes });
+    for (let i = 0; i < 2; i++) {
+      expect((await store.getPointForecasts([pointAt(41)], START, END)).forecasts[0]!.wind_kt[0]).toBe(10);
+      expect(retained(store)).toEqual({ count: 0, bytes: 0 });
+    }
+    expect(reads).toHaveBeenCalledTimes(2);
+    expect(fetches).toHaveBeenCalledTimes(1);
+  });
+
+  it('evicts multiple smaller tiles when a larger tile needs their combined space', async () => {
+    const transport = buildFixtureRun([
+      smallWeather(), { ...ensembleSpec(), resolution_deg: 1, tiles: [[40, -10], [50, -10], [60, -10]] },
+    ]);
+    const store = new TileForecastStore({ transport, maxDecodedBytes: 36_000 });
+    await store.getEnsembleForecasts([pointAt(41), pointAt(51), pointAt(61)], START, END);
+    expect(retained(store)).toEqual({ count: 3, bytes: 36_000 });
+    await store.getPointForecasts([pointAt(41)], START, END);
+    expect(retained(store)).toEqual({ count: 2, bytes: weatherBytes + 12_000 });
+  });
+
+  it('leaves smaller cached tiles intact when serving an oversized tile', async () => {
+    const transport = buildFixtureRun([smallWeather(), { ...ensembleSpec(), resolution_deg: 1 }]);
+    const cache = new MemoryTileCache();
+    const reads = vi.spyOn(cache, 'get');
+    const store = new TileForecastStore({ transport, cache, maxDecodedBytes: 12_000 });
+    await store.getEnsembleForecasts([pointAt(41)], START, END);
+    await store.getPointForecasts([pointAt(41)], START, END);
+    const again = await store.getEnsembleForecasts([pointAt(41)], START, END);
+    expect(again!.meta.cached_tiles).toBe(1);
+    expect(reads).toHaveBeenCalledTimes(2);
+    expect(retained(store)).toEqual({ count: 1, bytes: 12_000 });
+  });
+
+  it('does not accumulate negative entries for missing tiles', async () => {
+    const transport = buildFixtureRun([smallWeather()]);
+    const fetches = vi.spyOn(transport, 'fetchTile');
+    const store = new TileForecastStore({ transport, maxDecodedBytes: 0 });
+    for (let lat = -80; lat < 0; lat += 10) {
+      const result = await store.getPointForecasts([pointAt(lat)], START, END);
+      expect(result.forecasts[0]!.times).toEqual([]);
+      expect(result.meta.cached_tiles).toBe(0);
+    }
+    expect(retained(store)).toEqual({ count: 0, bytes: 0 });
+    expect(fetches).not.toHaveBeenCalled();
+  });
+
+  it('preserves concurrent point, hazard and multi-tile grid results during eviction', async () => {
+    const transport = buildFixtureRun([smallWeather()]);
+    const store = new TileForecastStore({ transport, maxDecodedBytes: weatherBytes });
+    const bbox = { minLat: 49, maxLat: 51, minLon: -6, maxLon: -4 };
+    const baseline = new TileForecastStore({ transport });
+    const expected = await baseline.getWindGrid(bbox, CYCLE, 6);
+    const [point, hazard, grid] = await Promise.all([
+      store.getPointForecasts([pointAt(41), pointAt(61)], START, END),
+      store.getHazardForecasts([pointAt(41), pointAt(51)], START, END),
+      store.getWindGrid(bbox, CYCLE, 6),
+    ]);
+    expect(point.forecasts.map(fc => fc.wind_kt[0])).toEqual([10, 10]);
+    expect(hazard!.byModel.gfs_0p25!.map(fc => fc.wind_kt[0])).toEqual([10, 10]);
+    expect(grid.u_kt).toEqual(expected.u_kt);
+    expect(grid.v_kt).toEqual(expected.v_kt);
+    expect(grid.time_axis).toEqual(expected.time_axis);
+    expect(retained(store)).toEqual({ count: 1, bytes: weatherBytes });
+  });
+
+  it('shares in-flight loads with retention disabled and recovers after a shared failure', async () => {
+    const transport = buildFixtureRun([smallWeather()]);
+    const originalFetch = transport.fetchTile.bind(transport);
+    let release!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const fetches = vi.spyOn(transport, 'fetchTile').mockImplementation(async (...args) => {
+      await gate;
+      return originalFetch(...args);
+    });
+    const cache = new MemoryTileCache();
+    const store = new TileForecastStore({ transport, cache, maxDecodedBytes: 0 });
+    const sharedRead = () => Promise.all([
+      store.getPointForecasts([pointAt(41)], START, END),
+      store.getHazardForecasts([pointAt(41)], START, END),
+    ]);
+    const pending = sharedRead();
+    try {
+      await vi.waitFor(() => expect(fetches).toHaveBeenCalledTimes(1));
+    } finally {
+      release();
+    }
+    const [point, hazard] = await pending;
+    expect(point.meta.cached_tiles).toBe(0);
+    expect(hazard!.meta[0]!.cached_tiles).toBe(0);
+    expect(retained(store)).toEqual({ count: 0, bytes: 0 });
+    vi.spyOn(cache, 'get').mockResolvedValue(null);
+    fetches.mockRejectedValueOnce(new Error('offline'));
+    await expect(sharedRead()).rejects.toThrow('offline');
+    expect(fetches).toHaveBeenCalledTimes(2);
+    const [recovered] = await sharedRead();
+    expect(recovered.forecasts[0]!.wind_kt[0]).toBe(10);
+    expect(fetches).toHaveBeenCalledTimes(3);
+    expect(retained(store)).toEqual({ count: 0, bytes: 0 });
+  });
+
+  it.each([-1, NaN, Infinity, 1.5])('rejects invalid decoded budget %s', maxDecodedBytes => {
+    expect(() => new TileForecastStore({
+      transport: buildFixtureRun([smallWeather([])]), maxDecodedBytes,
+    })).toThrow('maxDecodedBytes');
   });
 });

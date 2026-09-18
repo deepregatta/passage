@@ -40,8 +40,8 @@ import type {
 
 interface LayerState {
   manifest: RunManifest;
-  /** decoded tiles by tile_id (in-memory; stored gzip bytes live in TileCache) */
-  decoded: Map<string, DecodedTile | null>;
+  /** Retained tiles, governed by the store-wide decoded LRU budget. */
+  decoded: Map<string, DecodedTile>;
   inFlight: Map<string, Promise<{ tile: DecodedTile; cached: boolean }>>;
 }
 
@@ -56,6 +56,10 @@ export interface TileForecastStoreOptions {
   transport: TileTransport;
   cache?: TileCache;
   now?: () => number;
+  /** Retained Float32 array bytes across all layers; default 64 MiB, 0 disables retention.
+   * Excludes headers, compressed TileCache bytes, active loads and consumer outputs.
+   */
+  maxDecodedBytes?: number;
 }
 
 export class TileForecastStore implements ForecastStore {
@@ -65,17 +69,27 @@ export class TileForecastStore implements ForecastStore {
   private layers = new Map<string, LayerState>();
   private latest: LatestDoc | null = null;
   private initPromise: Promise<void> | null = null;
+  private readonly maxDecodedBytes: number;
+  private decodedBytes = 0;
+  // Map insertion order is LRU order; layer maps and this index share tile objects.
+  private decodedLru = new Map<DecodedTile, { state: LayerState; tileId: string; bytes: number }>();
 
   constructor(options: TileForecastStoreOptions) {
     this.transport = options.transport;
     this.cache = options.cache ?? new MemoryTileCache();
     this.now = options.now ?? Date.now;
+    this.maxDecodedBytes = options.maxDecodedBytes ?? 64 * 1024 * 1024;
+    if (!Number.isSafeInteger(this.maxDecodedBytes) || this.maxDecodedBytes < 0) {
+      throw new Error('maxDecodedBytes must be a non-negative safe integer');
+    }
   }
 
   init(): Promise<void> {
     this.initPromise ??= this.initOnce().catch((error) => {
       // Retry from a clean state after a transient latest/manifest failure.
       this.layers.clear();
+      this.decodedLru.clear();
+      this.decodedBytes = 0;
       this.latest = null;
       this.initPromise = null;
       throw error;
@@ -135,6 +149,22 @@ export class TileForecastStore implements ForecastStore {
 
   // ---------------------------------------------------------------- tiles
 
+  private retainTile(state: LayerState, tileId: string, tile: DecodedTile): void {
+    const bytes = Object.values(tile.arrays).reduce((sum, array) => sum + array.byteLength, 0);
+    // Oversized tiles still serve current callers. Do not flush useful smaller
+    // entries to make room for something that cannot fit; retain no empty tiles.
+    if (bytes === 0 || bytes > this.maxDecodedBytes) return;
+    while (this.decodedBytes + bytes > this.maxDecodedBytes) {
+      const [oldest, entry] = this.decodedLru.entries().next().value!;
+      entry.state.decoded.delete(entry.tileId);
+      this.decodedLru.delete(oldest);
+      this.decodedBytes -= entry.bytes;
+    }
+    state.decoded.set(tileId, tile);
+    this.decodedLru.set(tile, { state, tileId, bytes });
+    this.decodedBytes += bytes;
+  }
+
   private async tileFor(
     layer: string,
     lat: number,
@@ -146,20 +176,22 @@ export class TileForecastStore implements ForecastStore {
     const tileId = tileIdFor(lat, lon);
     const memo = state.decoded.get(tileId);
     if (memo !== undefined) {
+      const entry = this.decodedLru.get(memo)!;
+      this.decodedLru.delete(memo);
+      this.decodedLru.set(memo, entry);
       stats.tiles.add(tileId);
-      if (memo) stats.cached += 1;
+      stats.cached += 1;
       return memo;
     }
 
     stats.tiles.add(tileId);
     if (!state.manifest.tiles[tileId]) {
-      state.decoded.set(tileId, null);
       return null;
     }
     let pending = state.inFlight.get(tileId);
     if (!pending) {
       pending = this.loadTile(state.manifest, tileId).then(result => {
-        state.decoded.set(tileId, result.tile);
+        this.retainTile(state, tileId, result.tile);
         return result;
       }).finally(() => state.inFlight.delete(tileId));
       state.inFlight.set(tileId, pending);
@@ -550,7 +582,8 @@ export class TileForecastStore implements ForecastStore {
     const u = new Array<number | null>(timeAxisMs.length * nPoints).fill(null);
     const v = new Array<number | null>(timeAxisMs.length * nPoints).fill(null);
     // Align each tile once for this window; all its grid points share the axis.
-    const timeIndices = new Map<DecodedTile, Array<number | undefined>>();
+    // Do not keep evicted tiles alive for the duration of a large mosaic.
+    const timeIndices = new WeakMap<DecodedTile, Array<number | undefined>>();
     let anyData = false;
     for (let i = 0; i < nlat; i++) {
       for (let j = 0; j < nlon; j++) {
