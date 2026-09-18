@@ -6,7 +6,7 @@ The original [review](../../trashbin/documentation/2026-09-07-code-review.md) an
 
 **The campaign implemented most of its scoped work, but the full review is not completely resolved.** Existing checks all pass. A new endpoint case still produces a computed leg crossing land, and several original findings were omitted from the tracker or deferred without a follow-up row. The archive's “none open” statement describes its task statuses, not complete resolution of the original report.
 
-The findings and verification tables below describe the original reviewed head. Subsequent implementation status is recorded under each finding. IV-1 through IV-4 are resolved; IV-5 through IV-8 remain open.
+The findings and verification tables below describe the original reviewed head. Subsequent implementation status is recorded under each finding. IV-1 through IV-5 are resolved; IV-6 through IV-8 remain open.
 
 ## Findings and follow-up status
 
@@ -69,6 +69,12 @@ Local validation passes: 329 engine tests, 438 viewer tests, 450 Python tests (1
 - Every decoded tile is retained in the layer's `decoded` map for the store lifetime. The new IndexedDB quota/metadata policy limits persisted compressed bytes, not these decoded arrays.
 - A synthetic probe requested 12 distinct weather tiles consecutively from one store. All 12 remained in `layers.get('weather').decoded` after the final request. There is no eviction or release policy for decoded entries.
 - Required follow-up: bound decoded storage by bytes or a documented tile budget while preserving in-flight sharing and current consumers. This verification did not force an out-of-memory crash or measure a real-device failure threshold.
+
+**Resolved in `56a00a2` — [CI 35318363113 passed](https://github.com/deepregatta/passage/actions/runs/35318363113):** `TileForecastStore` now applies a shared, least-recently-used budget of 64 MiB of retained decoded Float32 arrays across all layers. The viewer singleton inherits that default. `maxDecodedBytes` accepts a non-negative safe integer, with zero disabling retention. Hits refresh recency; loading another tile evicts older entries until it fits. Oversized tiles serve current callers without being retained or flushing smaller cached tiles. Missing coverage no longer accumulates null entries.
+
+Eviction releases references without modifying arrays, preserves shared in-flight loads and retry behavior, and leaves compressed cache bytes available for subsequent decoding. Grid time-index memoization now uses weak references so a mosaic does not retain every evicted tile. This bounds retained array bytes, not total process memory: headers, compressed storage, active fetch/decode work and consumer output arrays are outside the budget. No real-device out-of-memory threshold is claimed.
+
+Fourteen new regressions cover twelve consecutive tiles under a two-tile byte budget, LRU hit ordering, differing layer sizes, multiple evictions, oversized/zero-budget reads, absent coverage, concurrent point/hazard/grid consumers, in-flight sharing and failure recovery, compressed-cache reuse, and invalid options. The initial twelve cases failed before the fix; all 40 tile-store tests now pass. Local validation passes: 343 engine tests, 438 viewer tests, 450 Python tests (12 existing upstream deprecation warnings), engine build/typecheck, lint, Ruff check/format, and the Pages build. Demo regeneration leaves tracked fixtures unchanged. Hosted JavaScript and Python CI jobs passed. Other IV findings remain outside this change.
 
 ### IV-6 — P2: UK validity parsing still depends on global timestamp order
 
