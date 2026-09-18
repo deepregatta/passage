@@ -6,7 +6,7 @@ The original [review](../../trashbin/documentation/2026-09-07-code-review.md) an
 
 **The campaign implemented most of its scoped work, but the full review is not completely resolved.** Existing checks all pass. A new endpoint case still produces a computed leg crossing land, and several original findings were omitted from the tracker or deferred without a follow-up row. The archive's “none open” statement describes its task statuses, not complete resolution of the original report.
 
-The findings and verification tables below describe the original reviewed head. Subsequent implementation status is recorded under each finding. IV-1 through IV-5 are resolved; IV-6 through IV-8 remain open.
+The findings and verification tables below describe the original reviewed head. Subsequent implementation status is recorded under each finding. IV-1 through IV-6 are resolved; IV-7 and IV-8 remain open.
 
 ## Findings and follow-up status
 
@@ -82,6 +82,12 @@ Fourteen new regressions cover twelve consecutive tiles under a two-tile byte bu
 - Code: [warnings_uk.py](../../analysis/src/deepweather_analysis/warnings_uk.py), lines 72–76.
 - In the committed shipping-forecast fixture, the parsed issue time is 2026-07-17 09:30Z and validity is July 17 11:00Z through July 18 11:00Z. Prepending an unrelated `Page updated 09:00 (UTC+1) on Fri 17 Jul 2026` paragraph changes these to an issue time of July 18 11:00Z and validity of July 17 08:00Z through July 17 11:00Z.
 - Required follow-up: associate timestamps with their labeled sections and reject inconsistent intervals. This is a synthetic layout-change reproduction, not evidence that the live Met Office page currently has this extra timestamp.
+
+**Resolved in `f7e2385` — [CI 35319014589 passed](https://github.com/deepregatta/passage/actions/runs/35319014589):** issue and validity times now come from the labeled header paragraphs or the repeated shipping-forecast summary. Paragraph order and unrelated timestamps no longer affect parsing. Repeated values must agree after UTC conversion; displayed UTC offsets remain authoritative because the fixture's HTML `datetime` attributes incorrectly label local summer times as UTC.
+
+Missing, malformed, or conflicting labeled times, empty/reversed forecast intervals, and issue times at or after expiry are rejected. The existing feed merge marks these failures `parse-degraded` without adding UK bulletins or disturbing other feeds. An issue time within the forecast period remains valid; gale bulletins continue to start at the stated issue time. Issue time is no longer inferred from validity or fetch time.
+
+Thirty new regression cases cover the reported prepended timestamp, timestamps between sections, reordered paragraphs, header-only/body-only forms, markup and whitespace changes, unrelated malformed dates, UTC offsets, missing/invalid/conflicting times, interval checks, bulletin parity, and feed degradation. Twenty of the initial 27 cases failed before implementation; all 45 UK tests now pass. Local validation passes: 480 Python tests (12 existing upstream deprecation warnings), 343 engine tests, 438 viewer tests, engine build/typecheck, lint, Ruff check/format, and the Pages build. Tests and demo regeneration ran under `TZ=Europe/Paris`; tracked demo fixtures are unchanged. Other IV findings remain outside this change.
 
 ### IV-7 — P3: the skip link overwrites the application's route
 
