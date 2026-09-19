@@ -7,8 +7,7 @@
 
 import { HttpTileTransport, TileForecastStore } from '@deepweather/engine';
 import { createTileCache } from './tileCache.js';
-
-const baseUrl = import.meta.env.VITE_FORECAST_BASE_URL || '/data/forecast';
+import { FORECAST_BASE_URL } from './forecastConfig.js';
 
 let storeInstance = null;
 
@@ -16,7 +15,7 @@ export function forecastStore() {
   if (!storeInstance) {
     const cache = createTileCache();
     storeInstance = new TileForecastStore({
-      transport: new HttpTileTransport({ baseUrl }),
+      transport: new HttpTileTransport({ baseUrl: FORECAST_BASE_URL }),
       ...(cache ? { cache } : {}),
     });
   }

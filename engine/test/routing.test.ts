@@ -109,6 +109,22 @@ describe('isochrone router', () => {
   const start = { lat: 49.3, lon: -3.5, name: 'A' };
   const finish = { lat: 49.3, lon: -1.6, name: 'B' }; // ~74 nm due east
 
+  it.each(['not-a-date', '', '2026-07-20T00:00:00+25:00'])('rejects invalid departure %j before searching', (departureUtc) => {
+    expect(() => computeRoute({ start, finish, departureUtc, polar: POLAR, windGrid: windGrid(180, 12) }))
+      .toThrow('Invalid UTC timestamp');
+  });
+
+  it.each(['2026-07-20T00:00:00', '2026-07-19T19:00:00-05:00', '2026-07-20T02:00:00+02:00'])(
+    'routes the same UTC instant for %s', (departureUtc) => {
+      const request = { start, finish, polar: POLAR, windGrid: windGrid(180, 12), resolutionDeg: 0.1 };
+      const expected = computeRoute({ ...request, departureUtc: '2026-07-20T00:00:00Z' });
+      const actual = computeRoute({ ...request, departureUtc });
+      expect(actual.arrival_utc).toBe(expected.arrival_utc);
+      expect(actual.duration_h).toBe(expected.duration_h);
+      expect(actual.route.waypoints).toEqual(expected.route.waypoints);
+    },
+  );
+
   it('open water, fair reaching breeze: near-direct route, plausible arrival', () => {
     const result = computeRoute({
       start,

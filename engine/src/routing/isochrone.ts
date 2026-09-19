@@ -14,7 +14,7 @@
 
 import { alongCourseComponentKt, windFromDeg } from '../vectors.js';
 import { bearingDegTrue, haversineNm, wrap180 } from '../geo.js';
-import { toIso } from '../eta.js';
+import { parseUtc, toIso } from '../eta.js';
 import { GridSampler, type RegionGrid } from '../grids.js';
 import { boatSpeedKt, type Polar } from './polar.js';
 import { isLand, segmentCrossesLand, type LandMask } from './landmask.js';
@@ -59,6 +59,7 @@ const NEIGHBORS: Array<[number, number]> = [
 
 export function computeRoute(request: RoutingRequest): RoutingResult {
   const { start, finish, polar, windGrid, currentGrid, landMask } = request;
+  const departureMs = parseUtc(request.departureUtc);
   const scaling = request.polarScaling ?? 1;
   const maxMs = (request.maxHours ?? 48) * 3600_000;
 
@@ -100,7 +101,6 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
 
   const wind = new GridSampler(windGrid);
   const current = currentGrid ? new GridSampler(currentGrid) : null;
-  const departureMs = Date.parse(request.departureUtc);
 
   const snap = (p: { lat: number; lon: number }): [number, number] => {
     let bi = Math.round((p.lat - lat0) / res);

@@ -17,10 +17,30 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      - run: npm audit
       - run: npm run lint
       - name: Build, type-check engine tests, and run unit suites
         run: npm test
       - run: npm run build:pages
+
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e -w viewer -- --workers=1
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-failures
+          path: output/playwright-results/
+          retention-days: 7
 
   python:
     runs-on: ubuntu-latest
@@ -35,5 +55,5 @@ jobs:
       - uses: astral-sh/setup-uv@v7
       - run: uv sync --all-extras
       - run: uv run pytest -q
-      - run: uv run ruff check .
-      - run: uv run ruff format --check .
+      - run: uv run ruff check . ../scripts/upload-prepared-run.py
+      - run: uv run ruff format --check . ../scripts/upload-prepared-run.py

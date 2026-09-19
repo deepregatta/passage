@@ -4,7 +4,7 @@
 // else answers 405), SPA fallback for extension-less paths, genuine 404s for
 // missing data artifacts. Use it to verify static-hosting behavior that the
 // dev middleware masks (e.g. snapshot persistence falling back to the
-// browser). Build first: VITE_FORECAST_BASE_URL=... npm run build:pages
+// browser). Build first: npm run build:pages (uses the public forecast host).
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { dirname, extname, join, normalize, resolve } from 'node:path';

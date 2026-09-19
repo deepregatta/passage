@@ -31,6 +31,47 @@ from deepweather_analysis.paths import contracts_dir
 CHANNEL = dict(CHANNEL_BOUNDS)
 
 
+@pytest.mark.parametrize("failure", [None, "exception", "invalid-file"])
+def test_currents_delay_only_backs_off_failed_attempts(tmp_path, monkeypatch, failure):
+    sleeps = []
+    attempts = []
+    output = tmp_path / "currents.nc"
+
+    def subset(**kwargs):
+        attempts.append(kwargs)
+        if failure == "exception" and len(attempts) == 1:
+            raise ConnectionError("temporary outage")
+        output.write_bytes(b"mock currents")
+
+    monkeypatch.setitem(sys.modules, "copernicusmarine", SimpleNamespace(subset=subset))
+    monkeypatch.setattr(fetcher, "_check_copernicusmarine", lambda: True)
+    monkeypatch.setattr(
+        fetcher,
+        "_resolve_regional_dataset",
+        lambda region: SimpleNamespace(
+            dataset_id="test-currents", product_id="test-product", temporal_resolution="hourly"
+        ),
+    )
+    monkeypatch.setattr(fetcher, "_downsample_currents_file", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        fetcher,
+        "_validate_currents_file",
+        lambda path: (
+            (False, "corrupt") if failure == "invalid-file" and len(attempts) == 1 else (True, None)
+        ),
+    )
+    monkeypatch.setattr(fetcher, "CURRENTS_FETCH_DELAY", 2.0)
+    monkeypatch.setattr(fetcher, "MAX_CURRENTS_RETRIES", 2)
+    monkeypatch.setattr(fetcher.time, "sleep", sleeps.append)
+    start = datetime(2026, 7, 12, tzinfo=timezone.utc)
+    result = fetcher.fetch_regional_currents(
+        "IBI", CHANNEL, start, start + timedelta(hours=6), output
+    )
+    assert result["status"] == "ok"
+    assert len(attempts) == (2 if failure else 1)
+    assert sleeps == ([2.0] if failure else [])
+
+
 # =============================================================================
 # Region detection
 # =============================================================================

@@ -115,6 +115,7 @@ COARSE_CURRENTS_TARGET_TIME_HOURS = int(os.getenv("DEEPWEATHER_CURRENTS_COARSE_T
 CURRENTS_MAX_REQUEST_POINTS = int(os.getenv("DEEPWEATHER_CURRENTS_MAX_REQUEST_POINTS", "100000000"))
 
 MAX_CURRENTS_RETRIES = int(os.getenv("DEEPWEATHER_CURRENTS_RETRIES", "2"))
+# Backoff between failed attempts only; successful downloads return immediately.
 CURRENTS_FETCH_DELAY = float(os.getenv("DEEPWEATHER_CURRENTS_DELAY_S", "2.0"))
 # Minimum overlap fraction to consider a regional model a good fit.
 REGION_OVERLAP_THRESHOLD = float(os.getenv("DEEPWEATHER_CURRENTS_REGION_OVERLAP", "0.25"))
@@ -803,9 +804,6 @@ def fetch_regional_currents(
                     downsample_info.get("result_time_hours"),
                     temporal_resolution,
                 )
-
-            if CURRENTS_FETCH_DELAY > 0:
-                time.sleep(CURRENTS_FETCH_DELAY)
 
             checksum = compute_file_checksum(output_path)
             payload: Dict[str, Any] = {
