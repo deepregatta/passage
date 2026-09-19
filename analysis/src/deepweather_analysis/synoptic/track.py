@@ -3,13 +3,14 @@
 Greedy nearest-neighbour association step-to-step, kind-consistent, with a
 maximum-displacement gate (default 6 deg per 3 h ~ 40 kt motion). Tracks not
 matched at a step terminate (no coasting through gaps, v0). Tracks shorter
-than 2 steps are dropped.
+than 2 steps are dropped by default.
 
 Derived per track:
 - deepening_hpa_per_24h: linear central-pressure trend scaled to 24 h,
   SIGNED (negative = pressure falling = a low deepening / a high collapsing).
 - motion: {dir_deg, speed_kt} from the last two positions (dir_deg = heading
   the system is moving TOWARD, 0 = north, 90 = east).
+Both derived values are None for an explicitly retained one-point track.
 
 Ids: L1/L2/... lows ordered by minimum central pressure (deepest first),
 H1/H2/... highs by maximum central pressure (strongest first).
@@ -70,6 +71,8 @@ def track_systems(
     Args:
         per_step_detections: detect_systems output per forecast step
         step_hours: forecast hour of each step (same length)
+        min_track_steps: minimum detections to retain (default 2); use 1 to
+            retain single observations with unknown motion and pressure trend
 
     Returns:
         list of {system_id, kind, track: [{step_h, lat, lon, center_hpa,
@@ -146,14 +149,19 @@ def track_systems(
                 }
                 for p in points
             ]
-            dt_last = float(step_hours[points[-1]["step_idx"]] - step_hours[points[-2]["step_idx"]])
+            motion = None
+            if len(points) >= 2:
+                dt_last = float(
+                    step_hours[points[-1]["step_idx"]] - step_hours[points[-2]["step_idx"]]
+                )
+                motion = _motion(points[-2], points[-1], dt_last)
             results.append(
                 {
                     "system_id": f"{prefix}{n}",
                     "kind": kind,
                     "track": track,
                     "deepening_hpa_per_24h": _deepening(points, step_hours),
-                    "motion": _motion(points[-2], points[-1], dt_last),
+                    "motion": motion,
                 }
             )
     return results

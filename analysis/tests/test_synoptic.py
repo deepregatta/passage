@@ -134,6 +134,50 @@ class TestTrackSystems:
         systems = track_systems(steps, [0, 3])
         assert [s["system_id"] for s in systems] == ["L1"]
 
+    @pytest.mark.parametrize("kind,system_id,hpa", [("low", "L1", 995), ("high", "H1", 1030)])
+    @pytest.mark.parametrize("step_h", [0, 1.5])
+    def test_requested_single_point_has_unknown_motion_and_deepening(
+        self, kind, system_id, hpa, step_h
+    ):
+        detection = {**_low(50, -5, hpa), "kind": kind}
+        assert track_systems([[detection]], [step_h]) == []
+        assert track_systems([[detection]], [step_h], min_track_steps=1) == [
+            {
+                "system_id": system_id,
+                "kind": kind,
+                "track": [
+                    {
+                        "step_h": step_h,
+                        "lat": 50,
+                        "lon": -5,
+                        "center_hpa": hpa,
+                        "closed_contour": True,
+                    }
+                ],
+                "deepening_hpa_per_24h": None,
+                "motion": None,
+            }
+        ]
+
+    def test_requested_singletons_preserve_multistep_track_and_pressure_ranking(self):
+        steps = [
+            [_low(50, -10, 990), _low(40, 5, 1000)],
+            [_low(50, -9.5, 989)],
+            [_low(50, -9, 988), _low(40, 5, 1005)],
+        ]
+        default_systems = track_systems(steps, [0, 3, 6])
+        systems = track_systems(steps, [0, 3, 6], min_track_steps=1)
+        assert [s["system_id"] for s in systems] == ["L1", "L2", "L3"]
+        assert [len(s["track"]) for s in systems] == [3, 1, 1]
+        assert [systems[0]] == default_systems
+        assert systems[0]["motion"] == {"dir_deg": 90.0, "speed_kt": 6.4}
+        assert systems[0]["deepening_hpa_per_24h"] == -8.0
+        for system, step_h, hpa in zip(systems[1:], [0, 6], [1000, 1005], strict=True):
+            assert system["track"][0]["step_h"] == step_h
+            assert system["track"][0]["center_hpa"] == hpa
+            assert system["motion"] is None
+            assert system["deepening_hpa_per_24h"] is None
+
     def test_displacement_gate_blocks_teleporting(self):
         # 10 deg jump in 3 h exceeds the 6 deg gate: two fragments, both
         # single-step -> nothing survives.
