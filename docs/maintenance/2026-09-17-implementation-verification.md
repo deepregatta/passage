@@ -4,9 +4,9 @@ Verified on 2026-09-17 against `5c9eb2eb4a24ac61ec037073d45286a41d36b6fd`, match
 
 The original [review](../../trashbin/documentation/2026-09-07-code-review.md) and [tracker](../../trashbin/documentation/2026-09-07-review-tracker.md) were moved out of `docs/maintenance/` when the campaign was archived. The tracker contains **66 done tasks and one not reproducible task**; every referenced implementation commit is an ancestor of the reviewed head.
 
-**The campaign implemented most of its scoped work, but the full review is not completely resolved.** Existing checks all pass. A new endpoint case still produces a computed leg crossing land, and several original findings were omitted from the tracker or deferred without a follow-up row. The archive's “none open” statement describes its task statuses, not complete resolution of the original report.
+**At the original reviewed head, the campaign had implemented most of its scoped work, but the full review was not completely resolved.** Existing checks all passed. A new endpoint case still produced a computed leg crossing land, and several original findings were omitted from the tracker or deferred without a follow-up row. The archive's “none open” statement described its task statuses, not complete resolution of the original report.
 
-The findings and verification tables below describe the original reviewed head. Subsequent implementation status is recorded under each finding. IV-1 through IV-8 are resolved.
+The findings and verification tables below describe the original reviewed head. Subsequent implementation status is recorded under each finding. IV-1 through IV-8 are resolved. The remaining robustness, configuration, CI, and production verification work is recorded in the [September 19 closeout](2026-09-19-review-closeout.md).
 
 ## Findings and follow-up status
 
@@ -135,9 +135,9 @@ The browser suite used the existing viewer-demo server on port 5174; its served 
 
 ## Tracker reconciliation
 
-This table records the implementation groups checked through current source/configuration, commit history, and the fresh test/build runs. Passing tests support the scoped behavior; they do not establish that every original robustness concern was assigned a task. Outstanding counterexamples are listed above.
+This table records the implementation groups checked through source/configuration, commit history, and fresh test/build runs at the original reviewed head. Later resolutions of its counterexamples are recorded under IV-1 through IV-8 above and in the September 19 closeout.
 
-| Tracker tasks | Current implementation and verification |
+| Tracker tasks | Implementation and verification at the original reviewed head |
 |---|---|
 | 0.1, 2.11 | Dependency remediation present; fresh audit reports zero vulnerabilities |
 | 0.2–0.3 | Unused-symbol compiler flags and test typechecking enabled; both run in `npm test` |
@@ -179,11 +179,11 @@ This table records the implementation groups checked through current source/conf
 | 5.7 | Content-versioned filenames and rewritten parent references present; uploader/viewer tests pass. Legacy saved references are intentionally not retroactively repaired |
 | 5.8 | In Situ daily-file retention and current-day refetching tested |
 
-Other original risks still visible in source/configuration should receive an explicit disposition instead of being inferred closed: UK area matching remains substring-based; routing still uses unvalidated `Date.parse`; the currents fetcher retains the configurable default two-second post-success delay; Playwright still reuses any server at port 5174; production forecast-base configuration remains environment-dependent; `runsBase()` still depends on prior prepared-run initialization. They were not all reproduced as current user-visible failures here. CI still does not run `npm audit` or lint the uploader outside `analysis/`, although both checks passed when run manually during this verification.
+Residual findings from this verification were substring-based UK area matching, unvalidated routing timestamps, a default two-second post-success currents delay, unidentified Playwright server reuse, environment-dependent production forecast configuration, and `runsBase()` initialization ordering. Browser tests, `npm audit`, and uploader lint were also absent from CI. Their fixes, regressions, and hosted/production evidence are recorded in the [September 19 closeout](2026-09-19-review-closeout.md).
 
 The deliberate boundaries are also unchanged: message IDs are design-only; fixed-region synoptic support is disclosed rather than expanded; live warnings still lack a production publisher in browser analysis. These are not failed implementations of their narrower tracker tasks.
 
-## Reproduce the remaining land-crossing case
+## Historical land-crossing reproduction (resolved in IV-1)
 
 From the repository root, run `npm run build -w engine`, then:
 
@@ -227,4 +227,4 @@ console.log({
 JS
 ```
 
-Observed on the reviewed head: both land checks are `false`, two waypoints are returned, and `crossingLegs` is `[0]`. A corrected implementation must reject this disconnected route or produce a fully checked sea path.
+Observed on the original reviewed head: both land checks were `false`, two waypoints were returned, and `crossingLegs` was `[0]`. The corrected implementation rejects this disconnected route with `No route found`, as recorded under IV-1.
