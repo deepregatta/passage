@@ -24,7 +24,8 @@ jobs:
       - run: npm run build:pages
 
   browser:
-    runs-on: ubuntu-latest
+    # Keep the screenshot renderer's OS stable across ubuntu-latest migrations.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5

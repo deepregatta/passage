@@ -23,7 +23,9 @@ remain separate. Unused `_`-prefixed TypeScript parameters and properties omitte
 via object rest destructuring follow the existing adapter/persistence conventions.
 
 Browser flow and screenshot coverage runs in its own CI job, which installs
-Chromium and uploads failure traces/screenshots. Run it locally with:
+Chromium on Ubuntu 24.04 and uploads failure traces/screenshots. The suite uses
+`Europe/Paris` explicitly so chart time labels match on local and hosted runs.
+Run it locally with:
 
 ```bash
 npm run test:e2e -w viewer -- --workers=1

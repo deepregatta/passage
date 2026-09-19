@@ -32,8 +32,8 @@ function legMarkerIcon(label, color, status) {
   const mark = status === 'exceeded' ? '×' : status === 'approaching' ? '!' : '·';
   return L.divIcon({
     className: '',
-    html: `<div style="width:22px;height:22px;border-radius:50%;background:${color};color:${palette.paper.DEFAULT};
-      border:2px solid ${palette.paper.DEFAULT};box-shadow:0 0 0 1.5px ${color};font:600 11px system-ui;
+    html: `<div class="font-instrument" style="width:22px;height:22px;border-radius:50%;background:${color};color:${palette.paper.DEFAULT};
+      border:2px solid ${palette.paper.DEFAULT};box-shadow:0 0 0 1.5px ${color};font-size:11px;font-weight:600;line-height:normal;
       display:flex;align-items:center;justify-content:center;background-image:${status === 'exceeded' ? 'repeating-linear-gradient(135deg,transparent 0 3px,rgba(255,255,255,.32) 3px 5px)' : 'none'}" title="leg ${label}: ${status}">${label}${mark}</div>`,
     iconSize: [22, 22],
     iconAnchor: [11, 11],
