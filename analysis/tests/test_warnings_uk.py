@@ -230,6 +230,22 @@ def test_area_matching_handles_qualified_names():
     assert not _area_matches("Portland", "Plymouth")
 
 
+@pytest.mark.parametrize(
+    ("zone", "area", "matches"),
+    [
+        ("Portland", "WEST PORTLAND", True),
+        ("North Utsire", "West North  Utsire", True),
+        ("Portland", "Portland (west)", True),
+        ("Dover", "Dovercourt", False),
+        ("Tyne", "Tynemouth", False),
+        ("Thames", "SouthwestThames", False),
+        ("", "Portland", False),
+    ],
+)
+def test_area_matching_uses_complete_name_tokens(zone, area, matches):
+    assert _area_matches(zone, area) is matches
+
+
 def test_no_gales_sentence_absent():
     page = FIXTURE.replace("warnings of gales", "no warnings at all")
     parsed = parse_shipping_forecast(page)

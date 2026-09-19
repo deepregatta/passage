@@ -12,7 +12,7 @@ The product name is **Passage by DeepRegatta**; `deepweather` was the dev codena
 | [forecast-tiles](https://github.com/deepregatta/forecast-tiles) (public repo) | Scheduled ingestion factory: NOAA GFS/GEFS/GFS-Wave, ECMWF open data, Copernicus GLO12 currents → quantized, immutable **PFT1 forecast tiles** on Cloudflare R2 ([format specification](docs/forecast-tile-format.md)). | GitHub Actions cron per layer |
 | `analysis/` | Python factory: the remaining **route-independent** prep — synoptic feature detection, warnings, tides, verification, scenario bundles. Publishes compact JSON artifacts per model run. | Scheduled shared-prep job publishing to R2 |
 | `engine/` | TypeScript pure library: everything **per-user** — route geometry, ForecastStore tile reads, ETA ranges, limits, ensemble exceedance, verdicts, briefing text, isochrone routing. Zero DOM deps, no weather APIs. | Runs unchanged **in the user's browser** (no per-user server compute, no runtime API quotas) |
-| `viewer/` | React + Vite showroom. Dev middleware serves `/data/*` from `../data/processed`, including a local fixture tile run at `/data/forecast/`. Forecast tiles cache in IndexedDB per immutable run id. | Cloudflare Pages + R2 (`VITE_FORECAST_BASE_URL`) |
+| `viewer/` | React + Vite showroom. Dev middleware serves `/data/*` from `../data/processed`, including a local fixture tile run at `/data/forecast/`. Forecast tiles cache in IndexedDB per immutable run id. | Cloudflare Pages + R2 (`https://forecast.deepregatta.com`) |
 | `data/` | Git-ignored warehouse: caches, prepared runs, and immutable local snapshots. | Local working data; published artifacts use R2 |
 | `contracts/` | JSON Schemas — the treaty between Python and TypeScript, including the forecast tile/manifest/latest schemas vendored into the pipeline repo. | The API between the shared jobs and every browser |
 
@@ -82,6 +82,15 @@ After regenerating the ORC database with `build-polar-db`, publish it into the
 static viewer with `npm run publish:polars`. Cloudflare Pages uses
 `npm run build:pages`, which merges deployment data into Vite's output and
 keeps a real `404.html` for missing data artifacts.
+
+Production builds default to `https://forecast.deepregatta.com` for forecast
+tiles and its `prepared/` prefix for prepared runs. `VITE_FORECAST_BASE_URL`
+can override that public host; another origin also requires updating the
+`connect-src` and `img-src` allowlists in `viewer/public/_headers`.
+Development defaults to `/data/forecast` for tiles and always reads prepared
+runs from the local `/data/runs/` warehouse. A failed latest-pointer request
+does not switch hosts or change saved chart URLs. Use the `static-dist` launch
+configuration to test production source resolution locally.
 
 ## Safety framing
 

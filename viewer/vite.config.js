@@ -59,7 +59,8 @@ function safeResolve(root, relativePath) {
 }
 
 function dataMiddleware() {
-  const dataRoot = process.env.VITE_DW_FIXTURE === 'demo'
+  const fixture = process.env.VITE_DW_FIXTURE === 'demo' ? 'demo' : null;
+  const dataRoot = fixture === 'demo'
     ? path.resolve(__dirname, './test/fixtures/demo')
     : path.resolve(__dirname, '../data/processed');
 
@@ -68,6 +69,13 @@ function dataMiddleware() {
     configureServer(server) {
       const handleRequest = async (req, res, next) => {
         const requestPath = req.url?.split('?')[0] || '';
+        // Browser tests must identify an existing server before reusing it.
+        if (requestPath === '/__passage_fixture') {
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Cache-Control', 'no-store');
+          res.end(JSON.stringify({ fixture }));
+          return;
+        }
         if (!requestPath.startsWith('/data/')) return next();
 
         // Validate escapes before any branch can decode or use the request path.

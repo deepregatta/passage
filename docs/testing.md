@@ -6,10 +6,12 @@ Run the same core checks used by CI from the repository root:
 
 ```bash
 npm run lint
+npm audit
 npm test
 npm run build:pages
-cd analysis && uv run pytest -q
-cd analysis && uv run ruff check . && uv run ruff format --check .
+(cd analysis && uv run pytest -q)
+(cd analysis && uv run ruff check . ../scripts/upload-prepared-run.py)
+(cd analysis && uv run ruff format --check . ../scripts/upload-prepared-run.py)
 ```
 
 The root `eslint.config.mjs` applies ESLint's recommended JavaScript rules,
@@ -20,12 +22,18 @@ are excluded; Ruff covers Python. TypeScript's existing build/test type checks
 remain separate. Unused `_`-prefixed TypeScript parameters and properties omitted
 via object rest destructuring follow the existing adapter/persistence conventions.
 
-Browser flow and screenshot coverage is separate because it starts the fixture
-viewer and requires Chromium:
+Browser flow and screenshot coverage runs in its own CI job, which installs
+Chromium and uploads failure traces/screenshots. Run it locally with:
 
 ```bash
-npm run test:e2e
+npm run test:e2e -w viewer -- --workers=1
 ```
+
+Playwright starts the `viewer-demo` configuration from `.claude/launch.json`.
+Locally it may reuse port 5174 only after the dev server reports demo mode and
+its served index matches the committed fixture byte-for-byte. A live-data,
+unidentified, or stale server fails setup before any browser tests run; stop
+that server or use the demo configuration. CI always starts its own server.
 
 Suite ownership:
 

@@ -21,6 +21,15 @@ function middleware() {
   plugin.configureServer({ middlewares: { use: (fn) => { handler = fn; } } });
   return handler;
 }
+it.each(['', 'demo'])('reports the actual server fixture mode (%j)', async (fixture) => {
+  vi.stubEnv('VITE_DW_FIXTURE', fixture);
+  try {
+    const res = response();
+    await middleware()({ method: 'GET', url: '/__passage_fixture' }, res, vi.fn());
+    expect(JSON.parse(res.end.mock.calls[0][0])).toEqual({ fixture: fixture || null });
+    expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store');
+  } finally { vi.unstubAllEnvs(); }
+});
 it.each(['GET', 'POST', 'DELETE'])('returns 400 for a malformed data URL via %s', async (method) => {
   vi.stubEnv('VITE_DW_FIXTURE', '');
   const res = response();

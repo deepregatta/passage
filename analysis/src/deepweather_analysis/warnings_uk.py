@@ -158,7 +158,11 @@ def _split_areas(raw_list: str) -> list[str]:
 
 def _area_matches(zone_name: str, area: str) -> bool:
     """'Portland' matches 'Portland' and qualified forms like 'West Portland'."""
-    return zone_name.lower() in area.lower()
+    words = zone_name.split()
+    if not words:
+        return False
+    name = r"\s+".join(re.escape(word) for word in words)
+    return re.search(rf"(?<!\w){name}(?!\w)", area, flags=re.IGNORECASE) is not None
 
 
 def fetch_uk_gale_bulletins(

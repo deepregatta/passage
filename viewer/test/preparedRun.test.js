@@ -26,6 +26,8 @@ it.each([false, true])('resolves published revisions and saved chart paths (dev=
   vi.stubGlobal('fetch', fetchMock);
   const { preparedRun, artifactUrl } = await import('../src/lib/preparedRun.js');
   const { chartUrl } = await import('../src/lib/synopticCharts.js');
+  expect(chartUrl(chartPath, 'saved')).toBe(`${base}${chartPath}`);
+  expect(fetchMock).not.toHaveBeenCalled();
   const source = await preparedRun();
   const loaded = await fetch(await artifactUrl(source.doc.artifacts.synoptic_features)).then((r) => r.json());
   expect(chartUrl(loaded.chart_captions[0].file, 'saved')).toBe(`${base}${chartPath}`);
@@ -35,4 +37,30 @@ it.each([false, true])('resolves published revisions and saved chart paths (dev=
   expect(chartUrl(`${root}/synoptic/charts/t000.png`, 'legacy')).toBe(`${base}${root}/synoptic/charts/t000.png`);
   expect(chartUrl('charts/t000.png', 'demo')).toBe('/data/snapshots/demo/charts/t000.png');
   expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([pointerUrl, `${base}${featuresPath}`]);
+});
+
+it.each([false, true])('keeps saved chart URLs usable when latest is unavailable (dev=%s)', async (dev) => {
+  vi.stubEnv('DEV', dev);
+  vi.stubEnv('VITE_FORECAST_BASE_URL', 'https://forecast.test/');
+  const fetchMock = vi.fn(async () => new Response('unavailable', { status: 503 }));
+  vi.stubGlobal('fetch', fetchMock);
+  const { preparedRun, artifactUrl } = await import('../src/lib/preparedRun.js');
+  const { chartUrl } = await import('../src/lib/synopticCharts.js');
+  const base = dev ? '/data/' : 'https://forecast.test/prepared/';
+  const file = 'runs/saved/synoptic/charts/t000.png';
+  expect(chartUrl(file, 'saved')).toBe(`${base}${file}`);
+  expect(await preparedRun()).toEqual({ doc: null, base });
+  expect(chartUrl(file, 'saved')).toBe(`${base}${file}`);
+  expect(await artifactUrl(file)).toBe(`${base}${file}`);
+  expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([`${base}${dev ? 'runs/' : ''}latest.json`]);
+});
+
+it('uses the checked-in production host without a deployment environment override', async () => {
+  vi.stubEnv('DEV', false);
+  vi.stubEnv('VITE_FORECAST_BASE_URL', '');
+  const fetchMock = vi.fn(async () => new Response(JSON.stringify({ artifacts: {} })));
+  vi.stubGlobal('fetch', fetchMock);
+  const { preparedRun } = await import('../src/lib/preparedRun.js');
+  expect(await preparedRun()).toEqual({ doc: { artifacts: {} }, base: 'https://forecast.deepregatta.com/prepared/' });
+  expect(fetchMock).toHaveBeenCalledWith('https://forecast.deepregatta.com/prepared/latest.json');
 });
