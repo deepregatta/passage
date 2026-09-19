@@ -1,6 +1,37 @@
 import { expect, test } from '@playwright/test';
 import { openAuditedSnapshot, SNAPSHOT_ID } from './helpers.js';
 
+test('Back during planner loading restores the shared briefing without reinitializing its map', async ({ page }) => {
+  let releasePlanner;
+  let plannerRequested;
+  const pendingPlanner = new Promise((resolve) => { releasePlanner = resolve; });
+  const requested = new Promise((resolve) => { plannerRequested = resolve; });
+  const errors = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.route('**/src/pages/Planner.jsx', async (route) => {
+    plannerRequested();
+    await pendingPlanner;
+    await route.continue();
+  });
+  const url = `/#brief/story?snapshot=${SNAPSHOT_ID}`;
+  try {
+    await page.goto(url);
+    await expect(page.getByTestId('decision-band')).toBeVisible();
+    await expect(page.locator('.leaflet-container')).toBeVisible();
+    await page.getByRole('button', { name: /Plan$/ }).first().click();
+    await requested;
+    await expect(page.getByText('Loading passage instruments…', { exact: true })).toBeVisible();
+    await page.goBack();
+    await expect(page).toHaveURL(new RegExp(`#brief/story\\?snapshot=${SNAPSHOT_ID}$`));
+    await expect(page.getByTestId('decision-band')).toBeVisible();
+    await expect(page.locator('.leaflet-container')).toBeVisible();
+    expect(errors).toEqual([]);
+  } finally {
+    releasePlanner();
+    await page.unrouteAll({ behavior: 'wait' });
+  }
+});
+
 for (const french of [false, true]) {
   test(`copied analysis opens in an independent ${french ? 'French' : 'English'} browser context and survives reload/history`, async ({ page, context, browser }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);

@@ -15,6 +15,7 @@ export default defineConfig({
   fullyParallel: false,
   use: {
     baseURL,
+    timezoneId: 'Europe/Paris',
     trace: 'retain-on-failure',
   },
   projects: [

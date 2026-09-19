@@ -52,7 +52,8 @@ export default function App() {
       <LocalizedDocument language={language} />
       <HeadMetadata language={language} />
       <Shell page={page} onNavigate={setPage}>
-        <Suspense fallback={<div className="p-8 font-instrument text-ink-soft">Loading passage instruments…</div>}>
+        {/* Dispose the old page's imperative map even if the next page suspends. */}
+        <Suspense key={page} fallback={<div className="p-8 font-instrument text-ink-soft">Loading passage instruments…</div>}>
           <Page />
         </Suspense>
         <Suspense fallback={null}><EvidenceInspector /></Suspense>
