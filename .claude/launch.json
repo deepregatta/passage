@@ -4,7 +4,7 @@
     {
       "name": "viewer-demo",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "-w", "viewer"],
+      "runtimeArgs": ["run", "dev", "-w", "viewer", "--", "--host", "127.0.0.1"],
       "port": 5174,
       "env": { "VITE_DW_FIXTURE": "demo" }
     },

@@ -26,6 +26,7 @@ export default defineConfig({
     cwd: repo,
     env: launch.env,
     url: baseURL,
+    stdout: 'pipe',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },
