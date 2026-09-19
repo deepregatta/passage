@@ -6,7 +6,7 @@ The original [review](../../trashbin/documentation/2026-09-07-code-review.md) an
 
 **The campaign implemented most of its scoped work, but the full review is not completely resolved.** Existing checks all pass. A new endpoint case still produces a computed leg crossing land, and several original findings were omitted from the tracker or deferred without a follow-up row. The archive's “none open” statement describes its task statuses, not complete resolution of the original report.
 
-The findings and verification tables below describe the original reviewed head. Subsequent implementation status is recorded under each finding. IV-1 through IV-7 are resolved; IV-8 is implemented with local validation complete and hosted CI pending.
+The findings and verification tables below describe the original reviewed head. Subsequent implementation status is recorded under each finding. IV-1 through IV-8 are resolved.
 
 ## Findings and follow-up status
 
@@ -109,7 +109,7 @@ Local validation passes: 343 engine tests, 444 viewer tests, 480 Python tests (1
 - `track_systems([[{'kind': 'low', 'lat': 50, 'lon': -5, 'center_hpa': 995, 'closed_contour': True}]], [0], min_track_steps=1)` raises `IndexError: list index out of range` at `points[-2]`.
 - Required follow-up: reject unsupported minimums explicitly or emit a one-point track with unknown motion. Current repository callers use the default of two; this is a latent API defect.
 
-**Implemented; hosted CI pending:** `track_systems(..., min_track_steps=1)` now retains one-point tracks with `motion: None` and `deepening_hpa_per_24h: None`. Motion is calculated only when two positions exist; the existing pressure-trend guard already handles a single observation. The default two-step filter, pressure ranking, and multi-point calculations remain unchanged. The function documentation now describes the singleton behavior; no artifact-contract change is required.
+**Resolved in `4653a80` — [CI 35444826101 passed](https://github.com/deepregatta/passage/actions/runs/35444826101):** `track_systems(..., min_track_steps=1)` now retains one-point tracks with `motion: None` and `deepening_hpa_per_24h: None`. Motion is calculated only when two positions exist; the existing pressure-trend guard already handles a single observation. The default two-step filter, pressure ranking, and multi-point calculations remain unchanged. The function documentation now describes the singleton behavior; no artifact-contract change is required.
 
 Five new regression cases failed with the reported `IndexError` before the fix and pass afterward. They cover lows/highs, zero and fractional forecast hours, the default singleton filter, and terminated/new singleton tracks alongside a moving, deepening multi-point track. All 54 focused synoptic/preparation/corpus tests pass. Local validation passes: 485 Python tests (12 existing upstream deprecation warnings), 343 engine tests, 444 viewer tests, engine build/typecheck, lint, Ruff check/format, and the Pages build. Python tests ran under `TZ=Europe/Paris`; demo regeneration leaves tracked artifacts unchanged. The initial parallel unit run hit the existing five-second timeout in the viewer's tidal-gates analysis test; its 18-test file passed in isolation, then all 444 viewer tests passed with `--maxWorkers=1`, without code or timeout changes. This is an analysis-only API fix; production callers retain the default two-step minimum.
 
