@@ -1,4 +1,4 @@
-// Canonical: oscar/viewer2/src/lib/analyticsClient.js, 2026-09-05.
+// Canonical: oscar/viewer2/src/lib/analyticsClient.js, 2026-09-05; profile_id drop synced 2026-09-20.
 // Vendored within the fleet; contract: campaign ops/product-measurement-v2.md.
 export function createAnalytics({
   product,
@@ -200,12 +200,14 @@ export function createAnalytics({
         )
           write('sessionStorage', `${prefix}.product_open`, '1');
       }
-      const { race_id, profile_id, ...rest } = props || {};
+      // The collector attributes events from a verified bearer token, which a
+      // beacon cannot carry: a client profile id is dropped, never forwarded.
+      const { race_id, ...rest } = props || {};
+      delete rest.profile_id;
       send({
         ...base,
         event,
         race_id: race_id ?? null,
-        profile_id: profile_id ?? null,
         props: { ...rest, ...common },
       });
     } catch {
