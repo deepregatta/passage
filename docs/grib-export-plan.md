@@ -1,11 +1,29 @@
 # GRIB export from the planner — implementation plan
 
-Status: direction approved 2026-09-23. **No phase started.**
+Status: direction approved 2026-09-23. **No phase started.** Phase 5 (fresher
+forecast runs) is an independent track added the same day.
 Update the status line and tick the exit criteria as phases land.
 
 ## How to use this plan
 
-Implement **one phase per session**, in order. Before starting, read:
+Implement **one phase per session**. Phases 1–4 run in order. Phase 5 can
+run at any time. Recommended: run 5A alongside or after Phase 1, and 5B before
+Phase 3 makes GRIBs public, so public downloads are fresh from day one.
+
+### Launch prompts
+
+Open a new Claude session in the directory shown and paste the prompt.
+
+| Phase | Start in | Prompt |
+|---|---|---|
+| 1 | `deepregatta/passage` | `Implement Phase 1 of docs/grib-export-plan.md. Read its "How to use this plan" section first.` |
+| 2 | `deepregatta/passage` | `Implement Phase 2 of docs/grib-export-plan.md. Read its "How to use this plan" section first.` |
+| 3 | `deepregatta/passage` | `Implement Phase 3 of docs/grib-export-plan.md. Adrena tester results: <paste the checklist answers and screenshots>.` |
+| 4 | `deepregatta/passage` | `Run Phase 4 of docs/grib-export-plan.md: measure and recommend. Don't build a Cloudflare Worker without asking me.` |
+| 5A | `deepregatta` (the container directory) | `Implement Phase 5A of passage/docs/grib-export-plan.md (fresher forecast runs). It spans forecast-tiles and passage: commit and push each repo. Stop after printing my manual dispatcher setup steps.` |
+| 5B | `deepregatta` (the container directory) | `Implement Phase 5B of passage/docs/grib-export-plan.md. I've deployed the dispatcher Worker and set its GITHUB_TOKEN secret. Dry-run log lines: <paste>.` |
+
+Before starting, read:
 
 1. `CLAUDE.md` (repo conventions: commit and push to main, launch configs, provider modes).
 2. `docs/forecast-tile-format.md` (PFT1 tiles, manifests, `latest.json`).
@@ -143,6 +161,28 @@ Checked 2026-09-23 against the code and the live data.
   - `javascript`: lint, `npm test`, `build:pages`.
   - `browser`: Playwright.
   - `python`: pytest + ruff in `analysis/`, which has `eccodes` and `cfgrib`.
+- **Since 2026-09-23, the `passage` repo's GitHub Actions jobs don't start.**
+  The annotation reads "recent account payments have failed or your spending
+  limit needs to be increased". This blocks both CI and `prepare-synoptic`
+  (last success 2026-09-22 20:14 UTC). Don't debug it as a code failure.
+  - **Cause:** the `deepregatta` org is on GitHub Free. Its private repos
+    share **2,000 Actions minutes a month**; the allowance resets monthly,
+    not weekly.
+  - **Billable minutes, Sept 1–23** (summed from job timings):
+    - `passage` 1,160: `prepare-synoptic` 569, CI `javascript` 340, `python`
+      232, `browser` 19;
+    - `oscar` 713;
+    - `tactician` 92;
+    - `landing` 5;
+    - total ≈ 1,970.
+  - Public repos (`forecast-tiles`) use standard runners for free with no
+    minute limit.
+  - "CI green" exit criteria need the allowance to reset, a spending limit,
+    or `passage` to become public. Davi is considering the last option after
+    a security review.
+- `passage/contracts/forecast-latest.schema.json` lacks `currents-ibi` in its
+  layer enum, although the live `latest.json` includes it. `forecast-tiles`'
+  vendored copy already has it (a known OPEN item). Phase 5A closes it.
 - Pages auto-deploys from main. Test Pages-like static hosting locally with
   `npm run build:pages` and then the `static-dist` launch config.
 - Product scope (`docs/product-brief.md`): coastal passages of 6–36 h in
@@ -570,6 +610,247 @@ Exit criteria:
 4. Optional: a "Download GRIBs" entry on the Briefing page, using the
    snapshot's recorded run ids while those runs are still retained (current +
    previous run only).
+
+## Phase 5 — Fresher forecast runs (independent track: forecast-tiles + passage)
+
+**Why.** A GRIB download makes the forecast's age obvious. Today every layer
+is ingested once a day, and GitHub starts the scheduled jobs 4–5 h late. So
+the newest GFS run Passage serves is published about 8 h 45 min after its
+cycle time and replaced only a day later: it can be up to about 33 h old.
+**Target:** ingest every provider cycle, published within about 30 min of the
+provider finishing it.
+
+Work from the container directory `/home/davi/projects/deepregatta`, because
+the work spans both repos. Commit and push to each repo's main.
+
+### Measured 2026-09-23
+
+GitHub scheduled-trigger delay, over the last 6 days of runs:
+
+| Workflow | Cron (UTC) | Run actually created (UTC) |
+|---|---|---|
+| forecast-tiles `ingest-weather` | 03:30 | 08:10–09:08 |
+| `ingest-waves` | 03:45 | 08:16–09:17 |
+| `ingest-ensemble` | 04:00 | 08:31–09:35 |
+| `ingest-weather-ecmwf` | 05:15 | 09:33–10:45 |
+| `ingest-currents` | 13:00 | 16:13–18:28 |
+| `ingest-currents-ibi` | 15:00 | 17:53–19:55 |
+| passage `prepare-synoptic` | 05:25, 11:25, 17:25, 23:25 | 10:05, 15:28, 20:29, 01:33 |
+
+When each provider finishes a cycle. This is the `Last-Modified` time of the
+exact file each `resolve()` waits for:
+
+| Layer | File probed | 00Z | 06Z | 12Z | Lag after cycle time |
+|---|---|---|---|---|---|
+| `weather` (GFS) | `noaa-gfs-bdp-pds/gfs.YYYYMMDD/HH/atmos/gfs.tHHz.pgrb2.0p25.f240.idx` | 04:41 | 10:37 | 16:38 | ≈ 4 h 40 |
+| `waves` | `…/wave/gridded/gfswave.tHHz.global.0p25.f384.grib2.idx` | 05:14 | 11:25 | 17:10 | ≈ 5 h 10–5 h 25 |
+| `ensemble` | `noaa-gefs-pds/gefs.YYYYMMDD/HH/atmos/pgrb2ap5/gep30.tHHz.pgrb2a.0p50.f384.idx` | 06:29 | 12:30 | 18:31 | ≈ 6 h 30 |
+| `weather-ecmwf` | `data.ecmwf.int/forecasts/YYYYMMDD/HHz/ifs/0p25/oper/YYYYMMDDHH0000-240h-oper-fc.index` | 07:34 | none (06Z stops at 144 h; published 12:27) | 19:34 | ≈ 7 h 35, 00Z and 12Z only |
+| `currents`, `currents-ibi` | CMEMS catalogue | once a day | | | daily |
+
+Other facts:
+
+- **Job durations:** weather, waves and ensemble take 12–19 min; ECMWF 10–100
+  min (its server varies); GLO12 35–46 min; IBI 1–2 min.
+- **Retention is by count** (current + previous run per layer), so more
+  frequent runs **don't** increase storage: still about 6 GB of the 8 GB
+  guard. But a run is deleted one cycle after it's superseded, which at a
+  6-hourly cadence means about 12 h after publication instead of about 48 h.
+- **R2 writes at the target cadence:** about 9,200 tile PUTs a day (weather
+  648, waves 530 and ensemble 648 tiles × 4; ECMWF 648 × 2; GLO12 542; IBI
+  11). That's about 280k a month, under R2's free 1M Class A operations a
+  month. Today it's about 3,000 a day.
+- **Triggering:** `workflow_dispatch` runs start within about a minute.
+  GitHub's `schedule` is best-effort: runs can be delayed or dropped under
+  load. Scheduled workflows in a public repo are also disabled after 60 days
+  without repository activity, which is a latent risk to all ingestion today.
+  Every ingest workflow already has `workflow_dispatch` with a `cycle` input
+  and `concurrency: {group: ingest-<layer>, cancel-in-progress: false}`.
+- **Ingest re-publishes a cycle that's already live.** `_update_latest`
+  handles the same-cycle case, so a frequent trigger would re-upload whole
+  runs. It needs an early "already published" exit.
+- **Passage assumes a daily cadence:**
+  - `engine/src/briefing.ts` `PUBLICATION_SCHEDULE` has `cadenceHours: 24`
+    per layer, and `lag >= cadence` suppresses the next-run estimate.
+  - `TileForecastStore` pins runs for the page's lifetime and never refreshes.
+
+### Target
+
+| Layer | Cycles | Expected publication (UTC) |
+|---|---|---|
+| `weather` (GFS) | 00/06/12/18 | ~05:00, 11:00, 17:00, 23:00 |
+| `waves` | 00/06/12/18 | ~05:45, 11:45, 17:45, 23:45 |
+| `ensemble` | 00/06/12/18 | ~07:00, 13:00, 19:00, 01:00 |
+| `weather-ecmwf` | 00/12 (full 240 h) | ~08:00, 20:00 |
+| `currents`, `currents-ibi` | daily | within ~30 min of the provider update |
+
+The worst-case age of the newest GFS run served drops from about 33 h to
+about 11 h.
+
+ECMWF 06Z/18Z (144 h only) is a later follow-up. First check that Passage's
+model-disagreement analysis and the GRIB export handle a shorter ECMWF horizon.
+
+### Mechanism: a poll-and-dispatch Cloudflare Worker (recommended)
+
+- New `forecast-tiles/dispatcher/`: a TypeScript Worker with `wrangler.toml`
+  and a Cron Trigger every 10 min. Cron Triggers are included in the Workers
+  free plan, and waiting on the network doesn't count as CPU time.
+- On each tick, for each 6- or 12-hourly layer:
+  1. **Candidate cycle:** the newest cycle whose completion file (table above;
+     the same URL templates as the Python `resolve()` functions) answers
+     `HEAD` with 200.
+  2. **Published cycle:** from `https://forecast.deepregatta.com/latest.json`
+     (5-min cache, which is fine).
+  3. If the candidate is newer and the workflow has no queued or in-progress
+     run (`GET /repos/deepregatta/forecast-tiles/actions/workflows/{file}/runs?status=…`),
+     then `POST …/actions/workflows/{file}/dispatches` with
+     `{"ref":"main","inputs":{"cycle":"YYYYMMDDTHH"}}`.
+- **CMEMS layers:** there's no cheap unauthenticated probe. Dispatch at fixed
+  daily slots (hourly for 4 h from the current cron times) and rely on the
+  ingest's "already published" and "not available yet" exits.
+- **`DRY_RUN`** (default `true` in `wrangler.toml`): log decisions without
+  dispatching.
+- **Token:** a fine-grained personal access token (or a GitHub App) scoped to
+  `deepregatta/forecast-tiles` only, with **Actions: read and write**, stored
+  as the Worker secret `GITHUB_TOKEN`. **Davi creates the token and sets the
+  secret. The session must never ask for or handle it.**
+- Keep each workflow's `schedule` as a fallback every 6 h at an off-peak
+  minute (e.g. `17 */6 * * *`). The "already published" exit makes it
+  harmless.
+- **Minutes:** all Phase 5 ingestion runs in `forecast-tiles`, which is
+  public, so it uses none of the org's 2,000 private minutes. Don't add
+  scheduled work to private repos.
+- Optional: the same Worker can dispatch Passage's `prepare-synoptic`, which
+  has the same 4–5 h delay. It needs a second token scoped to `passage`. Only
+  do this once `passage` is public: while private, its 4×/day runs already
+  cost about 570 of the 2,000 monthly minutes.
+- **Rejected:** GitHub cron every 15–30 min without a Worker. It's simpler,
+  but the measured 4–5 h delays and possible drops make timing unpredictable,
+  and it gets disabled after 60 days without activity. Use it only if Davi
+  declines the Worker.
+
+### 5A — Build (safe: the cadence stays daily)
+
+Tasks:
+
+1. **forecast-tiles ingest:** after resolving the cycle, read `latest.json`.
+   If that layer's published cycle is ≥ the resolved cycle, print
+   `already published` and exit 0 **before downloading anything**.
+   `--force` re-publishes on purpose. Tests.
+2. **Contract:** add an optional per-layer `cadence_hours` (integer ≥ 1) to
+   `latest.json`.
+   - Make the canonical change in `passage/contracts/forecast-latest.schema.json`.
+     At the same time add `currents-ibi` to its layer enum, closing the OPEN
+     item. Then vendor the schema into `forecast-tiles/contracts/`.
+   - The producer writes `cadence_hours` from a per-layer config in
+     `forecast-tiles`. It stays 24 everywhere for now, which is still true.
+   - Both CIs validate their fixtures against the schema.
+3. **Passage engine:** `LayerInfo` carries `cadence_hours` from `latest.json`.
+   `nextForecastRuns` uses it and falls back to `PUBLICATION_SCHEDULE` (keep
+   the table; update its comment). Update the engine briefing tests and
+   `viewer/test/nextRunProse.test.jsx`.
+4. **Passage store freshness:**
+   - `TileForecastStore.refresh()` re-reads `latest.json`. For each layer
+     whose run changed, it loads the new manifest and swaps it in atomically:
+     it drops that layer's decoded tiles and keeps unchanged layers. It never
+     runs in the middle of an action.
+   - The viewer calls it at the start of each user action (check a passage,
+     compare departures, compute a route, prepare GRIBs) when the last check
+     is more than 10 min old.
+   - If a tile fetch returns 404 for a run no longer in `latest.json`,
+     refresh once and retry the action. Otherwise show: "The forecast has
+     been updated. Try again."
+   - Tests with `MemoryTileTransport`.
+5. **Audit:** grep the viewer and engine for code that fetches tiles for an
+   **older snapshot's** run ids (briefing replay, evidence, changes).
+   Snapshots should be self-contained; any tile re-fetch must fail gracefully
+   once its run is deleted. Record the findings in this section.
+6. **Dispatcher Worker** in `forecast-tiles/dispatcher/`, with unit tests (mock
+   `fetch`) for cycle arithmetic, probe URLs and the dispatch decision.
+   `DRY_RUN=true` by default. Add a README section "Dispatcher" with Davi's
+   setup steps (below).
+7. **Workflows:** leave the crons as they are until 5B.
+8. **Docs:**
+   - forecast-tiles README: the layers table gets a cadence column marked
+     "target after 5B"; add the dispatcher runbook.
+   - `passage/docs/forecast-tile-format.md`: the new `latest.json` field.
+   - This plan: status line and audit findings.
+9. **Passage copy:** grep the English UI copy for "daily", "once a day" and
+   "24 h" about forecasts. Fix any in lockstep with the FR catalogue.
+10. Commit and push both repos. forecast-tiles CI must pass. Passage CI needs
+    Actions minutes (see Verified facts).
+
+Davi's manual steps after 5A (the session prints these at the end):
+
+1. Create a fine-grained token on GitHub (Settings → Developer settings →
+   Fine-grained tokens):
+   - resource owner `deepregatta`;
+   - only the repository `forecast-tiles`;
+   - Repository permissions → **Actions: Read and write**;
+   - expiry ≤ 1 year, with a calendar reminder to renew.
+2. Deploy the Worker and store the token as its secret:
+   ```bash
+   cd forecast-tiles/dispatcher && npx wrangler login && npx wrangler deploy && npx wrangler secret put GITHUB_TOKEN
+   ```
+   Paste the token into the `wrangler` prompt, never into a chat.
+3. Watch a few dry-run ticks with `npx wrangler tail`. Expect lines like
+   `would dispatch ingest-weather cycle=20260924T06`. Paste some into the 5B
+   prompt.
+
+Exit criteria:
+
+- [ ] "Already published" exit live: a manual dispatch of a published cycle
+      finishes in under 2 min with no uploads.
+- [ ] `latest.json` carries `cadence_hours`; Passage reads it; the schemas
+      match, including `currents-ibi`.
+- [ ] Store refresh live in Passage; audit findings recorded.
+- [ ] Dispatcher merged with dry-run as the default; Davi's steps handed over.
+
+### 5B — Switch on (after Davi has deployed the Worker)
+
+Tasks:
+
+1. Check the pasted dry-run lines: the decisions match the Target table.
+2. Switch on:
+   - `DRY_RUN=false`;
+   - `cadence_hours`: weather, waves and ensemble 6; ECMWF 12; currents 24;
+   - workflow crons to the 6-hourly fallback.
+
+   Then ask Davi to run `npx wrangler deploy` if the session can't
+   authenticate.
+3. Verify over the following cycles (schedule a check, or come back after
+   24–48 h). For each layer, compute `published_at − cycle` from
+   `latest.json` and `status/{layer}.json`. Targets:
+
+   | Layer | Published within |
+   |---|---|
+   | weather | +5 h 15 |
+   | waves | +5 h 50 |
+   | ensemble | +7 h 15 |
+   | ECMWF 00Z/12Z | +8 h 15 |
+
+   Also: no missed cycles, and the bucket stays under the guard.
+4. In Passage, a new briefing's next-run estimate is about 6 h after the
+   loaded cycle's publication. The GRIB section (if built) shows the new
+   cycle.
+5. Update the forecast-tiles README cadence column, the `briefing.ts`
+   fallback table, and this plan's Verified facts.
+
+Exit criteria:
+
+- [ ] 8 consecutive GFS cycles published within target; no ECMWF 00Z/12Z cycle missed.
+- [ ] Bucket under 8 GB; R2 Class A projection under 1M a month.
+- [ ] Docs updated in both repos.
+
+### Risks
+
+| Risk | Mitigation |
+|---|---|
+| Token expires, so dispatching stops | The fallback crons keep a slower cadence going. The dispatcher logs 401s loudly. Calendar reminder. Optional: open a GitHub issue when a layer falls 2 cycles behind (the token then also needs Issues: write). |
+| ECMWF server slowness (10–100 min jobs) | The concurrency group queues runs; the 12-hourly cadence leaves slack. |
+| Users re-download tiles 4× a day | Expected. The IndexedDB cache evicts old runs; tile sizes don't change. |
+| Runs expire while a page is open | 5A store refresh. |
+| Dispatcher and fallback cron fire together | Same concurrency group, plus the "already published" exit. |
 
 ## Adrena tester handoff (end of Phase 2)
 
