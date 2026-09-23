@@ -15,8 +15,16 @@ export interface FixtureVariable {
   dtype: 'i16' | 'i8';
   scale: number;
   per_member?: boolean;
-  /** value(member, timeIdx, latIdx, lonIdx); NaN = missing */
-  value: (m: number, t: number, i: number, j: number) => number;
+  /** value(member, timeIdx, latIdx, lonIdx, tile native grid); NaN = missing */
+  value: (m: number, t: number, i: number, j: number, grid: FixtureTileGrid) => number;
+}
+
+/** Native grid of one fixture tile, as written in its PFT1 header. */
+export interface FixtureTileGrid {
+  lat0: number;
+  lon0: number;
+  dlat: number;
+  dlon: number;
 }
 
 export interface FixtureLayerSpec {
@@ -31,6 +39,8 @@ export interface FixtureLayerSpec {
   tiles: Array<[number, number]>;
   /** grid points per tile side (default: 10 / resolution_deg) */
   pointsPerSide?: number;
+  /** native header grid per tile (default: the tile corner at resolution_deg), e.g. CMEMS-style offsets */
+  nativeGrid?: (lat0: number, lon0: number) => FixtureTileGrid;
 }
 
 export class MemoryTileTransport implements TileTransport {
@@ -84,6 +94,8 @@ export function buildFixtureRun(
     const manifestTiles: RunManifest['tiles'] = {};
     for (const [lat0, lon0] of spec.tiles) {
       const tileId = tileIdOf(lat0, lon0);
+      const grid = spec.nativeGrid?.(lat0, lon0) ??
+        { lat0, lon0, dlat: spec.resolution_deg, dlon: spec.resolution_deg };
       const header: TileHeader = {
         spec: 'PFT1',
         schema_version: 1,
@@ -93,10 +105,7 @@ export function buildFixtureRun(
         cycle: spec.cycle,
         generated_at: updatedAt,
         tile_id: tileId,
-        lat0,
-        lon0,
-        dlat: spec.resolution_deg,
-        dlon: spec.resolution_deg,
+        ...grid,
         nlat: n,
         nlon: n,
         time_axes: spec.time_axes,
@@ -112,7 +121,7 @@ export function buildFixtureRun(
         for (let m = 0; m < members; m++) {
           for (let t = 0; t < nTime; t++) {
             for (let i = 0; i < n; i++) {
-              for (let j = 0; j < n; j++) values[k++] = variable.value(m, t, i, j);
+              for (let j = 0; j < n; j++) values[k++] = variable.value(m, t, i, j, grid);
             }
           }
         }

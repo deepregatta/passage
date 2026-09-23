@@ -4,12 +4,19 @@
  */
 
 export function fnv1a64Hex(input: string | Uint8Array): string {
+  return fnv1a64HexParts([input]);
+}
+
+/** FNV-1a 64 of the concatenated inputs, without copying them into one buffer. */
+export function fnv1a64HexParts(parts: ReadonlyArray<string | Uint8Array>): string {
   let h = 0xcbf29ce484222325n;
   const prime = 0x100000001b3n;
   const mask = 0xffffffffffffffffn;
-  for (let i = 0; i < input.length; i++) {
-    h ^= BigInt(typeof input === 'string' ? input.charCodeAt(i) : input[i]!);
-    h = (h * prime) & mask;
+  for (const input of parts) {
+    for (let i = 0; i < input.length; i++) {
+      h ^= BigInt(typeof input === 'string' ? input.charCodeAt(i) : input[i]!);
+      h = (h * prime) & mask;
+    }
   }
   return h.toString(16).padStart(16, '0');
 }

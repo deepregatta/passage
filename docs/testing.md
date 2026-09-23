@@ -41,15 +41,21 @@ Suite ownership:
 
 | Location | Runner | Responsibility |
 |---|---|---|
-| `engine/test/` | Vitest | Pure analysis, routing, schemas, tile decoding, snapshots, and golden findings |
+| `engine/test/` | Vitest | Pure analysis, routing, schemas, tile decoding, GRIB2 export, snapshots, and golden findings |
 | `viewer/test/` | Vitest + Testing Library | UI behavior, localization, persistence, prerendering, and saved-snapshot compatibility |
 | `viewer/e2e/` | Playwright | Desktop/mobile core flows and reviewed screenshot baselines |
-| `analysis/tests/` | pytest | Provider adapters, route-independent preparation, warnings, tides, observations, and verification |
+| `analysis/tests/` | pytest | Provider adapters, route-independent preparation, warnings, tides, observations, verification, and the ecCodes GRIB export contract |
 
 ## Fixture policy
 
 - `engine/test/fixtures/` contains deterministic engine inputs and PFT1 golden
   payloads.
+- `engine/test/fixtures/grib/` contains the golden GRIB2 export files and their
+  `*.expected.json`. An engine test requires a byte-identical re-encode, and
+  `analysis/tests/test_grib_export_contract.py` decodes every file with ecCodes
+  (keys, geometry, values, missing points). After an intentional encoder or
+  dataset-registry change, run `npm run make:grib-fixtures -w engine`, review
+  the diff, and re-run the contract test. See [grib-export.md](grib-export.md).
 - `viewer/test/fixtures/demo/` is the current committed reference demo. Rebuild
   it with `node scripts/build-demo-snapshots.mjs`; a clean regeneration must be
   byte-identical unless an intentional product or contract change is under
@@ -74,6 +80,8 @@ Suite ownership:
 | `scripts/serve-pages.mjs` | Serve `viewer/dist` with Pages-like routing; use the `static-dist` launch configuration |
 | `scripts/upload-prepared-run.py` | Publish a prepared run from CI to R2 |
 | `analysis/scripts/build_global_land_mask.py` | Rebuild the packed global land mask when its source/version changes |
+| `analysis/scripts/inspect_grib.py` | Print one row per GRIB message (parameter, level, time, grid, range, spot value) with ecCodes |
+| `engine/scripts/make-grib-fixtures.ts` | Regenerate the golden GRIB2 export fixtures (`npm run make:grib-fixtures -w engine`) |
 | `viewer/scripts/prerender-fr.mjs` | Build-time French HTML prerender step; invoked by the viewer build |
 
 The former infinite local refresh loop is archived under `trashbin/scripts/`.

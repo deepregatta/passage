@@ -42,7 +42,8 @@ interface LayerState {
   manifest: RunManifest;
   /** Retained tiles, governed by the store-wide decoded LRU budget. */
   decoded: Map<string, DecodedTile>;
-  inFlight: Map<string, Promise<{ tile: DecodedTile; cached: boolean }>>;
+  /** One shared load per tile; `retain` is set once any caller wants the result kept. */
+  inFlight: Map<string, { promise: Promise<{ tile: DecodedTile; cached: boolean }>; retain: boolean }>;
 }
 
 interface SampledSeries {
@@ -147,7 +148,55 @@ export class TileForecastStore implements ForecastStore {
     return out;
   }
 
+  /** The pinned run manifest for a layer, or null when the layer is unavailable. */
+  manifestFor(layer: string): RunManifest | null {
+    return this.layers.get(layer)?.manifest ?? null;
+  }
+
+  /**
+   * One decoded tile of the pinned run, through the same checksum, cache and
+   * shared in-flight path as the analysis. Null when the manifest does not
+   * publish it. With `retain: false` (the default) the read neither enters
+   * nor reorders the decoded LRU, so bulk readers such as the GRIB export
+   * never evict the analysis's tiles.
+   */
+  async readTile(layer: string, tileId: string, options: { retain?: boolean } = {}): Promise<DecodedTile | null> {
+    await this.init();
+    const state = this.layers.get(layer);
+    if (!state || !state.manifest.tiles[tileId]) return null;
+    const retain = options.retain ?? false;
+    const memo = state.decoded.get(tileId);
+    if (memo !== undefined) {
+      if (retain) this.touch(memo);
+      return memo;
+    }
+    return (await this.sharedLoad(state, tileId, retain)).tile;
+  }
+
   // ---------------------------------------------------------------- tiles
+
+  private touch(tile: DecodedTile): void {
+    const entry = this.decodedLru.get(tile)!;
+    this.decodedLru.delete(tile);
+    this.decodedLru.set(tile, entry);
+  }
+
+  private sharedLoad(state: LayerState, tileId: string, retain: boolean): Promise<{ tile: DecodedTile; cached: boolean }> {
+    const pending = state.inFlight.get(tileId);
+    if (pending) {
+      pending.retain ||= retain;
+      return pending.promise;
+    }
+    const entry: { promise: Promise<{ tile: DecodedTile; cached: boolean }>; retain: boolean } = {
+      retain,
+      promise: this.loadTile(state.manifest, tileId).then(result => {
+        if (entry.retain) this.retainTile(state, tileId, result.tile);
+        return result;
+      }).finally(() => state.inFlight.delete(tileId)),
+    };
+    state.inFlight.set(tileId, entry);
+    return entry.promise;
+  }
 
   private retainTile(state: LayerState, tileId: string, tile: DecodedTile): void {
     const bytes = Object.values(tile.arrays).reduce((sum, array) => sum + array.byteLength, 0);
@@ -176,9 +225,7 @@ export class TileForecastStore implements ForecastStore {
     const tileId = tileIdFor(lat, lon);
     const memo = state.decoded.get(tileId);
     if (memo !== undefined) {
-      const entry = this.decodedLru.get(memo)!;
-      this.decodedLru.delete(memo);
-      this.decodedLru.set(memo, entry);
+      this.touch(memo);
       stats.tiles.add(tileId);
       stats.cached += 1;
       return memo;
@@ -188,15 +235,7 @@ export class TileForecastStore implements ForecastStore {
     if (!state.manifest.tiles[tileId]) {
       return null;
     }
-    let pending = state.inFlight.get(tileId);
-    if (!pending) {
-      pending = this.loadTile(state.manifest, tileId).then(result => {
-        this.retainTile(state, tileId, result.tile);
-        return result;
-      }).finally(() => state.inFlight.delete(tileId));
-      state.inFlight.set(tileId, pending);
-    }
-    const result = await pending;
+    const result = await this.sharedLoad(state, tileId, true);
     // Each caller owns its metadata; sharing a download is not a cache hit.
     if (result.cached) stats.cached += 1;
     return result.tile;

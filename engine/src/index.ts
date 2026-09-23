@@ -72,3 +72,39 @@ export {
 export type { Bbox, TileOrigin } from './forecast/tileMath.js';
 export * from './types.js';
 export { eventKeyForSystem, assignEventKeys, matchSystems } from './events.js';
+export { encodeGrib2Message, gribRound, latticeCornersMicro } from './export/grib2.js';
+export type { Grib2Field, GribLattice, GribLevel, LonConvention } from './export/grib2.js';
+export { GRIB_DATASETS, GRIB_EXPORT_NOTICE, MS_TO_KT, gribDataset } from './export/gribDatasets.js';
+export type {
+  GribDatasetId,
+  GribDatasetKind,
+  GribDatasetSpec,
+  GribVariableSpec,
+} from './export/gribDatasets.js';
+export { planGribExport, gribLattice, gribFileName, latticeBounds } from './export/exportPlan.js';
+export type {
+  GribAvailability,
+  GribCheckpointRequest,
+  GribDatasetPlan,
+  GribExportPlan,
+  GribExportRequest,
+  GribManifests,
+  GribPlannedStep,
+  GribPlannedTile,
+  GribStep,
+} from './export/exportPlan.js';
+export {
+  runGribExport,
+  gribExportSourceFromStore,
+  GribExportError,
+  FORECAST_UPDATED_MESSAGE,
+} from './export/exportGrib.js';
+export type {
+  GribCheckpoint,
+  GribCheckpointStep,
+  GribExportErrorCode,
+  GribExportFile,
+  GribExportOptions,
+  GribExportProgress,
+  GribExportSource,
+} from './export/exportGrib.js';

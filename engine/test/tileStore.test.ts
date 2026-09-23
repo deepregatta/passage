@@ -711,4 +711,60 @@ describe('TileForecastStore decoded memory budget', () => {
       transport: buildFixtureRun([smallWeather([])]), maxDecodedBytes,
     })).toThrow('maxDecodedBytes');
   });
+
+  describe('readTile (bulk readers such as the GRIB export)', () => {
+    it('exposes pinned manifests and returns null for unpublished tiles without fetching', async () => {
+      const transport = buildFixtureRun([smallWeather()]);
+      const fetches = vi.spyOn(transport, 'fetchTile');
+      const store = new TileForecastStore({ transport });
+      expect(await store.readTile('weather', 'N00W010')).toBeNull();
+      expect(await store.readTile('waves', 'N40W010')).toBeNull();
+      expect(fetches).not.toHaveBeenCalled();
+      expect(store.manifestFor('weather')).toBe(transport.manifests.get(store.describe().weather!.run_id));
+      expect(store.manifestFor('waves')).toBeNull();
+      const tile = await store.readTile('weather', 'N50W010');
+      expect(tile!.header).toMatchObject({ tile_id: 'N50W010', lat0: 50, lon0: -10 });
+    });
+
+    it('neither retains nor evicts decoded tiles unless asked to', async () => {
+      const transport = buildFixtureRun([smallWeather()]);
+      const cache = new MemoryTileCache();
+      const reads = vi.spyOn(cache, 'get');
+      const store = new TileForecastStore({ transport, cache, maxDecodedBytes: weatherBytes });
+      await store.getPointForecasts([pointAt(41)], START, END);
+      expect(retained(store)).toEqual({ count: 1, bytes: weatherBytes });
+      await store.readTile('weather', 'N50W010');
+      await store.readTile('weather', 'N60W010');
+      expect(retained(store)).toEqual({ count: 1, bytes: weatherBytes });
+      // The analysis tile is still decoded: a hit, not a cache read.
+      const again = await store.getPointForecasts([pointAt(41)], START, END);
+      expect(again.meta.cached_tiles).toBe(1);
+      expect(reads).toHaveBeenCalledTimes(3);
+      // A retained tile is served as is; retain: true opts in to the LRU.
+      expect(await store.readTile('weather', 'N40W010')).toBe(await store.readTile('weather', 'N40W010'));
+      expect(reads).toHaveBeenCalledTimes(3);
+      await store.readTile('weather', 'N60W010', { retain: true });
+      expect(retained(store).count).toBe(1);
+      await store.getPointForecasts([pointAt(61)], START, END);
+      expect(reads).toHaveBeenCalledTimes(4);
+    });
+
+    it('shares one in-flight load with the analysis, which still retains the tile', async () => {
+      const transport = buildFixtureRun([smallWeather()]);
+      const fetches = vi.spyOn(transport, 'fetchTile');
+      const cache = new MemoryTileCache();
+      const reads = vi.spyOn(cache, 'get');
+      const store = new TileForecastStore({ transport, cache });
+      const [tile, point] = await Promise.all([
+        store.readTile('weather', 'N40W010'),
+        store.getPointForecasts([pointAt(41)], START, END),
+      ]);
+      expect(fetches).toHaveBeenCalledTimes(1);
+      expect(point.forecasts[0]!.wind_kt[0]).toBe(10);
+      expect(tile!.header.tile_id).toBe('N40W010');
+      expect(retained(store)).toEqual({ count: 1, bytes: weatherBytes });
+      await store.getPointForecasts([pointAt(41)], START, END);
+      expect(reads).toHaveBeenCalledTimes(1);
+    });
+  });
 });

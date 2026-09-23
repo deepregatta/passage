@@ -12,7 +12,8 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.test.json",
     "test": "vitest run",
-    "cli": "tsx src/cli.ts"
+    "cli": "tsx src/cli.ts",
+    "make:grib-fixtures": "tsx scripts/make-grib-fixtures.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
