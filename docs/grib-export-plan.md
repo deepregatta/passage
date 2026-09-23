@@ -1,8 +1,7 @@
 # GRIB export from the planner — implementation plan
 
 Status: direction approved 2026-09-23. **Phase 1 landed 2026-09-24** (engine,
-CLI, golden fixtures, ecCodes contract; CI pending Actions minutes). **Phase 2
-is next.** Phase 5 (fresher forecast runs) is an independent track added
+CLI, golden fixtures, ecCodes contract; CI green). **Phase 2 is next.** Phase 5 (fresher forecast runs) is an independent track added
 2026-09-23. Update the status line and tick the exit criteria as phases land.
 
 ## How to use this plan
@@ -176,7 +175,9 @@ Checked 2026-09-23 against the code and the live data.
   - `javascript`: lint, `npm test`, `build:pages`.
   - `browser`: Playwright.
   - `python`: pytest + ruff in `analysis/`, which has `eccodes` and `cfgrib`.
-- **Since 2026-09-23, the `passage` repo's GitHub Actions jobs don't start.**
+- **On 2026-09-23 the `passage` repo's GitHub Actions jobs didn't start.**
+  They ran again from 22:53 UTC the same day (CI run 35930782176 passed); the
+  cause below is kept for when the allowance runs out again.
   The annotation reads "recent account payments have failed or your spending
   limit needs to be increased". This blocks both CI and `prepare-synoptic`
   (last success 2026-09-22 20:14 UTC). Don't debug it as a code failure.
@@ -348,7 +349,7 @@ Validation before exit:
 
 Exit criteria:
 
-- [ ] CI green on main (all three jobs).
+- [x] CI green on main (all three jobs): run 35930782176 on `ba47344`.
 - [x] Production CLI export decodes cleanly in ecCodes; NOAA cross-check passes.
 - [x] `docs/grib-export.md` committed; this plan's status line updated.
 
