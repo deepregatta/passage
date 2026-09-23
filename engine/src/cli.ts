@@ -4,9 +4,13 @@
  * Usage:
  *   npm -w engine run cli -- run --route ../config/routes/cherbourg-plymouth.json \
  *     --profile ../config/profiles/default-limits.json --departure 2026-07-12T06:00:00Z
+ *   npm -w engine run cli -- grib --bbox 48,51,-6,2 --datasets wind-gfs,waves-gfs \
+ *     --from 2026-09-24T06:00Z --to 2026-09-26T06:00Z [--step all|3|6] [--out output/grib] \
+ *     [--base-url https://forecast.deepregatta.com | --tiles-dir <local run dir>] \
+ *     [--lon-convention 0-360|signed] [--check 49.65,-1.62[;50.77,-1.3]]
  */
 
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve, dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runAnalysis, persistSnapshot } from './analyze.js';
@@ -14,7 +18,11 @@ import { FsTileTransport, NodeFsSnapshotStore } from './io/node.js';
 import { HttpTileTransport } from './forecast/httpTransport.js';
 import { ScenarioBundleStore } from './forecast/scenarioStore.js';
 import { TileForecastStore } from './forecast/tileStore.js';
-import type { ForecastStore } from './forecast/store.js';
+import { MemoryTileCache, type ForecastStore } from './forecast/store.js';
+import { planGribExport, type GribStep } from './export/exportPlan.js';
+import { gribExportSourceFromStore, runGribExport } from './export/exportGrib.js';
+import { GRIB_DATASETS, GRIB_EXPORT_NOTICE } from './export/gribDatasets.js';
+import type { LonConvention } from './export/grib2.js';
 import type { GateDef, TidesDoc } from './hazards/tides.js';
 import type { LimitsProfile, Route, WarningsInput } from './types.js';
 
@@ -192,11 +200,104 @@ async function runCommand(args: Map<string, string>): Promise<number> {
   return 0;
 }
 
+const GRIB_USAGE = 'Usage: cli grib --bbox minLat,maxLat,minLon,maxLon --from <ISO UTC> --to <ISO UTC> ' +
+  '[--datasets id,…] [--step all|3|6] [--out dir] [--base-url url | --tiles-dir dir] ' +
+  '[--lon-convention 0-360|signed] [--check lat,lon[;lat,lon]]';
+
+function numbers(text: string, count: number): number[] | null {
+  const values = text.split(',').map((part) => Number(part.trim()));
+  return values.length === count && values.every(Number.isFinite) ? values : null;
+}
+
+/** Route-area GRIB2 files from forecast tiles: the same engine path the planner runs in the browser. */
+async function gribCommand(args: Map<string, string>): Promise<number> {
+  const bbox = numbers(args.get('bbox') ?? '', 4);
+  const from = args.get('from');
+  const to = args.get('to');
+  const step = args.get('step') ?? 'all';
+  const lonConvention = args.get('lon-convention') ?? '0-360';
+  const checkpoints = (args.get('check') ?? '').split(';').filter(Boolean).map((pair) => numbers(pair, 2));
+  if (!bbox || !from || !to || !['all', '3', '6'].includes(step) || !['0-360', 'signed'].includes(lonConvention) ||
+      checkpoints.some((point) => point === null)) {
+    console.error(GRIB_USAGE);
+    return 1;
+  }
+  const datasetIds = args.get('datasets')?.split(',').map((id) => id.trim()).filter(Boolean) ??
+    GRIB_DATASETS.map((dataset) => dataset.id);
+
+  const tilesDir = args.get('tiles-dir') ? userPath(args.get('tiles-dir')!) : undefined;
+  const baseUrl = args.get('base-url') || process.env.DEEPWEATHER_FORECAST_BASE_URL || 'https://forecast.deepregatta.com';
+  const store = new TileForecastStore({
+    transport: tilesDir ? new FsTileTransport(tilesDir) : new HttpTileTransport({ baseUrl }),
+    cache: new MemoryTileCache(),
+  });
+  await store.init();
+  const plan = planGribExport((layer) => store.manifestFor(layer), {
+    bbox: { minLat: bbox[0]!, maxLat: bbox[1]!, minLon: bbox[2]!, maxLon: bbox[3]! },
+    datasetIds,
+    startIso: from,
+    endIso: to,
+    step: (step === 'all' ? 'all' : Number(step)) as GribStep,
+    lonConvention: lonConvention as LonConvention,
+    checkpoints: checkpoints.map((point) => ({ lat: point![0]!, lon: point![1]! })),
+    fixture: tilesDir !== undefined,
+  });
+  const mb = (bytes: number) => `${(bytes / 1e6).toFixed(2)} MB`;
+  for (const dataset of plan.datasets) {
+    const detail = dataset.availability === 'ok'
+      ? `${dataset.steps.length} steps × ${dataset.variables.length} variables, ` +
+        `${dataset.lattice!.ni}×${dataset.lattice!.nj} points, ~${mb(dataset.estBytes)}, ` +
+        `fetch ≤ ${mb(dataset.downloadBytesUpperBound)}`
+      : dataset.availability;
+    console.error(`${dataset.datasetId.padEnd(16)} ${dataset.run_id ?? '-'}  ${detail}`);
+  }
+
+  let lastReport = 0;
+  const files = await runGribExport(gribExportSourceFromStore(store), plan, {
+    onProgress: ({ done, total }) => {
+      if (Date.now() - lastReport < 2000 && done < total) return;
+      lastReport = Date.now();
+      console.error(`progress ${done}/${total}`);
+    },
+  });
+
+  const outDir = args.get('out') ? userPath(args.get('out')!) : join(REPO_ROOT, 'output', 'grib');
+  mkdirSync(outDir, { recursive: true });
+  for (const file of files) {
+    if (!file.messages) continue;
+    const path = join(outDir, file.name);
+    writeFileSync(path, Buffer.concat(file.parts));
+    console.log(`${path}  ${file.bytes} bytes  ${file.messages} messages  fnv64 ${file.fnv64}`);
+  }
+  const summary = {
+    generated_at: new Date().toISOString(),
+    source: tilesDir ? { tiles_dir: tilesDir } : { base_url: baseUrl },
+    request: plan.request,
+    notice: GRIB_EXPORT_NOTICE,
+    datasets: plan.datasets.map((dataset) => ({
+      datasetId: dataset.datasetId,
+      label: dataset.label,
+      availability: dataset.availability,
+      run_id: dataset.run_id,
+      attribution: dataset.spec.attribution,
+      ...(dataset.spec.note ? { note: dataset.spec.note } : {}),
+      estBytes: dataset.estBytes,
+      downloadBytesUpperBound: dataset.downloadBytesUpperBound,
+    })),
+    files: files.map(({ parts: _parts, ...file }) => file),
+  };
+  writeFileSync(join(outDir, 'summary.json'), `${JSON.stringify(summary, null, 2)}\n`);
+  console.log(join(outDir, 'summary.json'));
+  return 0;
+}
+
 async function main(): Promise<number> {
   const args = parseArgs(process.argv.slice(2));
   const command = args.get('_command');
   if (command === 'run') return runCommand(args);
+  if (command === 'grib') return gribCommand(args);
   console.error('Usage: cli run --route <path> --profile <path> --departure <ISO UTC>');
+  console.error(GRIB_USAGE);
   return 1;
 }
 

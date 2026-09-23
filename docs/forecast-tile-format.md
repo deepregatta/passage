@@ -86,6 +86,24 @@ These currents are **not tidal stream predictions**; the UI must disclose
 that, and tile time axes coarser than the tidal cycle must never be presented
 as resolving tides.
 
+Tiles slice the provider grid without resampling, and the header's `lat0`,
+`lon0`, `dlat` and `dlon` describe that grid as the pipeline derives it (from
+the first two coordinates). The 0.25° layers sit exactly on the 10° and 0.25°
+lines. The CMEMS layers don't (measured on N40W010, 2026-09-23 runs):
+
+- GLO12 (`currents`): lat0 40.00366, lon0 −9.92705, dlat 0.08333588, dlon
+  0.0833282. The step comes from float32 coordinates, so header positions
+  drift from the true 1/12° grid (0.011° of longitude at 2°W, up to ≈ 0.02°
+  at 180°E), and each true 10° boundary column is the last column of the
+  western tile.
+- IBI (`currents-ibi`): lat0 40.02689, lon0 −9.99923, d 0.02777863. Rows sit
+  about 0.001° below each 1/36° line, so each 10° boundary row is the last row
+  of the tile below.
+
+Consumers that need lattice positions round the header position to the
+nearest 1/12° or 1/36° rather than assume `lat0 = 10·row`; the GRIB export
+does this ([grib-export.md](grib-export.md)).
+
 ## R2 layout and caching
 
 ```

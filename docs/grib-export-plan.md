@@ -1,8 +1,9 @@
 # GRIB export from the planner — implementation plan
 
-Status: direction approved 2026-09-23. **No phase started.** Phase 5 (fresher
-forecast runs) is an independent track added the same day.
-Update the status line and tick the exit criteria as phases land.
+Status: direction approved 2026-09-23. **Phase 1 landed 2026-09-24** (engine,
+CLI, golden fixtures, ecCodes contract; CI pending Actions minutes). **Phase 2
+is next.** Phase 5 (fresher forecast runs) is an independent track added
+2026-09-23. Update the status line and tick the exit criteria as phases land.
 
 ## How to use this plan
 
@@ -89,6 +90,13 @@ Checked 2026-09-23 against the code and the live data.
 
 - Compressed tile sizes for N40W010: weather 1.39 MB, waves 0.93 MB, GLO12
   0.55 MB, ECMWF 0.31 MB, **IBI 9.8 MB** (IBI run total 64 MB).
+- **CMEMS tile grids are not anchored on the 10° lines** (corrected
+  2026-09-24; the original spec assumed they were). N40W010 headers: GLO12
+  lat0 40.00366, lon0 −9.92705, dlon 0.0833282 (a float32-derived step, so the
+  true −10.0 column is the last column of N40W020); IBI lat0 40.02689, lon0
+  −9.99923 (lattice 40.0° is the last row of N30W010). The GRIB export samples
+  through each tile's header instead; see `docs/grib-export.md` → *Sampling
+  tiles onto the lattice*. The 0.25° layers are exactly aligned.
 - Tiles store knots. Ingestion converts with `MS_TO_KT = 1.943844`
   (`forecast-tiles/src/ingest/sources/base.py`). Divide by the same constant
   to get back to m/s.
@@ -114,6 +122,13 @@ Checked 2026-09-23 against the code and the live data.
   10; GUST = type 1, value 0; wave fields = type 1, value 1; swell partition 1
   = type 241 ("ordered sequence"), value 1. Wave messages have a bitmap
   (land); wind messages don't.
+- **ecCodes 2.47** (and NCEP g2clib) return R unscaled for `bitsPerValue = 0`
+  and ignore D, so constant fields are written with D = 0 and R = the value
+  (found by the contract test). ecCodes has no name for an instantaneous
+  10/1/2 current (its only GRIB2 surface-current concepts, `ocu`/`ocv`, are
+  template-4.8 averages at level 160), so it shows the currents as
+  `unknown` at every level and centre tried. That is a naming gap, not a
+  decode error.
 - **Engine store** (`engine/src/forecast/tileStore.ts`):
   - `init()` loads a manifest for *every* layer in `latest.json`, including
     `currents-ibi`. `describe()` returns run ids. The viewer singleton
@@ -131,7 +146,7 @@ Checked 2026-09-23 against the code and the live data.
     missing). Tiles are south→north: point (i=0, j=0) is the SW corner.
 - Engine: `lib: ["ES2022"]`, no DOM. It has no `Blob`, so it returns
   `Uint8Array` parts. `fnv1a64Hex` is in `engine/src/hash.ts`. The CLI
-  (`engine/src/cli.ts`) currently only has `run`. `FsTileTransport` in
+  (`engine/src/cli.ts`) has `run` and, since Phase 1, `grib`. `FsTileTransport` in
   `engine/src/io/node.ts` reads a local tile directory.
 - Engine test helpers: `engine/test/helpers/fixtureRun.ts` provides
   `buildFixtureRun(specs)` and `MemoryTileTransport`. `pointsPerSide` builds
@@ -229,143 +244,20 @@ https://forecast.deepregatta.com/forecast-runs/{run_id}/…  (unchanged)
 
 ## GRIB2 encoding specification (the contract)
 
-All multi-byte integers are big-endian. **Signed integers** (latitudes,
-section-5 E and D) use **sign-magnitude**: the top bit is the sign, not two's
-complement. Every message holds exactly one field at one time, and the file is
-the concatenation of its messages.
+Moved to [`docs/grib-export.md`](grib-export.md) in Phase 1; that file is now
+canonical (section layouts, simple packing, lattice, times, dataset registry,
+files and honesty rules, runner). Phase 1 changed three details of the
+original draft:
 
-### Section layouts
-
-| Section | Bytes | Content |
-|---|---|---|
-| 0 Indicator | 16 | `"GRIB"`, 2 reserved zero bytes, discipline (0 meteorological / 10 oceanographic), edition 2, total length (u64) |
-| 1 Identification | 21 | length, 1, centre (u16), subCentre (u16) 0, masterTablesVersion 2, localTablesVersion 0, significanceOfRefTime 1, year (u16), month, day, hour, minute, second = the **layer's model cycle**, productionStatus 0, typeOfProcessedData 1 |
-| 3 Grid (template 3.0) | 72 | length, 3, source 0, numberOfDataPoints Ni·Nj (u32), 0, 0, template 0 (u16); shapeOfTheEarth 6, then 3× (scale factor 0xFF, value 0xFFFFFFFF); Ni, Nj (u32); basicAngle 0; subdivisions 0xFFFFFFFF; La1 (i32 µ°); Lo1 (u32 µ°); resolutionAndComponentFlags 0x30; La2; Lo2; Di (u32 µ°); Dj (u32 µ°); scanningMode 0x00 |
-| 4 Product (template 4.0) | 34 | length, 4, NV 0 (u16), template 0 (u16), category, number, typeOfGeneratingProcess 2, backgroundProcess 0, generatingProcessIdentifier, hoursAfterCutoff 0 (u16), minutesAfterCutoff 0, unitOfTimeRange 1, forecastTime (u32 hours from cycle), typeOfFirstFixedSurface, scaleFactorOfFirst 0, scaledValueOfFirst (u32), typeOfSecond 255, scaleFactorOfSecond 0xFF, scaledValueOfSecond 0xFFFFFFFF |
-| 5 Data representation (template 5.0) | 21 | length, 5, numberOfValues = non-missing count (u32), template 0 (u16), R (IEEE float32), E = 0 (i16 s-m), D (i16 s-m), bitsPerValue, typeOfOriginalFieldValues 0 |
-| 6 Bitmap | 6 or 6+⌈N/8⌉ | length, 6, indicator 255 (no missing values) or 0 followed by the bitmap: MSB first, 1 = value present, zero-padded |
-| 7 Data | 5+⌈count·nbits/8⌉ | length, 7, packed values: MSB first, zero-padded |
-| 8 End | 4 | `"7777"` |
-
-### Simple packing (E = 0)
-
-```
-s     = 10^D
-ints  = present values.map(v => Math.round(v * s))
-R     = min(ints)                  // an integer, |R| < 2^24, so it is exact as float32
-X_i   = ints_i − R
-nbits = max(X) === 0 ? 0 : ceil(log2(max(X) + 1))   // throw if max(X) ≥ 2^24
-decoded = (R + X) / s
-```
-
-If a message has no present values, **skip it** and count it in the summary.
-It isn't an error.
-
-### Grid lattice (exact integer mapping; no float drift between tiles)
-
-- `n = round(10 / manifest.resolution_deg)` points per tile side (40, 120 or
-  360). `stepµ = round(1e7 / n)` µ° (250000, 83333 or 27778).
-- Global lattice index `k` ↔ degrees `k·10/n`. For the padded bbox:
-  - `kS = floor(minLat·n/10)`, `kN = ceil(maxLat·n/10)`,
-    `kW = floor(minLon·n/10)`, `kE = ceil(maxLon·n/10)`.
-  - `Nj = kN − kS + 1`, `Ni = kE − kW + 1`.
-- Lattice point → tile: `row = floor(k_lat / n)`, `lat0 = 10·row`,
-  `i = k_lat − n·row`. The same for longitude, giving the tile id via
-  `tileIdFromOrigin`. If `i ≥ header.nlat` or `j ≥ header.nlon` (partial
-  fixture tiles), or the tile isn't published, the point is **missing**.
-- `La1 = kN·stepµ`, `La2 = kS·stepµ`, `Dj = Di = stepµ`.
-  `Lo1 = mod(kW·stepµ, 360e6)`, `Lo2 = mod(kE·stepµ, 360e6)`. This is the
-  NCEP 0–360 convention: a box across Greenwich gives, say, Lo1 = 355e6 and
-  Lo2 = 2e6.
-- Rows are written **north→south**, so tile rows (south→north) are flipped.
-  i (longitude) varies fastest.
-- The encoder takes `lonConvention: '0-360' | 'signed'`. `'signed'` writes Lo1
-  and Lo2 as sign-magnitude degrees in [−180, 180). It is the Adrena fallback
-  only; the default is `'0-360'`.
-- Known approximation: integer µ° increments for 1/12° and 1/36° drift by
-  ≤ 0.0007° (≤ 80 m) at the edge of the globe and ≤ 50 m in scope. Document
-  it; it's acceptable.
-- Boxes crossing the antimeridian are rejected, like `routeBbox`.
-
-### Times
-
-- Per dataset, all exported variables share one tile axis (`hourly` for GFS
-  wind/gust, `steps` otherwise). Axis times = `base + offsets_h`.
-- Optional thinning step `s ∈ {all, 3, 6}` h: keep offsets with
-  `offset % s === 0`.
-- Then keep the steps inside `[start, end]`, **plus** the last step before
-  `start` and the first after `end` (so apps can interpolate), clipped to the
-  axis.
-- `forecastTime` = offset in hours. Section 1 time = the layer's cycle.
-- Message order: step-major, then variables in registry order.
-
-### Dataset registry (`gribDatasets.ts`)
-
-| Dataset id | Layer | Tile variable → GRIB (discipline/category/number) | Level (type/value) | Output unit | D | centre / process |
-|---|---|---|---|---|---|---|
-| `wind-gfs` | `weather` | `wind_u_kt` → 0/2/2 · `wind_v_kt` → 0/2/3 | 103/10 | m/s (kt ÷ 1.943844) | 1 | 7 / 96 |
-|  |  | `gust_kt` → 0/2/22 | 1/0 | m/s | 1 |  |
-| `wind-ecmwf` | `weather-ecmwf` | `wind_u_kt` 0/2/2 · `wind_v_kt` 0/2/3 · `gust_kt` 0/2/22 **only if listed in the manifest** | as above | m/s | 1 | 98 / 255 |
-| `waves-gfs` | `waves` | `hs_m` 10/0/3 · `period_s` 10/0/11 · `dir_deg` 10/0/10 · `wind_wave_h_m` 10/0/5 · `wind_wave_period_s` 10/0/6 · `wind_wave_dir_deg` 10/0/4 | 1/1 | m, s, ° true | 2 (heights), 1 (periods, directions) | 7 / 11 |
-|  |  | `swell_h_m` 10/0/8 · `swell_period_s` 10/0/9 · `swell_dir_deg` 10/0/7 | 241/1 |  | 2 / 1 / 1 |  |
-| `currents-global` | `currents` | `cur_u_kt` → 10/1/2 · `cur_v_kt` → 10/1/3 | 1/0 (fallback 160/0) | m/s | 2 | 255 / 255 |
-| `currents-ibi` | `currents-ibi` | same as `currents-global` | same | m/s | 2 | 255 / 255 |
-
-D is chosen so the output precision is never coarser than the coarser of the
-tile and the NCEP original. u/v are earth-relative (flags 0x30).
-
-The registry also holds, for each dataset:
-
-- **UI label**: "Wind – GFS", "Wind – ECMWF", "Waves – GFS-Wave",
-  "Currents – global (6-hourly)", "Currents – IBI regional (hourly, tide included)".
-- **Attribution**: NOAA; ECMWF CC BY 4.0; "Generated using E.U. Copernicus
-  Marine Service Information".
-- **Estimated bits per value** for size estimates: wind 10, gust 10, heights
-  11, periods 9, directions 12, currents 10.
-- **Whether the dataset has land**, i.e. a bitmap (waves and currents).
-
-### Files, summary and honesty rules
-
-- File name: `passage_<datasetId>_<YYYYMMDDTHHZ cycle>_<SW corner>_<NE corner>.grb2`.
-  Corners are whole degrees, e.g.
-  `passage_wind-gfs_20260923T00Z_N48W006_N51E002.grb2`. When the tiles aren't
-  live (dev fixture: `import.meta.env.DEV` or the CLI `--tiles-dir`), the
-  prefix is `passage-fixture_` and the UI shows the emulated badge.
-- The runner returns one entry per file with:
-  - `name`, the byte `parts`, total `bytes` and the `fnv64` of the
-    concatenated file;
-  - `messages` and `skippedMessages`;
-  - `run_id` and `cycle`, the time list, the grid (Ni, Nj, corners, step);
-  - `coverage` = fraction of present points;
-  - `checkpoints`: values at the lattice point nearest the route's first
-    waypoint (and its last) for the first three steps. Wind in kt and
-    "from" degrees; gust in kt; Hs in m, period in s, direction in degrees;
-    current in kt with its set ("towards"). They are computed from the
-    **rounded values actually written**.
-- Currents copy must never suggest tidal streams:
-  - **Global:** "6-hourly ocean-model currents. Tides are not resolved; do not
-    use as tidal streams."
-  - **IBI:** "Hourly regional model currents including tide. Not an official
-    tidal-stream prediction."
-- Always shown: "Forecast data for planning, not for navigation. Check official
-  forecasts and warnings." Plus the attribution lines for the ticked datasets.
-
-### Runner algorithm (bounded memory)
-
-```
-for each selected dataset (one file at a time):
-  cubes[var] = Float32Array(nSteps · Nj · Ni).fill(NaN)
-  for tileId of tiles intersecting the lattice (manifest order):
-    tile = await source.tile(layer, tileId)      // null → stays missing
-    copy the intersecting window of each variable at each selected step index
-    drop the tile reference; yield; signal.throwIfAborted(); onProgress
-  for step, for variable: encode the message (flip rows, apply units + D), push the part
-  compute coverage, checkpoints, fnv64
-```
-
-At most one decoded tile is alive at a time. A tile fetch 404 (the run was
-rotated while the page stayed open) becomes: "The forecast has been updated.
-Reload the page and try again."
+1. **Sampling.** Tiles are forward-mapped through their own header geometry
+   (`k = round(position·n/10)`) instead of `i = k − n·row`, because the CMEMS
+   tile grids are offset from the 10° lines (see Verified facts). For those
+   unaligned layers the plan also reads the neighbouring tile when the lattice
+   edge sits exactly on a 10° line.
+2. **Constant fields** are written with `nbits = 0`, D = 0 and R = the rounded
+   value, because ecCodes and g2clib ignore D when `nbits = 0`.
+3. **Bracketing steps** are added only when the window start or end falls
+   between two steps; a step equal to `start` or `end` needs no neighbour.
 
 ## Phase 1 — Encoder, export engine, CLI, contract tests
 
@@ -457,8 +349,24 @@ Validation before exit:
 Exit criteria:
 
 - [ ] CI green on main (all three jobs).
-- [ ] Production CLI export decodes cleanly in ecCodes; NOAA cross-check passes.
-- [ ] `docs/grib-export.md` committed; this plan's status line updated.
+- [x] Production CLI export decodes cleanly in ecCodes; NOAA cross-check passes.
+- [x] `docs/grib-export.md` committed; this plan's status line updated.
+
+Results (2026-09-23 22:50 UTC, runs `*-20260923T00Z`):
+
+- Local checks: `npm run lint`, `npm test` (engine 381, viewer 459),
+  `uv run pytest -q` (508, including the 13 contract checks), `ruff check` and
+  `ruff format --check` all pass.
+- Production CLI, Channel box `48,51,-6,2`, all five datasets, next 48 h,
+  cold cache: 6.8 s, 339 MB peak RSS. GFS wind 33×13 × 49 steps (82 kB), ECMWF
+  18 steps (20 kB), waves 18 steps × 9 variables (71 kB), GLO12 97×37 × 10
+  steps (43 kB), IBI 289×109 × 49 hourly steps (2.2 MB). `inspect_grib.py`:
+  keys match the registry, corners 51/354 → 48/2 (µ° steps on 1/12° and 1/36°),
+  land missing in waves and currents, no missing wind.
+- NOAA cross-check at f024 (byte ranges from the `.idx`), five points
+  (50.0,−2.0), (49.5,−3.0), (50.25,−0.5), (49.0,−5.0), (50.5,1.0): largest
+  differences UGRD 0.006, VGRD 0.027, GUST 0.015 m/s (target 0.1); HTSGW
+  0.000 m (target 0.01); PERPW 0.04 s; DIRPW 0.04°.
 
 ## Phase 2 — Hidden planner export on production (tester build)
 
@@ -888,7 +796,7 @@ anything wrong:
 | Risk | Detection | Fallback |
 |---|---|---|
 | Adrena misplaces boxes across 0° with 0–360 longitudes | Checklist 3 | `lonConvention: 'signed'` becomes the default |
-| Currents not recognised at level 1/0 | Checklist 8 | Level 160/0 (depth below sea surface); then try centre 7 |
+| Currents not recognised at level 1/0 | Checklist 8 (ecCodes already shows them as `unknown` at any level: see Verified facts) | Level 160/0 (depth below sea surface); then try centre 7 |
 | Centre 255 rejected | Import error on current files | Try centre 7 for currents, documented as a compatibility choice |
 | Adrena needs GRIB1 | Import fails for all files | Write a GRIB1 encoder (a separate, small plan; the lattice and dataset logic are reused) |
 | Swell partitions at level 241 ignored | Checklist 7 | Encode the swell fields at level 1/1 |

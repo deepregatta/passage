@@ -74,7 +74,8 @@ export class HttpTileTransport implements TileTransport {
             void res.body?.cancel().catch(() => {});
             const ErrorType = res.status === 408 || res.status === 429 || res.status >= 500
               ? RetryableFetchError : Error;
-            throw new ErrorType(`forecast fetch failed: HTTP ${res.status} for ${path}`);
+            // status lets callers tell a rotated-away run (404) from other failures.
+            throw Object.assign(new ErrorType(`forecast fetch failed: HTTP ${res.status} for ${path}`), { status: res.status });
           }
           return await read(res);
         } catch (error) {
