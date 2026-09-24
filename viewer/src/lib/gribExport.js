@@ -8,6 +8,7 @@
 import {
   GRIB_DATASETS,
   gribExportSourceFromStore,
+  parseUtc,
   planGribExport,
   runGribExport,
   toIso,
@@ -18,6 +19,8 @@ import { fmtTime } from './format.js';
 export const GRIB_MARGIN_DEFAULT_DEG = 1;
 export const GRIB_MARGIN_OPTIONS = Array.from({ length: 11 }, (_, i) => i / 2);
 export const GRIB_STEPS = ['all', 3, 6];
+/** passage: to the estimated arrival + 24 h; full: to the end of every pinned forecast */
+export const GRIB_WINDOW_EXTENTS = ['passage', 'full'];
 export const GRIB_DATASET_IDS = GRIB_DATASETS.map((dataset) => dataset.id);
 export const GRIB_DEFAULT_DATASETS = ['wind-gfs'];
 /** ETA when neither a drawn route with speeds nor a computed route gives one */
@@ -92,15 +95,41 @@ export function gribEtaHours({ mode, distance, speeds, computed }) {
 
 /**
  * From max(departure, now), floored to the hour, to that plus the ETA plus
- * 24 h (rounded up to the hour). Each dataset is then clipped to its own
- * horizon by the plan.
+ * 24 h (rounded up to the hour), or with `extent: 'full'` to the last step of
+ * the longest pinned forecast (`forecastEndIso`, see gribForecastEnd). Each
+ * dataset is then clipped to its own horizon by the plan.
  */
-export function gribWindow({ departureUtc, etaHours, nowMs }) {
+export function gribWindow({ departureUtc, etaHours, nowMs, extent = 'passage', forecastEndIso = null }) {
   const departureMs = departureUtc ? Date.parse(departureUtc) : NaN;
   const from = Number.isFinite(departureMs) ? Math.max(departureMs, nowMs) : nowMs;
   const startMs = Math.floor(from / HOUR_MS) * HOUR_MS;
+  if (extent === 'full' && forecastEndIso) {
+    // A departure after every forecast leaves an empty window: all outside-horizon.
+    return { startIso: toIso(startMs), endIso: toIso(Math.max(startMs, parseUtc(forecastEndIso))) };
+  }
   const hours = Math.ceil((Number.isFinite(etaHours) && etaHours > 0 ? etaHours : GRIB_FALLBACK_ETA_H) + GRIB_WINDOW_TAIL_H);
   return { startIso: toIso(startMs), endIso: toIso(startMs + hours * HOUR_MS) };
+}
+
+/**
+ * The last forecast time any exportable dataset offers in the pinned runs:
+ * the end of the time axes its registry variables use. Null when no dataset
+ * has a run.
+ */
+export function gribForecastEnd(manifests) {
+  let endMs = -Infinity;
+  for (const spec of GRIB_DATASETS) {
+    const manifest = manifests(spec.layer);
+    if (!manifest) continue;
+    const exported = new Set(spec.variables.map((variable) => variable.tileVar));
+    const axes = new Set(manifest.variables.filter((v) => exported.has(v.name) && !v.per_member).map((v) => v.axis));
+    for (const axis of axes) {
+      const timeAxis = manifest.time_axes[axis];
+      if (!timeAxis?.offsets_h.length) continue;
+      endMs = Math.max(endMs, parseUtc(timeAxis.base) + Math.max(...timeAxis.offsets_h) * HOUR_MS);
+    }
+  }
+  return Number.isFinite(endMs) ? toIso(endMs) : null;
 }
 
 /**

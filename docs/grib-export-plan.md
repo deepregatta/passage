@@ -515,7 +515,10 @@ Tasks:
      to fetch" upper bound.
    - Warn above 50 MB total. Block above 200 MB with a suggestion (a coarser
      step, a smaller margin, fewer datasets). Tune these numbers in Phase 4.
-3. Window presets: "Passage window" (default) and "Full forecast".
+3. ~~Window presets: "Passage window" (default) and "Full forecast".~~
+   Done 2026-09-24, ahead of Phase 3 at Davi's request: a Window select in
+   the GRIB section; "Full forecast" runs to the end of the longest pinned
+   forecast and clips each file to its own model.
 4. **Save all (.zip)**: add `fflate` to the viewer and use `zipSync` at level
    0 (GRIB is already packed). Include `SOURCES.txt`: datasets, run ids,
    cycles, attribution, the not-for-navigation notice and the currents notes.

@@ -10,6 +10,7 @@ import {
   GRIB_MAX_EST_BYTES,
   GRIB_STEPS,
   GRIB_TILES_ARE_FIXTURE,
+  GRIB_WINDOW_EXTENTS,
   describeGribDataset,
   fmtGribArea,
   fmtGribBytes,
@@ -24,6 +25,7 @@ import {
   fmtUtcRange,
   gribEstimatedBytes,
   gribFilesWithUrls,
+  gribForecastEnd,
   gribLonConvention,
   gribSizeBucket,
   gribSpotKeys,
@@ -40,6 +42,13 @@ const HOUR_MS = 3_600_000;
 const SETTINGS_CHANGED = 'settings-changed';
 
 const STEP_LABELS = { all: 'Every forecast step', 3: 'Every 3 h', 6: 'Every 6 h' };
+
+const WINDOW_LABELS = { passage: 'Passage window', full: 'Full forecast' };
+
+const WINDOW_NOTES = {
+  passage: 'From your departure (or now, if later) to the estimated arrival plus 24 h. The dashed box on the chart is the area.',
+  full: 'From your departure (or now, if later) to the end of each forecast: every file runs to its own model’s last step. The dashed box on the chart is the area.',
+};
 
 const UNAVAILABLE = {
   'no-layer': 'Not in the current forecast runs.',
@@ -67,9 +76,10 @@ const SPOT_LABELS = {
 };
 
 /** Everything the files depend on, so stale Save links are dropped when an input changes. */
-function derive({ manifests, bbox, points, departureUtc, etaHours, nowMs, step, lonConvention, selected }) {
-  const timeWindow = gribWindow({ departureUtc, etaHours, nowMs });
-  const key = JSON.stringify([bbox, timeWindow, step, lonConvention, points[0], points[points.length - 1], [...selected].sort()]);
+function derive({ manifests, bbox, points, departureUtc, etaHours, nowMs, extent, step, lonConvention, selected }) {
+  const forecastEndIso = manifests ? gribForecastEnd(manifests) : null;
+  const timeWindow = gribWindow({ departureUtc, etaHours, nowMs, extent, forecastEndIso });
+  const key = JSON.stringify([bbox, extent, timeWindow, step, lonConvention, points[0], points[points.length - 1], [...selected].sort()]);
   if (!manifests) return { timeWindow, key, plan: null, planError: null };
   try {
     const plan = planRouteGrib(manifests, { bbox, window: timeWindow, step, lonConvention, points });
@@ -157,6 +167,7 @@ export default function GribExport({ points, bbox, margin, onMarginChange, depar
   const sectionRef = useRef(null);
   const [manifestState, setManifestState] = useState({ status: 'loading', manifests: null, attempt: 0 });
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const [extent, setExtent] = useState('passage');
   const [step, setStep] = useState('all');
   const [selected, setSelected] = useState(() => new Set(GRIB_DEFAULT_DATASETS));
   const [lonConvention, setLonConvention] = useState(() => gribLonConvention());
@@ -199,8 +210,8 @@ export default function GribExport({ points, bbox, margin, onMarginChange, depar
   }, []);
 
   const { timeWindow, key, plan, planError } = useMemo(
-    () => derive({ manifests, bbox, points, departureUtc, etaHours, nowMs, step, lonConvention, selected }),
-    [manifests, bbox, points, departureUtc, etaHours, nowMs, step, lonConvention, selected],
+    () => derive({ manifests, bbox, points, departureUtc, etaHours, nowMs, extent, step, lonConvention, selected }),
+    [manifests, bbox, points, departureUtc, etaHours, nowMs, extent, step, lonConvention, selected],
   );
 
   const replaceResult = (next) => {
@@ -240,7 +251,7 @@ export default function GribExport({ points, bbox, margin, onMarginChange, depar
     // A new hour moves the window start; plan from the current hour.
     const now = Date.now();
     const fresh = Math.floor(now / HOUR_MS) !== Math.floor(nowMs / HOUR_MS)
-      ? derive({ manifests, bbox, points, departureUtc, etaHours, nowMs: now, step, lonConvention, selected })
+      ? derive({ manifests, bbox, points, departureUtc, etaHours, nowMs: now, extent, step, lonConvention, selected })
       : { key, plan };
     if (fresh.key !== key) setNowMs(now);
     if (!fresh.plan) return;
@@ -258,6 +269,7 @@ export default function GribExport({ points, bbox, margin, onMarginChange, depar
       replaceResult({ key: fresh.key, files: gribFilesWithUrls(files) });
       track('grib_export', {
         datasets: files.map((file) => file.datasetId).join(','),
+        window: extent,
         size_bucket: gribSizeBucket(files.reduce((sum, file) => sum + file.bytes, 0)),
       });
     } catch (e) {
@@ -318,14 +330,22 @@ export default function GribExport({ points, bbox, margin, onMarginChange, depar
               {GRIB_STEPS.map((value) => <option key={value} value={String(value)}>{STEP_LABELS[value]}</option>)}
             </select>
           </label>
-          <div>
+          <label className="block">
             <span className="eyebrow block mb-1">Window</span>
-            <span className="font-mono text-[13px]">{fmtUtcRange(timeWindow.startIso, timeWindow.endIso)}</span>
-          </div>
+            <select
+              value={extent}
+              onChange={(e) => setExtent(e.target.value)}
+              disabled={running}
+              className="bg-white/60 border hairline rounded-sm px-2 py-1.5"
+            >
+              {GRIB_WINDOW_EXTENTS.map((value) => <option key={value} value={value}>{WINDOW_LABELS[value]}</option>)}
+            </select>
+          </label>
         </div>
-        <p className="text-[12px] text-ink-soft">
-          From your departure (or now, if later) to the estimated arrival plus 24 h. The dashed box on the chart is the area.
-        </p>
+        <div>
+          <p className="font-mono text-[13px]">{fmtUtcRange(timeWindow.startIso, timeWindow.endIso)}</p>
+          <p className="text-[12px] text-ink-soft">{WINDOW_NOTES[extent]}</p>
+        </div>
 
         {manifestState.status === 'loading' && <p className="text-ink-soft">Loading the forecast runs…</p>}
         {manifestState.status === 'error' && (
@@ -371,7 +391,9 @@ export default function GribExport({ points, bbox, margin, onMarginChange, depar
                             Partial coverage: this regional model covers only part of the area. The rest of the file is left empty.
                           </span>
                         )}
-                        {info.horizonShort && <span className="block text-[12px]">{fmtHorizonShort(info.last)}</span>}
+                        {info.horizonShort && extent === 'passage' && (
+                          <span className="block text-[12px]">{fmtHorizonShort(info.last)}</span>
+                        )}
                         {note && <span className="block text-[12px] text-ink-soft">{note}</span>}
                       </span>
                     </label>
