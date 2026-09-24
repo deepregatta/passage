@@ -96,21 +96,22 @@ sits at `header.lat0 + i·dlat`, `header.lon0 + j·dlon` and lands on lattice
 index `k = round(position·n/10)` when that is inside the window. Unmapped
 lattice points stay missing.
 
-This matters for the CMEMS layers. Their tile grids are **not** anchored on
-the 10° boundaries:
+This matters for IBI, and for GLO12 runs published before 2026-09-24. Their
+tile grids are **not** anchored on the 10° boundaries:
 
-| Layer | Tile N40W010 header (2026-09-23 run) | Consequence |
+| Layer | Tile N40W010 header | Consequence |
 |---|---|---|
 | `weather`, `weather-ecmwf`, `waves` (0.25°) | lat0 40.0, lon0 −10.0, d 0.25 | exact; native index = lattice index − n·tile row |
-| `currents` (GLO12) | lat0 40.00366, lon0 −9.92705, dlat 0.08333588, dlon 0.0833282 | the ingest derives the step from two float32 coordinates, so headers drift (0.011° of longitude at 2°W). The true 10° column (−10.0) is the **last column of N40W020**, and N40W010 starts at the true −9.9167. |
-| `currents-ibi` | lat0 40.02689, lon0 −9.99923, d 0.02777863 | native rows sit just below each 1/36° row: lattice 40.0° is the **last row of N30W010** |
+| `currents` (GLO12), runs from 2026-09-24 | lat0 40.0, lon0 −10.0, d 1/12; `resolution_deg` 1/12 | exact, like the 0.25° layers |
+| `currents` (GLO12), runs up to `currents-20260923T00Z` | lat0 40.00366, lon0 −9.92705, dlat 0.08333588, dlon 0.0833282; `resolution_deg` 0.08333587646484375 | the ingest took the step from two float32 coordinates, so headers drift (0.011° of longitude at 2°W). The true 10° column (−10.0) is the **last column of N40W020**, and N40W010 starts at the true −9.9167. |
+| `currents-ibi` (2026-09-23 run) | lat0 40.02689, lon0 −9.99923, d 0.02777863 | the provider's own 0.02777863° lattice sits just below each 1/36° row here: lattice 40.0° is the **last row of N30W010** |
 
-Rounding the header position recovers the true lattice point in both cases
+Rounding the header position recovers the true lattice point in every case
 (offsets stay below 0.3 of a step). A fixed "tile index = lattice index − n·row"
-mapping would shift every GLO12 value one column (≈ 6 km) west and every IBI
-value one row. When `|resolution_deg·n − 10| ≥ 1e-6` (the layer is not aligned),
-the plan also reads the neighbouring tile across a 10° line that the lattice
-edge sits exactly on.
+mapping would shift every value of an older GLO12 run one column (≈ 6 km) west
+and every IBI value one row. When `|resolution_deg·n − 10| ≥ 1e-6` (the layer
+is not aligned: IBI and the older GLO12 runs), the plan also reads the
+neighbouring tile across a 10° line that the lattice edge sits exactly on.
 
 ## Times
 

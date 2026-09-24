@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { encodeGrib2Message, gribRound, latticeCornersMicro, type Grib2Field, type GribLattice } from '../src/export/grib2.js';
-import { gribLattice } from '../src/export/exportPlan.js';
+import { gribLattice, tilesAlignedToLattice } from '../src/export/exportPlan.js';
 import { readGrib2 } from './helpers/grib2Reader.js';
 
 const lattice3x2: GribLattice = gribLattice({ minLat: 49, maxLat: 49.25, minLon: -5, maxLon: -4.5 }, 0.25);
@@ -102,6 +102,11 @@ describe('encodeGrib2Message', () => {
     expect(Math.abs(corners.la1 - 51e6)).toBeLessThan(250); // ≤ 0.00025° from the exact corner
     const ibi = gribLattice({ minLat: 48, maxLat: 51, minLon: -6, maxLon: 2 }, 0.02777863000000025);
     expect(ibi).toMatchObject({ n: 360, stepMicro: 27778 });
+    // GLO12 manifests from 2026-09-24 carry exactly 1/12: same lattice, now aligned.
+    expect(gribLattice({ minLat: 48, maxLat: 51, minLon: -6, maxLon: 2 }, 1 / 12)).toEqual(glo12);
+    expect(tilesAlignedToLattice(1 / 12, 120)).toBe(true);
+    expect(tilesAlignedToLattice(0.08333587646484375, 120)).toBe(false);
+    expect(tilesAlignedToLattice(0.02777863, 360)).toBe(false);
   });
 
   it('packs values MSB first and sets bitmap bits MSB first with 1 = present', () => {

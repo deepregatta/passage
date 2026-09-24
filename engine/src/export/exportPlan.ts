@@ -131,10 +131,11 @@ export function latticeBounds(lattice: GribLattice): { south: number; north: num
 }
 
 /**
- * Whether the tile grids sit exactly on the lattice. The 0.25° layers do;
- * the CMEMS layers carry the provider's own float32-derived origin and step
- * (e.g. GLO12 0.08333588°), so a lattice point on a 10° line can take its
- * nearest native point from the neighbouring tile.
+ * Whether the tile grids sit exactly on the lattice. The 0.25° layers and
+ * GLO12 runs from 2026-09-24 (step 1/12) do; IBI carries the provider's own
+ * offset 0.02777863° lattice and older GLO12 runs a float32-derived step
+ * (0.08333588°), so a lattice point on a 10° line can take its nearest native
+ * point from the neighbouring tile.
  */
 export function tilesAlignedToLattice(resolutionDeg: number, n: number): boolean {
   return Math.abs(resolutionDeg * n - 10) < 1e-6;

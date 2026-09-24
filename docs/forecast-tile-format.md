@@ -87,18 +87,23 @@ that, and tile time axes coarser than the tidal cycle must never be presented
 as resolving tides.
 
 Tiles slice the provider grid without resampling, and the header's `lat0`,
-`lon0`, `dlat` and `dlon` describe that grid as the pipeline derives it (from
-the first two coordinates). The 0.25° layers sit exactly on the 10° and 0.25°
-lines. The CMEMS layers don't (measured on N40W010, 2026-09-23 runs):
+`lon0`, `dlat` and `dlon` describe that grid. The 0.25° and 0.5° layers sit
+exactly on the 10° lines and their own lattice. So does GLO12 (`currents`) in
+runs published from 2026-09-24: `dlat = dlon = 1/12`, N40W010 has lat0 40,
+lon0 −10, and the manifest `resolution_deg` is 1/12 (0.08333333333333333).
+Two geometries are not aligned (measured on N40W010):
 
-- GLO12 (`currents`): lat0 40.00366, lon0 −9.92705, dlat 0.08333588, dlon
-  0.0833282. The step comes from float32 coordinates, so header positions
-  drift from the true 1/12° grid (0.011° of longitude at 2°W, up to ≈ 0.02°
-  at 180°E), and each true 10° boundary column is the last column of the
-  western tile.
-- IBI (`currents-ibi`): lat0 40.02689, lon0 −9.99923, d 0.02777863. Rows sit
-  about 0.001° below each 1/36° line, so each 10° boundary row is the last row
-  of the tile below.
+- IBI (`currents-ibi`, 2026-09-23 run): lat0 40.02689, lon0 −9.99923,
+  d 0.02777863. The provider's coordinates are their own regular 0.02777863°
+  lattice, up to 0.0013° off the 1/36° lines. Tiles keep them, so the row
+  nearest 40.0° (39.99912°) is the last row of the tile below.
+- GLO12 runs published before 2026-09-24 (the last is `currents-20260923T00Z`):
+  lat0 40.00366, lon0 −9.92705, dlat 0.08333588, dlon 0.0833282. The step
+  came from two float32 coordinates, so header positions drift from the true
+  1/12° grid (0.011° of longitude at 2°W, up to ≈ 0.02° at 180°E), and each
+  true 10° boundary column is the last column of the western tile. Published
+  runs are immutable, so a consumer holding one of these still sees this
+  geometry.
 
 Consumers that need lattice positions round the header position to the
 nearest 1/12° or 1/36° rather than assume `lat0 = 10·row`; the GRIB export

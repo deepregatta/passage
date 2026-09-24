@@ -279,7 +279,8 @@ describe('runGribExport', () => {
   });
 
   it('absorbs GLO12 float32 coordinate drift: the true 10° column comes from the western tile', async () => {
-    // Tile headers claim lon0 = −9.927 for the true −9.9167 column and lat0 = 40.0037 for 40.0.
+    // Runs published before 2026-09-24 (immutable, still served): tile headers
+    // claim lon0 = −9.927 for the true −9.9167 column and lat0 = 40.0037 for 40.0.
     const glo12Grid = (lat0: number, lon0: number): FixtureTileGrid => ({
       lat0: lat0 + 0.00366, lon0: lon0 + 1 / 12 - 0.0104, dlat: 0.08333588, dlon: 0.0833282,
     });
