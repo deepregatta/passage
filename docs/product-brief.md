@@ -30,7 +30,8 @@ Passage combines three things that must remain visible in the interface:
 The browser application follows a four-stage passage cycle:
 
 - **Plan** — draw or compute a route, compare departure windows, choose a boat
-  polar, declare limits, and manage browser-local briefings.
+  polar, declare limits, download GRIB2 files of the forecast for the route
+  area, and manage browser-local briefings.
 - **Brief** — read the causal story and decision summary, follow the shared
   passage-time cursor, and inspect exact evidence.
 - **Watch** — compare immutable forecast snapshots and review the edited change

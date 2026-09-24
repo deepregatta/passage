@@ -1,8 +1,11 @@
 # GRIB export from the planner — implementation plan
 
 Status: direction approved 2026-09-23. **Phase 1 landed 2026-09-24** (engine,
-CLI, golden fixtures, ecCodes contract; CI green). **Phase 2 is next.** Phase 5 (fresher forecast runs) is an independent track added
-2026-09-23. Update the status line and tick the exit criteria as phases land.
+CLI, golden fixtures, ecCodes contract; CI green). **Phase 2 landed
+2026-09-24** (planner **Download GRIBs…** live in production for everyone, EN
+and FR). **Phase 3 is next**; it needs the Adrena checklist results. Phase 5
+(fresher forecast runs) is an independent track added 2026-09-23. Update the
+status line and tick the exit criteria as phases land.
 
 ## How to use this plan
 
@@ -157,7 +160,8 @@ Checked 2026-09-23 against the code and the live data.
 - Viewer:
   - Hash routes: the planner is `#plan/planner`. `parseRoute()`
     (`viewer/src/lib/routes.js`) splits `?query` off the hash.
-  - No Web Worker or file download exists yet.
+  - No Web Worker exists. The GRIB section (Phase 2) is the viewer's only
+    file download: Blob URLs on `<a download>` links.
   - The CSP (`viewer/public/_headers`) already allows
     `connect-src https://forecast.deepregatta.com` and `worker-src 'self' blob:`.
   - The planner state lives in `viewer/src/pages/planner/usePlannerController.jsx`
@@ -202,7 +206,14 @@ Checked 2026-09-23 against the code and the live data.
   layer enum, although the live `latest.json` includes it. `forecast-tiles`'
   vendored copy already has it (a known OPEN item). Phase 5A closes it.
 - Pages auto-deploys from main. Test Pages-like static hosting locally with
-  `npm run build:pages` and then the `static-dist` launch config.
+  `npm run build:pages` and then the `static-dist` launch config. That build
+  reads the **production** tiles from `localhost:8788` (R2 allows the
+  cross-origin reads), so it can run real exports.
+- Playwright reuses a running `viewer-demo` server. After `Planner.jsx` has
+  been edited under that server, Vite serves it with an HMR `?t=` query, the
+  `sharing.spec.js` route glob `**/src/pages/Planner.jsx` no longer matches,
+  and that test times out. Stop the preview server before the e2e run (CI
+  always starts its own).
 - Product scope (`docs/product-brief.md`): coastal passages of 6–36 h in
   Atlantic Europe and the western Mediterranean. Size limits should suit that
   scope, not ocean crossings.
@@ -768,9 +779,11 @@ The feature is in the normal production app:
   `https://passage.deepregatta.com/#plan/planner?gribLon=signed` once. The
   setting is remembered; `?gribLon=0-360` switches it back.
 
-Steps: draw a route (for example Cherbourg → the Solent, which crosses 0°),
-click **Download GRIBs…**, tick every dataset, **Prepare files**, save each
-file, then import them into Adrena.
+Steps: draw a route (for example Cherbourg → the Solent), click **Download
+GRIBs…**, set the margin to 2° (at the default 1° this box stops at about
+0.3°W; 2° takes it across the 0° meridian for checklist item 3), tick every
+dataset, **Prepare files**, save each file, then import them into Adrena.
+Open **File details** under each file for its times, grid and spot values.
 
 Checklist. Report per file, with the Adrena version and screenshots of
 anything wrong:

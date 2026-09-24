@@ -36,13 +36,16 @@ Locally it may reuse port 5174 only after the dev server reports demo mode and
 its served index matches the committed fixture byte-for-byte. A live-data,
 unidentified, or stale server fails setup before any browser tests run; stop
 that server or use the demo configuration. CI always starts its own server.
+A reused server that has hot-reloaded `Planner.jsx` serves it with a `?t=`
+query, which `sharing.spec.js`'s route glob misses (the test then times out),
+so restart it after editing the Planner.
 
 Suite ownership:
 
 | Location | Runner | Responsibility |
 |---|---|---|
 | `engine/test/` | Vitest | Pure analysis, routing, schemas, tile decoding, GRIB2 export, snapshots, and golden findings |
-| `viewer/test/` | Vitest + Testing Library | UI behavior, localization, persistence, prerendering, and saved-snapshot compatibility |
+| `viewer/test/` | Vitest + Testing Library | UI behavior, localization, persistence, prerendering, saved-snapshot compatibility, and the planner GRIB export (`gribExport.test.jsx`, a real `TileForecastStore` over in-memory fixture tiles) |
 | `viewer/e2e/` | Playwright | Desktop/mobile core flows and reviewed screenshot baselines |
 | `analysis/tests/` | pytest | Provider adapters, route-independent preparation, warnings, tides, observations, verification, and the ecCodes GRIB export contract |
 
