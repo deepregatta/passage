@@ -83,7 +83,7 @@ Checked 2026-09-23 against the code and the live data.
 | `weather` | GFS | 0.25° | `wind_u_kt`, `wind_v_kt`, `gust_kt` (axis `hourly`); `visibility_m`, `cape_jkg`, `temp_c`, `dew_point_c`, `precip_mm` (axis `h3`) | hourly: 1 h → 120 h, then 3 h → 240 h (161 steps) |
 | `weather-ecmwf` | ECMWF open IFS | 0.25° | `wind_u_kt`, `wind_v_kt` (gust currently absent: step-sparse upstream) | `steps`: 3 h → 144 h, 6 h → 240 h (65) |
 | `waves` | GFS-Wave | 0.25° | `hs_m`, `period_s`, `dir_deg`, `wind_wave_h_m`, `wind_wave_period_s`, `wind_wave_dir_deg`, `swell_h_m`, `swell_period_s`, `swell_dir_deg` | `steps`: 3 h → 384 h (129) |
-| `currents` | CMEMS GLO12 | ≈1/12° (header dlat 0.08333588) | `cur_u_kt`, `cur_v_kt` | `steps`: 6 h → 240 h (41) |
+| `currents` | CMEMS GLO12 | 1/12° (runs before 2026-09-24: header dlat 0.08333588) | `cur_u_kt`, `cur_v_kt` | `steps`: 6 h → 240 h (41) |
 | `currents-ibi` | CMEMS IBI | ≈1/36° (0.02777863) | `cur_u_kt`, `cur_v_kt` | hourly → 72 h (73); IBI domain only (11 tiles) |
 | `ensemble` | GEFS | 0.5° | wind *speed* mean + member anomalies only | not exportable as vectors, out of scope |
 
@@ -95,7 +95,9 @@ Checked 2026-09-23 against the code and the live data.
   true −10.0 column is the last column of N40W020); IBI lat0 40.02689, lon0
   −9.99923 (lattice 40.0° is the last row of N30W010). The GRIB export samples
   through each tile's header instead; see `docs/grib-export.md` → *Sampling
-  tiles onto the lattice*. The 0.25° layers are exactly aligned.
+  tiles onto the lattice*. The 0.25° layers are exactly aligned, and so is
+  GLO12 from the runs published on 2026-09-24 (forecast-tiles now snaps its
+  float32 coordinates to the exact 1/12° lattice: N40W010 lat0 40, lon0 −10).
 - Tiles store knots. Ingestion converts with `MS_TO_KT = 1.943844`
   (`forecast-tiles/src/ingest/sources/base.py`). Divide by the same constant
   to get back to m/s.
