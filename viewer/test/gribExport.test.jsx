@@ -17,6 +17,7 @@ import {
   fmtLatLon,
   gribBbox,
   gribEtaHours,
+  gribForecastEnd,
   gribLonConvention,
   gribRoutePoints,
   gribSizeBucket,
@@ -161,6 +162,25 @@ describe('route-area defaults', () => {
     expect(gribEtaHours({ mode: 'compute', computed: null })).toBe(48);
   });
 
+  it('extends the window to the end of the longest pinned forecast on request', async () => {
+    const nowMs = Date.parse('2026-07-20T06:30:00Z');
+    const departureUtc = '2026-07-20T08:45:00Z';
+    await store.current.init();
+    const manifests = (layer) => store.current.manifestFor(layer);
+    // currents run to +240 h; GFS wind (+96 h), ECMWF (+144 h) and IBI (+24 h) end sooner
+    expect(gribForecastEnd(manifests)).toBe('2026-07-30T00:00:00Z');
+    expect(gribForecastEnd(() => null)).toBeNull();
+    const forecastEndIso = gribForecastEnd(manifests);
+    expect(gribWindow({ departureUtc, etaHours: 10, nowMs, extent: 'full', forecastEndIso }))
+      .toEqual({ startIso: '2026-07-20T08:00:00Z', endIso: '2026-07-30T00:00:00Z' });
+    // a departure after every forecast leaves an empty window rather than an invalid one
+    expect(gribWindow({ departureUtc: '2026-08-02T00:00:00Z', etaHours: 10, nowMs, extent: 'full', forecastEndIso }))
+      .toEqual({ startIso: '2026-08-02T00:00:00Z', endIso: '2026-08-02T00:00:00Z' });
+    // until the runs have loaded, the passage window stands in
+    expect(gribWindow({ departureUtc, etaHours: 10, nowMs, extent: 'full', forecastEndIso: null }).endIso)
+      .toBe('2026-07-21T18:00:00Z');
+  });
+
   it('parses the gribLon override from the hash query and remembers it', () => {
     expect(gribLonConvention('#plan/planner')).toBe('0-360');
     expect(gribLonConvention('#plan/planner?gribLon=signed')).toBe('signed');
@@ -298,7 +318,7 @@ describe('Download GRIBs section', () => {
     expect(blob).toBeInstanceOf(Blob);
     expect(blob.type).toBe('application/octet-stream');
     expect(new TextDecoder().decode((await blob.arrayBuffer()).slice(0, 4))).toBe('GRIB');
-    expect(track).toHaveBeenCalledWith('grib_export', { datasets: 'wind-gfs,currents-global', size_bucket: '0-1MB' });
+    expect(track).toHaveBeenCalledWith('grib_export', { datasets: 'wind-gfs,currents-global', window: 'passage', size_bucket: '0-1MB' });
 
     // File details: run, grid and the spot values at the route's ends
     const details = within(files.querySelector('li'));
@@ -317,6 +337,31 @@ describe('Download GRIBs section', () => {
       .toHaveAttribute('href', 'blob:grib-3'));
     unmount();
     expect(URL.revokeObjectURL.mock.calls.map(([url]) => url)).toEqual(['blob:grib-1', 'blob:grib-2', 'blob:grib-3', 'blob:grib-4']);
+  });
+
+  it('offers the full forecast: each dataset runs to its own last step', async () => {
+    render(<Planner />);
+    await openSection();
+    const ibi = () => within(datasetBox('Currents – IBI regional').closest('li'));
+    expect(ibi().getByText(/^This forecast ends/)).toBeInTheDocument();
+    fireEvent.change(section().getByLabelText('Window'), { target: { value: 'full' } });
+    expect(section().getByText('Mon 20 Jul 08:00 → Thu 30 Jul 00:00 UTC')).toBeInTheDocument();
+    expect(section().getByText(/^From your departure \(or now, if later\) to the end of each forecast/)).toBeInTheDocument();
+    const wind = within(datasetBox('Wind – GFS').closest('li'));
+    expect(wind.getByText('Mon 20 Jul 08:00 → Fri 24 Jul 00:00 UTC')).toBeInTheDocument();
+    expect(wind.getByText('89 steps')).toBeInTheDocument();
+    const global = within(datasetBox('Currents – global').closest('li'));
+    expect(global.getByText('Mon 20 Jul 06:00 → Thu 30 Jul 00:00 UTC')).toBeInTheDocument();
+    // ending before the window is the point of this preset, so no per-dataset note
+    expect(section().queryByText(/^This forecast ends/)).not.toBeInTheDocument();
+
+    fireEvent.click(section().getByRole('button', { name: 'Prepare files' }));
+    const files = await screen.findByRole('list', { name: 'Prepared GRIB files' });
+    expect(within(files).getByText('267')).toBeInTheDocument(); // GRIB messages: 89 steps × 3 variables
+    expect(track).toHaveBeenCalledWith('grib_export', { datasets: 'wind-gfs', window: 'full', size_bucket: '0-1MB' });
+    fireEvent.change(section().getByLabelText('Window'), { target: { value: 'passage' } });
+    expect(screen.queryByRole('list', { name: 'Prepared GRIB files' })).not.toBeInTheDocument();
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:grib-1');
   });
 
   it('drops prepared files when the area changes', async () => {

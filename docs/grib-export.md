@@ -242,7 +242,7 @@ the map draws the export box as a dashed rectangle.
 |---|---|
 | Area | the route's points (draw: the waypoints; compute: the computed route, else the two endpoints) ± the margin, clamped to ±90° / ±180° |
 | Margin | 1.0°; a select from 0 to 5° in 0.5° steps |
-| Window | from max(departure, now), floored to the hour, to that + ETA + 24 h (rounded up to the hour). ETA = `distance / speeds.slow` in draw mode, `computed.duration_h` in compute mode, else 48 h. Each dataset is clipped to its own horizon by the plan. |
+| Window | a select. **Passage window** (default): from max(departure, now), floored to the hour, to that + ETA + 24 h (rounded up to the hour); ETA = `distance / speeds.slow` in draw mode, `computed.duration_h` in compute mode, else 48 h. **Full forecast**: from the same start to the last step of the longest pinned forecast (`gribForecastEnd`: the end of the time axes the registry variables use, over every dataset's run). Either way each dataset is clipped to its own horizon by the plan, so in full mode every file runs to its own model's last step (IBI +72 h, GFS wind +240 h, GFS-Wave +384 h). |
 | Step | `all` (every step on the dataset's axis); 3 h and 6 h thin it |
 | Datasets | GFS wind ticked; the sailor ticks the others. Unavailable ones are disabled with the reason. |
 | Longitudes | `0-360` (see the override below) |
@@ -256,7 +256,8 @@ the map draws the export box as a dashed rectangle.
   "Your dates are beyond this forecast's range."), the UTC time range, the
   step count and `estBytes`. It adds a partial-coverage note when a regional
   dataset (IBI) has unpublished tiles in the box, a horizon note when the last
-  step ends before the window, and each currents dataset's disclosure.
+  step ends before a passage window (not in full-forecast mode, where that is
+  the point), and each currents dataset's disclosure.
 - **Prepare files** runs `runGribExport` on the main thread with a progress
   bar and becomes **Cancel**. Each file gets a **Save** link (a Blob URL with
   the `download` attribute) and a collapsed **File details** block: model,
@@ -265,14 +266,14 @@ the map draws the export box as a dashed rectangle.
   Run ids, model ids, file names and hashes sit in `<code>` so the French DOM
   translator leaves them alone.
 - Blob URLs are revoked when files are prepared again, when any input changes
-  (route, departure, margin, step, datasets, longitude convention, or the
-  hour of "now") and when the section unmounts. A change during a run aborts
+  (route, departure, margin, window, step, datasets, longitude convention, or
+  the hour of "now") and when the section unmounts. A change during a run aborts
   it silently; **Cancel** reports "Cancelled. No files were prepared."
 - Until Phase 3's size guardrails, **Prepare files** is disabled when the
   ticked datasets' estimates add up to more than 200 MB, with a suggestion
   (coarser step, smaller margin, fewer datasets). Every cube is held in memory.
-- Analytics: `track('grib_export', { datasets: 'wind-gfs,waves-gfs', size_bucket: '1-5MB' })`
-  after a successful export. Buckets: `0-1MB`, `1-5MB`, `5-20MB`, `20-50MB`,
+- Analytics: `track('grib_export', { datasets: 'wind-gfs,waves-gfs', window: 'passage', size_bucket: '1-5MB' })`
+  after a successful export (`window` is `passage` or `full`). Buckets: `0-1MB`, `1-5MB`, `5-20MB`, `20-50MB`,
   `50MB+`. Never coordinates.
 - Dev (`viewer-demo`, or any build whose `FORECAST_BASE_URL` is not an
   `https://` URL) reads the local warehouse, so files are named
