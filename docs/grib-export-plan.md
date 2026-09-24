@@ -466,9 +466,38 @@ Tasks:
 
 Exit criteria:
 
-- [ ] Feature live on production for everyone, EN and FR; smoke test passed;
-      hashes match the CLI; CI green; docs updated.
-- [ ] Adrena test steps and checklist (below) handed to Davi and Jacques.
+- [x] Feature live on production for everyone, EN and FR; smoke test passed;
+      hashes match the CLI; CI green; docs updated. CI run 35971792022 on
+      `bd6117b`.
+- [x] Adrena test steps and checklist (below) handed to Davi and Jacques in
+      the Phase 2 report, 2026-09-24.
+
+Results (2026-09-24, runs `*-20260923T00Z`):
+
+- Local checks: `npm run lint`, `npm test` (engine 394, viewer 489), e2e 64
+  on a fresh `viewer-demo` server. Only the `plan.png` baselines changed (the
+  new disabled **Download GRIBs…** button, 50 px taller).
+- Smoke test, `npm run build:pages` + `static-dist` and then production
+  (`?dr_traffic=qa`): Cherbourg → Solent draft (49.65,−1.62 → 50.25,−1.45 →
+  50.77,−1.3), 1° margin, window Thu 24 Sep 07:00 → Fri 25 Sep 23:00 UTC, all
+  five datasets. The browser's `fnv64` equals the CLI's `summary.json` for
+  `--bbox 48.65,51.77,-2.62,-0.3` and the same window, for every file:
+
+  | File | Grid × steps | Size | fnv64 |
+  |---|---|---|---|
+  | GFS wind | 11×15 × 41 | 39 kB | `010445d74b97d258` |
+  | ECMWF wind | 11×15 × 15 | 9 kB | `bee6edca5450997f` |
+  | GFS-Wave | 11×15 × 15 (38% points with data) | 36 kB | `2a599cd9bfbe2985` |
+  | GLO12 currents | 30×40 × 8 | 12 kB | `96503fda6989e543` |
+  | IBI currents | 86×114 × 41 | 534 kB | `bb393fad51536668` |
+
+  The Save blobs themselves hash to the same values and start with `GRIB`.
+  No console or CSP errors; every tile and manifest request went to
+  `forecast.deepregatta.com`; `grib_export` was stored as QA traffic.
+- `/fr/`: the section has no English left and gives the same hashes. The
+  smoke test caught one bug, fixed before release: the French `\bwaves\b`
+  fragment turned the run id `waves-…` into `vagues-…`. Identifiers now sit
+  in `<code>`, which the DOM translator skips, and a viewer test covers it.
 
 ## Phase 3 — Adrena feedback and refinements
 
