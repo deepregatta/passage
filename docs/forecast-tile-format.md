@@ -109,6 +109,16 @@ Consumers that need lattice positions round the header position to the
 nearest 1/12° or 1/36° rather than assume `lat0 = 10·row`; the GRIB export
 does this ([grib-export.md](grib-export.md)).
 
+Nearest-point sampling must look across tile edges. Within one cell of a 10°
+line, the grid point nearest to a query can be in the neighbouring tile. On
+aligned grids that is the neighbour's first row or column, the one on the line.
+On the offset grids above it can be the southern or western tile's last row or
+column. `TileForecastStore` samples the tile containing the point first. When
+the rounded index there falls outside that tile's grid, it checks the
+neighbour on that side, using the neighbour's own header geometry. If the
+containing tile is unpublished, it checks each neighbour within one cell. This
+also covers mosaic lattice points that float noise puts just below a line.
+
 ## R2 layout and caching
 
 ```

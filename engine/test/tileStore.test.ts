@@ -11,7 +11,7 @@ import { decodeTile, encodeTile, type DecodedTile } from '../src/forecast/tileCo
 import { MemoryTileCache } from '../src/forecast/store.js';
 import { parseUtc } from '../src/eta.js';
 import { computeRoute } from '../src/routing/isochrone.js';
-import { buildFixtureRun, type FixtureLayerSpec } from './helpers/fixtureRun.js';
+import { buildFixtureRun, type FixtureLayerSpec, type FixtureTileGrid } from './helpers/fixtureRun.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, '..', '..');
@@ -283,6 +283,133 @@ describe('TileForecastStore grids', () => {
     expect(grid!.time_axis.length).toBe(3); // 00, 06, 12
     expect(grid!.u_kt[0]).toBeCloseTo(1, 2);
     expect(grid!.v_kt[0]).toBeCloseTo(0.5, 2);
+  });
+});
+
+describe('TileForecastStore tile edges', () => {
+  // Tiles slice the provider grid half-open, so the grid point on a 10° line
+  // is the first row/column of the northern/eastern tile. Wind speed reads
+  // back the sampled grid point's latitude and gust its longitude.
+  const at = (_m: number, _t: number, i: number, _j: number, g: FixtureTileGrid) => g.lat0 + i * g.dlat;
+  const atLon = (_m: number, _t: number, _i: number, j: number, g: FixtureTileGrid) => g.lon0 + j * g.dlon;
+  const QUAD: Array<[number, number]> = [[30, -20], [30, -10], [40, -20], [40, -10]];
+  function edgeWeather(
+    resolution_deg: number,
+    tiles: Array<[number, number]> = QUAD,
+    nativeGrid?: FixtureLayerSpec['nativeGrid'],
+  ): FixtureLayerSpec {
+    return weatherSpec({
+      resolution_deg,
+      tiles,
+      nativeGrid,
+      time_axes: { hourly: { base: CYCLE, offsets_h: [0, 12] } },
+      variables: [
+        { name: 'wind_u_kt', axis: 'hourly', dtype: 'i16', scale: 0.01, value: at },
+        { name: 'wind_v_kt', axis: 'hourly', dtype: 'i16', scale: 0.01, value: () => 0 },
+        { name: 'gust_kt', axis: 'hourly', dtype: 'i16', scale: 0.01, value: atLon },
+      ],
+    });
+  }
+  async function sampled(spec: FixtureLayerSpec, point: { lat: number; lon: number }) {
+    const store = new TileForecastStore({ transport: buildFixtureRun([spec]) });
+    const { forecasts, meta } = await store.getPointForecasts([point], START, END);
+    return { lat: forecasts[0]!.wind_kt[0], lon: forecasts[0]!.gust_kt[0], tiles: meta.tiles };
+  }
+
+  it.each([
+    ['0.25°', 0.25, 0.1],
+    ['1/12°', 1 / 12, 0.03],
+  ])('samples the neighbour tile in the last half cell below a 10° line (%s)', async (_label, res, gap) => {
+    const spec = edgeWeather(res);
+    const west = await sampled(spec, { lat: 45, lon: -10 - gap });
+    expect(west.lat).toBeCloseTo(45, 1);
+    expect(west.lon).toBeCloseTo(-10, 1);
+    expect(west.tiles).toEqual(['N40W010', 'N40W020']);
+
+    const south = await sampled(spec, { lat: 40 - gap, lon: -5 });
+    expect(south.lat).toBeCloseTo(40, 1);
+    expect(south.lon).toBeCloseTo(-5, 1);
+    expect(south.tiles).toEqual(['N30W010', 'N40W010']);
+
+    const corner = await sampled(spec, { lat: 40 - gap, lon: -10 - gap });
+    expect(corner.lat).toBeCloseTo(40, 1);
+    expect(corner.lon).toBeCloseTo(-10, 1);
+    expect(corner.tiles).toEqual(['N30W020', 'N40W010']);
+
+    // past the half cell the home tile's own last row/column is nearest
+    const inside = await sampled(spec, { lat: 40 - 0.6 * res, lon: -10 - 0.6 * res });
+    expect(inside.lat).toBeCloseTo(40 - res, 1);
+    expect(inside.lon).toBeCloseTo(-10 - res, 1);
+    expect(inside.tiles).toEqual(['N30W020']);
+  });
+
+  it('crosses out of an unpublished tile only when the neighbour holds the nearest point', async () => {
+    const spec = edgeWeather(0.25, [[40, -10]]); // N40W020 unpublished, e.g. all land
+    const near = await sampled(spec, { lat: 45, lon: -10.1 });
+    expect(near.lat).toBeCloseTo(45, 1);
+    expect(near.lon).toBeCloseTo(-10, 1);
+    expect(near.tiles).toEqual(['N40W010', 'N40W020']);
+    // −10.25, in the missing tile, is nearer than −10.0
+    expect((await sampled(spec, { lat: 45, lon: -10.2 })).lat).toBeUndefined();
+    expect((await sampled(spec, { lat: 45, lon: -15 })).tiles).toEqual(['N40W020']);
+  });
+
+  it('follows header geometry for grids offset from the 10° lines', async () => {
+    // Like IBI and GLO12 runs before 2026-09-24, the lattice misses the lines:
+    // rows sit at …39.95 | 40.2… so the row nearest 40.05 is the tile below's last.
+    const spec = edgeWeather(0.25, QUAD, (lat0, lon0) => ({ lat0: lat0 + 0.2, lon0: lon0 + 0.2, dlat: 0.25, dlon: 0.25 }));
+    const south = await sampled(spec, { lat: 40.05, lon: -5 });
+    expect(south.lat).toBeCloseTo(39.95, 2);
+    expect(south.lon).toBeCloseTo(-5.05, 2);
+    expect(south.tiles).toEqual(['N30W010', 'N40W010']);
+
+    const corner = await sampled(spec, { lat: 40.05, lon: -9.95 });
+    expect(corner.lat).toBeCloseTo(39.95, 2);
+    expect(corner.lon).toBeCloseTo(-10.05, 2);
+    expect(corner.tiles).toEqual(['N30W020', 'N40W010']);
+
+    const home = await sampled(spec, { lat: 40.1, lon: -9.9 });
+    expect(home.lat).toBeCloseTo(40.2, 2);
+    expect(home.lon).toBeCloseTo(-9.8, 2);
+    expect(home.tiles).toEqual(['N40W010']);
+  });
+
+  it('crosses the antimeridian into W180', async () => {
+    const east = await sampled(edgeWeather(0.25, [[40, 170], [40, -180]]), { lat: 45, lon: 179.9 });
+    expect(east.lat).toBeCloseTo(45, 1);
+    expect(east.lon).toBeCloseTo(-180, 1);
+    expect(east.tiles).toEqual(['N40E170', 'N40W180']);
+  });
+
+  it('reads ensemble members from the neighbour tile', async () => {
+    const spec = { ...ensembleSpec(), tiles: [[40, -20], [40, -10]] as Array<[number, number]> };
+    const store = new TileForecastStore({ transport: buildFixtureRun([weatherSpec(), spec]) });
+    const result = (await store.getEnsembleForecasts([{ lat: 45, lon: -10.2 }], START, END))!;
+    expect(result.forecasts[0]!.wind_kt_members.map((m) => Math.round(m[0]! * 10) / 10)).toEqual([8, 10, 12, 14, 16]);
+    expect(result.meta.tiles).toEqual(['N40W010', 'N40W020']);
+  });
+
+  it('fills a 1/12° mosaic row that float noise puts just below a 10° line', async () => {
+    const currents: FixtureLayerSpec = {
+      ...currentsSpec(),
+      resolution_deg: 1 / 12,
+      time_axes: { h6: { base: CYCLE, offsets_h: [0, 6] } },
+      variables: [
+        { name: 'cur_u_kt', axis: 'h6', dtype: 'i16', scale: 0.01, value: at },
+        { name: 'cur_v_kt', axis: 'h6', dtype: 'i16', scale: 0.01, value: atLon },
+      ],
+      tiles: [[30, -10], [40, -10]],
+    };
+    const store = new TileForecastStore({ transport: buildFixtureRun([weatherSpec(), currents]) });
+    const grid = (await store.getCurrentGrid({ minLat: 37.3, maxLat: 40.5, minLon: -6, maxLon: -5 }, CYCLE, 6))!;
+    // lat0 snaps to 37.33333333333333; row 32 lands on 39.99999999999999, in N30W010
+    const row = 32;
+    expect(grid.lat0 + row * grid.dlat).toBeLessThan(40);
+    expect(grid.dlat).toBe(1 / 12);
+    expect(grid.u_kt.every((v) => v !== null)).toBe(true);
+    expect(grid.u_kt[row * grid.nlon]).toBeCloseTo(40, 1);
+    expect(grid.u_kt[(row - 1) * grid.nlon]).toBeCloseTo(40 - 1 / 12, 1);
+    expect(grid.v_kt[row * grid.nlon]).toBeCloseTo(-6, 1);
   });
 });
 
