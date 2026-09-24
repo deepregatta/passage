@@ -2,7 +2,11 @@ import { createElement } from 'react';
 import { render } from '@testing-library/react';
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { FORECAST_UPDATED_MESSAGE, GRIB_DATASETS, GRIB_EXPORT_NOTICE } from '@deepweather/engine';
 import { LocalizedDocument, getDefaultLanguage, getInitialLanguage, getLanguageFromPath, translateText } from '../src/i18n.js';
+import {
+  fmtGribArea, fmtGribBytes, fmtGribSteps, fmtHorizonShort, fmtLatLon, fmtTooLarge, fmtUtc, fmtUtcRange,
+} from '../src/lib/gribExport.js';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -216,6 +220,49 @@ describe('review 1.12 briefing prose', () => {
       'No future publication estimate is available from the loaded forecast metadata and known tile-pipeline schedules. Synthetic runs have no scheduled update.': 'Les métadonnées des prévisions chargées et les calendriers connus de la chaîne de tuiles ne permettent pas d’estimer une prochaine publication. Les cycles synthétiques n’ont aucune mise à jour programmée.',
     };
     for (const [en, fr] of Object.entries(samples)) expect(translateText(en, 'fr')).toBe(fr);
+  });
+});
+
+describe('planner GRIB export copy', () => {
+  it('translates the engine registry copy shown in the GRIB section', () => {
+    const shown = [
+      ...GRIB_DATASETS.flatMap((dataset) => [dataset.label, dataset.note].filter(Boolean)),
+      ...new Set(GRIB_DATASETS.map((dataset) => dataset.attribution)),
+      GRIB_EXPORT_NOTICE,
+      FORECAST_UPDATED_MESSAGE,
+    ].filter((text) => text !== 'NOAA/NCEP'); // an agency name, the same in French
+    for (const english of shown) {
+      expect(translateText(english, 'fr'), english).not.toBe(english);
+      expect(translateText(english, 'en')).toBe(english);
+    }
+    expect(translateText('Currents – global (6-hourly)', 'fr')).toBe('Courants – global (toutes les 6 h)');
+    expect(translateText(GRIB_EXPORT_NOTICE, 'fr'))
+      .toBe('Données de prévision pour la préparation, pas pour la navigation. Consultez les prévisions et les alertes officielles.');
+  });
+
+  it.each([
+    [fmtGribSteps(1), '1 échéance'],
+    [fmtGribSteps(29), '29 échéances'],
+    [fmtGribBytes(82_400), '82 ko'],
+    [`≈ ${fmtGribBytes(2_214_000)}`, '≈ 2.2 Mo'],
+    [fmtUtcRange('2026-07-20T08:00:00Z', '2026-07-21T12:00:00Z'), 'lun. 20 juil. 08:00 → mar. 21 juil. 12:00 UTC'],
+    [fmtUtc('2026-07-20T00:00:00Z'), 'lun. 20 juil. 00:00 UTC'],
+    [fmtHorizonShort('2026-07-21T00:00:00Z'), 'Cette prévision s’arrête le mar. 21 juil. 00:00 UTC, avant la fin de votre fenêtre.'],
+    [fmtTooLarge(240_000_000), 'Ces fichiers feraient environ 240 Mo, au-delà de la limite de 200 Mo. Choisissez un pas de temps plus grand, une marge plus petite ou moins de jeux de données.'],
+    [fmtLatLon(49.65, -1.62), '49.65°N 1.62°O'],
+    [fmtGribArea({ south: 48, north: 51, west: -6, east: 2 }), '48°N–51°N, 6°O–2°E'],
+  ])('translates the generated GRIB text %s', (english, french) => {
+    expect(translateText(english, 'fr')).toBe(french);
+    expect(translateText(english, 'en')).toBe(english);
+  });
+
+  it('leaves GRIB file names and grid summaries untouched (run ids sit in <code>)', () => {
+    for (const text of [
+      'passage_wind-gfs_20260923T00Z_N48W006_N51E002.grb2',
+      'passage_waves-gfs_20260923T00Z_N48W006_N51E002.grb2',
+      '33 × 13 points · 0.25°',
+      '0…360°',
+    ]) expect(translateText(text, 'fr')).toBe(text);
   });
 });
 

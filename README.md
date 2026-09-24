@@ -46,7 +46,7 @@ fixture-backed viewer. The complete command and test catalog lives in
 
 The viewer follows the passage cycle rather than the implementation layers:
 
-- **Plan** — draw or compute a route, compare departure windows, manage saved briefings and declared limits.
+- **Plan** — draw or compute a route, compare departure windows, download GRIB2 files of the forecast for the route area ([grib-export.md](docs/grib-export.md)), manage saved briefings and declared limits.
 - **Brief** — read the causal system → route intersection → consequence story, scrub the shared time cursor, then inspect the exact ensemble claim.
 - **Watch** — compare frozen runs through an edited three-item change story; the complete ledger remains available underneath.
 - **Verify** — see real-case corpus counts, calibration sample sizes, and printable frozen-forecast case studies.

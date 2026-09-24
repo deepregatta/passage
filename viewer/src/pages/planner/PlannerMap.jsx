@@ -1,6 +1,6 @@
 import { palette } from '../../lib/palette.js';
 import { useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Polyline, useMap, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Polyline, Rectangle, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { BASEMAP } from '../../lib/basemap.js';
@@ -34,7 +34,7 @@ function FitRoute({ positions, fitKey }) {
   return null;
 }
 
-export default function PlannerMap({ mode, waypoints, computed, endpoints, fitNonce, addWaypoint, setWaypoints }) {
+export default function PlannerMap({ mode, waypoints, computed, endpoints, fitNonce, addWaypoint, setWaypoints, exportBbox = null }) {
   return (
     <div className="lg:col-span-2 border border-ink/30 rounded-sm overflow-hidden" style={{ height: 480 }}>
       <MapContainer
@@ -48,6 +48,14 @@ export default function PlannerMap({ mode, waypoints, computed, endpoints, fitNo
           attribution='seamarks &copy; OpenSeaMap'
         />
         <ClickCapture onClick={addWaypoint} />
+        {exportBbox && (
+          // GRIB export area; clicks pass through so waypoints can still be placed inside it
+          <Rectangle
+            bounds={[[exportBbox.minLat, exportBbox.minLon], [exportBbox.maxLat, exportBbox.maxLon]]}
+            interactive={false}
+            pathOptions={{ color: palette.event, weight: 2, dashArray: '6 4', fill: false }}
+          />
+        )}
         <FitRoute
           positions={
             mode === 'compute'

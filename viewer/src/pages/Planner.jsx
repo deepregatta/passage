@@ -1,12 +1,15 @@
 import clsx from 'clsx';
+import { useEffect, useMemo, useState } from 'react';
 import ModelsUsed from '../components/ModelsUsed.jsx';
 import { Panel } from '../components/common.jsx';
 import BoatPicker from '../components/BoatPicker.jsx';
 import { fmtLocalTime, toLocalDateTimeValue } from '../lib/format.js';
 import DepartureComparison from './planner/DepartureComparison.jsx';
 import DepartureField from './planner/DepartureField.jsx';
+import GribExport from './planner/GribExport.jsx';
 import PlannerMap from './planner/PlannerMap.jsx';
 import usePlannerController, { validSpeed } from './planner/usePlannerController.jsx';
+import { GRIB_MARGIN_DEFAULT_DEG, gribBbox, gribEtaHours, gribRoutePoints } from '../lib/gribExport.js';
 
 export default function Planner() {
   const {
@@ -16,6 +19,19 @@ export default function Planner() {
     route, distance, speedsValid, passageHours, departureUtc, addWaypoint,
     runRouting, onGpx, runScan, run
   } = usePlannerController();
+  const [gribOpen, setGribOpen] = useState(false);
+  const [gribNonce, setGribNonce] = useState(0);
+  const [gribMargin, setGribMargin] = useState(GRIB_MARGIN_DEFAULT_DEG);
+  const gribPoints = useMemo(
+    () => gribRoutePoints({ mode, waypoints, computed, endpoints }),
+    [mode, waypoints, computed, endpoints],
+  );
+  const gribArea = useMemo(() => gribBbox(gribPoints, gribMargin), [gribPoints, gribMargin]);
+  const gribShown = gribOpen && gribArea !== null;
+  useEffect(() => {
+    // Clearing the route closes the section; a new route starts closed.
+    if (!gribPoints) setGribOpen(false);
+  }, [gribPoints]);
 
   return (
     <div className="px-6 py-5 max-w-[1600px]">
@@ -41,6 +57,7 @@ export default function Planner() {
           fitNonce={fitNonce}
           addWaypoint={addWaypoint}
           setWaypoints={setWaypoints}
+          exportBbox={gribShown ? gribArea : null}
         />
 
         <Panel title="Passage">
@@ -212,6 +229,17 @@ export default function Planner() {
             >
               Compare departure times (next 5 days)
             </button>
+            <button
+              type="button"
+              onClick={() => {
+                setGribOpen(true);
+                setGribNonce((n) => n + 1);
+              }}
+              disabled={!gribPoints}
+              className="w-full border border-ink/50 rounded-sm px-3 py-2 hover:bg-white/50 disabled:opacity-40"
+            >
+              Download GRIBs…
+            </button>
             {error && <p className="text-verdict-exceeds text-[13px]">{error}</p>}
             {scan && scan.candidates.length > 0 && (
               <p className="text-[12px] text-ink-soft border-t hairline pt-2">
@@ -242,6 +270,19 @@ export default function Planner() {
             // go straight to the briefing for the time just picked
             run({ departureUtc: candidate.departure_utc, route: rerouted?.route ?? route });
           }}
+        />
+      )}
+
+      {gribShown && (
+        <GribExport
+          points={gribPoints}
+          bbox={gribArea}
+          margin={gribMargin}
+          onMarginChange={setGribMargin}
+          departureUtc={departureUtc}
+          etaHours={gribEtaHours({ mode, distance, speeds, computed })}
+          openNonce={gribNonce}
+          onClose={() => setGribOpen(false)}
         />
       )}
 
