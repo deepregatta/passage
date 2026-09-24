@@ -7,8 +7,8 @@ CLI, golden fixtures, ecCodes contract; CI green). **Phase 2 is next.** Phase 5 
 ## How to use this plan
 
 Implement **one phase per session**. Phases 1–4 run in order. Phase 5 can
-run at any time. Recommended: run 5A alongside or after Phase 1, and 5B before
-Phase 3 makes GRIBs public, so public downloads are fresh from day one.
+run at any time. Recommended: run 5A alongside or after Phase 1, and 5B soon
+after Phase 2 ships, so GRIB downloads are fresh.
 
 ### Launch prompts
 
@@ -18,7 +18,7 @@ Open a new Claude session in the directory shown and paste the prompt.
 |---|---|---|
 | 1 | `deepregatta/passage` | `Implement Phase 1 of docs/grib-export-plan.md. Read its "How to use this plan" section first.` |
 | 2 | `deepregatta/passage` | `Implement Phase 2 of docs/grib-export-plan.md. Read its "How to use this plan" section first.` |
-| 3 | `deepregatta/passage` | `Implement Phase 3 of docs/grib-export-plan.md. Adrena tester results: <paste the checklist answers and screenshots>.` |
+| 3 | `deepregatta/passage` | `Implement Phase 3 of docs/grib-export-plan.md. Adrena test results: <paste the checklist answers and screenshots>.` |
 | 4 | `deepregatta/passage` | `Run Phase 4 of docs/grib-export-plan.md: measure and recommend. Don't build a Cloudflare Worker without asking me.` |
 | 5A | `deepregatta` (the container directory) | `Implement Phase 5A of passage/docs/grib-export-plan.md (fresher forecast runs). It spans forecast-tiles and passage: commit and push each repo. Stop after printing my manual dispatcher setup steps.` |
 | 5B | `deepregatta` (the container directory) | `Implement Phase 5B of passage/docs/grib-export-plan.md. I've deployed the dispatcher Worker and set its GITHUB_TOKEN secret. Dry-run log lines: <paste>.` |
@@ -31,7 +31,7 @@ Before starting, read:
    re-derive them. If one turns out to be wrong, fix it here in the same commit.
 
 Stop at each phase's exit criteria, commit, push, and report. Phase 3 needs
-the Adrena tester's feedback first.
+the Adrena test results first.
 
 ## Goal
 
@@ -52,7 +52,7 @@ the files.
 | Format | **GRIB2**, template 3.0 (regular lat/lon), 4.0, 5.0 (simple packing) with a section-6 bitmap for missing values. One file per dataset. |
 | Datasets in v1 | GFS wind + gust, ECMWF wind, GFS-Wave, Copernicus global currents (GLO12), Copernicus IBI currents (regional). |
 | Pressure (MSLP) | **Not in v1.** Tiles have no MSLP; adding it is a separate `forecast-tiles` change. |
-| Tester access | The Adrena tester only uses production, so Phase 2 ships a **hidden, link-only** version to `https://passage.deepregatta.com`. It becomes public in Phase 3 after the tester signs off. |
+| Release | Phase 2 ships the feature to production **for everyone, with no hidden flag** (decided 2026-09-24). The current users are Davi and Jacques, so there's no risk in shipping before Adrena sign-off: they test the real production version, and Phase 3 applies the fixes. |
 
 Rejected alternatives (don't reopen without new evidence):
 
@@ -371,21 +371,16 @@ Results (2026-09-23 22:50 UTC, runs `*-20260923T00Z`):
   differences UGRD 0.006, VGRD 0.027, GUST 0.015 m/s (target 0.1); HTSGW
   0.000 m (target 0.01); PERPW 0.04 s; DIRPW 0.04°.
 
-## Phase 2 — Hidden planner export on production (tester build)
+## Phase 2 — Planner GRIB export, live in production
 
-The goal is a working, link-only UI on production for the Adrena tester.
+The goal is a working **Download GRIBs** feature on production, visible to
+everyone, with **no hidden flag**. The current users (Davi and Jacques) test
+this production version directly, including in Adrena. Adrena fixes follow in
+Phase 3.
 
 Tasks:
 
-1. `viewer/src/lib/gribExportFlag.js`:
-   - Read `grib` and `gribLon` from the hash query (`#plan/planner?grib=1`,
-     optional `&gribLon=signed`) on load and on `hashchange`.
-   - Persist them in `localStorage` (`deepweather.gribExport`,
-     `deepweather.gribLonConvention`), each read and write wrapped in
-     try/catch.
-   - `?grib=0` clears both. The flag is needed because in-app navigation
-     rewrites the hash and drops the query.
-2. `viewer/src/lib/gribExport.js`:
+1. `viewer/src/lib/gribExport.js`:
    - **Bbox:** the route's waypoints (compute mode: the computed route, else
      the two endpoints) ± margin, clamped.
    - **Default margin:** 1.0°.
@@ -398,42 +393,58 @@ Tasks:
      same pinned runs as the analysis).
    - Blob URLs via `URL.createObjectURL(new Blob(parts, { type: 'application/octet-stream' }))`.
      Revoke them on regenerate and unmount.
-3. `viewer/src/pages/planner/GribExport.jsx`: a section below the planner grid
-   (the `DepartureComparison` pattern), shown when the flag is on and a route
-   exists. It has:
-   - margin input;
+   - **Longitude test override:** `#plan/planner?gribLon=signed` switches
+     `lonConvention` for Adrena testing, and `?gribLon=0-360` resets it. It is
+     persisted in `localStorage` (`deepweather.gribLonConvention`, reads and
+     writes wrapped in try/catch), because in-app navigation drops the hash
+     query. This switches one encoding detail. It does not hide the feature.
+     Phase 3 removes it or makes the chosen value the default.
+2. `viewer/src/pages/planner/GribExport.jsx`: a section below the planner grid
+   (the `DepartureComparison` pattern). It has:
+   - margin input (0–5° in 0.5° steps);
    - one checkbox per dataset, showing its availability (disabled with a
-     reason when unavailable), its time range and its estimated size;
-   - a step select;
+     reason when unavailable), its time range, and its estimated output size;
+   - per-dataset messages for partial coverage (IBI) and a horizon shorter
+     than the window (IBI: 72 h);
+   - a step select (`all` / 3 h / 6 h);
    - **Prepare files**, which shows progress and becomes **Cancel** while
      running;
    - after preparing, one **Save** link per file (`download` attribute) with
-     its size and a short `fnv64`;
-   - a spot-values table (checkpoints) for the tester to compare in Adrena;
+     its size;
+   - a collapsed **File details** section per file: run id, cycle, time list,
+     grid, a short `fnv64`, and the spot values (checkpoints) used to compare
+     against Adrena;
    - the attribution, not-for-navigation and currents copy.
-4. A "Download GRIBs…" button in the Passage panel (`Planner.jsx`), shown only
-   when the flag is on. It opens and scrolls to the section.
-   `PlannerMap.jsx` gets an `exportBbox` prop that draws a dashed react-leaflet
-   `Rectangle` while the section is open.
+3. A **Download GRIBs…** button in the Passage panel (`Planner.jsx`), enabled
+   whenever a route (or two endpoints) exists. It opens and scrolls to the
+   section. `PlannerMap.jsx` gets an `exportBbox` prop that draws a dashed
+   react-leaflet `Rectangle` while the section is open.
+4. Analytics: `track('grib_export', { datasets: 'wind-gfs,waves-gfs', size_bucket: '1-5MB' })`.
+   Low-cardinality values only; never coordinates.
 5. French: every new string goes into `viewer/src/i18n.js` and
    `viewer/test/i18n.test.js` in the same commit. Watch JSX text-node
-   splitting. The tester may use `/fr/`.
-6. Viewer tests, `viewer/test/gribExport.test.jsx`, with a mocked store
+   splitting. Users may use `/fr/`.
+6. Docs (the feature is public from this phase):
+   - `README.md` product flow: add the GRIB download.
+   - `docs/product-brief.md`, *Current product surface → Plan*: add
+     "download GRIB2 files of the forecast for the route area".
+   - `docs/grib-export.md`: add the viewer defaults and the `gribLon` override.
+7. Viewer tests, `viewer/test/gribExport.test.jsx`, with a mocked store
    (`describe()` + manifests):
-   - flag parse and persist;
    - bbox and margin; window defaults and clipping;
-   - availability states;
+   - availability, partial-coverage and horizon states;
    - Save links are created and revoked;
-   - no UI when the flag is off.
-7. Verify locally:
+   - the `gribLon` override is parsed and persisted.
+8. Verify locally:
    - `viewer-demo` for UI states (no live tiles there: expect "unavailable").
    - `npm run build:pages` then the `static-dist` launch config for real
      Pages behaviour.
-   - E2E suite unchanged: `npm run test:e2e -w viewer -- --workers=1`. With
-     the flag off, screenshots must not change.
-8. Commit and push to main (Pages deploys). Then smoke-test production in the
+   - E2E: `npm run test:e2e -w viewer -- --workers=1`. The new button changes
+     the Planner, so update screenshot baselines (`--update-snapshots`) only
+     for that intended change, and review each diff.
+9. Commit and push to main (Pages deploys). Then smoke-test production in the
    built-in browser:
-   - Open `https://passage.deepregatta.com/#plan/planner?grib=1`.
+   - Open `https://passage.deepregatta.com/#plan/planner`.
    - Draw a Cherbourg → Solent route and prepare all available datasets.
    - Check: no console or CSP errors; tile requests go to
      `forecast.deepregatta.com`.
@@ -444,12 +455,13 @@ Tasks:
 
 Exit criteria:
 
-- [ ] Hidden UI live on production; smoke test passed; hashes match the CLI.
-- [ ] Tester links and checklist (below) handed to Davi to forward.
+- [ ] Feature live on production for everyone, EN and FR; smoke test passed;
+      hashes match the CLI; CI green; docs updated.
+- [ ] Adrena test steps and checklist (below) handed to Davi and Jacques.
 
-## Phase 3 — Adrena feedback and public release
+## Phase 3 — Adrena feedback and refinements
 
-**Prerequisite:** the tester's checklist results. Apply the fixes first. Each
+**Prerequisite:** the Adrena checklist results. Apply the fixes first. Each
 fix updates `docs/grib-export.md`, the fixtures (re-run the generator) and
 `expected.json`, and the contract test must still pass.
 
@@ -457,43 +469,26 @@ Tasks:
 
 1. Fix whatever Adrena rejected (see [Risks](#risks-and-fallbacks)). If a
    variant was needed (longitude convention, current level), make it the
-   default.
+   default. Remove the `gribLon` override once the convention is settled.
 2. Size guardrails:
-   - Show the estimated output per dataset and in total, plus the "up to X MB
-     of forecast data to fetch" upper bound.
+   - Show the total estimated output, plus the "up to X MB of forecast data
+     to fetch" upper bound.
    - Warn above 50 MB total. Block above 200 MB with a suggestion (a coarser
      step, a smaller margin, fewer datasets). Tune these numbers in Phase 4.
-3. Controls:
-   - margin 0–5° in 0.5° steps;
-   - window presets "Passage window" (default) and "Full forecast";
-   - step `all` / 3 h / 6 h;
-   - per-dataset messages for partial coverage (IBI) and a horizon shorter
-     than the window (IBI 72 h).
+3. Window presets: "Passage window" (default) and "Full forecast".
 4. **Save all (.zip)**: add `fflate` to the viewer and use `zipSync` at level
    0 (GRIB is already packed). Include `SOURCES.txt`: datasets, run ids,
    cycles, attribution, the not-for-navigation notice and the currents notes.
    Individual Save links remain.
-5. Remove the flag. The button shows whenever a route (or two endpoints)
-   exists. Drop `gribLon` unless Adrena needed it, in which case the chosen
-   convention is the default. Keep the fnv64 and spot values in a collapsed
-   "File details" section.
-6. Analytics: `track('grib_export', { datasets: 'wind-gfs,waves-gfs', size_bucket: '1-5MB' })`.
-   Low-cardinality values only; never coordinates.
-7. Docs:
-   - `README.md` product flow: add the GRIB download.
-   - `docs/product-brief.md`, *Current product surface → Plan*: add
-     "download GRIB2 files of the forecast for the route area".
-   - `docs/grib-export.md`: finalise.
-   - French catalogue for all new copy.
-8. Tests: extend the viewer tests. Update Playwright screenshot baselines only
-   for the intended Planner change (`--update-snapshots`), and review the
-   diffs.
-9. Commit, push, and re-run the production smoke test without the flag.
+5. Docs: finalise `docs/grib-export.md`; French catalogue for all new copy.
+6. Tests: extend the viewer tests. Update Playwright baselines only for
+   intended changes, and review the diffs.
+7. Commit, push, and re-run the production smoke test.
 
 Exit criteria:
 
-- [ ] Tester sign-off recorded here (date, Adrena version).
-- [ ] Public on production, EN and FR; CI green; docs updated.
+- [ ] Adrena sign-off recorded here (date, Adrena version).
+- [ ] Fixes and refinements live on production, EN and FR; CI green; docs updated.
 
 ## Phase 4 — Measure and decide (optional)
 
@@ -763,14 +758,15 @@ Exit criteria:
 | Runs expire while a page is open | 5A store refresh. |
 | Dispatcher and fallback cron fire together | Same concurrency group, plus the "already published" exit. |
 
-## Adrena tester handoff (end of Phase 2)
+## Adrena test (end of Phase 2)
 
-Links:
+The feature is in the normal production app:
 
-- English: `https://passage.deepregatta.com/#plan/planner?grib=1`
-- French: `https://passage.deepregatta.com/fr/#plan/planner?grib=1`
-- Longitude variant, only if files crossing 0° misbehave:
-  `https://passage.deepregatta.com/#plan/planner?grib=1&gribLon=signed`
+- English: `https://passage.deepregatta.com/#plan/planner`
+- French: `https://passage.deepregatta.com/fr/#plan/planner`
+- Longitude variant, only if files crossing 0° misbehave: open
+  `https://passage.deepregatta.com/#plan/planner?gribLon=signed` once. The
+  setting is remembered; `?gribLon=0-360` switches it back.
 
 Steps: draw a route (for example Cherbourg → the Solent, which crosses 0°),
 click **Download GRIBs…**, tick every dataset, **Prepare files**, save each
