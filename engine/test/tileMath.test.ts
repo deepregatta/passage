@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { parseUtc } from '../src/eta.js';
 import {
   axisTimesMs,
+  edgeNeighbourProbes,
   nearestGridIndex,
   resampleToHourly,
   tileIdFor,
@@ -92,6 +93,52 @@ describe('axisTimesMs and nearestGridIndex', () => {
     expect(nearestGridIndex(header, 40.1, -9.9)).toEqual({ i: 0, j: 0, flat: 0 });
     expect(nearestGridIndex(header, 51, -9.75)).toBeNull();
     expect(nearestGridIndex(header, 45, -11)).toBeNull();
+  });
+});
+
+describe('edgeNeighbourProbes', () => {
+  const grid = (lat0: number, lon0: number, d = 0.25) =>
+    ({ lat0, lon0, dlat: d, dlon: d, nlat: Math.round(10 / d), nlon: Math.round(10 / d) }) as unknown as TileHeader;
+
+  it('probes nothing when the home tile holds the nearest point', () => {
+    expect(edgeNeighbourProbes(header, 45, -5, 0.25)).toEqual([]);
+    expect(edgeNeighbourProbes(header, 40.1, -9.9, 0.25)).toEqual([]);
+  });
+
+  it('probes the one side the rounded index overflows', () => {
+    expect(edgeNeighbourProbes(grid(30, -10), 39.9, -5, 0.25)).toEqual([{ tileId: 'N40W010', lat: 39.9, lon: -5 }]);
+    expect(edgeNeighbourProbes(grid(40, -20), 44.9, -10.1, 0.25)).toEqual([{ tileId: 'N40W010', lat: 44.9, lon: -10.1 }]);
+    expect(edgeNeighbourProbes(grid(30, -20), 39.9, -10.1, 0.25)).toEqual([{ tileId: 'N40W010', lat: 39.9, lon: -10.1 }]);
+    // float noise below a 10° line on a 1/12° lattice
+    const noisy = 37.33333333333333 + 32 / 12;
+    expect(noisy).toBeLessThan(40);
+    expect(edgeNeighbourProbes(grid(30, -10, 1 / 12), noisy, -5, 1 / 12).map((p) => p.tileId)).toEqual(['N40W010']);
+    // offset grid (first row above the line): the tile below holds the nearest row
+    expect(edgeNeighbourProbes(grid(40.2, -9.8), 40.05, -5, 0.25).map((p) => p.tileId)).toEqual(['N30W010']);
+  });
+
+  it('ignores grids that stop short of the tile edge by more than a cell', () => {
+    const partial = { ...grid(40, -10), nlat: 24 } as TileHeader; // rows end at 45.75
+    expect(edgeNeighbourProbes(partial, 46.5, -5, 0.25)).toEqual([]);
+  });
+
+  it('keeps probe longitudes continuous across the antimeridian', () => {
+    expect(edgeNeighbourProbes(grid(40, 170), 45, 179.9, 0.25)).toEqual([{ tileId: 'N40W180', lat: 45, lon: -180.1 }]);
+    expect(edgeNeighbourProbes(grid(40, -179.8), 45, -179.95, 0.25)).toEqual([{ tileId: 'N40E170', lat: 45, lon: 180.05 }]);
+    // an unnormalised longitude is wrapped before probing
+    expect(edgeNeighbourProbes(grid(40, 170), 45, -180.1, 0.25)).toEqual([{ tileId: 'N40W180', lat: 45, lon: -180.1 }]);
+  });
+
+  it('never probes past the poles', () => {
+    expect(edgeNeighbourProbes(grid(80, 0), 89.95, 5, 0.25)).toEqual([]);
+    expect(edgeNeighbourProbes(null, -89.95, 5, 0.25)).toEqual([]);
+  });
+
+  it('probes every side within a cell when the home tile is unpublished', () => {
+    expect(edgeNeighbourProbes(null, 45, -15, 0.25)).toEqual([]);
+    expect(edgeNeighbourProbes(null, 45, -10.2, 0.25).map((p) => p.tileId)).toEqual(['N40W010']);
+    expect(edgeNeighbourProbes(null, 39.9, -10.1, 0.25).map((p) => p.tileId)).toEqual(['N40W020', 'N30W010', 'N40W010']);
+    expect(edgeNeighbourProbes(null, 40.05, -9.95, 0.25).map((p) => p.tileId)).toEqual(['N30W010', 'N40W020', 'N30W020']);
   });
 });
 

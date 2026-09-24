@@ -2,9 +2,10 @@
  * TileForecastStore: assembles point forecasts and region grids from
  * precomputed PFT1 tile runs. Point sampling is a nearest-grid-point lookup
  * (leg midpoints are snapped to the 0.25° audit cell, which matches the
- * weather layer's native grid), resampled to whole hours for the findings
- * assembler. Region grids keep the tiles' native time axis — GridSampler
- * interpolates in time.
+ * weather layer's native grid) that crosses into the neighbouring tile when
+ * the nearest point is its edge row/column, resampled to whole hours for the
+ * findings assembler. Region grids keep the tiles' native time axis —
+ * GridSampler interpolates in time.
  */
 
 import { windFromDeg } from '../vectors.js';
@@ -16,10 +17,13 @@ import { gunzip } from './httpTransport.js';
 import { decodeTile, type DecodedTile } from './tileCodec.js';
 import {
   axisTimesMs,
+  edgeNeighbourProbes,
   nearestGridIndex,
+  normalizeLon,
   resampleToHourly,
   tileIdFor,
   type Bbox,
+  type GridIndex,
 } from './tileMath.js';
 import type {
   ForecastStore,
@@ -44,6 +48,12 @@ interface LayerState {
   decoded: Map<string, DecodedTile>;
   /** One shared load per tile; `retain` is set once any caller wants the result kept. */
   inFlight: Map<string, { promise: Promise<{ tile: DecodedTile; cached: boolean }>; retain: boolean }>;
+}
+
+/** The native grid point nearest a query point: its tile and index there. */
+interface GridHit {
+  tile: DecodedTile;
+  idx: GridIndex;
 }
 
 interface SampledSeries {
@@ -215,14 +225,10 @@ export class TileForecastStore implements ForecastStore {
   }
 
   private async tileFor(
-    layer: string,
-    lat: number,
-    lon: number,
+    state: LayerState,
+    tileId: string,
     stats: { tiles: Set<string>; cached: number },
   ): Promise<DecodedTile | null> {
-    const state = this.layers.get(layer);
-    if (!state) return null;
-    const tileId = tileIdFor(lat, lon);
     const memo = state.decoded.get(tileId);
     if (memo !== undefined) {
       this.touch(memo);
@@ -239,6 +245,35 @@ export class TileForecastStore implements ForecastStore {
     // Each caller owns its metadata; sharing a download is not a cache hit.
     if (result.cached) stats.cached += 1;
     return result.tile;
+  }
+
+  /**
+   * The native grid point nearest (lat, lon): in the tile containing the
+   * point, or in the neighbour across a 10° line when that point is the
+   * neighbour's edge row/column (edgeNeighbourProbes). Unpublished neighbours
+   * are skipped without being recorded in the stats.
+   */
+  private async locate(
+    layer: string,
+    lat: number,
+    lon: number,
+    stats: { tiles: Set<string>; cached: number },
+  ): Promise<GridHit | null> {
+    const state = this.layers.get(layer);
+    if (!state) return null;
+    const x = normalizeLon(lon);
+    const tile = await this.tileFor(state, tileIdFor(lat, x), stats);
+    if (tile) {
+      const idx = nearestGridIndex(tile.header, lat, x);
+      if (idx) return { tile, idx };
+    }
+    for (const probe of edgeNeighbourProbes(tile?.header ?? null, lat, x, state.manifest.resolution_deg)) {
+      if (!state.manifest.tiles[probe.tileId]) continue;
+      const neighbour = await this.tileFor(state, probe.tileId, stats);
+      const idx = neighbour && nearestGridIndex(neighbour.header, probe.lat, probe.lon);
+      if (neighbour && idx) return { tile: neighbour, idx };
+    }
+    return null;
   }
 
   private async loadTile(manifest: RunManifest, tileId: string): Promise<{ tile: DecodedTile; cached: boolean }> {
@@ -307,12 +342,10 @@ export class TileForecastStore implements ForecastStore {
     };
   }
 
-  /** raw series at the grid point nearest (lat, lon), on the variable's native axis */
-  private seriesAt(tile: DecodedTile, name: string, lat: number, lon: number): SampledSeries | null {
+  /** raw series at a located grid point, on the variable's native axis */
+  private seriesAt({ tile, idx }: GridHit, name: string): SampledSeries | null {
     const variable = tile.header.variables.find((v) => v.name === name);
     if (!variable) return null;
-    const idx = nearestGridIndex(tile.header, lat, lon);
-    if (!idx) return null;
     const timesMs = axisTimesMs(tile.header, variable.axis);
     const arr = tile.arrays[name]!;
     const stride = tile.header.nlat * tile.header.nlon;
@@ -324,18 +357,16 @@ export class TileForecastStore implements ForecastStore {
     return { timesMs, values };
   }
 
-  /** per-member series (mean + per-member anomaly encoding) at the nearest grid point */
+  /** per-member series (mean + per-member anomaly encoding) at a located grid point */
   private memberSeriesAt(
-    tile: DecodedTile,
+    hit: GridHit,
     meanName: string,
     anomName: string,
-    lat: number,
-    lon: number,
   ): { timesMs: number[]; members: Array<Array<number | null>> } | null {
-    const mean = this.seriesAt(tile, meanName, lat, lon);
+    const { tile, idx } = hit;
+    const mean = this.seriesAt(hit, meanName);
     const anomVar = tile.header.variables.find((v) => v.name === anomName);
     if (!mean || !anomVar) return null;
-    const idx = nearestGridIndex(tile.header, lat, lon)!;
     const arr = tile.arrays[anomName]!;
     const stride = tile.header.nlat * tile.header.nlon;
     const nTime = mean.timesMs.length;
@@ -364,11 +395,11 @@ export class TileForecastStore implements ForecastStore {
     const stats = this.newStats();
     const forecasts: PointForecast[] = [];
     for (const p of points) {
-      const tile = await this.tileFor('weather', p.lat, p.lon, stats);
-      const u = tile && this.seriesAt(tile, 'wind_u_kt', p.lat, p.lon);
-      const v = tile && this.seriesAt(tile, 'wind_v_kt', p.lat, p.lon);
-      const gust = tile && this.seriesAt(tile, 'gust_kt', p.lat, p.lon);
-      if (!tile || !u || !v || !gust) {
+      const hit = await this.locate('weather', p.lat, p.lon, stats);
+      const u = hit && this.seriesAt(hit, 'wind_u_kt');
+      const v = hit && this.seriesAt(hit, 'wind_v_kt');
+      const gust = hit && this.seriesAt(hit, 'gust_kt');
+      if (!hit || !u || !v || !gust) {
         forecasts.push({ lat: p.lat, lon: p.lon, times: [], wind_kt: [], gust_kt: [], wind_dir_deg: [] });
         continue;
       }
@@ -398,13 +429,13 @@ export class TileForecastStore implements ForecastStore {
     const stats = this.newStats();
     const forecasts: EnsemblePointForecast[] = [];
     for (const p of points) {
-      const tile = await this.tileFor('ensemble', p.lat, p.lon, stats);
-      const wind = tile && this.memberSeriesAt(tile, 'wind_kt_mean', 'wind_kt_anom', p.lat, p.lon);
-      if (!tile || !wind) {
+      const hit = await this.locate('ensemble', p.lat, p.lon, stats);
+      const wind = hit && this.memberSeriesAt(hit, 'wind_kt_mean', 'wind_kt_anom');
+      if (!hit || !wind) {
         forecasts.push({ lat: p.lat, lon: p.lon, times: [], wind_kt_members: [], gust_kt_members: [] });
         continue;
       }
-      const gust = this.memberSeriesAt(tile, 'gust_kt_mean', 'gust_kt_anom', p.lat, p.lon);
+      const gust = this.memberSeriesAt(hit, 'gust_kt_mean', 'gust_kt_anom');
       const resampled = wind.members.map(
         (series) => resampleToHourly(wind.timesMs, series, startMs, endMs).values,
       );
@@ -445,7 +476,7 @@ export class TileForecastStore implements ForecastStore {
     ] as const;
     const forecasts: WavePointForecast[] = [];
     for (const p of points) {
-      const tile = await this.tileFor('waves', p.lat, p.lon, stats);
+      const hit = await this.locate('waves', p.lat, p.lon, stats);
       const out: WavePointForecast = {
         lat: p.lat,
         lon: p.lon,
@@ -460,16 +491,16 @@ export class TileForecastStore implements ForecastStore {
         swell_period_s: [],
         swell_dir_deg: [],
       };
-      if (tile) {
+      if (hit) {
         for (const [field, varName] of scalarVars) {
-          const series = this.seriesAt(tile, varName, p.lat, p.lon);
+          const series = this.seriesAt(hit, varName);
           if (!series) continue;
           const h = resampleToHourly(series.timesMs, series.values, startMs, endMs);
           out[field] = h.values;
           if (!out.times.length) out.times = h.times;
         }
         for (const [field, varName] of dirVars) {
-          const series = this.seriesAt(tile, varName, p.lat, p.lon);
+          const series = this.seriesAt(hit, varName);
           if (!series) continue;
           out[field] = resampleDirectionToHourly(series.timesMs, series.values, startMs, endMs);
         }
@@ -493,7 +524,7 @@ export class TileForecastStore implements ForecastStore {
       const stats = this.newStats();
       const forecasts: HazardPointForecast[] = [];
       for (const p of points) {
-        const tile = await this.tileFor(layer, p.lat, p.lon, stats);
+        const hit = await this.locate(layer, p.lat, p.lon, stats);
         const out: HazardPointForecast = {
           lat: p.lat,
           lon: p.lon,
@@ -507,9 +538,9 @@ export class TileForecastStore implements ForecastStore {
           dew_point_c: [],
           precip_mm: [],
         };
-        if (tile) {
-          const u = this.seriesAt(tile, 'wind_u_kt', p.lat, p.lon);
-          const v = this.seriesAt(tile, 'wind_v_kt', p.lat, p.lon);
+        if (hit) {
+          const u = this.seriesAt(hit, 'wind_u_kt');
+          const v = this.seriesAt(hit, 'wind_v_kt');
           if (u && v) {
             const uH = resampleToHourly(u.timesMs, u.values, startMs, endMs);
             const vH = resampleToHourly(v.timesMs, v.values, startMs, endMs);
@@ -526,7 +557,7 @@ export class TileForecastStore implements ForecastStore {
             ['dew_point_c', 'dew_point_c'],
             ['precip_mm', 'precip_mm'],
           ] as const) {
-            const series = this.seriesAt(tile, varName, p.lat, p.lon);
+            const series = this.seriesAt(hit, varName);
             if (!series) continue;
             const h = resampleToHourly(series.timesMs, series.values, startMs, endMs);
             out[field] = h.values;
@@ -628,16 +659,16 @@ export class TileForecastStore implements ForecastStore {
       for (let j = 0; j < nlon; j++) {
         const lat = lat0 + i * dlat;
         const lon = lon0 + j * dlon;
-        const tile = await this.tileFor(layer, lat, lon, stats);
-        if (!tile) continue;
-        const uS = this.seriesAt(tile, uName, lat, lon);
-        const vS = this.seriesAt(tile, vName, lat, lon);
+        const hit = await this.locate(layer, lat, lon, stats);
+        if (!hit) continue;
+        const uS = this.seriesAt(hit, uName);
+        const vS = this.seriesAt(hit, vName);
         if (!uS || !vS) continue;
-        let indices = timeIndices.get(tile);
+        let indices = timeIndices.get(hit.tile);
         if (!indices) {
           const index = new Map(uS.timesMs.map((t, k) => [t, k]));
           indices = timeAxisMs.map((t) => index.get(t));
-          timeIndices.set(tile, indices);
+          timeIndices.set(hit.tile, indices);
         }
         for (let t = 0; t < timeAxisMs.length; t++) {
           const k = indices[t];

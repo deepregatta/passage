@@ -14,11 +14,15 @@ export interface TileOrigin {
   lon0: number;
 }
 
+/** Longitude wrapped once into [−180, 180). */
+export function normalizeLon(lon: number): number {
+  return lon >= 180 ? lon - 360 : lon < -180 ? lon + 360 : lon;
+}
+
 export function tileOrigin(lat: number, lon: number): TileOrigin {
-  const normLon = lon >= 180 ? lon - 360 : lon < -180 ? lon + 360 : lon;
   return {
     lat0: Math.floor(lat / TILE_DEG) * TILE_DEG,
-    lon0: Math.floor(normLon / TILE_DEG) * TILE_DEG,
+    lon0: Math.floor(normalizeLon(lon) / TILE_DEG) * TILE_DEG,
   };
 }
 
@@ -68,17 +72,72 @@ export function axisTimesMs(header: TileHeader, axis: string): number[] {
   return ax.offsets_h.map((h) => baseMs + h * 3_600_000);
 }
 
+export interface GridIndex {
+  i: number;
+  j: number;
+  flat: number;
+}
+
+/** Rounded lattice position of (lat, lon) in a tile header, unbounded. */
+function roundedGridIndex(header: TileHeader, lat: number, lon: number): { i: number; j: number } {
+  return {
+    i: Math.round((lat - header.lat0) / header.dlat),
+    j: Math.round((lon - header.lon0) / header.dlon),
+  };
+}
+
 /** Index of the grid point nearest to (lat, lon) in a tile, or null when the
  * point is outside the tile's grid. Flat index = i * nlon + j (per time step). */
-export function nearestGridIndex(
-  header: TileHeader,
-  lat: number,
-  lon: number,
-): { i: number; j: number; flat: number } | null {
-  const i = Math.round((lat - header.lat0) / header.dlat);
-  const j = Math.round((lon - header.lon0) / header.dlon);
+export function nearestGridIndex(header: TileHeader, lat: number, lon: number): GridIndex | null {
+  const { i, j } = roundedGridIndex(header, lat, lon);
   if (i < 0 || i >= header.nlat || j < 0 || j >= header.nlon) return null;
   return { i, j, flat: i * header.nlon + j };
+}
+
+/** A tile to sample, with the query point in that tile's longitude frame. */
+export interface TileProbe {
+  tileId: string;
+  lat: number;
+  lon: number;
+}
+
+/**
+ * Neighbouring tiles that can hold the native grid point nearest (lat, lon)
+ * when the tile containing the point does not. Tiles slice the provider grid
+ * half-open, so within one cell of a 10° line that point can be the
+ * neighbour's first row/column (the point on the line) or, for grids offset
+ * from the lines (docs/forecast-tile-format.md), its last. Given the home
+ * tile's header, only the side its rounded index overflows is probed; without
+ * one (the tile is unpublished), every side within `cellDeg`, edge neighbours
+ * before the diagonal. Probe longitudes stay continuous across the
+ * antimeridian. Callers check each probe with nearestGridIndex on that tile's
+ * own header, which rejects probes whose grid is not nearer.
+ */
+export function edgeNeighbourProbes(
+  header: TileHeader | null,
+  lat: number,
+  lon: number,
+  cellDeg: number,
+): TileProbe[] {
+  const x = normalizeLon(lon);
+  const { lat0, lon0 } = tileOrigin(lat, x);
+  const idx = header && roundedGridIndex(header, lat, x);
+  const dlat = header?.dlat ?? cellDeg;
+  const dlon = header?.dlon ?? cellDeg;
+  const di = lat - lat0 < dlat && (!idx || idx.i < 0) ? -1
+    : lat0 + TILE_DEG - lat <= dlat && (!idx || idx.i >= header!.nlat) ? 1 : 0;
+  const dj = x - lon0 < dlon && (!idx || idx.j < 0) ? -1
+    : lon0 + TILE_DEG - x <= dlon && (!idx || idx.j >= header!.nlon) ? 1 : 0;
+  const steps: Array<[number, number]> = !header && di && dj ? [[di, 0], [0, dj], [di, dj]] : [[di, dj]];
+  const probes: TileProbe[] = [];
+  for (const [si, sj] of steps) {
+    const pLat0 = lat0 + si * TILE_DEG;
+    if ((!si && !sj) || pLat0 < -90 || pLat0 >= 90) continue;
+    const pLon0 = lon0 + sj * TILE_DEG;
+    const wrap = pLon0 >= 180 ? -360 : pLon0 < -180 ? 360 : 0;
+    probes.push({ tileId: tileIdFromOrigin({ lat0: pLat0, lon0: pLon0 + wrap }), lat, lon: x + wrap });
+  }
+  return probes;
 }
 
 /**
