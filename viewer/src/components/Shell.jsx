@@ -5,14 +5,14 @@ import { useApp } from '../stores/appStore.js';
 import FooterActions from './FooterActions.jsx';
 
 const STAGES = [
-  { id: 'plan', label: 'Plan', pages: ['planner', 'settings'], target: 'planner' },
+  { id: 'plan', label: 'Plan', pages: ['planner', 'grib', 'settings'], target: 'planner' },
   { id: 'brief', label: 'Brief', pages: ['snapshots', 'briefing', 'example', 'evidence'], target: 'briefing' },
   { id: 'watch', label: 'Watch', pages: ['changes'], target: 'changes' },
   { id: 'verify', label: 'Verify', pages: ['verification', 'caseStudy'], target: 'verification' },
 ];
 
 const SUBVIEWS = {
-  plan: [['planner', 'Passage'], ['settings', 'My limits']],
+  plan: [['planner', 'Passage'], ['grib', 'GRIB files'], ['settings', 'My limits']],
   brief: [['snapshots', 'My briefings'], ['briefing', 'Causal brief'], ['evidence', 'Evidence']],
   watch: [['changes', 'Changes']],
   verify: [['verification', 'Track record'], ['caseStudy', 'Case study']],

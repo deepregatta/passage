@@ -241,6 +241,7 @@
         "changes",
         "en",
         "fr",
+        "grib",
         "https://deepregatta.com",
         "https://deepregatta.com/legal",
         "https://deepregatta.com/privacy",
@@ -276,6 +277,25 @@
         "unsupported",
         "warnings",
         "what_could_change"
+      ],
+      "viewer/src/pages/Grib.jsx": [
+        "#",
+        "all",
+        "d",
+        "forecast-updated",
+        "full",
+        "grib",
+        "grib_export",
+        "hashchange",
+        "loading",
+        "no-layer",
+        "no-tiles",
+        "ok",
+        "outside-horizon",
+        "ready",
+        "settings-changed",
+        "tiles",
+        "|"
       ],
       "viewer/src/pages/briefing/AssessmentDetails.jsx": [
         "border-l-4 border-authority pl-3",
@@ -327,33 +347,32 @@
         "compute",
         "draw",
         "fast",
+        "grib",
         "nominal",
         "slow",
         "speed",
         "waypoints"
+      ],
+      "viewer/src/pages/grib/GribMap.jsx": [
+        ".leaflet-control",
+        ";border:2px solid",
+        ";cursor:nwse-resize\"></div>",
+        "<div style=\"width:14px;height:14px;background:",
+        "Escape",
+        "crosshair",
+        "https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png",
+        "keydown",
+        "mouse",
+        "none",
+        "pointerdown",
+        "pointermove",
+        "pointerup"
       ],
       "viewer/src/pages/planner/DepartureComparison.jsx": [
         "insufficient"
       ],
       "viewer/src/pages/planner/DepartureField.jsx": [
         "T"
-      ],
-      "viewer/src/pages/planner/GribExport.jsx": [
-        "all",
-        "forecast-updated",
-        "grib_export",
-        "hashchange",
-        "loading",
-        "no-layer",
-        "no-tiles",
-        "outside-horizon",
-        "passage",
-        "ready",
-        "settings-changed",
-        "signed",
-        "smooth",
-        "start",
-        "tiles"
       ],
       "viewer/src/pages/planner/PlannerMap.jsx": [
         "\"></div>",
@@ -611,6 +630,14 @@
         ".",
         ":"
       ],
+      "viewer/src/pages/Grib.jsx": [
+        ",",
+        "Hs (m)",
+        "·",
+        "· ≈",
+        "–",
+        "⬇"
+      ],
       "viewer/src/pages/briefing/AssessmentDetails.jsx": [
         ",",
         "_"
@@ -665,6 +692,9 @@
         "· ~",
         "…"
       ],
+      "viewer/src/pages/grib/GribMap.jsx": [
+        "6 4"
+      ],
       "viewer/src/pages/planner/DepartureComparison.jsx": [
         ") ·",
         "+",
@@ -677,14 +707,6 @@
         "(?:[01][0-9]|2[0-3]):[0-5][0-9]",
         "HH:mm",
         "·"
-      ],
-      "viewer/src/pages/planner/GribExport.jsx": [
-        ",",
-        "Hs (m)",
-        "°",
-        "·",
-        "· ≈",
-        "–"
       ],
       "viewer/src/pages/planner/PlannerMap.jsx": [
         "6 4",

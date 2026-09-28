@@ -1,15 +1,15 @@
 import clsx from 'clsx';
-import { useEffect, useMemo, useState } from 'react';
 import ModelsUsed from '../components/ModelsUsed.jsx';
 import { Panel } from '../components/common.jsx';
 import BoatPicker from '../components/BoatPicker.jsx';
 import { fmtLocalTime, toLocalDateTimeValue } from '../lib/format.js';
 import DepartureComparison from './planner/DepartureComparison.jsx';
 import DepartureField from './planner/DepartureField.jsx';
-import GribExport from './planner/GribExport.jsx';
 import PlannerMap from './planner/PlannerMap.jsx';
 import usePlannerController, { validSpeed } from './planner/usePlannerController.jsx';
-import { GRIB_MARGIN_DEFAULT_DEG, gribBbox, gribEtaHours, gribRoutePoints } from '../lib/gribExport.js';
+import { gribRouteArea, gribRoutePoints } from '../lib/gribExport.js';
+import { useApp } from '../stores/appStore.js';
+import { useGrib } from '../stores/gribStore.js';
 
 export default function Planner() {
   const {
@@ -19,19 +19,13 @@ export default function Planner() {
     route, distance, speedsValid, passageHours, departureUtc, addWaypoint,
     runRouting, onGpx, runScan, run
   } = usePlannerController();
-  const [gribOpen, setGribOpen] = useState(false);
-  const [gribNonce, setGribNonce] = useState(0);
-  const [gribMargin, setGribMargin] = useState(GRIB_MARGIN_DEFAULT_DEG);
-  const gribPoints = useMemo(
-    () => gribRoutePoints({ mode, waypoints, computed, endpoints }),
-    [mode, waypoints, computed, endpoints],
-  );
-  const gribArea = useMemo(() => gribBbox(gribPoints, gribMargin), [gribPoints, gribMargin]);
-  const gribShown = gribOpen && gribArea !== null;
-  useEffect(() => {
-    // Clearing the route closes the section; a new route starts closed.
-    if (!gribPoints) setGribOpen(false);
-  }, [gribPoints]);
+  const setPage = useApp((state) => state.setPage);
+  const openGrib = () => {
+    // A route hands its area (± the route margin) to the GRIB page; without one, the sailor draws a box there.
+    const points = gribRoutePoints({ mode, waypoints, computed, endpoints });
+    if (points) useGrib.getState().showArea(gribRouteArea(points));
+    setPage('grib');
+  };
 
   return (
     <div className="px-6 py-5 max-w-[1600px]">
@@ -57,7 +51,6 @@ export default function Planner() {
           fitNonce={fitNonce}
           addWaypoint={addWaypoint}
           setWaypoints={setWaypoints}
-          exportBbox={gribShown ? gribArea : null}
         />
 
         <Panel title="Passage">
@@ -231,11 +224,7 @@ export default function Planner() {
             </button>
             <button
               type="button"
-              onClick={() => {
-                setGribOpen(true);
-                setGribNonce((n) => n + 1);
-              }}
-              disabled={!gribPoints}
+              onClick={openGrib}
               className="w-full border border-ink/50 rounded-sm px-3 py-2 hover:bg-white/50 disabled:opacity-40"
             >
               Download GRIBs…
@@ -273,18 +262,6 @@ export default function Planner() {
         />
       )}
 
-      {gribShown && (
-        <GribExport
-          points={gribPoints}
-          bbox={gribArea}
-          margin={gribMargin}
-          onMarginChange={setGribMargin}
-          departureUtc={departureUtc}
-          etaHours={gribEtaHours({ mode, distance, speeds, computed })}
-          openNonce={gribNonce}
-          onClose={() => setGribOpen(false)}
-        />
-      )}
 
       <ModelsUsed />
     </div>

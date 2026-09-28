@@ -6,8 +6,10 @@ delivery plan is [grib-export-plan.md](grib-export-plan.md); this file is the
 contract and wins where the two differ.
 
 Status: the engine, the CLI and the contract tests landed in Phase 1. Since
-Phase 2 (2026-09-24) the planner's **Download GRIBs…** section is live in
-production for everyone, in English and French; Adrena sign-off is Phase 3.
+Phase 2 (2026-09-24) GRIB downloads are live in production for everyone, in
+English and French. Adrena accepted the wind and currents files on
+2026-09-27, including a box across 0°. On 2026-09-28 the planner section
+became its own **GRIB files** page (Plan → GRIB files, `#plan/grib`).
 
 ## Overview
 
@@ -17,7 +19,7 @@ engine code runs in the Node CLI, so every file the browser writes can be
 reproduced and checked with ecCodes.
 
 ```
-request (bbox + margin, datasets, window, step)
+request (bbox, datasets, window, step)
   → planGribExport(manifests, request)       engine/src/export/exportPlan.ts   sync, no I/O
   → runGribExport(source, plan, opts)        engine/src/export/exportGrib.ts   one tile at a time
       source = gribExportSourceFromStore(store)  → TileForecastStore.readTile(layer, tile, {retain: false})
@@ -229,66 +231,97 @@ for each dataset with availability ok (one file at a time):
   `forecast-updated` and the message "The forecast has been updated. Reload
   the page and try again." Other errors propagate unchanged.
 
-## Planner (viewer)
+## GRIB files page (viewer)
 
-`viewer/src/pages/planner/GribExport.jsx` (the section) and
-`viewer/src/lib/gribExport.js` (defaults, plan, run, Save links). The
-**Download GRIBs…** button in the Passage panel is enabled once there is a
-route (two drawn waypoints, a computed route, or two endpoints); it opens the
-section below the planner grid and scrolls to it. While the section is open
-the map draws the export box as a dashed rectangle.
+`viewer/src/pages/Grib.jsx` (the page), `viewer/src/pages/grib/GribMap.jsx`
+(the chart and the box), `viewer/src/stores/gribStore.js` (remembered
+choices) and `viewer/src/lib/gribExport.js` (area, period, model choice, plan,
+run, downloads). It is the **GRIB files** tab of the Plan stage
+(`#plan/grib`). It was redesigned on 2026-09-28 after the first Adrena test,
+because a sailor could not find the download on his own: it needed a route
+first, the button was third in the Passage panel, and it took three verbs
+(Download → Prepare → Save) and about eight choices.
+
+The page is three numbered steps next to the chart:
+
+1. **Area.** **Draw a box** (on the chart) enters draw mode: press and drag
+   across the chart, or click two opposite corners. Panning pauses while
+   drawing; Escape or **Cancel** leaves. The box snaps outward to 0.1°, is at
+   least 0.25° on each side, and is clamped (never wrapped) to ±90° / ±180°,
+   so it cannot cross the 180° meridian. Corner handles resize it;
+   **Redraw the box** starts again.
+2. **Period.** Next 2, 3 (default), 5 or 7 days, or **Full forecast**, from
+   now floored to the hour. Full runs to the last step of the longest pinned
+   forecast (`gribForecastEnd`: the end of the time axes the registry
+   variables use, over every dataset's run). Each file is clipped to its own
+   model's horizon (IBI +72 h, GFS wind +240 h, GFS-Wave +384 h).
+3. **Download.** One button per kind (**Download wind**, **Download
+   currents**, **Download waves**). One click builds that file and starts
+   the browser download. Files stay separate, one per kind, so any GRIB
+   software can open them.
 
 | Setting | Default |
 |---|---|
-| Area | the route's points (draw: the waypoints; compute: the computed route, else the two endpoints) ± the margin, clamped to ±90° / ±180° |
-| Margin | 1.0°; a select from 0 to 5° in 0.5° steps |
-| Window | a select. **Passage window** (default): from max(departure, now), floored to the hour, to that + ETA + 24 h (rounded up to the hour); ETA = `distance / speeds.slow` in draw mode, `computed.duration_h` in compute mode, else 48 h. **Full forecast**: from the same start to the last step of the longest pinned forecast (`gribForecastEnd`: the end of the time axes the registry variables use, over every dataset's run). Either way each dataset is clipped to its own horizon by the plan, so in full mode every file runs to its own model's last step (IBI +72 h, GFS wind +240 h, GFS-Wave +384 h). |
+| Wind model | **ECMWF** when the box's centre is in Europe (25–72°N, 35°W–45°E), else GFS. The other model is the fallback when the first has no data here. |
+| Currents model | **IBI** (regional, hourly, tide included) when it covers the whole box (no unpublished IBI tile in it), else global GLO12 |
+| Waves model | GFS-Wave (the only one) |
 | Step | `all` (every step on the dataset's axis); 3 h and 6 h thin it |
-| Datasets | GFS wind ticked; the sailor ticks the others. Unavailable ones are disabled with the reason. |
-| Longitudes | `0-360` (see the override below) |
-| Spot values | the route's first and last points |
+| Longitudes | `0-360`, validated in Adrena across 0° on 2026-09-27 |
+| Spot values | the centre of the box |
 
+The rule is **local model first**. **More options** has a model select per
+kind (unavailable models are disabled) and the time step. A model the sailor
+picks overrides the default wherever it is available.
+
+- Sources of the area, in order: a `#plan/grib?area=S,N,W,E` link (adopted
+  once, when the page opens), the remembered area, or none (the page asks for
+  a box). The Passage panel's **Download GRIBs…** button is always enabled.
+  With a route it hands over the route's box ± 1° (the waypoints; in compute
+  mode the computed route, else the two endpoints), and the chart zooms to it.
+  Without a route it just opens the page.
+- The address follows the box (`history.replaceState`), so the page can
+  always be bookmarked for a usual area. The area stays in the URL fragment,
+  which the browser never sends to a server, and analytics never read it.
+- `useGrib` persists the area, the period, the step and any chosen models in
+  `localStorage` (`deepweather.grib`, zustand `persist`), validated on load.
 - The plan uses `forecastStore()`, the same pinned runs as the analysis, and
   is recomputed synchronously whenever an input changes. Tiles are read with
   `readTile(..., {retain: false})`, so the analysis's decoded tiles stay put.
-- Per dataset the section shows availability (`no-layer`: "Not in the current
-  forecast runs."; `no-tiles`: "No data for this area."; `outside-horizon`:
-  "Your dates are beyond this forecast's range."), the UTC time range, the
-  step count and `estBytes`. It adds a partial-coverage note when a regional
-  dataset (IBI) has unpublished tiles in the box, a horizon note when the last
-  step ends before a passage window (not in full-forecast mode, where that is
-  the point), and each currents dataset's disclosure.
-- **Prepare files** runs `runGribExport` on the main thread with a progress
-  bar and becomes **Cancel**. Each file gets a **Save** link (a Blob URL with
-  the `download` attribute) and a collapsed **File details** block: model,
-  run id, base time, grid, area, longitude convention, messages, share of
-  points with data, the file's `fnv64`, the UTC times and the spot values.
-  Run ids, model ids, file names and hashes sit in `<code>` so the French DOM
-  translator leaves them alone.
-- Blob URLs are revoked when files are prepared again, when any input changes
-  (route, departure, margin, window, step, datasets, longitude convention, or
-  the hour of "now") and when the section unmounts. A change during a run aborts
-  it silently; **Cancel** reports "Cancelled. No files were prepared."
-- Until Phase 3's size guardrails, **Prepare files** is disabled when the
-  ticked datasets' estimates add up to more than 200 MB, with a suggestion
-  (coarser step, smaller margin, fewer datasets). Every cube is held in memory.
-- Analytics: `track('grib_export', { datasets: 'wind-gfs,waves-gfs', window: 'passage', size_bucket: '1-5MB' })`
-  after a successful export (`window` is `passage` or `full`). Buckets: `0-1MB`, `1-5MB`, `5-20MB`, `20-50MB`,
-  `50MB+`. Never coordinates.
+- Each kind shows its model's registry label, availability (`no-layer`: "Not
+  in the current forecast runs."; `no-tiles`: "No data for this area.";
+  `outside-horizon`: "Your dates are beyond this forecast's range."), the UTC
+  time range, the step count and `estBytes`. It adds a partial-coverage note
+  when a chosen regional model (IBI) has unpublished tiles in the box, a
+  horizon note when the model ends before the period (not for Full forecast),
+  and each currents model's disclosure.
+- A download runs `runGribExport` for that one dataset on the main thread.
+  The button becomes **Cancel** with a progress bar. One file builds at a
+  time, and the other buttons wait. The finished file gets a Blob URL. A
+  hidden `<a download>` is clicked to save it, and the kind shows **Saved**,
+  the file name, its size, a **Save again** link (the same Blob URL, for
+  browsers that block the programmatic save) and a collapsed **File
+  details** block: model, run id, base time, grid, area, messages, share of
+  points with data, `fnv64`, the UTC times and the spot values. Clicking the
+  button again re-saves the same file without rebuilding it. Run ids, model
+  ids, file names and hashes sit in `<code>` so the French DOM translator
+  leaves them alone.
+- Blob URLs are revoked when a file is rebuilt, when anything it depends on
+  changes (area, period, step, that kind's model, or the hour of "now") and
+  when the page unmounts. A change during a run aborts it silently;
+  **Cancel** reports "Cancelled. No file was saved."
+- A file whose estimate is over 200 MB is blocked, with "Draw a smaller box or
+  choose a shorter period." Every cube is held in memory.
+- Analytics: `track('grib_export', { datasets: 'wind-ecmwf', window: '3d', size_bucket: '0-1MB' })`
+  after each successful file (`window` is `2d`, `3d`, `5d`, `7d` or `full`).
+  Buckets: `0-1MB`, `1-5MB`, `5-20MB`, `20-50MB`, `50MB+`. Never coordinates.
 - Dev (`viewer-demo`, or any build whose `FORECAST_BASE_URL` is not an
   `https://` URL) reads the local warehouse, so files are named
-  `passage-fixture_…` and the section shows the emulated stamp. The demo
+  `passage-fixture_…` and the page shows the emulated stamp. The demo
   fixture has no forecast runs, so it shows "The forecast runs are
   unavailable…".
-
-### Longitude override (Adrena test)
-
-`#plan/planner?gribLon=signed` switches the files to signed longitudes
-(−180…180); `#plan/planner?gribLon=0-360` switches back. The choice is kept
-in `localStorage` under `deepweather.gribLonConvention` (reads and writes in
-try/catch), because in-app navigation drops the hash query. While `signed` is
-active the section says so. It changes one encoding detail and hides nothing.
-Phase 3 removes the override or makes the chosen value the default.
+- The Phase 2 `gribLon` test override is gone (the 0–360 convention passed
+  in Adrena). A leftover `deepweather.gribLonConvention` key in
+  `localStorage` is ignored.
 
 ## CLI
 
@@ -321,8 +354,9 @@ and at most 33 MB of tiles to fetch (IBI 20 MB of it).
 | Plan and runner: windows, availability, sizes, mosaic with an unpublished tile, Greenwich, CMEMS offsets, abort, 404, checkpoints | `engine/test/exportGrib.test.ts` |
 | `readTile` / `manifestFor`: no LRU effect, shared in-flight load, unpublished tile | `engine/test/tileStore.test.ts` |
 | CLI output = in-process engine output | `engine/test/cliGrib.test.ts` |
-| Planner defaults, availability notes, Save links and their revocation, cancel, rotated runs, `gribLon`, French identifiers | `viewer/test/gribExport.test.jsx` |
-| French copy for the section, the registry labels and the generated text | `viewer/test/i18n.test.js`, `viewer/test/i18nCoverage.test.js` |
+| Page: box snapping, route area, bookmark links, periods, local-first models, one-click save and re-save, revocation, cancel, rotated runs, French identifiers | `viewer/test/gribExport.test.jsx` |
+| Drawing the box on the real map (drag, two clicks, Escape), remembered area, entry points | `viewer/e2e/grib.spec.js` |
+| French copy for the page, the registry labels and the generated text | `viewer/test/i18n.test.js`, `viewer/test/i18nCoverage.test.js` |
 | Golden files re-encode byte-for-byte | `engine/test/exportGrib.test.ts` against `engine/test/fixtures/grib/` |
 | ecCodes decodes every golden file: keys, geometry, values, missing points | `analysis/tests/test_grib_export_contract.py` |
 | Manual inspection | `cd analysis && uv run python scripts/inspect_grib.py <file> [--point lat,lon]` |

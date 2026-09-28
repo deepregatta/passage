@@ -45,7 +45,7 @@ Suite ownership:
 | Location | Runner | Responsibility |
 |---|---|---|
 | `engine/test/` | Vitest | Pure analysis, routing, schemas, tile decoding, GRIB2 export, snapshots, and golden findings |
-| `viewer/test/` | Vitest + Testing Library | UI behavior, localization, persistence, prerendering, saved-snapshot compatibility, and the planner GRIB export (`gribExport.test.jsx`, a real `TileForecastStore` over in-memory fixture tiles) |
+| `viewer/test/` | Vitest + Testing Library | UI behavior, localization, persistence, prerendering, saved-snapshot compatibility, and the GRIB files page (`gribExport.test.jsx`, a real `TileForecastStore` over in-memory fixture tiles) |
 | `viewer/e2e/` | Playwright | Desktop/mobile core flows and reviewed screenshot baselines |
 | `analysis/tests/` | pytest | Provider adapters, route-independent preparation, warnings, tides, observations, verification, and the ecCodes GRIB export contract |
 
