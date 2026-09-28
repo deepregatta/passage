@@ -2,8 +2,9 @@
  * GRIB export dataset registry (docs/grib-export.md): which tile variables
  * each downloadable file carries, and the GRIB2 identification each one is
  * written with. Keys mirror NCEP's own GFS / GFS-Wave messages so apps that
- * read NOAA files recognise these; D is never coarser than the tile or the
- * provider original.
+ * read NOAA files recognise these, and ECMWF's gust mirrors ECMWF's own 10fg
+ * (a maximum over the hours before each step, template 4.8); D is never
+ * coarser than the tile or the provider original.
  */
 
 import type { GribLevel } from './grib2.js';
@@ -31,6 +32,13 @@ export interface GribVariableSpec {
   outputUnit: 'm/s' | 'm' | 's' | 'deg';
   /** packed bits per value assumed by size estimates */
   estBits: number;
+  /**
+   * The tile values are this statistic over the hours before each step:
+   * written with template 4.8, the window taken per step from the run
+   * manifest, which must declare the same statistic. Absent: instantaneous
+   * (template 4.0), and the manifest must not declare one.
+   */
+  statistic?: 'max';
 }
 
 export interface GribDatasetSpec {
@@ -89,6 +97,14 @@ const WIND_VARIABLES: readonly GribVariableSpec[] = [
   wind('gust_kt', 'GUST', 22, SURFACE),
 ];
 
+// ECMWF's gust is the maximum over the 1, 3 or 6 h before each step, at 10 m;
+// ecCodes names these messages 10fg / 10fg3, as in ECMWF's own files.
+const ECMWF_WIND_VARIABLES: readonly GribVariableSpec[] = [
+  wind('wind_u_kt', 'UGRD', 2, LEVEL_10M),
+  wind('wind_v_kt', 'VGRD', 3, LEVEL_10M),
+  { ...wind('gust_kt', 'GUST', 22, LEVEL_10M), statistic: 'max' },
+];
+
 export const GRIB_DATASETS: readonly GribDatasetSpec[] = [
   {
     id: 'wind-gfs',
@@ -110,8 +126,9 @@ export const GRIB_DATASETS: readonly GribDatasetSpec[] = [
     centre: 98,
     generatingProcess: 255,
     hasLand: false,
-    // Gust is exported only when the run's manifest lists it (step-sparse upstream).
-    variables: WIND_VARIABLES,
+    // Gust is exported only when the run's manifest lists it with its windows
+    // (every run up to weather-ecmwf-20260928T00Z is wind-only).
+    variables: ECMWF_WIND_VARIABLES,
   },
   {
     id: 'waves-gfs',

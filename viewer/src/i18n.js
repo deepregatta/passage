@@ -839,6 +839,7 @@ const FR_PATTERNS = [
   [/^(\d+) steps$/, '$1 échéances'],
   [/^(≈ )?(\d+(?:\.\d+)?) (kB|MB)$/, (_match, approx = '', value, unit) => `${approx}${value} ${unit === 'kB' ? 'ko' : 'Mo'}`],
   [/^This forecast ends (.+) UTC, before the end of your period\.$/, 'Cette prévision s’arrête le $1 UTC, avant la fin de votre période.'],
+  [/^Gusts are the maximum over the ((?:\d+, )*\d+(?: or \d+)?) h before each time, as ECMWF publishes them, not an instantaneous value like GFS gusts\.$/, (_match, list) => `Les rafales sont le maximum sur la période de ${list.replace(' or ', ' ou ')} h précédant chaque échéance, telles que publiées par l’ECMWF, et non une valeur instantanée comme les rafales GFS.`],
   [/^This file would be about (\d+(?:\.\d+)?) (kB|MB), over the 200 MB limit\. Draw a smaller box or choose a shorter period\.$/, (_match, value, unit) => `Ce fichier ferait environ ${value} ${unit === 'kB' ? 'ko' : 'Mo'}, au-delà de la limite de 200 Mo. Tracez un cadre plus petit ou choisissez une période plus courte.`],
   [/^(?=.*\d°[NSEW])[\d.°NSEW,–\s]+$/, (match) => match.replace(/°W/g, '°O')],
 ];

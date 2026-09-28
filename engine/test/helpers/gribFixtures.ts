@@ -194,6 +194,30 @@ function southSpec(): FixtureLayerSpec {
   };
 }
 
+/** ECMWF's gust windows in miniature: none at step 0, 1 h to +90 h, 3 h to +144 h, then 6 h. */
+const ECMWF_OFFSETS = [0, 3, 90, 93, 144, 150];
+const ECMWF_WINDOWS = [null, 1, 1, 3, 3, 6];
+
+function ecmwfSpec(): FixtureLayerSpec {
+  const wind = (name: string, scale: number, value: GeoValue) => geo(name, scale, 'steps', value);
+  return {
+    layer: 'weather-ecmwf',
+    model: 'ecmwf_ifs_0p25',
+    cycle: CYCLE,
+    resolution_deg: 0.25,
+    time_axes: { steps: { base: CYCLE, offsets_h: ECMWF_OFFSETS } },
+    variables: [
+      wind('wind_u_kt', 0.01, (t, lat, lon) => -12 + 2 * (lat - 50) + lon + t),
+      wind('wind_v_kt', 0.01, (t, lat, lon) => 7 - (lat - 50) + 0.5 * lon - t),
+      {
+        ...wind('gust_kt', 0.1, (t, lat, lon) => (t === 0 ? NaN : 24 + 3 * (lat - 50) - lon + 2 * t)),
+        statistic: { kind: 'max', window_h: ECMWF_WINDOWS },
+      },
+    ],
+    tiles: [[50, -10]],
+  };
+}
+
 export const GRIB_FIXTURES: readonly GribFixtureDefinition[] = [
   {
     name: 'wind-gfs-golden',
@@ -231,6 +255,19 @@ export const GRIB_FIXTURES: readonly GribFixtureDefinition[] = [
       datasetIds: ['currents-global'],
       startIso: '2026-09-23T00:00Z',
       endIso: '2026-09-23T12:00Z',
+      step: 'all',
+      lonConvention: '0-360',
+    },
+  },
+  {
+    name: 'wind-ecmwf-gust',
+    description: 'ECMWF wind + gust: gust as a max over 1, 3 and 6 h (template 4.8) at 10 m, none at step 0 (skipped)',
+    transport: () => buildFixtureRun([emptyWeather, ecmwfSpec()]),
+    request: {
+      bbox: { minLat: 50, maxLat: 50.75, minLon: -1.75, maxLon: -1 },
+      datasetIds: ['wind-ecmwf'],
+      startIso: '2026-09-23T00:00Z',
+      endIso: '2026-09-29T06:00Z',
       step: 'all',
       lonConvention: '0-360',
     },
@@ -330,7 +367,10 @@ async function expectedMessages(
   const messages: GribExpectedMessage[] = [];
   for (const step of dataset.steps) {
     for (const variable of dataset.variables) {
-      const quantum = manifest.variables.find((v) => v.name === variable.tileVar)!.scale;
+      const listed = manifest.variables.find((v) => v.name === variable.tileVar)!;
+      const quantum = listed.scale;
+      // a statistic (template 4.8) covers the window ending at the step
+      const window = listed.statistic ? listed.statistic.window_h[step.index] ?? null : null;
       const toOutput = (v: number) => (variable.convert === 'kt-to-ms' ? v / MS_TO_KT : v);
       const field: number[] = [];
       for (let kLat = lattice.kN; kLat >= lattice.kS; kLat--) {
@@ -340,6 +380,7 @@ async function expectedMessages(
       }
       const missing = field.filter(Number.isNaN).length;
       if (missing === field.length) continue; // skipped, not written
+      if (listed.statistic && window === null) continue; // no window to label: skipped
       const ints = field.filter((v) => !Number.isNaN(v)).map((v) => Math.round(v * 10 ** variable.decimalScale));
       const range = Math.max(...ints) - Math.min(...ints);
       const pick = new Set([0, lattice.ni - 1, field.length - lattice.ni, field.length - 1,
@@ -363,8 +404,18 @@ async function expectedMessages(
           parameterNumber: variable.number,
           typeOfGeneratingProcess: 2,
           generatingProcessIdentifier: dataset.spec.generatingProcess,
+          productDefinitionTemplateNumber: window === null ? 0 : 8,
           indicatorOfUnitOfTimeRange: 1,
-          forecastTime: step.forecastHours,
+          forecastTime: step.forecastHours - (window ?? 0),
+          ...(window === null ? {} : {
+            typeOfStatisticalProcessing: 2,
+            numberOfTimeRange: 1,
+            typeOfTimeIncrement: 2,
+            indicatorOfUnitForTimeRange: 1,
+            lengthOfTimeRange: window,
+            stepType: 'max',
+            stepRange: `${step.forecastHours - window}-${step.forecastHours}`,
+          }),
           typeOfFirstFixedSurface: variable.level.type,
           scaleFactorOfFirstFixedSurface: 0,
           scaledValueOfFirstFixedSurface: variable.level.value,

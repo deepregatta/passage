@@ -78,7 +78,13 @@ def fixture(request):
 
 
 def test_fixture_set_is_complete():
-    assert NAMES == ["currents-glo12", "waves-greenwich", "wind-gfs-golden", "wind-south"]
+    assert NAMES == [
+        "currents-glo12",
+        "waves-greenwich",
+        "wind-ecmwf-gust",
+        "wind-gfs-golden",
+        "wind-south",
+    ]
     for name in NAMES:
         assert (FIXTURES / f"{name}.expected.json").is_file()
 
@@ -153,3 +159,33 @@ def test_grid_geometry_matches_the_lattice(fixture):
         row = lons.reshape(nj, ni)[0]
         steps = [(b - a) % 360.0 for a, b in zip(row[:-1], row[1:], strict=True)]
         assert steps == pytest.approx([step] * (ni - 1), abs=1e-6), name
+
+
+def test_ecmwf_gust_reads_as_ecmwfs_own_max_over_the_window():
+    """Template 4.8 at 10 m from centre 98 is what ECMWF's open-data files
+    hold, so ecCodes gives the gust ECMWF's names, a max step type and a
+    validity time at the END of the window; an instantaneous (4.0) message
+    would read as i10fg, which ECMWF's gust is not."""
+    expected = json.loads((FIXTURES / "wind-ecmwf-gust.expected.json").read_text())
+    names = {1: "10fg", 3: "10fg3", 6: "10fg"}  # 10fg = since the previous post-processing
+    seen = []
+    with (FIXTURES / "wind-ecmwf-gust.grb2").open("rb") as handle:
+        for want in expected["messages"]:
+            gid = eccodes.codes_grib_new_from_file(handle)
+            try:
+                if want["variable"] != "gust_kt":
+                    assert eccodes.codes_get(gid, "stepType") == "instant"
+                    continue
+                window = want["keys"]["lengthOfTimeRange"]
+                end = eccodes.codes_get(gid, "endStep", int)
+                assert eccodes.codes_get(gid, "shortName") == names[window]
+                assert eccodes.codes_get(gid, "typeOfLevel") == "heightAboveGround"
+                assert eccodes.codes_get(gid, "level", int) == 10
+                assert eccodes.codes_get(gid, "startStep", int) == end - window
+                valid = f"{eccodes.codes_get(gid, 'validityDate')}T{eccodes.codes_get(gid, 'validityTime'):04d}"
+                assert valid == want["time"][:13].replace("-", "") + "00", want["time"]
+                seen.append((end, window))
+            finally:
+                eccodes.codes_release(gid)
+    assert seen == [(3, 1), (90, 1), (93, 3), (144, 3), (150, 6)]
+    assert expected["skipped_messages"] == 1  # step 0: no window, no gust

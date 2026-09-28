@@ -87,7 +87,7 @@ Checked 2026-09-23 against the code and the live data.
 | Layer | Model | Resolution | Tile variables | Time axis |
 |---|---|---|---|---|
 | `weather` | GFS | 0.25° | `wind_u_kt`, `wind_v_kt`, `gust_kt` (axis `hourly`); `visibility_m`, `cape_jkg`, `temp_c`, `dew_point_c`, `precip_mm` (axis `h3`) | hourly: 1 h → 120 h, then 3 h → 240 h (161 steps) |
-| `weather-ecmwf` | ECMWF open IFS | 0.25° | `wind_u_kt`, `wind_v_kt` (gust currently absent: step-sparse upstream) | `steps`: 3 h → 144 h, 6 h → 240 h (65) |
+| `weather-ecmwf` | ECMWF open IFS | 0.25° | `wind_u_kt`, `wind_v_kt` (gust was absent until 2026-09-28: the ingest asked for one gust name, and ECMWF names it by its window, `10fg` / `10fg3`; fixed that day, so runs from the next scheduled ingest on carry `gust_kt` with a `statistic` window per step, see `docs/grib-export.md`) | `steps`: 3 h → 144 h, 6 h → 240 h (65) |
 | `waves` | GFS-Wave | 0.25° | `hs_m`, `period_s`, `dir_deg`, `wind_wave_h_m`, `wind_wave_period_s`, `wind_wave_dir_deg`, `swell_h_m`, `swell_period_s`, `swell_dir_deg` | `steps`: 3 h → 384 h (129) |
 | `currents` | CMEMS GLO12 | 1/12° (runs before 2026-09-24: header dlat 0.08333588) | `cur_u_kt`, `cur_v_kt` | `steps`: 6 h → 240 h (41) |
 | `currents-ibi` | CMEMS IBI | ≈1/36° (0.02777863) | `cur_u_kt`, `cur_v_kt` | hourly → 72 h (73); IBI domain only (11 tiles) |
@@ -858,7 +858,9 @@ anything wrong:
    versus local time.
 5. Wind at the spot point matches Passage's spot values (±1 kt, ±5°), and the
    arrows blow in the stated direction.
-6. Gust is shown, if Adrena displays gust.
+6. Gust is shown, if Adrena displays gust. ECMWF gusts (from the first weather-ecmwf run after 2026-09-28) are a
+   maximum over the 1, 3 or 6 h before each time (GRIB template 4.8, at
+   10 m): check that they are shown as gust too, not as an unknown parameter.
 7. Waves: significant height, period and direction are recognised (not an
    "unknown parameter"). The swell and wind-wave fields are recognised.
 8. Currents are recognised as currents, not as wind. The direction matches the
@@ -874,6 +876,7 @@ anything wrong:
 | Centre 255 rejected | Import error on current files | Try centre 7 for currents, documented as a compatibility choice |
 | Adrena needs GRIB1 | Import fails for all files | Write a GRIB1 encoder (a separate, small plan; the lattice and dataset logic are reused) |
 | Swell partitions at level 241 ignored | Checklist 7 | Encode the swell fields at level 1/1 |
+| ECMWF gust (template 4.8, 10 m) ignored | Checklist 6 | Try the surface level (1/0), which Adrena already reads for GFS gust; template 4.0 only as a last resort, documented as a compatibility choice, because it labels a 1–6 h maximum as an instantaneous gust |
 | IBI tiles make downloads heavy | Phase 4 measurements | Phase 4 decision rules |
 | Run rotated mid-session (404) | Tile fetch error | "Forecast updated — reload" message |
 | GRIB values differ slightly from the briefing | Contract tolerance | Expected (≤ 0.1 m/s wind rounding at D=1); documented in `docs/grib-export.md` |

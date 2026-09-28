@@ -201,7 +201,17 @@ export function gribPartial(dataset) {
   return GRIB_REGIONAL_DATASETS.has(dataset.datasetId) && dataset.tiles.some((tile) => !tile.present);
 }
 
-/** Page notes per planned dataset: time range, horizon and coverage. */
+/**
+ * The distinct windows (h) of a planned file's gust when it is written as a
+ * maximum over the hours before each step (ECMWF), else none.
+ */
+export function gribGustWindows(dataset) {
+  const index = dataset.variables.findIndex((variable) => variable.tileVar === 'gust_kt' && variable.statistic);
+  const windows = index < 0 ? null : dataset.windowsH?.[index];
+  return windows ? [...new Set(windows.filter((w) => w !== null))].sort((a, b) => a - b) : [];
+}
+
+/** Page notes per planned dataset: time range, horizon, coverage and gust windows. */
 export function describeGribDataset(dataset, window) {
   const ok = dataset.availability === 'ok';
   const first = ok ? dataset.steps[0]?.time ?? null : null;
@@ -213,6 +223,7 @@ export function describeGribDataset(dataset, window) {
     steps: ok ? dataset.steps.length : 0,
     horizonShort: ok && last !== null && Date.parse(last) < Date.parse(window.endIso),
     partial: gribPartial(dataset),
+    gustWindows: ok ? gribGustWindows(dataset) : [],
   };
 }
 
@@ -304,6 +315,12 @@ export function fmtGribSteps(count) {
 
 export function fmtHorizonShort(lastIso) {
   return `This forecast ends ${fmtTime(lastIso)} UTC, before the end of your period.`;
+}
+
+/** ECMWF's gust is a maximum over the hours before each step, GFS's an instant. */
+export function fmtGustWindows(windows) {
+  const list = windows.length > 1 ? `${windows.slice(0, -1).join(', ')} or ${windows.at(-1)}` : String(windows[0]);
+  return `Gusts are the maximum over the ${list} h before each time, as ECMWF publishes them, not an instantaneous value like GFS gusts.`;
 }
 
 export function fmtTooLarge(bytes) {

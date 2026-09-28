@@ -4,7 +4,7 @@
  * Values are analytic so tests can assert exact expectations.
  */
 
-import { encodeTile, type TileHeader, type TileVariable } from '../../src/forecast/tileCodec.js';
+import { encodeTile, type TileHeader, type TileVariable, type VariableStatistic } from '../../src/forecast/tileCodec.js';
 import { gzipSync } from 'node:zlib';
 import { fnv1a64Hex } from '../../src/hash.js';
 import type { LatestDoc, RunManifest, TileFetchOptions, TileTransport } from '../../src/forecast/store.js';
@@ -15,6 +15,8 @@ export interface FixtureVariable {
   dtype: 'i16' | 'i8';
   scale: number;
   per_member?: boolean;
+  /** written to the tile header and the manifest as is */
+  statistic?: VariableStatistic;
   /** value(member, timeIdx, latIdx, lonIdx, tile native grid); NaN = missing */
   value: (m: number, t: number, i: number, j: number, grid: FixtureTileGrid) => number;
 }

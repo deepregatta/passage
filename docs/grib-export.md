@@ -9,7 +9,11 @@ Status: the engine, the CLI and the contract tests landed in Phase 1. Since
 Phase 2 (2026-09-24) GRIB downloads are live in production for everyone, in
 English and French. Adrena accepted the wind and currents files on
 2026-09-27, including a box across 0°. On 2026-09-28 the planner section
-became its own **GRIB files** page (Plan → GRIB files, `#plan/grib`).
+became its own **GRIB files** page (Plan → GRIB files, `#plan/grib`). Also
+on 2026-09-28 the ECMWF ingest was fixed to publish gusts from its next
+scheduled run on, and ECMWF wind files carry them as ECMWF's own maximum over
+the 1, 3 or 6 h before each step, written with template 4.8
+([Gusts over a window](#gusts-over-a-window-template-48)).
 
 ## Overview
 
@@ -40,6 +44,7 @@ top bit is the sign, not two's complement.
 | 1 Identification | 21 | length, 1, centre (u16), subCentre (u16) 0, masterTablesVersion 2, localTablesVersion 0, significanceOfRefTime 1, year (u16), month, day, hour, minute, second = the **layer's model cycle**, productionStatus 0, typeOfProcessedData 1 |
 | 3 Grid (template 3.0) | 72 | length, 3, source 0, numberOfDataPoints Ni·Nj (u32), 0, 0, template 0 (u16); shapeOfTheEarth 6, then 3× (scale factor 0xFF, value 0xFFFFFFFF); Ni, Nj (u32); basicAngle 0; subdivisions 0xFFFFFFFF; La1 (s32 µ°); Lo1 (µ°); resolutionAndComponentFlags 0x30; La2; Lo2; Di (u32 µ°); Dj (u32 µ°); scanningMode 0x00 |
 | 4 Product (template 4.0) | 34 | length, 4, NV 0 (u16), template 0 (u16), category, number, typeOfGeneratingProcess 2, backgroundProcess 0, generatingProcessIdentifier, hoursAfterCutoff 0 (u16), minutesAfterCutoff 0, unitOfTimeRange 1, forecastTime (u32 hours from the cycle), typeOfFirstFixedSurface, scaleFactorOfFirst 0, scaledValueOfFirst (u32), typeOfSecond 255, scaleFactorOfSecond 0xFF, scaledValueOfSecond 0xFFFFFFFF |
+| 4 Product (template 4.8, a statistic) | 58 | as 4.0 with template 8 and forecastTime = the **start** of the window, then: end of the overall time interval (year u16, month, day, hour, minute, second = cycle + step), numberOfTimeRanges 1, numberOfMissing 0 (u32), typeOfStatisticalProcessing (2 = maximum), typeOfTimeIncrement 2, unitForTimeRange 1 (hour), lengthOfTimeRange (u32 hours), unitForTimeIncrement 255, timeIncrement 0 (u32) |
 | 5 Data representation (template 5.0) | 21 | length, 5, numberOfValues = present count (u32), template 0 (u16), R (IEEE float32), E = 0 (s16), D (s16), bitsPerValue, typeOfOriginalFieldValues 0 |
 | 6 Bitmap | 6 or 6+⌈N/8⌉ | length, 6, indicator 255 (no missing values) or 0 followed by the bitmap: MSB first, 1 = value present, zero-padded |
 | 7 Data | 5+⌈count·nbits/8⌉ | length, 7, packed values: MSB first, zero-padded |
@@ -47,6 +52,55 @@ top bit is the sign, not two's complement.
 
 Flags 0x30: both increments given; u/v components are relative to east/north
 (earth-relative, as NCEP writes them).
+
+### Gusts over a window (template 4.8)
+
+GFS's `GUST` is an instantaneous value at the step, so it is written like
+NCEP's own message: template 4.0 at the surface (1/0), which ecCodes calls
+`gust`. ECMWF's 10 m gust is not: it is the **maximum over the hours before
+the step**, and ECMWF's open-data files name it by that window. Read from the
+`.index` files of the 2026-09-28T00Z run:
+
+| Steps | ECMWF name | GRIB `stepRange` | Window |
+|---|---|---|---|
+| 0 | `10fg` | `0` | none (a constant zero field; not exported) |
+| +3 … +90 h | `10fg` ("since the previous post-processing", hourly to +90 h) | `2-3` … `89-90` | 1 h |
+| +93 … +144 h | `10fg3` | `90-93` … `141-144` | 3 h |
+| +150 … +240 h | `10fg` | `144-150` … `234-240` | 6 h |
+
+forecast-tiles publishes each step's window in the manifest (`statistic`,
+[tile format](forecast-tile-format.md#json-header)), and the ECMWF gust is
+written with **template 4.8**: typeOfStatisticalProcessing 2 (maximum),
+lengthOfTimeRange = that step's window, forecastTime = step − window, at
+10 m above ground (103/10). That is ECMWF's own encoding, so ecCodes reads
+these messages as ECMWF's files: `10fg` (1 h and 6 h windows) or `10fg3`,
+step type `max`, `stepRange` `start-end`, valid at the end of the window.
+The remaining differences are ours: generatingProcessIdentifier 255 (ECMWF:
+161), backgroundProcess 0 (255), and time increment 255/0, as NCEP writes
+its template-4.8 precipitation (ECMWF gives the model time step, 450 s,
+which the tiles don't carry).
+
+Template 4.0 was rejected: at 10 m it reads as `i10fg`, an **instantaneous**
+gust, which this value is not. A maximum over 1–6 h runs systematically higher
+than an instant gust, and the window changes along the run, which only 4.8
+can state message by message. GRIB readers already meet 4.8 in NOAA files
+(GFS precipitation `APCP`); whether Adrena shows this gust is item 6 of the
+tester checklist ([plan](grib-export-plan.md#adrena-test-end-of-phase-2)).
+
+The registry declares which variables are statistics (`statistic: 'max'`),
+and the plan only exports such a variable when the run's manifest declares
+the same statistic with one window per axis step (and an instantaneous one
+only when the manifest declares none). Every weather-ecmwf run up to
+`weather-ecmwf-20260928T00Z` is wind-only, so its files have no gust.
+
+Checked on 2026-09-28, before any gust run was published: a dry-run ingest
+of the 20260928T12Z cycle, exported with the CLI for the Channel (49–51°N,
+6°W–2°E, +12 … +138 h, 43 times) next to production GFS 20260928T00Z at the
+same valid times. ecCodes read the ECMWF gusts as 27 `10fg` (1 h) and 16
+`10fg3` (3 h) messages. Box-mean gust was 14.9 kt against GFS's 13.9 kt, and
+the box means correlated at 0.92 over time. Gust ÷ wind averaged 1.72 against 1.33,
+the gap coming from light winds and the 3 h windows. Every ECMWF gust was
+at least the wind speed − 2 kt.
 
 ### Simple packing
 
@@ -127,7 +181,8 @@ neighbouring tile across a 10° line that the lattice edge sits exactly on.
   A step equal to `start` or `end` needs no neighbour. Clipped to the axis.
 - A window entirely before or after the axis is `outside-horizon`.
 - `forecastTime` = whole hours from the layer's cycle, which is also the
-  section-1 reference time.
+  section-1 reference time. For a statistic (template 4.8) it is the start
+  of the window, and the end of the overall time interval is the step's time.
 - Message order: step-major, then variables in registry order.
 
 ## Dataset registry
@@ -140,7 +195,8 @@ typeOfGeneratingProcess 2, shapeOfTheEarth 6, scanningMode 0, hours).
 |---|---|---|---|---|---|---|
 | `wind-gfs` | `weather` | `wind_u_kt` → 0/2/2 UGRD · `wind_v_kt` → 0/2/3 VGRD | 103/10 | m/s (kt ÷ 1.943844) | 1 | 7 / 96 |
 |  |  | `gust_kt` → 0/2/22 GUST | 1/0 | m/s | 1 |  |
-| `wind-ecmwf` | `weather-ecmwf` | as `wind-gfs`; gust **only if the manifest lists it** | as above | m/s | 1 | 98 / 255 |
+| `wind-ecmwf` | `weather-ecmwf` | `wind_u_kt`, `wind_v_kt` as `wind-gfs` | 103/10 | m/s | 1 | 98 / 255 |
+|  |  | `gust_kt` → 0/2/22, **maximum over the step's window** (template 4.8), only if the manifest lists it with its `statistic` | 103/10 | m/s | 1 |  |
 | `waves-gfs` | `waves` | `hs_m` 10/0/3 HTSGW · `period_s` 10/0/11 PERPW · `dir_deg` 10/0/10 DIRPW · `wind_wave_h_m` 10/0/5 WVHGT · `wind_wave_period_s` 10/0/6 WVPER · `wind_wave_dir_deg` 10/0/4 WVDIR | 1/1 | m, s, ° true | 2 (heights), 1 (periods, directions) | 7 / 11 |
 |  |  | `swell_h_m` 10/0/8 SWELL · `swell_period_s` 10/0/9 SWPER · `swell_dir_deg` 10/0/7 SWDIR | 241/1 |  | 2 / 1 / 1 |  |
 | `currents-global` | `currents` | `cur_u_kt` → 10/1/2 UOGRD · `cur_v_kt` → 10/1/3 VOGRD | 1/0 (fallback 160/0) | m/s | 2 | 255 / 255 |
@@ -156,7 +212,7 @@ typeOfGeneratingProcess 2, shapeOfTheEarth 6, scanningMode 0, hours).
   land (a bitmap, counted in size estimates), and estimated bits per value
   (wind 10, gust 10, heights 11, periods 9, directions 12, currents 10).
 - Reader names: ecCodes calls the wind and wave messages `10u`, `10v`,
-  `gust`, `swh`, `perpw`, `dirpw`, `shww` and so on, but shows the currents as
+  `gust` (GFS), `10fg` / `10fg3` (ECMWF), `swh`, `perpw`, `dirpw`, `shww` and so on, but shows the currents as
   `unknown`. Its only GRIB2 surface-current concepts (`ocu`/`ocv`) are
   time-averaged fields (template 4.8) at level 160, so no instantaneous
   10/1/2 message gets a name. Readers using NCEP tables (wgrib2, g2clib) name
@@ -173,9 +229,13 @@ typeOfGeneratingProcess 2, shapeOfTheEarth 6, scanningMode 0, hours).
   domain) or `outside-horizon`.
 - the lattice, the selected steps, the tiles (published ones in manifest
   order, then unpublished ones, which stay missing), the message count,
+- `windowsH`: per exported variable, null when instantaneous, else the window
+  in hours ending at each selected step, from the manifest (null at a step
+  with no value, such as ECMWF's step 0),
 - `estBytes` = messages × (179 bytes of sections + bitmap if the dataset has
-  land + ⌈points·estBits/8⌉), and `downloadBytesUpperBound` = the manifest
-  bytes of the published tiles (a cold-cache fetch).
+  land + ⌈points·estBits/8⌉), plus 24 bytes per template-4.8 message, and
+  `downloadBytesUpperBound` = the manifest bytes of the published tiles (a
+  cold-cache fetch).
 
 ## Files, summary and honesty rules
 
@@ -188,7 +248,10 @@ typeOfGeneratingProcess 2, shapeOfTheEarth 6, scanningMode 0, hours).
   `name`, the message `parts`, total `bytes`, `fnv64` (FNV-1a 64 of the whole
   file), `messages`, `skippedMessages`, `run_id`, `cycle`, `model`, `times`,
   `grid` (Ni, Nj, corners in exact degrees, step, longitude convention),
-  `coverage` (present fraction over all messages) and `checkpoints`.
+  `coverage` (present fraction over all messages), `statistics` (for each
+  variable written with template 4.8: `{kind, window_h}` aligned with
+  `times`) and `checkpoints`. A statistic step without a window (ECMWF's step
+  0) is skipped and counted, never written as an instantaneous value.
 - `checkpoints`: for each requested point, the lattice point nearest to it
   (clamped into the box) for the first three steps, computed from the
   **rounded values actually written**. Wind: `wind_kt` (0.1) and
@@ -296,7 +359,10 @@ picks overrides the default wherever it is available.
   time range, the step count and `estBytes`. It adds a partial-coverage note
   when a chosen regional model (IBI) has unpublished tiles in the box, a
   horizon note when the model ends before the period (not for Full forecast),
-  and each currents model's disclosure.
+  and each currents model's disclosure. An ECMWF wind file with gusts adds
+  "Gusts are the maximum over the 1, 3 or 6 h before each time, as ECMWF
+  publishes them, not an instantaneous value like GFS gusts." (the windows
+  in its planned steps).
 - A download runs `runGribExport` for that one dataset on the main thread.
   The button becomes **Cancel** with a progress bar. One file builds at a
   time, and the other buttons wait. The finished file gets a Blob URL. A
@@ -353,15 +419,15 @@ and at most 33 MB of tiles to fetch (IBI 20 MB of it).
 
 | Check | Where |
 |---|---|
-| Encoder: section lengths, sign-magnitude, bit order, constant and all-missing fields | `engine/test/grib2.test.ts` |
-| Plan and runner: windows, availability, sizes, mosaic with an unpublished tile, Greenwich, CMEMS offsets, abort, 404, checkpoints | `engine/test/exportGrib.test.ts` |
+| Encoder: section lengths, sign-magnitude, bit order, constant and all-missing fields, template 4.8 | `engine/test/grib2.test.ts` |
+| Plan and runner: windows, availability, sizes, mosaic with an unpublished tile, Greenwich, CMEMS offsets, abort, 404, checkpoints, ECMWF gust windows and the registry–manifest statistic agreement | `engine/test/exportGrib.test.ts` |
 | `readTile` / `manifestFor`: no LRU effect, shared in-flight load, unpublished tile | `engine/test/tileStore.test.ts` |
 | CLI output = in-process engine output | `engine/test/cliGrib.test.ts` |
 | Page: box snapping, route area, bookmark links, periods, local-first models, one-click save and re-save, revocation, cancel, rotated runs, French identifiers | `viewer/test/gribExport.test.jsx` |
 | Drawing the box on the real map (drag, two clicks, Escape), remembered area, entry points | `viewer/e2e/grib.spec.js` |
 | French copy for the page, the registry labels and the generated text | `viewer/test/i18n.test.js`, `viewer/test/i18nCoverage.test.js` |
 | Golden files re-encode byte-for-byte | `engine/test/exportGrib.test.ts` against `engine/test/fixtures/grib/` |
-| ecCodes decodes every golden file: keys, geometry, values, missing points | `analysis/tests/test_grib_export_contract.py` |
+| ecCodes decodes every golden file: keys, geometry, values, missing points; the ECMWF gust reads as `10fg` / `10fg3`, `max`, valid at the window end | `analysis/tests/test_grib_export_contract.py` |
 | Manual inspection | `cd analysis && uv run python scripts/inspect_grib.py <file> [--point lat,lon]` |
 
 Golden fixtures (regenerate with `npm run make:grib-fixtures -w engine` after
@@ -373,6 +439,7 @@ contract test):
 | `wind-gfs-golden` | GFS wind + gust from the shared golden PFT1 tile: 8×8 points, 4 hourly steps, one missing point |
 | `waves-greenwich` | GFS-Wave from two tiles across 0° (0–360 wrap), land bitmap, swell level 241, constant fields, one all-missing message skipped |
 | `currents-glo12` | 1/12° lattice (µ° step 83333), negative components, land bitmap, D = 2 |
+| `wind-ecmwf-gust` | ECMWF wind + gust: template 4.8 with 1, 3 and 6 h windows at 10 m, step 0 skipped (no window) |
 | `wind-south` | southern hemisphere with the signed convention: negative latitudes and longitudes |
 
 Each `<name>.expected.json` lists, per message, the ecCodes keys and about six

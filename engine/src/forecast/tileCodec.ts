@@ -16,6 +16,17 @@ export interface TimeAxis {
   offsets_h: number[];
 }
 
+/**
+ * Set when each value is a statistic over the interval ending at its step
+ * rather than an instantaneous value (ECMWF gust: the maximum over the last
+ * 1, 3 or 6 h). Absent: instantaneous.
+ */
+export interface VariableStatistic {
+  kind: 'max';
+  /** one entry per step of the variable's axis: interval hours, null where the step has no value */
+  window_h: Array<number | null>;
+}
+
 export interface TileVariable {
   name: string;
   axis: string;
@@ -24,6 +35,7 @@ export interface TileVariable {
   offset?: number;
   missing?: number;
   per_member?: boolean;
+  statistic?: VariableStatistic;
   byte_offset: number;
   byte_length: number;
 }

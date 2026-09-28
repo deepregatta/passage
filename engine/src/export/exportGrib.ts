@@ -74,6 +74,8 @@ export interface GribExportFile {
   };
   /** fraction of present values over every grid point of every message */
   coverage: number;
+  /** variables written as a statistic (template 4.8): the window in hours ending at each of `times` */
+  statistics: Record<string, { kind: 'max'; window_h: Array<number | null> }>;
   checkpoints: GribCheckpoint[];
 }
 
@@ -235,6 +237,14 @@ async function encodeFile(
       signal?.throwIfAborted();
       const variable = dataset.variables[v]!;
       const cube = cubes[v]!;
+      const windows = dataset.windowsH[v] ?? null;
+      const windowHours = windows ? windows[s] ?? null : null;
+      if (windows && windowHours === null) {
+        // A statistic with no window here (ECMWF gust at step 0) has nothing to label.
+        skipped += 1;
+        tick();
+        continue;
+      }
       for (let k = 0; k < plane; k++) {
         const value = toOutputUnits(variable, cube[s * plane + k]!);
         field[k] = value;
@@ -246,6 +256,7 @@ async function encodeFile(
         generatingProcess: spec.generatingProcess,
         cycle: dataset.cycle!,
         forecastHours: step.forecastHours,
+        ...(windowHours !== null ? { statistic: { processing: 2 as const, windowHours } } : {}),
         category: variable.category,
         number: variable.number,
         level: variable.level,
@@ -289,6 +300,12 @@ async function encodeFile(
       lon_convention: lonConvention,
     },
     coverage: dataset.messages ? presentValues / (dataset.messages * plane) : 0,
+    statistics: Object.fromEntries(
+      dataset.variables.flatMap((variable, v) => {
+        const windows = dataset.windowsH[v];
+        return variable.statistic && windows ? [[variable.tileVar, { kind: variable.statistic, window_h: windows }]] : [];
+      }),
+    ),
     checkpoints: (plan.request.checkpoints ?? []).map((point) => checkpoint(point, dataset, cubes)),
   };
 }
