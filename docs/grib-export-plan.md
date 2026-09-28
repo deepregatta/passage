@@ -556,7 +556,12 @@ Exit criteria:
 
 - [x] Adrena sign-off recorded here: 2026-09-27, Adrena basic edition on
       Windows, wind + currents, box across 0°.
-- [ ] Fixes and refinements live on production, EN and FR; CI green; docs updated.
+- [x] Fixes and refinements live on production, EN and FR; CI green; docs
+      updated. CI run 36479242380 on `74d9dfb`. Production smoke test
+      (2026-09-28, `?dr_traffic=qa`): box 48.9–51°N, 4.7°W–1.2°E, next 3
+      days. The wind (ECMWF, `fb92d51c7f27dd41`) and currents (IBI,
+      `5964449b10638a6b`) files match the CLI `fnv64` for the same box,
+      window and runs. `/fr/` has no English left.
 
 ## Phase 4 — Measure and decide (optional)
 
