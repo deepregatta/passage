@@ -266,7 +266,9 @@ describe('GRIB files page', () => {
   it('offers one download per kind with the local model, its times, size and notes', async () => {
     await openWith(CHANNEL);
     expect(mapState.rectangle.bounds).toEqual([[50.2, -9.9], [50.9, -9.1]]);
-    expect(screen.getByRole('button', { name: 'Redraw the box' })).toBeInTheDocument();
+    // corner handles adjust an existing box; there is no redraw button
+    expect(screen.queryByRole('button', { name: /Draw a box|Redraw/ })).not.toBeInTheDocument();
+    expect(page().getByText('Drag a corner of the box to adjust it.')).toBeInTheDocument();
     expect(page().getByText('50.2°N–50.9°N, 9.9°W–9.1°W')).toBeInTheDocument();
     // the period, and ECMWF wind which covers all of it
     expect(page().getAllByText('Mon 20 Jul 06:00 → Thu 23 Jul 06:00 UTC')).toHaveLength(2);

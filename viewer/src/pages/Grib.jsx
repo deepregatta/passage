@@ -433,7 +433,7 @@ export default function Grib() {
               ) : area ? (
                 <>
                   <p className="font-mono text-[13px]">{fmtGribBox(area)}</p>
-                  <p className="text-[12px] text-ink-soft">Drag a corner of the box to adjust it, or redraw it.</p>
+                  <p className="text-[12px] text-ink-soft">Drag a corner of the box to adjust it.</p>
                 </>
               ) : (
                 <p>Move the chart to your sailing area, press Draw a box, then drag across the chart.</p>

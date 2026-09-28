@@ -248,8 +248,11 @@ The page is three numbered steps next to the chart:
    across the chart, or click two opposite corners. Panning pauses while
    drawing; Escape or **Cancel** leaves. The box snaps outward to 0.1°, is at
    least 0.25° on each side, and is clamped (never wrapped) to ±90° / ±180°,
-   so it cannot cross the 180° meridian. Corner handles resize it;
-   **Redraw the box** starts again.
+   so it cannot cross the 180° meridian. Once a box exists the **Draw a box**
+   button goes away and the four corner handles resize it (drag one; the
+   opposite corner stays put). The handles' positions are memoised per box:
+   react-leaflet moves a marker whenever its `position` prop is a new array,
+   so re-rendering during a drag would snap the handle back.
 2. **Period.** Next 2, 3 (default), 5 or 7 days, or **Full forecast**, from
    now floored to the hour. Full runs to the last step of the longest pinned
    forecast (`gribForecastEnd`: the end of the time axes the registry

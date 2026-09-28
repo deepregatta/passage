@@ -533,7 +533,8 @@ Tasks:
 1. [x] Adrena fixes: none needed. The `gribLon` override and its
    `localStorage` key are removed; `0-360` is the only convention.
 2. [x] **GRIB files page** (`#plan/grib`, the Plan stage's **GRIB files**
-   tab). Draw a box (drag or two clicks, then corner handles), choose a
+   tab). Draw a box (drag or two clicks; corner handles resize it, no redraw
+   button since 2026-09-28), choose a
    period, click **Download wind / currents / waves**. Each click builds and
    saves one file. Local model first: ECMWF wind in Europe, IBI currents
    where they cover the whole box. The area and choices are remembered, and
