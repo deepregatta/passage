@@ -133,18 +133,43 @@ describe('planGribExport', () => {
       .datasets[0]!.fileName).toBe('passage-fixture_wind-gfs_20260720T00Z_N49W001_N51E001.grb2');
   });
 
-  it('exports ECMWF gust only when the run lists it', async () => {
-    const ecmwf = (withGust: boolean): FixtureLayerSpec => ({
+  it('exports ECMWF gust only when the run lists it as a max with a window per step', async () => {
+    const windows = HOURLY.map((h) => (h === 0 ? null : h <= 2 ? 1 : 3));
+    const gust = weatherSpec().variables.find((v) => v.name === 'gust_kt')!;
+    const ecmwf = (variant: 'none' | 'instant' | 'short' | 'max'): FixtureLayerSpec => ({
       ...weatherSpec(), layer: 'weather-ecmwf', model: 'ecmwf_ifs_0p25',
-      variables: weatherSpec().variables.filter((v) => withGust || v.name !== 'gust_kt'),
+      variables: [
+        ...weatherSpec().variables.filter((v) => v.name !== 'gust_kt'),
+        ...(variant === 'none' ? [] : [{
+          ...gust,
+          ...(variant === 'instant' ? {} : { statistic: { kind: 'max' as const, window_h: variant === 'short' ? windows.slice(1) : windows } }),
+        }]),
+      ],
     });
-    for (const withGust of [false, true]) {
-      const { manifests } = await storeFor([weatherSpec(), ecmwf(withGust)]);
-      const plan = planGribExport(manifests, request({ datasetIds: ['wind-ecmwf'] })).datasets[0]!;
-      expect(plan.variables.map((v) => v.tileVar)).toEqual(
-        withGust ? ['wind_u_kt', 'wind_v_kt', 'gust_kt'] : ['wind_u_kt', 'wind_v_kt'],
-      );
+    const planFor = async (variant: Parameters<typeof ecmwf>[0]) => {
+      const { manifests } = await storeFor([weatherSpec(), ecmwf(variant)]);
+      return planGribExport(manifests, request({ datasetIds: ['wind-ecmwf'] })).datasets[0]!;
+    };
+    const wind = ['wind_u_kt', 'wind_v_kt'];
+    // An instantaneous gust, or windows that don't cover the axis, can't be written as ECMWF's max.
+    for (const variant of ['none', 'instant', 'short'] as const) {
+      const plan = await planFor(variant);
+      expect(plan.variables.map((v) => v.tileVar), variant).toEqual(wind);
+      expect(plan.windowsH).toEqual([null, null]);
     }
+    const plan = await planFor('max');
+    expect(plan.variables.map((v) => v.tileVar)).toEqual([...wind, 'gust_kt']);
+    expect(plan.steps.map((s) => s.forecastHours)).toEqual([1, 2, 3, 6, 9]);
+    expect(plan.windowsH).toEqual([null, null, [1, 1, 3, 3, 3]]);
+    // Template 4.8 adds 24 bytes to each gust message.
+    expect(plan.estBytes).toBe(15 * (179 + Math.ceil((81 * 10) / 8)) + 5 * 24);
+
+    // And the reverse: GFS gust is instantaneous, so a run declaring a statistic drops it.
+    const gfsMax = weatherSpec({
+      variables: [...weatherSpec().variables.filter((v) => v.name !== 'gust_kt'), { ...gust, statistic: { kind: 'max', window_h: windows } }],
+    });
+    const { manifests } = await storeFor([gfsMax]);
+    expect(planGribExport(manifests, request()).datasets[0]!.variables.map((v) => v.tileVar)).toEqual(wind);
   });
 
   it('rejects antimeridian-crossing, inverted and out-of-range requests', async () => {
@@ -205,6 +230,44 @@ describe('runGribExport', () => {
     expect(messages.map((m) => `${m.product.forecastTime}:${m.product.number}`)).toEqual([
       '1:2', '1:3', '2:3', '3:2', '3:3', '6:2', '6:3', '9:2', '9:3',
     ]);
+  });
+
+  it('writes ECMWF gust as a max over each step\'s own window and skips step 0, which has none', async () => {
+    // ECMWF's pattern in miniature: 1 h windows to +90 h, then 3 h, then 6 h.
+    const offsets = [0, 3, 90, 93, 144, 150];
+    const windows = [null, 1, 1, 3, 3, 6];
+    const spec: FixtureLayerSpec = {
+      ...weatherSpec(), layer: 'weather-ecmwf', model: 'ecmwf_ifs_0p25',
+      time_axes: { steps: { base: CYCLE, offsets_h: offsets } },
+      variables: [
+        geoVar('wind_u_kt', 0.01, 'steps', uKt),
+        geoVar('wind_v_kt', 0.01, 'steps', vKt),
+        { ...geoVar('gust_kt', 0.1, 'steps', (t, lat) => (t === 0 ? NaN : gustKt(t, lat))), statistic: { kind: 'max', window_h: windows } },
+      ],
+    };
+    const { file, messages } = await exportOne([weatherSpec(), spec], request({
+      datasetIds: ['wind-ecmwf'], startIso: CYCLE, endIso: '2026-07-26T06:00Z', checkpoints: [{ lat: 49.5, lon: -0.5 }],
+    }));
+    expect(file).toMatchObject({ messages: 17, skippedMessages: 1 });
+    expect(file.statistics).toEqual({ gust_kt: { kind: 'max', window_h: windows } });
+    const gust = messages.filter((m) => m.product.number === 22);
+    expect(gust.map((m) => [m.product.template, m.product.forecastTime, m.product.statistic!.length, m.product.statistic!.end]))
+      .toEqual([
+        [8, 2, 1, '2026-07-20T03:00:00Z'],
+        [8, 89, 1, '2026-07-23T18:00:00Z'],
+        [8, 90, 3, '2026-07-23T21:00:00Z'],
+        [8, 141, 3, '2026-07-26T00:00:00Z'],
+        [8, 144, 6, '2026-07-26T06:00:00Z'],
+      ]);
+    expect(gust.every((m) => m.product.levelType === 103 && m.product.levelValue === 10 && m.product.statistic!.processing === 2))
+      .toBe(true);
+    // wind stays instantaneous, including at step 0
+    expect(messages.filter((m) => m.product.number !== 22).map((m) => [m.product.template, m.product.forecastTime]))
+      .toEqual(offsets.flatMap((h) => [[0, h], [0, h]]));
+    expect(gust[0]!.values[0]).toBe(gribRound(quantized(gustKt(1, 51), 0.1) / MS_TO_KT, 1));
+    // spot values come back from the rounded m/s actually written
+    const spot = (t: number) => Math.round(gribRound(quantized(gustKt(t, 49.5), 0.1) / MS_TO_KT, 1) * MS_TO_KT * 10) / 10;
+    expect(file.checkpoints[0]!.steps.map((step) => step.values.gust_kt)).toEqual([null, spot(1), spot(2)]);
   });
 
   it('reports checkpoint spot values from the rounded values actually written', async () => {

@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FORECAST_UPDATED_MESSAGE, GRIB_DATASETS, GRIB_EXPORT_NOTICE } from '@deepweather/engine';
 import { LocalizedDocument, getDefaultLanguage, getInitialLanguage, getLanguageFromPath, translateText } from '../src/i18n.js';
 import {
-  fmtGribArea, fmtGribBox, fmtGribBytes, fmtGribSteps, fmtHorizonShort, fmtLatLon, fmtTooLarge, fmtUtc, fmtUtcRange,
+  fmtGribArea, fmtGribBox, fmtGribBytes, fmtGribSteps, fmtGustWindows, fmtHorizonShort, fmtLatLon, fmtTooLarge, fmtUtc, fmtUtcRange,
 } from '../src/lib/gribExport.js';
 
 afterEach(() => {
@@ -249,6 +249,8 @@ describe('GRIB files page copy', () => {
     [fmtUtc('2026-07-20T00:00:00Z'), 'lun. 20 juil. 00:00 UTC'],
     [fmtHorizonShort('2026-07-21T00:00:00Z'), 'Cette prévision s’arrête le mar. 21 juil. 00:00 UTC, avant la fin de votre période.'],
     [fmtTooLarge(240_000_000), 'Ce fichier ferait environ 240 Mo, au-delà de la limite de 200 Mo. Tracez un cadre plus petit ou choisissez une période plus courte.'],
+    [fmtGustWindows([1, 3, 6]), 'Les rafales sont le maximum sur la période de 1, 3 ou 6 h précédant chaque échéance, telles que publiées par l’ECMWF, et non une valeur instantanée comme les rafales GFS.'],
+    [fmtGustWindows([1]), 'Les rafales sont le maximum sur la période de 1 h précédant chaque échéance, telles que publiées par l’ECMWF, et non une valeur instantanée comme les rafales GFS.'],
     [fmtLatLon(49.65, -1.62), '49.65°N 1.62°O'],
     [fmtGribArea({ south: 48, north: 51, west: -6, east: 2 }), '48°N–51°N, 6°O–2°E'],
     [fmtGribBox({ minLat: 48.9, maxLat: 51, minLon: -4.7, maxLon: 1.2 }), '48.9°N–51°N, 4.7°O–1.2°E'],

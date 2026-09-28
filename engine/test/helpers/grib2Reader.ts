@@ -1,6 +1,6 @@
 /**
  * Test-only GRIB2 reader for the subset the exporter writes (template 3.0,
- * 4.0, 5.0 simple packing, optional bitmap). Independent of the encoder so
+ * 4.0 or 4.8 with one time range, 5.0 simple packing, optional bitmap). Independent of the encoder so
  * engine tests can round-trip files; ecCodes is the external check
  * (analysis/tests/test_grib_export_contract.py).
  */
@@ -28,6 +28,7 @@ export interface ParsedGribMessage {
     scanningMode: number;
   };
   product: {
+    template: number;
     category: number;
     number: number;
     generatingProcess: number;
@@ -36,6 +37,18 @@ export interface ParsedGribMessage {
     levelType: number;
     levelScale: number;
     levelValue: number;
+    /** template 4.8 only: the statistic's time range */
+    statistic?: {
+      end: string;
+      ranges: number;
+      missing: number;
+      processing: number;
+      incrementType: number;
+      unit: number;
+      length: number;
+      incrementUnit: number;
+      increment: number;
+    };
   };
   packing: { count: number; reference: number; binaryScale: number; decimalScale: number; nbits: number };
   bitmapIndicator: number;
@@ -92,7 +105,9 @@ export function readGrib2(bytes: Uint8Array): ParsedGribMessage[] {
       dj: view.getUint32(s3 + 67),
       scanningMode: view.getUint8(s3 + 71),
     };
-    const product = {
+    const template = view.getUint16(s4 + 7);
+    const product: ParsedGribMessage['product'] = {
+      template,
       category: view.getUint8(s4 + 9),
       number: view.getUint8(s4 + 10),
       generatingProcess: view.getUint8(s4 + 13),
@@ -102,6 +117,22 @@ export function readGrib2(bytes: Uint8Array): ParsedGribMessage[] {
       levelScale: view.getUint8(s4 + 23),
       levelValue: view.getUint32(s4 + 24),
     };
+    if (template === 8) {
+      product.statistic = {
+        end: `${view.getUint16(s4 + 34)}-${pad(view.getUint8(s4 + 36))}-${pad(view.getUint8(s4 + 37))}` +
+          `T${pad(view.getUint8(s4 + 38))}:${pad(view.getUint8(s4 + 39))}:${pad(view.getUint8(s4 + 40))}Z`,
+        ranges: view.getUint8(s4 + 41),
+        missing: view.getUint32(s4 + 42),
+        processing: view.getUint8(s4 + 46),
+        incrementType: view.getUint8(s4 + 47),
+        unit: view.getUint8(s4 + 48),
+        length: view.getUint32(s4 + 49),
+        incrementUnit: view.getUint8(s4 + 53),
+        increment: view.getUint32(s4 + 54),
+      };
+    } else if (template !== 0) {
+      throw new Error(`unsupported product template 4.${template}`);
+    }
     const packing = {
       count: view.getUint32(s5 + 5),
       reference: view.getFloat32(s5 + 11),

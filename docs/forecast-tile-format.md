@@ -58,6 +58,21 @@ Validated by `contracts/forecast-tile.schema.json`:
 Grid points sit at `lat0 + i*dlat`, `lon0 + j*dlon` (ascending latitude,
 longitude in [−180, 180)). Point (i=0, j=0) is the SW corner.
 
+A variable whose values are a statistic over the interval ending at each step,
+rather than an instantaneous value, carries `statistic` in both the header and
+the manifest (optional; absent = instantaneous):
+
+```json
+{ "name": "gust_kt", "axis": "steps", "dtype": "i16", "scale": 0.1,
+  "statistic": { "kind": "max", "window_h": [null, 1, 1, "…", 3, "…", 6] } }
+```
+
+`window_h` has one entry per step of the variable's axis: the interval length
+in hours, `null` where the step carries no value. Only ECMWF's gust uses it
+today (the maximum over the last 1 h to +90 h, 3 h to +144 h, 6 h after; none
+at step 0). The GRIB export writes such a variable with template 4.8
+([GRIB export](grib-export.md#gusts-over-a-window-template-48)).
+
 ## Tiling
 
 10°×10° tiles, half-open `[lat0, lat0+10) × [lon0, lon0+10)`, id =
@@ -72,7 +87,7 @@ requests never wrap.
 | Layer | Model | Res | Variables (scale) | Time axes |
 |---|---|---|---|---|
 | `weather` | GFS | 0.25° | wind_u_kt, wind_v_kt (0.01); gust_kt (0.1) — hourly. visibility_m (50), cape_jkg (1), temp_c (0.1), dew_point_c (0.1), precip_mm (0.1) — h3 | hourly: 1 h→120 h + 3 h→240 h (161 steps); h3: 3 h→240 h (81 steps) |
-| `weather-ecmwf` | ECMWF open IFS | 0.25° | wind_u_kt, wind_v_kt (0.01), gust if available (0.1) | 3 h→144 h + 6 h→240 h (65 steps) |
+| `weather-ecmwf` | ECMWF open IFS | 0.25° | wind_u_kt, wind_v_kt (0.01); gust_kt (0.1), the maximum over the 1, 3 or 6 h before each step (`statistic`), when every step has one; runs up to `weather-ecmwf-20260928T00Z` are wind-only | 3 h→144 h + 6 h→240 h (65 steps) |
 | `ensemble` | GEFS, 31 members | 0.5° | wind_kt_mean (i16 0.01) + wind_kt_anom (i8 0.2, per_member, clamped ±25 kt); same pair for gust | 3 h→144 h + 6 h→384 h (89 steps) |
 | `waves` | GFS-Wave | 0.25° | hs_m, wind_wave_h_m, swell_h_m (0.01); period/direction ×3 (0.1) | 3 h→384 h (129 steps) |
 | `currents` | CMEMS GLO12 (RTOFS fallback) | 1/12° | cur_u_kt, cur_v_kt (0.01) | 6 h→240 h (41 steps) |
@@ -144,7 +159,8 @@ axes, variables, per-tile `{bytes, fnv64}`, totals, validation results.
 1. Download the latest **complete** provider cycle (`.idx` presence check;
    fall back one cycle rather than publish a partial run).
 2. Validate the cube: step coverage, physical ranges, gust ≥ wind at ≥99 % of
-   points, land/missing fraction vs previous run.
+   points, land/missing fraction vs previous run, and a `statistic` window
+   for every step that carries data.
 3. Storage guard: retained + new ≤ 8 GB or fail loudly **before** uploading.
 4. Upload all tiles under the new immutable `run_id`.
 5. Upload `manifest.json` last; re-download it plus 3 random tiles and decode.

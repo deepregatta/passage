@@ -38,7 +38,7 @@ export type { Changes, ChangeEntry } from './diff.js';
 export { scanDepartures, candidateDepartures } from './window.js';
 export type { WindowScan, WindowCandidate } from './window.js';
 export { decodeTile } from './forecast/tileCodec.js';
-export type { TileHeader, TileVariable, DecodedTile, TimeAxis } from './forecast/tileCodec.js';
+export type { TileHeader, TileVariable, DecodedTile, TimeAxis, VariableStatistic } from './forecast/tileCodec.js';
 export { TileForecastStore } from './forecast/tileStore.js';
 export { HttpTileTransport, gunzip } from './forecast/httpTransport.js';
 export { ScenarioBundleStore } from './forecast/scenarioStore.js';

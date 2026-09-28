@@ -11,6 +11,7 @@ import { track } from '../src/lib/analytics.js';
 import { LocalizedDocument } from '../src/i18n.js';
 import {
   describeGribDataset,
+  fmtGustWindows,
   fmtGribArea,
   fmtGribBox,
   fmtGribBytes,
@@ -242,12 +243,33 @@ describe('area, period and model choices', () => {
       datasetId: 'currents-ibi', availability: 'ok',
       steps: [{ time: '2026-07-20T08:00:00Z' }, { time: '2026-07-21T00:00:00Z' }],
       tiles: [{ id: 'N50W010', present: true }, { id: 'N40W010', present: false }],
+      variables: [{ tileVar: 'cur_u_kt' }, { tileVar: 'cur_v_kt' }],
+      windowsH: [null, null],
     };
     expect(describeGribDataset(dataset, { endIso: '2026-07-21T10:00:00Z' })).toMatchObject({
       ok: true, steps: 2, first: '2026-07-20T08:00:00Z', last: '2026-07-21T00:00:00Z', horizonShort: true, partial: true,
+      gustWindows: [],
     });
     expect(describeGribDataset({ ...dataset, datasetId: 'waves-gfs' }, { endIso: '2026-07-21T00:00:00Z' }))
       .toMatchObject({ horizonShort: false, partial: false });
+  });
+
+  it('names the gust windows of an ECMWF file, and none for an instantaneous gust', () => {
+    const wind = [{ tileVar: 'wind_u_kt' }, { tileVar: 'wind_v_kt' }];
+    const ecmwf = {
+      datasetId: 'wind-ecmwf', availability: 'ok', steps: [{ time: '2026-07-20T00:00:00Z' }], tiles: [],
+      variables: [...wind, { tileVar: 'gust_kt', statistic: 'max' }],
+      windowsH: [null, null, [null, 1, 1, 3, 6, 6]],
+    };
+    expect(describeGribDataset(ecmwf, { endIso: '2026-07-20T00:00:00Z' }).gustWindows).toEqual([1, 3, 6]);
+    expect(fmtGustWindows([1, 3, 6])).toBe(
+      'Gusts are the maximum over the 1, 3 or 6 h before each time, as ECMWF publishes them, not an instantaneous value like GFS gusts.',
+    );
+    expect(fmtGustWindows([1])).toBe(
+      'Gusts are the maximum over the 1 h before each time, as ECMWF publishes them, not an instantaneous value like GFS gusts.',
+    );
+    const gfs = { ...ecmwf, datasetId: 'wind-gfs', variables: [...wind, { tileVar: 'gust_kt' }], windowsH: [null, null, null] };
+    expect(describeGribDataset(gfs, { endIso: '2026-07-20T00:00:00Z' }).gustWindows).toEqual([]);
   });
 });
 

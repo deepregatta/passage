@@ -6,6 +6,7 @@
  */
 
 import type { RegionGrid } from '../grids.js';
+import type { VariableStatistic } from './tileCodec.js';
 import type { Bbox } from './tileMath.js';
 import type {
   EnsemblePointForecast,
@@ -44,7 +45,14 @@ export interface RunManifest {
   resolution_deg: number;
   horizon_h: number;
   time_axes: Record<string, ManifestTimeAxis>;
-  variables: Array<{ name: string; axis: string; dtype: string; scale: number; per_member?: boolean }>;
+  variables: Array<{
+    name: string;
+    axis: string;
+    dtype: string;
+    scale: number;
+    per_member?: boolean;
+    statistic?: VariableStatistic;
+  }>;
   tiling: { tile_deg: number; path_template: string };
   tiles: Record<string, { bytes: number; fnv64: string }>;
   totals: { tile_count: number; bytes: number };

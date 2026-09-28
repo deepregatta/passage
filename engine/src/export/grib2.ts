@@ -1,8 +1,8 @@
 /**
  * Minimal GRIB2 encoder for route-area forecast exports (docs/grib-export.md):
  * one field per message on a regular lat/lon grid (template 3.0), a forecast
- * at a horizontal level (4.0) and simple packing (5.0) with a section-6 bitmap
- * when any point is missing. Integers are big-endian; latitudes, signed
+ * at a horizontal level (4.0), or a statistic over the hours before it (4.8),
+ * and simple packing (5.0) with a section-6 bitmap when any point is missing. Integers are big-endian; latitudes, signed
  * longitudes and the section-5 scale factors are sign-magnitude, not two's
  * complement. ecCodes decodes the golden fixtures in the analysis contract
  * test, so any byte change here forces fixture regeneration.
@@ -37,6 +37,17 @@ export interface GribLevel {
   value: number;
 }
 
+/**
+ * Template 4.8: the value is a statistic over the `windowHours` that end at
+ * the message's forecast hour (ECMWF's 10 m gust is the maximum over 1, 3 or
+ * 6 h). forecastTime is then the start of that window.
+ */
+export interface GribStatistic {
+  /** Code table 4.10: 2 = maximum */
+  processing: 2;
+  windowHours: number;
+}
+
 export interface Grib2Field {
   /** 0 meteorological, 10 oceanographic */
   discipline: number;
@@ -45,8 +56,10 @@ export interface Grib2Field {
   generatingProcess: number;
   /** the layer's model cycle, written as the section-1 reference time */
   cycle: string;
-  /** whole hours after the cycle */
+  /** whole hours after the cycle; for a statistic, the end of its window */
   forecastHours: number;
+  /** absent: instantaneous at forecastHours (template 4.0) */
+  statistic?: GribStatistic;
   category: number;
   number: number;
   level: GribLevel;
@@ -59,6 +72,8 @@ export interface Grib2Field {
 }
 
 const SECTION_BYTES = { s0: 16, s1: 21, s3: 72, s4: 34, s5: 21, s8: 4 } as const;
+/** Template 4.8 with one time range: 4.0's 34 bytes plus the 24-byte interval block. */
+export const GRIB_STATISTIC_EXTRA_BYTES = 24;
 const MICRO_360 = 360_000_000;
 const MAX_PACKED = 2 ** 24;
 
@@ -106,6 +121,14 @@ export function encodeGrib2Message(field: Grib2Field): Uint8Array | null {
   checkUint('level type', field.level.type, 1);
   checkUint('level value', field.level.value, 4);
   checkUint('forecastHours', field.forecastHours, 4);
+  const { statistic } = field;
+  if (statistic) {
+    checkUint('statistical processing', statistic.processing, 1);
+    if (!Number.isInteger(statistic.windowHours) || statistic.windowHours < 1 ||
+        statistic.windowHours > field.forecastHours) {
+      throw new Error(`GRIB statistic window out of range: ${statistic.windowHours} h ending at +${field.forecastHours} h`);
+    }
+  }
   if (!Number.isInteger(field.decimalScale) || Math.abs(field.decimalScale) > 0x7fff) {
     throw new Error(`GRIB decimal scale out of range: ${field.decimalScale}`);
   }
@@ -136,9 +159,10 @@ export function encodeGrib2Message(field: Grib2Field): Uint8Array | null {
   const reference = nbits === 0 ? min / s : min;
   const bitmap = present < count;
 
+  const s4 = SECTION_BYTES.s4 + (statistic ? GRIB_STATISTIC_EXTRA_BYTES : 0);
   const s6 = 6 + (bitmap ? Math.ceil(count / 8) : 0);
   const s7 = 5 + Math.ceil((present * nbits) / 8);
-  const total = SECTION_BYTES.s0 + SECTION_BYTES.s1 + SECTION_BYTES.s3 + SECTION_BYTES.s4 +
+  const total = SECTION_BYTES.s0 + SECTION_BYTES.s1 + SECTION_BYTES.s3 + s4 +
     SECTION_BYTES.s5 + s6 + s7 + SECTION_BYTES.s8;
   const out = new Uint8Array(total);
   const view = new DataView(out.buffer);
@@ -202,11 +226,11 @@ export function encodeGrib2Message(field: Grib2Field): Uint8Array | null {
   u32(lattice.stepMicro); // Dj
   u8(0x00); // scanning: +i west→east, −j north→south, rows consecutive
 
-  // Section 4: product definition, template 4.0
-  u32(SECTION_BYTES.s4);
+  // Section 4: product definition, template 4.0 (instantaneous) or 4.8 (statistic)
+  u32(s4);
   u8(4);
   u16(0); // no coordinate values
-  u16(0); // template 4.0
+  u16(statistic ? 8 : 0);
   u8(field.category);
   u8(field.number);
   u8(2); // type of generating process: forecast
@@ -215,13 +239,30 @@ export function encodeGrib2Message(field: Grib2Field): Uint8Array | null {
   u16(0); // hours after cutoff
   u8(0); // minutes after cutoff
   u8(1); // unit of time range: hour
-  u32(field.forecastHours);
+  u32(statistic ? field.forecastHours - statistic.windowHours : field.forecastHours);
   u8(field.level.type);
   u8(0); // scale factor of first fixed surface
   u32(field.level.value);
   u8(255); // no second fixed surface
   u8(0xff);
   u32(0xffffffff);
+  if (statistic) {
+    const end = new Date(ref.getTime() + field.forecastHours * 3_600_000);
+    u16(end.getUTCFullYear()); // end of the overall time interval
+    u8(end.getUTCMonth() + 1);
+    u8(end.getUTCDate());
+    u8(end.getUTCHours());
+    u8(end.getUTCMinutes());
+    u8(end.getUTCSeconds());
+    u8(1); // one time range
+    u32(0); // no missing values in the statistical process
+    u8(statistic.processing);
+    u8(2); // type of time increment: forecast time of successive fields incremented
+    u8(1); // unit of the time range: hour
+    u32(statistic.windowHours);
+    u8(255); // unit of the time increment: missing (continuous processing)
+    u32(0); // time increment
+  }
 
   // Section 5: data representation, template 5.0 (simple packing)
   u32(SECTION_BYTES.s5);

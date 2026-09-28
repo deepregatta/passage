@@ -62,6 +62,34 @@ describe('encodeGrib2Message', () => {
     });
   });
 
+  it('writes a statistic over the hours before the step as template 4.8, like ECMWF\'s own 10fg', () => {
+    // ECMWF gust valid 2026-09-24T09Z (+27 h) as the maximum over the last 3 h
+    const bytes = encodeGrib2Message(field({ centre: 98, number: 22, statistic: { processing: 2, windowHours: 3 } }))!;
+    const message = only(bytes);
+    expect(message.sections.find((s) => s.number === 4)!.length).toBe(58);
+    expect(message.length).toBe(bytes.byteLength);
+    expect(message.product).toMatchObject({
+      template: 8, category: 2, number: 22, unit: 1, forecastTime: 24, levelType: 103, levelValue: 10,
+      statistic: {
+        end: '2026-09-24T09:00:00Z', ranges: 1, missing: 0, processing: 2, incrementType: 2, unit: 1,
+        length: 3, incrementUnit: 255, increment: 0,
+      },
+    });
+    // the data sections are the instantaneous message's, 24 bytes further on
+    const plain = encodeGrib2Message(field({ centre: 98, number: 22 }))!;
+    expect(plain.byteLength).toBe(bytes.byteLength - 24);
+    expect(only(plain).product).toMatchObject({ template: 0, forecastTime: 27 });
+    expect(only(plain).product.statistic).toBeUndefined();
+    expect(Array.from(message.values)).toEqual(Array.from(only(plain).values));
+  });
+
+  it('rejects a statistic window that is empty, fractional or starts before the cycle', () => {
+    for (const windowHours of [0, 1.5, 28]) {
+      expect(() => encodeGrib2Message(field({ statistic: { processing: 2, windowHours } }))).toThrow('window');
+    }
+    expect(() => encodeGrib2Message(field({ statistic: { processing: 2, windowHours: 27 } }))).not.toThrow();
+  });
+
   it('rounds to D decimals with an exact integer reference and the minimum bit width', () => {
     const message = only(encodeGrib2Message(field()));
     // ints: 10, 23, -35, 0, 123, 70 → R = -35, range 158 → 8 bits

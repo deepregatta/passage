@@ -17,6 +17,7 @@ import {
   fmtGribCoverage,
   fmtGribGrid,
   fmtGribSteps,
+  fmtGustWindows,
   fmtHorizonShort,
   fmtLatLon,
   fmtTooLarge,
@@ -225,6 +226,7 @@ function KindRow({ kindId, dataset, timeWindow, period, result, running, progres
       )}
       {info.horizonShort && period !== 'full' && <p className="text-[12px]">{fmtHorizonShort(info.last)}</p>}
       {note && <p className="text-[12px] text-ink-soft">{note}</p>}
+      {info.gustWindows.length > 0 && <p className="text-[12px] text-ink-soft">{fmtGustWindows(info.gustWindows)}</p>}
       {result && (result.file.url ? (
         <div className="border-l-2 border-verdict-within pl-2">
           <p className="flex flex-wrap items-baseline gap-x-2 text-[12px]">

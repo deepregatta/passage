@@ -9,7 +9,7 @@
 import { parseUtc, toIso } from '../eta.js';
 import type { RunManifest } from '../forecast/store.js';
 import { tileIdFromOrigin, type Bbox } from '../forecast/tileMath.js';
-import type { GribLattice, LonConvention } from './grib2.js';
+import { GRIB_STATISTIC_EXTRA_BYTES, type GribLattice, type LonConvention } from './grib2.js';
 import { GRIB_DATASETS, type GribDatasetSpec, type GribVariableSpec } from './gribDatasets.js';
 
 export type GribStep = 'all' | 3 | 6;
@@ -61,6 +61,12 @@ export interface GribDatasetPlan {
   model: string | null;
   /** exported variables: the registry's, restricted to those the manifest lists */
   variables: GribVariableSpec[];
+  /**
+   * Per exported variable: null when instantaneous (template 4.0), else the
+   * hours of the window ending at each planned step (template 4.8), from the
+   * manifest; null at a step with no value there (ECMWF gust at step 0).
+   */
+  windowsH: Array<Array<number | null> | null>;
   axis: string | null;
   lattice: GribLattice | null;
   steps: GribPlannedStep[];
@@ -158,6 +164,7 @@ function planDataset(
     cycle: manifest?.cycle ?? null,
     model: manifest?.model ?? null,
     variables: [],
+    windowsH: [],
     axis: null,
     lattice: null,
     steps: [],
@@ -172,8 +179,17 @@ function planDataset(
   // All exported variables share one axis: the first listed variable's.
   const listed = new Map(manifest.variables.filter((v) => !v.per_member).map((v) => [v.name, v]));
   const axis = spec.variables.map((v) => listed.get(v.tileVar)?.axis).find((a) => a !== undefined);
-  const variables = spec.variables.filter((v) => axis !== undefined && listed.get(v.tileVar)?.axis === axis);
   const timeAxis = axis === undefined ? undefined : manifest.time_axes[axis];
+  // The template follows the registry, so the run must describe the values the
+  // same way: a statistic with a window per axis step, or none.
+  const variables = spec.variables.filter((v) => {
+    const entry = listed.get(v.tileVar);
+    if (!entry || entry.axis !== axis || !timeAxis) return false;
+    const statistic = entry.statistic;
+    return v.statistic === undefined
+      ? statistic === undefined
+      : statistic?.kind === v.statistic && statistic.window_h.length === timeAxis.offsets_h.length;
+  });
   if (axis === undefined || !timeAxis || !variables.length) return empty;
 
   const lattice = gribLattice(request.bbox, manifest.resolution_deg);
@@ -191,12 +207,18 @@ function planDataset(
   const points = lattice.ni * lattice.nj;
   const bitmapBytes = spec.hasLand ? Math.ceil(points / 8) : 0;
   const bytesPerStep = variables.reduce(
-    (sum, v) => sum + MESSAGE_OVERHEAD_BYTES + bitmapBytes + Math.ceil((points * v.estBits) / 8),
+    (sum, v) => sum + MESSAGE_OVERHEAD_BYTES + (v.statistic ? GRIB_STATISTIC_EXTRA_BYTES : 0) +
+      bitmapBytes + Math.ceil((points * v.estBits) / 8),
     0,
   );
+  const windowsH = variables.map((v) => {
+    const windows = v.statistic ? listed.get(v.tileVar)!.statistic!.window_h : null;
+    return windows ? selected.map((step) => windows[step.index] ?? null) : null;
+  });
   return {
     ...planned,
     steps: selected,
+    windowsH,
     messages: selected.length * variables.length,
     estBytes: selected.length * bytesPerStep,
     downloadBytesUpperBound,

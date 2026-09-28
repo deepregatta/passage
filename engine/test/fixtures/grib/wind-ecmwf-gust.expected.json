@@ -1,0 +1,1507 @@
+{
+  "fixture": "wind-ecmwf-gust",
+  "description": "ECMWF wind + gust: gust as a max over 1, 3 and 6 h (template 4.8) at 10 m, none at step 0 (skipped)",
+  "file": "wind-ecmwf-gust.grb2",
+  "fnv64": "dab70fde4b0f098e",
+  "bytes": 3291,
+  "skipped_messages": 1,
+  "messages": [
+    {
+      "variable": "wind_u_kt",
+      "time": "2026-09-23T00:00:00Z",
+      "keys": {
+        "discipline": 0,
+        "centre": 98,
+        "subCentre": 0,
+        "tablesVersion": 2,
+        "significanceOfReferenceTime": 1,
+        "dataDate": 20260923,
+        "dataTime": 0,
+        "productionStatusOfProcessedData": 0,
+        "typeOfProcessedData": 1,
+        "parameterCategory": 2,
+        "parameterNumber": 2,
+        "typeOfGeneratingProcess": 2,
+        "generatingProcessIdentifier": 255,
+        "productDefinitionTemplateNumber": 0,
+        "indicatorOfUnitOfTimeRange": 1,
+        "forecastTime": 0,
+        "typeOfFirstFixedSurface": 103,
+        "scaleFactorOfFirstFixedSurface": 0,
+        "scaledValueOfFirstFixedSurface": 10,
+        "shapeOfTheEarth": 6,
+        "Ni": 4,
+        "Nj": 4,
+        "latitudeOfFirstGridPointInDegrees": 50.75,
+        "longitudeOfFirstGridPointInDegrees": 358.25,
+        "latitudeOfLastGridPointInDegrees": 50,
+        "longitudeOfLastGridPointInDegrees": 359,
+        "iDirectionIncrementInDegrees": 0.25,
+        "jDirectionIncrementInDegrees": 0.25,
+        "resolutionAndComponentFlags": 48,
+        "scanningMode": 0,
+        "bitmapPresent": 0,
+        "numberOfDataPoints": 16,
+        "numberOfMissing": 0,
+        "decimalScaleFactor": 1,
+        "bitsPerValue": 4,
+        "packingType": "grid_simple"
+      },
+      "points": [
+        {
+          "lat": 50.75,
+          "lon": -1.75,
+          "source": -6.301946,
+          "written": -6.3,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50.75,
+          "lon": -1,
+          "source": -5.916113,
+          "written": -5.9,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50.5,
+          "lon": -1.5,
+          "source": -6.430557,
+          "written": -6.4,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50.25,
+          "lon": -1.25,
+          "source": -6.559168,
+          "written": -6.6,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50,
+          "lon": -1.75,
+          "source": -7.073613,
+          "written": -7.1,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50,
+          "lon": -1,
+          "source": -6.687779,
+          "written": -6.7,
+          "tolerance": 0.052572
+        }
+      ]
+    },
+    {
+      "variable": "wind_v_kt",
+      "time": "2026-09-23T00:00:00Z",
+      "keys": {
+        "discipline": 0,
+        "centre": 98,
+        "subCentre": 0,
+        "tablesVersion": 2,
+        "significanceOfReferenceTime": 1,
+        "dataDate": 20260923,
+        "dataTime": 0,
+        "productionStatusOfProcessedData": 0,
+        "typeOfProcessedData": 1,
+        "parameterCategory": 2,
+        "parameterNumber": 3,
+        "typeOfGeneratingProcess": 2,
+        "generatingProcessIdentifier": 255,
+        "productDefinitionTemplateNumber": 0,
+        "indicatorOfUnitOfTimeRange": 1,
+        "forecastTime": 0,
+        "typeOfFirstFixedSurface": 103,
+        "scaleFactorOfFirstFixedSurface": 0,
+        "scaledValueOfFirstFixedSurface": 10,
+        "shapeOfTheEarth": 6,
+        "Ni": 4,
+        "Nj": 4,
+        "latitudeOfFirstGridPointInDegrees": 50.75,
+        "longitudeOfFirstGridPointInDegrees": 358.25,
+        "latitudeOfLastGridPointInDegrees": 50,
+        "longitudeOfLastGridPointInDegrees": 359,
+        "iDirectionIncrementInDegrees": 0.25,
+        "jDirectionIncrementInDegrees": 0.25,
+        "resolutionAndComponentFlags": 48,
+        "scanningMode": 0,
+        "bitmapPresent": 0,
+        "numberOfDataPoints": 16,
+        "numberOfMissing": 0,
+        "decimalScaleFactor": 1,
+        "bitsPerValue": 3,
+        "packingType": "grid_simple"
+      },
+      "points": [
+        {
+          "lat": 50.75,
+          "lon": -1.75,
+          "source": 2.767712,
+          "written": 2.8,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50.75,
+          "lon": -1,
+          "source": 2.958056,
+          "written": 3,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50.5,
+          "lon": -1.5,
+          "source": 2.958056,
+          "written": 3,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50.25,
+          "lon": -1.25,
+          "source": 3.153545,
+          "written": 3.2,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50,
+          "lon": -1.75,
+          "source": 3.153545,
+          "written": 3.2,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50,
+          "lon": -1,
+          "source": 3.34389,
+          "written": 3.3,
+          "tolerance": 0.052572
+        }
+      ]
+    },
+    {
+      "variable": "wind_u_kt",
+      "time": "2026-09-23T03:00:00Z",
+      "keys": {
+        "discipline": 0,
+        "centre": 98,
+        "subCentre": 0,
+        "tablesVersion": 2,
+        "significanceOfReferenceTime": 1,
+        "dataDate": 20260923,
+        "dataTime": 0,
+        "productionStatusOfProcessedData": 0,
+        "typeOfProcessedData": 1,
+        "parameterCategory": 2,
+        "parameterNumber": 2,
+        "typeOfGeneratingProcess": 2,
+        "generatingProcessIdentifier": 255,
+        "productDefinitionTemplateNumber": 0,
+        "indicatorOfUnitOfTimeRange": 1,
+        "forecastTime": 3,
+        "typeOfFirstFixedSurface": 103,
+        "scaleFactorOfFirstFixedSurface": 0,
+        "scaledValueOfFirstFixedSurface": 10,
+        "shapeOfTheEarth": 6,
+        "Ni": 4,
+        "Nj": 4,
+        "latitudeOfFirstGridPointInDegrees": 50.75,
+        "longitudeOfFirstGridPointInDegrees": 358.25,
+        "latitudeOfLastGridPointInDegrees": 50,
+        "longitudeOfLastGridPointInDegrees": 359,
+        "iDirectionIncrementInDegrees": 0.25,
+        "jDirectionIncrementInDegrees": 0.25,
+        "resolutionAndComponentFlags": 48,
+        "scanningMode": 0,
+        "bitmapPresent": 0,
+        "numberOfDataPoints": 16,
+        "numberOfMissing": 0,
+        "decimalScaleFactor": 1,
+        "bitsPerValue": 4,
+        "packingType": "grid_simple"
+      },
+      "points": [
+        {
+          "lat": 50.75,
+          "lon": -1.75,
+          "source": -5.787501,
+          "written": -5.8,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50.75,
+          "lon": -1,
+          "source": -5.401668,
+          "written": -5.4,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50.5,
+          "lon": -1.5,
+          "source": -5.916113,
+          "written": -5.9,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50.25,
+          "lon": -1.25,
+          "source": -6.044724,
+          "written": -6,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50,
+          "lon": -1.75,
+          "source": -6.559168,
+          "written": -6.6,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50,
+          "lon": -1,
+          "source": -6.173335,
+          "written": -6.2,
+          "tolerance": 0.052572
+        }
+      ]
+    },
+    {
+      "variable": "wind_v_kt",
+      "time": "2026-09-23T03:00:00Z",
+      "keys": {
+        "discipline": 0,
+        "centre": 98,
+        "subCentre": 0,
+        "tablesVersion": 2,
+        "significanceOfReferenceTime": 1,
+        "dataDate": 20260923,
+        "dataTime": 0,
+        "productionStatusOfProcessedData": 0,
+        "typeOfProcessedData": 1,
+        "parameterCategory": 2,
+        "parameterNumber": 3,
+        "typeOfGeneratingProcess": 2,
+        "generatingProcessIdentifier": 255,
+        "productDefinitionTemplateNumber": 0,
+        "indicatorOfUnitOfTimeRange": 1,
+        "forecastTime": 3,
+        "typeOfFirstFixedSurface": 103,
+        "scaleFactorOfFirstFixedSurface": 0,
+        "scaledValueOfFirstFixedSurface": 10,
+        "shapeOfTheEarth": 6,
+        "Ni": 4,
+        "Nj": 4,
+        "latitudeOfFirstGridPointInDegrees": 50.75,
+        "longitudeOfFirstGridPointInDegrees": 358.25,
+        "latitudeOfLastGridPointInDegrees": 50,
+        "longitudeOfLastGridPointInDegrees": 359,
+        "iDirectionIncrementInDegrees": 0.25,
+        "jDirectionIncrementInDegrees": 0.25,
+        "resolutionAndComponentFlags": 48,
+        "scanningMode": 0,
+        "bitmapPresent": 0,
+        "numberOfDataPoints": 16,
+        "numberOfMissing": 0,
+        "decimalScaleFactor": 1,
+        "bitsPerValue": 3,
+        "packingType": "grid_simple"
+      },
+      "points": [
+        {
+          "lat": 50.75,
+          "lon": -1.75,
+          "source": 2.253267,
+          "written": 2.3,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50.75,
+          "lon": -1,
+          "source": 2.443612,
+          "written": 2.4,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50.5,
+          "lon": -1.5,
+          "source": 2.443612,
+          "written": 2.4,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50.25,
+          "lon": -1.25,
+          "source": 2.639101,
+          "written": 2.6,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50,
+          "lon": -1.75,
+          "source": 2.639101,
+          "written": 2.6,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50,
+          "lon": -1,
+          "source": 2.829445,
+          "written": 2.8,
+          "tolerance": 0.052572
+        }
+      ]
+    },
+    {
+      "variable": "gust_kt",
+      "time": "2026-09-23T03:00:00Z",
+      "keys": {
+        "discipline": 0,
+        "centre": 98,
+        "subCentre": 0,
+        "tablesVersion": 2,
+        "significanceOfReferenceTime": 1,
+        "dataDate": 20260923,
+        "dataTime": 0,
+        "productionStatusOfProcessedData": 0,
+        "typeOfProcessedData": 1,
+        "parameterCategory": 2,
+        "parameterNumber": 22,
+        "typeOfGeneratingProcess": 2,
+        "generatingProcessIdentifier": 255,
+        "productDefinitionTemplateNumber": 8,
+        "indicatorOfUnitOfTimeRange": 1,
+        "forecastTime": 2,
+        "typeOfStatisticalProcessing": 2,
+        "numberOfTimeRange": 1,
+        "typeOfTimeIncrement": 2,
+        "indicatorOfUnitForTimeRange": 1,
+        "lengthOfTimeRange": 1,
+        "stepType": "max",
+        "stepRange": "2-3",
+        "typeOfFirstFixedSurface": 103,
+        "scaleFactorOfFirstFixedSurface": 0,
+        "scaledValueOfFirstFixedSurface": 10,
+        "shapeOfTheEarth": 6,
+        "Ni": 4,
+        "Nj": 4,
+        "latitudeOfFirstGridPointInDegrees": 50.75,
+        "longitudeOfFirstGridPointInDegrees": 358.25,
+        "latitudeOfLastGridPointInDegrees": 50,
+        "longitudeOfLastGridPointInDegrees": 359,
+        "iDirectionIncrementInDegrees": 0.25,
+        "jDirectionIncrementInDegrees": 0.25,
+        "resolutionAndComponentFlags": 48,
+        "scanningMode": 0,
+        "bitmapPresent": 0,
+        "numberOfDataPoints": 16,
+        "numberOfMissing": 0,
+        "decimalScaleFactor": 1,
+        "bitsPerValue": 4,
+        "packingType": "grid_simple"
+      },
+      "points": [
+        {
+          "lat": 50.75,
+          "lon": -1.75,
+          "source": 15.433337,
+          "written": 15.4,
+          "tolerance": 0.075722
+        },
+        {
+          "lat": 50.75,
+          "lon": -1,
+          "source": 15.073226,
+          "written": 15.1,
+          "tolerance": 0.075722
+        },
+        {
+          "lat": 50.5,
+          "lon": -1.5,
+          "source": 14.918893,
+          "written": 14.9,
+          "tolerance": 0.075722
+        },
+        {
+          "lat": 50.25,
+          "lon": -1.25,
+          "source": 14.404448,
+          "written": 14.4,
+          "tolerance": 0.075722
+        },
+        {
+          "lat": 50,
+          "lon": -1.75,
+          "source": 14.301559,
+          "written": 14.3,
+          "tolerance": 0.075722
+        },
+        {
+          "lat": 50,
+          "lon": -1,
+          "source": 13.890004,
+          "written": 13.9,
+          "tolerance": 0.075722
+        }
+      ]
+    },
+    {
+      "variable": "wind_u_kt",
+      "time": "2026-09-26T18:00:00Z",
+      "keys": {
+        "discipline": 0,
+        "centre": 98,
+        "subCentre": 0,
+        "tablesVersion": 2,
+        "significanceOfReferenceTime": 1,
+        "dataDate": 20260923,
+        "dataTime": 0,
+        "productionStatusOfProcessedData": 0,
+        "typeOfProcessedData": 1,
+        "parameterCategory": 2,
+        "parameterNumber": 2,
+        "typeOfGeneratingProcess": 2,
+        "generatingProcessIdentifier": 255,
+        "productDefinitionTemplateNumber": 0,
+        "indicatorOfUnitOfTimeRange": 1,
+        "forecastTime": 90,
+        "typeOfFirstFixedSurface": 103,
+        "scaleFactorOfFirstFixedSurface": 0,
+        "scaledValueOfFirstFixedSurface": 10,
+        "shapeOfTheEarth": 6,
+        "Ni": 4,
+        "Nj": 4,
+        "latitudeOfFirstGridPointInDegrees": 50.75,
+        "longitudeOfFirstGridPointInDegrees": 358.25,
+        "latitudeOfLastGridPointInDegrees": 50,
+        "longitudeOfLastGridPointInDegrees": 359,
+        "iDirectionIncrementInDegrees": 0.25,
+        "jDirectionIncrementInDegrees": 0.25,
+        "resolutionAndComponentFlags": 48,
+        "scanningMode": 0,
+        "bitmapPresent": 0,
+        "numberOfDataPoints": 16,
+        "numberOfMissing": 0,
+        "decimalScaleFactor": 1,
+        "bitsPerValue": 4,
+        "packingType": "grid_simple"
+      },
+      "points": [
+        {
+          "lat": 50.75,
+          "lon": -1.75,
+          "source": -5.273057,
+          "written": -5.3,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50.75,
+          "lon": -1,
+          "source": -4.887223,
+          "written": -4.9,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50.5,
+          "lon": -1.5,
+          "source": -5.401668,
+          "written": -5.4,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50.25,
+          "lon": -1.25,
+          "source": -5.530279,
+          "written": -5.5,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50,
+          "lon": -1.75,
+          "source": -6.044724,
+          "written": -6,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50,
+          "lon": -1,
+          "source": -5.65889,
+          "written": -5.7,
+          "tolerance": 0.052572
+        }
+      ]
+    },
+    {
+      "variable": "wind_v_kt",
+      "time": "2026-09-26T18:00:00Z",
+      "keys": {
+        "discipline": 0,
+        "centre": 98,
+        "subCentre": 0,
+        "tablesVersion": 2,
+        "significanceOfReferenceTime": 1,
+        "dataDate": 20260923,
+        "dataTime": 0,
+        "productionStatusOfProcessedData": 0,
+        "typeOfProcessedData": 1,
+        "parameterCategory": 2,
+        "parameterNumber": 3,
+        "typeOfGeneratingProcess": 2,
+        "generatingProcessIdentifier": 255,
+        "productDefinitionTemplateNumber": 0,
+        "indicatorOfUnitOfTimeRange": 1,
+        "forecastTime": 90,
+        "typeOfFirstFixedSurface": 103,
+        "scaleFactorOfFirstFixedSurface": 0,
+        "scaledValueOfFirstFixedSurface": 10,
+        "shapeOfTheEarth": 6,
+        "Ni": 4,
+        "Nj": 4,
+        "latitudeOfFirstGridPointInDegrees": 50.75,
+        "longitudeOfFirstGridPointInDegrees": 358.25,
+        "latitudeOfLastGridPointInDegrees": 50,
+        "longitudeOfLastGridPointInDegrees": 359,
+        "iDirectionIncrementInDegrees": 0.25,
+        "jDirectionIncrementInDegrees": 0.25,
+        "resolutionAndComponentFlags": 48,
+        "scanningMode": 0,
+        "bitmapPresent": 0,
+        "numberOfDataPoints": 16,
+        "numberOfMissing": 0,
+        "decimalScaleFactor": 1,
+        "bitsPerValue": 3,
+        "packingType": "grid_simple"
+      },
+      "points": [
+        {
+          "lat": 50.75,
+          "lon": -1.75,
+          "source": 1.738823,
+          "written": 1.7,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50.75,
+          "lon": -1,
+          "source": 1.929167,
+          "written": 1.9,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50.5,
+          "lon": -1.5,
+          "source": 1.929167,
+          "written": 1.9,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50.25,
+          "lon": -1.25,
+          "source": 2.124656,
+          "written": 2.1,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50,
+          "lon": -1.75,
+          "source": 2.124656,
+          "written": 2.1,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50,
+          "lon": -1,
+          "source": 2.315001,
+          "written": 2.3,
+          "tolerance": 0.052572
+        }
+      ]
+    },
+    {
+      "variable": "gust_kt",
+      "time": "2026-09-26T18:00:00Z",
+      "keys": {
+        "discipline": 0,
+        "centre": 98,
+        "subCentre": 0,
+        "tablesVersion": 2,
+        "significanceOfReferenceTime": 1,
+        "dataDate": 20260923,
+        "dataTime": 0,
+        "productionStatusOfProcessedData": 0,
+        "typeOfProcessedData": 1,
+        "parameterCategory": 2,
+        "parameterNumber": 22,
+        "typeOfGeneratingProcess": 2,
+        "generatingProcessIdentifier": 255,
+        "productDefinitionTemplateNumber": 8,
+        "indicatorOfUnitOfTimeRange": 1,
+        "forecastTime": 89,
+        "typeOfStatisticalProcessing": 2,
+        "numberOfTimeRange": 1,
+        "typeOfTimeIncrement": 2,
+        "indicatorOfUnitForTimeRange": 1,
+        "lengthOfTimeRange": 1,
+        "stepType": "max",
+        "stepRange": "89-90",
+        "typeOfFirstFixedSurface": 103,
+        "scaleFactorOfFirstFixedSurface": 0,
+        "scaledValueOfFirstFixedSurface": 10,
+        "shapeOfTheEarth": 6,
+        "Ni": 4,
+        "Nj": 4,
+        "latitudeOfFirstGridPointInDegrees": 50.75,
+        "longitudeOfFirstGridPointInDegrees": 358.25,
+        "latitudeOfLastGridPointInDegrees": 50,
+        "longitudeOfLastGridPointInDegrees": 359,
+        "iDirectionIncrementInDegrees": 0.25,
+        "jDirectionIncrementInDegrees": 0.25,
+        "resolutionAndComponentFlags": 48,
+        "scanningMode": 0,
+        "bitmapPresent": 0,
+        "numberOfDataPoints": 16,
+        "numberOfMissing": 0,
+        "decimalScaleFactor": 1,
+        "bitsPerValue": 5,
+        "packingType": "grid_simple"
+      },
+      "points": [
+        {
+          "lat": 50.75,
+          "lon": -1.75,
+          "source": 16.462226,
+          "written": 16.5,
+          "tolerance": 0.075722
+        },
+        {
+          "lat": 50.75,
+          "lon": -1,
+          "source": 16.102115,
+          "written": 16.1,
+          "tolerance": 0.075722
+        },
+        {
+          "lat": 50.5,
+          "lon": -1.5,
+          "source": 15.947782,
+          "written": 15.9,
+          "tolerance": 0.075722
+        },
+        {
+          "lat": 50.25,
+          "lon": -1.25,
+          "source": 15.433337,
+          "written": 15.4,
+          "tolerance": 0.075722
+        },
+        {
+          "lat": 50,
+          "lon": -1.75,
+          "source": 15.330448,
+          "written": 15.3,
+          "tolerance": 0.075722
+        },
+        {
+          "lat": 50,
+          "lon": -1,
+          "source": 14.918893,
+          "written": 14.9,
+          "tolerance": 0.075722
+        }
+      ]
+    },
+    {
+      "variable": "wind_u_kt",
+      "time": "2026-09-26T21:00:00Z",
+      "keys": {
+        "discipline": 0,
+        "centre": 98,
+        "subCentre": 0,
+        "tablesVersion": 2,
+        "significanceOfReferenceTime": 1,
+        "dataDate": 20260923,
+        "dataTime": 0,
+        "productionStatusOfProcessedData": 0,
+        "typeOfProcessedData": 1,
+        "parameterCategory": 2,
+        "parameterNumber": 2,
+        "typeOfGeneratingProcess": 2,
+        "generatingProcessIdentifier": 255,
+        "productDefinitionTemplateNumber": 0,
+        "indicatorOfUnitOfTimeRange": 1,
+        "forecastTime": 93,
+        "typeOfFirstFixedSurface": 103,
+        "scaleFactorOfFirstFixedSurface": 0,
+        "scaledValueOfFirstFixedSurface": 10,
+        "shapeOfTheEarth": 6,
+        "Ni": 4,
+        "Nj": 4,
+        "latitudeOfFirstGridPointInDegrees": 50.75,
+        "longitudeOfFirstGridPointInDegrees": 358.25,
+        "latitudeOfLastGridPointInDegrees": 50,
+        "longitudeOfLastGridPointInDegrees": 359,
+        "iDirectionIncrementInDegrees": 0.25,
+        "jDirectionIncrementInDegrees": 0.25,
+        "resolutionAndComponentFlags": 48,
+        "scanningMode": 0,
+        "bitmapPresent": 0,
+        "numberOfDataPoints": 16,
+        "numberOfMissing": 0,
+        "decimalScaleFactor": 1,
+        "bitsPerValue": 4,
+        "packingType": "grid_simple"
+      },
+      "points": [
+        {
+          "lat": 50.75,
+          "lon": -1.75,
+          "source": -4.758612,
+          "written": -4.8,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50.75,
+          "lon": -1,
+          "source": -4.372779,
+          "written": -4.4,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50.5,
+          "lon": -1.5,
+          "source": -4.887223,
+          "written": -4.9,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50.25,
+          "lon": -1.25,
+          "source": -5.015835,
+          "written": -5,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50,
+          "lon": -1.75,
+          "source": -5.530279,
+          "written": -5.5,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50,
+          "lon": -1,
+          "source": -5.144446,
+          "written": -5.1,
+          "tolerance": 0.052572
+        }
+      ]
+    },
+    {
+      "variable": "wind_v_kt",
+      "time": "2026-09-26T21:00:00Z",
+      "keys": {
+        "discipline": 0,
+        "centre": 98,
+        "subCentre": 0,
+        "tablesVersion": 2,
+        "significanceOfReferenceTime": 1,
+        "dataDate": 20260923,
+        "dataTime": 0,
+        "productionStatusOfProcessedData": 0,
+        "typeOfProcessedData": 1,
+        "parameterCategory": 2,
+        "parameterNumber": 3,
+        "typeOfGeneratingProcess": 2,
+        "generatingProcessIdentifier": 255,
+        "productDefinitionTemplateNumber": 0,
+        "indicatorOfUnitOfTimeRange": 1,
+        "forecastTime": 93,
+        "typeOfFirstFixedSurface": 103,
+        "scaleFactorOfFirstFixedSurface": 0,
+        "scaledValueOfFirstFixedSurface": 10,
+        "shapeOfTheEarth": 6,
+        "Ni": 4,
+        "Nj": 4,
+        "latitudeOfFirstGridPointInDegrees": 50.75,
+        "longitudeOfFirstGridPointInDegrees": 358.25,
+        "latitudeOfLastGridPointInDegrees": 50,
+        "longitudeOfLastGridPointInDegrees": 359,
+        "iDirectionIncrementInDegrees": 0.25,
+        "jDirectionIncrementInDegrees": 0.25,
+        "resolutionAndComponentFlags": 48,
+        "scanningMode": 0,
+        "bitmapPresent": 0,
+        "numberOfDataPoints": 16,
+        "numberOfMissing": 0,
+        "decimalScaleFactor": 1,
+        "bitsPerValue": 3,
+        "packingType": "grid_simple"
+      },
+      "points": [
+        {
+          "lat": 50.75,
+          "lon": -1.75,
+          "source": 1.224378,
+          "written": 1.2,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50.75,
+          "lon": -1,
+          "source": 1.414723,
+          "written": 1.4,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50.5,
+          "lon": -1.5,
+          "source": 1.414723,
+          "written": 1.4,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50.25,
+          "lon": -1.25,
+          "source": 1.610212,
+          "written": 1.6,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50,
+          "lon": -1.75,
+          "source": 1.610212,
+          "written": 1.6,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50,
+          "lon": -1,
+          "source": 1.800556,
+          "written": 1.8,
+          "tolerance": 0.052572
+        }
+      ]
+    },
+    {
+      "variable": "gust_kt",
+      "time": "2026-09-26T21:00:00Z",
+      "keys": {
+        "discipline": 0,
+        "centre": 98,
+        "subCentre": 0,
+        "tablesVersion": 2,
+        "significanceOfReferenceTime": 1,
+        "dataDate": 20260923,
+        "dataTime": 0,
+        "productionStatusOfProcessedData": 0,
+        "typeOfProcessedData": 1,
+        "parameterCategory": 2,
+        "parameterNumber": 22,
+        "typeOfGeneratingProcess": 2,
+        "generatingProcessIdentifier": 255,
+        "productDefinitionTemplateNumber": 8,
+        "indicatorOfUnitOfTimeRange": 1,
+        "forecastTime": 90,
+        "typeOfStatisticalProcessing": 2,
+        "numberOfTimeRange": 1,
+        "typeOfTimeIncrement": 2,
+        "indicatorOfUnitForTimeRange": 1,
+        "lengthOfTimeRange": 3,
+        "stepType": "max",
+        "stepRange": "90-93",
+        "typeOfFirstFixedSurface": 103,
+        "scaleFactorOfFirstFixedSurface": 0,
+        "scaledValueOfFirstFixedSurface": 10,
+        "shapeOfTheEarth": 6,
+        "Ni": 4,
+        "Nj": 4,
+        "latitudeOfFirstGridPointInDegrees": 50.75,
+        "longitudeOfFirstGridPointInDegrees": 358.25,
+        "latitudeOfLastGridPointInDegrees": 50,
+        "longitudeOfLastGridPointInDegrees": 359,
+        "iDirectionIncrementInDegrees": 0.25,
+        "jDirectionIncrementInDegrees": 0.25,
+        "resolutionAndComponentFlags": 48,
+        "scanningMode": 0,
+        "bitmapPresent": 0,
+        "numberOfDataPoints": 16,
+        "numberOfMissing": 0,
+        "decimalScaleFactor": 1,
+        "bitsPerValue": 5,
+        "packingType": "grid_simple"
+      },
+      "points": [
+        {
+          "lat": 50.75,
+          "lon": -1.75,
+          "source": 17.491116,
+          "written": 17.5,
+          "tolerance": 0.075722
+        },
+        {
+          "lat": 50.75,
+          "lon": -1,
+          "source": 17.131004,
+          "written": 17.1,
+          "tolerance": 0.075722
+        },
+        {
+          "lat": 50.5,
+          "lon": -1.5,
+          "source": 16.976671,
+          "written": 17,
+          "tolerance": 0.075722
+        },
+        {
+          "lat": 50.25,
+          "lon": -1.25,
+          "source": 16.462226,
+          "written": 16.5,
+          "tolerance": 0.075722
+        },
+        {
+          "lat": 50,
+          "lon": -1.75,
+          "source": 16.359337,
+          "written": 16.4,
+          "tolerance": 0.075722
+        },
+        {
+          "lat": 50,
+          "lon": -1,
+          "source": 15.947782,
+          "written": 15.9,
+          "tolerance": 0.075722
+        }
+      ]
+    },
+    {
+      "variable": "wind_u_kt",
+      "time": "2026-09-29T00:00:00Z",
+      "keys": {
+        "discipline": 0,
+        "centre": 98,
+        "subCentre": 0,
+        "tablesVersion": 2,
+        "significanceOfReferenceTime": 1,
+        "dataDate": 20260923,
+        "dataTime": 0,
+        "productionStatusOfProcessedData": 0,
+        "typeOfProcessedData": 1,
+        "parameterCategory": 2,
+        "parameterNumber": 2,
+        "typeOfGeneratingProcess": 2,
+        "generatingProcessIdentifier": 255,
+        "productDefinitionTemplateNumber": 0,
+        "indicatorOfUnitOfTimeRange": 1,
+        "forecastTime": 144,
+        "typeOfFirstFixedSurface": 103,
+        "scaleFactorOfFirstFixedSurface": 0,
+        "scaledValueOfFirstFixedSurface": 10,
+        "shapeOfTheEarth": 6,
+        "Ni": 4,
+        "Nj": 4,
+        "latitudeOfFirstGridPointInDegrees": 50.75,
+        "longitudeOfFirstGridPointInDegrees": 358.25,
+        "latitudeOfLastGridPointInDegrees": 50,
+        "longitudeOfLastGridPointInDegrees": 359,
+        "iDirectionIncrementInDegrees": 0.25,
+        "jDirectionIncrementInDegrees": 0.25,
+        "resolutionAndComponentFlags": 48,
+        "scanningMode": 0,
+        "bitmapPresent": 0,
+        "numberOfDataPoints": 16,
+        "numberOfMissing": 0,
+        "decimalScaleFactor": 1,
+        "bitsPerValue": 4,
+        "packingType": "grid_simple"
+      },
+      "points": [
+        {
+          "lat": 50.75,
+          "lon": -1.75,
+          "source": -4.244168,
+          "written": -4.2,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50.75,
+          "lon": -1,
+          "source": -3.858334,
+          "written": -3.9,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50.5,
+          "lon": -1.5,
+          "source": -4.372779,
+          "written": -4.4,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50.25,
+          "lon": -1.25,
+          "source": -4.50139,
+          "written": -4.5,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50,
+          "lon": -1.75,
+          "source": -5.015835,
+          "written": -5,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50,
+          "lon": -1,
+          "source": -4.630001,
+          "written": -4.6,
+          "tolerance": 0.052572
+        }
+      ]
+    },
+    {
+      "variable": "wind_v_kt",
+      "time": "2026-09-29T00:00:00Z",
+      "keys": {
+        "discipline": 0,
+        "centre": 98,
+        "subCentre": 0,
+        "tablesVersion": 2,
+        "significanceOfReferenceTime": 1,
+        "dataDate": 20260923,
+        "dataTime": 0,
+        "productionStatusOfProcessedData": 0,
+        "typeOfProcessedData": 1,
+        "parameterCategory": 2,
+        "parameterNumber": 3,
+        "typeOfGeneratingProcess": 2,
+        "generatingProcessIdentifier": 255,
+        "productDefinitionTemplateNumber": 0,
+        "indicatorOfUnitOfTimeRange": 1,
+        "forecastTime": 144,
+        "typeOfFirstFixedSurface": 103,
+        "scaleFactorOfFirstFixedSurface": 0,
+        "scaledValueOfFirstFixedSurface": 10,
+        "shapeOfTheEarth": 6,
+        "Ni": 4,
+        "Nj": 4,
+        "latitudeOfFirstGridPointInDegrees": 50.75,
+        "longitudeOfFirstGridPointInDegrees": 358.25,
+        "latitudeOfLastGridPointInDegrees": 50,
+        "longitudeOfLastGridPointInDegrees": 359,
+        "iDirectionIncrementInDegrees": 0.25,
+        "jDirectionIncrementInDegrees": 0.25,
+        "resolutionAndComponentFlags": 48,
+        "scanningMode": 0,
+        "bitmapPresent": 0,
+        "numberOfDataPoints": 16,
+        "numberOfMissing": 0,
+        "decimalScaleFactor": 1,
+        "bitsPerValue": 3,
+        "packingType": "grid_simple"
+      },
+      "points": [
+        {
+          "lat": 50.75,
+          "lon": -1.75,
+          "source": 0.709934,
+          "written": 0.7,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50.75,
+          "lon": -1,
+          "source": 0.900278,
+          "written": 0.9,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50.5,
+          "lon": -1.5,
+          "source": 0.900278,
+          "written": 0.9,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50.25,
+          "lon": -1.25,
+          "source": 1.095767,
+          "written": 1.1,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50,
+          "lon": -1.75,
+          "source": 1.095767,
+          "written": 1.1,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50,
+          "lon": -1,
+          "source": 1.286111,
+          "written": 1.3,
+          "tolerance": 0.052572
+        }
+      ]
+    },
+    {
+      "variable": "gust_kt",
+      "time": "2026-09-29T00:00:00Z",
+      "keys": {
+        "discipline": 0,
+        "centre": 98,
+        "subCentre": 0,
+        "tablesVersion": 2,
+        "significanceOfReferenceTime": 1,
+        "dataDate": 20260923,
+        "dataTime": 0,
+        "productionStatusOfProcessedData": 0,
+        "typeOfProcessedData": 1,
+        "parameterCategory": 2,
+        "parameterNumber": 22,
+        "typeOfGeneratingProcess": 2,
+        "generatingProcessIdentifier": 255,
+        "productDefinitionTemplateNumber": 8,
+        "indicatorOfUnitOfTimeRange": 1,
+        "forecastTime": 141,
+        "typeOfStatisticalProcessing": 2,
+        "numberOfTimeRange": 1,
+        "typeOfTimeIncrement": 2,
+        "indicatorOfUnitForTimeRange": 1,
+        "lengthOfTimeRange": 3,
+        "stepType": "max",
+        "stepRange": "141-144",
+        "typeOfFirstFixedSurface": 103,
+        "scaleFactorOfFirstFixedSurface": 0,
+        "scaledValueOfFirstFixedSurface": 10,
+        "shapeOfTheEarth": 6,
+        "Ni": 4,
+        "Nj": 4,
+        "latitudeOfFirstGridPointInDegrees": 50.75,
+        "longitudeOfFirstGridPointInDegrees": 358.25,
+        "latitudeOfLastGridPointInDegrees": 50,
+        "longitudeOfLastGridPointInDegrees": 359,
+        "iDirectionIncrementInDegrees": 0.25,
+        "jDirectionIncrementInDegrees": 0.25,
+        "resolutionAndComponentFlags": 48,
+        "scanningMode": 0,
+        "bitmapPresent": 0,
+        "numberOfDataPoints": 16,
+        "numberOfMissing": 0,
+        "decimalScaleFactor": 1,
+        "bitsPerValue": 4,
+        "packingType": "grid_simple"
+      },
+      "points": [
+        {
+          "lat": 50.75,
+          "lon": -1.75,
+          "source": 18.520005,
+          "written": 18.5,
+          "tolerance": 0.075722
+        },
+        {
+          "lat": 50.75,
+          "lon": -1,
+          "source": 18.159893,
+          "written": 18.2,
+          "tolerance": 0.075722
+        },
+        {
+          "lat": 50.5,
+          "lon": -1.5,
+          "source": 18.00556,
+          "written": 18,
+          "tolerance": 0.075722
+        },
+        {
+          "lat": 50.25,
+          "lon": -1.25,
+          "source": 17.491116,
+          "written": 17.5,
+          "tolerance": 0.075722
+        },
+        {
+          "lat": 50,
+          "lon": -1.75,
+          "source": 17.388226,
+          "written": 17.4,
+          "tolerance": 0.075722
+        },
+        {
+          "lat": 50,
+          "lon": -1,
+          "source": 16.976671,
+          "written": 17,
+          "tolerance": 0.075722
+        }
+      ]
+    },
+    {
+      "variable": "wind_u_kt",
+      "time": "2026-09-29T06:00:00Z",
+      "keys": {
+        "discipline": 0,
+        "centre": 98,
+        "subCentre": 0,
+        "tablesVersion": 2,
+        "significanceOfReferenceTime": 1,
+        "dataDate": 20260923,
+        "dataTime": 0,
+        "productionStatusOfProcessedData": 0,
+        "typeOfProcessedData": 1,
+        "parameterCategory": 2,
+        "parameterNumber": 2,
+        "typeOfGeneratingProcess": 2,
+        "generatingProcessIdentifier": 255,
+        "productDefinitionTemplateNumber": 0,
+        "indicatorOfUnitOfTimeRange": 1,
+        "forecastTime": 150,
+        "typeOfFirstFixedSurface": 103,
+        "scaleFactorOfFirstFixedSurface": 0,
+        "scaledValueOfFirstFixedSurface": 10,
+        "shapeOfTheEarth": 6,
+        "Ni": 4,
+        "Nj": 4,
+        "latitudeOfFirstGridPointInDegrees": 50.75,
+        "longitudeOfFirstGridPointInDegrees": 358.25,
+        "latitudeOfLastGridPointInDegrees": 50,
+        "longitudeOfLastGridPointInDegrees": 359,
+        "iDirectionIncrementInDegrees": 0.25,
+        "jDirectionIncrementInDegrees": 0.25,
+        "resolutionAndComponentFlags": 48,
+        "scanningMode": 0,
+        "bitmapPresent": 0,
+        "numberOfDataPoints": 16,
+        "numberOfMissing": 0,
+        "decimalScaleFactor": 1,
+        "bitsPerValue": 4,
+        "packingType": "grid_simple"
+      },
+      "points": [
+        {
+          "lat": 50.75,
+          "lon": -1.75,
+          "source": -3.729723,
+          "written": -3.7,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50.75,
+          "lon": -1,
+          "source": -3.34389,
+          "written": -3.3,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50.5,
+          "lon": -1.5,
+          "source": -3.858334,
+          "written": -3.9,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50.25,
+          "lon": -1.25,
+          "source": -3.986945,
+          "written": -4,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50,
+          "lon": -1.75,
+          "source": -4.50139,
+          "written": -4.5,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50,
+          "lon": -1,
+          "source": -4.115557,
+          "written": -4.1,
+          "tolerance": 0.052572
+        }
+      ]
+    },
+    {
+      "variable": "wind_v_kt",
+      "time": "2026-09-29T06:00:00Z",
+      "keys": {
+        "discipline": 0,
+        "centre": 98,
+        "subCentre": 0,
+        "tablesVersion": 2,
+        "significanceOfReferenceTime": 1,
+        "dataDate": 20260923,
+        "dataTime": 0,
+        "productionStatusOfProcessedData": 0,
+        "typeOfProcessedData": 1,
+        "parameterCategory": 2,
+        "parameterNumber": 3,
+        "typeOfGeneratingProcess": 2,
+        "generatingProcessIdentifier": 255,
+        "productDefinitionTemplateNumber": 0,
+        "indicatorOfUnitOfTimeRange": 1,
+        "forecastTime": 150,
+        "typeOfFirstFixedSurface": 103,
+        "scaleFactorOfFirstFixedSurface": 0,
+        "scaledValueOfFirstFixedSurface": 10,
+        "shapeOfTheEarth": 6,
+        "Ni": 4,
+        "Nj": 4,
+        "latitudeOfFirstGridPointInDegrees": 50.75,
+        "longitudeOfFirstGridPointInDegrees": 358.25,
+        "latitudeOfLastGridPointInDegrees": 50,
+        "longitudeOfLastGridPointInDegrees": 359,
+        "iDirectionIncrementInDegrees": 0.25,
+        "jDirectionIncrementInDegrees": 0.25,
+        "resolutionAndComponentFlags": 48,
+        "scanningMode": 0,
+        "bitmapPresent": 0,
+        "numberOfDataPoints": 16,
+        "numberOfMissing": 0,
+        "decimalScaleFactor": 1,
+        "bitsPerValue": 3,
+        "packingType": "grid_simple"
+      },
+      "points": [
+        {
+          "lat": 50.75,
+          "lon": -1.75,
+          "source": 0.195489,
+          "written": 0.2,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50.75,
+          "lon": -1,
+          "source": 0.385833,
+          "written": 0.4,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50.5,
+          "lon": -1.5,
+          "source": 0.385833,
+          "written": 0.4,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50.25,
+          "lon": -1.25,
+          "source": 0.581322,
+          "written": 0.6,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50,
+          "lon": -1.75,
+          "source": 0.581322,
+          "written": 0.6,
+          "tolerance": 0.052572
+        },
+        {
+          "lat": 50,
+          "lon": -1,
+          "source": 0.771667,
+          "written": 0.8,
+          "tolerance": 0.052572
+        }
+      ]
+    },
+    {
+      "variable": "gust_kt",
+      "time": "2026-09-29T06:00:00Z",
+      "keys": {
+        "discipline": 0,
+        "centre": 98,
+        "subCentre": 0,
+        "tablesVersion": 2,
+        "significanceOfReferenceTime": 1,
+        "dataDate": 20260923,
+        "dataTime": 0,
+        "productionStatusOfProcessedData": 0,
+        "typeOfProcessedData": 1,
+        "parameterCategory": 2,
+        "parameterNumber": 22,
+        "typeOfGeneratingProcess": 2,
+        "generatingProcessIdentifier": 255,
+        "productDefinitionTemplateNumber": 8,
+        "indicatorOfUnitOfTimeRange": 1,
+        "forecastTime": 144,
+        "typeOfStatisticalProcessing": 2,
+        "numberOfTimeRange": 1,
+        "typeOfTimeIncrement": 2,
+        "indicatorOfUnitForTimeRange": 1,
+        "lengthOfTimeRange": 6,
+        "stepType": "max",
+        "stepRange": "144-150",
+        "typeOfFirstFixedSurface": 103,
+        "scaleFactorOfFirstFixedSurface": 0,
+        "scaledValueOfFirstFixedSurface": 10,
+        "shapeOfTheEarth": 6,
+        "Ni": 4,
+        "Nj": 4,
+        "latitudeOfFirstGridPointInDegrees": 50.75,
+        "longitudeOfFirstGridPointInDegrees": 358.25,
+        "latitudeOfLastGridPointInDegrees": 50,
+        "longitudeOfLastGridPointInDegrees": 359,
+        "iDirectionIncrementInDegrees": 0.25,
+        "jDirectionIncrementInDegrees": 0.25,
+        "resolutionAndComponentFlags": 48,
+        "scanningMode": 0,
+        "bitmapPresent": 0,
+        "numberOfDataPoints": 16,
+        "numberOfMissing": 0,
+        "decimalScaleFactor": 1,
+        "bitsPerValue": 4,
+        "packingType": "grid_simple"
+      },
+      "points": [
+        {
+          "lat": 50.75,
+          "lon": -1.75,
+          "source": 19.548894,
+          "written": 19.5,
+          "tolerance": 0.075722
+        },
+        {
+          "lat": 50.75,
+          "lon": -1,
+          "source": 19.188782,
+          "written": 19.2,
+          "tolerance": 0.075722
+        },
+        {
+          "lat": 50.5,
+          "lon": -1.5,
+          "source": 19.034449,
+          "written": 19,
+          "tolerance": 0.075722
+        },
+        {
+          "lat": 50.25,
+          "lon": -1.25,
+          "source": 18.520005,
+          "written": 18.5,
+          "tolerance": 0.075722
+        },
+        {
+          "lat": 50,
+          "lon": -1.75,
+          "source": 18.417115,
+          "written": 18.4,
+          "tolerance": 0.075722
+        },
+        {
+          "lat": 50,
+          "lon": -1,
+          "source": 18.00556,
+          "written": 18,
+          "tolerance": 0.075722
+        }
+      ]
+    }
+  ]
+}

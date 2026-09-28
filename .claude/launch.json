@@ -9,6 +9,12 @@
       "env": { "VITE_DW_FIXTURE": "demo" }
     },
     {
+      "name": "viewer-warehouse",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "-w", "viewer", "--", "--host", "127.0.0.1", "--port", "5176"],
+      "port": 5176
+    },
+    {
       "name": "static-dist",
       "runtimeExecutable": "node",
       "runtimeArgs": ["scripts/serve-pages.mjs"],
