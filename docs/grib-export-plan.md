@@ -3,9 +3,12 @@
 Status: direction approved 2026-09-23. **Phase 1 landed 2026-09-24** (engine,
 CLI, golden fixtures, ecCodes contract; CI green). **Phase 2 landed
 2026-09-24** (planner **Download GRIBs…** live in production for everyone, EN
-and FR). **Phase 3 is next**; it needs the Adrena checklist results. Phase 5
-(fresher forecast runs) is an independent track added 2026-09-23. Update the
-status line and tick the exit criteria as phases land.
+and FR). **Adrena sign-off 2026-09-27** (wind and currents, Channel box across
+0°). **Phase 3 landed 2026-09-28**: the GRIB files page replaces the planner
+section; see [Phase 3](#phase-3--adrena-feedback-and-refinements) for what
+stays open. Phase 4 (measure) and Phase 5 (fresher forecast runs, an
+independent track added 2026-09-23) are next. Update the status line and tick
+the exit criteria as phases land.
 
 ## How to use this plan
 
@@ -160,8 +163,9 @@ Checked 2026-09-23 against the code and the live data.
 - Viewer:
   - Hash routes: the planner is `#plan/planner`. `parseRoute()`
     (`viewer/src/lib/routes.js`) splits `?query` off the hash.
-  - No Web Worker exists. The GRIB section (Phase 2) is the viewer's only
-    file download: Blob URLs on `<a download>` links.
+  - No Web Worker exists. The GRIB files page (`viewer/src/pages/Grib.jsx`,
+    Phase 3) is the viewer's only file download: Blob URLs on `<a download>`
+    links.
   - The CSP (`viewer/public/_headers`) already allows
     `connect-src https://forecast.deepregatta.com` and `worker-src 'self' blob:`.
   - The planner state lives in `viewer/src/pages/planner/usePlannerController.jsx`
@@ -501,36 +505,57 @@ Results (2026-09-24, runs `*-20260923T00Z`):
 
 ## Phase 3 — Adrena feedback and refinements
 
-**Prerequisite:** the Adrena checklist results. Apply the fixes first. Each
-fix updates `docs/grib-export.md`, the fixtures (re-run the generator) and
-`expected.json`, and the contract test must still pass.
+**Adrena result (Davi, 2026-09-27).** On Jacques's boat PC (Windows, Adrena
+basic edition), wind and currents files for an English Channel box around
+Greenwich imported and displayed "flawlessly", including across 0°. No
+encoding fix was needed, so `0-360` stays the longitude convention. Waves were
+not part of the test.
+
+**UI finding.** Jacques could not download the files on his own: he was
+"lost since the beginning". The Phase 2 flow needed a route first, and the
+button was the third in the Passage panel, disabled with no reason given. The
+form opened below the page, far from the map. It used three verbs for one
+action (**Download GRIBs…** → **Prepare files** → **Save**), asked about
+eight questions in model names, and gave one Save link per file.
+
+Davi's decisions (2026-09-28):
+
+- Keep **separate files**, one per kind. A combined file risks problems, and
+  sailors use other software than Adrena.
+- Sailors find it more intuitive to **draw a rectangle** over their zone.
+- **ECMWF is the default wind model in Europe**, and defaults always prefer
+  the local model.
+- A dedicated page with one-click downloads and remembered or bookmarkable
+  areas (the rest of the proposal).
 
 Tasks:
 
-1. Fix whatever Adrena rejected (see [Risks](#risks-and-fallbacks)). If a
-   variant was needed (longitude convention, current level), make it the
-   default. Remove the `gribLon` override once the convention is settled.
-2. Size guardrails:
-   - Show the total estimated output, plus the "up to X MB of forecast data
-     to fetch" upper bound.
-   - Warn above 50 MB total. Block above 200 MB with a suggestion (a coarser
-     step, a smaller margin, fewer datasets). Tune these numbers in Phase 4.
-3. ~~Window presets: "Passage window" (default) and "Full forecast".~~
-   Done 2026-09-24, ahead of Phase 3 at Davi's request: a Window select in
-   the GRIB section; "Full forecast" runs to the end of the longest pinned
-   forecast and clips each file to its own model.
-4. **Save all (.zip)**: add `fflate` to the viewer and use `zipSync` at level
-   0 (GRIB is already packed). Include `SOURCES.txt`: datasets, run ids,
-   cycles, attribution, the not-for-navigation notice and the currents notes.
-   Individual Save links remain.
-5. Docs: finalise `docs/grib-export.md`; French catalogue for all new copy.
-6. Tests: extend the viewer tests. Update Playwright baselines only for
-   intended changes, and review the diffs.
-7. Commit, push, and re-run the production smoke test.
+1. [x] Adrena fixes: none needed. The `gribLon` override and its
+   `localStorage` key are removed; `0-360` is the only convention.
+2. [x] **GRIB files page** (`#plan/grib`, the Plan stage's **GRIB files**
+   tab). Draw a box (drag or two clicks, then corner handles), choose a
+   period, click **Download wind / currents / waves**. Each click builds and
+   saves one file. Local model first: ECMWF wind in Europe, IBI currents
+   where they cover the whole box. The area and choices are remembered, and
+   the address (`#plan/grib?area=S,N,W,E`) can be bookmarked. The Passage
+   panel's **Download GRIBs…** is always enabled and hands over the route's
+   box ± 1°. Spec: [grib-export.md → GRIB files page](grib-export.md#grib-files-page-viewer).
+3. [~] Size guardrails: each file shows its estimate and is blocked above
+   200 MB ("Draw a smaller box or choose a shorter period."). Not done: the
+   "up to X MB to fetch" upper bound and a 50 MB warning. Tune both with the
+   Phase 4 measurements.
+4. [x] Window presets are superseded by the **Period** select (next 2 / 3 /
+   5 / 7 days, or Full forecast).
+5. **Save all (.zip)** was dropped: files stay separate (Davi, 2026-09-28).
+6. [x] Docs and the French catalogue; viewer tests
+   (`viewer/test/gribExport.test.jsx`) and a Playwright test that draws the
+   box on the real map (`viewer/e2e/grib.spec.js`). Only the `plan.png`
+   baselines changed: the new tab and the now-enabled button.
 
 Exit criteria:
 
-- [ ] Adrena sign-off recorded here (date, Adrena version).
+- [x] Adrena sign-off recorded here: 2026-09-27, Adrena basic edition on
+      Windows, wind + currents, box across 0°.
 - [ ] Fixes and refinements live on production, EN and FR; CI green; docs updated.
 
 ## Phase 4 — Measure and decide (optional)
@@ -805,17 +830,16 @@ Exit criteria:
 
 The feature is in the normal production app:
 
-- English: `https://passage.deepregatta.com/#plan/planner`
-- French: `https://passage.deepregatta.com/fr/#plan/planner`
-- Longitude variant, only if files crossing 0° misbehave: open
-  `https://passage.deepregatta.com/#plan/planner?gribLon=signed` once. The
-  setting is remembered; `?gribLon=0-360` switches it back.
+- English: `https://passage.deepregatta.com/#plan/grib`
+- French: `https://passage.deepregatta.com/fr/#plan/grib`
+- The Phase 2 longitude variant (`?gribLon=signed`) was removed in Phase 3:
+  `0-360` passed across 0°.
 
-Steps: draw a route (for example Cherbourg → the Solent), click **Download
-GRIBs…**, set the margin to 2° (at the default 1° this box stops at about
-0.3°W; 2° takes it across the 0° meridian for checklist item 3), tick every
-dataset, **Prepare files**, save each file, then import them into Adrena.
-Open **File details** under each file for its times, grid and spot values.
+Result: passed for wind and currents on 2026-09-27 (see Phase 3). Steps
+for a re-test (for example of waves), on the Phase 3 page: open **Plan →
+GRIB files**, **Draw a box** across the Channel and the 0° meridian, click
+each **Download** button, then import the files into Adrena. Open **File
+details** under each file for its times, grid and spot values.
 
 Checklist. Report per file, with the Adrena version and screenshots of
 anything wrong:
@@ -839,7 +863,7 @@ anything wrong:
 
 | Risk | Detection | Fallback |
 |---|---|---|
-| Adrena misplaces boxes across 0° with 0–360 longitudes | Checklist 3 | `lonConvention: 'signed'` becomes the default |
+| Adrena misplaces boxes across 0° with 0–360 longitudes | Checklist 3 | Did not happen (2026-09-27). The fallback would have been `lonConvention: 'signed'` as the default. |
 | Currents not recognised at level 1/0 | Checklist 8 (ecCodes already shows them as `unknown` at any level: see Verified facts) | Level 160/0 (depth below sea surface); then try centre 7 |
 | Centre 255 rejected | Import error on current files | Try centre 7 for currents, documented as a compatibility choice |
 | Adrena needs GRIB1 | Import fails for all files | Write a GRIB1 encoder (a separate, small plan; the lattice and dataset logic are reused) |

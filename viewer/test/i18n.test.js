@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FORECAST_UPDATED_MESSAGE, GRIB_DATASETS, GRIB_EXPORT_NOTICE } from '@deepweather/engine';
 import { LocalizedDocument, getDefaultLanguage, getInitialLanguage, getLanguageFromPath, translateText } from '../src/i18n.js';
 import {
-  fmtGribArea, fmtGribBytes, fmtGribSteps, fmtHorizonShort, fmtLatLon, fmtTooLarge, fmtUtc, fmtUtcRange,
+  fmtGribArea, fmtGribBox, fmtGribBytes, fmtGribSteps, fmtHorizonShort, fmtLatLon, fmtTooLarge, fmtUtc, fmtUtcRange,
 } from '../src/lib/gribExport.js';
 
 afterEach(() => {
@@ -223,8 +223,8 @@ describe('review 1.12 briefing prose', () => {
   });
 });
 
-describe('planner GRIB export copy', () => {
-  it('translates the engine registry copy shown in the GRIB section', () => {
+describe('GRIB files page copy', () => {
+  it('translates the engine registry copy shown on the GRIB page', () => {
     const shown = [
       ...GRIB_DATASETS.flatMap((dataset) => [dataset.label, dataset.note].filter(Boolean)),
       ...new Set(GRIB_DATASETS.map((dataset) => dataset.attribution)),
@@ -247,10 +247,11 @@ describe('planner GRIB export copy', () => {
     [`≈ ${fmtGribBytes(2_214_000)}`, '≈ 2.2 Mo'],
     [fmtUtcRange('2026-07-20T08:00:00Z', '2026-07-21T12:00:00Z'), 'lun. 20 juil. 08:00 → mar. 21 juil. 12:00 UTC'],
     [fmtUtc('2026-07-20T00:00:00Z'), 'lun. 20 juil. 00:00 UTC'],
-    [fmtHorizonShort('2026-07-21T00:00:00Z'), 'Cette prévision s’arrête le mar. 21 juil. 00:00 UTC, avant la fin de votre fenêtre.'],
-    [fmtTooLarge(240_000_000), 'Ces fichiers feraient environ 240 Mo, au-delà de la limite de 200 Mo. Choisissez un pas de temps plus grand, une marge plus petite ou moins de jeux de données.'],
+    [fmtHorizonShort('2026-07-21T00:00:00Z'), 'Cette prévision s’arrête le mar. 21 juil. 00:00 UTC, avant la fin de votre période.'],
+    [fmtTooLarge(240_000_000), 'Ce fichier ferait environ 240 Mo, au-delà de la limite de 200 Mo. Tracez un cadre plus petit ou choisissez une période plus courte.'],
     [fmtLatLon(49.65, -1.62), '49.65°N 1.62°O'],
     [fmtGribArea({ south: 48, north: 51, west: -6, east: 2 }), '48°N–51°N, 6°O–2°E'],
+    [fmtGribBox({ minLat: 48.9, maxLat: 51, minLon: -4.7, maxLon: 1.2 }), '48.9°N–51°N, 4.7°O–1.2°E'],
   ])('translates the generated GRIB text %s', (english, french) => {
     expect(translateText(english, 'fr')).toBe(french);
     expect(translateText(english, 'en')).toBe(english);

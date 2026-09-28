@@ -10,6 +10,7 @@ const PAGES = {
   example: lazy(() => import('./pages/Example.jsx')),
   snapshots: lazy(() => import('./pages/Snapshots.jsx')),
   planner: lazy(() => import('./pages/Planner.jsx')),
+  grib: lazy(() => import('./pages/Grib.jsx')),
   briefing: lazy(() => import('./pages/Briefing.jsx')),
   evidence: lazy(() => import('./pages/Evidence.jsx')),
   changes: lazy(() => import('./pages/Changes.jsx')),

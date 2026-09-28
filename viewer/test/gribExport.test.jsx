@@ -2,40 +2,45 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { TileForecastStore } from '@deepweather/engine';
 import { buildFixtureRun } from '../../engine/test/helpers/fixtureRun.ts';
+import Grib from '../src/pages/Grib.jsx';
 import Planner from '../src/pages/Planner.jsx';
 import { useApp } from '../src/stores/appStore.js';
+import { useGrib } from '../src/stores/gribStore.js';
 import { usePlanner } from '../src/stores/plannerStore.js';
 import { track } from '../src/lib/analytics.js';
-import { toLocalDateTimeValue } from '../src/lib/format.js';
 import { LocalizedDocument } from '../src/i18n.js';
 import {
-  GRIB_LON_STORAGE_KEY,
   describeGribDataset,
   fmtGribArea,
+  fmtGribBox,
   fmtGribBytes,
   fmtGribGrid,
   fmtLatLon,
-  gribBbox,
-  gribEtaHours,
+  gribArea,
+  gribAreaFromHash,
+  gribAreaHash,
   gribForecastEnd,
-  gribLonConvention,
+  gribKindDataset,
+  gribModelOrder,
+  gribPeriodWindow,
+  gribRouteArea,
   gribRoutePoints,
   gribSizeBucket,
-  gribWindow,
-  normalizeGribMargin,
+  planAreaGrib,
+  validGribArea,
 } from '../src/lib/gribExport.js';
 
 const store = vi.hoisted(() => ({ current: null }));
-const mapState = vi.hoisted(() => ({ rectangle: null }));
+const mapState = vi.hoisted(() => ({ rectangle: null, fits: [] }));
 
 vi.mock('react-leaflet', () => ({
   MapContainer: ({ children }) => <div>{children}</div>, TileLayer: () => null,
   Marker: () => null, Polyline: () => null,
   Rectangle: (props) => {
     mapState.rectangle = props;
-    return <div data-testid="export-box" />;
+    return <div data-testid="grib-box" />;
   },
-  useMap: () => ({ fitBounds: vi.fn() }), useMapEvents: vi.fn(),
+  useMap: () => ({ fitBounds: (bounds) => mapState.fits.push(bounds) }), useMapEvents: vi.fn(),
 }));
 vi.mock('../src/lib/browserAnalysis.js', () => ({ analyzeInBrowser: vi.fn(), saveRoute: vi.fn() }));
 vi.mock('../src/lib/analytics.js', () => ({ track: vi.fn() }));
@@ -46,10 +51,13 @@ vi.mock('../src/lib/forecastStore.js', () => ({
 
 const CYCLE = '2026-07-20T00:00Z';
 const NOW = '2026-07-20T06:30:00Z';
-const DEPARTURE = '2026-07-20T08:00:00Z';
 const hours = (count, every = 1) => Array.from({ length: count }, (_, i) => i * every);
+/** Inside the one published IBI tile (N50W010, whose fixture points span 50–51°N, 10–9°W). */
+const CHANNEL = { minLat: 50.2, maxLat: 50.9, minLon: -9.9, maxLon: -9.1 };
+/** Across N40W010 too, where IBI has no tile. */
+const ACROSS = { minLat: 49.5, maxLat: 50.8, minLon: -9.9, maxLon: -9.1 };
 
-function fixtureTransport({ ibiHours = 25, waves = false } = {}) {
+function fixtureTransport({ ibiHours = 25, waves = false, ecmwfTiles = [[50, -10], [40, -10]] } = {}) {
   const wind = (name, scale, value) => ({ name, axis: 'hourly', dtype: 'i16', scale, value });
   const current = (name, value) => ({ name, axis: 'steps', dtype: 'i16', scale: 0.01, value });
   const wave = (name, scale) => ({ name, axis: 'steps', dtype: 'i16', scale, value: () => 1.5 });
@@ -67,11 +75,10 @@ function fixtureTransport({ ibiHours = 25, waves = false } = {}) {
       tiles: [[50, -10], [40, -10]],
     },
     {
-      // published, but nowhere near the route
       layer: 'weather-ecmwf', model: 'ecmwf_ifs_0p25', cycle: CYCLE, resolution_deg: 0.25,
       time_axes: { steps: { base: CYCLE, offsets_h: hours(49, 3) } },
       variables: [{ ...wind('wind_u_kt', 0.01, () => 5), axis: 'steps' }, { ...wind('wind_v_kt', 0.01, () => 5), axis: 'steps' }],
-      tiles: [[0, 0]], pointsPerSide: 4,
+      tiles: ecmwfTiles,
     },
     {
       layer: 'currents', model: 'cmems_glo12', cycle: CYCLE, resolution_deg: 1 / 12,
@@ -89,51 +96,70 @@ function fixtureTransport({ ibiHours = 25, waves = false } = {}) {
   ]);
 }
 
-const panelButton = () => screen.getByRole('button', { name: 'Download GRIBs…' });
-const section = () => within(screen.getByRole('region', { name: 'GRIB download' }));
-const datasetBox = (label) => section().getByRole('checkbox', { name: new RegExp(`^${label}`) });
+async function planFor(area, { period = '3', step = 'all' } = {}) {
+  await store.current.init();
+  const manifests = (layer) => store.current.manifestFor(layer);
+  const window = gribPeriodWindow({ period, nowMs: Date.parse(NOW), forecastEndIso: gribForecastEnd(manifests) });
+  return planAreaGrib(manifests, { area, window, step, fixture: true });
+}
 
-async function openSection() {
-  fireEvent.click(panelButton());
-  await waitFor(() => expect(section().getByRole('button', { name: 'Prepare files' })).toBeInTheDocument());
+const page = () => within(screen.getByRole('region', { name: 'GRIB download' }));
+const kindItem = (name) => within(page().getByRole('button', { name }).closest('li'));
+
+async function openWith(area) {
+  act(() => useGrib.setState({ area }));
+  render(<Grib />);
+  await waitFor(() => expect(page().getByRole('button', { name: 'Download wind' })).toBeEnabled());
 }
 
 let urls;
+let saves;
 beforeEach(() => {
   vi.clearAllMocks();
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(new Date(NOW));
   localStorage.clear();
-  history.replaceState(null, '', '/#plan/planner');
+  history.replaceState(null, '', '/#plan/grib');
   mapState.rectangle = null;
+  mapState.fits = [];
   store.current = new TileForecastStore({ transport: fixtureTransport() });
   urls = 0;
   URL.createObjectURL = vi.fn(() => `blob:grib-${++urls}`);
   URL.revokeObjectURL = vi.fn();
-  usePlanner.getState().reset();
-  usePlanner.setState({
-    waypoints: [{ lat: 50.5, lng: -1.5 }, { lat: 50.75, lng: -1.25 }],
-    departureLocal: toLocalDateTimeValue(DEPARTURE),
+  saves = [];
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function click() {
+    saves.push({ href: this.getAttribute('href'), name: this.getAttribute('download') });
   });
+  useGrib.getState().reset();
+  usePlanner.getState().reset();
   useApp.setState({
-    manifest: { snapshots: [] }, profileDefaults: {}, findings: null, language: 'en',
+    page: 'grib', manifest: { snapshots: [] }, profileDefaults: {}, findings: null, language: 'en',
     loadConfig: vi.fn(), openSnapshot: vi.fn(),
   });
 });
 afterEach(() => {
   vi.useRealTimers();
+  vi.restoreAllMocks();
   delete URL.createObjectURL;
   delete URL.revokeObjectURL;
 });
 
-describe('route-area defaults', () => {
-  it('pads the route points by the margin and clamps the box to the globe', () => {
+describe('area, period and model choices', () => {
+  it('snaps a drawn box outward to 0.1°, keeps a minimum size and clamps it to the globe', () => {
+    expect(gribArea({ lat: 50.87, lon: 1.23 }, { lat: 49.13, lon: -2.71 }))
+      .toEqual({ minLat: 49.1, maxLat: 50.9, minLon: -2.8, maxLon: 1.3 });
+    // a click without a drag still gives a usable box
+    expect(gribArea({ lat: 50.02, lon: -1.02 }, { lat: 50.02, lon: -1.02 }))
+      .toEqual({ minLat: 49.9, maxLat: 50.2, minLon: -1.2, maxLon: -0.9 });
+    // clamped, never wrapped: a box cannot cross the 180° meridian
+    expect(gribArea({ lat: 88, lon: 175 }, { lat: 95, lon: 190 })).toEqual({ minLat: 88, maxLat: 90, minLon: 175, maxLon: 180 });
+    expect(gribArea({ lat: NaN, lon: 0 }, { lat: 1, lon: 1 })).toBeNull();
+  });
+
+  it('turns a planner route into its box plus a 1° margin', () => {
     const points = [{ lat: 50.5, lon: -1.5 }, { lat: 49.65, lon: -1.62 }, { lat: 50.75, lon: -1.25 }];
-    expect(gribBbox(points, 1)).toEqual({ minLat: 48.65, maxLat: 51.75, minLon: -2.62, maxLon: -0.25 });
-    expect(gribBbox(points, 0)).toEqual({ minLat: 49.65, maxLat: 50.75, minLon: -1.62, maxLon: -1.25 });
-    expect(gribBbox([{ lat: 88, lon: 178 }, { lat: 89, lon: 179 }], 5)).toEqual({ minLat: 83, maxLat: 90, minLon: 173, maxLon: 180 });
-    expect(gribBbox(null, 1)).toBeNull();
-    expect([normalizeGribMargin(2.3), normalizeGribMargin(9), normalizeGribMargin(-1), normalizeGribMargin('x')]).toEqual([2.5, 5, 0, 1]);
+    expect(gribRouteArea(points)).toEqual({ minLat: 48.6, maxLat: 51.8, minLon: -2.7, maxLon: -0.2 });
+    expect(gribRouteArea(null)).toBeNull();
   });
 
   it('uses the drawn waypoints, else the computed route, else the two endpoints', () => {
@@ -144,62 +170,59 @@ describe('route-area defaults', () => {
     expect(gribRoutePoints({ mode: 'compute', endpoints })).toEqual([{ lat: 49, lon: -3 }, { lat: 50, lon: -1 }]);
     const computed = { route: { waypoints: [{ lat: 49, lon: -3 }, { lat: 49.5, lon: -2 }, { lat: 50, lon: -1 }] } };
     expect(gribRoutePoints({ mode: 'compute', endpoints, computed })).toHaveLength(3);
-    expect(gribRoutePoints({ mode: 'compute', endpoints: endpoints.slice(0, 1) })).toBeNull();
   });
 
-  it('runs the window from max(departure, now), floored to the hour, to the ETA plus 24 h', () => {
-    const nowMs = Date.parse('2026-07-20T06:30:00Z');
-    expect(gribWindow({ departureUtc: '2026-07-20T08:45:00Z', etaHours: 10.2, nowMs }))
-      .toEqual({ startIso: '2026-07-20T08:00:00Z', endIso: '2026-07-21T19:00:00Z' });
-    // a departure in the past starts now
-    expect(gribWindow({ departureUtc: '2026-07-19T08:00:00Z', etaHours: 48, nowMs }))
-      .toEqual({ startIso: '2026-07-20T06:00:00Z', endIso: '2026-07-23T06:00:00Z' });
-    expect(gribWindow({ departureUtc: null, etaHours: NaN, nowMs }).endIso).toBe('2026-07-23T06:00:00Z');
-    expect(gribEtaHours({ mode: 'draw', distance: 45, speeds: { slow: 4.5 } })).toBe(10);
-    expect(gribEtaHours({ mode: 'draw', distance: null, speeds: { slow: 4.5 } })).toBe(48);
-    expect(gribEtaHours({ mode: 'draw', distance: 45, speeds: { slow: '' } })).toBe(48);
-    expect(gribEtaHours({ mode: 'compute', computed: { duration_h: 17.5 } })).toBe(17.5);
-    expect(gribEtaHours({ mode: 'compute', computed: null })).toBe(48);
+  it('round-trips an area through a bookmarkable link and rejects bad ones', () => {
+    const area = { minLat: 48.9, maxLat: 51, minLon: -4.7, maxLon: 1.2 };
+    expect(gribAreaHash(area)).toBe('plan/grib?area=48.9,51,-4.7,1.2');
+    expect(gribAreaFromHash(`#${gribAreaHash(area)}`)).toEqual(area);
+    expect(gribAreaHash(null)).toBe('plan/grib');
+    for (const hash of ['#plan/grib', '#plan/grib?area=51,48,-4,1', '#plan/grib?area=1,2,3', '#plan/grib?area=a,b,c,d', '#plan/grib?area=80,95,0,1']) {
+      expect(gribAreaFromHash(hash), hash).toBeNull();
+    }
+    expect(validGribArea({ minLat: 1, maxLat: 2, minLon: 3, maxLon: 4 })).toEqual({ minLat: 1, maxLat: 2, minLon: 3, maxLon: 4 });
+    expect(validGribArea('nope')).toBeNull();
   });
 
-  it('extends the window to the end of the longest pinned forecast on request', async () => {
-    const nowMs = Date.parse('2026-07-20T06:30:00Z');
-    const departureUtc = '2026-07-20T08:45:00Z';
+  it('runs the period from now, floored to the hour, or to the end of the longest forecast', async () => {
+    const nowMs = Date.parse(NOW);
+    expect(gribPeriodWindow({ period: '3', nowMs })).toEqual({ startIso: '2026-07-20T06:00:00Z', endIso: '2026-07-23T06:00:00Z' });
+    expect(gribPeriodWindow({ period: '7', nowMs }).endIso).toBe('2026-07-27T06:00:00Z');
+    expect(gribPeriodWindow({ period: 'bogus', nowMs }).endIso).toBe('2026-07-23T06:00:00Z');
     await store.current.init();
     const manifests = (layer) => store.current.manifestFor(layer);
     // currents run to +240 h; GFS wind (+96 h), ECMWF (+144 h) and IBI (+24 h) end sooner
     expect(gribForecastEnd(manifests)).toBe('2026-07-30T00:00:00Z');
     expect(gribForecastEnd(() => null)).toBeNull();
-    const forecastEndIso = gribForecastEnd(manifests);
-    expect(gribWindow({ departureUtc, etaHours: 10, nowMs, extent: 'full', forecastEndIso }))
-      .toEqual({ startIso: '2026-07-20T08:00:00Z', endIso: '2026-07-30T00:00:00Z' });
-    // a departure after every forecast leaves an empty window rather than an invalid one
-    expect(gribWindow({ departureUtc: '2026-08-02T00:00:00Z', etaHours: 10, nowMs, extent: 'full', forecastEndIso }))
-      .toEqual({ startIso: '2026-08-02T00:00:00Z', endIso: '2026-08-02T00:00:00Z' });
-    // until the runs have loaded, the passage window stands in
-    expect(gribWindow({ departureUtc, etaHours: 10, nowMs, extent: 'full', forecastEndIso: null }).endIso)
-      .toBe('2026-07-21T18:00:00Z');
+    expect(gribPeriodWindow({ period: 'full', nowMs, forecastEndIso: gribForecastEnd(manifests) }).endIso).toBe('2026-07-30T00:00:00Z');
+    // until the runs have loaded, three days stand in
+    expect(gribPeriodWindow({ period: 'full', nowMs, forecastEndIso: null }).endIso).toBe('2026-07-23T06:00:00Z');
   });
 
-  it('parses the gribLon override from the hash query and remembers it', () => {
-    expect(gribLonConvention('#plan/planner')).toBe('0-360');
-    expect(gribLonConvention('#plan/planner?gribLon=signed')).toBe('signed');
-    expect(localStorage.getItem(GRIB_LON_STORAGE_KEY)).toBe('signed');
-    // in-app navigation drops the query; the setting survives
-    expect(gribLonConvention('#plan/planner')).toBe('signed');
-    expect(gribLonConvention('#plan/planner?gribLon=bogus')).toBe('signed');
-    expect(gribLonConvention('#plan/planner?gribLon=0-360')).toBe('0-360');
-    expect(localStorage.getItem(GRIB_LON_STORAGE_KEY)).toBeNull();
-    expect(gribLonConvention('#plan/planner')).toBe('0-360');
+  it('puts the local model first: ECMWF wind in Europe, GFS elsewhere, IBI currents first', () => {
+    expect(gribModelOrder('wind', CHANNEL)).toEqual(['wind-ecmwf', 'wind-gfs']);
+    expect(gribModelOrder('wind', { minLat: 39, maxLat: 42, minLon: 1, maxLon: 4 })).toEqual(['wind-ecmwf', 'wind-gfs']);
+    expect(gribModelOrder('wind', { minLat: 40, maxLat: 42, minLon: -72, maxLon: -70 })).toEqual(['wind-gfs', 'wind-ecmwf']);
+    expect(gribModelOrder('wind', { minLat: -25, maxLat: -23, minLon: 151, maxLon: 153 })).toEqual(['wind-gfs', 'wind-ecmwf']);
+    expect(gribModelOrder('currents', CHANNEL)).toEqual(['currents-ibi', 'currents-global']);
+    expect(gribModelOrder('waves', CHANNEL)).toEqual(['waves-gfs']);
   });
 
-  it('keeps working when storage is unavailable', () => {
-    const blocked = () => { throw new Error('denied'); };
-    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(blocked);
-    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(blocked);
-    expect(gribLonConvention('#plan/planner?gribLon=signed')).toBe('signed');
-    expect(gribLonConvention('#plan/planner')).toBe('0-360');
-    vi.restoreAllMocks();
+  it('downloads the local model unless it is missing, partial here, or the sailor chose another', async () => {
+    const plan = await planFor(CHANNEL);
+    expect(gribKindDataset(plan, 'wind', CHANNEL).datasetId).toBe('wind-ecmwf');
+    expect(gribKindDataset(plan, 'wind', CHANNEL, 'wind-gfs').datasetId).toBe('wind-gfs');
+    expect(gribKindDataset(plan, 'currents', CHANNEL).datasetId).toBe('currents-ibi');
+    // IBI covers only part of this box, so the global model covers it whole
+    const across = await planFor(ACROSS);
+    expect(gribKindDataset(across, 'currents', ACROSS).datasetId).toBe('currents-global');
+    expect(gribKindDataset(across, 'currents', ACROSS, 'currents-ibi').datasetId).toBe('currents-ibi');
+    // no waves run: the preferred model comes back so the page can say why
+    expect(gribKindDataset(plan, 'waves', CHANNEL)).toMatchObject({ datasetId: 'waves-gfs', availability: 'no-layer' });
+    // ECMWF missing here: GFS stands in, whatever was chosen
+    store.current = new TileForecastStore({ transport: fixtureTransport({ ecmwfTiles: [[0, 0]] }) });
+    const noEcmwf = await planFor(CHANNEL);
+    expect(gribKindDataset(noEcmwf, 'wind', CHANNEL, 'wind-ecmwf').datasetId).toBe('wind-gfs');
   });
 
   it('formats sizes, grids and coordinates for the file details', () => {
@@ -210,10 +233,11 @@ describe('route-area defaults', () => {
     expect(fmtGribGrid({ ni: 97, nj: 37, step_deg: 10 / 120 })).toBe('97 × 37 points · 1/12°');
     expect(fmtGribGrid({ ni: 33, nj: 13, step_deg: 0.25 })).toBe('33 × 13 points · 0.25°');
     expect(fmtGribArea({ south: 48, north: 51, west: -6, east: 2 })).toBe('48°N–51°N, 6°W–2°E');
+    expect(fmtGribBox({ minLat: 48.9, maxLat: 51, minLon: -4.7, maxLon: 1.2 })).toBe('48.9°N–51°N, 4.7°W–1.2°E');
     expect(fmtLatLon(-33.5, 151.25)).toBe('33.5°S 151.25°E');
   });
 
-  it('flags a regional dataset with unpublished tiles and a horizon shorter than the window', () => {
+  it('flags a regional dataset with unpublished tiles and a horizon shorter than the period', () => {
     const dataset = {
       datasetId: 'currents-ibi', availability: 'ok',
       steps: [{ time: '2026-07-20T08:00:00Z' }, { time: '2026-07-21T00:00:00Z' }],
@@ -227,204 +251,158 @@ describe('route-area defaults', () => {
   });
 });
 
-describe('Download GRIBs section', () => {
-  it('opens from the Passage panel once a route exists and draws the export box', async () => {
-    usePlanner.setState({ waypoints: [{ lat: 50.5, lng: -1.5 }] });
-    const { rerender } = render(<Planner />);
-    expect(panelButton()).toBeDisabled();
-    usePlanner.setState({ waypoints: [{ lat: 50.5, lng: -1.5 }, { lat: 50.75, lng: -1.25 }] });
-    rerender(<Planner />);
-    expect(screen.queryByTestId('export-box')).not.toBeInTheDocument();
-    await openSection();
-    expect(mapState.rectangle.bounds).toEqual([[49.5, -2.5], [51.75, -0.25]]);
-    expect(mapState.rectangle.interactive).toBe(false);
-    fireEvent.change(section().getByLabelText('Margin around the route'), { target: { value: '2.5' } });
-    expect(mapState.rectangle.bounds).toEqual([[48, -4], [53.25, 1.25]]);
-    fireEvent.click(section().getByRole('button', { name: 'Close' }));
-    expect(screen.queryByRole('region', { name: 'GRIB download' })).not.toBeInTheDocument();
-    expect(screen.queryByTestId('export-box')).not.toBeInTheDocument();
-  });
-
-  it('closes when the route is cleared, so the next route starts closed', async () => {
-    render(<Planner />);
-    await openSection();
-    fireEvent.click(screen.getByRole('button', { name: 'clear' }));
-    expect(screen.queryByRole('region', { name: 'GRIB download' })).not.toBeInTheDocument();
-    expect(panelButton()).toBeDisabled();
-    act(() => usePlanner.setState({ waypoints: [{ lat: 50.5, lng: -1.5 }, { lat: 50.75, lng: -1.25 }] }));
-    expect(panelButton()).toBeEnabled();
-    expect(screen.queryByRole('region', { name: 'GRIB download' })).not.toBeInTheDocument();
-  });
-
-  it('shows each dataset’s availability, time range, estimate and coverage notes', async () => {
-    render(<Planner />);
-    await openSection();
-    // 17.8 nm at the slow 4.5 kt ≈ 4 h, + 24 h → 08:00 to 12:00 the next day
-    // the window, and GFS wind which covers all of it
-    expect(section().getAllByText('Mon 20 Jul 08:00 → Tue 21 Jul 12:00 UTC')).toHaveLength(2);
-    const wind = datasetBox('Wind – GFS');
-    expect(wind).toBeChecked();
-    expect(wind).toBeEnabled();
-    const windItem = within(wind.closest('li'));
-    expect(windItem.getByText('Mon 20 Jul 08:00 → Tue 21 Jul 12:00 UTC')).toBeInTheDocument();
-    expect(windItem.getByText('29 steps')).toBeInTheDocument();
-    expect(windItem.getByText(/^\d+ kB$/)).toBeInTheDocument();
-
-    expect(datasetBox('Wind – ECMWF')).toBeDisabled();
-    expect(within(datasetBox('Wind – ECMWF').closest('li')).getByText('No data for this area.')).toBeInTheDocument();
-    expect(datasetBox('Waves – GFS-Wave')).toBeDisabled();
-    expect(within(datasetBox('Waves – GFS-Wave').closest('li')).getByText('Not in the current forecast runs.')).toBeInTheDocument();
-
-    const global = within(datasetBox('Currents – global').closest('li'));
-    expect(global.getByText('6-hourly ocean-model currents. Tides are not resolved; do not use as tidal streams.')).toBeInTheDocument();
-    const ibi = within(datasetBox('Currents – IBI regional').closest('li'));
-    expect(ibi.getByText(/^Partial coverage: this regional model covers only part of the area\./)).toBeInTheDocument();
-    expect(ibi.getByText('This forecast ends Tue 21 Jul 00:00 UTC, before the end of your window.')).toBeInTheDocument();
-    expect(ibi.getByText('Hourly regional model currents including tide. Not an official tidal-stream prediction.')).toBeInTheDocument();
-
-    expect(section().getByText('Forecast data for planning, not for navigation. Check official forecasts and warnings.')).toBeInTheDocument();
-    expect(section().getByText('NOAA/NCEP')).toBeInTheDocument();
-    fireEvent.click(datasetBox('Currents – global'));
-    expect(section().getByText('Generated using E.U. Copernicus Marine Service Information')).toBeInTheDocument();
+describe('GRIB files page', () => {
+  it('asks for a box first', async () => {
+    render(<Grib />);
+    expect(page().getByText('Move the chart to your sailing area, press Draw a box, then drag across the chart.')).toBeInTheDocument();
+    expect(page().getByText('Draw your area first.')).toBeInTheDocument();
+    expect(page().queryByRole('button', { name: /^Download/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Draw a box' })).toBeEnabled();
+    expect(screen.queryByTestId('grib-box')).not.toBeInTheDocument();
     // dev and tests read the local warehouse: an emulated fixture, never the live forecast
-    expect(section().getByText('Local test tiles, not the live forecast.')).toBeInTheDocument();
+    expect(screen.getByText('Local test tiles, not the live forecast.')).toBeInTheDocument();
   });
 
-  it('thins to the chosen step and marks datasets whose horizon the dates miss', async () => {
-    usePlanner.setState({ departureLocal: toLocalDateTimeValue('2026-07-23T12:00:00Z') });
-    render(<Planner />);
-    await openSection();
-    expect(datasetBox('Currents – IBI regional')).toBeDisabled();
-    expect(within(datasetBox('Currents – IBI regional').closest('li')).getByText('Your dates are beyond this forecast’s range.')).toBeInTheDocument();
-    // GFS wind (96 h) still reaches the start of the window
-    expect(datasetBox('Wind – GFS')).toBeEnabled();
-    expect(within(datasetBox('Wind – GFS').closest('li')).getByText(/^This forecast ends Fri 24 Jul 00:00 UTC/)).toBeInTheDocument();
-    fireEvent.change(section().getByLabelText('Time step'), { target: { value: '6' } });
-    expect(within(datasetBox('Wind – GFS').closest('li')).getByText('3 steps')).toBeInTheDocument();
+  it('offers one download per kind with the local model, its times, size and notes', async () => {
+    await openWith(CHANNEL);
+    expect(mapState.rectangle.bounds).toEqual([[50.2, -9.9], [50.9, -9.1]]);
+    expect(screen.getByRole('button', { name: 'Redraw the box' })).toBeInTheDocument();
+    expect(page().getByText('50.2°N–50.9°N, 9.9°W–9.1°W')).toBeInTheDocument();
+    // the period, and ECMWF wind which covers all of it
+    expect(page().getAllByText('Mon 20 Jul 06:00 → Thu 23 Jul 06:00 UTC')).toHaveLength(2);
+
+    const wind = kindItem('Download wind');
+    expect(wind.getByText('Wind – ECMWF')).toBeInTheDocument();
+    expect(wind.getByText('Mon 20 Jul 06:00 → Thu 23 Jul 06:00 UTC')).toBeInTheDocument();
+    expect(wind.getByText('25 steps')).toBeInTheDocument();
+    expect(wind.getByText(/^\d+ kB$/)).toBeInTheDocument();
+
+    const currents = kindItem('Download currents');
+    expect(currents.getByText('Currents – IBI regional (hourly, tide included)')).toBeInTheDocument();
+    expect(currents.getByText('This forecast ends Tue 21 Jul 00:00 UTC, before the end of your period.')).toBeInTheDocument();
+    expect(currents.getByText('Hourly regional model currents including tide. Not an official tidal-stream prediction.')).toBeInTheDocument();
+
+    expect(page().getByRole('button', { name: 'Download waves' })).toBeDisabled();
+    expect(kindItem('Download waves').getByText('Not in the current forecast runs.')).toBeInTheDocument();
+
+    expect(page().getByText('Forecast data for planning, not for navigation. Check official forecasts and warnings.')).toBeInTheDocument();
+    expect(page().getByText('ECMWF open data, CC BY 4.0')).toBeInTheDocument();
+    expect(page().getByText('Generated using E.U. Copernicus Marine Service Information')).toBeInTheDocument();
   });
 
-  it('prepares files, offers Save links and revokes them on regenerate and unmount', async () => {
-    const { unmount } = render(<Planner />);
-    await openSection();
-    fireEvent.click(datasetBox('Currents – global'));
-    fireEvent.click(section().getByRole('button', { name: 'Prepare files' }));
-    const files = await screen.findByRole('list', { name: 'Prepared GRIB files' });
-    const links = within(files).getAllByRole('link', { name: 'Save' });
-    expect(links.map((link) => link.getAttribute('href'))).toEqual(['blob:grib-1', 'blob:grib-2']);
-    expect(links[0]).toHaveAttribute('download', 'passage-fixture_wind-gfs_20260720T00Z_N49W003_N52E000.grb2');
-    expect(links[0]).toHaveAccessibleDescription('passage-fixture_wind-gfs_20260720T00Z_N49W003_N52E000.grb2');
-    expect(links[1].getAttribute('download')).toMatch(/^passage-fixture_currents-global_20260720T00Z_/);
+  it('falls back to the global currents where IBI covers only part of the box', async () => {
+    await openWith(ACROSS);
+    const currents = kindItem('Download currents');
+    expect(currents.getByText('Currents – global (6-hourly)')).toBeInTheDocument();
+    expect(currents.getByText('6-hourly ocean-model currents. Tides are not resolved; do not use as tidal streams.')).toBeInTheDocument();
+    // the regional model stays one choice away, with its coverage caveat
+    fireEvent.change(page().getByLabelText('Currents model'), { target: { value: 'currents-ibi' } });
+    expect(useGrib.getState().models.currents).toBe('currents-ibi');
+    expect(kindItem('Download currents').getByText(/^Partial coverage: this regional model covers only part of the area\./)).toBeInTheDocument();
+  });
+
+  it('builds and saves a file in one click, re-saves it without rebuilding, and drops it when the period changes', async () => {
+    await openWith(CHANNEL);
+    fireEvent.click(page().getByRole('button', { name: 'Download wind' }));
+    await waitFor(() => expect(saves).toHaveLength(1));
+    expect(saves[0]).toEqual({ href: 'blob:grib-1', name: 'passage-fixture_wind-ecmwf_20260720T00Z_N50W010_N51W009.grb2' });
     const blob = URL.createObjectURL.mock.calls[0][0];
     expect(blob).toBeInstanceOf(Blob);
     expect(blob.type).toBe('application/octet-stream');
     expect(new TextDecoder().decode((await blob.arrayBuffer()).slice(0, 4))).toBe('GRIB');
-    expect(track).toHaveBeenCalledWith('grib_export', { datasets: 'wind-gfs,currents-global', window: 'passage', size_bucket: '0-1MB' });
+    expect(track).toHaveBeenCalledWith('grib_export', { datasets: 'wind-ecmwf', window: '3d', size_bucket: '0-1MB' });
 
-    // File details: run, grid and the spot values at the route's ends
-    const details = within(files.querySelector('li'));
-    expect(details.getByText('weather-20260720T00Z')).toBeInTheDocument();
-    expect(details.getByText('Mon 20 Jul 00:00 UTC')).toBeInTheDocument();
-    expect(details.getByText('0…360°')).toBeInTheDocument();
-    expect(details.getByText(/^[0-9a-f]{16}$/)).toBeInTheDocument();
-    expect(details.getAllByRole('columnheader').map((th) => th.textContent)).toEqual([
-      'Time (UTC)', 'Wind (kt)', 'From (°)', 'Gust (kt)', 'Time (UTC)', 'Wind (kt)', 'From (°)', 'Gust (kt)',
-    ]);
-    expect(details.getAllByText('Start')).toHaveLength(1);
+    const wind = kindItem('Download wind');
+    expect(wind.getByText('Saved')).toBeInTheDocument();
+    expect(wind.getByText('passage-fixture_wind-ecmwf_20260720T00Z_N50W010_N51W009.grb2').tagName).toBe('CODE');
+    expect(wind.getByRole('link', { name: 'Save again' })).toHaveAttribute('href', 'blob:grib-1');
+    expect(wind.getByRole('link', { name: 'Save again' })).toHaveAttribute('download', 'passage-fixture_wind-ecmwf_20260720T00Z_N50W010_N51W009.grb2');
+    expect(page().getByText('Your browser saves the files in its Downloads folder. Open them from there in your GRIB software.')).toBeInTheDocument();
+    // File details: run, grid and the spot values at the centre of the box
+    expect(wind.getByText('weather-ecmwf-20260720T00Z')).toBeInTheDocument();
+    expect(wind.getByText('Centre of the area')).toBeInTheDocument();
+    expect(wind.getAllByRole('columnheader').map((th) => th.textContent)).toEqual(['Time (UTC)', 'Wind (kt)', 'From (°)']);
 
-    fireEvent.click(section().getByRole('button', { name: 'Prepare files' }));
-    await waitFor(() => expect(URL.revokeObjectURL.mock.calls.map(([url]) => url)).toEqual(['blob:grib-1', 'blob:grib-2']));
-    await waitFor(() => expect(within(screen.getByRole('list', { name: 'Prepared GRIB files' })).getAllByRole('link', { name: 'Save' })[0])
-      .toHaveAttribute('href', 'blob:grib-3'));
+    fireEvent.click(page().getByRole('button', { name: 'Download wind' }));
+    await waitFor(() => expect(saves).toHaveLength(2));
+    expect(saves[1].href).toBe('blob:grib-1');
+    expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
+
+    fireEvent.change(page().getByLabelText('Period'), { target: { value: '5' } });
+    expect(useGrib.getState().period).toBe('5');
+    expect(page().queryByText('Saved')).not.toBeInTheDocument();
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:grib-1');
+  });
+
+  it('keeps one file per kind, uses the chosen model, and revokes files on unmount', async () => {
+    act(() => useGrib.setState({ area: CHANNEL }));
+    const { unmount } = render(<Grib />);
+    await waitFor(() => expect(page().getByRole('button', { name: 'Download wind' })).toBeEnabled());
+    fireEvent.click(page().getByRole('button', { name: 'Download currents' }));
+    await waitFor(() => expect(saves).toHaveLength(1));
+    expect(saves[0].name).toMatch(/^passage-fixture_currents-ibi_20260720T00Z_/);
+    fireEvent.change(page().getByLabelText('Wind model'), { target: { value: 'wind-gfs' } });
+    fireEvent.click(page().getByRole('button', { name: 'Download wind' }));
+    await waitFor(() => expect(saves).toHaveLength(2));
+    expect(saves[1].name).toMatch(/^passage-fixture_wind-gfs_20260720T00Z_/);
+    expect(track).toHaveBeenLastCalledWith('grib_export', { datasets: 'wind-gfs', window: '3d', size_bucket: '0-1MB' });
+    expect(kindItem('Download currents').getByText('Saved')).toBeInTheDocument();
+    expect(kindItem('Download wind').getByText('Saved')).toBeInTheDocument();
     unmount();
-    expect(URL.revokeObjectURL.mock.calls.map(([url]) => url)).toEqual(['blob:grib-1', 'blob:grib-2', 'blob:grib-3', 'blob:grib-4']);
+    expect(URL.revokeObjectURL.mock.calls.map(([url]) => url).sort()).toEqual(['blob:grib-1', 'blob:grib-2']);
   });
 
-  it('offers the full forecast: each dataset runs to its own last step', async () => {
+  it('adopts a bookmarked area, then keeps the address in step with the box', async () => {
+    history.replaceState(null, '', '/#plan/grib?area=50.2,50.9,-9.9,-9.1');
+    render(<Grib />);
+    await waitFor(() => expect(useGrib.getState().area).toEqual(CHANNEL));
+    expect(mapState.fits.at(-1)).toEqual([[50.2, -9.9], [50.9, -9.1]]);
+    await waitFor(() => expect(page().getByRole('button', { name: 'Download wind' })).toBeEnabled());
+    act(() => useGrib.getState().patch({ area: { ...CHANNEL, maxLat: 51.5 } }));
+    expect(location.hash).toBe('#plan/grib?area=50.2,51.5,-9.9,-9.1');
+    // a box drawn on this chart is already in view: no refit
+    expect(mapState.fits).toHaveLength(1);
+    expect(JSON.parse(localStorage.getItem('deepweather.grib')).state.area).toEqual({ ...CHANNEL, maxLat: 51.5 });
+  });
+
+  it('opens from the planner with the route’s area, or empty without a route', async () => {
+    usePlanner.setState({ waypoints: [{ lat: 50.5, lng: -1.5 }, { lat: 50.75, lng: -1.25 }] });
+    const setPage = vi.fn();
+    useApp.setState({ page: 'planner', setPage });
+    const { unmount } = render(<Planner />);
+    fireEvent.click(screen.getByRole('button', { name: 'Download GRIBs…' }));
+    expect(setPage).toHaveBeenCalledWith('grib');
+    expect(useGrib.getState().area).toEqual({ minLat: 49.5, maxLat: 51.8, minLon: -2.5, maxLon: -0.2 });
+    expect(useGrib.getState().fitNonce).toBe(1);
+    unmount();
+    // no route: the button still opens the page, keeping whatever box was there
+    act(() => usePlanner.getState().reset());
     render(<Planner />);
-    await openSection();
-    const ibi = () => within(datasetBox('Currents – IBI regional').closest('li'));
-    expect(ibi().getByText(/^This forecast ends/)).toBeInTheDocument();
-    fireEvent.change(section().getByLabelText('Window'), { target: { value: 'full' } });
-    expect(section().getByText('Mon 20 Jul 08:00 → Thu 30 Jul 00:00 UTC')).toBeInTheDocument();
-    expect(section().getByText(/^From your departure \(or now, if later\) to the end of each forecast/)).toBeInTheDocument();
-    const wind = within(datasetBox('Wind – GFS').closest('li'));
-    expect(wind.getByText('Mon 20 Jul 08:00 → Fri 24 Jul 00:00 UTC')).toBeInTheDocument();
-    expect(wind.getByText('89 steps')).toBeInTheDocument();
-    const global = within(datasetBox('Currents – global').closest('li'));
-    expect(global.getByText('Mon 20 Jul 06:00 → Thu 30 Jul 00:00 UTC')).toBeInTheDocument();
-    // ending before the window is the point of this preset, so no per-dataset note
-    expect(section().queryByText(/^This forecast ends/)).not.toBeInTheDocument();
-
-    fireEvent.click(section().getByRole('button', { name: 'Prepare files' }));
-    const files = await screen.findByRole('list', { name: 'Prepared GRIB files' });
-    expect(within(files).getByText('267')).toBeInTheDocument(); // GRIB messages: 89 steps × 3 variables
-    expect(track).toHaveBeenCalledWith('grib_export', { datasets: 'wind-gfs', window: 'full', size_bucket: '0-1MB' });
-    fireEvent.change(section().getByLabelText('Window'), { target: { value: 'passage' } });
-    expect(screen.queryByRole('list', { name: 'Prepared GRIB files' })).not.toBeInTheDocument();
-    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:grib-1');
+    expect(screen.getByRole('button', { name: 'Download GRIBs…' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Download GRIBs…' }));
+    expect(setPage).toHaveBeenCalledTimes(2);
+    expect(useGrib.getState().fitNonce).toBe(1);
   });
 
-  it('drops prepared files when the area changes', async () => {
-    render(<Planner />);
-    await openSection();
-    fireEvent.click(section().getByRole('button', { name: 'Prepare files' }));
-    await screen.findByRole('list', { name: 'Prepared GRIB files' });
-    fireEvent.change(section().getByLabelText('Margin around the route'), { target: { value: '0.5' } });
-    expect(screen.queryByRole('list', { name: 'Prepared GRIB files' })).not.toBeInTheDocument();
-    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:grib-1');
-  });
-
-  it('encodes signed longitudes when the tester override is set', async () => {
-    history.replaceState(null, '', '/#plan/planner?gribLon=signed');
-    render(<Planner />);
-    await openSection();
-    expect(section().getByText('Longitude test setting: −180 to 180° (signed).')).toBeInTheDocument();
-    fireEvent.click(section().getByRole('button', { name: 'Prepare files' }));
-    const files = await screen.findByRole('list', { name: 'Prepared GRIB files' });
-    expect(within(files).getByText('−180…180°')).toBeInTheDocument();
-    expect(localStorage.getItem(GRIB_LON_STORAGE_KEY)).toBe('signed');
-  });
-
-  it('keeps run ids and file names intact under the French localiser', async () => {
-    store.current = new TileForecastStore({ transport: fixtureTransport({ waves: true }) });
-    render(<div id="root"><Planner /><LocalizedDocument language="fr" /></div>);
-    fireEvent.click(screen.getByRole('button', { name: 'Télécharger des GRIB…' }));
-    // the localiser translates added subtrees from a MutationObserver, so wait for it
-    const region = await screen.findByRole('region', { name: 'Téléchargement GRIB' });
-    const french = () => within(region);
-    const waves = await french().findByRole('checkbox', { name: /^Vagues – GFS-Wave/ });
-    fireEvent.click(waves);
-    fireEvent.click(await french().findByRole('button', { name: 'Préparer les fichiers' }));
-    const files = within(await screen.findByRole('list', { name: 'Fichiers GRIB préparés' }));
-    // "waves" is a French fragment elsewhere ("vagues"); identifiers must survive it
-    expect(files.getByText('waves-20260720T00Z').tagName).toBe('CODE');
-    expect(files.getByText('passage-fixture_waves-gfs_20260720T00Z_N49W003_N52E000.grb2').tagName).toBe('CODE');
-    expect(await files.findAllByRole('link', { name: 'Enregistrer' })).toHaveLength(2);
-    expect(files.getAllByText('Détails du fichier')).toHaveLength(2);
-  });
-
-  it('cancels a running export', async () => {
+  it('cancels a running file', async () => {
     let release;
     const transport = fixtureTransport();
     const fetchTile = transport.fetchTile.bind(transport);
     transport.fetchTile = (...args) => new Promise((resolve) => { release = () => resolve(fetchTile(...args)); });
     store.current = new TileForecastStore({ transport });
-    render(<Planner />);
-    await openSection();
-    fireEvent.click(section().getByRole('button', { name: 'Prepare files' }));
-    const cancel = await section().findByRole('button', { name: 'Cancel' });
-    expect(section().getByRole('progressbar', { name: 'GRIB export progress' })).toBeInTheDocument();
-    expect(section().getByText('Reading forecast tiles')).toBeInTheDocument();
-    expect(datasetBox('Wind – GFS')).toBeDisabled();
+    await openWith(CHANNEL);
+    fireEvent.click(page().getByRole('button', { name: 'Download wind' }));
+    const cancel = await page().findByRole('button', { name: 'Cancel' });
+    expect(page().getByRole('progressbar', { name: 'GRIB file progress' })).toBeInTheDocument();
+    expect(page().getByText('Reading forecast tiles')).toBeInTheDocument();
+    expect(page().getByRole('button', { name: 'Download currents' })).toBeDisabled();
     fireEvent.click(cancel);
     release();
-    expect(await section().findByText('Cancelled. No files were prepared.')).toBeInTheDocument();
-    expect(section().getByRole('button', { name: 'Prepare files' })).toBeEnabled();
-    expect(screen.queryByRole('list', { name: 'Prepared GRIB files' })).not.toBeInTheDocument();
+    expect(await page().findByText('Cancelled. No file was saved.')).toBeInTheDocument();
+    expect(page().getByRole('button', { name: 'Download wind' })).toBeEnabled();
     expect(URL.createObjectURL).not.toHaveBeenCalled();
+    expect(saves).toHaveLength(0);
     expect(track).not.toHaveBeenCalledWith('grib_export', expect.anything());
-    fireEvent.change(section().getByLabelText('Time step'), { target: { value: '3' } });
-    expect(section().queryByText('Cancelled. No files were prepared.')).not.toBeInTheDocument();
   });
 
   it('asks for a reload when the pinned run was rotated away', async () => {
@@ -433,10 +411,9 @@ describe('Download GRIBs section', () => {
       throw Object.assign(new Error(`forecast fetch failed: HTTP 404 for ${runId}/${path}`), { status: 404 });
     };
     store.current = new TileForecastStore({ transport });
-    render(<Planner />);
-    await openSection();
-    fireEvent.click(section().getByRole('button', { name: 'Prepare files' }));
-    expect(await section().findByText('The forecast has been updated. Reload the page and try again.')).toBeInTheDocument();
+    await openWith(CHANNEL);
+    fireEvent.click(page().getByRole('button', { name: 'Download wind' }));
+    expect(await page().findByText('The forecast has been updated. Reload the page and try again.')).toBeInTheDocument();
   });
 
   it('explains when the forecast runs cannot be loaded, and retries', async () => {
@@ -444,10 +421,27 @@ describe('Download GRIBs section', () => {
     const fetchLatest = transport.fetchLatest.bind(transport);
     transport.fetchLatest = vi.fn().mockRejectedValueOnce(new Error('offline')).mockImplementation(fetchLatest);
     store.current = new TileForecastStore({ transport });
-    render(<Planner />);
-    fireEvent.click(panelButton());
-    expect(await section().findByText('The forecast runs are unavailable, so GRIB files can’t be prepared right now.')).toBeInTheDocument();
-    fireEvent.click(section().getByRole('button', { name: 'Try again' }));
-    expect(await section().findByRole('button', { name: 'Prepare files' })).toBeEnabled();
+    act(() => useGrib.setState({ area: CHANNEL }));
+    render(<Grib />);
+    expect(await page().findByText('The forecast runs are unavailable, so GRIB files can’t be prepared right now.')).toBeInTheDocument();
+    fireEvent.click(page().getByRole('button', { name: 'Try again' }));
+    expect(await page().findByRole('button', { name: 'Download wind' })).toBeEnabled();
+  });
+
+  it('keeps run ids and file names intact under the French localiser', async () => {
+    store.current = new TileForecastStore({ transport: fixtureTransport({ waves: true }) });
+    act(() => useGrib.setState({ area: CHANNEL }));
+    render(<div id="root"><Grib /><LocalizedDocument language="fr" /></div>);
+    // the localiser translates added subtrees from a MutationObserver, so wait for it
+    const region = await screen.findByRole('region', { name: 'Téléchargement GRIB' });
+    const waves = await within(region).findByRole('button', { name: 'Télécharger les vagues' });
+    await waitFor(() => expect(waves).toBeEnabled());
+    fireEvent.click(waves);
+    const item = within(waves.closest('li'));
+    // "waves" is a French fragment elsewhere ("vagues"); identifiers must survive it
+    expect((await item.findByText('passage-fixture_waves-gfs_20260720T00Z_N50W010_N51W009.grb2')).tagName).toBe('CODE');
+    expect(item.getByText('waves-20260720T00Z').tagName).toBe('CODE');
+    expect(await item.findByRole('link', { name: 'Enregistrer à nouveau' })).toBeInTheDocument();
+    expect(item.getByText('Détails du fichier')).toBeInTheDocument();
   });
 });

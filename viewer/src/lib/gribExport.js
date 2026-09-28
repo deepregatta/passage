@@ -1,8 +1,8 @@
 /**
- * Planner GRIB export (docs/grib-export.md → Planner defaults): the route
- * area, window and step defaults, the plan against the pinned forecast store,
- * the run, and the Save links. The engine plans and encodes; this module
- * owns the viewer's choices and formatting.
+ * GRIB files page (docs/grib-export.md → GRIB files page): the drawn area,
+ * the period, the model each file kind uses, the plan against the pinned
+ * forecast store, the run, and the downloads. The engine plans and encodes;
+ * this module owns the viewer's choices and formatting.
  */
 
 import {
@@ -16,23 +16,31 @@ import {
 import { FORECAST_BASE_URL } from './forecastConfig.js';
 import { fmtTime } from './format.js';
 
-export const GRIB_MARGIN_DEFAULT_DEG = 1;
-export const GRIB_MARGIN_OPTIONS = Array.from({ length: 11 }, (_, i) => i / 2);
+/** Margin around a planner route when it opens the GRIB page. */
+export const GRIB_ROUTE_MARGIN_DEG = 1;
 export const GRIB_STEPS = ['all', 3, 6];
-/** passage: to the estimated arrival + 24 h; full: to the end of every pinned forecast */
-export const GRIB_WINDOW_EXTENTS = ['passage', 'full'];
+/** Days from now, or `full`: to the end of every pinned forecast. */
+export const GRIB_PERIODS = ['2', '3', '5', '7', 'full'];
+export const GRIB_DEFAULT_PERIOD = '3';
 export const GRIB_DATASET_IDS = GRIB_DATASETS.map((dataset) => dataset.id);
-export const GRIB_DEFAULT_DATASETS = ['wind-gfs'];
-/** ETA when neither a drawn route with speeds nor a computed route gives one */
-export const GRIB_FALLBACK_ETA_H = 48;
-/** hours of forecast kept after the estimated arrival */
-export const GRIB_WINDOW_TAIL_H = 24;
-/** Hard stop until Phase 3's size guardrails: the tab holds every cube in memory. */
+/**
+ * One file per kind. Each kind lists its models; gribModelOrder puts the
+ * local model for the area first.
+ */
+export const GRIB_KINDS = [
+  { id: 'wind', datasets: ['wind-ecmwf', 'wind-gfs'] },
+  { id: 'currents', datasets: ['currents-ibi', 'currents-global'] },
+  { id: 'waves', datasets: ['waves-gfs'] },
+];
+/** Where ECMWF, the European centre's model, is the local wind model. */
+export const GRIB_EUROPE = { minLat: 25, maxLat: 72, minLon: -35, maxLon: 45 };
+/** The tab holds every cube of a file in memory. */
 export const GRIB_MAX_EST_BYTES = 200_000_000;
 /** Regional models: unpublished tiles in the box are outside the model domain. */
 export const GRIB_REGIONAL_DATASETS = new Set(['currents-ibi']);
-export const GRIB_LON_STORAGE_KEY = 'deepweather.gribLonConvention';
-const LON_CONVENTIONS = ['0-360', 'signed'];
+/** Drawn boxes snap outward to this grid and are never smaller than the minimum span. */
+const AREA_SNAP_DEG = 0.1;
+const AREA_MIN_SPAN_DEG = 0.25;
 const HOUR_MS = 3_600_000;
 
 /** Tiles from the local warehouse (dev) are a fixture, not the live runs. */
@@ -40,10 +48,13 @@ export const GRIB_TILES_ARE_FIXTURE = !/^https:\/\//.test(FORECAST_BASE_URL);
 
 const finitePoint = (point) => Number.isFinite(point.lat) && Number.isFinite(point.lon);
 const wrapLon = (lon) => ((((lon + 180) % 360) + 360) % 360) - 180;
+const clamp = (value, lo, hi) => Math.min(hi, Math.max(lo, value));
+// one decimal of the snap grid, without float noise such as 49.300000000000004
+const tidy = (value) => Math.round(value * 1e6) / 1e6;
 
 /**
- * The points that define the export: the drawn waypoints, or in compute mode
- * the computed route, else the two endpoints. Null when there is no route yet.
+ * The points of a planner route: the drawn waypoints, or in compute mode the
+ * computed route, else the two endpoints. Null when there is no route yet.
  */
 export function gribRoutePoints({ mode, waypoints = [], computed = null, endpoints = [] }) {
   const fromLatLng = (list) => list.map(({ lat, lng }) => ({ lat, lon: wrapLon(lng) }));
@@ -60,55 +71,87 @@ export function gribRoutePoints({ mode, waypoints = [], computed = null, endpoin
   return points?.every(finitePoint) ? points : null;
 }
 
-/** The points' bounding box ± margin, clamped to the globe. */
-export function gribBbox(points, marginDeg = GRIB_MARGIN_DEFAULT_DEG) {
+/**
+ * A GRIB area from any two opposite corners: snapped outward to 0.1°, at
+ * least 0.25° on each side, clamped to the globe. Longitudes are clamped,
+ * not wrapped, so a box never crosses the 180° meridian.
+ */
+export function gribArea(a, b) {
+  const lats = [a.lat, b.lat];
+  const lons = [a.lon, b.lon];
+  if (![...lats, ...lons].every(Number.isFinite)) return null;
+  const snapDown = (v) => tidy(Math.floor(tidy(v / AREA_SNAP_DEG)) * AREA_SNAP_DEG);
+  const snapUp = (v) => tidy(Math.ceil(tidy(v / AREA_SNAP_DEG)) * AREA_SNAP_DEG);
+  const span = (lo, hi, min, max) => {
+    let from = snapDown(clamp(lo, min, max));
+    let to = snapUp(clamp(hi, min, max));
+    if (to - from < AREA_MIN_SPAN_DEG) {
+      const centre = (from + to) / 2;
+      from = snapDown(clamp(centre - AREA_MIN_SPAN_DEG / 2, min, max - AREA_MIN_SPAN_DEG));
+      to = snapUp(from + AREA_MIN_SPAN_DEG);
+    }
+    return [from, to];
+  };
+  const [minLat, maxLat] = span(Math.min(...lats), Math.max(...lats), -90, 90);
+  const [minLon, maxLon] = span(Math.min(...lons), Math.max(...lons), -180, 180);
+  return { minLat, maxLat, minLon, maxLon };
+}
+
+/** A planner route's box ± the route margin. */
+export function gribRouteArea(points, marginDeg = GRIB_ROUTE_MARGIN_DEG) {
   if (!points?.length) return null;
-  const margin = normalizeGribMargin(marginDeg);
-  const clamp = (value, lo, hi) => Math.min(hi, Math.max(lo, value));
   const lats = points.map((point) => point.lat);
   const lons = points.map((point) => point.lon);
-  return {
-    minLat: clamp(Math.min(...lats) - margin, -90, 90),
-    maxLat: clamp(Math.max(...lats) + margin, -90, 90),
-    minLon: clamp(Math.min(...lons) - margin, -180, 180),
-    maxLon: clamp(Math.max(...lons) + margin, -180, 180),
-  };
+  return gribArea(
+    { lat: Math.min(...lats) - marginDeg, lon: Math.min(...lons) - marginDeg },
+    { lat: Math.max(...lats) + marginDeg, lon: Math.max(...lons) + marginDeg },
+  );
 }
 
-/** 0–5° in 0.5° steps; anything else falls back to the default. */
-export function normalizeGribMargin(value) {
-  const margin = Number(value);
-  if (!Number.isFinite(margin)) return GRIB_MARGIN_DEFAULT_DEG;
-  return Math.min(5, Math.max(0, Math.round(margin * 2) / 2));
+/** A stored or linked area, or null when it is not a valid box. */
+export function validGribArea(area) {
+  if (!area || typeof area !== 'object') return null;
+  const { minLat, maxLat, minLon, maxLon } = area;
+  if (![minLat, maxLat, minLon, maxLon].every(Number.isFinite)) return null;
+  if (minLat >= maxLat || minLon >= maxLon) return null;
+  if (minLat < -90 || maxLat > 90 || minLon < -180 || maxLon > 180) return null;
+  return { minLat, maxLat, minLon, maxLon };
 }
 
-/** Passage duration: distance / speeds.slow (draw), the computed duration (compute), else 48 h. */
-export function gribEtaHours({ mode, distance, speeds, computed }) {
-  if (mode === 'compute') {
-    const hours = computed?.duration_h;
-    return Number.isFinite(hours) && hours > 0 ? hours : GRIB_FALLBACK_ETA_H;
-  }
-  const slow = speeds?.slow;
-  if (Number.isFinite(distance) && distance > 0 && Number.isFinite(slow) && slow > 0) return distance / slow;
-  return GRIB_FALLBACK_ETA_H;
+/** `#plan/grib?area=S,N,W,E`: a bookmarkable area. */
+export function gribAreaFromHash(hash = globalThis.location?.hash ?? '') {
+  const value = new URLSearchParams(hash.split('?')[1] ?? '').get('area');
+  if (!value) return null;
+  const parts = value.split(',').map(Number);
+  if (parts.length !== 4) return null;
+  const [minLat, maxLat, minLon, maxLon] = parts;
+  return validGribArea({ minLat, maxLat, minLon, maxLon });
+}
+
+export function gribAreaHash(area) {
+  const valid = validGribArea(area);
+  if (!valid) return 'plan/grib';
+  const { minLat, maxLat, minLon, maxLon } = valid;
+  return `plan/grib?area=${[minLat, maxLat, minLon, maxLon].map((v) => tidy(v)).join(',')}`;
+}
+
+export function normalizeGribPeriod(value) {
+  return GRIB_PERIODS.includes(String(value)) ? String(value) : GRIB_DEFAULT_PERIOD;
 }
 
 /**
- * From max(departure, now), floored to the hour, to that plus the ETA plus
- * 24 h (rounded up to the hour), or with `extent: 'full'` to the last step of
- * the longest pinned forecast (`forecastEndIso`, see gribForecastEnd). Each
- * dataset is then clipped to its own horizon by the plan.
+ * From now, floored to the hour, for the period's days, or with `full` to the
+ * last step of the longest pinned forecast (`forecastEndIso`, see
+ * gribForecastEnd). Each dataset is then clipped to its own horizon by the plan.
  */
-export function gribWindow({ departureUtc, etaHours, nowMs, extent = 'passage', forecastEndIso = null }) {
-  const departureMs = departureUtc ? Date.parse(departureUtc) : NaN;
-  const from = Number.isFinite(departureMs) ? Math.max(departureMs, nowMs) : nowMs;
-  const startMs = Math.floor(from / HOUR_MS) * HOUR_MS;
-  if (extent === 'full' && forecastEndIso) {
-    // A departure after every forecast leaves an empty window: all outside-horizon.
+export function gribPeriodWindow({ period, nowMs, forecastEndIso = null }) {
+  const startMs = Math.floor(nowMs / HOUR_MS) * HOUR_MS;
+  const chosen = normalizeGribPeriod(period);
+  if (chosen === 'full' && forecastEndIso) {
     return { startIso: toIso(startMs), endIso: toIso(Math.max(startMs, parseUtc(forecastEndIso))) };
   }
-  const hours = Math.ceil((Number.isFinite(etaHours) && etaHours > 0 ? etaHours : GRIB_FALLBACK_ETA_H) + GRIB_WINDOW_TAIL_H);
-  return { startIso: toIso(startMs), endIso: toIso(startMs + hours * HOUR_MS) };
+  const days = chosen === 'full' ? Number(GRIB_DEFAULT_PERIOD) : Number(chosen);
+  return { startIso: toIso(startMs), endIso: toIso(startMs + days * 24 * HOUR_MS) };
 }
 
 /**
@@ -132,53 +175,33 @@ export function gribForecastEnd(manifests) {
   return Number.isFinite(endMs) ? toIso(endMs) : null;
 }
 
-/**
- * Longitude convention for the Adrena test: `#plan/planner?gribLon=signed`
- * switches it, `?gribLon=0-360` resets it. Remembered in localStorage because
- * in-app navigation drops the hash query. Phase 3 settles one convention.
- */
-export function gribLonConvention(hash = globalThis.location?.hash ?? '') {
-  const requested = new URLSearchParams(hash.split('?')[1] ?? '').get('gribLon');
-  if (LON_CONVENTIONS.includes(requested)) {
-    try {
-      if (requested === 'signed') localStorage.setItem(GRIB_LON_STORAGE_KEY, requested);
-      else localStorage.removeItem(GRIB_LON_STORAGE_KEY);
-    } catch {
-      // Storage can be unavailable in privacy-restricted contexts; the URL still wins.
-    }
-    return requested;
-  }
-  try {
-    const saved = localStorage.getItem(GRIB_LON_STORAGE_KEY);
-    if (LON_CONVENTIONS.includes(saved)) return saved;
-  } catch {
-    // fall through to the default
-  }
-  return '0-360';
-}
-
 /** Load the pinned runs (latest.json + manifests); resolves to a manifest lookup. */
 export async function loadGribManifests(store) {
   await store.init();
   return (layer) => store.manifestFor(layer);
 }
 
-/** Plan every dataset, so the UI can show each one's availability. */
-export function planRouteGrib(manifests, { bbox, window, step, lonConvention, points, fixture = GRIB_TILES_ARE_FIXTURE }) {
-  const checkpoints = points?.length ? [points[0], points[points.length - 1]] : [];
+/** Plan every dataset, so the page can show each model's availability. */
+export function planAreaGrib(manifests, { area, window, step, fixture = GRIB_TILES_ARE_FIXTURE }) {
+  const centre = { lat: (area.minLat + area.maxLat) / 2, lon: (area.minLon + area.maxLon) / 2 };
   return planGribExport(manifests, {
-    bbox,
+    bbox: area,
     datasetIds: GRIB_DATASET_IDS,
     startIso: window.startIso,
     endIso: window.endIso,
     step,
-    lonConvention,
-    checkpoints: checkpoints.map(({ lat, lon }) => ({ lat, lon })),
+    lonConvention: '0-360',
+    checkpoints: [centre],
     fixture,
   });
 }
 
-/** Viewer notes per planned dataset: time range, horizon and coverage. */
+/** A regional dataset some of whose tiles in the box are unpublished (outside its domain). */
+export function gribPartial(dataset) {
+  return GRIB_REGIONAL_DATASETS.has(dataset.datasetId) && dataset.tiles.some((tile) => !tile.present);
+}
+
+/** Page notes per planned dataset: time range, horizon and coverage. */
 export function describeGribDataset(dataset, window) {
   const ok = dataset.availability === 'ok';
   const first = ok ? dataset.steps[0]?.time ?? null : null;
@@ -189,39 +212,67 @@ export function describeGribDataset(dataset, window) {
     last,
     steps: ok ? dataset.steps.length : 0,
     horizonShort: ok && last !== null && Date.parse(last) < Date.parse(window.endIso),
-    partial: GRIB_REGIONAL_DATASETS.has(dataset.datasetId) && dataset.tiles.some((tile) => !tile.present),
+    partial: gribPartial(dataset),
   };
 }
 
-/** The plan restricted to the ticked, available datasets. */
-export function selectedGribPlan(plan, selected) {
-  return {
-    ...plan,
-    datasets: plan.datasets.filter((dataset) => selected.has(dataset.datasetId) && dataset.availability === 'ok'),
-  };
+const insideBox = (box, lat, lon) => lat >= box.minLat && lat <= box.maxLat && lon >= box.minLon && lon <= box.maxLon;
+
+/**
+ * A kind's models, the local one first: ECMWF for wind in Europe (GFS
+ * elsewhere), the regional IBI model for currents wherever it exists.
+ */
+export function gribModelOrder(kindId, area) {
+  const kind = GRIB_KINDS.find((entry) => entry.id === kindId);
+  if (!kind) return [];
+  if (kindId !== 'wind' || !area) return [...kind.datasets];
+  const lat = (area.minLat + area.maxLat) / 2;
+  const lon = (area.minLon + area.maxLon) / 2;
+  return insideBox(GRIB_EUROPE, lat, lon) ? ['wind-ecmwf', 'wind-gfs'] : ['wind-gfs', 'wind-ecmwf'];
 }
 
-export function gribEstimatedBytes(plan) {
-  return plan.datasets.reduce((sum, dataset) => sum + dataset.estBytes, 0);
+/**
+ * The planned dataset a kind downloads: the sailor's chosen model when it is
+ * available here, else the first model in local-first order that covers the
+ * whole area, else the first available one. With nothing available, the
+ * preferred model, so the page can say why.
+ */
+export function gribKindDataset(plan, kindId, area, choice = null) {
+  const byId = new Map(plan.datasets.map((dataset) => [dataset.datasetId, dataset]));
+  const order = gribModelOrder(kindId, area).filter((id) => byId.has(id));
+  const usable = (id) => byId.get(id).availability === 'ok';
+  if (choice && order.includes(choice) && usable(choice)) return byId.get(choice);
+  const id = order.find((candidate) => usable(candidate) && !gribPartial(byId.get(candidate)))
+    ?? order.find(usable)
+    ?? order[0];
+  return id ? byId.get(id) : null;
 }
 
-/** Run the export against the pinned store (tiles are read without evicting the analysis's). */
-export function runRouteGrib(store, plan, { signal, onProgress } = {}) {
-  return runGribExport(gribExportSourceFromStore(store), plan, { signal, onProgress });
+/** Run one dataset of the plan against the pinned store (tiles are read without evicting the analysis's). */
+export async function runDatasetGrib(store, plan, dataset, { signal, onProgress } = {}) {
+  const files = await runGribExport(gribExportSourceFromStore(store), { ...plan, datasets: [dataset] }, { signal, onProgress });
+  return files[0];
 }
 
-/** Blob URLs for the Save links; revoke them with revokeGribFiles. */
-export function gribFilesWithUrls(files) {
-  return files.map(({ parts, ...file }) => ({
-    ...file,
-    url: URL.createObjectURL(new Blob(parts, { type: 'application/octet-stream' })),
-  }));
+/** A Blob URL for the file's download; revoke it with revokeGribFile. */
+export function gribFileWithUrl({ parts, ...file }) {
+  return { ...file, url: URL.createObjectURL(new Blob(parts, { type: 'application/octet-stream' })) };
 }
 
-export function revokeGribFiles(files) {
-  for (const file of files ?? []) {
-    if (file.url) URL.revokeObjectURL(file.url);
-  }
+export function revokeGribFile(file) {
+  if (file?.url) URL.revokeObjectURL(file.url);
+}
+
+/** Start the browser download of a prepared file. */
+export function saveGribFile(file) {
+  const link = document.createElement('a');
+  link.href = file.url;
+  link.download = file.name;
+  link.rel = 'noopener';
+  link.style.display = 'none';
+  document.body.append(link);
+  link.click();
+  link.remove();
 }
 
 /** Low-cardinality size bucket for analytics. */
@@ -252,11 +303,11 @@ export function fmtGribSteps(count) {
 }
 
 export function fmtHorizonShort(lastIso) {
-  return `This forecast ends ${fmtTime(lastIso)} UTC, before the end of your window.`;
+  return `This forecast ends ${fmtTime(lastIso)} UTC, before the end of your period.`;
 }
 
 export function fmtTooLarge(bytes) {
-  return `These files would be about ${fmtGribBytes(bytes)}, over the 200 MB limit. Choose a coarser time step, a smaller margin or fewer datasets.`;
+  return `This file would be about ${fmtGribBytes(bytes)}, over the 200 MB limit. Draw a smaller box or choose a shorter period.`;
 }
 
 const trimDeg = (value, digits) => String(Number(value.toFixed(digits)));
@@ -273,6 +324,11 @@ export function fmtGribArea(grid) {
   return `${lat(grid.south)}–${lat(grid.north)}, ${lon(grid.west)}–${lon(grid.east)}`;
 }
 
+/** A drawn area in the same notation as the file details. */
+export function fmtGribBox(area) {
+  return fmtGribArea({ south: area.minLat, north: area.maxLat, west: area.minLon, east: area.maxLon });
+}
+
 /** "33 × 13 points · 0.25°" (1/12° and 1/36° grids named as fractions) */
 export function fmtGribGrid(grid) {
   const n = Math.round(10 / grid.step_deg);
@@ -287,8 +343,4 @@ export function fmtGribCoverage(coverage) {
 /** Spot-value columns in the order the engine reports them (wind, currents, or the wave variables). */
 export function gribSpotKeys(file) {
   return Object.keys(file.checkpoints[0]?.steps[0]?.values ?? {});
-}
-
-export function fmtLonConvention(convention) {
-  return convention === 'signed' ? '−180…180°' : '0…360°';
 }

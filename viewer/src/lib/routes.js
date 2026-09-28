@@ -2,6 +2,7 @@
 export const HASH_PAGE = {
   'example': 'example',
   'plan/planner': 'planner',
+  'plan/grib': 'grib',
   // Keep existing shared/bookmarked links working; new navigation writes the
   // canonical Brief-menu location below.
   'plan/briefings': 'snapshots',
