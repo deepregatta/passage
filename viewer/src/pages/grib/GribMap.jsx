@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { MapContainer, Marker, Rectangle, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -112,21 +112,25 @@ function BoxDrawer({ drawing, onDrawn, onCancel, onPreview }) {
 
 /** Corner handles: drag one to resize the box; the opposite corner stays put. */
 function CornerHandles({ area, onChange, onPreview }) {
-  const corners = [
-    [{ lat: area.maxLat, lon: area.minLon }, { lat: area.minLat, lon: area.maxLon }],
-    [{ lat: area.maxLat, lon: area.maxLon }, { lat: area.minLat, lon: area.minLon }],
-    [{ lat: area.minLat, lon: area.maxLon }, { lat: area.maxLat, lon: area.minLon }],
-    [{ lat: area.minLat, lon: area.minLon }, { lat: area.maxLat, lon: area.maxLon }],
-  ];
+  const { minLat, maxLat, minLon, maxLon } = area;
+  // One position array per box: react-leaflet moves a marker whenever its
+  // position prop is a new array, so a fresh one on each drag re-render would
+  // snap the handle back to where the drag started.
+  const corners = useMemo(() => [
+    [[maxLat, minLon], { lat: minLat, lon: maxLon }],
+    [[maxLat, maxLon], { lat: minLat, lon: minLon }],
+    [[minLat, maxLon], { lat: maxLat, lon: minLon }],
+    [[minLat, minLon], { lat: maxLat, lon: maxLon }],
+  ], [minLat, maxLat, minLon, maxLon]);
   const moved = (event) => {
     const { lat, lng } = event.target.getLatLng();
     return { lat, lon: lng };
   };
-  return corners.map(([corner, opposite], index) => (
+  return corners.map(([position, opposite], index) => (
     <Marker
       // re-keyed per area so a snapped box resets each handle onto its corner
-      key={`${index}:${area.minLat},${area.maxLat},${area.minLon},${area.maxLon}`}
-      position={[corner.lat, corner.lon]}
+      key={`${index}:${minLat},${maxLat},${minLon},${maxLon}`}
+      position={position}
       icon={cornerIcon}
       draggable
       keyboard={false}
@@ -174,14 +178,15 @@ export default function GribMap({ area, fitNonce, drawing, onDrawn, onCancelDraw
             <span>Drag across the chart to draw your area.</span>
             <button type="button" onClick={onCancelDraw} className="underline">Cancel</button>
           </p>
-        ) : (
+        ) : !area && (
+          // once there is a box, its corner handles adjust it
           <button
             type="button"
             onClick={onStartDraw}
             disabled={disabled}
             className="pointer-events-auto bg-ink text-paper font-sans font-medium text-sm rounded-sm px-4 py-2 shadow-panel hover:bg-ink-deep disabled:opacity-40"
           >
-            {area ? 'Redraw the box' : 'Draw a box'}
+            Draw a box
           </button>
         )}
       </div>
