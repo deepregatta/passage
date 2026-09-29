@@ -66,7 +66,8 @@ export class MemoryTileTransport implements TileTransport {
 
   async fetchTile(runId: string, path: string, _options?: TileFetchOptions): Promise<Uint8Array> {
     const tile = this.tiles.get(`${runId}/${path}`);
-    if (!tile) throw new Error(`no tile: ${runId}/${path}`);
+    // as HttpTileTransport reports a missing object, e.g. a run deleted by retention
+    if (!tile) throw Object.assign(new Error(`no tile: ${runId}/${path}`), { status: 404 });
     return tile;
   }
 }

@@ -8,10 +8,10 @@ import { gzipSync, gunzipSync } from 'node:zlib';
 import { fnv1a64Hex } from '../src/hash.js';
 import { TileForecastStore } from '../src/forecast/tileStore.js';
 import { decodeTile, encodeTile, type DecodedTile } from '../src/forecast/tileCodec.js';
-import { MemoryTileCache } from '../src/forecast/store.js';
+import { ForecastRunGoneError, forecastRunGone, MemoryTileCache } from '../src/forecast/store.js';
 import { parseUtc } from '../src/eta.js';
 import { computeRoute } from '../src/routing/isochrone.js';
-import { buildFixtureRun, type FixtureLayerSpec, type FixtureTileGrid } from './helpers/fixtureRun.js';
+import { buildFixtureRun, MemoryTileTransport, type FixtureLayerSpec, type FixtureTileGrid } from './helpers/fixtureRun.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, '..', '..');
@@ -893,5 +893,158 @@ describe('TileForecastStore decoded memory budget', () => {
       await store.getPointForecasts([pointAt(41)], START, END);
       expect(reads).toHaveBeenCalledTimes(1);
     });
+  });
+});
+
+describe('TileForecastStore refresh', () => {
+  const NEXT = '2026-07-20T06:00Z';
+  const FIRST_RUN = 'weather-20260720T00Z';
+  const NEXT_RUN = 'weather-20260720T06Z';
+
+  /**
+   * One transport holding two weather runs (10 kt, then 12 kt) and one
+   * currents run; latest.json points at the first until publishNext().
+   */
+  function publishing() {
+    const first = buildFixtureRun([weatherSpec(), currentsSpec()]);
+    const next = buildFixtureRun([weatherSpec({
+      cycle: NEXT,
+      time_axes: {
+        hourly: { base: NEXT, offsets_h: [0, 3, 6, 9, 12, 15, 18, 21, 24] },
+        h3: { base: NEXT, offsets_h: [0, 6, 12, 18, 24] },
+      },
+      variables: weatherSpec().variables.map((v) => (v.name === 'wind_u_kt' ? { ...v, value: () => 12 } : v)),
+    })]);
+    const transport = new MemoryTileTransport(
+      structuredClone(first.latest),
+      new Map([...first.manifests, ...next.manifests]),
+      new Map([...first.tiles, ...next.tiles]),
+    );
+    const publishNext = () => {
+      transport.latest = {
+        ...transport.latest,
+        updated_at: '2026-07-20T11:00:00Z',
+        layers: {
+          ...transport.latest.layers,
+          weather: { ...next.latest.layers.weather!, previous_run_id: FIRST_RUN, cadence_hours: 6 },
+        },
+      };
+    };
+    /** Retention: the run older than the new previous one is deleted. */
+    const deleteRun = (runId: string) => {
+      for (const key of [...transport.tiles.keys()]) if (key.startsWith(`${runId}/`)) transport.tiles.delete(key);
+      transport.manifests.delete(runId);
+    };
+    return { transport, publishNext, deleteRun };
+  }
+
+  function decodedOf(store: TileForecastStore, layer: string) {
+    const state = (store as unknown as { layers: Map<string, { decoded: Map<string, DecodedTile> }> }).layers.get(layer);
+    return state ? [...state.decoded.keys()] : [];
+  }
+
+  it('swaps in the new run of a changed layer and keeps unchanged layers and their tiles', async () => {
+    const { transport, publishNext } = publishing();
+    let clock = parseUtc('2026-07-20T05:00Z');
+    const cache = new MemoryTileCache();
+    const store = new TileForecastStore({ transport, cache, now: () => clock });
+    await store.getPointForecasts([POINT], START, END);
+    await store.getCurrentGrid({ minLat: 49, maxLat: 49.5, minLon: -5, maxLon: -4.5 }, CYCLE, 6);
+    expect(decodedOf(store, 'weather')).toEqual(['N40W010']);
+    expect(decodedOf(store, 'currents')).toEqual(['N40W010']);
+    expect(store.lastCheckedMs()).toBe(clock);
+
+    expect(await store.refresh()).toEqual([]); // nothing published yet
+    publishNext();
+    clock = parseUtc('2026-07-20T11:05Z');
+    const evict = vi.spyOn(cache, 'evictExcept');
+    expect(await store.refresh()).toEqual(['weather']);
+    expect(store.lastCheckedMs()).toBe(clock);
+    expect(store.describe().weather).toMatchObject({ run_id: NEXT_RUN, cycle: NEXT, cadence_hours: 6 });
+    expect(store.describe().currents!.run_id).toBe('currents-20260720T00Z');
+    expect(decodedOf(store, 'weather')).toEqual([]);
+    expect(decodedOf(store, 'currents')).toEqual(['N40W010']);
+    expect(evict).toHaveBeenCalledExactlyOnceWith([NEXT_RUN, 'currents-20260720T00Z']);
+
+    const after = await store.getPointForecasts([POINT], parseUtc(NEXT), parseUtc(NEXT) + 3 * 3600_000);
+    expect(after.meta.run_id).toBe(NEXT_RUN);
+    expect(after.forecasts[0]!.wind_kt[0]).toBe(12);
+  });
+
+  it('carries the producer cadence_hours into describe() from init', async () => {
+    const { transport } = publishing();
+    transport.latest.layers.weather!.cadence_hours = 24;
+    const store = new TileForecastStore({ transport });
+    await store.init();
+    expect(store.describe().weather!.cadence_hours).toBe(24);
+    expect(store.describe().currents).not.toHaveProperty('cadence_hours');
+  });
+
+  it('keeps the pinned run when the new manifest cannot be read yet', async () => {
+    const { transport, publishNext } = publishing();
+    const store = new TileForecastStore({ transport });
+    await store.init();
+    publishNext();
+    transport.failManifests.add(NEXT_RUN);
+    expect(await store.refresh()).toEqual([]);
+    expect(store.describe().weather!.run_id).toBe(FIRST_RUN); // still the retained previous run
+    expect(store.describe().weather!.cadence_hours).toBe(6);
+    transport.failManifests.delete(NEXT_RUN);
+    expect(await store.refresh()).toEqual(['weather']);
+  });
+
+  it('is init before the first load, and shares one read between concurrent callers', async () => {
+    const { transport } = publishing();
+    const latest = vi.spyOn(transport, 'fetchLatest');
+    const store = new TileForecastStore({ transport });
+    expect(store.lastCheckedMs()).toBeNull();
+    expect(await store.refresh()).toEqual([]);
+    expect(latest).toHaveBeenCalledTimes(1);
+    const [a, b] = [store.refresh(), store.refresh()];
+    expect(await a).toEqual(await b);
+    expect(latest).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not retain a tile that finishes loading for a replaced run', async () => {
+    const { transport, publishNext } = publishing();
+    const store = new TileForecastStore({ transport });
+    await store.init();
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const fetchTile = transport.fetchTile.bind(transport);
+    vi.spyOn(transport, 'fetchTile').mockImplementation(async (runId, path, options) => {
+      if (runId === FIRST_RUN) await gate;
+      return fetchTile(runId, path, options);
+    });
+    const pending = store.getPointForecasts([POINT], START, END);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    publishNext();
+    await store.refresh();
+    release();
+    expect((await pending).meta.run_id).toBe(FIRST_RUN); // the action finishes on its run
+    expect(decodedOf(store, 'weather')).toEqual([]);
+  });
+
+  it('reports a tile of a deleted run as ForecastRunGoneError, which refresh recovers', async () => {
+    const { transport, publishNext, deleteRun } = publishing();
+    const store = new TileForecastStore({ transport });
+    await store.init();
+    publishNext();
+    deleteRun(FIRST_RUN);
+    const error = await store.getPointForecasts([POINT], START, END).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ForecastRunGoneError);
+    expect(error).toMatchObject({ layer: 'weather', runId: FIRST_RUN, status: 404 });
+    expect(forecastRunGone(new Error('wrapped', { cause: error }))).toBe(error);
+    expect(await store.refresh()).toEqual(['weather']);
+    expect((await store.getPointForecasts([POINT], START, END)).meta.run_id).toBe(NEXT_RUN);
+  });
+
+  it('does not hide a deleted currents run as "no currents"', async () => {
+    const { transport, deleteRun } = publishing();
+    const store = new TileForecastStore({ transport });
+    await store.init();
+    deleteRun('currents-20260720T00Z');
+    await expect(store.getCurrentGrid({ minLat: 49, maxLat: 49.5, minLon: -5, maxLon: -4.5 }, CYCLE, 6))
+      .rejects.toBeInstanceOf(ForecastRunGoneError);
   });
 });

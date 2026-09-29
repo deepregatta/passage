@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
+import { buildFixtureRun } from './helpers/fixtureRun.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CONTRACTS_DIR = join(HERE, '..', '..', 'contracts');
@@ -23,6 +24,59 @@ describe('contracts', () => {
       const schema = loadSchema(file);
       expect(() => ajv.compile(schema), `${file} should compile`).not.toThrow();
     }
+  });
+
+  describe('forecast latest.json', () => {
+    const ajv = new Ajv2020({ strict: false });
+    addFormats(ajv);
+    const validate = ajv.compile(loadSchema('forecast-latest.schema.json'));
+    const entry = (layer: string, cycle: string, extra: object = {}) => ({
+      run_id: `${layer}-${cycle}Z`,
+      previous_run_id: null,
+      cycle: `${cycle.slice(0, 4)}-${cycle.slice(4, 6)}-${cycle.slice(6, 8)}T${cycle.slice(9)}:00Z`,
+      member_count: 1,
+      published_at: '2026-09-29T10:02:11Z',
+      ...extra,
+    });
+    // the shape forecast-tiles publishes from 2026-09-29: every live layer, cadence_hours per layer
+    const published = {
+      schema_version: 1,
+      updated_at: '2026-09-29T11:15:40Z',
+      layers: Object.fromEntries(
+        ['weather', 'weather-ecmwf', 'ensemble', 'waves', 'currents', 'currents-ibi'].map((layer) =>
+          [layer, entry(layer, '20260929T00', { cadence_hours: 24 })]),
+      ),
+    };
+
+    it('accepts the published shape, and runs from before cadence_hours', () => {
+      expect(validate(published), JSON.stringify(validate.errors)).toBe(true);
+      const before = structuredClone(published);
+      for (const layer of Object.values(before.layers)) delete (layer as { cadence_hours?: number }).cadence_hours;
+      expect(validate(before), JSON.stringify(validate.errors)).toBe(true);
+    });
+
+    it('accepts the fixture runs the store tests are built from', () => {
+      const transport = buildFixtureRun([{
+        layer: 'weather', model: 'gfs_0p25', cycle: '2026-07-20T00:00Z', resolution_deg: 1,
+        time_axes: { hourly: { base: '2026-07-20T00:00Z', offsets_h: [0, 1] } },
+        variables: [{ name: 'wind_u_kt', axis: 'hourly', dtype: 'i16', scale: 0.01, value: () => 1 }],
+        tiles: [[40, -10]],
+      }]);
+      transport.latest.layers.weather!.cadence_hours = 6;
+      expect(validate(transport.latest), JSON.stringify(validate.errors)).toBe(true);
+    });
+
+    it.each([0, -6, 1.5, '6'])('rejects cadence_hours %j', (cadence) => {
+      const doc = structuredClone(published);
+      (doc.layers.weather as Record<string, unknown>).cadence_hours = cadence;
+      expect(validate(doc)).toBe(false);
+    });
+
+    it('rejects a layer name no producer publishes', () => {
+      const doc = structuredClone(published);
+      (doc.layers as Record<string, unknown>)['weather-gfs'] = entry('weather-gfs', '20260929T00');
+      expect(validate(doc)).toBe(false);
+    });
   });
 
   for (const [directory, schemaName] of [

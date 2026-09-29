@@ -351,12 +351,16 @@ function positionPhrase(p: { lat: number; lon: number }, route?: Route): string 
 }
 
 /**
- * Daily tile-publication cadence, verified against forecast-tiles ingest-*.yml
- * on 2026-09-08; currents-ibi runs in hourly slots from 2026-09-29 but still
- * publishes one bulletin a day. These are pipeline schedules, not model
- * issuance cadences.
- * Unknown layer/model pairs are deliberately excluded; update this table when
- * the producer schedule changes. No schedule is inferred for scenario bundles.
+ * Fallback tile-publication cadence, for a latest.json entry without the
+ * producer's `cadence_hours` (the field arrived on 2026-09-29; scenario
+ * bundles never carry one). Daily, verified against forecast-tiles
+ * ingest-*.yml on 2026-09-08; currents-ibi runs in hourly slots from
+ * 2026-09-29 but still publishes one bulletin a day. These are pipeline
+ * schedules, not model issuance cadences. When forecast-tiles publishes every
+ * provider cycle (grib-export-plan Phase 5B) its `cadence_hours` says so, and
+ * this table follows for older metadata.
+ * Unknown layer/model pairs are deliberately excluded. No schedule is
+ * inferred for scenario bundles.
  */
 const PUBLICATION_SCHEDULE: Record<string, { model: string; cadenceHours: number }> = {
   weather: { model: 'gfs_0p25', cadenceHours: 24 },
@@ -367,20 +371,34 @@ const PUBLICATION_SCHEDULE: Record<string, { model: string; cadenceHours: number
   'currents-ibi': { model: 'cmems_ibi', cadenceHours: 24 },
 };
 
+const HOUR_MS = 3600_000;
+
+/** The producer's cadence for the layer, else the fallback table's for a known layer/model pair. */
+function cadenceHoursOf(layer: LayerInfo): number | null {
+  const declared = layer.cadence_hours;
+  if (typeof declared === 'number' && Number.isInteger(declared) && declared >= 1) return declared;
+  const schedule = PUBLICATION_SCHEDULE[layer.layer];
+  return schedule && schedule.model === layer.model ? schedule.cadenceHours : null;
+}
+
 /** One estimate shared by the briefing and change story, frozen at analysis time. */
 export function nextForecastRuns(layers: Record<string, LayerInfo>, afterIso: string): Briefing['next_runs'] {
   const after = Date.parse(afterIso);
   if (!Number.isFinite(after)) return [];
   return Object.values(layers).flatMap((layer) => {
-    const schedule = PUBLICATION_SCHEDULE[layer.layer];
-    if (!schedule || schedule.model !== layer.model) return [];
+    const cadenceHours = cadenceHoursOf(layer);
+    if (cadenceHours === null) return [];
     const cycle = Date.parse(layer.cycle);
     const published = Date.parse(layer.published_at);
-    const cadence = schedule.cadenceHours * 3600_000;
+    const cadence = cadenceHours * HOUR_MS;
     const lag = published - cycle;
     // Stale/invalid metadata cannot support a future estimate. In particular,
     // never roll an overdue publication forward and disguise a delayed feed.
-    if (!Number.isFinite(lag) || lag < 0 || lag >= cadence || published > after) return [];
+    // A run published a cadence or more after its cycle is stale, except that
+    // a sub-daily cadence allows up to a day: at 6-hourly GEFS publishes about
+    // 6 h 50 min after its cycle without being behind.
+    const maxLag = Math.max(cadence, 24 * HOUR_MS);
+    if (!Number.isFinite(lag) || lag < 0 || lag >= maxLag || published > after) return [];
     const expected = cycle + cadence + lag;
     if (expected <= after) return [];
     return [{ model: layer.model, expected_at: new Date(expected).toISOString().replace(/\.\d{3}Z$/, 'Z') }];

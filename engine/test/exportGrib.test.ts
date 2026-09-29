@@ -390,7 +390,7 @@ describe('runGribExport', () => {
     expect(reads).toHaveBeenCalledTimes(1);
   });
 
-  it('turns a rotated-away run (HTTP 404 or a different run id) into a reload message', async () => {
+  it('turns a rotated-away run (HTTP 404 or a different run id) into a try-again message', async () => {
     const { store, manifests } = await storeFor([weatherSpec()]);
     const plan = planGribExport(manifests, request());
     const gone: GribExportSource = {
@@ -398,7 +398,7 @@ describe('runGribExport', () => {
     };
     await expect(runGribExport(gone, plan)).rejects.toMatchObject({
       name: 'GribExportError', code: 'forecast-updated',
-      message: 'The forecast has been updated. Reload the page and try again.',
+      message: 'The forecast has been updated. Try again.',
     });
     const other: GribExportSource = {
       tile: async (layer, id) => {

@@ -92,7 +92,7 @@ export class GribExportError extends Error {
   }
 }
 
-export const FORECAST_UPDATED_MESSAGE = 'The forecast has been updated. Reload the page and try again.';
+export const FORECAST_UPDATED_MESSAGE = 'The forecast has been updated. Try again.';
 
 const CHECKPOINT_STEPS = 3;
 // Encoding yields once this much main-thread time has passed.

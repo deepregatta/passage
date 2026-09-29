@@ -1,5 +1,6 @@
 import { beforeEach, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
+import { nextForecastRuns } from '@deepweather/engine';
 import { useApp } from '../src/stores/appStore.js';
 import Briefing from '../src/pages/Briefing.jsx';
 import Changes from '../src/pages/Changes.jsx';
@@ -28,6 +29,20 @@ it.each(['next_run', 'next_runs'])('shows the same frozen time on both pages usi
   cleanup();
   render(<Changes />);
   expect(await screen.findByText('Next forecast update estimated around Wed 9 Sep 04:20 UTC. Check again before departure.')).toBeVisible();
+});
+it('shows the estimate from the producer cadence_hours, six hours on for a 6-hourly layer', async () => {
+  const layers = { weather: {
+    layer: 'weather', model: 'gfs_0p25', run_id: 'weather-20260908T00Z', cycle: '2026-09-08T00:00:00Z',
+    published_at: '2026-09-08T04:20:00Z', member_count: 1, resolution_deg: 0.25, cadence_hours: 6,
+  } };
+  const nextRuns = nextForecastRuns(layers, '2026-09-08T05:00:00Z');
+  expect(nextRuns).toEqual([{ model: 'gfs_0p25', expected_at: '2026-09-08T10:20:00Z' }]);
+  useApp.setState({ briefing: { ...savedBriefing, next_run: undefined, next_runs: nextRuns } });
+  render(<Briefing />);
+  expect(screen.getByText(/next forecast ~Tue 8 Sep 10:20 UTC/)).toBeVisible();
+  cleanup();
+  render(<Changes />);
+  expect(await screen.findByText('Next forecast update estimated around Tue 8 Sep 10:20 UTC. Check again before departure.')).toBeVisible();
 });
 it('shows unavailable on both pages without a scheduled update', async () => {
   useApp.setState({ briefing: { ...savedBriefing, next_run: undefined, next_runs: [] } });

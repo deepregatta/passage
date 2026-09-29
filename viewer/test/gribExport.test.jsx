@@ -429,15 +429,45 @@ describe('GRIB files page', () => {
     expect(track).not.toHaveBeenCalledWith('grib_export', expect.anything());
   });
 
-  it('asks for a reload when the pinned run was rotated away', async () => {
+  it('asks to try again when the pinned run is gone and latest.json has nothing newer', async () => {
     const transport = fixtureTransport();
     transport.fetchTile = async (runId, path) => {
       throw Object.assign(new Error(`forecast fetch failed: HTTP 404 for ${runId}/${path}`), { status: 404 });
     };
+    const latest = vi.spyOn(transport, 'fetchLatest');
     store.current = new TileForecastStore({ transport });
     await openWith(CHANNEL);
     fireEvent.click(page().getByRole('button', { name: 'Download wind' }));
-    expect(await page().findByText('The forecast has been updated. Reload the page and try again.')).toBeInTheDocument();
+    expect(await page().findByText('The forecast has been updated. Try again.')).toBeInTheDocument();
+    expect(latest).toHaveBeenCalledTimes(2); // page load, then one refresh after the 404
+    expect(saves).toHaveLength(0);
+  });
+
+  it('refreshes once and builds the file from the new run when the pinned one was deleted', async () => {
+    const transport = fixtureTransport();
+    const NEXT = '2026-07-20T06:00Z';
+    const next = buildFixtureRun([{
+      layer: 'weather-ecmwf', model: 'ecmwf_ifs_0p25', cycle: NEXT, resolution_deg: 0.25,
+      time_axes: { steps: { base: NEXT, offsets_h: hours(49, 3) } },
+      variables: ['wind_u_kt', 'wind_v_kt'].map((name) => ({ name, axis: 'steps', dtype: 'i16', scale: 0.01, value: () => 6 })),
+      tiles: [[50, -10], [40, -10]],
+    }]);
+    store.current = new TileForecastStore({ transport });
+    await openWith(CHANNEL);
+    // forecast-tiles publishes 06Z and deletes 00Z while the page stays open
+    for (const [runId, manifest] of next.manifests) transport.manifests.set(runId, manifest);
+    for (const [key, bytes] of next.tiles) transport.tiles.set(key, bytes);
+    transport.latest = {
+      ...transport.latest,
+      layers: { ...transport.latest.layers, 'weather-ecmwf': { ...next.latest.layers['weather-ecmwf'], previous_run_id: null } },
+    };
+    for (const key of [...transport.tiles.keys()]) {
+      if (key.startsWith('weather-ecmwf-20260720T00Z/')) transport.tiles.delete(key);
+    }
+    fireEvent.click(page().getByRole('button', { name: 'Download wind' }));
+    await waitFor(() => expect(saves).toHaveLength(1));
+    expect(saves[0].name).toBe('passage-fixture_wind-ecmwf_20260720T06Z_N50W010_N51W009.grb2');
+    expect(page().queryByText('The forecast has been updated. Try again.')).toBeNull();
   });
 
   it('explains when the forecast runs cannot be loaded, and retries', async () => {

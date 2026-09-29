@@ -8,6 +8,7 @@ import { usePlanner } from '../../stores/plannerStore.js';
 import { analyzeInBrowser, saveRoute } from '../../lib/browserAnalysis.js';
 import { FORECAST_HOURS, loadRoutingInputs as loadLiveRoutingInputs } from '../../lib/routingInputs.js';
 import { forecastStore } from '../../lib/forecastStore.js';
+import { withFreshForecast } from '../../lib/forecastFreshness.js';
 
 // Persist the routing inputs with each result so restored drafts can be checked too.
 const routingInputKey = ({ endpoints, polarId, departureLocal }) => JSON.stringify([
@@ -149,7 +150,7 @@ export default function usePlannerController() {
     setBusy('computing route');
     setError(null);
     try {
-      const inputs = await loadRoutingInputs();
+      const inputs = await withFreshForecast(() => loadRoutingInputs());
       if (routingInputKey(usePlanner.getState()) !== inputKey) return;
       setBusy('computing route');
       setComputed({ ...routeForDeparture(inputs, departureUtc), notes: inputs.notes, inputKey });
@@ -184,7 +185,8 @@ export default function usePlannerController() {
     setBusy('scanning departures');
     setError(null);
     setScan(null);
-    try {
+    // one attempt; withFreshForecast runs it once more after a deleted run
+    const scanOnce = async () => {
       const profile = loadProfileDraft(profileDefaults);
       const departures = candidateDepartures(Date.parse(departureUtc), 120, 6);
       // weather-dependent routing: in compute mode every candidate departure
@@ -221,6 +223,9 @@ export default function usePlannerController() {
       });
       setScan({ ...result, routes, rerouted: Boolean(routeFor), requested: departures.length, notes: routeFor ? Object.values(routes)[0]?.notes ?? [] : [] });
       setBusy(null);
+    };
+    try {
+      await withFreshForecast(scanOnce);
     } catch (e) {
       setBusy(null);
       setError(e.message);
@@ -254,12 +259,12 @@ export default function usePlannerController() {
         || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 14)}`;
       track('passage_attempt', { route_specified: true });
       await saveRoute(checkRoute);
-      const { snapshotId } = await analyzeInBrowser({
+      const { snapshotId } = await withFreshForecast(() => analyzeInBrowser({
         route: checkRoute,
         profile,
         departureUtc: checkDepartureUtc,
         onProgress: setBusy,
-      });
+      }));
       setBusy(null);
       await openSnapshot(snapshotId, measurementAttempt);
     } catch (e) {

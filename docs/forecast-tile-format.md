@@ -156,7 +156,34 @@ available there).
 `manifest.json` (`contracts/forecast-manifest.schema.json`): geometry, time
 axes, variables, per-tile `{bytes, fnv64}`, totals, validation results.
 `latest.json` (`contracts/forecast-latest.schema.json`): per-layer
-`{run_id, previous_run_id, cycle, member_count, published_at}`.
+`{run_id, previous_run_id, cycle, member_count, published_at, cadence_hours}`.
+`cadence_hours` (optional, integer ≥ 1, from 2026-09-29) is the hours between
+the layer's scheduled publications, from forecast-tiles' per-layer config: 24
+for every layer until the dispatcher publishes each provider cycle
+(`grib-export-plan.md` Phase 5B: GFS, GFS-Wave and GEFS 6; ECMWF 12;
+currents 24). The briefing's next-update estimate uses it and falls back to
+its own table (`PUBLICATION_SCHEDULE` in `engine/src/briefing.ts`) when it is
+absent.
+
+### Runs change under an open page
+
+Retention keeps the current and previous run of each layer, so a run is
+deleted one cycle after it is superseded (about 12 h once GFS publishes every
+6 h). `TileForecastStore` pins one run per layer and never changes it during
+a call. `refresh()` re-reads `latest.json`, loads the manifest of each layer
+whose run changed and swaps them in together, dropping those layers' decoded
+tiles; unchanged layers keep theirs, and a layer whose new manifest cannot be
+read yet keeps its pinned run. A tile that answers 404 raises
+`ForecastRunGoneError` (`status` 404, with the layer and run id), which the
+analysis and the departure scan pass through rather than treating as missing
+currents or a skipped candidate. The viewer (`viewer/src/lib/forecastFreshness.js`)
+refreshes at the start of each action (check a passage, compare departures,
+compute a route, prepare a GRIB file) when the last check is over 10 minutes
+old and no other action is running; after a 404 it refreshes once and
+retries the action when the run was replaced, otherwise it shows "The
+forecast has been updated. Try again." Snapshots never re-read tiles: a
+briefing, its evidence and the change story are read from the snapshot's own
+files.
 
 ## Publish protocol (atomic)
 

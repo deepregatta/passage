@@ -679,7 +679,7 @@ const FR = {
   'Forecast data for planning, not for navigation. Check official forecasts and warnings.': 'Données de prévision pour la préparation, pas pour la navigation. Consultez les prévisions et les alertes officielles.',
   'ECMWF open data, CC BY 4.0': 'Données ouvertes ECMWF, CC BY 4.0',
   'Generated using E.U. Copernicus Marine Service Information': 'Généré à partir d’informations du service Copernicus Marine de l’UE',
-  'The forecast has been updated. Reload the page and try again.': 'La prévision a été mise à jour. Rechargez la page et réessayez.',
+  'The forecast has been updated. Try again.': 'La prévision a été mise à jour. Réessayez.',
 };
 
 const FR_PATTERNS = [

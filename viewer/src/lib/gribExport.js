@@ -14,6 +14,7 @@ import {
   toIso,
 } from '@deepweather/engine';
 import { FORECAST_BASE_URL } from './forecastConfig.js';
+import { refreshForecastIfStale } from './forecastFreshness.js';
 import { fmtTime } from './format.js';
 
 /** Margin around a planner route when it opens the GRIB page. */
@@ -175,10 +176,19 @@ export function gribForecastEnd(manifests) {
   return Number.isFinite(endMs) ? toIso(endMs) : null;
 }
 
-/** Load the pinned runs (latest.json + manifests); resolves to a manifest lookup. */
+/**
+ * Load the pinned runs (latest.json + manifests), re-reading latest.json when
+ * the last check is over 10 minutes old; resolves to a manifest lookup.
+ */
 export async function loadGribManifests(store) {
   await store.init();
+  await refreshForecastIfStale({ store });
   return (layer) => store.manifestFor(layer);
+}
+
+/** The pinned run ids of the exportable layers: a plan's key changes with them. */
+export function gribRunIds(manifests) {
+  return [...new Set(GRIB_DATASETS.map((spec) => manifests(spec.layer)?.run_id).filter(Boolean))].sort();
 }
 
 /** Plan every dataset, so the page can show each model's availability. */
