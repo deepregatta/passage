@@ -13,6 +13,9 @@ publishes; Phase 5A task 1 (the "already published" exit) landed with it (see
 First run `currents-ibi-20260929T00Z`, published 11 h 12 min after its cycle
 (D+17–21 h before). A production Channel IBI file for "next 3 days" then held
 all 73 hourly steps, EN and FR, where the day before it stopped 28 h ahead.
+**Phase 5 mechanism chosen 2026-09-29**: a Cloudflare Worker dispatches each
+layer at its provider's known publication time and the ingest job waits for
+its cycle (replaces the 10-minute polling Worker first planned).
 Phase 4 (measure) and the rest of Phase 5 (fresher forecast runs, an
 independent track added 2026-09-23) are next. Update the status line and tick
 the exit criteria as phases land.
@@ -607,7 +610,7 @@ Exit criteria:
 ## Phase 5 — Fresher forecast runs (independent track: forecast-tiles + passage)
 
 **Why.** A GRIB download makes the forecast's age obvious. Today every layer
-is ingested once a day, and GitHub starts the scheduled jobs 4–5 h late. So
+is ingested once a day, and GitHub starts the scheduled jobs 4–6.5 h late. So
 the newest GFS run Passage serves is published about 8 h 45 min after its
 cycle time and replaced only a day later: it can be up to about 33 h old.
 **Target:** ingest every provider cycle, published within about 30 min of the
@@ -683,12 +686,25 @@ Other facts:
   648, waves 530 and ensemble 648 tiles × 4; ECMWF 648 × 2; GLO12 542; IBI
   11). That's about 280k a month, under R2's free 1M Class A operations a
   month. Today it's about 3,000 a day.
-- **Triggering:** `workflow_dispatch` runs start within about a minute.
+- **Triggering:** `workflow_dispatch` runs start within about 10 s.
   GitHub's `schedule` is best-effort: runs can be delayed or dropped under
-  load. Scheduled workflows in a public repo are also disabled after 60 days
+  load. Measured 2026-09-29: every daily cron started 5.5–6.5 h late
+  (`ingest-weather` 03:30 → 09:59, `ingest-currents` 13:00 → 18:27), and of
+  the eight hourly `ingest-currents-ibi` slots (07:50–14:50, live from 05:15)
+  GitHub had created **one** run (14:22) by 18:40. More slots don't give more
+  runs. Scheduled workflows in a public repo are also disabled after 60 days
   without repository activity, which is a latent risk to all ingestion today.
   Every ingest workflow already has `workflow_dispatch` with a `cycle` input
   and `concurrency: {group: ingest-<layer>, cancel-in-progress: false}`.
+- **GLO12's provider time**, seen once: its public STAC item
+  (`…/GLOBAL_ANALYSISFORECAST_PHY_001_024/cmems_mod_glo_phy-cur_anfc_0.083deg_PT6H-i_202406/dataset.stac.json`)
+  had `admp_updated_data` 06:25:55 UTC on 2026-09-29, while that day's
+  `ingest-currents` run started at 18:27.
+- **Peak memory**, from a scaled replay of each layer's array code on
+  2026-09-29 (numpy buffers only; downloads and xarray overhead come on top):
+  ensemble ≈ 15.2 GB, waves ≈ 4.8, weather ≈ 3.7, GLO12 ≈ 2.9, IBI ≈ 2.6;
+  ECMWF ≈ 2 GB estimated from the code. A public-repo `ubuntu-latest` runner
+  has 16 GB.
 - **Ingest re-publishes a cycle that's already live.** `_update_latest`
   handles the same-cycle case, so a frequent trigger would re-upload whole
   runs. It needs an early "already published" exit.
@@ -705,7 +721,8 @@ Other facts:
 | `waves` | 00/06/12/18 | ~05:45, 11:45, 17:45, 23:45 |
 | `ensemble` | 00/06/12/18 | ~07:00, 13:00, 19:00, 01:00 |
 | `weather-ecmwf` | 00/12 (full 240 h) | ~08:00, 20:00 |
-| `currents`, `currents-ibi` | daily | within ~30 min of the provider update |
+| `currents-ibi` | daily | within ~10 min of Copernicus finishing the update |
+| `currents` (GLO12) | daily | within ~1 h of the provider update (the job alone takes 35–46 min) |
 
 The worst-case age of the newest GFS run served drops from about 33 h to
 about 11 h.
@@ -713,48 +730,127 @@ about 11 h.
 ECMWF 06Z/18Z (144 h only) is a later follow-up. First check that Passage's
 model-disagreement analysis and the GRIB export handle a shorter ECMWF horizon.
 
-### Mechanism: a poll-and-dispatch Cloudflare Worker (recommended)
+### Mechanism: a timetable dispatcher Worker, and an ingest that waits
 
-- New `forecast-tiles/dispatcher/`: a TypeScript Worker with `wrangler.toml`
-  and a Cron Trigger every 10 min. Cron Triggers are included in the Workers
-  free plan, and waiting on the network doesn't count as CPU time.
-- On each tick, for each 6- or 12-hourly layer:
-  1. **Candidate cycle:** the newest cycle whose completion file (table above;
-     the same URL templates as the Python `resolve()` functions) answers
-     `HEAD` with 200.
-  2. **Published cycle:** from `https://forecast.deepregatta.com/latest.json`
-     (5-min cache, which is fine).
-  3. If the candidate is newer and the workflow has no queued or in-progress
-     run (`GET /repos/deepregatta/forecast-tiles/actions/workflows/{file}/runs?status=…`),
-     then `POST …/actions/workflows/{file}/dispatches` with
-     `{"ref":"main","inputs":{"cycle":"YYYYMMDDTHH"}}`.
-- **CMEMS layers:** probe the dataset's public STAC item (see *CMEMS
-  publication* above; corrected 2026-09-29, the plan first said there was no
-  cheap unauthenticated probe). Dispatch when `end_datetime` is past the
-  published run's and `admp_updating_start_date` is null. The ingest's
-  "already published" and "not available yet" exits make an early or
-  duplicate dispatch harmless; IBI already relies on them in its hourly
-  GitHub slots.
-- **`DRY_RUN`** (default `true` in `wrangler.toml`): log decisions without
-  dispatching.
-- **Token:** a fine-grained personal access token (or a GitHub App) scoped to
-  `deepregatta/forecast-tiles` only, with **Actions: read and write**, stored
-  as the Worker secret `GITHUB_TOKEN`. **Davi creates the token and sets the
-  secret. The session must never ask for or handle it.**
-- Keep each workflow's `schedule` as a fallback every 6 h at an off-peak
-  minute (e.g. `17 */6 * * *`). The "already published" exit makes it
+Chosen with Davi on 2026-09-29. It replaces the Worker first planned here,
+which probed every provider every 10 min. Providers publish at known times,
+so the Worker only keeps the clock. GitHub's `schedule` can't do this job
+because it starts runs hours late and drops slots (*Other facts* above).
+`workflow_dispatch` runs start within about 10 s, so ingestion stays on free
+GitHub runners and only the clock moves to Cloudflare.
+
+- **New `forecast-tiles/dispatcher/`:** a TypeScript Worker with
+  `wrangler.toml`: Cron Triggers only, no `fetch` handler, no routes,
+  `workers_dev = false`, Workers Logs on (`[observability] enabled = true`).
+  Timetable (UTC):
+
+  | Cron | Layer | Cycle dispatched | Provider ready (measured) | `wait_minutes` |
+  |---|---|---|---|---|
+  | `25 4,10,16,22 * * *` | `weather` | fire time − 4 h 25 | cycle + 4 h 37–4 h 41 | 90 |
+  | `0 5,11,17,23 * * *` | `waves` | fire time − 5 h | + 5 h 10–5 h 25 | 90 |
+  | `15 0,6,12,18 * * *` | `ensemble` | fire time − 6 h 15 (00:15 → previous day 18Z) | + 6 h 29–6 h 31 | 90 |
+  | `20 7,19 * * *` | `weather-ecmwf` | fire time − 7 h 20 | + 7 h 34 | 120 |
+  | `45 5,9 * * *` | 05:45 `currents`, 09:45 `currents-ibi` | that day's 00Z | GLO12 06:25 (seen once); IBI 09:54–11:36 | 180 each |
+
+  Five expressions use all of the Workers Free plan's 5 Cron Triggers per
+  account. If the account needs a slot elsewhere, use one `*/5 * * * *`
+  expression and keep the same table in code: a tick contacts nothing unless
+  a layer is due.
+- **On each fire:** take the cycle from `controller.scheduledTime`, not
+  `Date.now()`. Then `POST /repos/deepregatta/forecast-tiles/actions/workflows/ingest-<layer>.yml/dispatches`
+  with `{"ref":"main","inputs":{"cycle":"YYYYMMDDTHH","wait_minutes":"N"}}`.
+  The 200 response carries `workflow_run_id`: log the run URL. Log 401/403
+  loudly. If the dispatch fails because the workflow is disabled, `GET` it.
+  If its `state` is `disabled_inactivity`, `PUT …/enable` and dispatch once
+  more. The Worker never contacts a provider, `latest.json` or the runs list.
+- **`DRY_RUN`** (default `true` in `wrangler.toml`): log instead of
+  dispatching, e.g. `would dispatch ingest-weather cycle=20260930T06 wait=90
+  scheduled=10:25:00Z fired=10:25:02Z`. The docs promise no timing for Cron
+  Triggers ("run on underutilized machines"), so the dry run measures it.
+- **The ingest waits for its cycle** (`--wait-minutes N`, workflow input
+  `wait_minutes`, default 0, so crons and manual dispatches behave as now).
+  With an explicit `--cycle`, it retries readiness on `CycleNotAvailableError`
+  every 60 s (CMEMS and ECMWF: 120 s) until the deadline, then runs the
+  "already published" check and the build as today. When the wait runs out,
+  it exits 1 ("cycle not available after N min"), so a missed slot shows up as
+  a failed run. Readiness per layer:
+  - `weather`, `waves`, `ensemble`: `resolve(requested)` already `HEAD`s the
+    completion file.
+  - `weather-ecmwf`: `resolve(requested)` already compares with the latest
+    full-horizon cycle.
+  - `currents-ibi`: check the public STAC item first (`end_datetime` ≥ cycle
+    + 239 h and `admp_updating_start_date` null), then the existing catalogue
+    checks in `build_cube`.
+  - `currents` (GLO12): **new check.** Today `build_cube` raises
+    `RuntimeError` for missing instants, and the CLI falls back to RTOFS on
+    any exception. At 05:45 that would publish RTOFS as the day's run and
+    block GLO12 until the next day. Read GLO12's STAC item
+    (`admp_updated_data` on or after the cycle's day, and
+    `admp_updating_start_date` null). If it isn't ready, raise
+    `CycleNotAvailableError`, which must pass through the RTOFS fallback
+    instead of triggering it, and add `currents` to
+    `SKIP_WHEN_NOT_AVAILABLE`. RTOFS stays the fallback for real CMEMS
+    failures. Record `provider_updated_at` in GLO12's provenance, as IBI
+    does, so its publication time gets measured.
+- **Workflows:** add the `wait_minutes` input, `run-name: ingest-<layer> ${{
+  inputs.cycle || 'scheduled' }}`, and `timeout-minutes: 240`. That covers the
+  longest wait plus the longest job: ECMWF 120 + 100, GLO12 180 + 46, all
+  under the 6 h job limit. Waiting costs nothing: `forecast-tiles` is public.
+- **Concurrency** is unchanged (`ingest-<layer>`, no cancel-in-progress). A
+  waiting job holds its group; a fallback cron run queues behind it and exits
+  "already published". GitHub keeps one pending run per group, so place the
+  fallback crons away from the dispatch times.
+- **Token:** a fine-grained personal access token scoped to
+  `deepregatta/forecast-tiles` only, with **Actions: read and write**
+  (Metadata: read is added automatically), stored as the Worker secret
+  `GITHUB_TOKEN`. Actions write covers dispatch and enable. If leaked, the
+  token can start, cancel and re-run workflows, delete run logs, and enable
+  or disable workflows. It can't read secrets or change code. A token can
+  have no expiry unless an organization policy forbids it. A GitHub App
+  (installation tokens last 1 h) would avoid expiry entirely, but it isn't
+  needed for v1. **Davi creates the token and sets the secret. The session
+  must never ask for or handle it.**
+- **Fallback:** after 5B each workflow keeps one `schedule` every 6 h, away
+  from the dispatch times: `37 2,8,14,20 * * *`. It covers a missed dispatch,
+  late by GitHub's usual hours. The "already published" exit makes it
   harmless.
-- **Minutes:** all Phase 5 ingestion runs in `forecast-tiles`, which is
-  public, so it uses none of the org's 2,000 private minutes. Don't add
-  scheduled work to private repos.
+- **Cost** (limits read 2026-09-29):
+  - Workers Free allows 5 Cron Triggers per account, 100,000 requests a day,
+    10 ms of CPU and 50 subrequests per invocation. The dispatcher makes 16
+    invocations a day, each with at most 3 subrequests.
+  - GitHub Actions is free on public repos with standard runners (4 CPU,
+    16 GB).
+  - **Minutes:** all Phase 5 ingestion runs in `forecast-tiles`, which is
+    public, so it uses none of the org's 2,000 private minutes. Don't add
+    scheduled work to private repos.
+- **Expected publication** after 5B:
+
+  | Layer | Publication |
+  |---|---|
+  | GFS | ≈ cycle + 5 h (today + 8 h 45, one cycle a day) |
+  | waves | + 5 h 30–5 h 45 |
+  | GEFS | ≈ + 6 h 50 |
+  | ECMWF | + 7 h 45 to + 9 h 15 (the job takes 10–100 min) |
+  | IBI | ≈ 4 min after Copernicus finishes |
+  | GLO12 | ≈ 40–50 min after its provider |
 - Optional: the same Worker can dispatch Passage's `prepare-synoptic`, which
-  has the same 4–5 h delay. It needs a second token scoped to `passage`. Only
+  has the same 4–6 h delay. It needs a second token scoped to `passage`. Only
   do this once `passage` is public: while private, its 4×/day runs already
   cost about 570 of the 2,000 monthly minutes.
-- **Rejected:** GitHub cron every 15–30 min without a Worker. It's simpler,
-  but the measured 4–5 h delays and possible drops make timing unpredictable,
-  and it gets disabled after 60 days without activity. Use it only if Davi
-  declines the Worker.
+- **Rejected** (comparison of 2026-09-29):
+  - GitHub `schedule` at any frequency: measured above.
+  - The 10-minute polling Worker: it works, but once the job waits it only
+    adds code (provider probes, `latest.json`, runs listing) for the same
+    latency.
+  - Ingesting on Cloudflare:
+    - Workers, Python Workers and Workflows have 128 MB of memory against
+      ≥ 2.6 GB needed, and Pyodide has no eccodes or copernicusmarine.
+    - Containers need the $5 paid plan and stop at 12 GiB, so the ensemble
+      doesn't fit. They would cost about $30–55 a month.
+  - Third-party cron services: they would hold the GitHub token.
+  - A GitHub job that re-dispatches itself: it holds a runner 24/7, against
+    the Actions terms on serverless use.
+  - NOAA's SNS push: it needs an AWS account and covers NOAA only.
 
 ### 5A — Build (safe: the cadence stays daily)
 
@@ -795,20 +891,39 @@ Tasks:
    **older snapshot's** run ids (briefing replay, evidence, changes).
    Snapshots should be self-contained; any tile re-fetch must fail gracefully
    once its run is deleted. Record the findings in this section.
-6. **Dispatcher Worker** in `forecast-tiles/dispatcher/`, with unit tests (mock
-   `fetch`) for cycle arithmetic, probe URLs and the dispatch decision.
-   `DRY_RUN=true` by default. Add a README section "Dispatcher" with Davi's
-   setup steps (below).
-7. **Workflows:** leave the crons as they are until 5B. Exception:
-   `ingest-currents-ibi` moved to hourly slots 07:50–14:50 UTC on 2026-09-29.
-8. **Docs:**
-   - forecast-tiles README: the layers table gets a cadence column marked
-     "target after 5B"; add the dispatcher runbook.
-   - `passage/docs/forecast-tile-format.md`: the new `latest.json` field.
-   - This plan: status line and audit findings.
-9. **Passage copy:** grep the English UI copy for "daily", "once a day" and
-   "24 h" about forecasts. Fix any in lockstep with the FR catalogue.
-10. Commit and push both repos. forecast-tiles CI must pass. Passage CI needs
+6. **Dispatcher Worker** in `forecast-tiles/dispatcher/`, per *Mechanism*.
+   `DRY_RUN=true` by default. Unit tests with a mocked `fetch`:
+   - the cycle for every timetable slot, including the day rollover
+     (00:15 → previous day 18Z) and the shared CMEMS expression;
+   - the dispatch body;
+   - the disabled → enable → dispatch path;
+   - 401 logging, and dry-run output.
+
+   Add a README section "Dispatcher" with Davi's setup steps (below).
+7. **Ingest waits for its cycle**, per *Mechanism*:
+   - `--wait-minutes`, with an injectable clock and sleep for tests;
+   - the IBI STAC check, and the new GLO12 readiness check with
+     `provider_updated_at`.
+
+   Tests: the wait loop (ready at once, ready after two polls, deadline →
+   exit 1), GLO12 not ready → no RTOFS publish, and a real CMEMS failure →
+   RTOFS as today.
+8. **Workflows:** add `wait_minutes`, `run-name` and `timeout-minutes: 240`
+   now. It's safe: the input defaults to 0. Leave the crons as they are until
+   5B. Exception: `ingest-currents-ibi` moved to hourly slots 07:50–14:50 UTC
+   on 2026-09-29.
+9. **Ensemble peak memory** (≈ 15.2 GB of the runner's 16 GB, and it will run
+   4× a day). `quantize` converts the whole 2.9 GB anomaly array to float64.
+   Quantize one member at a time (or in float32) and check the peak again
+   with a scaled replay.
+10. **Docs:**
+    - forecast-tiles README: the layers table gets a cadence column marked
+      "target after 5B"; add the dispatcher runbook and the timetable.
+    - `passage/docs/forecast-tile-format.md`: the new `latest.json` field.
+    - This plan: status line and audit findings.
+11. **Passage copy:** grep the English UI copy for "daily", "once a day" and
+    "24 h" about forecasts. Fix any in lockstep with the FR catalogue.
+12. Commit and push both repos. forecast-tiles CI must pass. Passage CI needs
     Actions minutes (see Verified facts).
 
 Davi's manual steps after 5A (the session prints these at the end):
@@ -818,15 +933,23 @@ Davi's manual steps after 5A (the session prints these at the end):
    - resource owner `deepregatta`;
    - only the repository `forecast-tiles`;
    - Repository permissions → **Actions: Read and write**;
-   - expiry ≤ 1 year, with a calendar reminder to renew.
-2. Deploy the Worker and store the token as its secret:
+   - expiry: none, if the organization allows it; otherwise ≤ 1 year, with a
+     calendar reminder to renew;
+   - if the organization requires approval for fine-grained tokens, approve
+     it.
+2. Check that the Cloudflare account has no other Worker using Cron
+   Triggers: the dispatcher uses all 5 of the free plan. If one does, tell
+   the 5B session to switch to the single `*/5` expression.
+3. Deploy the Worker and store the token as its secret:
    ```bash
    cd forecast-tiles/dispatcher && npx wrangler login && npx wrangler deploy && npx wrangler secret put GITHUB_TOKEN
    ```
    Paste the token into the `wrangler` prompt, never into a chat.
-3. Watch a few dry-run ticks with `npx wrangler tail`. Expect lines like
-   `would dispatch ingest-weather cycle=20260924T06`. Paste some into the 5B
-   prompt.
+4. Let the dry run go for about 24 h. Expect 16 lines a day like
+   `would dispatch ingest-weather cycle=20260930T06 wait=90
+   scheduled=10:25:00Z fired=10:25:02Z`, in the Worker's **Logs** tab (kept
+   3 days on the free plan) or live with `npx wrangler tail`. Paste a day of
+   them into the 5B prompt.
 
 Exit criteria:
 
@@ -836,17 +959,26 @@ Exit criteria:
 - [ ] `latest.json` carries `cadence_hours`; Passage reads it; the schemas
       match, including `currents-ibi`.
 - [ ] Store refresh live in Passage; audit findings recorded.
+- [ ] Ingest wait live: a manual dispatch of an upcoming cycle with
+      `wait_minutes` waits, then publishes within 2 min of the provider
+      finishing. GLO12 before its update exits "not available" instead of
+      publishing RTOFS.
+- [ ] Ensemble peak memory measured below 12 GB.
 - [ ] Dispatcher merged with dry-run as the default; Davi's steps handed over.
 
 ### 5B — Switch on (after Davi has deployed the Worker)
 
 Tasks:
 
-1. Check the pasted dry-run lines: the decisions match the Target table.
+1. Check the pasted dry-run lines:
+   - all 16 slots fired;
+   - `fired − scheduled` is under 2 min;
+   - each cycle matches the timetable.
 2. Switch on:
    - `DRY_RUN=false`;
    - `cadence_hours`: weather, waves and ensemble 6; ECMWF 12; currents 24;
-   - workflow crons to the 6-hourly fallback.
+   - every workflow's cron to the fallback `37 2,8,14,20 * * *` (IBI's
+     hourly slots go too).
 
    Then ask Davi to run `npx wrangler deploy` if the session can't
    authenticate.
@@ -860,17 +992,23 @@ Tasks:
    | waves | +5 h 50 |
    | ensemble | +7 h 15 |
    | ECMWF 00Z/12Z | +8 h 15 |
+   | currents-ibi | `provider_updated_at` + 15 min |
+   | currents | `provider_updated_at` + 60 min |
 
    Also: no missed cycles, and the bucket stays under the guard.
-4. In Passage, a new briefing's next-run estimate is about 6 h after the
+4. Tune the timetable from the measured provider times: dispatch about
+   10 min before the earliest time seen, and wait past the latest.
+   Measure GLO12 especially.
+5. In Passage, a new briefing's next-run estimate is about 6 h after the
    loaded cycle's publication. The GRIB section (if built) shows the new
    cycle.
-5. Update the forecast-tiles README cadence column, the `briefing.ts`
+6. Update the forecast-tiles README cadence column, the `briefing.ts`
    fallback table, and this plan's Verified facts.
 
 Exit criteria:
 
 - [ ] 8 consecutive GFS cycles published within target; no ECMWF 00Z/12Z cycle missed.
+- [ ] A week of IBI and GLO12 runs within target.
 - [ ] Bucket under 8 GB; R2 Class A projection under 1M a month.
 - [ ] Docs updated in both repos.
 
@@ -878,8 +1016,13 @@ Exit criteria:
 
 | Risk | Mitigation |
 |---|---|
-| Token expires, so dispatching stops | The fallback crons keep a slower cadence going. The dispatcher logs 401s loudly. Calendar reminder. Optional: open a GitHub issue when a layer falls 2 cycles behind (the token then also needs Issues: write). |
-| ECMWF server slowness (10–100 min jobs) | The concurrency group queues runs; the 12-hourly cadence leaves slack. |
+| Token expires, so dispatching stops | The fallback crons keep a slower cadence going. The dispatcher logs 401s loudly. Prefer a token with no expiry; otherwise set a calendar reminder. Optional: open a GitHub issue when a layer falls 2 cycles behind (the token then also needs Issues: write). |
+| A provider publishes later than the wait | The run fails visibly ("not available after N min"), and the fallback cron picks the cycle up later. Widen that layer's wait (5B task 4). |
+| Cloudflare cron fires late or skips a slot (no documented timing) | Measured in the dry run. The wait absorbs minutes, and the fallback crons cover a skipped slot. |
+| Workflow disabled after 60 days without repository activity | The dispatcher re-enables it and dispatches again. |
+| A fallback cron run cancels a pending dispatch (one pending run per group) | Fallback minutes sit away from the dispatch times. The cron run still publishes the latest complete cycle. |
+| ECMWF server slowness (10–100 min jobs) | The job takes the time, not the trigger. Follow-up: `Client(source="azure")` downloaded a full cycle in about 90 s locally on 2026-09-28, while data.ecmwf.int answered 429. Measure it on a runner before switching. |
+| Ensemble runs out of runner memory at 4 runs a day | 5A task 9. |
 | Users re-download tiles 4× a day | Expected. The IndexedDB cache evicts old runs; tile sizes don't change. |
 | Runs expire while a page is open | 5A store refresh. |
 | Dispatcher and fallback cron fire together | Same concurrency group, plus the "already published" exit. |
