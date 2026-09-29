@@ -1,4 +1,4 @@
-import { passageMaxHours, routeBbox, snapToSea } from '@deepweather/engine';
+import { forecastRunGone, passageMaxHours, routeBbox, snapToSea } from '@deepweather/engine';
 import { landMaskForBbox } from './landMask.js';
 import { forecastStore, friendlyForecastError } from './forecastStore.js';
 
@@ -60,12 +60,16 @@ export async function loadRoutingInputs({
     windGrid = await store.getWindGrid(bbox, departureIso, hours);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    if (/Antimeridian|too large/i.test(message)) throw error;
+    // a deleted run: withFreshForecast refreshes and retries
+    if (/Antimeridian|too large/i.test(message) || forecastRunGone(error)) throw error;
     throw friendlyForecastError(error);
   }
 
   onProgress('loading current tiles');
-  const currentGrid = await store.getCurrentGrid(bbox, departureIso, hours).catch(() => null);
+  const currentGrid = await store.getCurrentGrid(bbox, departureIso, hours).catch((error) => {
+    if (forecastRunGone(error)) throw error;
+    return null;
+  });
   const notes = [windGrid.under_resolved_note, currentGrid?.under_resolved_note].filter(Boolean);
   if (!currentGrid) notes.push('Currents unavailable right now. This route uses wind alone.');
 

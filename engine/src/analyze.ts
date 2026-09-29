@@ -11,7 +11,7 @@ import { buildPlume, writeSnapshot, type Plume, type SnapshotStore } from './sna
 import { deriveLegs, legMidpoints } from './route.js';
 import { computeSchedules, parseUtc, toIso } from './eta.js';
 import { passageMaxHours, routeBbox } from './fetch/liveGrids.js';
-import type { ForecastStore } from './forecast/store.js';
+import { forecastRunGone, type ForecastStore } from './forecast/store.js';
 import { ENGINE_VERSION } from './version.js';
 import type { Findings, LimitsProfile, Route, SynopticFeatures, WarningsInput } from './types.js';
 
@@ -124,7 +124,9 @@ export async function runAnalysis(options: AnalyzeOptions): Promise<AnalyzeResul
           departureUtc,
           passageMaxHours(start, finish),
         )) ?? undefined;
-    } catch {
+    } catch (error) {
+      // a deleted run means refresh and retry, not "no currents"
+      if (forecastRunGone(error)) throw error;
       currentGrid = undefined; // currents degrade gracefully; coverage reports it
     }
   }

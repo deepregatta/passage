@@ -11,6 +11,7 @@ vi.mock('@deepweather/engine', () => ({
   routeBbox: () => ({ minLat: 0, maxLat: 1, minLon: 0, maxLon: 1 }),
   passageMaxHours: () => 48,
   snapToSea: mocks.snapToSea,
+  forecastRunGone: (error) => (error?.name === 'ForecastRunGoneError' ? error : null),
   TileForecastStore: class TileForecastStore {},
   HttpTileTransport: class HttpTileTransport {},
 }));
@@ -74,6 +75,18 @@ describe('live routing inputs', () => {
     });
     expect(result.currentGrid).toBeNull();
     expect(result.notes.join(' ')).toMatch(/wind alone/i);
+  });
+
+  it('passes a deleted run through for a refresh and retry, from wind or currents', async () => {
+    const gone = Object.assign(new Error('forecast run weather-20260720T00Z is no longer published (HTTP 404)'), {
+      name: 'ForecastRunGoneError', status: 404,
+    });
+    const args = { start: { lat: 0, lon: 0 }, finish: { lat: 1, lon: 1 }, polarId: 'test', departureIso, now, store };
+    mocks.getWindGrid.mockRejectedValueOnce(gone);
+    await expect(loadRoutingInputs(args)).rejects.toBe(gone);
+    mocks.snapToSea.mockReturnValueOnce({ lat: 0.1, lon: 0.1 }).mockReturnValueOnce({ lat: 0.9, lon: 0.9 });
+    mocks.getCurrentGrid.mockRejectedValueOnce(gone);
+    await expect(loadRoutingInputs(args)).rejects.toBe(gone);
   });
 
   it('maps wind failure and rejects departures beyond the horizon', async () => {

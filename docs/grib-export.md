@@ -309,8 +309,14 @@ for each dataset with availability ok (one file at a time):
   `{datasetId, stage, done, total}` with one unit per tile and per message.
 - A tile fetch answering HTTP 404 (the run was rotated while the page stayed
   open) or a tile from a different run id raises `GribExportError` with code
-  `forecast-updated` and the message "The forecast has been updated. Reload
-  the page and try again." Other errors propagate unchanged.
+  `forecast-updated` and the message "The forecast has been updated. Try
+  again." Other errors propagate unchanged. The page refreshes the pinned
+  runs before each file when they were last checked over 10 minutes ago, and
+  after a `forecast-updated` error it refreshes once and prepares the file
+  again from the new run; the message shows only when that fails too
+  (`forecast-tile-format.md` → *Runs change under an open page*). A file's
+  key includes the run ids, so a file prepared from a replaced run is never
+  offered again.
 
 ## GRIB files page (viewer)
 

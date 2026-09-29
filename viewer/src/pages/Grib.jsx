@@ -4,6 +4,7 @@ import { EmulatedStamp, Panel } from '../components/common.jsx';
 import { track } from '../lib/analytics.js';
 import { fmtTime } from '../lib/format.js';
 import { forecastStore, friendlyForecastError } from '../lib/forecastStore.js';
+import { withFreshForecast } from '../lib/forecastFreshness.js';
 import {
   GRIB_KINDS,
   GRIB_MAX_EST_BYTES,
@@ -30,6 +31,7 @@ import {
   gribKindDataset,
   gribModelOrder,
   gribPeriodWindow,
+  gribRunIds,
   gribSizeBucket,
   gribSpotKeys,
   loadGribManifests,
@@ -91,7 +93,8 @@ const sameArea = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 function derive({ manifests, area, period, step, nowMs }) {
   const forecastEndIso = manifests ? gribForecastEnd(manifests) : null;
   const timeWindow = gribPeriodWindow({ period, nowMs, forecastEndIso });
-  const key = JSON.stringify([area, timeWindow, step]);
+  // A file prepared from a run that has since been replaced is not offered again.
+  const key = JSON.stringify([area, timeWindow, step, manifests ? gribRunIds(manifests) : []]);
   if (!manifests || !area) return { timeWindow, key, plan: null, planError: null };
   try {
     return { timeWindow, key, plan: planAreaGrib(manifests, { area, window: timeWindow, step }), planError: null };
@@ -347,11 +350,20 @@ export default function Grib() {
   const running = progress !== null;
   const attributions = [...new Set(kinds.map(({ dataset }) => dataset.spec.attribution))];
 
-  const download = async (kindId) => {
+  // One file: re-read latest.json first when it is over 10 minutes old; a
+  // deleted run refreshes and retries once (lib/forecastFreshness.js).
+  const prepare = async (kindId, { changed }) => {
+    let current = manifests;
+    if (changed.length) {
+      // New runs since the page planned: plan on them, and show them.
+      const store = forecastStore();
+      current = (layer) => store.manifestFor(layer);
+      setManifestState((s) => ({ ...s, manifests: current }));
+    }
     // A new hour moves the period start; plan from the current hour.
     const now = Date.now();
-    const fresh = Math.floor(now / HOUR_MS) !== Math.floor(nowMs / HOUR_MS)
-      ? derive({ manifests, area, period, step, nowMs: now })
+    const fresh = changed.length || Math.floor(now / HOUR_MS) !== Math.floor(nowMs / HOUR_MS)
+      ? derive({ manifests: current, area, period, step, nowMs: now })
       : { key, plan };
     if (fresh.key !== key) setNowMs(now);
     if (!fresh.plan) return;
@@ -386,7 +398,7 @@ export default function Grib() {
     } catch (e) {
       if (controller.signal.aborted) {
         if (controller.signal.reason !== SETTINGS_CHANGED) setError('Cancelled. No file was saved.');
-      } else if (e?.code === 'forecast-updated') setError(FORECAST_UPDATED_MESSAGE);
+      } else if (e?.code === 'forecast-updated') throw e; // refreshed and retried once
       else setError(friendlyForecastError(e).message);
     } finally {
       if (jobRef.current === job) {
@@ -395,6 +407,9 @@ export default function Grib() {
       }
     }
   };
+
+  const download = (kindId) => withFreshForecast((fresh) => prepare(kindId, fresh))
+    .catch((e) => setError(e?.code === 'forecast-updated' ? FORECAST_UPDATED_MESSAGE : friendlyForecastError(e).message));
 
   const savedAny = Object.values(results).some((result) => result.file.url);
 

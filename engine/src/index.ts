@@ -15,7 +15,7 @@ export type { AnalyzeOptions, AnalyzeResult } from './analyze.js';
 export { deriveLegs, deriveSamplePoints, legMidpoints, totalDistanceNm } from './route.js';
 export { computeSchedules, parseUtc, toIso } from './eta.js';
 export { parseGpx } from './gpx.js';
-export { renderBriefing } from './briefing.js';
+export { renderBriefing, nextForecastRuns } from './briefing.js';
 export type { Briefing, BriefingSection } from './briefing.js';
 export { buildPlume, writeSnapshot } from './snapshot.js';
 export type { Plume, SnapshotStore } from './snapshot.js';
@@ -42,7 +42,7 @@ export type { TileHeader, TileVariable, DecodedTile, TimeAxis, VariableStatistic
 export { TileForecastStore } from './forecast/tileStore.js';
 export { HttpTileTransport, gunzip } from './forecast/httpTransport.js';
 export { ScenarioBundleStore } from './forecast/scenarioStore.js';
-export { MemoryTileCache } from './forecast/store.js';
+export { MemoryTileCache, ForecastRunGoneError, forecastRunGone } from './forecast/store.js';
 export type {
   ForecastStore,
   TileTransport,

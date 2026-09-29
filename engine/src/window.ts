@@ -6,6 +6,7 @@
 
 import { runAnalysis, type AnalyzeOptions, type AnalyzeResult } from './analyze.js';
 import { evidenceLimitRatio } from './findings.js';
+import { forecastRunGone } from './forecast/store.js';
 import type { Route, VerdictState } from './types.js';
 
 export interface WindowCandidate {
@@ -65,6 +66,8 @@ export async function scanDepartures(
       const route = routeFor ? await routeFor(departureUtc) : analyzeBase.route;
       result = await runAnalysis({ ...analyzeBase, route, departureUtc });
     } catch (error) {
+      // a deleted forecast run fails every candidate: the caller refreshes and retries
+      if (forecastRunGone(error)) throw error;
       const reason = error instanceof Error ? error.message : error == null ? '' : String(error);
       skipped.push({ departure_utc: departureUtc, reason: reason || 'Unknown error' });
       continue;

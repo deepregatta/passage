@@ -22,6 +22,8 @@ export interface LatestLayer {
   cycle: string;
   member_count?: number;
   published_at: string;
+  /** Hours between the layer's scheduled publications, from the producer (optional). */
+  cadence_hours?: number;
 }
 
 export interface LatestDoc {
@@ -57,6 +59,32 @@ export interface RunManifest {
   tiles: Record<string, { bytes: number; fnv64: string }>;
   totals: { tile_count: number; bytes: number };
   published_at: string;
+}
+
+/**
+ * A tile of a pinned run answered 404: forecast-tiles keeps only the current
+ * and previous run of each layer, so a page that stays open long enough
+ * outlives its runs. Refresh the store (`TileForecastStore.refresh`) and
+ * retry. `status` stays 404 for callers that test the HTTP status.
+ */
+export class ForecastRunGoneError extends Error {
+  readonly status = 404;
+  constructor(
+    readonly layer: string,
+    readonly runId: string,
+    options?: { cause?: unknown },
+  ) {
+    super(`forecast run ${runId} is no longer published (HTTP 404)`, options);
+    this.name = 'ForecastRunGoneError';
+  }
+}
+
+/** The ForecastRunGoneError behind an error, following `cause` links. */
+export function forecastRunGone(error: unknown): ForecastRunGoneError | null {
+  for (let e = error, depth = 0; e && depth < 5; e = (e as { cause?: unknown }).cause, depth++) {
+    if (e instanceof ForecastRunGoneError) return e;
+  }
+  return null;
 }
 
 export interface TileFetchOptions {
@@ -106,6 +134,8 @@ export interface LayerInfo {
   resolution_deg: number;
   member_count: number;
   published_at: string;
+  /** latest.json's `cadence_hours` for the layer, when the producer publishes one. */
+  cadence_hours?: number;
 }
 
 export interface ForecastStore {

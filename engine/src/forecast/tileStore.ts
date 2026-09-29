@@ -28,12 +28,13 @@ import {
 import type {
   ForecastStore,
   LatestDoc,
+  LatestLayer,
   LayerInfo,
   RunManifest,
   TileCache,
   TileTransport,
 } from './store.js';
-import { MemoryTileCache } from './store.js';
+import { ForecastRunGoneError, MemoryTileCache } from './store.js';
 import type {
   EnsemblePointForecast,
   HazardPointForecast,
@@ -44,10 +45,14 @@ import type {
 
 interface LayerState {
   manifest: RunManifest;
+  /** The layer's latest.json entry when this run was pinned or last confirmed. */
+  entry: LatestLayer;
   /** Retained tiles, governed by the store-wide decoded LRU budget. */
   decoded: Map<string, DecodedTile>;
   /** One shared load per tile; `retain` is set once any caller wants the result kept. */
   inFlight: Map<string, { promise: Promise<{ tile: DecodedTile; cached: boolean }>; retain: boolean }>;
+  /** Replaced by refresh(): loads still in flight for it must not be retained. */
+  retired?: boolean;
 }
 
 /** The native grid point nearest a query point: its tile and index there. */
@@ -80,6 +85,9 @@ export class TileForecastStore implements ForecastStore {
   private layers = new Map<string, LayerState>();
   private latest: LatestDoc | null = null;
   private initPromise: Promise<void> | null = null;
+  private refreshPromise: Promise<string[]> | null = null;
+  /** When latest.json was last read successfully (store clock), or null before. */
+  private checkedAtMs: number | null = null;
   private readonly maxDecodedBytes: number;
   private decodedBytes = 0;
   // Map insertion order is LRU order; layer maps and this index share tile objects.
@@ -109,42 +117,125 @@ export class TileForecastStore implements ForecastStore {
   }
 
   private async initOnce(): Promise<void> {
+    const readAtMs = this.now();
     this.latest = await this.transport.fetchLatest();
     const loaded = await Promise.all(
       Object.entries(this.latest.layers).map(async ([layer, entry]) => {
         // current run first; fall back to the retained previous run so a
         // half-published or missing manifest never takes the layer down
-        for (const runId of [entry.run_id, entry.previous_run_id].filter(
-          (id): id is string => Boolean(id),
-        )) {
-          try {
-            const manifest = await this.transport.fetchManifest(runId);
-            return { layer, runId, manifest };
-          } catch {
-            // try the previous run / drop the layer
-          }
-        }
-        return null;
+        const manifest = await this.readManifest([entry.run_id, entry.previous_run_id]);
+        return manifest ? { layer, entry, manifest } : null;
       }),
     );
     // Publish in latest.json order, independent of fetch completion order, and
     // only after all reads settle so a failed init cannot leave late layer writes.
-    const liveRunIds: string[] = [];
     for (const result of loaded) {
       if (!result) continue;
-      this.layers.set(result.layer, { manifest: result.manifest, decoded: new Map(), inFlight: new Map() });
-      liveRunIds.push(result.runId);
+      this.layers.set(result.layer, this.newState(result.manifest, result.entry));
     }
     if (!this.layers.has('weather')) {
       throw new Error('Forecast tiles unavailable: no readable weather run');
     }
-    await this.cache.evictExcept(liveRunIds).catch(() => {});
+    this.checkedAtMs = readAtMs;
+    await this.cache.evictExcept(this.liveRunIds()).catch(() => {});
+  }
+
+  private newState(manifest: RunManifest, entry: LatestLayer): LayerState {
+    return { manifest, entry, decoded: new Map(), inFlight: new Map() };
+  }
+
+  /** The first readable manifest among the run ids, or null. */
+  private async readManifest(runIds: Array<string | null | undefined>): Promise<RunManifest | null> {
+    for (const runId of runIds) {
+      if (!runId) continue;
+      try {
+        return await this.transport.fetchManifest(runId);
+      } catch {
+        // try the next run
+      }
+    }
+    return null;
+  }
+
+  private liveRunIds(): string[] {
+    return [...this.layers.values()].map((state) => state.manifest.run_id);
+  }
+
+  /** When latest.json was last read (init or refresh), in the store's clock; null before. */
+  lastCheckedMs(): number | null {
+    return this.checkedAtMs;
+  }
+
+  /**
+   * Re-read latest.json and swap in every layer whose run changed. New
+   * manifests load first; the swap then happens at once, dropping each
+   * changed layer's decoded tiles while unchanged layers keep theirs. A layer
+   * whose new manifest cannot be read keeps its pinned run (it may still be
+   * the retained previous one). Call it between user actions, never during
+   * one, so that an action reads a single run per layer. Before init it is
+   * init. Resolves to the layers whose run changed.
+   */
+  async refresh(): Promise<string[]> {
+    if (!this.initPromise) {
+      await this.init();
+      return [];
+    }
+    await this.initPromise;
+    this.refreshPromise ??= this.refreshOnce().finally(() => {
+      this.refreshPromise = null;
+    });
+    return this.refreshPromise;
+  }
+
+  private async refreshOnce(): Promise<string[]> {
+    const readAtMs = this.now();
+    const latest = await this.transport.fetchLatest();
+    const loaded = await Promise.all(
+      Object.entries(latest.layers).map(async ([layer, entry]) => {
+        const pinned = this.layers.get(layer);
+        if (pinned?.manifest.run_id === entry.run_id) return { layer, entry, manifest: null };
+        const manifest = await this.readManifest([
+          entry.run_id,
+          // the pinned run may itself be the retained previous one
+          entry.previous_run_id === pinned?.manifest.run_id ? null : entry.previous_run_id,
+        ]);
+        return { layer, entry, manifest };
+      }),
+    );
+    const changed: string[] = [];
+    for (const { layer, entry, manifest } of loaded) {
+      const pinned = this.layers.get(layer);
+      if (!manifest) {
+        if (pinned) pinned.entry = entry;
+        continue;
+      }
+      if (pinned) this.retire(pinned);
+      this.layers.set(layer, this.newState(manifest, entry));
+      changed.push(layer);
+    }
+    this.latest = latest;
+    this.checkedAtMs = readAtMs;
+    if (changed.length) await this.cache.evictExcept(this.liveRunIds()).catch(() => {});
+    return changed;
+  }
+
+  /** Drop a replaced layer's decoded tiles from the LRU budget. */
+  private retire(state: LayerState): void {
+    state.retired = true;
+    for (const tile of state.decoded.values()) {
+      const entry = this.decodedLru.get(tile);
+      if (!entry) continue;
+      this.decodedLru.delete(tile);
+      this.decodedBytes -= entry.bytes;
+    }
+    state.decoded.clear();
   }
 
   describe(): Record<string, LayerInfo> {
     const out: Record<string, LayerInfo> = {};
     for (const [layer, state] of this.layers) {
       const m = state.manifest;
+      const cadence = state.entry.cadence_hours;
       out[layer] = {
         layer,
         model: m.model,
@@ -153,6 +244,7 @@ export class TileForecastStore implements ForecastStore {
         resolution_deg: m.resolution_deg,
         member_count: m.member_count,
         published_at: m.published_at,
+        ...(cadence !== undefined ? { cadence_hours: cadence } : {}),
       };
     }
     return out;
@@ -200,7 +292,7 @@ export class TileForecastStore implements ForecastStore {
     const entry: { promise: Promise<{ tile: DecodedTile; cached: boolean }>; retain: boolean } = {
       retain,
       promise: this.loadTile(state.manifest, tileId).then(result => {
-        if (entry.retain) this.retainTile(state, tileId, result.tile);
+        if (entry.retain && !state.retired) this.retainTile(state, tileId, result.tile);
         return result;
       }).finally(() => state.inFlight.delete(tileId)),
     };
@@ -254,12 +346,11 @@ export class TileForecastStore implements ForecastStore {
    * are skipped without being recorded in the stats.
    */
   private async locate(
-    layer: string,
+    state: LayerState | undefined,
     lat: number,
     lon: number,
     stats: { tiles: Set<string>; cached: number },
   ): Promise<GridHit | null> {
-    const state = this.layers.get(layer);
     if (!state) return null;
     const x = normalizeLon(lon);
     const tile = await this.tileFor(state, tileIdFor(lat, x), stats);
@@ -302,7 +393,16 @@ export class TileForecastStore implements ForecastStore {
       }
     }
     for (;;) {
-      const bytes = await this.transport.fetchTile(manifest.run_id, path, { cache: reload ? 'reload' : 'force-cache' });
+      let bytes: Uint8Array;
+      try {
+        bytes = await this.transport.fetchTile(manifest.run_id, path, { cache: reload ? 'reload' : 'force-cache' });
+      } catch (error) {
+        // The run was deleted after newer ones were published: refresh, then retry.
+        if ((error as { status?: unknown } | null)?.status === 404) {
+          throw new ForecastRunGoneError(manifest.layer, manifest.run_id, { cause: error });
+        }
+        throw error;
+      }
       let tile: DecodedTile;
       try {
         tile = await validate(bytes);
@@ -322,14 +422,14 @@ export class TileForecastStore implements ForecastStore {
   }
 
   private meta(
-    layer: string,
+    state: LayerState,
     stats: { tiles: Set<string>; cached: number },
     points: number,
   ): TileRequestMeta {
-    const m = this.layers.get(layer)!.manifest;
+    const m = state.manifest;
     return {
       source: 'tiles',
-      layer,
+      layer: m.layer,
       model: m.model,
       run_id: m.run_id,
       cycle: m.cycle,
@@ -392,10 +492,12 @@ export class TileForecastStore implements ForecastStore {
     endMs: number,
   ): Promise<{ forecasts: PointForecast[]; meta: TileRequestMeta }> {
     await this.init();
+    // one run for the whole call, even if refresh() swaps the layer meanwhile
+    const state = this.layers.get('weather')!;
     const stats = this.newStats();
     const forecasts: PointForecast[] = [];
     for (const p of points) {
-      const hit = await this.locate('weather', p.lat, p.lon, stats);
+      const hit = await this.locate(state, p.lat, p.lon, stats);
       const u = hit && this.seriesAt(hit, 'wind_u_kt');
       const v = hit && this.seriesAt(hit, 'wind_v_kt');
       const gust = hit && this.seriesAt(hit, 'gust_kt');
@@ -416,7 +518,7 @@ export class TileForecastStore implements ForecastStore {
         wind_dir_deg: direction,
       });
     }
-    return { forecasts, meta: this.meta('weather', stats, points.length) };
+    return { forecasts, meta: this.meta(state, stats, points.length) };
   }
 
   async getEnsembleForecasts(
@@ -425,11 +527,12 @@ export class TileForecastStore implements ForecastStore {
     endMs: number,
   ): Promise<{ forecasts: EnsemblePointForecast[]; meta: TileRequestMeta } | null> {
     await this.init();
-    if (!this.layers.has('ensemble')) return null;
+    const state = this.layers.get('ensemble');
+    if (!state) return null;
     const stats = this.newStats();
     const forecasts: EnsemblePointForecast[] = [];
     for (const p of points) {
-      const hit = await this.locate('ensemble', p.lat, p.lon, stats);
+      const hit = await this.locate(state, p.lat, p.lon, stats);
       const wind = hit && this.memberSeriesAt(hit, 'wind_kt_mean', 'wind_kt_anom');
       if (!hit || !wind) {
         forecasts.push({ lat: p.lat, lon: p.lon, times: [], wind_kt_members: [], gust_kt_members: [] });
@@ -450,7 +553,7 @@ export class TileForecastStore implements ForecastStore {
           : [],
       });
     }
-    return { forecasts, meta: this.meta('ensemble', stats, points.length) };
+    return { forecasts, meta: this.meta(state, stats, points.length) };
   }
 
   async getWaveForecasts(
@@ -459,7 +562,8 @@ export class TileForecastStore implements ForecastStore {
     endMs: number,
   ): Promise<{ forecasts: WavePointForecast[]; meta: TileRequestMeta } | null> {
     await this.init();
-    if (!this.layers.has('waves')) return null;
+    const state = this.layers.get('waves');
+    if (!state) return null;
     const stats = this.newStats();
     const scalarVars = [
       ['hs_m', 'hs_m'],
@@ -476,7 +580,7 @@ export class TileForecastStore implements ForecastStore {
     ] as const;
     const forecasts: WavePointForecast[] = [];
     for (const p of points) {
-      const hit = await this.locate('waves', p.lat, p.lon, stats);
+      const hit = await this.locate(state, p.lat, p.lon, stats);
       const out: WavePointForecast = {
         lat: p.lat,
         lon: p.lon,
@@ -507,7 +611,7 @@ export class TileForecastStore implements ForecastStore {
       }
       forecasts.push(out);
     }
-    return { forecasts, meta: this.meta('waves', stats, points.length) };
+    return { forecasts, meta: this.meta(state, stats, points.length) };
   }
 
   async getHazardForecasts(
@@ -524,7 +628,7 @@ export class TileForecastStore implements ForecastStore {
       const stats = this.newStats();
       const forecasts: HazardPointForecast[] = [];
       for (const p of points) {
-        const hit = await this.locate(layer, p.lat, p.lon, stats);
+        const hit = await this.locate(state, p.lat, p.lon, stats);
         const out: HazardPointForecast = {
           lat: p.lat,
           lon: p.lon,
@@ -567,7 +671,7 @@ export class TileForecastStore implements ForecastStore {
         forecasts.push(out);
       }
       byModel[state.manifest.model] = forecasts;
-      meta.push(this.meta(layer, stats, points.length));
+      meta.push(this.meta(state, stats, points.length));
     }
     return Object.keys(byModel).length ? { byModel, meta } : null;
   }
@@ -586,7 +690,9 @@ export class TileForecastStore implements ForecastStore {
     if (!this.layers.has('currents')) return null;
     try {
       return await this.mosaicGrid('currents', ['cur_u_kt', 'cur_v_kt'], 'surface_current', bbox, startIso, hours);
-    } catch {
+    } catch (error) {
+      // A deleted run is not a currents outage: the caller refreshes and retries.
+      if (error instanceof ForecastRunGoneError) throw error;
       return null;
     }
   }
@@ -659,7 +765,7 @@ export class TileForecastStore implements ForecastStore {
       for (let j = 0; j < nlon; j++) {
         const lat = lat0 + i * dlat;
         const lon = lon0 + j * dlon;
-        const hit = await this.locate(layer, lat, lon, stats);
+        const hit = await this.locate(state, lat, lon, stats);
         if (!hit) continue;
         const uS = this.seriesAt(hit, uName);
         const vS = this.seriesAt(hit, vName);

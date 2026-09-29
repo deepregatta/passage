@@ -64,6 +64,32 @@ describe('one metadata-based next update', () => {
     expect(briefing.next_runs).toEqual(runs);
     expect(briefing.sections.find((s) => s.id === 'what_could_change')?.register_pro).toContain('Estimated');
   });
+  it('uses the producer cadence_hours from latest.json over the fallback table', () => {
+    // GFS every 6 h, published 4 h 20 after its cycle
+    expect(nextForecastRuns({ weather: layer({ cadence_hours: 6 }) }, '2026-09-08T05:00:00Z')).toEqual([
+      { model: 'gfs_0p25', expected_at: '2026-09-08T10:20:00Z' },
+    ]);
+    // producer-declared: no table entry needed
+    expect(nextForecastRuns({ weather: layer({ model: 'gfs_future', cadence_hours: 6 }) }, '2026-09-08T05:00:00Z'))
+      .toEqual([{ model: 'gfs_future', expected_at: '2026-09-08T10:20:00Z' }]);
+  });
+  it('lets a sub-daily cadence lag past one cycle, as GEFS does at 6-hourly', () => {
+    const gefs = layer({
+      layer: 'ensemble', model: 'gefs_0p50', run_id: 'ensemble-20260908T00Z',
+      published_at: '2026-09-08T06:50:00Z', cadence_hours: 6,
+    });
+    expect(nextForecastRuns({ ensemble: gefs }, '2026-09-08T07:00:00Z')).toEqual([
+      { model: 'gefs_0p50', expected_at: '2026-09-08T12:50:00Z' },
+    ]);
+    // a day late is stale at any cadence
+    expect(nextForecastRuns({ ensemble: { ...gefs, published_at: '2026-09-09T00:00:00Z' } }, '2026-09-09T01:00:00Z'))
+      .toEqual([]);
+  });
+  it.each([0, -6, 1.5, Number.NaN])('falls back to the table for an unusable cadence_hours %s', (cadence) => {
+    expect(nextForecastRuns({ weather: layer({ cadence_hours: cadence }) }, now)).toEqual([
+      { model: 'gfs_0p25', expected_at: '2026-09-09T04:20:00Z' },
+    ]);
+  });
   it('does not roll overdue publications forward and conceal stale data', () => {
     expect(nextForecastRuns({ weather: layer() }, '2026-09-10T18:00:00Z')).toEqual([]);
     expect(nextForecastRuns({ weather: layer() }, '2026-09-09T04:20:00Z')).toEqual([]);
