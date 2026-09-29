@@ -102,6 +102,22 @@ the box means correlated at 0.92 over time. Gust ÷ wind averaged 1.72 against 1
 the gap coming from light winds and the 3 h windows. Every ECMWF gust was
 at least the wind speed − 2 kt.
 
+In production since `weather-ecmwf-20260929T00Z`, the first gust run (published
+by the scheduled ingest on 2026-09-29, 255.0 MB against 182 MB wind-only). A CLI
+export of the same Channel box from production, against GFS from the same
+cycle (`weather-20260929T00Z`), covered 60 shared times from +15 to +240 h.
+ecCodes read 26 `10fg` (1 h), 18 `10fg3` (3 h) and 16 `10fg` (6 h) messages,
+and every ECMWF gust was at least the wind speed − 2 kt.
+
+| ECMWF window | Times | ECMWF wind / gust (box mean, kt) | GFS wind / gust | Gust ÷ wind, ECMWF / GFS |
+|---|---|---|---|---|
+| 1 h | +15 … +90 h (26) | 11.4 / 16.9 | 11.2 / 15.7 | 1.60 / 1.39 |
+| 3 h | +93 … +144 h (18) | 5.5 / 9.5 | 4.2 / 4.6 | 1.93 / 1.05 |
+| 6 h | +150 … +240 h (16) | 8.2 / 14.3 | 11.4 / 14.5 | 2.08 / 1.29 |
+
+With the wind nearly equal (1 h stretch), ECMWF's gust ran about 1 kt above
+GFS's instantaneous one. The longer windows widen the gap, most in light winds.
+
 ### Simple packing
 
 ```
