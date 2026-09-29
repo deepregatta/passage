@@ -352,7 +352,9 @@ function positionPhrase(p: { lat: number; lon: number }, route?: Route): string 
 
 /**
  * Daily tile-publication cadence, verified against forecast-tiles ingest-*.yml
- * on 2026-09-08. These are pipeline schedules, not model issuance cadences.
+ * on 2026-09-08; currents-ibi runs in hourly slots from 2026-09-29 but still
+ * publishes one bulletin a day. These are pipeline schedules, not model
+ * issuance cadences.
  * Unknown layer/model pairs are deliberately excluded; update this table when
  * the producer schedule changes. No schedule is inferred for scenario bundles.
  */

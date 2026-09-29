@@ -91,6 +91,7 @@ requests never wrap.
 | `ensemble` | GEFS, 31 members | 0.5° | wind_kt_mean (i16 0.01) + wind_kt_anom (i8 0.2, per_member, clamped ±25 kt); same pair for gust | 3 h→144 h + 6 h→384 h (89 steps) |
 | `waves` | GFS-Wave | 0.25° | hs_m, wind_wave_h_m, swell_h_m (0.01); period/direction ×3 (0.1) | 3 h→384 h (129 steps) |
 | `currents` | CMEMS GLO12 (RTOFS fallback) | 1/12° | cur_u_kt, cur_v_kt (0.01) | 6 h→240 h (41 steps) |
+| `currents-ibi` | CMEMS IBI analysis-forecast, IBI domain only (26–56°N, 19°W–5°E) | ≈1/36° (0.02777863°) | cur_u_kt, cur_v_kt (0.01) | 1 h→120 h (121 steps) from the runs published on 2026-09-29; 1 h→72 h (73) before |
 
 Ensemble member values reconstruct as `mean + anomaly` per member. Ensemble
 and currents axes reflect the Phase 0 size measurement (see the pipeline
@@ -99,7 +100,10 @@ repo's `docs/phase0-results.md`): full generation ≈ 3.26 GB gz, ×2 retention
 
 These currents are **not tidal stream predictions**; the UI must disclose
 that, and tile time axes coarser than the tidal cycle must never be presented
-as resolving tides.
+as resolving tides. `currents-ibi` is hourly model current including tide, so
+it resolves the tidal cycle, and it is still not a tidal-stream prediction.
+Its 120 h horizon keeps the next 3 days inside the served run at any moment:
+forecast-tiles `docs/ibi-currents.md`.
 
 Tiles slice the provider grid without resampling, and the header's `lat0`,
 `lon0`, `dlat` and `dlon` describe that grid. The 0.25° and 0.5° layers sit

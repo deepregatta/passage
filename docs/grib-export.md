@@ -285,7 +285,9 @@ for each dataset with availability ok (one file at a time):
 - At most one decoded tile is alive at a time. `readTile(..., {retain: false})`
   shares the store's checksum validation, IndexedDB/memory cache and in-flight
   loads, but never enters or reorders the decoded LRU, so an export cannot
-  evict the analysis's tiles. A decoded IBI tile is about 76 MB of Float32.
+  evict the analysis's tiles. A decoded IBI tile is about 125 MB of Float32
+  (360 × 360 points × 121 steps × 2; 76 MB for the 73-step runs before
+  2026-09-29).
 - The runner yields after every tile and every 12 ms while encoding, checks
   the `AbortSignal` before every tile and message, and reports
   `{datasetId, stage, done, total}` with one unit per tile and per message.
@@ -320,7 +322,8 @@ The page is three numbered steps next to the chart:
    now floored to the hour. Full runs to the last step of the longest pinned
    forecast (`gribForecastEnd`: the end of the time axes the registry
    variables use, over every dataset's run). Each file is clipped to its own
-   model's horizon (IBI +72 h, GFS wind +240 h, GFS-Wave +384 h).
+   model's horizon (IBI +120 h from the runs published on 2026-09-29, +72 h
+   before; GFS wind +240 h, GFS-Wave +384 h).
 3. **Download.** One button per kind (**Download wind**, **Download
    currents**, **Download waves**). One click builds that file and starts
    the browser download. Files stay separate, one per kind, so any GRIB

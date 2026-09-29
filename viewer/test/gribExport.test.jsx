@@ -469,3 +469,30 @@ describe('GRIB files page', () => {
     expect(item.getByText('Détails du fichier')).toBeInTheDocument();
   });
 });
+
+describe('IBI horizon (forecast-tiles serves 0–120 h from 2026-09-29)', () => {
+  // A run is served until the next day's bulletin replaces it, so it is up to
+  // 24 h plus its publication delay (at most ~16 h after 00Z) old: 40 h.
+  const OLDEST_MS = Date.parse(CYCLE) + 40 * 3_600_000;
+
+  async function ibiFileFor(ibiHours) {
+    store.current = new TileForecastStore({ transport: fixtureTransport({ ibiHours }) });
+    await store.current.init();
+    const manifests = (layer) => store.current.manifestFor(layer);
+    const window = gribPeriodWindow({ period: '3', nowMs: OLDEST_MS });
+    const plan = planAreaGrib(manifests, { area: CHANNEL, window, step: 'all', fixture: true });
+    const dataset = gribKindDataset(plan, 'currents', CHANNEL);
+    expect(dataset.datasetId).toBe('currents-ibi');
+    return describeGribDataset(dataset, window);
+  }
+
+  it('covers the next 3 days even at the oldest a 0–120 h run is served', async () => {
+    expect(await ibiFileFor(121)).toMatchObject({
+      ok: true, horizonShort: false, steps: 73, first: '2026-07-21T16:00:00Z', last: '2026-07-24T16:00:00Z',
+    });
+  });
+
+  it('ended 40 h short with the former 0–72 h axis', async () => {
+    expect(await ibiFileFor(73)).toMatchObject({ ok: true, horizonShort: true, last: '2026-07-23T00:00:00Z' });
+  });
+});
