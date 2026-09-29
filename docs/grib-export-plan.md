@@ -6,7 +6,11 @@ CLI, golden fixtures, ecCodes contract; CI green). **Phase 2 landed
 and FR). **Adrena sign-off 2026-09-27** (wind and currents, Channel box across
 0°). **Phase 3 landed 2026-09-28**: the GRIB files page replaces the planner
 section; see [Phase 3](#phase-3--adrena-feedback-and-refinements) for what
-stays open. Phase 4 (measure) and Phase 5 (fresher forecast runs, an
+stays open. **IBI horizon 2026-09-29**: `currents-ibi` serves 0–120 h and
+is ingested in hourly slots from 07:50 UTC, after measuring when Copernicus
+publishes; Phase 5A task 1 (the "already published" exit) landed with it (see
+[Phase 5](#phase-5--fresher-forecast-runs-independent-track-forecast-tiles--passage)).
+Phase 4 (measure) and the rest of Phase 5 (fresher forecast runs, an
 independent track added 2026-09-23) are next. Update the status line and tick
 the exit criteria as phases land.
 
@@ -90,11 +94,14 @@ Checked 2026-09-23 against the code and the live data.
 | `weather-ecmwf` | ECMWF open IFS | 0.25° | `wind_u_kt`, `wind_v_kt` (gust was absent until 2026-09-28: the ingest asked for one gust name, and ECMWF names it by its window, `10fg` / `10fg3`; fixed that day, so runs from the next scheduled ingest on carry `gust_kt` with a `statistic` window per step, see `docs/grib-export.md`) | `steps`: 3 h → 144 h, 6 h → 240 h (65) |
 | `waves` | GFS-Wave | 0.25° | `hs_m`, `period_s`, `dir_deg`, `wind_wave_h_m`, `wind_wave_period_s`, `wind_wave_dir_deg`, `swell_h_m`, `swell_period_s`, `swell_dir_deg` | `steps`: 3 h → 384 h (129) |
 | `currents` | CMEMS GLO12 | 1/12° (runs before 2026-09-24: header dlat 0.08333588) | `cur_u_kt`, `cur_v_kt` | `steps`: 6 h → 240 h (41) |
-| `currents-ibi` | CMEMS IBI | ≈1/36° (0.02777863) | `cur_u_kt`, `cur_v_kt` | hourly → 72 h (73); IBI domain only (11 tiles) |
+| `currents-ibi` | CMEMS IBI | ≈1/36° (0.02777863) | `cur_u_kt`, `cur_v_kt` | hourly → 120 h (121) from the runs published 2026-09-29, → 72 h (73) before; IBI domain only (11 tiles) |
 | `ensemble` | GEFS | 0.5° | wind *speed* mean + member anomalies only | not exportable as vectors, out of scope |
 
 - Compressed tile sizes for N40W010: weather 1.39 MB, waves 0.93 MB, GLO12
-  0.55 MB, ECMWF 0.31 MB, **IBI 9.8 MB** (IBI run total 64 MB).
+  0.55 MB, ECMWF 0.31 MB, **IBI 9.8 MB** (IBI run total 64 MB). IBI at 0–120 h
+  (from 2026-09-29): about 18 MB for N40W010, 36.6 MB for the four Channel
+  tiles and 114 MB a run, scaled from the 72 h runs of 2026-09-28 (10.6 MB,
+  21.6 MB, 67.5 MB) by forecast-tiles' measured axis sizes.
 - **CMEMS tile grids are not anchored on the 10° lines** (corrected
   2026-09-24; the original spec assumed they were). N40W010 headers: GLO12
   lat0 40.00366, lon0 −9.92705, dlon 0.0833282 (a float32-derived step, so the
@@ -147,8 +154,9 @@ Checked 2026-09-23 against the code and the live data.
     once an area goes over about 4,000 points (routing budget) and only read
     u/v. **Don't use them for export.**
   - Decoded-array retention is capped at 64 MiB (LRU). A decoded IBI tile is
-    about 76 MB of Float32 (360×360×73×2), so it is never retained and must be
-    released before the next tile loads.
+    about 125 MB of Float32 (360×360×121×2; 76 MB at 73 steps before
+    2026-09-29), so it is never retained and must be released before the next
+    tile loads.
   - `decodeTile` decodes every variable of a tile into Float32 (NaN =
     missing). Tiles are south→north: point (i=0, j=0) is the SW corner.
 - Engine: `lib: ["ES2022"]`, no DOM. It has no `Blob`, so it returns
@@ -206,9 +214,10 @@ Checked 2026-09-23 against the code and the live data.
   - "CI green" exit criteria need the allowance to reset, a spending limit,
     or `passage` to become public. Davi is considering the last option after
     a security review.
-- `passage/contracts/forecast-latest.schema.json` lacks `currents-ibi` in its
-  layer enum, although the live `latest.json` includes it. `forecast-tiles`'
-  vendored copy already has it (a known OPEN item). Phase 5A closes it.
+- Corrected 2026-09-29: all three Passage `contracts/forecast-*.schema.json`
+  list `currents-ibi` since `01e0360` (2026-09-28) and match forecast-tiles'
+  vendored copies (only the tile schema's title differs). Phase 5A's contract
+  task only adds `cadence_hours`.
 - Pages auto-deploys from main. Test Pages-like static hosting locally with
   `npm run build:pages` and then the `static-dist` launch config. That build
   reads the **production** tiles from `localhost:8788` (R2 allows the
@@ -583,7 +592,8 @@ Exit criteria:
      whose `fetchLatest()` returns the pinned doc) and uses the same IndexedDB
      tile cache.
    - **A cold-cache Channel export fetches > 40 MB**, mostly IBI: present the
-     Cloudflare Worker option to Davi. It reads R2 through a binding, uses the
+     Cloudflare Worker option to Davi. Since 2026-09-29 the four IBI Channel
+     tiles alone are about 36.6 MB (0–120 h), so measure the IBI file first. It reads R2 through a binding, uses the
      same engine code, and needs the paid plan. **Don't build it without
      Davi's go-ahead.**
 3. Tune the Phase 3 size limits from the measurements.
@@ -626,7 +636,23 @@ exact file each `resolve()` waits for:
 | `waves` | `…/wave/gridded/gfswave.tHHz.global.0p25.f384.grib2.idx` | 05:14 | 11:25 | 17:10 | ≈ 5 h 10–5 h 25 |
 | `ensemble` | `noaa-gefs-pds/gefs.YYYYMMDD/HH/atmos/pgrb2ap5/gep30.tHHz.pgrb2a.0p50.f384.idx` | 06:29 | 12:30 | 18:31 | ≈ 6 h 30 |
 | `weather-ecmwf` | `data.ecmwf.int/forecasts/YYYYMMDD/HHz/ifs/0p25/oper/YYYYMMDDHH0000-240h-oper-fc.index` | 07:34 | none (06Z stops at 144 h; published 12:27) | 19:34 | ≈ 7 h 35, 00Z and 12Z only |
-| `currents`, `currents-ibi` | CMEMS catalogue | once a day | | | daily |
+| `currents` | CMEMS catalogue | once a day | | | daily |
+| `currents-ibi` | STAC `admp_updated_data` of `cmems_mod_ibi_phy_anfc_0.027deg-2D_PT1H-m` (measured 2026-09-28) | ≈ 09:55–11:40, once a day | | | ≈ 10–11 h 40 |
+
+From 2026-09-29 `ingest-currents-ibi` runs hourly from 07:50 to 14:50 UTC
+instead of at 15:00.
+
+**CMEMS publication, measured 2026-09-28** (forecast-tiles
+`docs/ibi-currents.md` → *When CMEMS publishes*). The IBI bulletin of day D
+lands as native files at 09:40–09:44 UTC. Copernicus then rewrites the ARCO
+store the ingest reads, and finished at 09:54–11:33 (24–28 Sep; on 28 Sep the
+catalogue's `arco_updated_date` is 11:36:46). Each dataset's STAC item is
+public and needs no credentials:
+`https://s3.waw3-1.cloudferro.com/mdl-metadata/metadata/{product}/{dataset}_{version}/dataset.stac.json`.
+It carries `end_datetime`, `admp_updated_data` and `admp_updating_start_date`
+(set while an update runs). A new bulletin is complete when `end_datetime`
+has moved and `admp_updating_start_date` is null. GLO12's timing is not
+measured yet.
 
 Other facts:
 
@@ -685,9 +711,13 @@ model-disagreement analysis and the GRIB export handle a shorter ECMWF horizon.
      run (`GET /repos/deepregatta/forecast-tiles/actions/workflows/{file}/runs?status=…`),
      then `POST …/actions/workflows/{file}/dispatches` with
      `{"ref":"main","inputs":{"cycle":"YYYYMMDDTHH"}}`.
-- **CMEMS layers:** there's no cheap unauthenticated probe. Dispatch at fixed
-  daily slots (hourly for 4 h from the current cron times) and rely on the
-  ingest's "already published" and "not available yet" exits.
+- **CMEMS layers:** probe the dataset's public STAC item (see *CMEMS
+  publication* above; corrected 2026-09-29, the plan first said there was no
+  cheap unauthenticated probe). Dispatch when `end_datetime` is past the
+  published run's and `admp_updating_start_date` is null. The ingest's
+  "already published" and "not available yet" exits make an early or
+  duplicate dispatch harmless; IBI already relies on them in its hourly
+  GitHub slots.
 - **`DRY_RUN`** (default `true` in `wrangler.toml`): log decisions without
   dispatching.
 - **Token:** a fine-grained personal access token (or a GitHub App) scoped to
@@ -713,10 +743,13 @@ model-disagreement analysis and the GRIB export handle a shorter ECMWF horizon.
 
 Tasks:
 
-1. **forecast-tiles ingest:** after resolving the cycle, read `latest.json`.
+1. [x] **forecast-tiles ingest:** after resolving the cycle, read `latest.json`.
    If that layer's published cycle is ≥ the resolved cycle, print
    `already published` and exit 0 **before downloading anything**.
-   `--force` re-publishes on purpose. Tests.
+   `--force` re-publishes on purpose. Tests. Landed 2026-09-29 in
+   forecast-tiles `d4f5b8c` for every layer, with a `force` input on each
+   ingest workflow. `currents-ibi` also exits 0 ("not available yet") while
+   Copernicus reports an ARCO update in progress.
 2. **Contract:** add an optional per-layer `cadence_hours` (integer ≥ 1) to
    `latest.json`.
    - Make the canonical change in `passage/contracts/forecast-latest.schema.json`.
@@ -749,7 +782,8 @@ Tasks:
    `fetch`) for cycle arithmetic, probe URLs and the dispatch decision.
    `DRY_RUN=true` by default. Add a README section "Dispatcher" with Davi's
    setup steps (below).
-7. **Workflows:** leave the crons as they are until 5B.
+7. **Workflows:** leave the crons as they are until 5B. Exception:
+   `ingest-currents-ibi` moved to hourly slots 07:50–14:50 UTC on 2026-09-29.
 8. **Docs:**
    - forecast-tiles README: the layers table gets a cadence column marked
      "target after 5B"; add the dispatcher runbook.
