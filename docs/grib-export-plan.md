@@ -17,9 +17,13 @@ all 73 hourly steps, EN and FR, where the day before it stopped 28 h ahead.
 layer at its provider's known publication time and the ingest job waits for
 its cycle (replaces the 10-minute polling Worker first planned). ECMWF
 06Z/18Z will be served as a separate short-range layer (Phase 5C).
-Phase 4 (measure) and the rest of Phase 5 (fresher forecast runs, an
-independent track added 2026-09-23) are next. Update the status line and tick
-the exit criteria as phases land.
+**Phase 5A landed 2026-09-29**, switched off: forecast-tiles `63ff238`
+(dispatcher Worker with `DRY_RUN`, `--wait-minutes`, STAC readiness for
+GLO12 and IBI, `cadence_hours`, ensemble at ≈ 4.9 GB) and Passage `7f35f17`
+(store refresh between actions, `cadence_hours` in the next-run estimate).
+Next: Davi deploys the dispatcher and lets its dry run go for a day, then 5B.
+Phase 4 (measure) is still open. Update the status line and tick the exit
+criteria as phases land.
 
 ## How to use this plan
 
@@ -224,8 +228,9 @@ Checked 2026-09-23 against the code and the live data.
     a security review.
 - Corrected 2026-09-29: all three Passage `contracts/forecast-*.schema.json`
   list `currents-ibi` since `01e0360` (2026-09-28) and match forecast-tiles'
-  vendored copies (only the tile schema's title differs). Phase 5A's contract
-  task only adds `cadence_hours`.
+  vendored copies (only the tile schema's title differs). Phase 5A added
+  `latest.json`'s optional `cadence_hours` to both (Passage `7f35f17`,
+  forecast-tiles `63ff238`); the latest schemas are byte-identical.
 - Pages auto-deploys from main. Test Pages-like static hosting locally with
   `npm run build:pages` and then the `static-dist` launch config. That build
   reads the **production** tiles from `localhost:8788` (R2 allows the
@@ -706,14 +711,18 @@ Other facts:
   2026-09-29 (numpy buffers only; downloads and xarray overhead come on top):
   ensemble ≈ 15.2 GB, waves ≈ 4.8, weather ≈ 3.7, GLO12 ≈ 2.9, IBI ≈ 2.6;
   ECMWF ≈ 2 GB estimated from the code. A public-repo `ubuntu-latest` runner
-  has 16 GB.
+  has 16 GB. Fixed in 5A for the ensemble: ≈ 4.9 GB (forecast-tiles
+  `scripts/ensemble_memory.py`, which puts the old code at ≈ 16.0 GB).
 - **Ingest re-publishes a cycle that's already live.** `_update_latest`
   handles the same-cycle case, so a frequent trigger would re-upload whole
-  runs. It needs an early "already published" exit.
-- **Passage assumes a daily cadence:**
-  - `engine/src/briefing.ts` `PUBLICATION_SCHEDULE` has `cadenceHours: 24`
-    per layer, and `lag >= cadence` suppresses the next-run estimate.
-  - `TileForecastStore` pins runs for the page's lifetime and never refreshes.
+  runs. It needs an early "already published" exit. (Fixed: 5A task 1.)
+- **Passage assumed a daily cadence** (both fixed in 5A, Passage `7f35f17`):
+  - `engine/src/briefing.ts` `PUBLICATION_SCHEDULE` had `cadenceHours: 24`
+    per layer, and `lag >= cadence` suppressed the next-run estimate. The
+    producer's `cadence_hours` now comes first, and the stale-lag bound is
+    `max(cadence, 24 h)`: at 6-hourly GEFS publishes 6 h 50 after its cycle.
+  - `TileForecastStore` pinned runs for the page's lifetime and never
+    refreshed.
 
 ### Target: publish every provider update
 
@@ -882,7 +891,7 @@ Tasks:
    forecast-tiles `d4f5b8c` for every layer, with a `force` input on each
    ingest workflow. `currents-ibi` also exits 0 ("not available yet") while
    Copernicus reports an ARCO update in progress.
-2. **Contract:** add an optional per-layer `cadence_hours` (integer ≥ 1) to
+2. [x] **Contract:** add an optional per-layer `cadence_hours` (integer ≥ 1) to
    `latest.json`.
    - Make the canonical change in `passage/contracts/forecast-latest.schema.json`.
      At the same time add `currents-ibi` to its layer enum, closing the OPEN
@@ -890,11 +899,11 @@ Tasks:
    - The producer writes `cadence_hours` from a per-layer config in
      `forecast-tiles`. It stays 24 everywhere until 5B switches the cadence on.
    - Both CIs validate their fixtures against the schema.
-3. **Passage engine:** `LayerInfo` carries `cadence_hours` from `latest.json`.
+3. [x] **Passage engine:** `LayerInfo` carries `cadence_hours` from `latest.json`.
    `nextForecastRuns` uses it and falls back to `PUBLICATION_SCHEDULE` (keep
    the table; update its comment). Update the engine briefing tests and
    `viewer/test/nextRunProse.test.jsx`.
-4. **Passage store freshness:**
+4. [x] **Passage store freshness:**
    - `TileForecastStore.refresh()` re-reads `latest.json`. For each layer
      whose run changed, it loads the new manifest and swaps it in atomically:
      it drops that layer's decoded tiles and keeps unchanged layers. It never
@@ -906,11 +915,11 @@ Tasks:
      refresh once and retry the action. Otherwise show: "The forecast has
      been updated. Try again."
    - Tests with `MemoryTileTransport`.
-5. **Audit:** grep the viewer and engine for code that fetches tiles for an
+5. [x] **Audit:** grep the viewer and engine for code that fetches tiles for an
    **older snapshot's** run ids (briefing replay, evidence, changes).
    Snapshots should be self-contained; any tile re-fetch must fail gracefully
    once its run is deleted. Record the findings in this section.
-6. **Dispatcher Worker** in `forecast-tiles/dispatcher/`, per *Mechanism*.
+6. [x] **Dispatcher Worker** in `forecast-tiles/dispatcher/`, per *Mechanism*.
    `DRY_RUN=true` by default. Unit tests with a mocked `fetch`:
    - the cycle for every timetable slot, including the day rollover
      (00:15 → previous day 18Z) and the shared CMEMS expression;
@@ -919,7 +928,7 @@ Tasks:
    - 401 logging, and dry-run output.
 
    Add a README section "Dispatcher" with Davi's setup steps (below).
-7. **Ingest waits for its cycle**, per *Mechanism*:
+7. [x] **Ingest waits for its cycle**, per *Mechanism*:
    - `--wait-minutes`, with an injectable clock and sleep for tests;
    - the IBI STAC check, and the new GLO12 readiness check with
      `provider_updated_at`.
@@ -927,23 +936,84 @@ Tasks:
    Tests: the wait loop (ready at once, ready after two polls, deadline →
    exit 1), GLO12 not ready → no RTOFS publish, and a real CMEMS failure →
    RTOFS as today.
-8. **Workflows:** add `wait_minutes`, `run-name` and `timeout-minutes: 240`
+8. [x] **Workflows:** add `wait_minutes`, `run-name` and `timeout-minutes: 240`
    now. It's safe: the input defaults to 0. Leave the crons as they are until
    5B. Exception: `ingest-currents-ibi` moved to hourly slots 07:50–14:50 UTC
    on 2026-09-29.
-9. **Ensemble peak memory** (≈ 15.2 GB of the runner's 16 GB, and it will run
+9. [x] **Ensemble peak memory** (≈ 15.2 GB of the runner's 16 GB, and it will run
    4× a day). `quantize` converts the whole 2.9 GB anomaly array to float64.
    Quantize one member at a time (or in float32) and check the peak again
    with a scaled replay.
-10. **Docs:**
+10. [x] **Docs:**
     - forecast-tiles README: the layers table gets a cadence column marked
       "target after 5B"; add the dispatcher runbook and the timetable.
     - `passage/docs/forecast-tile-format.md`: the new `latest.json` field.
     - This plan: status line and audit findings.
-11. **Passage copy:** grep the English UI copy for "daily", "once a day" and
+11. [x] **Passage copy:** grep the English UI copy for "daily", "once a day" and
     "24 h" about forecasts. Fix any in lockstep with the FR catalogue.
-12. Commit and push both repos. forecast-tiles CI must pass. Passage CI needs
+12. [x] Commit and push both repos. forecast-tiles CI must pass. Passage CI needs
     Actions minutes (see Verified facts).
+
+What landed on 2026-09-29 (forecast-tiles `63ff238`, CI run 36626972949
+green; Passage `7f35f17`, CI run 36626932850 green, Playwright 70/70), and
+where it goes beyond the tasks above:
+
+- **Contract (2).** `cadence_hours` is optional, an integer ≥ 1; the two
+  `forecast-latest.schema.json` are byte-identical. forecast-tiles writes it
+  from `CADENCE_HOURS` in `src/ingest/publish.py` (24 for every layer), so
+  each layer's entry carries it from that layer's next publish. Passage's
+  contract test validates the published shape (all six layers), the store
+  fixtures, and rejects 0, 1.5, "6" and an unknown layer.
+- **Next-run estimate (3).** The producer's `cadence_hours` wins over
+  `PUBLICATION_SCHEDULE`, even for a model the table doesn't know. The stale
+  guard became `lag >= max(cadence, 24 h)`: with `lag >= cadence` a 6-hourly
+  GEFS (published 6 h 50 after its cycle) would never get an estimate.
+  `nextForecastRuns` is now exported from the engine.
+- **Store refresh (4).** `TileForecastStore.refresh()` and `lastCheckedMs()`.
+  Beyond the task: every store call now keeps the layer state it started
+  with, so even a refresh landing mid-call cannot mix two runs in one
+  result, and a tile that finishes loading for a replaced run is not
+  retained. A tile 404 raises `ForecastRunGoneError` (`status` 404, layer,
+  run id); `runAnalysis`'s currents read, `getCurrentGrid`, the departure
+  scan and the viewer's routing inputs pass it through instead of treating
+  it as "no currents" or a skipped candidate. In the viewer,
+  `lib/forecastFreshness.js` wraps the four actions: it refreshes when the
+  last check is over 10 min old and no action is running (actions starting
+  meanwhile share the running one's runs), and after a 404, or a GRIB plan
+  made on runs the store has since replaced, it refreshes once and retries
+  if the run was replaced; otherwise "The forecast has been updated. Try
+  again." (EN/FR; it replaces "Reload the page and try again."). The GRIB
+  page also refreshes when it opens, and a file's key includes the run ids.
+- **Audit (5).** No code re-fetches tiles for an older snapshot's runs. The
+  briefing, evidence and change story read the snapshot's own files
+  (`fetchSnapshotJson`: `findings.json`, `briefing.json`, `synoptic.json`,
+  chart PNGs); `ModelsUsed` only prints run ids; `evidenceSelectors` maps
+  `synoptic_run_id` through a static engine table; `preparedRun.js` reads
+  the separate `prepared/` synoptic artifacts, which forecast-tiles
+  retention doesn't touch. The only tile readers are the four actions above,
+  all through the pinned store, and the IndexedDB tile cache is evicted to
+  the live runs at init and after each refresh that changes a run.
+- **Dispatcher (6).** As in *Mechanism*, plus: only the exact string
+  `"false"` dispatches; a failed dispatch is logged and then fails the
+  invocation; a workflow disabled by hand (`disabled_manually`) is left
+  alone; a 204 without run details is accepted. 34 tests, including
+  `wrangler.toml`'s crons against the timetable (16 fires, 5 expressions).
+  `wrangler` is a pinned dev dependency, so the setup runs `npm ci` first.
+  A new CI job runs its tests and typecheck.
+- **Ingest wait (7).** `--wait-minutes` requires `--cycle`, and the
+  published `duration_s` leaves the wait out. Readiness checks also treat an
+  unreadable STAC item as "not available yet". GLO12 also requires the item's
+  `end_datetime` ≥ cycle + 240 h, and IBI `admp_updated_data` ≥ the cycle,
+  next to the checks named above; both use one helper
+  (`cmems.require_published`). `currents` is in `SKIP_WHEN_NOT_AVAILABLE`,
+  and `CycleNotAvailableError` passes through the RTOFS fallback.
+- **Ensemble (9).** Anomalies are formed and quantized one member at a time
+  (bytes identical to the whole-stack code, tested). Scaled replay
+  (`uv run scripts/ensemble_memory.py`, 1/8 of the rows): ≈ 4.9 GB, against
+  ≈ 16.0 GB for the old code in the same replay.
+- **Copy (11).** No live English copy calls the forecast daily or 24-hourly.
+  The only hits are French catalogue entries for "Forecasts update several
+  times a day…", kept to translate archived snapshots; they stay true.
 
 Davi's manual steps after 5A (the session prints these at the end):
 
@@ -961,7 +1031,7 @@ Davi's manual steps after 5A (the session prints these at the end):
    the 5B session to switch to the single `*/5` expression.
 3. Deploy the Worker and store the token as its secret:
    ```bash
-   cd forecast-tiles/dispatcher && npx wrangler login && npx wrangler deploy && npx wrangler secret put GITHUB_TOKEN
+   cd forecast-tiles/dispatcher && npm ci && npx wrangler login && npx wrangler deploy && npx wrangler secret put GITHUB_TOKEN
    ```
    Paste the token into the `wrangler` prompt, never into a chat.
 4. Let the dry run go for about 24 h. Expect 16 lines a day like
@@ -975,15 +1045,17 @@ Exit criteria:
 - [x] "Already published" exit live: a manual dispatch of a published cycle
       finishes in under 2 min with no uploads. forecast-tiles run
       36560487159 (`currents-ibi`, 2026-09-29): job 54 s, no upload.
-- [ ] `latest.json` carries `cadence_hours`; Passage reads it; the schemas
-      match, including `currents-ibi`.
-- [ ] Store refresh live in Passage; audit findings recorded.
+- [x] `latest.json` carries `cadence_hours`; Passage reads it; the schemas
+      match, including `currents-ibi`. Each layer's entry gains the field at
+      its next publish.
+- [x] Store refresh live in Passage; audit findings recorded. Production
+      served the `7f35f17` build (entry `index-BY15Dx3R.js`) by 20:35 UTC.
 - [ ] Ingest wait live: a manual dispatch of an upcoming cycle with
       `wait_minutes` waits, then publishes within 2 min of the provider
       finishing. GLO12 before its update exits "not available" instead of
       publishing RTOFS.
-- [ ] Ensemble peak memory measured below 12 GB.
-- [ ] Dispatcher merged with dry-run as the default; Davi's steps handed over.
+- [x] Ensemble peak memory measured below 12 GB: ≈ 4.9 GB (scaled replay).
+- [x] Dispatcher merged with dry-run as the default; Davi's steps handed over.
 
 ### 5B — Switch on: publish every provider update (after Davi has deployed the Worker)
 
