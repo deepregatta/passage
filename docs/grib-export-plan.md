@@ -15,7 +15,8 @@ First run `currents-ibi-20260929T00Z`, published 11 h 12 min after its cycle
 all 73 hourly steps, EN and FR, where the day before it stopped 28 h ahead.
 **Phase 5 mechanism chosen 2026-09-29**: a Cloudflare Worker dispatches each
 layer at its provider's known publication time and the ingest job waits for
-its cycle (replaces the 10-minute polling Worker first planned).
+its cycle (replaces the 10-minute polling Worker first planned). ECMWF
+06Z/18Z will be served as a separate short-range layer (Phase 5C).
 Phase 4 (measure) and the rest of Phase 5 (fresher forecast runs, an
 independent track added 2026-09-23) are next. Update the status line and tick
 the exit criteria as phases land.
@@ -38,6 +39,7 @@ Open a new Claude session in the directory shown and paste the prompt.
 | 4 | `deepregatta/passage` | `Run Phase 4 of docs/grib-export-plan.md: measure and recommend. Don't build a Cloudflare Worker without asking me.` |
 | 5A | `deepregatta` (the container directory) | `Implement Phase 5A of passage/docs/grib-export-plan.md (fresher forecast runs). It spans forecast-tiles and passage: commit and push each repo. Stop after printing my manual dispatcher setup steps.` |
 | 5B | `deepregatta` (the container directory) | `Implement Phase 5B of passage/docs/grib-export-plan.md. I've deployed the dispatcher Worker and set its GITHUB_TOKEN secret. Dry-run log lines: <paste>.` |
+| 5C | `deepregatta` (the container directory) | `Implement Phase 5C of passage/docs/grib-export-plan.md (ECMWF 06Z/18Z short-range layer). It spans forecast-tiles and passage: commit and push each repo.` |
 
 Before starting, read:
 
@@ -724,6 +726,7 @@ providers' own cadences are:
 | `waves` | 00/06/12/18 | ~05:45, 11:45, 17:45, 23:45 |
 | `ensemble` | 00/06/12/18 | ~07:00, 13:00, 19:00, 01:00 |
 | `weather-ecmwf` | 00/12 (full 240 h) | ~08:00, 20:00 |
+| `weather-ecmwf-short` (5C) | 06/18 (to 144 h) | ~13:00, 01:00 |
 | `currents-ibi` | 1 bulletin a day (Copernicus) | within ~10 min of Copernicus finishing the update |
 | `currents` (GLO12) | 1 bulletin a day (Copernicus) | within ~1 h of the provider update (the job alone takes 35–46 min) |
 
@@ -732,10 +735,12 @@ about 11 h.
 
 ECMWF also publishes 06Z/18Z, but only to 144 h (checked 2026-09-29: the 06Z
 `144h` index was there at 12:27 UTC, `147h` and later were absent; the
-`ecmwf_open.py` docstring's "90 h" is stale). **Open, Davi to decide:** serve
-them too, and how, given the shorter horizon. Until then, ECMWF publishes
-00Z/12Z. Before serving them, check that Passage's model-disagreement analysis
-and the GRIB export handle a shorter ECMWF horizon.
+`ecmwf_open.py` docstring's "90 h" is stale). **Decided 2026-09-29 (Davi):**
+serve them as a separate layer, `weather-ecmwf-short`, so every ECMWF update
+is published without cutting the 240 h horizon. Otherwise, from about 12:30 to
+19:35 and 00:30 to 07:35 UTC, Passage would have only 6 days of ECMWF.
+Passage reads, for each forecast time, the newest ECMWF cycle that covers it.
+Built in [5C](#5c--ecmwf-06z18z-short-range-layer-after-5b).
 
 ### Mechanism: a timetable dispatcher Worker, and an ingest that waits
 
@@ -756,11 +761,12 @@ GitHub runners and only the clock moves to Cloudflare.
   | `25 4,10,16,22 * * *` | `weather` | fire time − 4 h 25 | cycle + 4 h 37–4 h 41 | 90 |
   | `0 5,11,17,23 * * *` | `waves` | fire time − 5 h | + 5 h 10–5 h 25 | 90 |
   | `15 0,6,12,18 * * *` | `ensemble` | fire time − 6 h 15 (00:15 → previous day 18Z) | + 6 h 29–6 h 31 | 90 |
+  | same expression, 00:15 and 12:15 only (5C) | `weather-ecmwf-short` | fire time − 6 h 15 | + 6 h 27 (06Z, seen once) | 120 |
   | `20 7,19 * * *` | `weather-ecmwf` | fire time − 7 h 20 | + 7 h 34 | 120 |
   | `45 5,9 * * *` | 05:45 `currents`, 09:45 `currents-ibi` | that day's 00Z | GLO12 06:25 (seen once); IBI 09:54–11:36 | 180 each |
 
   Five expressions use all of the Workers Free plan's 5 Cron Triggers per
-  account. If the account needs a slot elsewhere, use one `*/5 * * * *`
+  account; the 5C layer shares the ensemble's expression. If the account needs a slot elsewhere, use one `*/5 * * * *`
   expression and keep the same table in code: a tick contacts nothing unless
   a layer is due.
 - **On each fire:** take the cycle from `controller.scheduledTime`, not
@@ -824,7 +830,7 @@ GitHub runners and only the clock moves to Cloudflare.
 - **Cost** (limits read 2026-09-29):
   - Workers Free allows 5 Cron Triggers per account, 100,000 requests a day,
     10 ms of CPU and 50 subrequests per invocation. The dispatcher makes 16
-    invocations a day, each with at most 3 subrequests.
+    invocations a day, each with at most 6 subrequests.
   - GitHub Actions is free on public repos with standard runners (4 CPU,
     16 GB).
   - **Minutes:** all Phase 5 ingestion runs in `forecast-tiles`, which is
@@ -838,6 +844,7 @@ GitHub runners and only the clock moves to Cloudflare.
   | waves | + 5 h 30–5 h 45 |
   | GEFS | ≈ + 6 h 50 |
   | ECMWF | + 7 h 45 to + 9 h 15 (the job takes 10–100 min) |
+  | ECMWF 06Z/18Z (after 5C) | + 6 h 40 to + 8 h 10 |
   | IBI | ≈ 4 min after Copernicus finishes |
   | GLO12 | ≈ 40–50 min after its provider |
 - Optional: the same Worker can dispatch Passage's `prepare-synoptic`, which
@@ -1024,6 +1031,60 @@ Exit criteria:
 - [ ] Bucket under 8 GB; R2 Class A projection under 1M a month.
 - [ ] Docs updated in both repos.
 
+### 5C — ECMWF 06Z/18Z short-range layer (after 5B)
+
+Decided by Davi on 2026-09-29 (see *Target*). Work in this order: Passage
+must accept the new layer name before `latest.json` carries it.
+
+Tasks:
+
+1. **Contract:** add `weather-ecmwf-short` to the layer enums, canonically in
+   `passage/contracts/`, then vendor the change into `forecast-tiles/contracts/`.
+   Both CIs validate. Its `cadence_hours` is 12.
+2. **forecast-tiles layer `weather-ecmwf-short`:** reuse `ecmwf_open.py`'s
+   retrieval, gust selection and `statistic` windows. It takes only 06Z/18Z
+   cycles, on a 3-hourly axis to 144 h (49 steps: the first part of the
+   240 h axis).
+   - Resolve an explicit cycle against its 144 h index; with no cycle, take
+     the latest 06Z/18Z that has step 144.
+   - Check the gust names and windows against a 06Z `.index` before trusting
+     the 00Z table in the docstring. Fix the docstring's stale "06Z/18Z stop
+     at 90 h".
+   - Add it to `MAX_MISSING` (0.05) and `SKIP_WHEN_NOT_AVAILABLE`.
+   - Workflow `ingest-weather-ecmwf-short.yml`, a copy of the ECMWF one with
+     `wait_minutes`, `run-name`, `timeout-minutes: 240` and the fallback
+     cron `37 2,8,14,20 * * *`.
+3. **Size:** one local `--dry-run` (with the Azure source, as for ECMWF dry
+   runs). Expected about 0.19 GB a run: the 00Z run of 2026-09-29 was 255 MB
+   for 65 steps, and this layer has 49. Two retained runs bring the bucket
+   from about 6.1 to 6.5 GB of the 8 GB guard. R2 writes rise by about 1,300
+   tile PUTs a day, to about 315k a month (the free tier is 1M).
+4. **Passage engine:** an ECMWF source that, for each forecast time, reads the
+   newest cycle covering it across `weather-ecmwf` (00Z/12Z, to 240 h) and
+   `weather-ecmwf-short` (06Z/18Z, to 144 h). The briefing and the
+   model-disagreement analysis use it, and provenance names the cycle per time
+   range, e.g. "ECMWF 06Z to +144 h, then 00Z". Engine tests cover both
+   orders (short newer, long newer) and the 144 h seam.
+5. **GRIB export:** one run per file, so every message has the same reference
+   time. Use the newest ECMWF run that covers the whole requested period;
+   otherwise the 240 h run. **File details** names the run. Tests.
+6. **Passage copy and schedule:** add the layer to `PUBLICATION_SCHEDULE`;
+   EN and FR labels for the run shown (e.g. "ECMWF 06Z").
+7. **Dispatcher:** add the 00:15 and 12:15 entries (cycle = fire time − 6 h
+   15, wait 120) to the ensemble's expression, with tests. Then ask Davi to
+   run `npx wrangler deploy` if the session can't authenticate.
+8. **Docs:** the forecast-tiles README layers table and timetable,
+   `passage/docs/forecast-tile-format.md`, and this plan's status line.
+9. Commit and push both repos in the order of task 1.
+
+Exit criteria:
+
+- [ ] A week of 06Z/18Z runs published within + 8 h 15 of their cycle.
+- [ ] Passage's briefing uses the short run to + 144 h and the 240 h run
+      beyond it, labelled; a GRIB ECMWF file's details name its run.
+- [ ] Bucket under 8 GB; R2 Class A projection under 1M a month.
+- [ ] Docs updated in both repos.
+
 ### Risks
 
 | Risk | Mitigation |
@@ -1035,6 +1096,7 @@ Exit criteria:
 | A fallback cron run cancels a pending dispatch (one pending run per group) | Fallback minutes sit away from the dispatch times. The cron run still publishes the latest complete cycle. |
 | ECMWF server slowness (10–100 min jobs) | The job takes the time, not the trigger. Follow-up: `Client(source="azure")` downloaded a full cycle in about 90 s locally on 2026-09-28, while data.ecmwf.int answered 429. Measure it on a runner before switching. |
 | Ensemble runs out of runner memory at 4 runs a day | 5A task 9. |
+| Bucket headroom shrinks with the 5C layer (about 6.5 of 8 GB) | The storage guard refuses a publish that would exceed it, and the previous run stays live. Re-measure after 5C. |
 | Users re-download tiles 4× a day | Expected. The IndexedDB cache evicts old runs; tile sizes don't change. |
 | Runs expire while a page is open | 5A store refresh. |
 | Dispatcher and fallback cron fire together | Same concurrency group, plus the "already published" exit. |
