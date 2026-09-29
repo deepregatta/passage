@@ -19,9 +19,10 @@ its cycle (replaces the 10-minute polling Worker first planned). ECMWF
 06Z/18Z will be served as a separate short-range layer (Phase 5C).
 **Phase 5A landed 2026-09-29**, switched off: forecast-tiles `63ff238`
 (dispatcher Worker with `DRY_RUN`, `--wait-minutes`, STAC readiness for
-GLO12 and IBI, `cadence_hours`, ensemble at ≈ 4.9 GB) and Passage `7f35f17`
-(store refresh between actions, `cadence_hours` in the next-run estimate).
-Next: Davi deploys the dispatcher and lets its dry run go for a day, then 5B.
+GLO12 and IBI, `cadence_hours`, ensemble at ≈ 4.9 GB), `924a032` and
+`16b55f9` (fixes from the live checks), and Passage `7f35f17` (store refresh
+between actions, `cadence_hours` in the next-run estimate). The dispatcher
+is deployed in dry-run since 21:24 UTC; after a day of its log lines, 5B.
 Phase 4 (measure) is still open. Update the status line and tick the exit
 criteria as phases land.
 
@@ -1015,7 +1016,18 @@ where it goes beyond the tasks above:
   The only hits are French catalogue entries for "Forecasts update several
   times a day…", kept to translate archived snapshots; they stay true.
 
-Davi's manual steps after 5A (the session prints these at the end):
+Davi's manual steps after 5A (the session prints these at the end). Done
+2026-09-29: token created; Worker `forecast-tiles-dispatcher` deployed at
+21:24 UTC in dry-run with `GITHUB_TOKEN` set (Davi's shell exports a
+`CLOUDFLARE_API_TOKEN` without Workers permissions, hence
+`env -u CLOUDFLARE_API_TOKEN npx wrangler …`), then redeployed by the session
+with the log fix below. First dry-run lines:
+`would dispatch ingest-weather cycle=20260929T18 wait=90` (22:25 slot,
+Cloudflare `scheduledTime` 22:25:27) and
+`would dispatch ingest-waves cycle=20260929T18 wait=90 scheduled=23:00:00Z fired=23:00:28Z`.
+Cloudflare's `scheduledTime` already includes its start delay, so the log's
+`scheduled` is now the timetable minute (forecast-tiles `924a032`); the
+first line predates that fix. Step 4 (a day of dry run) is running.
 
 1. Create a fine-grained token on GitHub (Settings → Developer settings →
    Fine-grained tokens):
@@ -1050,10 +1062,28 @@ Exit criteria:
       its next publish.
 - [x] Store refresh live in Passage; audit findings recorded. Production
       served the `7f35f17` build (entry `index-BY15Dx3R.js`) by 20:35 UTC.
-- [ ] Ingest wait live: a manual dispatch of an upcoming cycle with
+- [x] Ingest wait live: a manual dispatch of an upcoming cycle with
       `wait_minutes` waits, then publishes within 2 min of the provider
       finishing. GLO12 before its update exits "not available" instead of
-      publishing RTOFS.
+      publishing RTOFS. Read as "starts within 2 min": the job itself takes
+      about 13 min after the last file. Runs of 2026-09-29 (UTC):
+      - GLO12 `20260930T00`, run 36627099551: "not available yet, skipping
+        (GLO12: data end 2026-10-09T00:00Z, before 2026-10-10T00:00Z …)",
+        13 s job, no RTOFS, no upload.
+      - GFS `20260929T18`, wait 150, run 36627103384: waited 128 checks;
+        f240.idx landed at 22:39:44 and the run failed at 22:40:35 on a 404
+        for **f219.idx**, still uploading. NOAA uploads a cycle's files in
+        parallel, so the final step's `.idx` is not the last file. Fixed in
+        forecast-tiles `16b55f9`: after a waited-for cycle turns ready, a 404
+        is retried every 30 s for up to 15 min, and GEFS waits for late
+        members the same way. The workflows now set `PYTHONUNBUFFERED`, since
+        buffered output had stamped every wait line with the failure time.
+      - GFS-Wave `20260929T18`, wait 90, run 36641241599: f384.idx at
+        23:13:11, seen at 23:13:46 (31 checks). f348.idx and f357.idx landed
+        only at 23:21:09 and 23:22:20 (32 grace retries); cube built 23:24:30;
+        `waves-20260929T18Z` published 23:35:14 (526 tiles, 511 MB), i.e.
+        cycle + 5 h 35, inside 5B's + 5 h 50. `latest.json` now carries
+        `cadence_hours: 24` for waves.
 - [x] Ensemble peak memory measured below 12 GB: ≈ 4.9 GB (scaled replay).
 - [x] Dispatcher merged with dry-run as the default; Davi's steps handed over.
 
