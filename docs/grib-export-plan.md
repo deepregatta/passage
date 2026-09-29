@@ -10,6 +10,9 @@ stays open. **IBI horizon 2026-09-29**: `currents-ibi` serves 0–120 h and
 is ingested in hourly slots from 07:50 UTC, after measuring when Copernicus
 publishes; Phase 5A task 1 (the "already published" exit) landed with it (see
 [Phase 5](#phase-5--fresher-forecast-runs-independent-track-forecast-tiles--passage)).
+First run `currents-ibi-20260929T00Z`, published 11 h 12 min after its cycle
+(D+17–21 h before). A production Channel IBI file for "next 3 days" then held
+all 73 hourly steps, EN and FR, where the day before it stopped 28 h ahead.
 Phase 4 (measure) and the rest of Phase 5 (fresher forecast runs, an
 independent track added 2026-09-23) are next. Update the status line and tick
 the exit criteria as phases land.
@@ -652,7 +655,21 @@ public and needs no credentials:
 It carries `end_datetime`, `admp_updated_data` and `admp_updating_start_date`
 (set while an update runs). A new bulletin is complete when `end_datetime`
 has moved and `admp_updating_start_date` is null. GLO12's timing is not
-measured yet.
+measured yet. Watched on 2026-09-29: the time axis moved at 09:48 while
+`admp_updating_start_date` named only the appended day, and the data finished
+at 11:08:40, so a probe must wait for the flag to clear, not just for
+`end_datetime` to move.
+
+Smoke test, 2026-09-29 11:20 UTC, box 48.9–51°N, 4.7°W–1.2°E, next 3 days:
+
+- CLI against production: `currents-ibi-20260929T00Z`, 73 hourly steps
+  29 Sep 11:00 → 2 Oct 11:00, 146 messages, fnv64 `e8181f3b82bb9967`, fetch
+  ≤ 35.0 MB, 5.7 s, 401 MB peak RSS. `inspect_grib.py` decodes every message.
+  At 05:00 the same request from the 0–72 h run `currents-ibi-20260928T00Z`
+  ended 1 Oct 00:00: 44 steps, 43 of the 72 h.
+- GRIB page (`?dr_traffic=qa`): "Tue 29 Sep 11:00 → Fri 2 Oct 11:00 UTC · 73
+  steps · ≈ 3.3 MB" with no "This forecast ends…" note; `/fr/` shows "73
+  échéances" and the French tidal-stream disclosure.
 
 Other facts:
 
@@ -813,8 +830,9 @@ Davi's manual steps after 5A (the session prints these at the end):
 
 Exit criteria:
 
-- [ ] "Already published" exit live: a manual dispatch of a published cycle
-      finishes in under 2 min with no uploads.
+- [x] "Already published" exit live: a manual dispatch of a published cycle
+      finishes in under 2 min with no uploads. forecast-tiles run
+      36560487159 (`currents-ibi`, 2026-09-29): job 54 s, no upload.
 - [ ] `latest.json` carries `cadence_hours`; Passage reads it; the schemas
       match, including `currents-ibi`.
 - [ ] Store refresh live in Passage; audit findings recorded.
