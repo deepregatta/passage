@@ -713,7 +713,10 @@ Other facts:
     per layer, and `lag >= cadence` suppresses the next-run estimate.
   - `TileForecastStore` pins runs for the page's lifetime and never refreshes.
 
-### Target
+### Target: publish every provider update
+
+Every cycle a provider publishes is ingested, as soon as it is out. The
+providers' own cadences are:
 
 | Layer | Cycles | Expected publication (UTC) |
 |---|---|---|
@@ -721,14 +724,18 @@ Other facts:
 | `waves` | 00/06/12/18 | ~05:45, 11:45, 17:45, 23:45 |
 | `ensemble` | 00/06/12/18 | ~07:00, 13:00, 19:00, 01:00 |
 | `weather-ecmwf` | 00/12 (full 240 h) | ~08:00, 20:00 |
-| `currents-ibi` | daily | within ~10 min of Copernicus finishing the update |
-| `currents` (GLO12) | daily | within ~1 h of the provider update (the job alone takes 35–46 min) |
+| `currents-ibi` | 1 bulletin a day (Copernicus) | within ~10 min of Copernicus finishing the update |
+| `currents` (GLO12) | 1 bulletin a day (Copernicus) | within ~1 h of the provider update (the job alone takes 35–46 min) |
 
 The worst-case age of the newest GFS run served drops from about 33 h to
 about 11 h.
 
-ECMWF 06Z/18Z (144 h only) is a later follow-up. First check that Passage's
-model-disagreement analysis and the GRIB export handle a shorter ECMWF horizon.
+ECMWF also publishes 06Z/18Z, but only to 144 h (checked 2026-09-29: the 06Z
+`144h` index was there at 12:27 UTC, `147h` and later were absent; the
+`ecmwf_open.py` docstring's "90 h" is stale). **Open, Davi to decide:** serve
+them too, and how, given the shorter horizon. Until then, ECMWF publishes
+00Z/12Z. Before serving them, check that Passage's model-disagreement analysis
+and the GRIB export handle a shorter ECMWF horizon.
 
 ### Mechanism: a timetable dispatcher Worker, and an ingest that waits
 
@@ -852,7 +859,12 @@ GitHub runners and only the clock moves to Cloudflare.
     the Actions terms on serverless use.
   - NOAA's SNS push: it needs an AWS account and covers NOAA only.
 
-### 5A — Build (safe: the cadence stays daily)
+### 5A — Build everything, switched off
+
+The publishing cadence doesn't change until 5B, which switches it on. The
+split exists because Passage must first cope with runs changing under an
+open page (task 4). At a 6-hourly cadence a run is deleted about 12 h after
+it is published. 5B can follow as soon as Davi has deployed the Worker.
 
 Tasks:
 
@@ -869,7 +881,7 @@ Tasks:
      At the same time add `currents-ibi` to its layer enum, closing the OPEN
      item. Then vendor the schema into `forecast-tiles/contracts/`.
    - The producer writes `cadence_hours` from a per-layer config in
-     `forecast-tiles`. It stays 24 everywhere for now, which is still true.
+     `forecast-tiles`. It stays 24 everywhere until 5B switches the cadence on.
    - Both CIs validate their fixtures against the schema.
 3. **Passage engine:** `LayerInfo` carries `cadence_hours` from `latest.json`.
    `nextForecastRuns` uses it and falls back to `PUBLICATION_SCHEDULE` (keep
@@ -966,7 +978,7 @@ Exit criteria:
 - [ ] Ensemble peak memory measured below 12 GB.
 - [ ] Dispatcher merged with dry-run as the default; Davi's steps handed over.
 
-### 5B — Switch on (after Davi has deployed the Worker)
+### 5B — Switch on: publish every provider update (after Davi has deployed the Worker)
 
 Tasks:
 
