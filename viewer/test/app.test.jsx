@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '../src/App.jsx';
@@ -6,10 +6,10 @@ import { useApp } from '../src/stores/appStore.js';
 
 beforeEach(() => {
   localStorage.removeItem('passage-language');
-  history.replaceState(null, '', '#brief/briefings');
+  history.replaceState(null, '', '#passages');
   useApp.setState({
     language: 'en',
-    page: 'snapshots',
+    page: 'passages',
     manifest: null,
     manifestError: null,
     snapshotId: null,
@@ -24,17 +24,35 @@ beforeEach(() => {
     loading: false,
     selectedEvidenceId: null,
     inspectorOpen: false,
+    limitsOpen: false,
+    passageSection: null,
     selectedLegId: null,
   });
 });
 
 describe('viewer fixture harness', () => {
-  it('places My briefings in the Brief menu', () => {
+  it('offers two places and the limits, with no second row of views', async () => {
+    const user = userEvent.setup();
     render(<App />);
 
-    expect(screen.getAllByRole('button', { name: /Brief$/ }).some((button) => button.getAttribute('aria-current') === 'page')).toBe(true);
-    expect(screen.getByRole('button', { name: 'My briefings' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Passage' })).toBeNull();
+    const current = screen.getAllByRole('button', { name: 'My passages' });
+    expect(current.some((button) => button.getAttribute('aria-current') === 'page')).toBe(true);
+    expect(screen.getAllByRole('button', { name: 'Plan' }).length).toBeGreaterThan(0);
+    for (const retired of ['Brief', 'Watch', 'Verify', 'My briefings', 'Causal brief', 'Evidence', 'Track record', 'Case study']) {
+      expect(screen.queryByRole('button', { name: retired })).toBeNull();
+    }
+    await user.click(screen.getByRole('button', { name: 'Edit my limits' }));
+    expect(await screen.findByRole('dialog', { name: 'My limits' })).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Done' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'My limits' })).toBeNull());
+  });
+
+  it('opens the limits drawer from a retired #plan/limits link', async () => {
+    history.replaceState(null, '', '#plan/limits');
+    useApp.setState({ page: 'planner', limitsOpen: false });
+    render(<App />);
+    expect(await screen.findByRole('dialog', { name: 'My limits' })).toBeTruthy();
+    expect(useApp.getState().page).toBe('planner');
   });
 
   it('shows the shared DeepRegatta company links on every Passage view', () => {
@@ -45,11 +63,11 @@ describe('viewer fixture harness', () => {
     expect(screen.getByRole('link', { name: 'Terms' }).getAttribute('href')).toBe('https://deepregatta.com/terms');
     expect(screen.getByRole('link', { name: 'Legal notice' }).getAttribute('href')).toBe('https://deepregatta.com/legal');
     expect(screen.getByRole('link', { name: 'DeepRegatta' }).getAttribute('href')).toBe('https://deepregatta.com');
-    expect(screen.getByRole('button', { name: 'Share this analysis' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Request a race / report a data issue' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'About the data' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Send feedback / report a data issue' })).toBeTruthy();
   });
 
-  it('sends a race request to the fleet feedback inbox and offers a next step', async () => {
+  it('sends an area request to the fleet feedback inbox and offers a next step', async () => {
     const user = userEvent.setup();
     const previousFetch = globalThis.fetch;
     globalThis.fetch = vi.fn(async (input, init) => {
@@ -60,7 +78,7 @@ describe('viewer fixture harness', () => {
     });
 
     render(<App />);
-    await user.click(screen.getByRole('button', { name: 'Request a race / report a data issue' }));
+    await user.click(screen.getByRole('button', { name: 'Send feedback / report a data issue' }));
     await user.type(screen.getByPlaceholderText(/what looks wrong/i), 'Please add the Middle Sea Race');
     await user.click(screen.getByRole('button', { name: 'Send' }));
 
@@ -80,14 +98,14 @@ describe('viewer fixture harness', () => {
 
     await user.click(screen.getByRole('button', { name: 'Français' }));
 
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Mes briefings' })).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Mes traversées' })).toBeTruthy());
     expect(screen.getAllByRole('button', { name: /Planifier$/ }).length).toBeGreaterThan(0);
     expect(screen.getByRole('link', { name: 'Confidentialité' })).toBeTruthy();
     expect(document.documentElement.lang).toBe('fr');
     expect(localStorage.getItem('passage-language')).toBe('fr');
 
     await user.click(screen.getByRole('button', { name: 'English' }));
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'My briefings' })).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'My passages' })).toBeTruthy());
     expect(document.documentElement.lang).toBe('en');
   });
 
@@ -95,7 +113,7 @@ describe('viewer fixture harness', () => {
     const user = userEvent.setup();
     render(<App />);
 
-    const [snapshot] = await screen.findAllByRole('button', { name: /cherbourg plymouth/i });
+    const [snapshot] = await screen.findAllByRole('button', { name: /cherbourg/i });
     await user.click(snapshot);
 
     await waitFor(() => expect(screen.getByText(/EMULATED WARNING SCENARIO/i)).toBeTruthy());
@@ -105,14 +123,14 @@ describe('viewer fixture harness', () => {
   it('does not present emulated warning evidence as verified authority', async () => {
     const user = userEvent.setup();
     render(<App />);
-    await user.click((await screen.findAllByRole('button', { name: /cherbourg plymouth/i }))[0]);
-    expect(screen.getByText(/EMULATED WARNING SCENARIO/i)).toBeTruthy();
+    await user.click((await screen.findAllByRole('button', { name: /cherbourg/i }))[0]);
+    expect(within(await screen.findByTestId('decision-band')).getByText('EMULATED WARNING SCENARIO')).toBeTruthy();
   });
 
   it('never lists an active warning capability as unsupported', async () => {
     const user = userEvent.setup();
     render(<App />);
-    await user.click((await screen.findAllByRole('button', { name: /cherbourg plymouth/i }))[0]);
+    await user.click((await screen.findAllByRole('button', { name: /cherbourg/i }))[0]);
     await user.click(await screen.findByRole('button', { name: /Why this assessment/i }));
     expect(screen.queryByText(/does NOT cover:.*official marine warnings/i)).toBeNull();
   });

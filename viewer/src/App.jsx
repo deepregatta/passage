@@ -8,30 +8,30 @@ import { HeadMetadata } from './components/HeadMetadata.jsx';
 
 const PAGES = {
   example: lazy(() => import('./pages/Example.jsx')),
-  snapshots: lazy(() => import('./pages/Snapshots.jsx')),
+  passages: lazy(() => import('./pages/Passages.jsx')),
   planner: lazy(() => import('./pages/Planner.jsx')),
   grib: lazy(() => import('./pages/Grib.jsx')),
   briefing: lazy(() => import('./pages/Briefing.jsx')),
-  evidence: lazy(() => import('./pages/Evidence.jsx')),
-  changes: lazy(() => import('./pages/Changes.jsx')),
-  verification: lazy(() => import('./pages/Verification.jsx')),
-  caseStudy: lazy(() => import('./pages/CaseStudy.jsx')),
-  settings: lazy(() => import('./pages/Settings.jsx')),
+  about: lazy(() => import('./pages/About.jsx')),
 };
 const EvidenceInspector = lazy(() => import('./components/EvidenceInspector.jsx'));
+const LimitsDrawer = lazy(() => import('./components/LimitsDrawer.jsx'));
 
 export default function App() {
   const page = useApp((state) => state.page);
   const setPage = useApp((state) => state.setPage);
   const language = useApp((state) => state.language);
-  const Page = PAGES[page] ?? PAGES.snapshots;
+  const limitsOpen = useApp((state) => state.limitsOpen);
+  const Page = PAGES[page] ?? PAGES.planner;
 
   useEffect(() => {
     const sync = () => {
-      const { page: target, snapshotId } = parseRoute(location.hash);
+      const { page: target, snapshotId, section, limits } = parseRoute(location.hash);
       if (target) {
         setPage(target, false);
         const state = useApp.getState();
+        if (section) state.setPassageSection(section);
+        if (limits) state.openLimits();
         if (snapshotId !== null && (state.snapshotId !== snapshotId || state.snapshotSource !== 'served')) {
           void state.openSnapshot(snapshotId, null, 'briefing', 'served');
         }
@@ -58,6 +58,7 @@ export default function App() {
           <Page />
         </Suspense>
         <Suspense fallback={null}><EvidenceInspector /></Suspense>
+        {limitsOpen && <Suspense fallback={null}><LimitsDrawer /></Suspense>}
       </Shell>
     </>
   );

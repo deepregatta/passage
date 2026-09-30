@@ -17,7 +17,7 @@ export default function DepartureField({ value, onChange }) {
 
   return (
     <fieldset className="block">
-      <legend className="eyebrow block mb-1">Departure · local time</legend>
+      <legend className="sr-only">Departure · local time</legend>
       <div className="grid grid-cols-[minmax(0,1fr)_7.25rem] gap-2">
         <label>
           <span className="sr-only">Departure date</span>

@@ -1,19 +1,21 @@
 import { useEffect, useState } from 'react';
 import { trackOnce } from '../lib/analytics.js';
 import { useApp } from '../stores/appStore.js';
-import RouteMap from '../components/lazy/LeafletLazy.jsx';
 import RouteTimeline from '../components/RouteTimeline.jsx';
-import ModelFooter from '../components/ModelFooter.jsx';
 import BulletinPanel from '../components/BulletinPanel.jsx';
-import ModelsUsed from '../components/ModelsUsed.jsx';
-import SynopticHero from '../components/SynopticHero.jsx';
-import HeaderBar from './briefing/HeaderBar.jsx';
 import DecisionBand from './briefing/DecisionBand.jsx';
 import WeatherStoryCard from './briefing/WeatherStoryCard.jsx';
 import LegProgressBar from './briefing/LegProgressBar.jsx';
+import PassageChart from './briefing/PassageChart.jsx';
+import SectionNav, { scrollToSection } from './briefing/SectionNav.jsx';
+import EvidenceSection from './briefing/EvidenceSection.jsx';
+import ChangesSection from './briefing/ChangesSection.jsx';
+import OutcomeSection from './briefing/OutcomeSection.jsx';
 
 const SECTION_ORDER = ['warnings', 'synoptic_story', 'route_impact', 'decision', 'what_could_change', 'unsupported', 'emulated_disclosure'];
 
+/** One passage, one page: the verdict once, then its story, route, evidence,
+ * changes since the last check and how it turned out. */
 export default function Briefing() {
   const findings = useApp((s) => s.findings);
   const briefing = useApp((s) => s.briefing);
@@ -25,19 +27,27 @@ export default function Briefing() {
   const example = useApp((s) => s.snapshot?.demo === true || s.manifest?.snapshots?.find(item => item.snapshot_id === s.snapshotId)?.demo === true);
   const loading = useApp((s) => s.loading);
   const loadError = useApp((s) => s.loadError);
+  const section = useApp((s) => s.passageSection);
+  const setSection = useApp((s) => s.setPassageSection);
   const ready = !loading && !loadError && Boolean(findings?.verdict?.state && briefing?.sections?.length && findings?.legs?.length);
   useEffect(() => {
     if (!ready || !snapshotId) return;
     const event = attempt ? 'passage_run' : example ? 'passage_example_view' : 'passage_briefing_view';
     trackOnce(`${event}:${attempt || snapshotId}`, event, { verdict: findings.verdict.state, result_rendered: true });
   }, [ready, snapshotId, attempt, example, findings]);
+  // a deep link to evidence, changes or outcome lands there once the briefing renders
+  useEffect(() => {
+    if (!ready || !section) return;
+    scrollToSection(section);
+    setSection(null);
+  }, [ready, section, setSection]);
   if (loadError) return <p role="alert" className="p-6 font-sans text-sm text-verdict-exceeds break-words">{loadError}</p>;
   if (loading) return <p role="status" className="p-6 font-instrument text-ink-soft">Loading passage instruments…</p>;
   if (!findings || !briefing) return <EmptyState />;
   const warningEvidence = findings.evidence.find((item) => item.rule_id === 'A-WARN-01');
   // the synoptic chart is the product's differentiator: it renders whenever the
   // snapshot archived one; an empty causal_events list only changes the story on top
-  const hasSynopticHero = Boolean(
+  const hasSynoptic = Boolean(
     synoptic && route && (synoptic.chart_captions?.length || synoptic.systems?.length),
   );
 
@@ -47,48 +57,56 @@ export default function Briefing() {
 
   return (
     <div>
-      <HeaderBar findings={findings} />
-      <DecisionBand
-        findings={findings}
-        example={example}
-        synoptic={synoptic}
-        warningEvidence={warningEvidence}
-        onOpenBulletin={() => setBulletinOpen(true)}
-      />
-      <div className="px-3 sm:px-5 py-4 max-w-[1600px] mx-auto">
-        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,3fr)_minmax(320px,2fr)] gap-4">
-          <div className="min-w-0">
-            {hasSynopticHero ? (
-              <SynopticHero />
-            ) : (
-              <div>
-                <p className="font-instrument text-xs text-ink-soft border-l-4 border-line pl-3 py-1 mb-2">
-                  No synoptic chart was archived with this briefing, so here is your passage
-                  chart. New briefings show the pressure pattern behind your forecast.
-                </p>
-                <RouteMap height={430} />
-              </div>
-            )}
+      <div data-print-hide>
+        <DecisionBand
+          findings={findings}
+          example={example}
+          warningEvidence={warningEvidence}
+          onOpenBulletin={() => setBulletinOpen(true)}
+        />
+      </div>
+      <SectionNav />
+      <div className="px-3 sm:px-5 max-w-[1600px] mx-auto">
+        <Section id="story" label="Story">
+          <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,3fr)_minmax(320px,2fr)] gap-4">
+            {/* on narrow screens the why comes before the chart */}
+            <div className="min-w-0 order-2 xl:order-1">
+              <PassageChart hasSynoptic={hasSynoptic} />
+            </div>
+            <div className="min-w-0 order-1 xl:order-2">
+              <WeatherStoryCard findings={findings} sections={sections} />
+            </div>
           </div>
-          <div className="min-w-0 flex flex-col gap-3">
-            <WeatherStoryCard findings={findings} sections={sections} />
-            {hasSynopticHero && (
-              <details open className="border hairline bg-white/25"><summary className="px-3 py-2 font-instrument text-xs cursor-pointer">Passage chart · synced to playback</summary><div className="p-2"><RouteMap height={240} /></div></details>
-            )}
-          </div>
-        </div>
+        </Section>
 
-        <div className="mt-4 border-t border-ink/40 pt-3">
-          <div className="flex justify-between items-baseline"><h2 className="font-instrument font-semibold uppercase tracking-wider">Along your route · conditions vs your limits</h2><span className="eyebrow">same time cursor</span></div>
+        <Section id="route" label="Along the route">
+          <h2 className="font-instrument font-semibold uppercase tracking-wider">Along your route · conditions vs your limits</h2>
           <RouteTimeline />
           <LegProgressBar findings={findings} />
-        </div>
+        </Section>
 
-        <ModelFooter />
-        <ModelsUsed />
+        <Section id="evidence" label="Evidence">
+          <EvidenceSection />
+        </Section>
+
+        <Section id="changes" label="What changed">
+          <ChangesSection />
+        </Section>
+
+        <Section id="outcome" label="How it turned out">
+          <OutcomeSection />
+        </Section>
       </div>
       {bulletinOpen && <BulletinPanel evidence={warningEvidence} onClose={() => setBulletinOpen(false)} />}
     </div>
+  );
+}
+
+function Section({ id, label, children }) {
+  return (
+    <section data-section={id} aria-label={label} className="scroll-mt-28 py-6 border-t border-ink/40 first:border-t-0 first:pt-4">
+      {children}
+    </section>
   );
 }
 
@@ -97,9 +115,9 @@ function EmptyState() {
   return (
     <div className="p-10">
       <p className="font-sans text-ink-soft">
-        No analysis open.{' '}
-        <button type="button" className="underline" onClick={() => setPage('snapshots')}>
-          Choose a snapshot
+        No briefing open.{' '}
+        <button type="button" className="underline" onClick={() => setPage('passages')}>
+          Choose a passage
         </button>
         .
       </p>

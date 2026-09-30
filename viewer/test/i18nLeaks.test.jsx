@@ -2,7 +2,7 @@ import { createElement } from 'react';
 import { render, waitFor, cleanup } from '@testing-library/react';
 import { afterEach, expect, it } from 'vitest';
 import { LocalizedDocument, translateText } from '../src/i18n.js';
-import Evidence from '../src/pages/Evidence.jsx';
+import EvidenceSection from '../src/pages/briefing/EvidenceSection.jsx';
 import EvidenceInspector from '../src/components/EvidenceInspector.jsx';
 import BulletinPanel from '../src/components/BulletinPanel.jsx';
 import SynopticCompare from '../src/components/SynopticCompare.jsx';
@@ -70,9 +70,9 @@ it('translates whole briefing values and every sentence without partial English'
 it('keeps the evidence hazard phrase together for French word order', async () => {
   const evidence = { evidence_id: 'E1', rule_id: 'W-SUST-03', leg_id: 'L1', source_kind: 'ensemble', member_fraction: { exceed: 3, total: 10 }, limit: 18, units: 'kt' };
   useApp.setState({ selectedEvidenceId: 'E1', findings: { evidence: [evidence], legs: [{ leg_id: 'L1', name: 'Start → Finish' }] }, plume: null });
-  const content = <Evidence />;
+  const content = <EvidenceSection />;
   const view = render(<div id="root">{content}<LocalizedDocument language="fr" /></div>);
-  await waitFor(() => expect(view.getByRole('heading', { level: 1 }).textContent).toBe('3 sur 10 scénarios de prévision dépassent votre limite de vent'));
+  await waitFor(() => expect(view.getByRole('heading', { level: 2 }).textContent).toBe('3 sur 10 scénarios de prévision dépassent votre limite de vent'));
   view.rerender(<div id="root">{content}<LocalizedDocument language="en" /></div>);
-  expect(view.getByRole('heading', { level: 1 }).textContent).toBe('3 of 10 forecast scenarios exceed your wind limit');
+  expect(view.getByRole('heading', { level: 2 }).textContent).toBe('3 of 10 forecast scenarios exceed your wind limit');
 });

@@ -5,7 +5,7 @@ import { usePlayback } from '../src/stores/playbackStore.js';
 import { fetchSnapshotJson, localSnapshots, snapshotTombstones } from '../src/lib/localSnapshots.js';
 import { preparedRun } from '../src/lib/preparedRun.js';
 import Briefing from '../src/pages/Briefing.jsx';
-import Snapshots from '../src/pages/Snapshots.jsx';
+import Passages from '../src/pages/Passages.jsx';
 
 vi.mock('../src/lib/localSnapshots.js', () => ({
   fetchSnapshotJson: vi.fn(),
@@ -28,7 +28,7 @@ function artifact(id, name) {
 }
 const initial = useApp.getInitialState();
 beforeEach(() => {
-  useApp.setState({ ...initial, page: 'snapshots' }, true);
+  useApp.setState({ ...initial, page: 'passages' }, true);
   usePlayback.setState(usePlayback.getInitialState(), true);
   localSnapshots.list.mockReset().mockResolvedValue([]);
   localSnapshots.remove.mockReset().mockResolvedValue(true);
@@ -97,7 +97,7 @@ describe('snapshot open ownership', () => {
     await useApp.getState().openSnapshot('B');
     first.resolve();
     await a;
-    expect(useApp.getState()).toMatchObject({ snapshotId: 'B', findings: null, loadError: 'latest failure', loading: false, page: 'snapshots' });
+    expect(useApp.getState()).toMatchObject({ snapshotId: 'B', findings: null, loadError: 'latest failure', loading: false, page: 'passages' });
   });
 
   it('clears old artifacts, inspection and playback immediately on open', async () => {
@@ -126,7 +126,7 @@ describe('snapshot open ownership', () => {
     const gate = delaySnapshot('A');
     const a = useApp.getState().openSnapshot('A');
     await vi.waitFor(() => expect(fetchSnapshotJson).toHaveBeenCalledWith('A', 'findings.json'));
-    useApp.getState().setPage('snapshots');
+    useApp.getState().setPage('passages');
     gate.resolve();
     await a;
     expect(useApp.getState()).toMatchObject({ page: 'briefing', snapshotId: 'A' });
@@ -176,12 +176,12 @@ describe('snapshot open ownership', () => {
     gate.resolve();
     await a;
     expect(localSnapshots.remove).toHaveBeenCalledWith('A');
-    expect(useApp.getState()).toMatchObject({ snapshotId: null, findings: null, loading: false, page: 'snapshots' });
+    expect(useApp.getState()).toMatchObject({ snapshotId: null, findings: null, loading: false, page: 'passages' });
   });
 });
 
 describe('snapshot load feedback', () => {
-  it.each([Briefing, Snapshots])('renders loadError as an alert on %s', (Page) => {
+  it.each([Briefing, Passages])('renders loadError as an alert on %s', (Page) => {
     useApp.setState({ loadError: 'fixture load failure' });
     render(<Page />);
     expect(screen.getByRole('alert')).toHaveTextContent('fixture load failure');

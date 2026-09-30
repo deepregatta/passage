@@ -27,20 +27,26 @@ Passage combines three things that must remain visible in the interface:
 
 ## Current product surface
 
-The browser application follows a four-stage passage cycle:
+The browser application is organised around the passage rather than a staged
+pipeline: two places (**Plan** and **My passages**) and a **Limits** drawer.
 
-- **Plan** — draw or compute a route, compare departure windows, choose a boat
-  polar, declare limits, download GRIB2 files of the forecast (wind, currents,
-  waves) for a box drawn on the chart, and manage browser-local briefings.
-- **Brief** — read the causal story and decision summary, follow the shared
-  passage-time cursor, and inspect exact evidence.
-- **Watch** — compare immutable forecast snapshots and review the edited change
-  story plus the full change ledger.
-- **Verify** — inspect the real-case corpus, calibration sample sizes, and
-  frozen case studies, with emulated demonstrations clearly excluded.
+- **Plan** — compute a route from the forecast and a boat polar (the primary
+  way in) or draw one, compare departure windows, and check the passage.
+  GRIB2 files of the forecast (wind, currents, waves) are exported for a box
+  from the planning chart.
+- **My passages** — each route and departure keeps its frozen checks together
+  with its latest verdict, what changed since the previous check, and its
+  progress through departure to verification.
+- **One page per passage** — a single decision band, then the causal story on
+  one chart with the shared passage-time cursor, exact claim-level evidence,
+  the edited change story plus the full change ledger, and the frozen outcome
+  once verified, with emulated demonstrations clearly excluded.
+- **Limits** — declared limits are edited from any page and apply to the next
+  check; the real-case corpus and calibration sample sizes live under
+  **About the data**.
 
 The interface supports English and French, browser-local 24-hour time with an
-explicit timezone, deep-linked stages, desktop and mobile navigation, and
+explicit timezone, deep-linked passages and sections, desktop and mobile navigation, and
 browser-local persistence. The current live surface is still a prototype; its
 safety and calibration claims must remain conservative.
 

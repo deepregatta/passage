@@ -1,7 +1,7 @@
 import { palette } from '../lib/palette.js';
 import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../stores/appStore.js';
-import { frameForCursor, usePlayback } from '../stores/playbackStore.js';
+import { frameForCursor, playbackHours, usePlayback } from '../stores/playbackStore.js';
 import { chartUrl, chartProjector, nearestCaption } from '../lib/synopticCharts.js';
 import { placeLabel } from '../lib/format.js';
 import TimeRuler from './TimeRuler.jsx';
@@ -15,6 +15,8 @@ const PHASE = {
   unavailable: 'No tracked system crosses your route window. The wider pattern still sets your wind.',
 };
 
+/** The pressure chart with the passage drawn on it. On the page the passage
+ * timeline below drives time; full screen brings its own ruler and caption. */
 export default function SynopticHero() {
   const findings = useApp((state) => state.findings);
   const synoptic = useApp((state) => state.synoptic);
@@ -23,8 +25,7 @@ export default function SynopticHero() {
   const cursor = usePlayback((state) => state.cursorHours);
   const eventId = usePlayback((state) => state.focusedEventId);
   const [fullscreen, setFullscreen] = useState(false);
-  const arrival = findings?.legs.at(-1)?.eta_range.slow;
-  const maxHours = arrival ? Math.ceil((Date.parse(arrival) - Date.parse(findings.departure_utc)) / 3600_000) : 36;
+  const maxHours = playbackHours(findings);
   const frame = useMemo(() => frameForCursor(findings, synoptic, route, cursor, eventId), [findings, synoptic, route, cursor, eventId]);
 
   useEffect(() => {
@@ -35,14 +36,14 @@ export default function SynopticHero() {
     return <div className="min-h-[430px] border border-dashed border-ink/30 bg-shoal/20 grid place-items-center p-8 text-center"><div><p className="font-story text-2xl">Synoptic chart unavailable</p><p className="font-instrument text-sm text-ink-soft mt-2">{findings ? 'This legacy run has route conditions, but no archived synoptic data.' : 'Open a passage briefing first.'}</p></div></div>;
   }
 
-  const content = <HeroCanvas findings={findings} synoptic={synoptic} route={route} frame={frame} cursor={cursor} maxHours={maxHours} />;
+  const canvas = (standalone) => <HeroCanvas findings={findings} synoptic={synoptic} route={route} frame={frame} cursor={cursor} maxHours={maxHours} standalone={standalone} />;
   return <>
-    <div className="relative"><button type="button" onClick={() => setFullscreen(true)} className="absolute z-10 right-2 top-2 min-h-11 px-3 bg-paper/90 border border-ink/40 font-instrument text-xs">Full screen</button>{content}</div>
-    <FullscreenChart open={fullscreen} title="Causal briefing playback" onClose={() => setFullscreen(false)}>{content}</FullscreenChart>
+    <div className="relative"><button type="button" onClick={() => setFullscreen(true)} className="absolute z-10 right-2 top-2 min-h-11 px-3 bg-paper/90 border border-ink/40 font-instrument text-xs">Full screen</button>{canvas(false)}</div>
+    <FullscreenChart open={fullscreen} title="Causal briefing playback" onClose={() => setFullscreen(false)}>{canvas(true)}</FullscreenChart>
   </>;
 }
 
-function HeroCanvas({ findings, synoptic, route, frame, cursor, maxHours }) {
+function HeroCanvas({ findings, synoptic, route, frame, cursor, maxHours, standalone }) {
   const event = frame.event ?? null;
   const system = synoptic.systems.find((item) => item.system_id === event?.system_id) ?? synoptic.systems[0] ?? null;
   const chart = nearestCaption(synoptic.chart_captions, cursor);
@@ -55,11 +56,11 @@ function HeroCanvas({ findings, synoptic, route, frame, cursor, maxHours }) {
     {projector && url
       ? <ChartCanvas url={url} projector={projector} route={route} system={system} frame={frame} event={event} zoomed={zoomed} onBroken={() => setChartBroken(true)} caption={chart?.caption} />
       : <SchematicCanvas route={route} system={system} frame={frame} event={event} />}
-    <div className="flex items-center justify-between gap-3 py-2 font-instrument text-xs">
+    <div className="flex items-center justify-between gap-3 pt-2 font-instrument text-xs">
       <span>
-        {event
-          ? placeLabel(event.consequence.register_plain)
-          : 'No tracked weather system meets your route in this window.'}
+        {!event
+          ? 'No tracked weather system meets your route in this window.'
+          : standalone ? placeLabel(event.consequence.register_plain) : null}
       </span>
       <span className="flex gap-2 whitespace-nowrap">
         {projector && url && (
@@ -69,7 +70,7 @@ function HeroCanvas({ findings, synoptic, route, frame, cursor, maxHours }) {
         )}
       </span>
     </div>
-    <TimeRuler findings={findings} maxHours={maxHours} />
+    {standalone && <div className="pt-2"><TimeRuler findings={findings} maxHours={maxHours} /></div>}
   </div>;
 }
 

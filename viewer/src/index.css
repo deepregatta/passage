@@ -10,7 +10,9 @@ html { overflow-x: hidden; }
 
 body {
   @apply bg-paper text-ink antialiased font-instrument;
-  overflow-x: hidden;
+  /* clip, not hidden: a hidden body becomes a scroll container and silently
+     disables the sticky header and passage section bar */
+  overflow-x: clip;
 }
 
 /* Evidence chain: every provenance-bearing value is a dotted-underline mono link.
@@ -95,5 +97,13 @@ select:focus-visible {
     white-space: normal;
     overflow-wrap: anywhere;
     padding: 0.5rem 0.25rem;
+  }
+}
+
+/* A passage prints only its outcome report when that report asks to print. */
+@media print {
+  body[data-print='outcome'] [data-section]:not([data-section='outcome']),
+  body[data-print='outcome'] [data-print-hide] {
+    display: none !important;
   }
 }

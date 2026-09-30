@@ -1,9 +1,10 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { useApp } from '../src/stores/appStore.js';
-import Settings from '../src/pages/Settings.jsx';
-import Changes from '../src/pages/Changes.jsx';
-import Verification from '../src/pages/Verification.jsx';
+import LimitsDrawer from '../src/components/LimitsDrawer.jsx';
+import ChangesSection from '../src/pages/briefing/ChangesSection.jsx';
+import OutcomeSection from '../src/pages/briefing/OutcomeSection.jsx';
+import About from '../src/pages/About.jsx';
 import SynopticCompare from '../src/components/SynopticCompare.jsx';
 import SynopticHero from '../src/components/SynopticHero.jsx';
 import EnsemblePlume from '../src/components/EnsemblePlume.jsx';
@@ -34,26 +35,26 @@ beforeEach(() => {
   preparedRun.mockReset().mockResolvedValue({ doc: null });
 });
 
-it.each(['{broken', 'null', '[]', '42', '{"max_sustained_kt":null}'])('opens Settings with corrupt draft %s', (stored) => {
+it.each(['{broken', 'null', '[]', '42', '{"max_sustained_kt":null}'])('opens the limits with corrupt draft %s', (stored) => {
   localStorage.setItem('deepweather.profile-draft', stored);
-  render(<Settings />);
+  render(<LimitsDrawer />);
   expect(screen.getByLabelText(/Max sustained · upwind/)).toHaveValue(18);
 });
 it('merges partial nested drafts with defaults', () => {
   localStorage.setItem('deepweather.profile-draft', JSON.stringify({ max_sustained_kt: { upwind: 15 }, max_gust_kt: 24 }));
-  render(<Settings />);
+  render(<LimitsDrawer />);
   expect(screen.getByLabelText(/Max sustained · upwind/)).toHaveValue(15);
   expect(screen.getByLabelText(/Max sustained · reach/)).toHaveValue(25);
   expect(screen.getByLabelText(/Max gusts/)).toHaveValue(24);
 });
-it('opens Settings when reading storage is blocked', () => {
+it('opens the limits when reading storage is blocked', () => {
   vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new DOMException('blocked', 'SecurityError'); });
-  render(<Settings />);
+  render(<LimitsDrawer />);
   expect(screen.getByLabelText(/Max gusts/)).toHaveValue(28);
 });
 it('keeps editing usable when saving storage fails', () => {
   vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new DOMException('full', 'QuotaExceededError'); });
-  render(<Settings />);
+  render(<LimitsDrawer />);
   fireEvent.change(screen.getByLabelText(/Max gusts/), { target: { value: '23' } });
   expect(screen.getByLabelText(/Max gusts/)).toHaveValue(23);
 });
@@ -96,14 +97,14 @@ it.each([{ times: [] }, { wind_members: [] }, { wind_members: [[null]] }])('show
 it('does not let an old change-ledger failure replace a newly selected first run', async () => {
   const pending = deferred(); fetchSnapshotJson.mockReturnValue(pending.promise);
   useApp.setState({ findings, manifest: { snapshots: [{ ...findings, snapshot_id: 'previous' }] } });
-  render(<Changes />);
+  render(<ChangesSection />);
   act(() => useApp.setState({ findings: { ...findings, route_id: 'other' } }));
   expect(screen.getByText('First analysis of this passage')).toBeVisible();
   await act(async () => pending.reject(new Error('old offline failure')));
   expect(screen.getByText('First analysis of this passage')).toBeVisible();
 });
 it('clears the previous comparison while loading a different run', async () => {
-  useApp.setState({ findings, manifest: { snapshots: [] } }); render(<Changes />);
+  useApp.setState({ findings, manifest: { snapshots: [] } }); render(<ChangesSection />);
   expect(screen.getByText('First analysis of this passage')).toBeVisible();
   fetchSnapshotJson.mockReturnValue(new Promise(() => {}));
   act(() => useApp.setState({ manifest: { snapshots: [{ ...findings, snapshot_id: 'previous' }] } }));
@@ -115,12 +116,12 @@ it('handles offline verification resources independently', async () => {
     if (url.endsWith('corpus.json')) return json({ cases: 3, pass: 2, fail: 1, pending: 0 });
     throw new TypeError('offline');
   });
-  render(<Verification />);
+  render(<About />);
   expect(await screen.findByText('Skill claims use 3 real ERA5 cases.')).toBeVisible();
 });
 it('aborts verification reads on unmount', async () => {
   fetch.mockImplementation(() => new Promise(() => {}));
-  const view = render(<Verification />);
+  const view = render(<About />);
   const signals = fetch.mock.calls.map(([, options]) => options?.signal);
   view.unmount();
   expect(signals).toHaveLength(3);
@@ -134,7 +135,7 @@ it('ignores a verification case that completes after switching snapshots', async
     if (url.endsWith('/B.json')) return json({ coverage_summary: { partially_observed: 22 }, comparisons: [] });
     return json(null);
   });
-  useApp.setState({ findings: { ...findings, snapshot_id: 'A' } }); render(<Verification />);
+  useApp.setState({ findings: { ...findings, snapshot_id: 'A' } }); render(<OutcomeSection />);
   await waitFor(() => expect(fetch.mock.calls.some(([url]) => url.endsWith('/A.json'))).toBe(true));
   act(() => useApp.setState({ findings: { ...findings, snapshot_id: 'B' } }));
   expect(await screen.findByText('22')).toBeVisible();
@@ -168,7 +169,7 @@ it('does not create infinite map bounds from empty waypoints', async () => {
 it('ignores a stale successful comparison after switching passages', async () => {
   const old = deferred(); fetchSnapshotJson.mockReturnValue(old.promise);
   useApp.setState({ findings, manifest: { snapshots: [{ ...findings, snapshot_id: 'previous' }] } });
-  render(<Changes />);
+  render(<ChangesSection />);
   act(() => useApp.setState({ findings: { ...findings, route_id: 'other' } }));
   await act(async () => old.resolve(findings));
   expect(screen.getByText('First analysis of this passage')).toBeVisible();

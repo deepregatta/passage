@@ -5,6 +5,7 @@ import { localSnapshots, fetchSnapshotJson, snapshotTombstones } from '../lib/lo
 import { preparedRun } from '../lib/preparedRun.js';
 import { getInitialLanguage, getLanguageFromPath, LANGUAGE_STORAGE_KEY } from '../i18n.js';
 import { usePlayback } from './playbackStore.js';
+import { recoverProfileDraft, saveProfileDraft } from '../lib/profileDraft.js';
 
 // IndexedDB and shared prepared-run reads may finish after navigation. Only the
 // current open (including example manifest discovery) may publish its result.
@@ -23,7 +24,9 @@ async function fetchJson(url) {
 
 export const useApp = create((set, get) => ({
   language: getInitialLanguage(),
-  page: initialPage(), // stage 01 (plan a passage) unless the URL deep-links elsewhere
+  page: initialPage(), // plan a passage unless the URL deep-links elsewhere
+  // where the passage page scrolls once its briefing is on screen (story when null)
+  passageSection: null,
   manifest: null,
   manifestError: null,
 
@@ -46,6 +49,10 @@ export const useApp = create((set, get) => ({
 
   providers: null,
   profileDefaults: null,
+  // the sailor's editable limits: the header chip, the limits drawer and every
+  // new check read the same draft; frozen briefings keep the limits they used
+  limits: null,
+  limitsOpen: false,
 
   nowMs: Date.now(),
 
@@ -122,6 +129,24 @@ export const useApp = create((set, get) => ({
     });
   },
 
+  setPassageSection: (passageSection) => set({ passageSection }),
+  openLimits: () => { void get().ensureLimits(); set({ limitsOpen: true }); },
+  closeLimits: () => set({ limitsOpen: false }),
+  ensureLimits: async () => {
+    if (get().limits) return;
+    if (!get().profileDefaults) await get().loadConfig();
+    const defaults = get().profileDefaults;
+    if (defaults && !get().limits) set({ limits: recoverProfileDraft(defaults) });
+  },
+  updateLimit: (path, value) => {
+    const next = structuredClone(get().limits);
+    let obj = next;
+    for (let i = 0; i < path.length - 1; i++) obj = obj[path[i]];
+    obj[path[path.length - 1]] = value;
+    saveProfileDraft(next);
+    set({ limits: next });
+  },
+
   loadConfig: async () => {
     try {
       const [providers, profileDefaults] = await Promise.all([
@@ -130,7 +155,7 @@ export const useApp = create((set, get) => ({
       ]);
       set({ providers, profileDefaults });
     } catch {
-      // config view is optional; Settings shows a note when absent
+      // config is optional; the limits drawer shows a loading note when absent
     }
   },
 

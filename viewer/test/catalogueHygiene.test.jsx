@@ -5,8 +5,8 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, render, waitFor } from '@testing-library/react';
 import { LocalizedDocument, translateText } from '../src/i18n.js';
 import { useApp } from '../src/stores/appStore.js';
-import Verification from '../src/pages/Verification.jsx';
-import CaseStudy from '../src/pages/CaseStudy.jsx';
+import About from '../src/pages/About.jsx';
+import OutcomeSection from '../src/pages/briefing/OutcomeSection.jsx';
 
 const source = readFileSync(path.join(import.meta.dirname, '../src/i18n.js'), 'utf8');
 const tree = ts.createSourceFile('i18n.js', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS);
@@ -40,9 +40,9 @@ it.each([
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); useApp.setState({ findings: null, language: 'en' }); });
 
-it.each([[Verification, 'Track record'], [CaseStudy, 'Open a briefing to view its case study.']])(
+it.each([[About, 'Track record'], [OutcomeSection, 'Not verified yet']])(
   'keeps page copy English until the document localiser translates it', (Page, english) => {
-    useApp.setState({ findings: null, language: 'fr' });
+    useApp.setState({ findings: Page === OutcomeSection ? { snapshot_id: 'case-34', causal_events: [] } : null, language: 'fr' });
     vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})));
     const content = <Page />;
     const view = render(<div id="root">{content}<LocalizedDocument language="en" /></div>);
@@ -59,7 +59,7 @@ it('localises asynchronously loaded verification counts and restores English', a
   vi.stubGlobal('fetch', vi.fn(async (url) => ({ ok: true, json: async () => url.endsWith('corpus.json')
     ? { cases: 2, pass: 1, fail: 1, pending: 0 }
     : url.endsWith('index.json') ? { cases: [{ observation_source: 'emulated' }] } : { records: [] } })));
-  const content = <Verification />;
+  const content = <About />;
   const view = render(<div id="root">{content}<LocalizedDocument language="fr" /></div>);
   await waitFor(() => expect(view.container.textContent).toContain('1 réussite · 1 échec · 0 en attente'));
   expect(view.container.textContent).toContain('1 cas simulé affiché uniquement pour la démonstration.');
@@ -115,11 +115,11 @@ it('keeps only referenced catalogue keys or documented runtime labels', async ()
 
 it.each(['emulated', 'station'])('localises the loaded case study, including its %s source and error interpretations', async (observationSource) => {
   useApp.setState({ findings: { snapshot_id: 'case-34', causal_events: [] }, language: 'en' });
-  vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({
+  vi.stubGlobal('fetch', vi.fn(async (url) => ({ ok: true, json: async () => String(url).endsWith('index.json') ? { cases: [{ snapshot_id: 'case-34' }] } : ({
     observation_source: observationSource,
     pairs: [1, 5].map((error) => ({ leg_id: 'L1', valid_time: '2026-07-20T12:00:00Z', variable: 'wind_kt', forecast: 12, observed: 12 - error, error })),
   }) })));
-  const content = <CaseStudy />;
+  const content = <OutcomeSection />;
   const view = render(<div id="root">{content}<LocalizedDocument language="fr" /></div>);
   await waitFor(() => expect(view.container.textContent).toContain('écart significatif, marge à élargir'));
   expect(view.container.textContent).toContain('intensité utile');
@@ -132,6 +132,6 @@ it.each(['emulated', 'station'])('localises the loaded case study, including its
     ? 'EMULATED DEMO · NOT A SKILL CLAIM' : 'OBSERVATION SOURCE · station');
 });
 
-it('translates the analysis title while preserving the snapshot identifier', () => {
-  expect(translateText('This analysis · case-34', 'fr')).toBe('Cette analyse · case-34');
+it('translates the observation source label while preserving the source identifier', () => {
+  expect(translateText('OBSERVATION SOURCE · station', 'fr')).toBe('SOURCE DES OBSERVATIONS · station');
 });

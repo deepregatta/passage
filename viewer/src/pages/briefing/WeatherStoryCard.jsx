@@ -8,10 +8,10 @@ import { usePlayback } from '../../stores/playbackStore.js';
 import AssessmentDetails from './AssessmentDetails.jsx';
 import { legPlace } from './routeLabels.jsx';
 
-/** the story as a headline card: one look = the message; prose lives behind "why" */
+/** the story as a headline card: one look = the message; prose lives behind "why".
+ * When to recheck is stated once, in the decision band above. */
 export default function WeatherStoryCard({ findings, sections }) {
   const [expanded, setExpanded] = useState(false);
-  const nextRun = useApp((s) => s.briefing?.next_run ?? s.briefing?.next_runs?.[0]);
   const verdictHex = VERDICT[findings.verdict.state]?.hex ?? palette.ink.DEFAULT;
   const synoptic = useApp((state) => state.synoptic);
 
@@ -67,14 +67,6 @@ export default function WeatherStoryCard({ findings, sections }) {
         {fmtTime(wac.window?.from).slice(-5)} UTC. Expect short, steep seas.
       </>,
     );
-  const change = sections.find((s) => s.id === 'what_could_change');
-  if (change && bullets.length < 3) {
-    bullets.push(
-      <>{nextRun
-        ? `Next forecast update estimated around ${fmtTime(nextRun.expected_at)} UTC. Check again before departure.`
-        : 'Next forecast update time unavailable. Check the published forecast before departure.'}</>,
-    );
-  }
 
   return (
     <div className="bg-white/40 border hairline rounded-sm shadow-panel p-5 h-full flex flex-col">

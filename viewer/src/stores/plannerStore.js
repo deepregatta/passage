@@ -14,7 +14,7 @@ function defaultDeparture() {
 }
 
 const initial = () => ({
-  mode: 'draw', // draw | compute
+  mode: 'compute', // compute | draw — computing from the forecast is the primary way in
   waypoints: [],
   endpoints: [],
   computed: null, // RoutingResult

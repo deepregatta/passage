@@ -1,62 +1,40 @@
 import clsx from 'clsx';
-import { EvidenceLink } from '../../components/common.jsx';
+import { EvidenceLink, VerdictChip } from '../../components/common.jsx';
 import { isEmulatedWarning } from '../../components/BulletinPanel.jsx';
-import { capitalize, fmtTime, toLocalDateTimeValue, hazardNoun, placeLabel, plainEventNoun, scenarioShare, VERDICT } from '../../lib/format.js';
+import { ShareAnalysisButton } from '../../components/FooterActions.jsx';
+import { fmtLocalTime, fmtTime, localTimeZoneName, toLocalDateTimeValue, VERDICT } from '../../lib/format.js';
 import { useApp } from '../../stores/appStore.js';
 import { usePlanner } from '../../stores/plannerStore.js';
-import { legPlace } from './routeLabels.jsx';
+import { routeTitle } from './routeLabels.jsx';
 
 /** the plain-language layer: what each verdict state means for what you DO next (labels stay exact) */
 const NEXT_STEP = {
   within:
     'The forecast stays inside the limits you set. Check the latest run once more before you leave.',
   approaching:
-    'It is close to your limits. Read the two or three points on the right before deciding.',
+    'It is close to your limits. Read the weather story below before deciding.',
   exceeds:
     'This forecast crosses your limits. Compare departure times before changing the route.',
   insufficient:
     'The models disagree near your limits. Wait for the next update before deciding.',
-  warning_active:
-    'A marine warning covers your area. Read the official bulletin first.',
 };
 
 /**
- * The 10-second layer: can I go, why, what to do instead; before any chart.
- * One plain sentence, one limit, no decimals, no codenames.
+ * The 10-second layer, before any chart: which passage, the verdict against your
+ * limits, any official warning, and what to do next. The why lives in the weather
+ * story right below; the verdict appears here once.
  */
-export default function DecisionBand({ findings, synoptic, warningEvidence, onOpenBulletin, example }) {
+export default function DecisionBand({ findings, warningEvidence, onOpenBulletin, example }) {
   const setPage = useApp((s) => s.setPage);
   const route = useApp((s) => s.route);
   const warnings = useApp((s) => s.warnings);
   const warningActive = findings.verdict.warning_override?.active;
   const emulated = warningActive && isEmulatedWarning(warningEvidence, warnings);
   const state = warningActive ? 'warning_active' : findings.verdict.state;
-  const verdict = VERDICT[state];
-  const event = findings.causal_events?.[0];
-  const driver = findings.evidence.find(
-    (e) => e.evidence_id === findings.verdict.driver_evidence_id,
-  );
+  // An official warning is a separate decision; the pill stays about your limits.
+  const personalState = warningActive ? recomputePersonalState(findings) : findings.verdict.state;
 
-  // one plain cause sentence; a single limit, whole numbers only
-  let cause = null;
-  if (warningActive) {
-    cause = emulated
-      ? 'A synthetic warning scenario covers part of your route. It tests the workflow and must not inform a real passage decision.'
-      : 'An official marine warning covers part of your route. Read the bulletin before anything else.';
-  } else if (driver && (state === 'exceeds' || state === 'approaching')) {
-    const prefix = event ? `${capitalize(plainEventNoun(event, synoptic))} crosses your route. ` : '';
-    const where = legPlace(findings, driver.leg_id);
-    if (driver.member_fraction) {
-      const clause = `${scenarioShare(driver.member_fraction)} ${hazardNoun(driver.rule_id)} over your ${driver.limit} kt limit ${where}`;
-      cause = `${prefix}${prefix ? clause : capitalize(clause)}.`;
-    } else if (typeof driver.value === 'number') {
-      const relation = driver.value > driver.limit ? 'over' : 'close to';
-      const clause = `${hazardNoun(driver.rule_id)} reach ${Math.round(driver.value)} ${driver.units ?? 'kt'} ${where}, ${relation} your ${driver.limit} ${driver.units ?? 'kt'} limit`;
-      cause = `${prefix}${prefix ? clause : capitalize(clause)}.`;
-    }
-  }
-
-  // when to look again; same source as the story-card bullet
+  // when to look again; the single place the briefing states it
   const nextRun = useApp((s) => s.briefing?.next_run ?? s.briefing?.next_runs?.[0]);
   const nextUpdate = nextRun ? fmtTime(nextRun.expected_at) : null;
 
@@ -75,56 +53,71 @@ export default function DecisionBand({ findings, synoptic, warningEvidence, onOp
     setPage('planner');
   };
 
-  const buttonClass = emulated
-    ? 'border border-ink/50 px-3.5 py-2 min-h-11 font-sans text-[14px] hover:bg-ink/5'
-    : 'border border-white/70 px-3.5 py-2 min-h-11 font-sans text-[14px] hover:bg-white/10';
+  const buttonClass = 'border border-ink/50 bg-paper/60 px-3.5 py-2 min-h-11 font-sans text-[14px] hover:bg-paper';
 
   return (
-    <section
-      aria-label="Decision"
-      data-testid="decision-band"
-      className={emulated ? 'bg-shoal text-ink border-y border-ink/30' : 'text-white'}
-      style={emulated ? undefined : { backgroundColor: verdict.hex }}
-    >
-      <div className="px-6 py-5 max-w-[1600px] mx-auto flex flex-col gap-2.5">
-        <div className="flex items-center gap-x-4 gap-y-2 flex-wrap">
-          <span className="text-3xl sm:text-4xl leading-none" aria-hidden>
-            {verdict.glyph}
-          </span>
-          <h1 className="font-chart text-[30px] sm:text-[38px] leading-none tracking-wide">
-            {verdict.label.split(': ')[0]}
-          </h1>
-          {emulated && <span className="stamp-emulated">EMULATED WARNING SCENARIO</span>}
+    <section aria-label="Decision" data-testid="decision-band" className="bg-shoal/70 border-b border-ink/30">
+      <div className="px-4 sm:px-6 py-5 max-w-[1600px] mx-auto flex flex-col gap-3">
+        <div className="flex items-start justify-between gap-x-6 gap-y-3 flex-wrap">
+          <div className="min-w-0">
+            <h1 className="font-chart text-[30px] sm:text-[40px] leading-tight">{routeTitle(findings)}</h1>
+            <p className="font-mono text-[12px] text-ink-soft mt-1">
+              <span>dep</span> {fmtLocalTime(findings.departure_utc)} · <span>times in</span> {localTimeZoneName()}
+            </p>
+          </div>
+          <VerdictChip state={personalState} large />
         </div>
-        {cause && (
-          <p className="font-story text-[18px] sm:text-[20px] leading-snug max-w-[72ch]">
-            {placeLabel(cause)}
-          </p>
+        {warningActive && (
+          <div className={clsx('border-l-4 pl-3 py-1 flex flex-col gap-1.5', emulated ? 'border-dashed border-ink/60' : 'border-authority')}>
+            <div className="flex items-center gap-x-3 gap-y-2 flex-wrap">
+              <span className="text-2xl leading-none" aria-hidden>{VERDICT.warning_active.glyph}</span>
+              <h2 className={clsx('font-chart text-[24px] sm:text-[28px] leading-none', !emulated && 'text-authority')}>
+                {VERDICT.warning_active.label}
+              </h2>
+              {emulated && <span className="stamp-emulated">EMULATED WARNING SCENARIO</span>}
+            </div>
+            <p className="font-story text-[17px] sm:text-[19px] leading-snug max-w-[72ch]">
+              {emulated
+                ? 'A synthetic warning scenario covers part of your route. It tests the workflow and must not inform a real passage decision.'
+                : 'An official marine warning covers part of your route. Read the bulletin before anything else.'}
+            </p>
+          </div>
         )}
-        <p className={clsx('font-sans text-[14px] max-w-[72ch]', emulated ? 'text-ink-soft' : 'opacity-90')}>
-          {NEXT_STEP[state]}
-        </p>
-        <div className="flex items-center gap-x-3 gap-y-2 flex-wrap pt-0.5">
-          {offerScan && (
-            <button type="button" onClick={findDeparture} className={buttonClass}>
-              Find a departure that fits
-            </button>
-          )}
+        {!warningActive && <p className="font-sans text-[14px] text-ink-soft max-w-[72ch]">{NEXT_STEP[state]}</p>}
+        <div className="flex items-center gap-x-3 gap-y-2 flex-wrap">
           {warningActive && (
             <button type="button" onClick={onOpenBulletin} className={buttonClass}>
               {example ? 'Inspect example bulletin' : emulated ? 'Inspect emulated bulletin' : 'Open official bulletin'}
             </button>
           )}
+          {offerScan && (
+            <button type="button" onClick={findDeparture} className={buttonClass}>
+              Find a departure that fits
+            </button>
+          )}
           {emulated && warningEvidence && (
             <EvidenceLink evidenceId={warningEvidence.evidence_id}>evidence</EvidenceLink>
           )}
-          {nextUpdate && (
-            <span className={clsx('font-mono text-[12px] sm:ml-auto', emulated ? 'text-ink-soft' : 'opacity-85')}>
-              next forecast ~{nextUpdate} UTC · recheck before departure
-            </span>
-          )}
+          <ShareAnalysisButton onNavigate={setPage} className="font-instrument text-sm text-event underline underline-offset-4 min-h-11 disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline" />
+          <span className="font-mono text-[12px] text-ink-soft sm:ml-auto">
+            {nextUpdate
+              ? <>next forecast ~{nextUpdate} UTC · recheck before departure</>
+              : 'Next forecast update time unavailable. Check the published forecast before departure.'}
+          </span>
         </div>
       </div>
     </section>
   );
+}
+
+function recomputePersonalState(findings) {
+  let approaching = false;
+  for (const leg of findings.legs) {
+    for (const hour of leg.hours) {
+      const statuses = Object.values(hour.limit_status ?? {});
+      if (statuses.includes('exceeded')) return 'exceeds';
+      if (statuses.includes('approaching')) approaching = true;
+    }
+  }
+  return approaching ? 'approaching' : 'within';
 }

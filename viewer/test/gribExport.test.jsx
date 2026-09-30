@@ -390,11 +390,11 @@ describe('GRIB files page', () => {
   });
 
   it('opens from the planner with the route’s area, or empty without a route', async () => {
-    usePlanner.setState({ waypoints: [{ lat: 50.5, lng: -1.5 }, { lat: 50.75, lng: -1.25 }] });
+    usePlanner.setState({ mode: 'draw', waypoints: [{ lat: 50.5, lng: -1.5 }, { lat: 50.75, lng: -1.25 }] });
     const setPage = vi.fn();
     useApp.setState({ page: 'planner', setPage });
     const { unmount } = render(<Planner />);
-    fireEvent.click(screen.getByRole('button', { name: 'Download GRIBs…' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Export GRIB for this area' }));
     expect(setPage).toHaveBeenCalledWith('grib');
     expect(useGrib.getState().area).toEqual({ minLat: 49.5, maxLat: 51.8, minLon: -2.5, maxLon: -0.2 });
     expect(useGrib.getState().fitNonce).toBe(1);
@@ -402,8 +402,8 @@ describe('GRIB files page', () => {
     // no route: the button still opens the page, keeping whatever box was there
     act(() => usePlanner.getState().reset());
     render(<Planner />);
-    expect(screen.getByRole('button', { name: 'Download GRIBs…' })).toBeEnabled();
-    fireEvent.click(screen.getByRole('button', { name: 'Download GRIBs…' }));
+    expect(screen.getByRole('button', { name: 'Export GRIB for this area' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Export GRIB for this area' }));
     expect(setPage).toHaveBeenCalledTimes(2);
     expect(useGrib.getState().fitNonce).toBe(1);
   });
