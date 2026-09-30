@@ -34,14 +34,6 @@ export default function Planner() {
         Click the chart to drop waypoints (drag to adjust), or import a GPX file. The analysis
         runs right here in your browser.
       </p>
-      <aside className="mb-5 border-l-4 border-ink bg-white/40 px-4 py-3">
-        <a href="#example" className="inline-flex min-h-11 items-center bg-ink text-paper px-4 py-2 font-instrument text-sm rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2">
-          See an example briefing
-        </a>
-        <p className="mt-2 text-sm text-ink-soft">Free · no signup · no route setup</p>
-        <p className="mt-1 text-sm text-ink-soft">Synthetic / emulated example. Not a live forecast or a safety decision.</p>
-      </aside>
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <PlannerMap
           mode={mode}
@@ -118,14 +110,23 @@ export default function Planner() {
                   Mark a start and finish on the chart. Passage uses the forecast, available
                   currents and your boat polar to find a route.
                 </p>
-                <button
-                  type="button"
-                  onClick={runRouting}
-                  disabled={endpoints.length !== 2 || !polarId || !departureUtc || busy !== null}
-                  className="w-full border border-ink/50 rounded-sm px-3 py-2 hover:bg-white/50 disabled:opacity-40"
-                >
-                  Compute route
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={runRouting}
+                    disabled={endpoints.length !== 2 || !polarId || !departureUtc || busy !== null}
+                    className="flex-1 border border-ink/50 rounded-sm px-3 py-2 hover:bg-white/50 disabled:opacity-40"
+                  >
+                    Compute route
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openGrib}
+                    className="flex-1 border border-ink/50 rounded-sm px-3 py-2 hover:bg-white/50"
+                  >
+                    Download GRIBs…
+                  </button>
+                </div>
                 {computed && (
                   <p className="text-[13px]">
                     <span className="font-mono">{computed.distance_nm} nm</span> ·{' '}
@@ -190,6 +191,13 @@ export default function Planner() {
                   Import GPX…
                 </button>
                 <input ref={fileRef} type="file" accept=".gpx" onChange={onGpx} className="hidden" />
+                <button
+                  type="button"
+                  onClick={openGrib}
+                  className="border border-ink/40 rounded-sm px-3 py-1.5 hover:bg-white/50"
+                >
+                  Download GRIBs…
+                </button>
               </div>
             )}
 
@@ -221,13 +229,6 @@ export default function Planner() {
               className="w-full border border-ink/50 rounded-sm px-3 py-2 hover:bg-white/50 disabled:opacity-40"
             >
               Compare departure times (next 5 days)
-            </button>
-            <button
-              type="button"
-              onClick={openGrib}
-              className="w-full border border-ink/50 rounded-sm px-3 py-2 hover:bg-white/50 disabled:opacity-40"
-            >
-              Download GRIBs…
             </button>
             {error && <p className="text-verdict-exceeds text-[13px]">{error}</p>}
             {scan && scan.candidates.length > 0 && (

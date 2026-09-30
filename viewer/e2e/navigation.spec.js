@@ -28,7 +28,6 @@ test('Plan and Verify stage checkpoints keep URL-deep-linked subviews', async ({
   await page.getByRole('button', { name: /Plan/ }).first().click();
   await expect(page).toHaveURL(/#plan\/planner$/);
   await expect(page.getByRole('heading', { name: 'Plan a passage' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'See an example briefing' })).toHaveAttribute('href', '#example');
   await page.locator('.leaflet-container').waitFor();
   await page.waitForTimeout(250);
   await expect(page).toHaveScreenshot('plan.png', { fullPage: true });
@@ -38,10 +37,8 @@ test('Plan and Verify stage checkpoints keep URL-deep-linked subviews', async ({
   await expect(page).toHaveScreenshot('verify.png', { fullPage: true });
 });
 
-test('planner example link survives reload and returns to passage planning', async ({ page }) => {
-  await page.goto('/');
-  await page.getByRole('link', { name: 'See an example briefing' }).click();
-  await expect(page).toHaveURL(/#example$/);
+test('example deep link survives reload and returns to passage planning', async ({ page }) => {
+  await page.goto('/#example');
   const example = page.getByRole('region', { name: 'Example briefing' });
   await expect(example.getByRole('heading', { name: 'Example briefing', exact: true })).toBeVisible();
   await expect(example.getByText('Synthetic / emulated example. Not a live forecast or a safety decision.')).toBeVisible();
