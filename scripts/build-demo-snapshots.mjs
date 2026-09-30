@@ -119,7 +119,7 @@ for (const [name, id, sourceName] of [
   if (name === 'latest') {
     manifest.artifacts.changes = 'changes.json';
     manifest.artifacts.verification = 'verification.json';
-    manifest.demo = true; // "See an example briefing" opens this one
+    manifest.demo = true; // #example and the My briefings "example" tag open this one
   }
   writeJson(manifestPath, manifest);
 }

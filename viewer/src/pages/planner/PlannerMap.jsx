@@ -13,6 +13,18 @@ const waypointIcon = L.divIcon({
   iconAnchor: [7, 7],
 });
 
+/** The map frame stretches to the Passage panel beside it; tell Leaflet whenever
+ * that height changes so tiles fill the new area. */
+function TrackFrameSize({ frameRef }) {
+  const map = useMap();
+  useEffect(() => {
+    const observer = new ResizeObserver(() => map.invalidateSize());
+    observer.observe(frameRef.current);
+    return () => observer.disconnect();
+  }, [map, frameRef]);
+  return null;
+}
+
 function ClickCapture({ onClick }) {
   useMapEvents({ click: (e) => onClick(e.latlng) });
   return null;
@@ -35,8 +47,9 @@ function FitRoute({ positions, fitKey }) {
 }
 
 export default function PlannerMap({ mode, waypoints, computed, endpoints, fitNonce, addWaypoint, setWaypoints }) {
+  const frameRef = useRef(null);
   return (
-    <div className="lg:col-span-2 border border-ink/30 rounded-sm overflow-hidden" style={{ height: 480 }}>
+    <div ref={frameRef} className="lg:col-span-2 h-[480px] lg:h-auto lg:min-h-[480px] border border-ink/30 rounded-sm overflow-hidden">
       <MapContainer
         center={[49.9, -3.0]}
         zoom={8}
@@ -47,6 +60,7 @@ export default function PlannerMap({ mode, waypoints, computed, endpoints, fitNo
           url="https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png"
           attribution='seamarks &copy; OpenSeaMap'
         />
+        <TrackFrameSize frameRef={frameRef} />
         <ClickCapture onClick={addWaypoint} />
         <FitRoute
           positions={

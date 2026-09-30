@@ -168,7 +168,6 @@ const FR = {
   "Previous run keeps the low west of the route longer.": "L’analyse précédente maintient la dépression à l’ouest de la route plus longtemps.",
 
   "Inspect example bulletin": "Examiner le bulletin de l’exemple",
-  "Free · no signup · no route setup": "Gratuit · sans inscription · sans tracer de route",
   "Synthetic / emulated example. Not a live forecast or a safety decision.": "Exemple synthétique / émulé. Ni prévision en direct, ni décision de sécurité.",
   "Example briefing": "Exemple de briefing",
   "First: inspect the warning and its bulletin. Official information and skipper judgement remain authoritative.": "Commencez par examiner l’avertissement et son bulletin. Les informations officielles et le jugement du skipper font autorité.",
@@ -224,7 +223,6 @@ const FR = {
   'A DeepRegatta instrument for offshore sailors': 'Un instrument DeepRegatta pour les navigateurs au large',
   'Plan a passage': 'Planifier une traversée',
   'Click the chart to drop waypoints (drag to adjust), or import a GPX file. The analysis runs right here in your browser.': 'Cliquez sur la carte pour placer des points de route (faites-les glisser pour les ajuster), ou importez un fichier GPX. L’analyse s’exécute directement dans votre navigateur.',
-  'See an example briefing': 'Voir un exemple de briefing',
   'Route mode': 'Mode de route',
   'Draw my route': 'Tracer ma route',
   'Compute a route': 'Calculer une route',
