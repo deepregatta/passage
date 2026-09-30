@@ -1,23 +1,37 @@
-/** stage/subview deep links — shared by the store (initial page) and App (sync) */
-export const HASH_PAGE = {
-  'example': 'example',
-  'plan/planner': 'planner',
-  'plan/grib': 'grib',
-  // Keep existing shared/bookmarked links working; new navigation writes the
-  // canonical Brief-menu location below.
-  'plan/briefings': 'snapshots',
-  'plan/limits': 'settings',
-  'brief/briefings': 'snapshots',
-  'brief/story': 'briefing',
-  'brief/evidence': 'evidence',
-  'watch/changes': 'changes',
-  'verify/record': 'verification',
-  'verify/case-study': 'caseStudy',
+/** Hash routes — shared by the store (initial page) and App (sync).
+ * A passage's evidence, changes and outcome are sections of one page, so their
+ * paths only choose where that page scrolls to. */
+const ROUTES = {
+  'plan': { page: 'planner' },
+  'plan/grib': { page: 'grib' },
+  'passages': { page: 'passages' },
+  'passage': { page: 'briefing' },
+  'passage/evidence': { page: 'briefing', section: 'evidence' },
+  'passage/changes': { page: 'briefing', section: 'changes' },
+  'passage/outcome': { page: 'briefing', section: 'outcome' },
+  'about': { page: 'about' },
+  'example': { page: 'example' },
+  // Retired Plan / Brief / Watch / Verify stage links keep opening the same
+  // content for shared and bookmarked URLs; navigation writes the paths above.
+  'plan/planner': { page: 'planner' },
+  'plan/limits': { page: 'planner', limits: true },
+  'plan/briefings': { page: 'passages' },
+  'brief/briefings': { page: 'passages' },
+  'brief/story': { page: 'briefing' },
+  'brief/evidence': { page: 'briefing', section: 'evidence' },
+  'watch/changes': { page: 'briefing', section: 'changes' },
+  'verify/case-study': { page: 'briefing', section: 'outcome' },
+  'verify/record': { page: 'about' },
 };
 
-export const PAGE_HASH = Object.fromEntries(
-  Object.entries(HASH_PAGE).map(([hash, page]) => [page, hash]),
-);
+const CANONICAL = {
+  planner: 'plan',
+  grib: 'plan/grib',
+  passages: 'passages',
+  briefing: 'passage',
+  about: 'about',
+  example: 'example',
+};
 
 export function initialPage() {
   if (typeof location === 'undefined') return 'planner';
@@ -31,12 +45,17 @@ export function validSnapshotId(id) {
 
 export function parseRoute(hash) {
   const [path, query = ''] = hash.replace(/^#/, '').split('?');
-  const page = HASH_PAGE[path];
-  return { page, snapshotId: page === 'briefing' ? new URLSearchParams(query).get('snapshot') : null };
+  const route = ROUTES[path] ?? {};
+  return {
+    page: route.page,
+    section: route.section ?? null,
+    limits: route.limits === true,
+    snapshotId: route.page === 'briefing' ? new URLSearchParams(query).get('snapshot') : null,
+  };
 }
 
 export function pageHash(page, snapshotId = null) {
-  const path = PAGE_HASH[page] ?? PAGE_HASH.planner;
+  const path = CANONICAL[page] ?? CANONICAL.planner;
   return page === 'briefing' && validSnapshotId(snapshotId)
     ? `${path}?snapshot=${encodeURIComponent(snapshotId)}` : path;
 }

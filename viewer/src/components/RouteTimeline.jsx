@@ -2,14 +2,15 @@ import { palette, rgba } from '../lib/palette.js';
 import ReactECharts from './lazy/EChartsLazy.jsx';
 import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../stores/appStore.js';
-import { STATUS_HEX, hourStatus, fmtHour } from '../lib/format.js';
+import { STATUS_HEX, hourStatus, fmtHour, fmtLocalTime } from '../lib/format.js';
 import { usePlayback } from '../stores/playbackStore.js';
 import useViewport from '../hooks/useViewport.js';
 
 /**
- * Passage timeline. Default = one glanceable condition strip (worst status per
- * hour vs your limits); the three labeled charts (wind / gust / waves) live
- * behind "Show detailed charts".
+ * Passage timeline and the page's one time control. Default = one glanceable
+ * condition strip (worst status per hour vs your limits) that is also the
+ * scrubber for the chart above; the three labeled charts (wind / gust / waves)
+ * live behind "Show detailed charts".
  */
 export default function RouteTimeline() {
   const findings = useApp((s) => s.findings);
@@ -40,6 +41,7 @@ export default function RouteTimeline() {
   if (!findings) return null;
   return (
     <div>
+      <PassageClock findings={findings} />
       <ConditionStrip findings={findings} />
       <button
         type="button"
@@ -75,12 +77,41 @@ export default function RouteTimeline() {
 
 const STRIP_LABEL = { ok: 'fine', approaching: 'close to your limits', exceeded: 'beyond your limits', unknown: 'not assessed' };
 
-/** One glanceable bar: each stretch of the passage colored by its worst condition status. */
+/** The strip covers the assessed passage: departure to the last hour at usual speed. */
+function stripHours(findings) {
+  const rows = collectRows(findings);
+  if (!rows.length) return 0;
+  return Math.max(1, Math.ceil((rows[rows.length - 1].t + 3600_000 - Date.parse(findings.departure_utc)) / 3600_000));
+}
+
+/** Play/pause and the time under the cursor; departure time zone is stated once, in the band. */
+function PassageClock({ findings }) {
+  const cursor = usePlayback((state) => state.cursorHours);
+  const playing = usePlayback((state) => state.playing);
+  const play = usePlayback((state) => state.play);
+  const pause = usePlayback((state) => state.pause);
+  useEffect(() => () => pause(), [pause]);
+  const time = new Date(Date.parse(findings.departure_utc) + cursor * 3600_000).toISOString();
+  return (
+    <div className="flex items-center justify-end gap-3 -mt-1">
+      <output className="font-mono text-[12px] text-right">
+        {fmtLocalTime(time)} <span className="text-ink-soft">· +{Math.round(cursor)} h</span>
+      </output>
+      <button type="button" onClick={() => playing ? pause() : play(stripHours(findings))} className="w-11 h-11 border border-ink/40 bg-paper hover:bg-white/60" aria-label={playing ? 'Pause passage playback' : 'Play passage playback'}>{playing ? 'Ⅱ' : '▶'}</button>
+    </div>
+  );
+}
+
+/** One glanceable bar: each stretch of the passage colored by its worst condition
+ * status. It spans the playback window, and dragging along it moves the time cursor. */
 function ConditionStrip({ findings }) {
   const rows = collectRows(findings);
+  const cursor = usePlayback((state) => state.cursorHours);
+  const setCursor = usePlayback((state) => state.setCursor);
   if (!rows.length) return null;
-  const t0 = rows[0].t;
-  const t1 = rows[rows.length - 1].t + 3600_000;
+  const maxHours = stripHours(findings);
+  const t0 = Date.parse(findings.departure_utc);
+  const t1 = t0 + maxHours * 3600_000;
   const pct = (t) => Math.min(100, Math.max(0, ((t - t0) / (t1 - t0)) * 100));
 
   const merged = [];
@@ -121,7 +152,20 @@ function ConditionStrip({ findings }) {
           </span>
         ))}
       </div>
-      <div className="relative h-7 rounded-sm overflow-hidden border hairline" role="img" aria-label={`Conditions along your route: ${summary}`}>
+      <div className="relative h-9 rounded-sm overflow-hidden border hairline bg-white/40">
+        <input
+          type="range"
+          aria-label="Passage time"
+          aria-describedby="condition-summary"
+          min="0"
+          max={maxHours}
+          step="1"
+          value={Math.round(cursor * 10) / 10}
+          onChange={(event) => setCursor(Number(event.target.value))}
+          className="peer absolute inset-0 z-10 w-full h-full opacity-0 cursor-ew-resize m-0"
+        />
+        <span id="condition-summary" className="sr-only">{`Conditions along your route: ${summary}`}</span>
+        <span className="pointer-events-none absolute inset-0 z-20 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:-outline-offset-2 peer-focus-visible:outline-ink" aria-hidden />
         {merged.map((m) => (
           <div
             key={m.from}
@@ -134,7 +178,7 @@ function ConditionStrip({ findings }) {
             }}
           />
         ))}
-        <StripCursor departure={Date.parse(findings.departure_utc)} t0={t0} t1={t1} />
+        <StripCursor departure={t0} t0={t0} t1={t1} />
       </div>
       <div className="relative h-4" aria-hidden>
         {ticks.map((t) => (
@@ -162,7 +206,7 @@ function StripCursor({ departure, t0, t1 }) {
   const cursor = usePlayback((state) => state.cursorHours);
   const time = departure + cursor * 3600_000;
   if (time < t0 || time > t1) return null;
-  return <div className="absolute top-0 bottom-0 w-[2px]" style={{ left: `${((time - t0) / (t1 - t0)) * 100}%`, backgroundColor: palette.event }} aria-hidden />;
+  return <div className="pointer-events-none absolute -top-px -bottom-px w-[3px] -translate-x-1/2" style={{ left: `${((time - t0) / (t1 - t0)) * 100}%`, backgroundColor: palette.event }} aria-hidden />;
 }
 
 function nowLine(time) {

@@ -24,7 +24,7 @@ vi.mock('@deepweather/engine', async (importOriginal) => ({
 const departure = '2026-09-09T06:00:00Z';
 const openSnapshot = vi.fn();
 const comparison = () => within(screen.getByRole('region', { name: 'Departure comparison' }));
-const checkButton = () => screen.getByRole('button', { name: 'Check this passage against my limits' });
+const checkButton = () => screen.getByRole('button', { name: 'Check this passage' });
 const scanButton = () => screen.getByRole('button', { name: 'Compare departure times (next 5 days)' });
 
 beforeEach(() => {
@@ -32,6 +32,7 @@ beforeEach(() => {
   localStorage.clear();
   usePlanner.getState().reset();
   usePlanner.setState({
+    mode: 'draw',
     waypoints: [{ lat: 50.5, lng: -1.5 }, { lat: 50.6, lng: -1.4 }],
     departureLocal: toLocalDateTimeValue(departure),
     scan: {

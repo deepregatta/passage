@@ -2,6 +2,12 @@ import { create } from 'zustand';
 
 const HOUR = 3600_000;
 
+/** Playback spans departure to the slow-speed arrival: the passage's longest window. */
+export function playbackHours(findings) {
+  const arrival = findings?.legs.at(-1)?.eta_range.slow;
+  return arrival ? Math.ceil((Date.parse(arrival) - Date.parse(findings.departure_utc)) / HOUR) : 36;
+}
+
 export function frameForCursor(findings, synoptic, route, cursorHours, eventId) {
   if (!findings) return { phase: 'unavailable', cursorTime: null };
   const cursorMs = Date.parse(findings.departure_utc) + cursorHours * HOUR;

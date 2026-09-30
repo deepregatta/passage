@@ -99,17 +99,17 @@
         "contact@deepregatta.com",
         "desktop",
         "feedback",
-        "footer",
         "https://oscar.deepregatta.com/api/feedback",
         "idle",
         "keydown",
         "local",
         "mobile",
+        "passage",
+        "passages",
         "planner",
         "race_request",
         "served",
         "share_click",
-        "snapshots",
         "submitting",
         "success"
       ],
@@ -146,6 +146,21 @@
         "twitter:image",
         "twitter:title"
       ],
+      "viewer/src/components/LimitsDrawer.jsx": [
+        "Escape",
+        "Tab",
+        "button, input",
+        "downwind",
+        "keydown",
+        "max_gust_kt",
+        "max_steepness",
+        "max_sustained_kt",
+        "max_wave_height_m",
+        "min_visibility_nm",
+        "night_ok",
+        "scenario_fraction_floor",
+        "upwind"
+      ],
       "viewer/src/components/ModelComparison.jsx": [
         "0.08",
         "0.12",
@@ -159,11 +174,6 @@
         "transparent",
         "ui-monospace, monospace",
         "value"
-      ],
-      "viewer/src/components/ModelFooter.jsx": [
-        "weather",
-        "weather-ecmwf",
-        "weather-multimodel"
       ],
       "viewer/src/components/ModelsUsed.jsx": [
         "weather-ecmwf",
@@ -235,10 +245,9 @@
         "value"
       ],
       "viewer/src/components/Shell.jsx": [
-        "brief",
+        "about",
         "briefing",
-        "caseStudy",
-        "changes",
+        "downwind",
         "en",
         "fr",
         "grib",
@@ -246,14 +255,10 @@
         "https://deepregatta.com/legal",
         "https://deepregatta.com/privacy",
         "https://deepregatta.com/terms",
+        "passages",
         "plan",
         "planner",
-        "settings",
-        "snapshots",
-        "verification",
-        "verify",
-        "views",
-        "watch"
+        "upwind"
       ],
       "viewer/src/components/SynopticCompare.jsx": [
         "low"
@@ -264,15 +269,25 @@
       "viewer/src/main.jsx": [
         "root"
       ],
+      "viewer/src/pages/About.jsx": [
+        "/data/verification/calibration.json",
+        "/data/verification/cases/index.json",
+        "/data/verification/corpus.json",
+        "synthetic"
+      ],
       "viewer/src/pages/Briefing.jsx": [
         "A-WARN-01",
+        "changes",
         "decision",
         "emulated_disclosure",
+        "outcome",
         "passage_briefing_view",
         "passage_example_view",
         "passage_run",
+        "passages",
+        "route",
         "route_impact",
-        "snapshots",
+        "story",
         "synoptic_story",
         "unsupported",
         "warnings",
@@ -297,51 +312,13 @@
         "tiles",
         "|"
       ],
-      "viewer/src/pages/briefing/AssessmentDetails.jsx": [
-        "border-l-4 border-authority pl-3",
-        "border-l-4 border-line pl-3",
-        "emulated_disclosure",
-        "not_assessed",
-        "unsupported",
-        "warnings"
-      ],
-      "viewer/src/pages/briefing/DecisionBand.jsx": [
-        "border border-ink/50 px-3.5 py-2 min-h-11 font-sans text-[14px] hover:bg-ink/5",
-        "border border-white/70 px-3.5 py-2 min-h-11 font-sans text-[14px] hover:bg-white/10",
-        "draw",
-        "number",
+      "viewer/src/pages/Passages.jsx": [
+        ".15",
+        "/data/verification/cases/index.json",
+        "3.5",
         "planner",
-        "warning_active"
-      ],
-      "viewer/src/pages/briefing/LegProgressBar.jsx": [
-        "ok"
-      ],
-      "viewer/src/pages/briefing/WeatherStoryCard.jsx": [
-        "conflict",
-        "gate",
-        "gust_kt",
-        "number",
-        "ok",
-        "synoptic_story",
-        "what_could_change",
-        "wind_against_current",
-        "wind_kt"
-      ],
-      "viewer/src/pages/CaseStudy.jsx": [
-        ".json",
-        "/data/verification/cases/"
-      ],
-      "viewer/src/pages/Changes.jsx": [
-        "A-WARN-01",
-        "findings.json",
-        "first",
-        "idle",
-        "ok",
-        "synoptic.json",
-        "warning_active"
-      ],
-      "viewer/src/pages/Evidence.jsx": [
-        "GUST"
+        "route.json",
+        "w-24 h-16 sm:w-40 sm:h-24 shrink-0 border hairline rounded-sm"
       ],
       "viewer/src/pages/Planner.jsx": [
         "compute",
@@ -352,6 +329,74 @@
         "slow",
         "speed",
         "waypoints"
+      ],
+      "viewer/src/pages/briefing/AssessmentDetails.jsx": [
+        "border-l-4 border-authority pl-3",
+        "border-l-4 border-line pl-3",
+        "emulated_disclosure",
+        "not_assessed",
+        "unsupported",
+        "warnings"
+      ],
+      "viewer/src/pages/briefing/ChangesSection.jsx": [
+        "/data/snapshots/",
+        ": HTTP",
+        "A-WARN-01",
+        "findings.json",
+        "first",
+        "idle",
+        "ok",
+        "served",
+        "synoptic.json",
+        "warning_active"
+      ],
+      "viewer/src/pages/briefing/DecisionBand.jsx": [
+        "border border-ink/50 bg-paper/60 px-3.5 py-2 min-h-11 font-sans text-[14px] hover:bg-paper",
+        "draw",
+        "planner",
+        "warning_active"
+      ],
+      "viewer/src/pages/briefing/EvidenceSection.jsx": [
+        "GUST"
+      ],
+      "viewer/src/pages/briefing/LegProgressBar.jsx": [
+        "ok"
+      ],
+      "viewer/src/pages/briefing/OutcomeSection.jsx": [
+        ".json",
+        "/data/verification/cases/",
+        "/data/verification/cases/index.json",
+        "about",
+        "afterprint",
+        "outcome"
+      ],
+      "viewer/src/pages/briefing/PassageChart.jsx": [
+        "map",
+        "pressure"
+      ],
+      "viewer/src/pages/briefing/SectionNav.jsx": [
+        "\"]",
+        "(prefers-reduced-motion: reduce)",
+        "[data-section=\"",
+        "auto",
+        "changes",
+        "function",
+        "outcome",
+        "route",
+        "scroll",
+        "smooth",
+        "start",
+        "story"
+      ],
+      "viewer/src/pages/briefing/WeatherStoryCard.jsx": [
+        "conflict",
+        "gate",
+        "gust_kt",
+        "number",
+        "ok",
+        "synoptic_story",
+        "wind_against_current",
+        "wind_kt"
       ],
       "viewer/src/pages/grib/GribMap.jsx": [
         ".leaflet-control",
@@ -397,25 +442,6 @@
         "slow",
         "user",
         "wp"
-      ],
-      "viewer/src/pages/Settings.jsx": [
-        "downwind",
-        "max_gust_kt",
-        "max_steepness",
-        "max_sustained_kt",
-        "max_wave_height_m",
-        "min_visibility_nm",
-        "night_ok",
-        "scenario_fraction_floor",
-        "synthetic",
-        "upwind"
-      ],
-      "viewer/src/pages/Verification.jsx": [
-        ".json",
-        "/data/verification/calibration.json",
-        "/data/verification/cases/",
-        "/data/verification/cases/index.json",
-        "/data/verification/corpus.json"
       ],
       "viewer/test/fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/briefing.json": [
         "20260720T060000Z_44d2cd5f_64ea971e",
@@ -508,21 +534,21 @@
       "viewer/src/components/Shell.jsx": [
         "Choisir la langue"
       ],
-      "viewer/src/pages/briefing/WeatherStoryCard.jsx": [
-        "cause"
-      ],
-      "viewer/src/pages/CaseStudy.jsx": [
+      "viewer/src/pages/About.jsx": [
         "variable"
       ],
-      "viewer/src/pages/Evidence.jsx": [
+      "viewer/src/pages/briefing/EvidenceSection.jsx": [
         "ensemble",
         "maximum"
       ],
+      "viewer/src/pages/briefing/OutcomeSection.jsx": [
+        "variable"
+      ],
+      "viewer/src/pages/briefing/WeatherStoryCard.jsx": [
+        "cause"
+      ],
       "viewer/src/pages/planner/usePlannerController.jsx": [
         "Ma traversée"
-      ],
-      "viewer/src/pages/Verification.jsx": [
-        "variable"
       ],
       "viewer/test/fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/briefing.json": [
         "ensemble"
@@ -568,12 +594,16 @@
       "viewer/src/components/HeadMetadata.jsx": [
         "| DeepRegatta"
       ],
-      "viewer/src/components/ModelFooter.jsx": [
-        "°",
-        "·"
+      "viewer/src/components/LimitsDrawer.jsx": [
+        "0–1",
+        "H/L",
+        "m",
+        "nm",
+        "✕"
       ],
       "viewer/src/components/ModelsUsed.jsx": [
         "_",
+        "°",
         "·"
       ],
       "viewer/src/components/RouteMap.jsx": [
@@ -589,15 +619,20 @@
       "viewer/src/components/RouteTimeline.jsx": [
         ";",
         "UTC",
+        "h",
         "m",
-        "–"
+        "· +",
+        "–",
+        "Ⅱ",
+        "▶"
       ],
       "viewer/src/components/Shell.jsx": [
-        "0",
+        "/",
         "DeepRegatta",
         "English",
         "Français",
         "Passage",
+        "m",
         "©",
         "·"
       ],
@@ -626,6 +661,12 @@
       "viewer/src/lib/glossary.jsx": [
         "-"
       ],
+      "viewer/src/pages/About.jsx": [
+        ",",
+        "h",
+        "n",
+        "–"
+      ],
       "viewer/src/pages/Briefing.jsx": [
         ".",
         ":"
@@ -638,22 +679,47 @@
         "–",
         "⬇"
       ],
+      "viewer/src/pages/Passages.jsx": [
+        "+",
+        ",",
+        "·",
+        "→",
+        "✕"
+      ],
+      "viewer/src/pages/Planner.jsx": [
+        "h",
+        "nm",
+        "·",
+        "· ~",
+        "…"
+      ],
       "viewer/src/pages/briefing/AssessmentDetails.jsx": [
         ",",
         "_"
       ],
-      "viewer/src/pages/briefing/DecisionBand.jsx": [
-        ",",
-        ".",
-        ":"
+      "viewer/src/pages/briefing/ChangesSection.jsx": [
+        "/",
+        "h",
+        "·",
+        "→"
       ],
-      "viewer/src/pages/briefing/HeaderBar.jsx": [
+      "viewer/src/pages/briefing/DecisionBand.jsx": [
+        "·"
+      ],
+      "viewer/src/pages/briefing/EvidenceSection.jsx": [
+        "%",
+        "/",
+        "UTC",
         "·"
       ],
       "viewer/src/pages/briefing/LegProgressBar.jsx": [
         "0",
         "h",
         "→"
+      ],
+      "viewer/src/pages/briefing/OutcomeSection.jsx": [
+        "+",
+        "·"
       ],
       "viewer/src/pages/briefing/WeatherStoryCard.jsx": [
         "(",
@@ -668,29 +734,6 @@
       "viewer/src/pages/briefing/routeLabels.jsx": [
         ",",
         "→"
-      ],
-      "viewer/src/pages/CaseStudy.jsx": [
-        "+",
-        "·"
-      ],
-      "viewer/src/pages/Changes.jsx": [
-        "h",
-        "·",
-        "→"
-      ],
-      "viewer/src/pages/Evidence.jsx": [
-        "%",
-        "/",
-        "UTC",
-        "·"
-      ],
-      "viewer/src/pages/Planner.jsx": [
-        "Passage",
-        "h",
-        "nm",
-        "·",
-        "· ~",
-        "…"
       ],
       "viewer/src/pages/grib/GribMap.jsx": [
         "6 4"
@@ -715,24 +758,6 @@
       "viewer/src/pages/planner/usePlannerController.jsx": [
         "-",
         "/"
-      ],
-      "viewer/src/pages/Settings.jsx": [
-        "0–1",
-        "H/L",
-        "m",
-        "nm"
-      ],
-      "viewer/src/pages/Snapshots.jsx": [
-        "-",
-        "✕"
-      ],
-      "viewer/src/pages/Verification.jsx": [
-        "+",
-        ",",
-        "h",
-        "n",
-        "·",
-        "–"
       ]
     }
   }

@@ -59,19 +59,18 @@ it('removes the fake comparison control and shifted route in both chart modes', 
 it('does not advertise providers before a passage is assessed', () => {
   useApp.setState({ findings: null });
   render(<Planner />);
-  expect(screen.getByText('Check a passage to record its models and coverage.')).toBeInTheDocument();
+  expect(screen.queryByText('Models and coverage')).toBeNull();
   expect(screen.queryByText(/Winds and gusts along your route: NOAA/)).toBeNull();
 });
 it('shows only recorded models and the actual coverage of the open briefing', () => {
   findings.inputs.forecast_tiles = [{ layer: 'ensemble', model: 'test-model', run_id: 'run-42', source: 'tiles', member_count: 7 }];
   findings.coverage = [{ capability: 'tidal_gates', status: 'not_assessed' }, { capability: 'official_warnings', status: 'assessed_emulated' }];
-  render(<Planner />);
+  render(<Briefing />);
   const panel = screen.getByText('Models and coverage').closest('details');
   fireEvent.click(within(panel).getByText('Models and coverage'));
   expect(panel).toHaveTextContent('test-model');
   expect(panel).toHaveTextContent('run-42');
   expect(panel).toHaveTextContent('7 members');
-  expect(panel).toHaveTextContent(findings.route_id);
   expect(within(panel).getByText('tidal gates').closest('li')).toHaveTextContent('not assessed');
   expect(within(panel).getByText('official warnings').closest('li')).toHaveTextContent('assessed emulated');
   expect(panel).not.toHaveTextContent('CMEMS');
@@ -80,7 +79,7 @@ it('shows only recorded models and the actual coverage of the open briefing', ()
 it('reports missing legacy records without inventing models or coverage', () => {
   delete findings.inputs.forecast_tiles;
   delete findings.coverage;
-  render(<Planner />);
+  render(<Briefing />);
   expect(screen.getByText('Model records unavailable for this briefing.')).toBeInTheDocument();
   expect(screen.getByText('Coverage records unavailable for this briefing.')).toBeInTheDocument();
 });
@@ -91,8 +90,6 @@ it('translates the new disclosure copy and recorded fields into French', () => {
     'Emulated bulletin. Do not use for a real passage decision.': 'Bulletin simulé. Ne l’utilisez pas pour prendre une décision de traversée réelle.',
     'Inspect emulated bulletin': 'Examiner le bulletin simulé',
     'Models and coverage': 'Modèles et couverture',
-    'Check a passage to record its models and coverage.': 'Évaluez une traversée pour enregistrer ses modèles et sa couverture.',
-    'Open briefing': 'Briefing ouvert',
     'Recorded models': 'Modèles enregistrés',
     'Recorded coverage': 'Couverture enregistrée',
     'Model records unavailable for this briefing.': 'Les modèles utilisés ne sont pas enregistrés dans ce briefing.',
@@ -108,13 +105,13 @@ it('translates the new disclosure copy and recorded fields into French', () => {
   }
 });
 
-it.each(['planner', 'briefing'])('discloses fixed prepared windows in archived %s coverage without changing the snapshot', (page) => {
+it.each(['models', 'assessment'])('discloses fixed prepared windows in archived %s coverage without changing the snapshot', (place) => {
   findings.inputs.synoptic_run_id = 'ecmwf-ifs025-20260916T00Z';
   const before = structuredClone(findings);
-  render(page === 'planner' ? <Planner /> : <Briefing />);
-  if (page === 'planner') fireEvent.click(screen.getByText('Models and coverage'));
+  render(<Briefing />);
+  if (place === 'models') fireEvent.click(screen.getByText('Models and coverage'));
   else fireEvent.click(screen.getByRole('button', { name: 'Why this assessment' }));
-  const coverage = screen.getByRole('region', { name: page === 'planner' ? 'Recorded coverage' : 'Capability coverage' });
+  const coverage = screen.getByRole('region', { name: place === 'models' ? 'Recorded coverage' : 'Capability coverage' });
   const synoptic = within(coverage).getByText('synoptic attribution').closest('li');
   expect(synoptic).toHaveTextContent('partially assessed');
   expect(synoptic).toHaveTextContent('Channel-only prepared run');
@@ -129,7 +126,7 @@ it.each(['planner', 'briefing'])('discloses fixed prepared windows in archived %
 });
 
 it('does not label a demo or a briefing without synoptic provenance as a Channel-only prepared run', () => {
-  render(<Planner />);
+  render(<Briefing />);
   expect(screen.queryByText(/Channel-only prepared run/)).toBeNull();
 });
 

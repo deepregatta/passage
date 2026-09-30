@@ -64,8 +64,8 @@ export const NO_JS_COPY = [
     fr: "Essayez avec une route exemple",
   },
   {
-    en: "A ready-made briefing for a Cherbourg to Plymouth crossing is built in. Open it from My briefings, where it is marked \"example\", to explore the full audit — route timeline, tidal gates, warnings, and forecast evidence — without entering any personal data or creating an account.",
-    fr: "Un briefing prêt à consulter pour une traversée de Cherbourg à Plymouth est inclus. Ouvrez-le depuis « Mes briefings », où il est marqué « exemple », pour explorer l’analyse complète — chronologie de la route, passages de marée, avertissements et éléments météo — sans saisir de données personnelles ni créer de compte.",
+    en: "A ready-made briefing for a Cherbourg to Plymouth crossing is built in. Open it from My passages, where it is marked \"example\", to explore the full audit — route timeline, tidal gates, warnings, and forecast evidence — without entering any personal data or creating an account.",
+    fr: "Un briefing prêt à consulter pour une traversée de Cherbourg à Plymouth est inclus. Ouvrez-le depuis « Mes traversées », où il est marqué « exemple », pour explorer l’analyse complète — chronologie de la route, passages de marée, avertissements et éléments météo — sans saisir de données personnelles ni créer de compte.",
   },
   {
     en: "What Passage is — and is not",

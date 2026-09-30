@@ -44,14 +44,16 @@ fixture-backed viewer. The complete command and test catalog lives in
 
 ## Product flow
 
-The viewer follows the passage cycle rather than the implementation layers:
+The viewer is organised around the passage, not the processing pipeline. The
+header has two places, **Plan** and **My passages**, plus a **Limits** chip:
 
-- **Plan** — draw or compute a route, compare departure windows, download GRIB2 files (wind, currents, waves) for a box drawn on the chart ([grib-export.md](docs/grib-export.md)), manage saved briefings and declared limits.
-- **Brief** — read the causal system → route intersection → consequence story, scrub the shared time cursor, then inspect the exact ensemble claim.
-- **Watch** — compare frozen runs through an edited three-item change story; the complete ledger remains available underneath.
-- **Verify** — see real-case corpus counts, calibration sample sizes, and printable frozen-forecast case studies.
+- **Plan** — compute a weather route from the forecast and your boat polar (the default), or draw one; pick a departure or compare departure windows, then check the passage. **Export GRIB for this area** on the chart opens the GRIB2 page (wind, currents, waves) for a box ([grib-export.md](docs/grib-export.md)).
+- **My passages** — each passage (route + departure) keeps its checks together, with its latest verdict, whether it changed since the previous check, and a progress track from checks through departure to verification.
+- **A passage page** — one decision band (route, verdict against your limits, any official warning, next forecast update, share), then sections on one scrolling page: the weather **Story** with a single pressure-chart / route-map view, **Along the route** (the condition strip is also the time scrubber), claim-level **Evidence** with models and coverage, **What changed** since the previous check, and **How it turned out** once the frozen forecast is verified.
+- **Limits** — a drawer, reachable from every page, edits the limits the next check uses; frozen briefings keep their own.
+- **About the data** (footer) — the fleet-wide track record, provider modes and glossary.
 
-URL hashes preserve stage/subview deep links, for example `#brief/story`, `#brief/evidence`, and `#watch/changes`. On screens below 768 px the permanent rail is replaced by a four-tab bottom bar.
+URL hashes deep-link places and passage sections, for example `#plan`, `#passages`, `#passage?snapshot=<id>` and `#passage/evidence?snapshot=<id>`. The retired stage links (`#brief/story`, `#brief/evidence`, `#watch/changes`, `#verify/record`, `#plan/limits`, …) still open the same content. Below 768 px the header navigation becomes a single three-item bottom bar (Plan · My passages · Limits).
 
 ## Deterministic reference demo
 

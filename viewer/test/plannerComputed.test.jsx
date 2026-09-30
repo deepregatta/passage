@@ -30,7 +30,7 @@ vi.mock('@deepweather/engine', async (original) => ({
 }));
 
 const computeButton = () => screen.getByRole('button', { name: 'Compute route', exact: true });
-const checkButton = () => screen.getByRole('button', { name: /^(Check this passage against my limits|computing route…)$/ });
+const checkButton = () => screen.getByRole('button', { name: /^(Check this passage|computing route…)$/ });
 const scanButton = () => screen.getByRole('button', { name: 'Compare departure times (next 5 days)' });
 const summary = () => screen.queryByText('12.3 nm');
 const changeDate = (value = '2030-09-15') => fireEvent.change(screen.getByLabelText('Departure date'), { target: { value } });

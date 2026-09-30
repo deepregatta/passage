@@ -16,17 +16,19 @@ test('briefing checkpoint', async ({ page }) => {
 
 test('emulated warning uses a neutral test-pattern band', async ({ page }) => {
   await openAuditedSnapshot(page);
-  await expect(page.getByText('EMULATED WARNING SCENARIO')).toBeVisible();
+  await expect(page.getByTestId('decision-band').getByText('EMULATED WARNING SCENARIO')).toBeVisible();
 });
 
-test('responsive shell uses horizontal stages without overflow', async ({ page }) => {
+test('responsive shell uses one navigation bar without overflow', async ({ page }) => {
   await openAuditedSnapshot(page);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
   expect(overflow).toBe(false);
-  const stages = page.getByRole('navigation', { name: 'Passage stages', exact: true });
+  const stages = page.getByRole('navigation', { name: 'Main navigation', exact: true });
   await expect(stages).toHaveCount(1);
-  await expect(stages.getByRole('button')).toHaveCount(4);
-  await expect(stages.getByRole('button', { name: /Brief$/ })).toHaveAttribute('aria-current', 'page');
+  const viewportWidth = page.viewportSize().width;
+  // desktop: two places beside the limits chip; mobile: two places and Limits
+  await expect(stages.getByRole('button')).toHaveCount(viewportWidth < 768 ? 3 : 2);
+  await expect(stages.getByRole('button', { name: 'My passages' })).toHaveAttribute('aria-current', 'page');
   const box = await stages.boundingBox();
   const viewport = page.viewportSize();
   expect(box.width).toBeGreaterThan(box.height * 3);

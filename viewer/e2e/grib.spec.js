@@ -62,7 +62,7 @@ test('draws a GRIB box by dragging, resizes it from a corner, and keeps it in th
   const url = page.url();
   await page.reload();
   await expect(areaText).toHaveText(resized);
-  await page.goto('/#plan/planner');
+  await page.goto('/#plan');
   await page.goto(url);
   await expect(areaText).toHaveText(resized);
 });
@@ -76,12 +76,12 @@ test('draws a GRIB box with two clicks on opposite corners', async ({ page }) =>
   await expect(page.locator('.leaflet-marker-icon')).toHaveCount(4);
 });
 
-test('the planner opens the GRIB page from its Plan tab and its Passage panel', async ({ page }) => {
-  await page.goto('/#plan/planner');
-  await page.getByRole('navigation', { name: 'Plan views' }).getByRole('button', { name: 'GRIB files' }).click();
+test('the planner map opens the GRIB page, and Plan leads back', async ({ page }) => {
+  await page.goto('/#plan');
+  await page.getByRole('button', { name: 'Export GRIB for this area' }).click();
   await expect(page).toHaveURL(/#plan\/grib/);
   await expect(page.getByRole('heading', { name: 'Download GRIB files' })).toBeVisible();
-  await page.goto('/#plan/planner');
-  await page.getByRole('button', { name: 'Download GRIBs…' }).click();
-  await expect(page.getByRole('heading', { name: 'Download GRIB files' })).toBeVisible();
+  await page.getByRole('button', { name: 'Plan', exact: true }).first().click();
+  await expect(page).toHaveURL(/#plan$/);
+  await expect(page.getByRole('heading', { name: 'Plan a passage' })).toBeVisible();
 });

@@ -1,50 +1,64 @@
-import { useEffect, useMemo } from 'react';
-import { useApp } from '../stores/appStore.js';
-import EnsemblePlume from '../components/EnsemblePlume.jsx';
-import ModelComparison from '../components/ModelComparison.jsx';
-import { EvidenceLink } from '../components/common.jsx';
-import { evidenceById, evidenceVariable, worstEnsembleEvidence } from '../lib/evidenceSelectors.js';
-import { fmtTime } from '../lib/format.js';
+import { useEffect, useMemo, useState } from 'react';
+import { useApp } from '../../stores/appStore.js';
+import EnsemblePlume from '../../components/EnsemblePlume.jsx';
+import ModelComparison from '../../components/ModelComparison.jsx';
+import ModelsUsed from '../../components/ModelsUsed.jsx';
+import { EvidenceLink } from '../../components/common.jsx';
+import { evidenceById, evidenceVariable, worstEnsembleEvidence } from '../../lib/evidenceSelectors.js';
+import { fmtTime } from '../../lib/format.js';
 import clsx from 'clsx';
 
-export default function Evidence() {
+/** Claim-level evidence: the ensemble behind each limit claim, then the models
+ * and coverage the whole briefing rests on. */
+export default function EvidenceSection() {
   const findings = useApp((state) => state.findings);
   const selectedId = useApp((state) => state.selectedEvidenceId);
   const selectEvidence = useApp((state) => state.selectEvidence);
   const selectLeg = useApp((state) => state.selectLeg);
-  const selected = evidenceById(findings, selectedId);
+  const plume = useApp((state) => state.plume);
   const claims = useMemo(
     () => (findings?.evidence ?? []).filter((item) => item.source_kind === 'ensemble' && item.member_fraction),
     [findings],
   );
-  const fallback = worstEnsembleEvidence(findings);
-
+  // Follow an ensemble claim chosen anywhere on the page, but never overwrite
+  // the page's selection: the inspector may be showing a non-ensemble claim.
+  const [claimId, setClaimId] = useState(null);
   useEffect(() => {
-    if ((!selected || selected.source_kind !== 'ensemble') && fallback) selectEvidence(fallback.evidence_id);
-  }, [selected, fallback, selectEvidence]);
+    const selected = evidenceById(findings, selectedId);
+    if (selected?.source_kind === 'ensemble' && selected.member_fraction) setClaimId(selected.evidence_id);
+  }, [findings, selectedId]);
 
-  if (!findings) return <p className="p-10 font-instrument text-ink-soft">Open a snapshot first.</p>;
-  const evidence = selected?.source_kind === 'ensemble' ? selected : fallback;
-  if (!evidence) return <p className="p-10 font-instrument text-ink-soft">No ensemble limit claim is available for this snapshot.</p>;
+  const chosen = evidenceById(findings, claimId);
+  const evidence = chosen?.source_kind === 'ensemble' && chosen.member_fraction ? chosen : worstEnsembleEvidence(findings);
+  if (!findings) return null;
+  if (!evidence) {
+    return (
+      <>
+        <p className="font-instrument text-ink-soft">No ensemble limit claim is available for this briefing.</p>
+        <ModelsUsed />
+      </>
+    );
+  }
   const pct = Math.round((evidence.member_fraction.exceed / evidence.member_fraction.total) * 100);
   const variable = evidenceVariable(evidence);
   const leg = findings.legs.find((item) => item.leg_id === evidence.leg_id);
-  const plumeLeg = useApp.getState().plume?.legs.find((item) => item.leg_id === evidence.leg_id);
+  const plumeLeg = plume?.legs.find((item) => item.leg_id === evidence.leg_id);
 
   const choose = (claim) => {
+    setClaimId(claim.evidence_id);
     selectEvidence(claim.evidence_id);
     selectLeg(claim.leg_id);
   };
 
   return (
-    <div className="px-4 sm:px-6 py-5 max-w-[1500px] mx-auto">
+    <div>
       <header className="border-b border-ink/40 pb-4 mb-4">
         <p className="eyebrow">Claim-level evidence · {evidence.rule_id}</p>
         <div className="grid lg:grid-cols-[1fr_auto] gap-4 items-end">
-          <h1 className="font-story text-4xl sm:text-5xl leading-[0.98] max-w-4xl">
+          <h2 className="font-story text-3xl sm:text-4xl leading-[1.02] max-w-4xl">
             <span className="text-verdict-exceeds">{evidence.member_fraction.exceed} of {evidence.member_fraction.total}</span>{' '}
             {`forecast scenarios exceed your ${variable} limit`}
-          </h1>
+          </h2>
           <div className="lg:text-right">
             <div className="font-mono text-4xl">{pct}%</div>
             <div className="font-instrument text-xs text-ink-soft max-w-56">raw count, not a calibrated probability</div>
@@ -58,7 +72,7 @@ export default function Evidence() {
           <p className="eyebrow py-2">Choose a claim</p>
           <div className="flex xl:flex-col gap-1 overflow-x-auto pb-2">
             {claims.map((claim) => (
-              <button key={claim.evidence_id} type="button" onClick={() => choose(claim)} className={clsx('text-left min-w-40 px-3 py-2 border hairline font-instrument text-xs', claim.evidence_id === evidence.evidence_id ? 'bg-ink text-paper border-ink' : 'bg-white/30 hover:border-ink-soft')}>
+              <button key={claim.evidence_id} type="button" onClick={() => choose(claim)} aria-pressed={claim.evidence_id === evidence.evidence_id} className={clsx('text-left min-w-40 px-3 py-2 border hairline font-instrument text-xs', claim.evidence_id === evidence.evidence_id ? 'bg-ink text-paper border-ink' : 'bg-white/30 hover:border-ink-soft')}>
                 <span className="font-mono block">{claim.leg_id} · {claim.rule_id.includes('GUST') ? 'gust' : 'wind'}</span>
                 {claim.member_fraction.exceed}/{claim.member_fraction.total} over · {fmtTime(claim.valid_time)}
               </button>
@@ -66,16 +80,17 @@ export default function Evidence() {
           </div>
         </aside>
 
-        <main className="min-w-0">
+        <div className="min-w-0">
           <div className="chart-frame border border-ink/40 bg-white/25 p-2 sm:p-4">
             <EnsemblePlume evidence={evidence} variable={variable} />
           </div>
           <EvidenceTable leg={plumeLeg} evidence={evidence} variable={variable} />
           <section className="mt-5 border-t border-ink/40 pt-4">
-            <div className="flex items-baseline justify-between gap-3 mb-2"><h2 className="font-instrument font-semibold uppercase tracking-wider">Model comparison · same interval</h2><span className="font-instrument text-xs text-ink-soft">agreement is not proof</span></div>
+            <h3 className="font-instrument font-semibold uppercase tracking-wider mb-2">Model comparison · same interval</h3>
             <ModelComparison />
           </section>
-        </main>
+          <ModelsUsed />
+        </div>
         <ClaimPanel evidence={evidence} leg={leg} />
       </div>
     </div>

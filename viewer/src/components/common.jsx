@@ -12,13 +12,13 @@ export function EvidenceLink({ evidenceId, children }) {
   );
 }
 
-export function VerdictChip({ state, small }) {
+export function VerdictChip({ state, small, large }) {
   const v = VERDICT[state] ?? VERDICT.insufficient;
   return (
     <span
       className={clsx(
         'inline-flex items-center gap-1.5 font-sans font-medium rounded-sm text-white',
-        small ? 'text-[11px] px-2 py-0.5' : 'text-sm px-3 py-1',
+        small ? 'text-[11px] px-2 py-0.5' : large ? 'text-base px-4 py-2 shrink-0' : 'text-sm px-3 py-1',
       )}
       style={{ backgroundColor: v.hex }}
     >

@@ -26,7 +26,7 @@ describe('durable public example', () => {
     await useApp.getState().loadExample();
     expect(useApp.getState().findings.verdict.state).toBe('warning_active');
     useApp.getState().setPage('planner');
-    expect(location.hash).toBe('#plan/planner');
+    expect(location.hash).toBe('#plan');
     expect(location.search).toContain('utm_source=bluesky');
   });
   it('fails visibly when the served example is unavailable', async () => {

@@ -13,7 +13,7 @@ const CONTACT_EMAIL = 'contact@deepregatta.com';
 
 // The shared inbox accepts race_request; keep its wire category until the API changes.
 const CATEGORIES = [
-  ['race_request', 'Request a race'],
+  ['race_request', 'Request an area or route'],
   ['bug', 'Report a data issue'],
   ['feedback', 'Other feedback'],
 ];
@@ -25,9 +25,9 @@ function deviceType() {
 /** One next step after a successful action: keep or reuse the planning context. */
 function NextStep({ onNavigate, onDone }) {
   const snapshotId = useApp((state) => state.snapshotId);
-  const target = snapshotId ? 'snapshots' : 'planner';
+  const target = snapshotId ? 'passages' : 'planner';
   const label = snapshotId
-    ? 'Next: save or share this planning context'
+    ? 'Next: see all your passages'
     : 'Next: explore another scenario';
   return (
     <button
@@ -98,12 +98,12 @@ function FeedbackDialog({ onNavigate, onClose }) {
       }}
       role="dialog"
       aria-modal="true"
-      aria-label="Request a race or report an issue"
+      aria-label="Send feedback or report an issue"
     >
       <div className="w-full max-w-md border border-ink bg-paper p-5 shadow-xl">
         <div className="flex items-start justify-between gap-4 border-b hairline pb-3">
           <h2 className="font-instrument text-lg font-semibold text-ink">
-            Request a race or report an issue
+            Send feedback or report an issue
           </h2>
           <button
             type="button"
@@ -154,7 +154,7 @@ function FeedbackDialog({ onNavigate, onClose }) {
               maxLength={2000}
               rows={5}
               autoFocus
-              placeholder="Which race or passage should we cover, or what looks wrong?"
+              placeholder="Which area or route should we cover, or what looks wrong?"
               className="w-full resize-none border border-ink/30 bg-paper px-3 py-2 font-instrument text-sm text-ink placeholder:text-ink-soft/70 focus:border-event focus:outline-none"
             />
             <input
@@ -192,8 +192,8 @@ function FeedbackDialog({ onNavigate, onClose }) {
   );
 }
 
-/** Share + feedback actions for the site footer, on every Passage view. */
-export default function FooterActions({ onNavigate }) {
+/** Share the open served analysis by link; local briefings stay in this browser. */
+export function ShareAnalysisButton({ onNavigate, className }) {
   const snapshotId = useApp((state) => state.snapshotId);
   const snapshotSource = useApp((state) => state.snapshotSource);
   const ready = useApp((state) => !state.loading && !state.loadError && Boolean(state.findings && state.briefing));
@@ -206,12 +206,11 @@ export default function FooterActions({ onNavigate }) {
     const timer = window.setTimeout(() => setCopiedUrl(null), 6000);
     return () => window.clearTimeout(timer);
   }, [copiedUrl]);
-  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   async function share() {
     if (!shareUrl) return;
     setFailedUrl(null);
-    track('share_click', { surface: 'footer' });
+    track('share_click', { surface: 'passage' });
     try {
       await navigator.clipboard.writeText(shareUrl);
       setCopiedUrl(shareUrl);
@@ -221,22 +220,15 @@ export default function FooterActions({ onNavigate }) {
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+    <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1">
       <button
         type="button"
         onClick={share}
         disabled={!shareUrl}
         aria-describedby={ready && snapshotSource === 'local' ? 'local-sharing-note' : undefined}
-        className="font-instrument text-sm text-event underline-offset-4 hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+        className={className}
       >
         {copied ? 'Link copied' : 'Share this analysis'}
-      </button>
-      <button
-        type="button"
-        onClick={() => setFeedbackOpen(true)}
-        className="font-instrument text-sm text-event underline-offset-4 hover:underline"
-      >
-        Request a race / report a data issue
       </button>
       {ready && snapshotSource === 'local' && (
         <span id="local-sharing-note" className="font-instrument text-xs text-ink-soft">
@@ -247,9 +239,25 @@ export default function FooterActions({ onNavigate }) {
         <span role="alert" className="font-instrument text-xs text-event">Could not copy the link. Please try again.</span>
       )}
       {copied && <NextStep onNavigate={onNavigate} />}
+    </span>
+  );
+}
+
+/** Feedback for the site footer, on every Passage view. */
+export default function FooterActions({ onNavigate }) {
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setFeedbackOpen(true)}
+        className="font-instrument text-sm text-event underline-offset-4 hover:underline"
+      >
+        Send feedback / report a data issue
+      </button>
       {feedbackOpen && (
         <FeedbackDialog onNavigate={onNavigate} onClose={() => setFeedbackOpen(false)} />
       )}
-    </div>
+    </>
   );
 }

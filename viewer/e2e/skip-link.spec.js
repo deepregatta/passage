@@ -3,7 +3,7 @@ import { SNAPSHOT_ID } from './helpers.js';
 
 for (const language of ['en', 'fr']) {
   test(`skip link preserves the ${language} briefing through keyboard activation and reload`, async ({ page }, testInfo) => {
-    await page.goto(`/${language === 'fr' ? 'fr/' : ''}?utm_source=skip-test#brief/story?snapshot=${SNAPSHOT_ID}`);
+    await page.goto(`/${language === 'fr' ? 'fr/' : ''}?utm_source=skip-test#passage?snapshot=${SNAPSHOT_ID}`);
     await expect(page.getByTestId('decision-band')).toBeVisible();
     const url = page.url();
     const historyLength = await page.evaluate(() => history.length);

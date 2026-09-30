@@ -46,8 +46,6 @@ export default function LegProgressBar({ findings }) {
         ))}
       </div>
       <div className="relative h-9">
-        <span className="absolute left-0 font-sans font-medium text-[12px]">{from}</span>
-        <span className="absolute right-0 font-sans font-medium text-[12px] text-right">{to}</span>
         {dots.map((d) => (
           <div
             key={d.leg.leg_id}
@@ -59,6 +57,10 @@ export default function LegProgressBar({ findings }) {
             {Math.floor(d.durH)}h{String(Math.round((d.durH % 1) * 60)).padStart(2, '0')}
           </div>
         ))}
+      </div>
+      <div className="flex justify-between gap-4 font-sans font-medium text-[12px]">
+        <span>{from}</span>
+        <span className="text-right">{to}</span>
       </div>
     </div>
   );

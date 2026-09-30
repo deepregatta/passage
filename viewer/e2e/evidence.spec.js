@@ -1,9 +1,9 @@
 import { expect, test } from '@playwright/test';
-import { openAuditedSnapshot } from './helpers.js';
+import { openAuditedSnapshot, openSection } from './helpers.js';
 
 test('evidence checkpoint', async ({ page }) => {
   await openAuditedSnapshot(page);
-  await page.getByRole('button', { name: 'Evidence', exact: true }).first().click();
+  await openSection(page, 'Evidence');
   await expect(page.getByRole('heading', { name: /forecast scenarios exceed/i })).toBeVisible();
   const charts = page.locator('.echarts-for-react svg');
   await expect(charts).toHaveCount(2);
@@ -12,12 +12,12 @@ test('evidence checkpoint', async ({ page }) => {
     await expect(chart.locator('path').first()).toBeAttached();
   }
   await expect(page.getByText('Drawing forecast…', { exact: true })).toHaveCount(0);
-  await expect(page).toHaveScreenshot('evidence.png', { fullPage: true });
+  await expect(page.locator('[data-section="evidence"]')).toHaveScreenshot('evidence.png');
 });
 
 test('headline, chart, limit, and inspector use one evidence claim', async ({ page }) => {
   await openAuditedSnapshot(page);
-  await page.getByRole('button', { name: 'Evidence', exact: true }).first().click();
+  await openSection(page, 'Evidence');
   await page.getByRole('button', { name: /L4 · gust.*23\/51/i }).click();
   await expect(page.getByText(/YOUR LIMIT/)).toBeVisible();
   await expect(page.getByRole('heading', { name: /23 of 51 forecast scenarios/i })).toBeVisible();
@@ -26,9 +26,10 @@ test('headline, chart, limit, and inspector use one evidence claim', async ({ pa
 for (const language of ['en', 'fr']) {
   test(`evidence charts fit the viewport in ${language}`, async ({ page }, testInfo) => {
     await openAuditedSnapshot(page);
-    await page.getByRole('button', { name: 'Evidence', exact: true }).first().click();
+    await openSection(page, 'Evidence');
     if (language === 'fr') await page.getByRole('button', { name: 'Français' }).click();
-    const charts = page.locator('.echarts-for-react svg');
+    const section = page.locator('[data-section="evidence"]');
+    const charts = section.locator('.echarts-for-react svg');
     await expect(charts).toHaveCount(2);
     for (const chart of await charts.all()) {
       await expect(chart.locator('path').first()).toBeAttached();
@@ -64,11 +65,11 @@ for (const language of ['en', 'fr']) {
     // Existing charts must shrink when the layout changes, not just on first mount.
     await page.setViewportSize({ width: 390, height: 844 });
     await assertFits();
-    const claims = page.locator('aside').filter({ has: page.locator('button') }).getByRole('button');
+    const claims = section.locator('aside').filter({ has: page.locator('button') }).getByRole('button');
     await claims.last().click();
     await assertFits();
-    await page.locator('summary').click();
-    await expect(page.locator('main table')).toBeVisible();
+    await section.locator('summary').first().click();
+    await expect(section.locator('table')).toBeVisible();
     await assertFits();
     await page.screenshot({ path: `../output/playwright/review-3.9/evidence-${language}-${testInfo.project.name}-390-table.png`, fullPage: true, scale: 'css' });
   });
