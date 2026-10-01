@@ -28,7 +28,9 @@ dispatcher starts every provider cycle, `cadence_hours` follows the
 providers, and each workflow keeps a 6-hourly fallback cron. Its exit
 criteria need two days of GFS and a week of currents runs; see
 [5B](#5b--switch-on-publish-every-provider-update-after-davi-has-deployed-the-worker).
-**Phase 5C built 2026-10-01**: ECMWF's 06Z/18Z runs (to 144 h) are the layer
+**Phase 5C landed 2026-10-01** (Passage `edaf6ec`, CI run 36853682081
+green; forecast-tiles `2c3b59f`, CI run 36853723703 green; Worker version
+`9e7231f6` deployed at 11:11 UTC): ECMWF's 06Z/18Z runs (to 144 h) are the layer
 `weather-ecmwf-short`, dispatched at 00:15 and 12:15; the briefing's model
 comparison takes the newest ECMWF cycle for each hour, and an ECMWF GRIB file
 the newest run covering its period. Its exit criteria need a week of 06Z/18Z
@@ -1296,7 +1298,7 @@ Built on 2026-10-01 (where it goes beyond the tasks above):
 - **Size (3).** `ingest weather-ecmwf-short --cycle 20260930T18 --dry-run`
   through the Azure mirror: 648 tiles, **189.5 MB**, 68 s, 2.2 GB peak RSS,
   12 checks passed; manifest and `latest.json` validate against the vendored
-  schemas. The live bucket held 6.28 GB in its 12 retained runs at 13:10
+  schemas. The live bucket held 6.28 GB in its 12 retained runs at 11:10
   UTC, so two short runs bring it to **6.66 GB** of the 8 GB guard. R2
   writes rise by 1,296 tile PUTs a day (≈ 39k a month).
 - **Engine (4).** `engine/src/forecast/modelRuns.ts`: `runSpan` (a run's axis
@@ -1329,14 +1331,30 @@ Built on 2026-10-01 (where it goes beyond the tasks above):
   `10fg3`); `inspect_grib.py` decoded both. `cli run` Cherbourg → Plymouth
   departing 2 Oct 06:00 recorded the 18Z run serving every hour, did not read
   the older 00Z one, and labelled it "ECMWF 18Z".
+- **First live run.** The Worker dispatched `ingest-weather-ecmwf-short
+  cycle=20261001T06 wait=120` at 12:15:42 (run 36860582796). The run found
+  the cycle at 12:28:05 (7 checks; ECMWF's release minute is 12:27), built
+  648 tiles (191.4 MB) and was live at 12:37:10 (`published_at` 12:30:38,
+  when the upload started): **cycle + 6 h 37**, inside + 8 h 15. Cloudflare's
+  edge kept serving the previous `latest.json` (its `max-age=300`) until
+  12:40:36, as for every layer.
+- **Production, after it.** `cli grib` on the live runs, box 48.9–51°N,
+  4.7°W–1.2°E from 1 Oct 12:00: 3 days from the 06Z run (75 messages, every
+  reference time 06Z), 7 days from the 00Z run (153). The GRIB page
+  (`?dr_traffic=qa`, Next 3 days) shows "ECMWF 06Z ·
+  `weather-ecmwf-short-20261001T06Z`" in File details, and its file has the
+  CLI's fnv64 `d33cd6a07cb50a68`. `cli run` Cherbourg → Plymouth departing
+  7 Oct 00:00 on the live tiles: the 06Z run served 00:00–06:00 of 7 Oct,
+  the 00Z run 07:00 onward, labelled "ECMWF 06Z to +144 h, then 00Z".
 
 Exit criteria:
 
-- [ ] A week of 06Z/18Z runs published within + 8 h 15 of their cycle.
-- [ ] Passage's briefing uses the short run to + 144 h and the 240 h run
-      beyond it, labelled; a GRIB ECMWF file's details name its run. Built
-      and tested (engine, viewer, and the end-to-end check above); open until
-      production serves a live short run.
+- [ ] A week of 06Z/18Z runs published within + 8 h 15 of their cycle. First:
+      20261001T06Z at + 6 h 37.
+- [x] Passage's briefing uses the short run to + 144 h and the 240 h run
+      beyond it, labelled; a GRIB ECMWF file's details name its run. Checked
+      on the live runs on 2026-10-01 (above): the engine's analysis on
+      production tiles and the production GRIB page.
 - [ ] Bucket under 8 GB; R2 Class A projection under 1M a month. Projected
       6.66 GB and ≈ 315k a month; confirm once both short runs are retained.
 - [x] Docs updated in both repos.
