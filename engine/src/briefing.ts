@@ -353,12 +353,13 @@ function positionPhrase(p: { lat: number; lon: number }, route?: Route): string 
 /**
  * Fallback tile-publication cadence, for a latest.json entry without the
  * producer's `cadence_hours` (the field arrived on 2026-09-29; scenario
- * bundles never carry one). Daily, verified against forecast-tiles
- * ingest-*.yml on 2026-09-08; currents-ibi runs in hourly slots from
- * 2026-09-29 but still publishes one bulletin a day. These are pipeline
- * schedules, not model issuance cadences. When forecast-tiles publishes every
- * provider cycle (grib-export-plan Phase 5B) its `cadence_hours` says so, and
- * this table follows for older metadata.
+ * bundles never carry one). Such an entry was published while forecast-tiles
+ * ingested each layer once a day (verified against its ingest-*.yml on
+ * 2026-09-08), so the table stays daily. Since 2026-10-01 forecast-tiles
+ * publishes every provider cycle (grib-export-plan Phase 5B) and every live
+ * entry says so in `cadence_hours`: 6 for GFS, GFS-Wave and GEFS, 12 for
+ * ECMWF, 24 for both current layers. These are pipeline schedules, not model
+ * issuance cadences.
  * Unknown layer/model pairs are deliberately excluded. No schedule is
  * inferred for scenario bundles.
  */
