@@ -1020,8 +1020,11 @@ Davi's manual steps after 5A (the session prints these at the end). Done
 2026-09-29: token created; Worker `forecast-tiles-dispatcher` deployed at
 21:24 UTC in dry-run with `GITHUB_TOKEN` set (Davi's shell exports a
 `CLOUDFLARE_API_TOKEN` without Workers permissions, hence
-`env -u CLOUDFLARE_API_TOKEN npx wrangler …`), then redeployed by the session
-with the log fix below. First dry-run lines:
+`env -u CLOUDFLARE_API_TOKEN npx wrangler …`; since 2026-10-01 Davi's
+`~/.bashrc` drops that token for `npx`/`npm` inside
+`forecast-tiles/dispatcher`, so plain `npx wrangler …` there uses the OAuth
+login), then redeployed by the session with the log fix below. First dry-run
+lines:
 `would dispatch ingest-weather cycle=20260929T18 wait=90` (22:25 slot,
 Cloudflare `scheduledTime` 22:25:27) and
 `would dispatch ingest-waves cycle=20260929T18 wait=90 scheduled=23:00:00Z fired=23:00:28Z`.
