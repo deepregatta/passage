@@ -1188,9 +1188,12 @@ Done on 2026-10-01 (forecast-tiles `eb39ef0`, CI run 36826385892 green):
   daily, and 6 would mis-estimate it. Its comment says so now.
   `docs/forecast-tile-format.md` gives the live cadences.
 - **Bucket at switch-on:** the 12 retained runs total 6.30 GB, from their
-  manifests. The guard counts the new run on top, so the largest publish
-  (ensemble, 1.07 GB) peaks at about 7.4 GB of 8. For 5C: two short ECMWF
-  runs (≈ 0.4 GB) bring that peak to about 7.8 GB.
+  manifests. `check_storage_guard` counts the runs kept after a publish
+  plus the new one. It leaves out the layer's previous run, which is about
+  to be deleted, so at each publish it sees about the same 6.3 GB of 8.
+  During an upload the bucket briefly holds one extra run (≤ 1.07 GB, the
+  ensemble). 5C's two short ECMWF runs (≈ 0.4 GB) bring the guard's figure
+  to about 6.7 GB.
 - **Measuring (3, 4).** `published_at` is stamped when the upload *starts*
   (`publish.py`). GFS 00Z of 1 Oct reads 06:49:39, but `latest.json` changed
   at 06:59:37, so `published_at − cycle` understates by the upload time
