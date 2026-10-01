@@ -158,12 +158,14 @@ axes, variables, per-tile `{bytes, fnv64}`, totals, validation results.
 `latest.json` (`contracts/forecast-latest.schema.json`): per-layer
 `{run_id, previous_run_id, cycle, member_count, published_at, cadence_hours}`.
 `cadence_hours` (optional, integer ≥ 1, from 2026-09-29) is the hours between
-the layer's scheduled publications, from forecast-tiles' per-layer config: 24
-for every layer until the dispatcher publishes each provider cycle
-(`grib-export-plan.md` Phase 5B: GFS, GFS-Wave and GEFS 6; ECMWF 12;
-currents 24). The briefing's next-update estimate uses it and falls back to
-its own table (`PUBLICATION_SCHEDULE` in `engine/src/briefing.ts`) when it is
-absent.
+the layer's scheduled publications, from forecast-tiles' per-layer config.
+Since 2026-10-01 the dispatcher publishes every provider cycle
+(`grib-export-plan.md` Phase 5B): GFS, GFS-Wave and GEFS 6; ECMWF 12; both
+current layers 24. It was 24 for every layer before, and each entry changes
+at its layer's next publish. The briefing's next-update estimate uses it and
+falls back to its own daily table (`PUBLICATION_SCHEDULE` in
+`engine/src/briefing.ts`) when it is absent, as it is only in entries
+published before 2026-09-29.
 
 ### Runs change under an open page
 

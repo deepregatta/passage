@@ -21,8 +21,13 @@ its cycle (replaces the 10-minute polling Worker first planned). ECMWF
 (dispatcher Worker with `DRY_RUN`, `--wait-minutes`, STAC readiness for
 GLO12 and IBI, `cadence_hours`, ensemble at ≈ 4.9 GB), `924a032` and
 `16b55f9` (fixes from the live checks), and Passage `7f35f17` (store refresh
-between actions, `cadence_hours` in the next-run estimate). The dispatcher
-is deployed in dry-run since 21:24 UTC; after a day of its log lines, 5B.
+between actions, `cadence_hours` in the next-run estimate). **Phase 5B
+switched on 2026-10-01 06:44 UTC** (forecast-tiles `eb39ef0`): after a dry
+run of 22 fires (all 16 slots of 30 Sep, each 27–48 s after its minute), the
+dispatcher starts every provider cycle, `cadence_hours` follows the
+providers, and each workflow keeps a 6-hourly fallback cron. Its exit
+criteria need two days of GFS and a week of currents runs; see
+[5B](#5b--switch-on-publish-every-provider-update-after-davi-has-deployed-the-worker).
 Phase 4 (measure) is still open. Update the status line and tick the exit
 criteria as phases land.
 
@@ -704,6 +709,10 @@ Other facts:
   without repository activity, which is a latent risk to all ingestion today.
   Every ingest workflow already has `workflow_dispatch` with a `cycle` input
   and `concurrency: {group: ingest-<layer>, cancel-in-progress: false}`.
+- **Cloudflare Cron Triggers**, from the dispatcher's dry run (2026-09-29
+  22:25 to 10-01 05:45 UTC, 22 fires, 0 errors): every slot fired exactly
+  once, 27–29 s after its minute, once 48 s (05:00 on 1 Oct). The
+  `scheduledTime` handed to the Worker already includes that delay.
 - **GLO12's provider time**, seen once: its public STAC item
   (`…/GLOBAL_ANALYSISFORECAST_PHY_001_024/cmems_mod_glo_phy-cur_anfc_0.083deg_PT6H-i_202406/dataset.stac.json`)
   had `admp_updated_data` 06:25:55 UTC on 2026-09-29, while that day's
@@ -1030,7 +1039,8 @@ Cloudflare `scheduledTime` 22:25:27) and
 `would dispatch ingest-waves cycle=20260929T18 wait=90 scheduled=23:00:00Z fired=23:00:28Z`.
 Cloudflare's `scheduledTime` already includes its start delay, so the log's
 `scheduled` is now the timetable minute (forecast-tiles `924a032`); the
-first line predates that fix. Step 4 (a day of dry run) is running.
+first line predates that fix. Step 4 (a day of dry run) ran until 1 Oct
+05:45; its lines are checked in 5B.
 
 1. Create a fine-grained token on GitHub (Settings → Developer settings →
    Fine-grained tokens):
@@ -1128,6 +1138,65 @@ Tasks:
    cycle.
 6. Update the forecast-tiles README cadence column, the `briefing.ts`
    fallback table, and this plan's Verified facts.
+
+Done on 2026-10-01 (forecast-tiles `eb39ef0`, CI run 36826385892 green):
+
+- **Dry run (1): passed.** Workers Logs, 2026-09-29 22:25 to 10-01 05:45
+  UTC: 22 fires, 0 errors. Each of the 16 slots of 30 Sep fired once, and
+  every cycle matches the timetable, including 00:15 → the previous day's
+  18Z and the shared 05:45/09:45 expression. `fired − scheduled` was 27–29 s
+  for 21 fires and 48 s once (05:00 on 1 Oct). Recorded in *Other facts*.
+- **A fire a minute late would have been lost (fixed before switching
+  on).** The `scheduledTime` that Cloudflare passes to the Worker already
+  includes the start delay, and `dueAt` floored it to the minute. A fire
+  60 s late or more would have matched no slot and dispatched nothing,
+  without a log line. Now a fire counts for the latest slot up to 4 min 59 s
+  before it (`MAX_LATE_MINUTES`, under the 5 min of a `*/5` tick). A fire
+  of a timetable cron that matches no slot logs `MISSED SLOT` and fails the
+  invocation.
+- **Switched on (2)** at 06:44 UTC. `DRY_RUN = "false"`, and the session
+  deployed it (Worker version `3669031a`): the OAuth login works from the
+  agent's non-interactive shell, and the `GITHUB_TOKEN` secret was kept.
+  `CADENCE_HOURS`: weather, waves and ensemble 6, weather-ecmwf 12,
+  currents and currents-ibi 24. Every ingest workflow's only `schedule` is
+  now `37 2,8,14,20 * * *`. Also: `test_glo12_build_cube_snaps_the_float32_coordinates`
+  read Copernicus's live STAC item, so it failed while GLO12 was updating
+  (06:43). It now serves its own item.
+- **First live dispatch:** 07:20 `ingest-weather-ecmwf cycle=20261001T00
+  wait=120`, fired 07:20:39, `outcome ok`, run 36829776911. GitHub answered
+  204 with no run id: since its 2026-02-19 change the dispatch API returns
+  the run (200) only when the body sets `return_run_details: true`. That was
+  checked by hand with an already-published IBI cycle (200, run 36829844687)
+  and added in forecast-tiles `8558386` (Worker version `1a537da4`), so the
+  log line now carries the run URL.
+- **Catch-up.** The 04:25, 05:00, 05:45 and 06:15 slots of 1 Oct fired in
+  dry run, so the session dispatched those 00Z cycles by hand at 06:45, with
+  the Worker's inputs. GFS (run 36826492997), GFS-Wave and GEFS 00Z were
+  live by about 07:00 with `cadence_hours: 6`. They are not counted toward
+  the targets.
+- **Next-run estimate (5): checked.** `nextForecastRuns` on the live
+  `latest.json` at 07:00 put GFS, GFS-Wave and GEFS at 12:49–12:51, i.e. the
+  cadence (6 h) after each run's `published_at`. Once publication runs at
+  about cycle + 5 h, the estimate becomes about 11:00, 17:00, 23:00 and
+  05:00.
+- **`briefing.ts` fallback table (6) stays daily.** It applies only to a
+  `latest.json` entry without `cadence_hours`. Since 2026-09-30 every live
+  entry carries the field, so such an entry dates from when every layer was
+  daily, and 6 would mis-estimate it. Its comment says so now.
+  `docs/forecast-tile-format.md` gives the live cadences.
+- **Bucket at switch-on:** the 12 retained runs total 6.30 GB, from their
+  manifests. The guard counts the new run on top, so the largest publish
+  (ensemble, 1.07 GB) peaks at about 7.4 GB of 8. For 5C: two short ECMWF
+  runs (≈ 0.4 GB) bring that peak to about 7.8 GB.
+- **Measuring (3, 4).** `published_at` is stamped when the upload *starts*
+  (`publish.py`). GFS 00Z of 1 Oct reads 06:49:39, but `latest.json` changed
+  at 06:59:37, so `published_at − cycle` understates by the upload time
+  (≈ 10 min for an 850 MB layer). To check a target, take the job log's
+  `published … to R2` line. GLO12's STAC `admp_updated_data` was 29 Sep
+  06:25:55 and 30 Sep 06:09:47; on 1 Oct it was still updating at 06:47.
+
+Still open: tasks 3 and 4 need the cycles of the next days, and the exit
+criteria below need two days of GFS and a week of currents.
 
 Exit criteria:
 
