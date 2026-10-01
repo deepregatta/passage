@@ -1219,6 +1219,20 @@ Done on 2026-10-01 (forecast-tiles `eb39ef0`, CI run 36826385892 green):
   the expression is shared with IBI; `currents` now waits 240 min, until
   09:45, and its workflow has `timeout-minutes: 300` (240 plus a 46 min job,
   under the 6 h job limit). Revisit after a week of GLO12 times.
+- **First dispatched cycles, 1 Oct (3).** All within target. Times are when
+  each cycle turned ready, then when `latest.json` changed:
+  - IBI 00Z, run 36844806629: Copernicus finished at 10:13:50 and the run
+    was live at 10:16:57, i.e. **provider + 3 min**.
+  - GFS 06Z, run 36849058683: ready 10:36:50 (cycle + 4 h 37), live 11:02:46,
+    i.e. **cycle + 5 h 03**.
+  - GFS-Wave 06Z, run 36852667510: ready 11:11:56 (cycle + 5 h 12), live
+    11:41:51, i.e. **cycle + 5 h 42**, 8 min inside + 5 h 50.
+
+  The jobs themselves took 26 min (GFS) and 30 min (waves) from ready to
+  live, against the 12–19 min measured on 2026-09-23. If waves misses its
+  target, the job time is the reason, not the dispatch time. (`gh run view
+  --log` returned empty output that afternoon; the jobs API
+  `gh api repos/deepregatta/forecast-tiles/actions/jobs/<id>/logs` works.)
 
 Still open: tasks 3 and 4 need the cycles of the next days, and the exit
 criteria below need two days of GFS and a week of currents.
