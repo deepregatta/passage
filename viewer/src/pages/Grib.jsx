@@ -32,6 +32,7 @@ import {
   gribModelOrder,
   gribPeriodWindow,
   gribRunIds,
+  gribRunLabel,
   gribSizeBucket,
   gribSpotKeys,
   loadGribManifests,
@@ -153,7 +154,7 @@ function FileDetails({ file }) {
   const rows = [
     // identifiers sit in <code>, which the French DOM translator leaves alone
     ['Model', <code className="font-mono">{file.model}</code>],
-    ['Forecast run', <code className="font-mono break-all">{file.run_id}</code>],
+    ['Forecast run', <><span className="block font-mono">{gribRunLabel(file)}</span><code className="block font-mono break-all">{file.run_id}</code></>],
     ['Base time', <span className="font-mono">{fmtUtc(file.cycle)}</span>],
     ['Grid', <span className="font-mono">{fmtGribGrid(file.grid)}</span>],
     ['Area', <span className="font-mono">{fmtGribArea(file.grid)}</span>],

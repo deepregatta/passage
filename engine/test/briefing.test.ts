@@ -85,6 +85,26 @@ describe('one metadata-based next update', () => {
     expect(nextForecastRuns({ ensemble: { ...gefs, published_at: '2026-09-09T00:00:00Z' } }, '2026-09-09T01:00:00Z'))
       .toEqual([]);
   });
+  it('estimates both ECMWF layers, so the next update is whichever ECMWF run comes first', () => {
+    // 1 Oct 14:00: the 06Z run went live at 12:40 (+ 6 h 40), the 00Z one at 07:53 (+ 7 h 53)
+    const ecmwf = (layerName: string, cycle: string, publishedAt: string, cadence?: number) => layer({
+      layer: layerName, model: 'ecmwf_ifs_0p25', run_id: `${layerName}-x`, cycle, published_at: publishedAt,
+      ...(cadence ? { cadence_hours: cadence } : {}),
+    });
+    const layers = {
+      'weather-ecmwf': ecmwf('weather-ecmwf', '2026-10-01T00:00:00Z', '2026-10-01T07:53:00Z', 12),
+      'weather-ecmwf-short': ecmwf('weather-ecmwf-short', '2026-10-01T06:00:00Z', '2026-10-01T12:40:00Z', 12),
+    };
+    expect(nextForecastRuns(layers, '2026-10-01T14:00:00Z')).toEqual([
+      { model: 'ecmwf_ifs_0p25', expected_at: '2026-10-01T19:53:00Z' },
+      { model: 'ecmwf_ifs_0p25', expected_at: '2026-10-02T00:40:00Z' },
+    ]);
+    // without the producer's cadence the short layer falls back to its own 12 h, never a day
+    const { cadence_hours: _cadence, ...undeclared } = layers['weather-ecmwf-short'];
+    expect(nextForecastRuns({ 'weather-ecmwf-short': undeclared }, '2026-10-01T14:00:00Z')).toEqual([
+      { model: 'ecmwf_ifs_0p25', expected_at: '2026-10-02T00:40:00Z' },
+    ]);
+  });
   it.each([0, -6, 1.5, Number.NaN])('falls back to the table for an unusable cadence_hours %s', (cadence) => {
     expect(nextForecastRuns({ weather: layer({ cadence_hours: cadence }) }, now)).toEqual([
       { model: 'gfs_0p25', expected_at: '2026-09-09T04:20:00Z' },

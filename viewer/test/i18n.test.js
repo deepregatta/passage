@@ -265,8 +265,19 @@ describe('GRIB files page copy', () => {
       'passage_waves-gfs_20260923T00Z_N48W006_N51E002.grb2',
       '33 × 13 points · 0.25°',
       '0…360°',
+      // run labels (gribRunLabel)
+      'ECMWF 06Z',
+      'GFS-Wave 18Z',
+      'IBI 00Z',
     ]) expect(translateText(text, 'fr')).toBe(text);
   });
+});
+
+it('translates the ECMWF runs behind a briefing\'s model comparison', () => {
+  expect(translateText('Model comparison uses', 'fr')).toBe('La comparaison des modèles utilise');
+  expect(translateText('ECMWF 06Z to +144 h, then 00Z', 'fr')).toBe('ECMWF 06Z jusqu’à +144 h, puis 00Z');
+  expect(translateText('ECMWF 18Z to +144 h, then 12Z', 'en')).toBe('ECMWF 18Z to +144 h, then 12Z');
+  expect(translateText('ECMWF 12Z', 'fr')).toBe('ECMWF 12Z');
 });
 
 it('translates skipped-departure labels and unknown failures', () => {

@@ -15,9 +15,11 @@ import { toIso } from '../eta.js';
 import { fnv1a64Hex } from '../hash.js';
 import { gunzip } from './httpTransport.js';
 import { decodeTile, type DecodedTile } from './tileCodec.js';
+import { ECMWF_LAYERS, newestRunAt, runSpan, type ServedRange } from './modelRuns.js';
 import {
   axisTimesMs,
   edgeNeighbourProbes,
+  hourlyTimesMs,
   nearestGridIndex,
   normalizeLon,
   resampleToHourly,
@@ -614,6 +616,12 @@ export class TileForecastStore implements ForecastStore {
     return { forecasts, meta: this.meta(state, stats, points.length) };
   }
 
+  /**
+   * Hourly hazard series per deterministic model: GFS, and ECMWF combined
+   * across its 240 h layer and its 06Z/18Z one (modelRuns.ts). For each hour
+   * the ECMWF series takes the newest cycle covering it, and each run that
+   * served an hour is recorded with the ranges it served (`served`).
+   */
   async getHazardForecasts(
     points: Array<{ lat: number; lon: number }>,
     startMs: number,
@@ -622,58 +630,63 @@ export class TileForecastStore implements ForecastStore {
     await this.init();
     const byModel: Record<string, HazardPointForecast[]> = {};
     const meta: TileRequestMeta[] = [];
-    for (const layer of ['weather', 'weather-ecmwf']) {
-      const state = this.layers.get(layer);
-      if (!state) continue;
-      const stats = this.newStats();
-      const forecasts: HazardPointForecast[] = [];
-      for (const p of points) {
-        const hit = await this.locate(state, p.lat, p.lon, stats);
-        const out: HazardPointForecast = {
-          lat: p.lat,
-          lon: p.lon,
-          times: [],
-          wind_kt: [],
-          gust_kt: [],
-          wind_dir_deg: [],
-          visibility_m: [],
-          cape_jkg: [],
-          temp_c: [],
-          dew_point_c: [],
-          precip_mm: [],
-        };
-        if (hit) {
-          const u = this.seriesAt(hit, 'wind_u_kt');
-          const v = this.seriesAt(hit, 'wind_v_kt');
-          if (u && v) {
-            const uH = resampleToHourly(u.timesMs, u.values, startMs, endMs);
-            const vH = resampleToHourly(v.timesMs, v.values, startMs, endMs);
-            const { speed, direction } = windFromUv(uH.values, vH.values);
-            out.times = uH.times;
-            out.wind_kt = speed;
-            out.wind_dir_deg = direction;
-          }
-          for (const [field, varName] of [
-            ['gust_kt', 'gust_kt'],
-            ['visibility_m', 'visibility_m'],
-            ['cape_jkg', 'cape_jkg'],
-            ['temp_c', 'temp_c'],
-            ['dew_point_c', 'dew_point_c'],
-            ['precip_mm', 'precip_mm'],
-          ] as const) {
-            const series = this.seriesAt(hit, varName);
-            if (!series) continue;
-            const h = resampleToHourly(series.timesMs, series.values, startMs, endMs);
-            out[field] = h.values;
-            if (!out.times.length) out.times = h.times;
-          }
-        }
-        forecasts.push(out);
+    for (const layers of [['weather'], ECMWF_LAYERS]) {
+      // one run per layer for the whole call, even if refresh() swaps one meanwhile
+      const states = layers.flatMap((layer) => this.layers.get(layer) ?? []);
+      if (!states.length) continue;
+      if (states.length === 1) {
+        const read = await this.hazardRead(states[0]!, points, startMs, endMs);
+        byModel[states[0]!.manifest.model] = read.forecasts;
+        meta.push(read.meta);
+        continue;
       }
-      byModel[state.manifest.model] = forecasts;
-      meta.push(this.meta(state, stats, points.length));
+      const spans = states.map((state) => runSpan(state.manifest, 'wind_u_kt'));
+      const hours = hourlyTimesMs(startMs, endMs);
+      const choice = hours.map((t) => newestRunAt(spans, t));
+      const reads = await Promise.all(states.map((state, i) =>
+        choice.includes(i) ? this.hazardRead(state, points, startMs, endMs) : null));
+      byModel[states[0]!.manifest.model] = points.map((p, j) =>
+        combineHazardSeries(p, hours, choice, reads.map((read) => read?.forecasts[j] ?? null)));
+      reads.forEach((read, i) => {
+        if (read) meta.push({ ...read.meta, served: servedRanges(hours, choice, i) });
+      });
     }
     return Object.keys(byModel).length ? { byModel, meta } : null;
+  }
+
+  private async hazardRead(
+    state: LayerState,
+    points: Array<{ lat: number; lon: number }>,
+    startMs: number,
+    endMs: number,
+  ): Promise<{ forecasts: HazardPointForecast[]; meta: TileRequestMeta }> {
+    const stats = this.newStats();
+    const forecasts: HazardPointForecast[] = [];
+    for (const p of points) {
+      const hit = await this.locate(state, p.lat, p.lon, stats);
+      const out = emptyHazard(p);
+      if (hit) {
+        const u = this.seriesAt(hit, 'wind_u_kt');
+        const v = this.seriesAt(hit, 'wind_v_kt');
+        if (u && v) {
+          const uH = resampleToHourly(u.timesMs, u.values, startMs, endMs);
+          const vH = resampleToHourly(v.timesMs, v.values, startMs, endMs);
+          const { speed, direction } = windFromUv(uH.values, vH.values);
+          out.times = uH.times;
+          out.wind_kt = speed;
+          out.wind_dir_deg = direction;
+        }
+        for (const field of HAZARD_SCALARS) {
+          const series = this.seriesAt(hit, field);
+          if (!series) continue;
+          const h = resampleToHourly(series.timesMs, series.values, startMs, endMs);
+          out[field] = h.values;
+          if (!out.times.length) out.times = h.times;
+        }
+      }
+      forecasts.push(out);
+    }
+    return { forecasts, meta: this.meta(state, stats, points.length) };
   }
 
   // ------------------------------------------------------------ grids
@@ -818,6 +831,60 @@ export class TileForecastStore implements ForecastStore {
       },
     };
   }
+}
+
+const HAZARD_SCALARS = ['gust_kt', 'visibility_m', 'cape_jkg', 'temp_c', 'dew_point_c', 'precip_mm'] as const;
+const HAZARD_SERIES = ['wind_kt', 'wind_dir_deg', ...HAZARD_SCALARS] as const;
+
+function emptyHazard(p: { lat: number; lon: number }): HazardPointForecast {
+  return {
+    lat: p.lat,
+    lon: p.lon,
+    times: [],
+    wind_kt: [],
+    gust_kt: [],
+    wind_dir_deg: [],
+    visibility_m: [],
+    cape_jkg: [],
+    temp_c: [],
+    dew_point_c: [],
+    precip_mm: [],
+  };
+}
+
+/**
+ * One point's hourly series taken, hour by hour, from the run `choice` names
+ * (−1: no run covers the hour). A run read without a grid point here (or
+ * not read) gives nulls; with no grid point in any run the series is empty,
+ * as for a single run.
+ */
+function combineHazardSeries(
+  p: { lat: number; lon: number },
+  hours: number[],
+  choice: number[],
+  runs: Array<HazardPointForecast | null>,
+): HazardPointForecast {
+  const out = emptyHazard(p);
+  if (!runs.some((run) => run?.times.length)) return out;
+  out.times = hours.map((t) => toIso(t));
+  for (const field of HAZARD_SERIES) {
+    out[field] = hours.map((_, k) => runs[choice[k]!]?.[field][k] ?? null);
+  }
+  return out;
+}
+
+/** The hourly ranges in which `choice` names run `index`. */
+function servedRanges(hours: number[], choice: number[], index: number): ServedRange[] {
+  const ranges: ServedRange[] = [];
+  let from: number | null = null;
+  hours.forEach((t, k) => {
+    if (choice[k] === index) from ??= t;
+    if (from !== null && (choice[k + 1] !== index || k === hours.length - 1)) {
+      ranges.push({ from: toIso(from), to: toIso(t) });
+      from = null;
+    }
+  });
+  return ranges;
 }
 
 /** meteorological wind: direction the wind comes FROM (0° = northerly) */

@@ -7,6 +7,7 @@
 
 import {
   GRIB_DATASETS,
+  cycleHourLabel,
   gribExportSourceFromStore,
   parseUtc,
   planGribExport,
@@ -186,9 +187,30 @@ export async function loadGribManifests(store) {
   return (layer) => store.manifestFor(layer);
 }
 
-/** The pinned run ids of the exportable layers: a plan's key changes with them. */
+/**
+ * The pinned run ids of the exportable layers, ECMWF's 06Z/18Z one included:
+ * a plan's key changes with them.
+ */
 export function gribRunIds(manifests) {
-  return [...new Set(GRIB_DATASETS.map((spec) => manifests(spec.layer)?.run_id).filter(Boolean))].sort();
+  const layers = GRIB_DATASETS.flatMap((spec) => [spec.layer, ...(spec.shortRangeLayers ?? [])]);
+  return [...new Set(layers.map((layer) => manifests(layer)?.run_id).filter(Boolean))].sort();
+}
+
+const GRIB_RUN_NAMES = {
+  'wind-gfs': 'GFS',
+  'wind-ecmwf': 'ECMWF',
+  'waves-gfs': 'GFS-Wave',
+  'currents-global': 'GLO12',
+  'currents-ibi': 'IBI',
+};
+
+/**
+ * The run a file was read from, as sailors name it: "ECMWF 06Z". An ECMWF
+ * file holds one run, the newest that covers the whole period (06Z/18Z ones
+ * reach 144 h, 00Z/12Z ones 240 h).
+ */
+export function gribRunLabel(file) {
+  return `${GRIB_RUN_NAMES[file.datasetId] ?? file.model} ${cycleHourLabel(file.cycle)}`;
 }
 
 /** Plan every dataset, so the page can show each model's availability. */

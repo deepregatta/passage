@@ -140,6 +140,14 @@ export function edgeNeighbourProbes(
   return probes;
 }
 
+/** The whole hours resampleToHourly reports for a window: start floored, end ceiled. */
+export function hourlyTimesMs(startMs: number, endMs: number): number[] {
+  const HOUR = 3_600_000;
+  const times: number[] = [];
+  for (let t = Math.floor(startMs / HOUR) * HOUR; t <= Math.ceil(endMs / HOUR) * HOUR; t += HOUR) times.push(t);
+  return times;
+}
+
 /**
  * Linearly resample a (possibly non-hourly) series onto whole UTC hours
  * covering [startMs, endMs]. Null propagates: an output hour is null unless
@@ -152,13 +160,10 @@ export function resampleToHourly(
   startMs: number,
   endMs: number,
 ): { times: string[]; values: Array<number | null> } {
-  const HOUR = 3_600_000;
-  const first = Math.floor(startMs / HOUR) * HOUR;
-  const last = Math.ceil(endMs / HOUR) * HOUR;
   const outTimes: string[] = [];
   const outValues: Array<number | null> = [];
   let k = 1;
-  for (let t = first; t <= last; t += HOUR) {
+  for (const t of hourlyTimesMs(startMs, endMs)) {
     outTimes.push(toIso(t));
     if (!timesMs.length || t < timesMs[0]! || t > timesMs[timesMs.length - 1]!) {
       outValues.push(null);

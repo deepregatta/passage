@@ -443,6 +443,7 @@ const FR = {
   'Wind and gusts': 'Vent et rafales',
   'Ensemble': 'Ensemble',
   'Additional weather model': 'Modèle météo complémentaire',
+  'Model comparison uses': 'La comparaison des modèles utilise',
   'Surface currents': 'Courants de surface',
   'Forecast tiles': 'Tuiles de prévision',
   'Fixture data': 'Données de test',
@@ -716,6 +717,8 @@ const FR_PATTERNS = [
   [/^Partial capability coverage: (.+)\.$/, (_match, capabilities) => `Couverture partielle des capacités : ${translateCapabilityList(capabilities)}.`],
   [/^(reading forecast run manifest|evaluating against your limits|reading current tiles|loading coastline|loading forecast tiles|loading current tiles|loading prepared data|saving immutable snapshot|starting|computing route|scanning departures)( \d+\/\d+)?(…)?$/, (_match, label, count = '', ellipsis = '') => `${FR[label]}${count}${ellipsis}`],
   [/^(· )?(\d+) h old$/, (_match, separator = '', hours) => `${separator}il y a ${hours} h`],
+  // ModelsUsed: the ECMWF runs behind the model comparison (engine describeEcmwfRuns)
+  [/^ECMWF \d\dZ(?: to \+\d+ h, then \d\dZ)+$/, (value) => value.replace(/ to \+(\d+) h, then /g, ' jusqu’à +$1 h, puis ')],
   [/^Seas to ([\d.]+) m significant \(deterministic wave model; no wave ensembles exist\)\.$/, 'Mer significative jusqu’à $1 m (modèle de vagues déterministe ; aucun ensemble de vagues).'],
   [/^Authority override: bulletin (.+) active during the passage window\.$/, 'Priorité à l’autorité : le bulletin $1 est actif pendant la fenêtre de traversée.'],
   [/^Emulated evidence entries: ([^.]+)\.$/, 'Entrées probantes simulées : $1.'],
