@@ -782,7 +782,7 @@ GitHub runners and only the clock moves to Cloudflare.
   | `15 0,6,12,18 * * *` | `ensemble` | fire time − 6 h 15 (00:15 → previous day 18Z) | + 6 h 29–6 h 31 | 90 |
   | same expression, 00:15 and 12:15 only (5C) | `weather-ecmwf-short` | fire time − 6 h 15 | + 6 h 27 (06Z, seen once) | 120 |
   | `20 7,19 * * *` | `weather-ecmwf` | fire time − 7 h 20 | + 7 h 34 | 120 |
-  | `45 5,9 * * *` | 05:45 `currents`, 09:45 `currents-ibi` | that day's 00Z | GLO12 06:25 (seen once); IBI 09:54–11:36 | 180 each |
+  | `45 5,9 * * *` | 05:45 `currents`, 09:45 `currents-ibi` | that day's 00Z | GLO12 06:10–09:05 (29 Sep–1 Oct); IBI 09:54–11:36 | 240 `currents` (180 until 1 Oct, see 5B), 180 `currents-ibi` |
 
   Five expressions use all of the Workers Free plan's 5 Cron Triggers per
   account; the 5C layer shares the ensemble's expression. If the account needs a slot elsewhere, use one `*/5 * * * *`
@@ -1168,7 +1168,10 @@ Done on 2026-10-01 (forecast-tiles `eb39ef0`, CI run 36826385892 green):
   the run (200) only when the body sets `return_run_details: true`. That was
   checked by hand with an already-published IBI cycle (200, run 36829844687)
   and added in forecast-tiles `8558386` (Worker version `1a537da4`), so the
-  log line now carries the run URL.
+  log line now carries the run URL. The run waited from 07:21:30, found the
+  cycle at 07:35:43 (8 checks), lost about 6 min to three 429s from
+  data.ecmwf.int, and went live at 07:53:17 (`published_at` 07:44:54), i.e.
+  **cycle + 7 h 53**, inside the + 8 h 15 target.
 - **Catch-up.** The 04:25, 05:00, 05:45 and 06:15 slots of 1 Oct fired in
   dry run, so the session dispatched those 00Z cycles by hand at 06:45, with
   the Worker's inputs. GFS (run 36826492997), GFS-Wave and GEFS 00Z were
@@ -1192,8 +1195,20 @@ Done on 2026-10-01 (forecast-tiles `eb39ef0`, CI run 36826385892 green):
   (`publish.py`). GFS 00Z of 1 Oct reads 06:49:39, but `latest.json` changed
   at 06:59:37, so `published_at − cycle` understates by the upload time
   (≈ 10 min for an 850 MB layer). To check a target, take the job log's
-  `published … to R2` line. GLO12's STAC `admp_updated_data` was 29 Sep
-  06:25:55 and 30 Sep 06:09:47; on 1 Oct it was still updating at 06:47.
+  `published … to R2` line.
+- **GLO12 is the outlier (4).** Its STAC `admp_updated_data` was 29 Sep
+  06:25:55 and 30 Sep 06:09:47. On 1 Oct one update finished at 07:00:50 and
+  a second (`admp_updating_start_date` 4 Oct) ran until **09:05:17**. The
+  catch-up run (36826501879, wait 180 from 06:45) found the cycle at
+  09:06:42, recorded `provider_updated_at` 09:05:17, and went live at
+  09:42:13: **provider + 37 min**, inside the target, with no RTOFS. The
+  Worker's own 05:45 slot waits only until 08:45, though, so on 1 Oct it
+  would have failed, leaving the cycle to the fallback cron. Tuned at once
+  by this task's rule (wait past the latest time seen), in forecast-tiles
+  `299dfde` (Worker version `78537347`). The slot stays at 05:45, because
+  the expression is shared with IBI; `currents` now waits 240 min, until
+  09:45, and its workflow has `timeout-minutes: 300` (240 plus a 46 min job,
+  under the 6 h job limit). Revisit after a week of GLO12 times.
 
 Still open: tasks 3 and 4 need the cycles of the next days, and the exit
 criteria below need two days of GFS and a week of currents.
