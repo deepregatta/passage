@@ -172,6 +172,50 @@ describe('planGribExport', () => {
     expect(planGribExport(manifests, request()).datasets[0]!.variables.map((v) => v.tileVar)).toEqual(wind);
   });
 
+  it('reads one ECMWF run per file: the newest covering the whole period, else the 240 h run', async () => {
+    const ecmwf = (layer: string, cycle: string, offsets: number[], shift: number): FixtureLayerSpec => ({
+      ...weatherSpec(), layer, model: 'ecmwf_ifs_0p25', cycle,
+      time_axes: { steps: { base: cycle, offsets_h: offsets } },
+      variables: [
+        geoVar('wind_u_kt', 0.01, 'steps', (t, lat, lon) => uKt(t, lat, lon) + shift),
+        geoVar('wind_v_kt', 0.01, 'steps', vKt),
+      ],
+    });
+    // 00Z to +24 h stands in for the 240 h run, 06Z to +12 h (18Z) for its 144 h one
+    const full = ecmwf('weather-ecmwf', CYCLE, [0, 3, 6, 9, 12, 18, 24], 0);
+    const short = ecmwf('weather-ecmwf-short', '2026-07-20T06:00Z', [0, 3, 6, 9, 12], 5);
+    const { store, manifests } = await storeFor([weatherSpec(), full, short]);
+    const planFor = (startIso: string, endIso: string, lookup = manifests) =>
+      planGribExport(lookup, request({ datasetIds: ['wind-ecmwf'], startIso, endIso })).datasets[0]!;
+
+    const newer = planFor('2026-07-20T07:00Z', '2026-07-20T18:00Z');
+    expect(newer).toMatchObject({
+      availability: 'ok', layer: 'weather-ecmwf-short', run_id: 'weather-ecmwf-short-20260720T06Z',
+      cycle: '2026-07-20T06:00Z', fileName: 'passage_wind-ecmwf_20260720T06Z_N49W001_N51E001.grb2',
+    });
+    expect(newer.steps.map((step) => step.forecastHours)).toEqual([0, 3, 6, 9, 12]);
+    const files = await runGribExport(gribExportSourceFromStore(store), planGribExport(manifests, request({
+      datasetIds: ['wind-ecmwf'], startIso: '2026-07-20T07:00Z', endIso: '2026-07-20T18:00Z',
+    })));
+    expect(files[0]).toMatchObject({ layer: 'weather-ecmwf-short', run_id: 'weather-ecmwf-short-20260720T06Z' });
+    const messages = readGrib2(concat(files[0]!.parts));
+    expect(new Set(messages.map((m) => m.refTime))).toEqual(new Set(['2026-07-20T06:00:00Z']));
+    expect(messages[0]!.values[0]).toBe(gribRound((quantized(uKt(0, 51, -1) + 5, 0.01)) / MS_TO_KT, 1));
+
+    // past the 06Z run's end, or before its cycle: the whole file from the 240 h run
+    for (const [startIso, endIso] of [['2026-07-20T07:00Z', '2026-07-20T19:00Z'], ['2026-07-20T05:00Z', '2026-07-20T12:00Z']]) {
+      expect(planFor(startIso!, endIso!), `${startIso} → ${endIso}`)
+        .toMatchObject({ layer: 'weather-ecmwf', run_id: 'weather-ecmwf-20260720T00Z' });
+    }
+    // with no 240 h run, the 06Z one, clipped to its horizon
+    const shortOnly = planFor('2026-07-20T07:00Z', '2026-07-21T00:00Z', (layer) => layer === 'weather-ecmwf' ? null : manifests(layer));
+    expect(shortOnly).toMatchObject({ availability: 'ok', run_id: 'weather-ecmwf-short-20260720T06Z' });
+    expect(shortOnly.steps.at(-1)!.time).toBe('2026-07-20T18:00:00Z');
+    // GFS has one layer and never looks at ECMWF's
+    expect(planGribExport(manifests, request({ startIso: '2026-07-20T07:00Z', endIso: '2026-07-20T09:00Z' })).datasets[0]!.layer)
+      .toBe('weather');
+  });
+
   it('rejects antimeridian-crossing, inverted and out-of-range requests', async () => {
     const { manifests } = await storeFor([weatherSpec()]);
     expect(() => planGribExport(manifests, request({ bbox: { minLat: 49, maxLat: 51, minLon: 179, maxLon: -179 } })))

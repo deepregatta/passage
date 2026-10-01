@@ -177,6 +177,7 @@
       ],
       "viewer/src/components/ModelsUsed.jsx": [
         "weather-ecmwf",
+        "weather-ecmwf-short",
         "weather-multimodel"
       ],
       "viewer/src/components/RouteMap.jsx": [

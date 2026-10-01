@@ -358,14 +358,17 @@ function positionPhrase(p: { lat: number; lon: number }, route?: Route): string 
  * 2026-09-08), so the table stays daily. Since 2026-10-01 forecast-tiles
  * publishes every provider cycle (grib-export-plan Phase 5B) and every live
  * entry says so in `cadence_hours`: 6 for GFS, GFS-Wave and GEFS, 12 for
- * ECMWF, 24 for both current layers. These are pipeline schedules, not model
- * issuance cadences.
+ * each ECMWF layer, 24 for both current layers. These are pipeline
+ * schedules, not model issuance cadences. The exception is
+ * `weather-ecmwf-short` (ECMWF's 06Z/18Z runs, Phase 5C): it never had a
+ * daily schedule, so its fallback is its own 12 h.
  * Unknown layer/model pairs are deliberately excluded. No schedule is
  * inferred for scenario bundles.
  */
 const PUBLICATION_SCHEDULE: Record<string, { model: string; cadenceHours: number }> = {
   weather: { model: 'gfs_0p25', cadenceHours: 24 },
   'weather-ecmwf': { model: 'ecmwf_ifs_0p25', cadenceHours: 24 },
+  'weather-ecmwf-short': { model: 'ecmwf_ifs_0p25', cadenceHours: 12 },
   ensemble: { model: 'gefs_0p50', cadenceHours: 24 },
   waves: { model: 'gfswave_0p25', cadenceHours: 24 },
   currents: { model: 'cmems_glo12', cadenceHours: 24 },

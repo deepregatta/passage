@@ -7,6 +7,7 @@
  */
 
 import { parseUtc, toIso } from '../eta.js';
+import { newestRunCovering, runSpan } from '../forecast/modelRuns.js';
 import type { RunManifest } from '../forecast/store.js';
 import { tileIdFromOrigin, type Bbox } from '../forecast/tileMath.js';
 import { GRIB_STATISTIC_EXTRA_BYTES, type GribLattice, type LonConvention } from './grib2.js';
@@ -53,6 +54,7 @@ export interface GribPlannedTile {
 export interface GribDatasetPlan {
   datasetId: string;
   label: string;
+  /** the layer of the run the file is read from (gribRunFor) */
   layer: string;
   availability: GribAvailability;
   spec: GribDatasetSpec;
@@ -101,9 +103,32 @@ export function planGribExport(manifests: GribManifests, request: GribExportRequ
   const datasets = request.datasetIds.map((id) => {
     const spec = GRIB_DATASETS.find((dataset) => dataset.id === id);
     if (!spec) throw new Error(`Unknown GRIB dataset: ${id}`);
-    return planDataset(spec, lookup(spec.layer) ?? null, request, startMs, endMs);
+    return planDataset(spec, gribRunFor(spec, lookup, startMs, endMs), request, startMs, endMs);
   });
   return { request, datasets };
+}
+
+/**
+ * The run a dataset's file is read from. Every message of a file shares one
+ * reference time, so runs are never mixed: the newest run among the
+ * dataset's layers whose exported axis covers the whole window, else the
+ * full-horizon layer's run (clipped to its horizon like any other), else
+ * whichever run there is.
+ */
+export function gribRunFor(
+  spec: GribDatasetSpec,
+  manifests: (layer: string) => RunManifest | null | undefined,
+  startMs: number,
+  endMs: number,
+): RunManifest | null {
+  const runs = [spec.layer, ...(spec.shortRangeLayers ?? [])].map((layer) => manifests(layer) ?? null);
+  if (runs.length === 1) return runs[0]!;
+  const spans = runs.map((run) => {
+    const exported = run && spec.variables.find((v) => run.variables.some((listed) => listed.name === v.tileVar));
+    return run && exported ? runSpan(run, exported.tileVar) : null;
+  });
+  const covering = newestRunCovering(spans, startMs, endMs);
+  return runs[covering] ?? runs.find((run) => run !== null) ?? null;
 }
 
 /**
@@ -157,7 +182,7 @@ function planDataset(
   const empty: GribDatasetPlan = {
     datasetId: spec.id,
     label: spec.label,
-    layer: spec.layer,
+    layer: manifest?.layer ?? spec.layer,
     availability: 'no-layer',
     spec,
     run_id: manifest?.run_id ?? null,

@@ -40,6 +40,15 @@ export type { WindowScan, WindowCandidate } from './window.js';
 export { decodeTile } from './forecast/tileCodec.js';
 export type { TileHeader, TileVariable, DecodedTile, TimeAxis, VariableStatistic } from './forecast/tileCodec.js';
 export { TileForecastStore } from './forecast/tileStore.js';
+export {
+  ECMWF_LAYERS,
+  cycleHourLabel,
+  describeEcmwfRuns,
+  newestRunAt,
+  newestRunCovering,
+  runSpan,
+} from './forecast/modelRuns.js';
+export type { RunSpan, ServedRange } from './forecast/modelRuns.js';
 export { HttpTileTransport, gunzip } from './forecast/httpTransport.js';
 export { ScenarioBundleStore } from './forecast/scenarioStore.js';
 export { MemoryTileCache, ForecastRunGoneError, forecastRunGone } from './forecast/store.js';
@@ -81,7 +90,7 @@ export type {
   GribDatasetSpec,
   GribVariableSpec,
 } from './export/gribDatasets.js';
-export { planGribExport, gribLattice, gribFileName, latticeBounds } from './export/exportPlan.js';
+export { planGribExport, gribLattice, gribFileName, gribRunFor, latticeBounds } from './export/exportPlan.js';
 export type {
   GribAvailability,
   GribCheckpointRequest,

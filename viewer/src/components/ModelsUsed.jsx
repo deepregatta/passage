@@ -1,4 +1,4 @@
-import { CHANNEL_PREPARED_COVERAGE } from '@deepweather/engine';
+import { CHANNEL_PREPARED_COVERAGE, describeEcmwfRuns } from '@deepweather/engine';
 import { deriveCoverage } from '../lib/evidenceSelectors.js';
 import { useApp } from '../stores/appStore.js';
 import { palette } from '../lib/palette.js';
@@ -6,7 +6,8 @@ import { runAge } from '../lib/format.js';
 
 const LAYERS = {
   weather: 'Wind and gusts', ensemble: 'Ensemble', waves: 'Waves',
-  'weather-ecmwf': 'Additional weather model', 'weather-multimodel': 'Additional weather model',
+  'weather-ecmwf': 'Additional weather model', 'weather-ecmwf-short': 'Additional weather model',
+  'weather-multimodel': 'Additional weather model',
   currents: 'Surface currents',
 };
 const SOURCES = { tiles: 'Forecast tiles', fixture: 'Fixture data', synthetic: 'emulated' };
@@ -20,6 +21,8 @@ export default function ModelsUsed() {
   const nowMs = useApp((s) => s.nowMs);
   if (!findings) return null;
   const inputs = findings.inputs?.forecast_tiles ?? [];
+  // ECMWF's comparison series may join a 06Z/18Z run (to +144 h) and a 00Z/12Z one
+  const ecmwfRuns = describeEcmwfRuns(inputs);
   const coverage = findings.coverage?.length ? deriveCoverage(findings).items : [];
   const divergentHours = findings.legs.reduce((n, leg) => n + (leg.divergent_hours?.length ?? 0), 0);
   return (
@@ -64,6 +67,11 @@ export default function ModelsUsed() {
                 </p>
               </li>
             ))}</ul> : <p>Model records unavailable for this briefing.</p>}
+            {ecmwfRuns && (
+              <p className="mt-3 text-xs">
+                <span className="text-ink-soft">Model comparison uses</span>{' '}<span className="font-mono">{ecmwfRuns}</span>
+              </p>
+            )}
           </section>
           <section aria-label="Recorded coverage">
             <h3 className="eyebrow mb-2">Recorded coverage</h3>

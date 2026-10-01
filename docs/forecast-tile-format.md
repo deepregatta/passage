@@ -87,11 +87,20 @@ requests never wrap.
 | Layer | Model | Res | Variables (scale) | Time axes |
 |---|---|---|---|---|
 | `weather` | GFS | 0.25° | wind_u_kt, wind_v_kt (0.01); gust_kt (0.1) — hourly. visibility_m (50), cape_jkg (1), temp_c (0.1), dew_point_c (0.1), precip_mm (0.1) — h3 | hourly: 1 h→120 h + 3 h→240 h (161 steps); h3: 3 h→240 h (81 steps) |
-| `weather-ecmwf` | ECMWF open IFS | 0.25° | wind_u_kt, wind_v_kt (0.01); gust_kt (0.1), the maximum over the 1, 3 or 6 h before each step (`statistic`), when every step has one; runs up to `weather-ecmwf-20260928T00Z` are wind-only | 3 h→144 h + 6 h→240 h (65 steps) |
+| `weather-ecmwf` | ECMWF open IFS, 00Z and 12Z cycles | 0.25° | wind_u_kt, wind_v_kt (0.01); gust_kt (0.1), the maximum over the 1, 3 or 6 h before each step (`statistic`), when every step has one; runs up to `weather-ecmwf-20260928T00Z` are wind-only | 3 h→144 h + 6 h→240 h (65 steps) |
+| `weather-ecmwf-short` | ECMWF open IFS, 06Z and 18Z cycles (model `ecmwf_ifs_0p25`, as above) | 0.25° | as `weather-ecmwf`; gust windows 1 h to +90 h, 3 h to +144 h | 3 h→144 h (49 steps, the first part of `weather-ecmwf`'s axis) |
 | `ensemble` | GEFS, 31 members | 0.5° | wind_kt_mean (i16 0.01) + wind_kt_anom (i8 0.2, per_member, clamped ±25 kt); same pair for gust | 3 h→144 h + 6 h→384 h (89 steps) |
 | `waves` | GFS-Wave | 0.25° | hs_m, wind_wave_h_m, swell_h_m (0.01); period/direction ×3 (0.1) | 3 h→384 h (129 steps) |
 | `currents` | CMEMS GLO12 (RTOFS fallback) | 1/12° | cur_u_kt, cur_v_kt (0.01) | 6 h→240 h (41 steps) |
 | `currents-ibi` | CMEMS IBI analysis-forecast, IBI domain only (26–56°N, 19°W–5°E) | ≈1/36° (0.02777863°) | cur_u_kt, cur_v_kt (0.01) | 1 h→120 h (121 steps) from the runs published on 2026-09-29; 1 h→72 h (73) before |
+
+ECMWF publishes four cycles a day, but its 06Z and 18Z runs stop at 144 h, so
+they are a layer of their own (grib-export-plan Phase 5C) and the 240 h
+horizon never shrinks. Consumers read, for each forecast time, the newest
+cycle that covers it (`engine/src/forecast/modelRuns.ts`): the briefing's
+model comparison combines both layers hour by hour, and records each run with
+the hours it served (`served` in `findings.inputs.forecast_tiles`). A GRIB
+file holds one run: the newest that covers its whole period.
 
 Ensemble member values reconstruct as `mean + anomaly` per member. Ensemble
 and currents axes reflect the Phase 0 size measurement (see the pipeline
@@ -160,8 +169,8 @@ axes, variables, per-tile `{bytes, fnv64}`, totals, validation results.
 `cadence_hours` (optional, integer ≥ 1, from 2026-09-29) is the hours between
 the layer's scheduled publications, from forecast-tiles' per-layer config.
 Since 2026-10-01 the dispatcher publishes every provider cycle
-(`grib-export-plan.md` Phase 5B): GFS, GFS-Wave and GEFS 6; ECMWF 12; both
-current layers 24. It was 24 for every layer before, and each entry changes
+(`grib-export-plan.md` Phase 5B): GFS, GFS-Wave and GEFS 6; both ECMWF
+layers 12; both current layers 24. It was 24 for every layer before, and each entry changes
 at its layer's next publish. The briefing's next-update estimate uses it and
 falls back to its own daily table (`PUBLICATION_SCHEDULE` in
 `engine/src/briefing.ts`) when it is absent, as it is only in entries

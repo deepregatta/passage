@@ -75,4 +75,10 @@ export interface TileRequestMeta {
   /** how many of `tiles` were served from the local cache */
   cached_tiles: number;
   points: number;
+  /**
+   * Set when one model's series combines runs of several layers (ECMWF's
+   * 00Z/12Z and 06Z/18Z, forecast/modelRuns.ts): the hourly valid-time
+   * ranges this run served.
+   */
+  served?: Array<{ from: string; to: string }>;
 }

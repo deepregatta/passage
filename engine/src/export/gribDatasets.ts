@@ -43,7 +43,15 @@ export interface GribVariableSpec {
 
 export interface GribDatasetSpec {
   id: GribDatasetId;
+  /** the layer a file is read from (for ECMWF, the full-horizon one) */
   layer: string;
+  /**
+   * Layers of the same model at other cycles with a shorter horizon (ECMWF's
+   * 06Z/18Z runs to 144 h). A file still holds one run, so one reference
+   * time: the newest of these and `layer` that covers the whole period, else
+   * `layer`'s own (planGribExport).
+   */
+  shortRangeLayers?: readonly string[];
   kind: GribDatasetKind;
   label: string;
   attribution: string;
@@ -120,6 +128,7 @@ export const GRIB_DATASETS: readonly GribDatasetSpec[] = [
   {
     id: 'wind-ecmwf',
     layer: 'weather-ecmwf',
+    shortRangeLayers: ['weather-ecmwf-short'],
     kind: 'wind',
     label: 'Wind – ECMWF',
     attribution: ECMWF,

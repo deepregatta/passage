@@ -211,7 +211,7 @@ typeOfGeneratingProcess 2, shapeOfTheEarth 6, scanningMode 0, hours).
 |---|---|---|---|---|---|---|
 | `wind-gfs` | `weather` | `wind_u_kt` → 0/2/2 UGRD · `wind_v_kt` → 0/2/3 VGRD | 103/10 | m/s (kt ÷ 1.943844) | 1 | 7 / 96 |
 |  |  | `gust_kt` → 0/2/22 GUST | 1/0 | m/s | 1 |  |
-| `wind-ecmwf` | `weather-ecmwf` | `wind_u_kt`, `wind_v_kt` as `wind-gfs` | 103/10 | m/s | 1 | 98 / 255 |
+| `wind-ecmwf` | `weather-ecmwf` or `weather-ecmwf-short` (one run per file, see below) | `wind_u_kt`, `wind_v_kt` as `wind-gfs` | 103/10 | m/s | 1 | 98 / 255 |
 |  |  | `gust_kt` → 0/2/22, **maximum over the step's window** (template 4.8), only if the manifest lists it with its `statistic` | 103/10 | m/s | 1 |  |
 | `waves-gfs` | `waves` | `hs_m` 10/0/3 HTSGW · `period_s` 10/0/11 PERPW · `dir_deg` 10/0/10 DIRPW · `wind_wave_h_m` 10/0/5 WVHGT · `wind_wave_period_s` 10/0/6 WVPER · `wind_wave_dir_deg` 10/0/4 WVDIR | 1/1 | m, s, ° true | 2 (heights), 1 (periods, directions) | 7 / 11 |
 |  |  | `swell_h_m` 10/0/8 SWELL · `swell_period_s` 10/0/9 SWPER · `swell_dir_deg` 10/0/7 SWDIR | 241/1 |  | 2 / 1 / 1 |  |
@@ -238,7 +238,18 @@ typeOfGeneratingProcess 2, shapeOfTheEarth 6, scanningMode 0, hours).
 
 `planGribExport(manifests, request)`: the request is `bbox` (margin applied),
 `datasetIds`, `startIso`, `endIso`, `step`, `lonConvention`, optional
-`checkpoints: [{lat, lon}]` and `fixture`. Per dataset it returns:
+`checkpoints: [{lat, lon}]` and `fixture`.
+
+Every message of a file has the same reference time, so a file is read from
+one run. For ECMWF wind that run is chosen per request (`gribRunFor`, from
+Phase 5C of the plan): the newest of `weather-ecmwf` (00Z/12Z, to 240 h) and
+`weather-ecmwf-short` (06Z/18Z, to 144 h) whose axis covers the whole window,
+else the 240 h run, clipped to its horizon like any dataset. In practice the
+next 2, 3 or 5 days come from the 06Z/18Z run for the six hours or so after
+it goes live, and the next 7 days or the full forecast from the 00Z/12Z one.
+The plan's `layer`, `run_id`, `cycle` and file name follow the chosen run.
+
+Per dataset it returns:
 
 - `availability`: `ok`, `no-layer` (no pinned manifest or no exportable
   variable), `no-tiles` (nothing published in the area, e.g. IBI outside its
@@ -394,8 +405,9 @@ picks overrides the default wherever it is available.
   hidden `<a download>` is clicked to save it, and the kind shows **Saved**,
   the file name, its size, a **Save again** link (the same Blob URL, for
   browsers that block the programmatic save) and a collapsed **File
-  details** block: model, run id, base time, grid, area, messages, share of
-  points with data, `fnv64`, the UTC times and the spot values. Clicking the
+  details** block: model, the run (named as sailors do, "ECMWF 06Z", then
+  its run id), base time, grid, area, messages, share of points with data,
+  `fnv64`, the UTC times and the spot values. Clicking the
   button again re-saves the same file without rebuilding it. Run ids, model
   ids, file names and hashes sit in `<code>` so the French DOM translator
   leaves them alone.

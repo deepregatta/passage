@@ -26,6 +26,8 @@ import {
   gribPeriodWindow,
   gribRouteArea,
   gribRoutePoints,
+  gribRunIds,
+  gribRunLabel,
   gribSizeBucket,
   planAreaGrib,
   validGribArea,
@@ -58,7 +60,7 @@ const CHANNEL = { minLat: 50.2, maxLat: 50.9, minLon: -9.9, maxLon: -9.1 };
 /** Across N40W010 too, where IBI has no tile. */
 const ACROSS = { minLat: 49.5, maxLat: 50.8, minLon: -9.9, maxLon: -9.1 };
 
-function fixtureTransport({ ibiHours = 25, waves = false, ecmwfTiles = [[50, -10], [40, -10]] } = {}) {
+function fixtureTransport({ ibiHours = 25, waves = false, ecmwfTiles = [[50, -10], [40, -10]], ecmwfShort = false } = {}) {
   const wind = (name, scale, value) => ({ name, axis: 'hourly', dtype: 'i16', scale, value });
   const current = (name, value) => ({ name, axis: 'steps', dtype: 'i16', scale: 0.01, value });
   const wave = (name, scale) => ({ name, axis: 'steps', dtype: 'i16', scale, value: () => 1.5 });
@@ -81,6 +83,13 @@ function fixtureTransport({ ibiHours = 25, waves = false, ecmwfTiles = [[50, -10
       variables: [{ ...wind('wind_u_kt', 0.01, () => 5), axis: 'steps' }, { ...wind('wind_v_kt', 0.01, () => 5), axis: 'steps' }],
       tiles: ecmwfTiles,
     },
+    ...(ecmwfShort ? [{
+      // ECMWF's 06Z run, here to +48 h (the real ones reach 144 h, the 00Z/12Z ones 240 h)
+      layer: 'weather-ecmwf-short', model: 'ecmwf_ifs_0p25', cycle: '2026-07-20T06:00Z', resolution_deg: 0.25,
+      time_axes: { steps: { base: '2026-07-20T06:00Z', offsets_h: hours(17, 3) } },
+      variables: [{ ...wind('wind_u_kt', 0.01, () => 8), axis: 'steps' }, { ...wind('wind_v_kt', 0.01, () => 8), axis: 'steps' }],
+      tiles: ecmwfTiles,
+    }] : []),
     {
       layer: 'currents', model: 'cmems_glo12', cycle: CYCLE, resolution_deg: 1 / 12,
       time_axes: { steps: { base: CYCLE, offsets_h: hours(41, 6) } },
@@ -238,6 +247,18 @@ describe('area, period and model choices', () => {
     expect(fmtLatLon(-33.5, 151.25)).toBe('33.5°S 151.25°E');
   });
 
+  it('plans ECMWF wind from its 06Z run while that covers the period, else from the 00Z run', async () => {
+    store.current = new TileForecastStore({ transport: fixtureTransport({ ecmwfShort: true }) });
+    const wind = async (period) => (await planFor(CHANNEL, { period })).datasets.find((d) => d.datasetId === 'wind-ecmwf');
+    expect(await wind('2')).toMatchObject({ layer: 'weather-ecmwf-short', run_id: 'weather-ecmwf-short-20260720T06Z' });
+    expect(await wind('3')).toMatchObject({ layer: 'weather-ecmwf', run_id: 'weather-ecmwf-20260720T00Z' });
+    // a new 06Z/18Z run changes the plan's key like any other
+    const manifests = (layer) => store.current.manifestFor(layer);
+    expect(gribRunIds(manifests)).toContain('weather-ecmwf-short-20260720T06Z');
+    expect(gribRunLabel({ datasetId: 'wind-ecmwf', cycle: '2026-07-20T06:00Z', model: 'ecmwf_ifs_0p25' })).toBe('ECMWF 06Z');
+    expect(gribRunLabel({ datasetId: 'currents-ibi', cycle: '2026-07-20T00:00Z', model: 'cmems_ibi' })).toBe('IBI 00Z');
+  });
+
   it('flags a regional dataset with unpublished tiles and a horizon shorter than the period', () => {
     const dataset = {
       datasetId: 'currents-ibi', availability: 'ok',
@@ -356,6 +377,26 @@ describe('GRIB files page', () => {
     expect(useGrib.getState().period).toBe('5');
     expect(page().queryByText('Saved')).not.toBeInTheDocument();
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:grib-1');
+  });
+
+  it('names the ECMWF run in the file details: 06Z for the next 2 days, 00Z beyond its range', async () => {
+    store.current = new TileForecastStore({ transport: fixtureTransport({ ecmwfShort: true }) });
+    act(() => useGrib.setState({ period: '2' }));
+    await openWith(CHANNEL);
+    fireEvent.click(page().getByRole('button', { name: 'Download wind' }));
+    await waitFor(() => expect(saves).toHaveLength(1));
+    expect(saves[0].name).toBe('passage-fixture_wind-ecmwf_20260720T06Z_N50W010_N51W009.grb2');
+    let wind = kindItem('Download wind');
+    expect(wind.getByText('ECMWF 06Z')).toBeInTheDocument();
+    expect(wind.getByText('weather-ecmwf-short-20260720T06Z').tagName).toBe('CODE');
+
+    fireEvent.change(page().getByLabelText('Period'), { target: { value: '3' } });
+    fireEvent.click(page().getByRole('button', { name: 'Download wind' }));
+    await waitFor(() => expect(saves).toHaveLength(2));
+    expect(saves[1].name).toBe('passage-fixture_wind-ecmwf_20260720T00Z_N50W010_N51W009.grb2');
+    wind = kindItem('Download wind');
+    expect(wind.getByText('ECMWF 00Z')).toBeInTheDocument();
+    expect(wind.getByText('weather-ecmwf-20260720T00Z')).toBeInTheDocument();
   });
 
   it('keeps one file per kind, uses the chosen model, and revokes files on unmount', async () => {

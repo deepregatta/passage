@@ -28,6 +28,11 @@ dispatcher starts every provider cycle, `cadence_hours` follows the
 providers, and each workflow keeps a 6-hourly fallback cron. Its exit
 criteria need two days of GFS and a week of currents runs; see
 [5B](#5b--switch-on-publish-every-provider-update-after-davi-has-deployed-the-worker).
+**Phase 5C built 2026-10-01**: ECMWF's 06Z/18Z runs (to 144 h) are the layer
+`weather-ecmwf-short`, dispatched at 00:15 and 12:15; the briefing's model
+comparison takes the newest ECMWF cycle for each hour, and an ECMWF GRIB file
+the newest run covering its period. Its exit criteria need a week of 06Z/18Z
+runs; see [5C](#5c--ecmwf-06z18z-short-range-layer-after-5b).
 Phase 4 (measure) is still open. Update the status line and tick the exit
 criteria as phases land.
 
@@ -1230,10 +1235,10 @@ must accept the new layer name before `latest.json` carries it.
 
 Tasks:
 
-1. **Contract:** add `weather-ecmwf-short` to the layer enums, canonically in
+1. [x] **Contract:** add `weather-ecmwf-short` to the layer enums, canonically in
    `passage/contracts/`, then vendor the change into `forecast-tiles/contracts/`.
    Both CIs validate. Its `cadence_hours` is 12.
-2. **forecast-tiles layer `weather-ecmwf-short`:** reuse `ecmwf_open.py`'s
+2. [x] **forecast-tiles layer `weather-ecmwf-short`:** reuse `ecmwf_open.py`'s
    retrieval, gust selection and `statistic` windows. It takes only 06Z/18Z
    cycles, on a 3-hourly axis to 144 h (49 steps: the first part of the
    240 h axis).
@@ -1246,36 +1251,95 @@ Tasks:
    - Workflow `ingest-weather-ecmwf-short.yml`, a copy of the ECMWF one with
      `wait_minutes`, `run-name`, `timeout-minutes: 240` and the fallback
      cron `37 2,8,14,20 * * *`.
-3. **Size:** one local `--dry-run` (with the Azure source, as for ECMWF dry
+3. [x] **Size:** one local `--dry-run` (with the Azure source, as for ECMWF dry
    runs). Expected about 0.19 GB a run: the 00Z run of 2026-09-29 was 255 MB
    for 65 steps, and this layer has 49. Two retained runs bring the bucket
    from about 6.1 to 6.5 GB of the 8 GB guard. R2 writes rise by about 1,300
    tile PUTs a day, to about 315k a month (the free tier is 1M).
-4. **Passage engine:** an ECMWF source that, for each forecast time, reads the
+4. [x] **Passage engine:** an ECMWF source that, for each forecast time, reads the
    newest cycle covering it across `weather-ecmwf` (00Z/12Z, to 240 h) and
    `weather-ecmwf-short` (06Z/18Z, to 144 h). The briefing and the
    model-disagreement analysis use it, and provenance names the cycle per time
    range, e.g. "ECMWF 06Z to +144 h, then 00Z". Engine tests cover both
    orders (short newer, long newer) and the 144 h seam.
-5. **GRIB export:** one run per file, so every message has the same reference
+5. [x] **GRIB export:** one run per file, so every message has the same reference
    time. Use the newest ECMWF run that covers the whole requested period;
    otherwise the 240 h run. **File details** names the run. Tests.
-6. **Passage copy and schedule:** add the layer to `PUBLICATION_SCHEDULE`;
+6. [x] **Passage copy and schedule:** add the layer to `PUBLICATION_SCHEDULE`;
    EN and FR labels for the run shown (e.g. "ECMWF 06Z").
-7. **Dispatcher:** add the 00:15 and 12:15 entries (cycle = fire time − 6 h
+7. [x] **Dispatcher:** add the 00:15 and 12:15 entries (cycle = fire time − 6 h
    15, wait 120) to the ensemble's expression, with tests. Then ask Davi to
    run `npx wrangler deploy` if the session can't authenticate.
-8. **Docs:** the forecast-tiles README layers table and timetable,
+8. [x] **Docs:** the forecast-tiles README layers table and timetable,
    `passage/docs/forecast-tile-format.md`, and this plan's status line.
-9. Commit and push both repos in the order of task 1.
+9. [x] Commit and push both repos in the order of task 1.
+
+Built on 2026-10-01 (where it goes beyond the tasks above):
+
+- **ECMWF's 06Z/18Z files, checked live (2).** The messages of 2026-09-30
+  06Z and 18Z carry the 00Z table to 144 h: `10fg` with 1 h windows (2-3 …
+  89-90), `10fg3` with 3 h windows (90-93 … 141-144), a constant-zero `10fg`
+  at step 0; no 147 h file. ECMWF stamps every file of a cycle with one
+  `Last-Modified`: 06Z/18Z at **cycle + 6 h 27** for all four cycles of 29–30
+  Sep (00Z/12Z at + 7 h 34), so a cycle turns ready all at once.
+- **forecast-tiles (2, 7).** `ecmwf_open.py` keeps one model id
+  (`ecmwf_ifs_0p25`) for both layers. `resolve_short` asks
+  `ecmwf.opendata`'s `latest()` for step 144 at hour 6 and at hour 18 (with a
+  time it probes that hour today and the day before) and takes the newer; an
+  explicit cycle must be 06Z or 18Z (a 00Z/12Z one is a `ValueError`, so a
+  wrong dispatch fails loudly) and is ready once it is no newer than the
+  latest. `build_short_cube` is `build_cube` on the 49-step axis. The CLI
+  polls it every 120 s like ECMWF. Retention's run-id pattern already keeps
+  the two layers apart (tested). The dispatcher's 00:15 and 12:15 fires now
+  start two layers each, 18 dispatches from 16 fires; each dispatch is tried
+  on its own, so one failing does not stop the other (tested).
+- **Size (3).** `ingest weather-ecmwf-short --cycle 20260930T18 --dry-run`
+  through the Azure mirror: 648 tiles, **189.5 MB**, 68 s, 2.2 GB peak RSS,
+  12 checks passed; manifest and `latest.json` validate against the vendored
+  schemas. The live bucket held 6.28 GB in its 12 retained runs at 13:10
+  UTC, so two short runs bring it to **6.66 GB** of the 8 GB guard. R2
+  writes rise by 1,296 tile PUTs a day (≈ 39k a month).
+- **Engine (4).** `engine/src/forecast/modelRuns.ts`: `runSpan` (a run's axis
+  span from its manifest), `newestRunAt` and `newestRunCovering` (newest
+  cycle first; for one cycle in two layers, the longer horizon). In
+  `getHazardForecasts` the ECMWF series is `weather-ecmwf` and
+  `weather-ecmwf-short` combined hour by hour under one model key, so the
+  disagreement check sees one ECMWF; a run that serves no hour of the window
+  is not read. Each run read is recorded in `findings.inputs.forecast_tiles`
+  with `served`, its hourly ranges, and `describeEcmwfRuns` turns them into
+  the label from the newest cycle on ("ECMWF 06Z to +144 h, then 00Z", or
+  "ECMWF 12Z"). The briefing's **Models and coverage** shows it as "Model
+  comparison uses …" (EN/FR). Hours before the newest cycle (the departure
+  day's early hours) still come from the older run but are left out of the
+  label: they are past when that cycle is published.
+- **GRIB (5).** `gribRunFor`: the registry's `wind-ecmwf` lists
+  `shortRangeLayers`; a file is read from the newest run covering the whole
+  window, else the 240 h run, else whatever run there is. File details shows
+  the run as sailors name it ("ECMWF 06Z") before the run id, and the page's
+  plan key includes the short run's id.
+- **Schedule (6).** `PUBLICATION_SCHEDULE` lists the layer at 12 h: unlike
+  the others it never had a daily schedule. With both layers live,
+  `nextForecastRuns` gives one ECMWF estimate per layer; the briefing shows
+  the earliest.
+- **End to end, before switching on.** Production `weather-20261001T06Z` and
+  `weather-ecmwf-20260930T00Z` tiles (the Channel four) next to the dry-run
+  18Z layer: the CLI's 3-day Channel ECMWF file came from
+  `weather-ecmwf-short-20260930T18Z` (78 messages, every reference time 18Z,
+  gusts `10fg`) and the 7-day one from the 00Z run (144 messages, `10fg` then
+  `10fg3`); `inspect_grib.py` decoded both. `cli run` Cherbourg → Plymouth
+  departing 2 Oct 06:00 recorded the 18Z run serving every hour, did not read
+  the older 00Z one, and labelled it "ECMWF 18Z".
 
 Exit criteria:
 
 - [ ] A week of 06Z/18Z runs published within + 8 h 15 of their cycle.
 - [ ] Passage's briefing uses the short run to + 144 h and the 240 h run
-      beyond it, labelled; a GRIB ECMWF file's details name its run.
-- [ ] Bucket under 8 GB; R2 Class A projection under 1M a month.
-- [ ] Docs updated in both repos.
+      beyond it, labelled; a GRIB ECMWF file's details name its run. Built
+      and tested (engine, viewer, and the end-to-end check above); open until
+      production serves a live short run.
+- [ ] Bucket under 8 GB; R2 Class A projection under 1M a month. Projected
+      6.66 GB and ≈ 315k a month; confirm once both short runs are retained.
+- [x] Docs updated in both repos.
 
 ### Risks
 
@@ -1288,7 +1352,7 @@ Exit criteria:
 | A fallback cron run cancels a pending dispatch (one pending run per group) | Fallback minutes sit away from the dispatch times. The cron run still publishes the latest complete cycle. |
 | ECMWF server slowness (10–100 min jobs) | The job takes the time, not the trigger. Follow-up: `Client(source="azure")` downloaded a full cycle in about 90 s locally on 2026-09-28, while data.ecmwf.int answered 429. Measure it on a runner before switching. |
 | Ensemble runs out of runner memory at 4 runs a day | 5A task 9. |
-| Bucket headroom shrinks with the 5C layer (about 6.5 of 8 GB) | The storage guard refuses a publish that would exceed it, and the previous run stays live. Re-measure after 5C. |
+| Bucket headroom shrinks with the 5C layer (6.66 of 8 GB projected on 2026-10-01) | The storage guard refuses a publish that would exceed it, and the previous run stays live. Re-measure after 5C. |
 | Users re-download tiles 4× a day | Expected. The IndexedDB cache evicts old runs; tile sizes don't change. |
 | Runs expire while a page is open | 5A store refresh. |
 | Dispatcher and fallback cron fire together | Same concurrency group, plus the "already published" exit. |

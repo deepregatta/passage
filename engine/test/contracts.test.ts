@@ -38,14 +38,20 @@ describe('contracts', () => {
       published_at: '2026-09-29T10:02:11Z',
       ...extra,
     });
-    // the shape forecast-tiles publishes from 2026-09-29: every live layer, cadence_hours per layer
+    // the shape forecast-tiles publishes from Phase 5C: every live layer, cadence_hours per
+    // layer, and ECMWF's 06Z/18Z runs as their own short-range layer
     const published = {
       schema_version: 1,
       updated_at: '2026-09-29T11:15:40Z',
-      layers: Object.fromEntries(
-        ['weather', 'weather-ecmwf', 'ensemble', 'waves', 'currents', 'currents-ibi'].map((layer) =>
-          [layer, entry(layer, '20260929T00', { cadence_hours: 24 })]),
-      ),
+      layers: {
+        ...Object.fromEntries(
+          (['weather', 'ensemble', 'waves'] as const).map((layer) => [layer, entry(layer, '20260929T00', { cadence_hours: 6 })]),
+        ),
+        'weather-ecmwf': entry('weather-ecmwf', '20260929T00', { cadence_hours: 12 }),
+        'weather-ecmwf-short': entry('weather-ecmwf-short', '20260929T06', { cadence_hours: 12 }),
+        currents: entry('currents', '20260929T00', { cadence_hours: 24 }),
+        'currents-ibi': entry('currents-ibi', '20260929T00', { cadence_hours: 24 }),
+      } as Record<string, ReturnType<typeof entry>>,
     };
 
     it('accepts the published shape, and runs from before cadence_hours', () => {
