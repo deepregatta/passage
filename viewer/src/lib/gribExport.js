@@ -199,6 +199,7 @@ export function gribRunIds(manifests) {
 const GRIB_RUN_NAMES = {
   'wind-arome': 'AROME',
   'wind-icon-eu': 'ICON-EU',
+  'wind-ukv': 'UKV',
   'wind-gfs': 'GFS',
   'wind-ecmwf': 'ECMWF',
   'waves-gfs': 'GFS-Wave',
@@ -271,7 +272,7 @@ export function gribModelOrder(kindId, area, plan = null) {
   const kind = GRIB_KINDS.find((entry) => entry.id === kindId);
   if (!kind) return [];
   if (kindId !== 'wind') return [...kind.datasets];
-  const regional = ['wind-arome', 'wind-icon-eu'].filter((id) =>
+  const regional = ['wind-arome', 'wind-icon-eu', 'wind-ukv'].filter((id) =>
     plan?.datasets.some((dataset) => dataset.datasetId === id && dataset.availability !== 'no-layer'));
   if (!area) return [...kind.datasets, ...regional];
   const lat = (area.minLat + area.maxLat) / 2;

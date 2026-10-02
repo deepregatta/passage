@@ -70,6 +70,32 @@ describe('regional geometry and catalogues',()=>{
     expect(fetch.mock.calls.some(([id]) => id.startsWith('weather-icon-eu-'))).toBe(false);
     expect(fetch.mock.calls.some(([id]) => id.startsWith('weather-arome-'))).toBe(true);
   });
+  it.each([{name: 'retained', cache: 45, arome: 10, icon: 10, inflated: 0},
+    {name: 'transient', cache: 64, arome: 6, icon: 8, inflated: 24}])('keeps combined automatic comparisons within $name capacity before downloads', async ({cache, arome, icon, inflated}) => {
+    const {transport, manifest, regional} = fixture();
+    const other = structuredClone(manifest);
+    other.run_id = manifest.run_id.replace('weather-arome', 'weather-icon-eu');
+    other.layer = 'weather-icon-eu'; other.model = 'icon';
+    transport.manifests.set(other.run_id, other);
+    Object.assign(regional.layers, {'weather-icon-eu': {...regional.layers['weather-arome'], run_id: other.run_id}});
+    for (const [key, bytes] of [...transport.tiles]) if (key.startsWith(manifest.run_id + '/')) {
+      transport.tiles.set(key.replace(manifest.run_id, other.run_id), bytes);
+    }
+    // Each model fits alone; their retained or transient combination does not.
+    for (const m of [manifest, other]) for (const tile of Object.values(m.tiles)) {
+      tile.decoded_bytes = (m === manifest ? arome : icon) * 1024 * 1024;
+      if (m === other && inflated) tile.uncompressed_bytes = inflated * 1024 * 1024;
+    }
+    const fetch = vi.spyOn(transport, 'fetchTile');
+    const store = new TileForecastStore({transport, regionalLayers: ['weather-arome', 'weather-icon-eu'], maxDecodedBytes: cache * 1024 * 1024});
+    const first = await store.getHazardForecasts([{lat: 42.5, lon: -7.5}], start, end);
+    expect(first!.byModel.arome).toBeDefined();
+    expect(fetch.mock.calls.some(([id]) => id.startsWith('weather-icon-eu-'))).toBe(false);
+    const count = fetch.mock.calls.length;
+    await store.getHazardForecasts([{lat: 42.5, lon: -7.5}], start, end);
+    expect(fetch.mock.calls).toHaveLength(count);
+    expect(first!.byModel.gfs_0p25![0]!.wind_kt).toEqual([10, 10]);
+  });
   it('regional outages and disable remove regional selection while root stays usable',async()=>{
     const {transport,regional}=fixture(); const store=new TileForecastStore({transport,regionalLayers:['weather-arome']});
     await store.init(); expect(store.manifestFor('weather-arome')).not.toBeNull();

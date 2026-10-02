@@ -12,7 +12,7 @@ import type { GribLevel } from './grib2.js';
 /** Knots per m/s, the constant the tile pipeline converts with (forecast-tiles ingest/sources/base.py). */
 export const MS_TO_KT = 1.943844;
 
-export type GribDatasetId = 'wind-arome' | 'wind-icon-eu' | 'wind-gfs' | 'wind-ecmwf' | 'waves-gfs' | 'currents-global' | 'currents-ibi';
+export type GribDatasetId = 'wind-arome' | 'wind-icon-eu' | 'wind-ukv' | 'wind-gfs' | 'wind-ecmwf' | 'waves-gfs' | 'currents-global' | 'currents-ibi';
 
 export type GribDatasetKind = 'wind' | 'waves' | 'currents';
 
@@ -114,6 +114,10 @@ const ECMWF_WIND_VARIABLES: readonly GribVariableSpec[] = [
 ];
 
 export const GRIB_DATASETS: readonly GribDatasetSpec[] = [
+  {id: 'wind-ukv', layer: 'weather-ukv', kind: 'wind', label: 'Wind – UKV',
+    attribution: 'British Crown copyright 2023–2025, Met Office UKV via Open-Meteo; CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/); native CRS corrected, remapped and quantized data',
+    centre: 74, generatingProcess: 255, hasLand: true,
+    variables: WIND_VARIABLES.map(variable => variable.tileVar === 'gust_kt' ? {...variable, level: LEVEL_10M} : variable)},
   {id: 'wind-arome', layer: 'weather-arome', kind: 'wind', label: 'Wind – AROME',
     attribution: 'Météo-France AROME via Open-Meteo (CC BY 4.0)', centre: 85,
     generatingProcess: 255, hasLand: true, variables: ECMWF_WIND_VARIABLES},
