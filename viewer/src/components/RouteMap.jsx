@@ -201,7 +201,7 @@ export default function RouteMap({ height = 420 }) {
   const positions = routeDoc.waypoints.map((w) => [w.lat, w.lon]);
 
   return (
-    <div className="border border-ink/30 rounded-sm overflow-hidden" style={{ height }}>
+    <div className="isolate border border-ink/30 rounded-sm overflow-hidden" style={{ height }}>
       <MapContainer bounds={bounds} style={seaStyle} scrollWheelZoom={false} attributionControl>
         <TileLayer {...BASEMAP} />
         <TileLayer

@@ -150,7 +150,7 @@ export default function GribMap({ area, fitNonce, drawing, onDrawn, onCancelDraw
   const [preview, setPreview] = useState(null);
   const shown = preview ?? area;
   return (
-    <div className="lg:col-span-2 relative border border-ink/30 rounded-sm overflow-hidden" style={{ height: 480 }}>
+    <div className="isolate lg:col-span-2 relative border border-ink/30 rounded-sm overflow-hidden" style={{ height: 480 }}>
       <MapContainer
         center={[48.5, -3.5]}
         zoom={6}
