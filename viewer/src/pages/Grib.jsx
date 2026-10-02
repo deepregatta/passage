@@ -66,6 +66,7 @@ const STEP_LABELS = { all: 'Every forecast step', 3: 'Every 3 h', 6: 'Every 6 h'
 const UNAVAILABLE = {
   'no-layer': 'Not in the current forecast runs.',
   'no-tiles': 'No data for this area.',
+  'too-large': 'Choose a smaller area for this regional model.',
   'outside-horizon': 'Your dates are beyond this forecast’s range.',
 };
 
@@ -222,6 +223,9 @@ function KindRow({ kindId, dataset, timeWindow, period, result, running, progres
         )}
       </p>
       {!info.ok && <p className="text-[12px] text-ink-soft">{UNAVAILABLE[dataset.availability]}</p>}
+      {dataset.downloadBytesUpperBound > 0 && dataset.datasetId.startsWith('wind-') && !['wind-gfs', 'wind-ecmwf'].includes(dataset.datasetId) && (
+        <p className="text-[12px] text-ink-soft"><span>Forecast tile transfer</span>{' · ≈ '}{fmtGribBytes(dataset.downloadBytesUpperBound)}</p>
+      )}
       {tooLarge && <p className="text-[12px] text-verdict-exceeds">{fmtTooLarge(dataset.estBytes)}</p>}
       {info.ok && info.partial && (
         <p className="text-[12px]">
@@ -524,7 +528,7 @@ export default function Grib() {
                         disabled={running}
                         className="w-full bg-white/60 border hairline rounded-sm px-2 py-1.5"
                       >
-                        {gribModelOrder(kindId, area).map((id) => {
+                        {gribModelOrder(kindId, area, plan).map((id) => {
                           const option = plan.datasets.find((candidate) => candidate.datasetId === id);
                           if (!option) return null;
                           return (

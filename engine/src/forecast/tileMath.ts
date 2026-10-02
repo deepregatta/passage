@@ -19,10 +19,11 @@ export function normalizeLon(lon: number): number {
   return lon >= 180 ? lon - 360 : lon < -180 ? lon + 360 : lon;
 }
 
-export function tileOrigin(lat: number, lon: number): TileOrigin {
+export function tileOrigin(lat: number, lon: number, tileDeg = TILE_DEG): TileOrigin {
+  if (tileDeg !== 5 && tileDeg !== 10) throw new Error(`unsupported tile size: ${tileDeg}`);
   return {
-    lat0: Math.floor(lat / TILE_DEG) * TILE_DEG,
-    lon0: Math.floor(normalizeLon(lon) / TILE_DEG) * TILE_DEG,
+    lat0: Math.floor(lat / tileDeg) * tileDeg,
+    lon0: Math.floor(normalizeLon(lon) / tileDeg) * tileDeg,
   };
 }
 
@@ -34,8 +35,8 @@ export function tileIdFromOrigin(origin: TileOrigin): string {
   return `${ns}${lat}${ew}${lon}`;
 }
 
-export function tileIdFor(lat: number, lon: number): string {
-  return tileIdFromOrigin(tileOrigin(lat, lon));
+export function tileIdFor(lat: number, lon: number, tileDeg = TILE_DEG): string {
+  return tileIdFromOrigin(tileOrigin(lat, lon, tileDeg));
 }
 
 export interface Bbox {
@@ -47,17 +48,18 @@ export interface Bbox {
 
 /** Tile ids intersecting the bbox. Antimeridian-crossing boxes are rejected,
  * matching routeBbox() which never produces them. */
-export function tilesForBbox(bbox: Bbox): string[] {
+export function tilesForBbox(bbox: Bbox, tileDeg = TILE_DEG): string[] {
+  tileOrigin(0, 0, tileDeg); // validate the supported layout
   if (bbox.minLon > bbox.maxLon) {
     throw new Error('antimeridian-crossing bounding boxes are not supported');
   }
-  const latLo = Math.floor(Math.max(bbox.minLat, -90) / TILE_DEG) * TILE_DEG;
-  const latHi = Math.floor(Math.min(bbox.maxLat, 89.999) / TILE_DEG) * TILE_DEG;
-  const lonLo = Math.floor(Math.max(bbox.minLon, -180) / TILE_DEG) * TILE_DEG;
-  const lonHi = Math.floor(Math.min(bbox.maxLon, 179.999) / TILE_DEG) * TILE_DEG;
+  const latLo = Math.floor(Math.max(bbox.minLat, -90) / tileDeg) * tileDeg;
+  const latHi = Math.floor(Math.min(bbox.maxLat, 89.999) / tileDeg) * tileDeg;
+  const lonLo = Math.floor(Math.max(bbox.minLon, -180) / tileDeg) * tileDeg;
+  const lonHi = Math.floor(Math.min(bbox.maxLon, 179.999) / tileDeg) * tileDeg;
   const ids: string[] = [];
-  for (let lat0 = latLo; lat0 <= latHi; lat0 += TILE_DEG) {
-    for (let lon0 = lonLo; lon0 <= lonHi; lon0 += TILE_DEG) {
+  for (let lat0 = latLo; lat0 <= latHi; lat0 += tileDeg) {
+    for (let lon0 = lonLo; lon0 <= lonHi; lon0 += tileDeg) {
       ids.push(tileIdFromOrigin({ lat0, lon0 }));
     }
   }
@@ -118,22 +120,23 @@ export function edgeNeighbourProbes(
   lat: number,
   lon: number,
   cellDeg: number,
+  tileDeg = TILE_DEG,
 ): TileProbe[] {
   const x = normalizeLon(lon);
-  const { lat0, lon0 } = tileOrigin(lat, x);
+  const { lat0, lon0 } = tileOrigin(lat, x, tileDeg);
   const idx = header && roundedGridIndex(header, lat, x);
   const dlat = header?.dlat ?? cellDeg;
   const dlon = header?.dlon ?? cellDeg;
   const di = lat - lat0 < dlat && (!idx || idx.i < 0) ? -1
-    : lat0 + TILE_DEG - lat <= dlat && (!idx || idx.i >= header!.nlat) ? 1 : 0;
+    : lat0 + tileDeg - lat <= dlat && (!idx || idx.i >= header!.nlat) ? 1 : 0;
   const dj = x - lon0 < dlon && (!idx || idx.j < 0) ? -1
-    : lon0 + TILE_DEG - x <= dlon && (!idx || idx.j >= header!.nlon) ? 1 : 0;
+    : lon0 + tileDeg - x <= dlon && (!idx || idx.j >= header!.nlon) ? 1 : 0;
   const steps: Array<[number, number]> = !header && di && dj ? [[di, 0], [0, dj], [di, dj]] : [[di, dj]];
   const probes: TileProbe[] = [];
   for (const [si, sj] of steps) {
-    const pLat0 = lat0 + si * TILE_DEG;
+    const pLat0 = lat0 + si * tileDeg;
     if ((!si && !sj) || pLat0 < -90 || pLat0 >= 90) continue;
-    const pLon0 = lon0 + sj * TILE_DEG;
+    const pLon0 = lon0 + sj * tileDeg;
     const wrap = pLon0 >= 180 ? -360 : pLon0 < -180 ? 360 : 0;
     probes.push({ tileId: tileIdFromOrigin({ lat0: pLat0, lon0: pLon0 + wrap }), lat, lon: x + wrap });
   }

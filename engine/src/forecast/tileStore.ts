@@ -8,6 +8,7 @@
  * GridSampler interpolates in time.
  */
 
+import { REGIONAL_LAYERS, REGIONAL_TRANSFER_BYTES, regionalAdmission, regionalTileBudget, RegionalUnavailableError } from './regional.js';
 import { windFromDeg } from '../vectors.js';
 import { coarsenedGridNote } from '../fetch/liveGrids.js';
 import type { RegionGrid } from '../grids.js';
@@ -78,6 +79,8 @@ export interface TileForecastStoreOptions {
    * Excludes headers, compressed TileCache bytes, active loads and consumer outputs.
    */
   maxDecodedBytes?: number;
+  /** Explicit feature/model opt-in; empty means no regional network reads. */
+  regionalLayers?: readonly string[];
 }
 
 export class TileForecastStore implements ForecastStore {
@@ -91,6 +94,8 @@ export class TileForecastStore implements ForecastStore {
   /** When latest.json was last read successfully (store clock), or null before. */
   private checkedAtMs: number | null = null;
   private readonly maxDecodedBytes: number;
+  private readonly regionalLayers: readonly string[];
+  private regionalLoad: Promise<unknown> = Promise.resolve();
   private decodedBytes = 0;
   // Map insertion order is LRU order; layer maps and this index share tile objects.
   private decodedLru = new Map<DecodedTile, { state: LayerState; tileId: string; bytes: number }>();
@@ -99,6 +104,10 @@ export class TileForecastStore implements ForecastStore {
     this.transport = options.transport;
     this.cache = options.cache ?? new MemoryTileCache();
     this.now = options.now ?? Date.now;
+    this.regionalLayers = options.regionalLayers ?? [];
+    if (this.regionalLayers.some(layer => !REGIONAL_LAYERS.includes(layer))) {
+      throw new Error('Unknown regional model allowlist');
+    }
     this.maxDecodedBytes = options.maxDecodedBytes ?? 64 * 1024 * 1024;
     if (!Number.isSafeInteger(this.maxDecodedBytes) || this.maxDecodedBytes < 0) {
       throw new Error('maxDecodedBytes must be a non-negative safe integer');
@@ -120,13 +129,13 @@ export class TileForecastStore implements ForecastStore {
 
   private async initOnce(): Promise<void> {
     const readAtMs = this.now();
-    this.latest = await this.transport.fetchLatest();
+    this.latest = await this.readCatalogues();
     const loaded = await Promise.all(
       Object.entries(this.latest.layers).map(async ([layer, entry]) => {
         // current run first; fall back to the retained previous run so a
         // half-published or missing manifest never takes the layer down
         const manifest = await this.readManifest([entry.run_id, entry.previous_run_id]);
-        return manifest ? { layer, entry, manifest } : null;
+        return manifest?.layer === layer ? { layer, entry, manifest } : null;
       }),
     );
     // Publish in latest.json order, independent of fetch completion order, and
@@ -140,6 +149,20 @@ export class TileForecastStore implements ForecastStore {
     }
     this.checkedAtMs = readAtMs;
     await this.cache.evictExcept(this.liveRunIds()).catch(() => {});
+  }
+
+  private async readCatalogues(): Promise<LatestDoc> {
+    const root = await this.transport.fetchLatest();
+    const layers = Object.fromEntries(Object.entries(root.layers).filter(([layer]) => !REGIONAL_LAYERS.includes(layer)));
+    if (this.regionalLayers.length && this.transport.fetchRegionalLatest) {
+      try {
+        const regional = await this.transport.fetchRegionalLatest();
+        for (const layer of this.regionalLayers) {
+          if (regional.layers[layer] && !root.layers[layer]) layers[layer] = regional.layers[layer]!;
+        }
+      } catch { /* Optional catalogue failure leaves the root briefing usable. */ }
+    }
+    return { ...root, layers };
   }
 
   private newState(manifest: RunManifest, entry: LatestLayer): LayerState {
@@ -191,7 +214,7 @@ export class TileForecastStore implements ForecastStore {
 
   private async refreshOnce(): Promise<string[]> {
     const readAtMs = this.now();
-    const latest = await this.transport.fetchLatest();
+    const latest = await this.readCatalogues();
     const loaded = await Promise.all(
       Object.entries(latest.layers).map(async ([layer, entry]) => {
         const pinned = this.layers.get(layer);
@@ -205,9 +228,16 @@ export class TileForecastStore implements ForecastStore {
       }),
     );
     const changed: string[] = [];
+    for (const [layer, state] of this.layers) {
+      if (REGIONAL_LAYERS.includes(layer) && !latest.layers[layer]) {
+        this.retire(state);
+        this.layers.delete(layer);
+        changed.push(layer);
+      }
+    }
     for (const { layer, entry, manifest } of loaded) {
       const pinned = this.layers.get(layer);
-      if (!manifest) {
+      if (!manifest || manifest.layer !== layer) {
         if (pinned) pinned.entry = entry;
         continue;
       }
@@ -246,6 +276,7 @@ export class TileForecastStore implements ForecastStore {
         resolution_deg: m.resolution_deg,
         member_count: m.member_count,
         published_at: m.published_at,
+        ...(REGIONAL_LAYERS.includes(layer) ? { regional: true, attribution: m.attribution } : {}),
         ...(cadence !== undefined ? { cadence_hours: cadence } : {}),
       };
     }
@@ -293,13 +324,31 @@ export class TileForecastStore implements ForecastStore {
     }
     const entry: { promise: Promise<{ tile: DecodedTile; cached: boolean }>; retain: boolean } = {
       retain,
-      promise: this.loadTile(state.manifest, tileId).then(result => {
+      promise: this.queuedLoad(state.manifest, tileId).then(result => {
         if (entry.retain && !state.retired) this.retainTile(state, tileId, result.tile);
         return result;
       }).finally(() => state.inFlight.delete(tileId)),
     };
     state.inFlight.set(tileId, entry);
     return entry.promise;
+  }
+
+  private queuedLoad(manifest: RunManifest, tileId: string) {
+    if (!REGIONAL_LAYERS.includes(manifest.layer)) return this.loadTile(manifest, tileId);
+    const task = this.regionalLoad.then(() => {
+      const transient = regionalTileBudget(manifest.tiles[tileId]!);
+      const retained = () => [...this.decodedLru.values()].filter(e => REGIONAL_LAYERS.includes(e.state.manifest.layer)).reduce((sum, e) => sum + e.bytes, 0);
+      for (const [tile, entry] of this.decodedLru) {
+        if (retained() + transient <= 128 * 1024 * 1024) break;
+        if (!REGIONAL_LAYERS.includes(entry.state.manifest.layer)) continue;
+        entry.state.decoded.delete(entry.tileId);
+        this.decodedLru.delete(tile);
+        this.decodedBytes -= entry.bytes;
+      }
+      return this.loadTile(manifest, tileId);
+    });
+    this.regionalLoad = task.catch(() => {});
+    return task;
   }
 
   private retainTile(state: LayerState, tileId: string, tile: DecodedTile): void {
@@ -355,12 +404,12 @@ export class TileForecastStore implements ForecastStore {
   ): Promise<GridHit | null> {
     if (!state) return null;
     const x = normalizeLon(lon);
-    const tile = await this.tileFor(state, tileIdFor(lat, x), stats);
+    const tile = await this.tileFor(state, tileIdFor(lat, x, state.manifest.tiling.tile_deg), stats);
     if (tile) {
       const idx = nearestGridIndex(tile.header, lat, x);
       if (idx) return { tile, idx };
     }
-    for (const probe of edgeNeighbourProbes(tile?.header ?? null, lat, x, state.manifest.resolution_deg)) {
+    for (const probe of edgeNeighbourProbes(tile?.header ?? null, lat, x, state.manifest.resolution_deg, state.manifest.tiling.tile_deg)) {
       if (!state.manifest.tiles[probe.tileId]) continue;
       const neighbour = await this.tileFor(state, probe.tileId, stats);
       const idx = neighbour && nearestGridIndex(neighbour.header, probe.lat, probe.lon);
@@ -378,7 +427,12 @@ export class TileForecastStore implements ForecastStore {
         throw new Error(`forecast tile invalid: ${key} (checksum mismatch)`);
       }
       try {
-        return decodeTile(await gunzip(bytes));
+        const regional = REGIONAL_LAYERS.includes(manifest.layer);
+        const tile = decodeTile(await gunzip(bytes, regional ? expected.uncompressed_bytes : undefined), regional ? expected.decoded_bytes : undefined);
+        if (tile.header.run_id !== manifest.run_id || tile.header.layer !== manifest.layer || tile.header.tile_id !== tileId) {
+          throw new Error('tile belongs to a different run, layer or coordinate');
+        }
+        return tile;
       } catch (cause) {
         throw new Error(`forecast tile invalid: ${key} (decode failed)`, { cause });
       }
@@ -414,7 +468,11 @@ export class TileForecastStore implements ForecastStore {
         reload = true;
         continue;
       }
-      await this.cache.put(key, bytes, manifest.run_id).catch(() => {});
+      // IndexedDB retains compressed regional tiles on disk; an in-memory
+      // fallback must not accumulate them outside the regional working set.
+      if (!REGIONAL_LAYERS.includes(manifest.layer) || !(this.cache instanceof MemoryTileCache)) {
+        await this.cache.put(key, bytes, manifest.run_id).catch(() => {});
+      }
       return { tile, cached: false };
     }
   }
@@ -431,6 +489,7 @@ export class TileForecastStore implements ForecastStore {
     const m = state.manifest;
     return {
       source: 'tiles',
+      ...(m.attribution ? { attribution: m.attribution } : {}),
       layer: m.layer,
       model: m.model,
       run_id: m.run_id,
@@ -651,6 +710,23 @@ export class TileForecastStore implements ForecastStore {
         if (read) meta.push({ ...read.meta, served: servedRanges(hours, choice, i) });
       });
     }
+    let regionalBytes = 0;
+    for (const layer of this.regionalLayers) {
+      const state = this.layers.get(layer);
+      if (!state) continue;
+      try {
+        const bytes = regionalAdmission(state.manifest, points, startMs, endMs);
+        if (regionalBytes + bytes > REGIONAL_TRANSFER_BYTES) continue;
+        regionalBytes += bytes;
+        const read = await this.hazardRead(state, points, startMs, endMs);
+        if (read.forecasts.some(fc => !fc.wind_kt.length || fc.wind_kt.some(v => v === null))) continue;
+        byModel[state.manifest.model] = read.forecasts;
+        meta.push(read.meta);
+      } catch (error) {
+        if (error instanceof ForecastRunGoneError) throw error;
+        // No regional contribution on missing coverage, budget or source failure.
+      }
+    }
     return Object.keys(byModel).length ? { byModel, meta } : null;
   }
 
@@ -698,6 +774,29 @@ export class TileForecastStore implements ForecastStore {
     return grid;
   }
 
+  async getRegionalWindGrid(layer: string, bbox: Bbox, startIso: string, hours: number): Promise<RegionGrid> {
+    await this.init();
+    const state = this.layers.get(layer);
+    if (!this.regionalLayers.includes(layer) || !state) throw new RegionalUnavailableError('Regional model unavailable');
+    const g = state.manifest.served_grid;
+    if (!g) throw new RegionalUnavailableError('Regional grid unavailable');
+    const points: Array<{lat: number; lon: number}> = [];
+    const nlat = Math.floor((bbox.maxLat - bbox.minLat) / g.dlat) + 2;
+    const nlon = Math.floor((bbox.maxLon - bbox.minLon) / g.dlon) + 2;
+    if (nlat * nlon > 4000) throw new RegionalUnavailableError('Choose a smaller region at native resolution');
+    for (let i = 0; i < nlat; i++) for (let j = 0; j < nlon; j++) {
+      points.push({lat: g.lat0 + Math.round((bbox.minLat - g.lat0) / g.dlat) * g.dlat + i * g.dlat,
+        lon: g.lon0 + Math.round((bbox.minLon - g.lon0) / g.dlon) * g.dlon + j * g.dlon});
+    }
+    const start = Date.parse(startIso);
+    regionalAdmission(state.manifest, points, start, start + hours * MS_PER_HOUR);
+    const grid = await this.mosaicGrid(layer, ['wind_u_kt','wind_v_kt'], 'wind10m', bbox, startIso, hours);
+    if (!grid || grid.u_kt.some(v => v === null) || grid.v_kt.some(v => v === null)) {
+      throw new RegionalUnavailableError('Regional model does not cover this region and period');
+    }
+    return grid;
+  }
+
   async getCurrentGrid(bbox: Bbox, startIso: string, hours: number): Promise<RegionGrid | null> {
     await this.init();
     if (!this.layers.has('currents')) return null;
@@ -730,7 +829,8 @@ export class TileForecastStore implements ForecastStore {
     const res = manifest.resolution_deg;
 
     // native-resolution lattice covering the bbox, snapped to the tile grid
-    const snap = (x: number) => Math.round(x / res) * res;
+    const native = manifest.served_grid;
+    const snap = (x: number, origin = 0) => origin + Math.round((x - origin) / res) * res;
     let stride = 1;
     const rawNlat = Math.floor((bbox.maxLat - bbox.minLat) / res) + 1;
     const rawNlon = Math.floor((bbox.maxLon - bbox.minLon) / res) + 1;
@@ -739,8 +839,8 @@ export class TileForecastStore implements ForecastStore {
     }
     const dlat = res * stride;
     const dlon = res * stride;
-    const lat0 = snap(bbox.minLat);
-    const lon0 = snap(bbox.minLon);
+    const lat0 = snap(bbox.minLat, native?.lat0);
+    const lon0 = snap(bbox.minLon, native?.lon0);
     const nlat = Math.max(2, Math.floor((bbox.maxLat - lat0) / dlat) + 1);
     const nlon = Math.max(2, Math.floor((bbox.maxLon - lon0) / dlon) + 1);
 

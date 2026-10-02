@@ -56,7 +56,12 @@ export interface RunManifest {
     statistic?: VariableStatistic;
   }>;
   tiling: { tile_deg: number; path_template: string };
-  tiles: Record<string, { bytes: number; fnv64: string }>;
+  tiles: Record<string, { bytes: number; fnv64: string; decoded_bytes?: number; uncompressed_bytes?: number }>;
+  coverage?: Bbox;
+  served_grid?: { lat0: number; lon0: number; dlat: number; dlon: number; nlat: number; nlon: number };
+  capabilities?: string[];
+  attribution?: string;
+  provenance?: Record<string, unknown>;
   totals: { tile_count: number; bytes: number };
   published_at: string;
 }
@@ -93,6 +98,7 @@ export interface TileFetchOptions {
 
 export interface TileTransport {
   fetchLatest(): Promise<LatestDoc>;
+  fetchRegionalLatest?(): Promise<LatestDoc>;
   fetchManifest(runId: string): Promise<RunManifest>;
   /** Stored gzip bytes, so the store can verify the manifest hash before decoding. */
   fetchTile(runId: string, path: string, options?: TileFetchOptions): Promise<Uint8Array>;
@@ -127,6 +133,8 @@ export class MemoryTileCache implements TileCache {
 }
 
 export interface LayerInfo {
+  regional?: boolean;
+  attribution?: string;
   layer: string;
   model: string;
   run_id: string;

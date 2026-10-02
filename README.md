@@ -115,3 +115,5 @@ snapshot artifacts and emits `passage_example_view`; it does not run a forecast,
 trigger a departure scan, or count as a completed planner activation. The bulletin
 and departure comparison retain their emulated labels. URL queries survive
 navigation.
+
+Optional regional forecast support and its release gates are described in [regional forecast tiles](docs/regional-forecast-tiles.md).

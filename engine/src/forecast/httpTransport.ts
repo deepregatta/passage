@@ -98,6 +98,10 @@ export class HttpTileTransport implements TileTransport {
     return this.getJson<LatestDoc>('latest.json');
   }
 
+  fetchRegionalLatest(): Promise<LatestDoc> {
+    return this.getJson<LatestDoc>('latest-regional.json');
+  }
+
   fetchManifest(runId: string): Promise<RunManifest> {
     return this.getJson<RunManifest>(`forecast-runs/${runId}/manifest.json`);
   }
@@ -109,7 +113,7 @@ export class HttpTileTransport implements TileTransport {
 }
 
 /** gunzip via the web-standard DecompressionStream (browser + Node 22+) */
-export async function gunzip(bytes: Uint8Array): Promise<Uint8Array> {
+export async function gunzip(bytes: Uint8Array, maxBytes = Infinity): Promise<Uint8Array> {
   const source = new ReadableStream<Uint8Array>({
     start(controller) {
       controller.enqueue(bytes);
@@ -117,5 +121,22 @@ export async function gunzip(bytes: Uint8Array): Promise<Uint8Array> {
     },
   });
   const stream = source.pipeThrough(new DecompressionStream('gzip'));
-  return new Uint8Array(await new Response(stream).arrayBuffer());
+  if (maxBytes === Infinity) return new Uint8Array(await new Response(stream).arrayBuffer());
+  const reader = stream.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > maxBytes) {
+      await reader.cancel();
+      throw new Error('forecast tile decompression budget exceeded');
+    }
+    chunks.push(value);
+  }
+  const out = new Uint8Array(size);
+  let at = 0;
+  for (const chunk of chunks) { out.set(chunk, at); at += chunk.byteLength; }
+  return out;
 }

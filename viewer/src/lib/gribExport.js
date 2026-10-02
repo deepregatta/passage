@@ -197,6 +197,8 @@ export function gribRunIds(manifests) {
 }
 
 const GRIB_RUN_NAMES = {
+  'wind-arome': 'AROME',
+  'wind-icon-eu': 'ICON-EU',
   'wind-gfs': 'GFS',
   'wind-ecmwf': 'ECMWF',
   'waves-gfs': 'GFS-Wave',
@@ -265,13 +267,16 @@ const insideBox = (box, lat, lon) => lat >= box.minLat && lat <= box.maxLat && l
  * A kind's models, the local one first: ECMWF for wind in Europe (GFS
  * elsewhere), the regional IBI model for currents wherever it exists.
  */
-export function gribModelOrder(kindId, area) {
+export function gribModelOrder(kindId, area, plan = null) {
   const kind = GRIB_KINDS.find((entry) => entry.id === kindId);
   if (!kind) return [];
-  if (kindId !== 'wind' || !area) return [...kind.datasets];
+  if (kindId !== 'wind') return [...kind.datasets];
+  const regional = ['wind-arome', 'wind-icon-eu'].filter((id) =>
+    plan?.datasets.some((dataset) => dataset.datasetId === id && dataset.availability !== 'no-layer'));
+  if (!area) return [...kind.datasets, ...regional];
   const lat = (area.minLat + area.maxLat) / 2;
   const lon = (area.minLon + area.maxLon) / 2;
-  return insideBox(GRIB_EUROPE, lat, lon) ? ['wind-ecmwf', 'wind-gfs'] : ['wind-gfs', 'wind-ecmwf'];
+  return [...(insideBox(GRIB_EUROPE, lat, lon) ? ['wind-ecmwf', 'wind-gfs'] : ['wind-gfs', 'wind-ecmwf']), ...regional];
 }
 
 /**
@@ -282,7 +287,7 @@ export function gribModelOrder(kindId, area) {
  */
 export function gribKindDataset(plan, kindId, area, choice = null) {
   const byId = new Map(plan.datasets.map((dataset) => [dataset.datasetId, dataset]));
-  const order = gribModelOrder(kindId, area).filter((id) => byId.has(id));
+  const order = gribModelOrder(kindId, area, plan).filter((id) => byId.has(id));
   const usable = (id) => byId.get(id).availability === 'ok';
   if (choice && order.includes(choice) && usable(choice)) return byId.get(choice);
   const id = order.find((candidate) => usable(candidate) && !gribPartial(byId.get(candidate)))

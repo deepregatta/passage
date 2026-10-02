@@ -79,7 +79,7 @@ function expectedLength(header: TileHeader, variable: TileVariable): number {
   return variable.per_member ? header.member_count * spatial : spatial;
 }
 
-export function decodeTile(buf: Uint8Array): DecodedTile {
+export function decodeTile(buf: Uint8Array, maxDecodedBytes = Infinity): DecodedTile {
   const view = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
   if (buf.byteLength < 8 || view.getUint32(0, false) !== MAGIC) {
     throw new Error('not a PFT1 tile');
@@ -91,6 +91,8 @@ export function decodeTile(buf: Uint8Array): DecodedTile {
   if (header.spec !== 'PFT1') throw new Error(`unsupported spec: ${header.spec}`);
   const payloadStart = 8 + headerLen + ((4 - ((8 + headerLen) % 4)) % 4);
 
+  const total = header.variables.reduce((sum, v) => sum + expectedLength(header, v) * 4, 0);
+  if (!Number.isSafeInteger(total) || total < 0 || total > maxDecodedBytes) throw new Error('forecast tile decoded budget exceeded');
   const arrays: Record<string, Float32Array> = {};
   for (const variable of header.variables) {
     const info = DTYPE_INFO[variable.dtype];
