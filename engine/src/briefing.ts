@@ -390,6 +390,8 @@ export function nextForecastRuns(layers: Record<string, LayerInfo>, afterIso: st
   const after = Date.parse(afterIso);
   if (!Number.isFinite(after)) return [];
   return Object.values(layers).flatMap((layer) => {
+    // Regional arrivals need cycle-specific windows, not a shifted cadence.
+    if (layer.regional) return [];
     const cadenceHours = cadenceHoursOf(layer);
     if (cadenceHours === null) return [];
     const cycle = Date.parse(layer.cycle);

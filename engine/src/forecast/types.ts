@@ -63,6 +63,7 @@ export interface CurrentPointForecast {
 /** Provenance of one tile-layer read, recorded in findings.inputs.forecast_tiles. */
 export interface TileRequestMeta {
   source: 'tiles' | 'fixture';
+  attribution?: string;
   layer: string;
   model: string;
   run_id: string;

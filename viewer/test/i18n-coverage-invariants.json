@@ -311,6 +311,7 @@
         "ready",
         "settings-changed",
         "tiles",
+        "too-large",
         "|"
       ],
       "viewer/src/pages/Passages.jsx": [

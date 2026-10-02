@@ -567,3 +567,15 @@ describe('IBI horizon (forecast-tiles serves 0–120 h from 2026-09-29)', () => 
     expect(await ibiFileFor(73)).toMatchObject({ ok: true, horizonShort: true, last: '2026-07-23T00:00:00Z' });
   });
 });
+
+it('offers opted-in regional GRIB models only when the catalogue provides them', () => {
+  const area = {minLat: 48, maxLat: 49, minLon: -5, maxLon: -4};
+  const absent = {datasets: [{datasetId: 'wind-arome', availability: 'no-layer'}]};
+  expect(gribModelOrder('wind', area, absent)).toEqual(['wind-ecmwf', 'wind-gfs']);
+  const plan = {datasets: [
+    {datasetId: 'wind-ecmwf', availability: 'ok', tiles: []},
+    {datasetId: 'wind-arome', availability: 'ok', tiles: []},
+  ]};
+  expect(gribModelOrder('wind', area, plan)).toEqual(['wind-ecmwf', 'wind-gfs', 'wind-arome']);
+  expect(gribKindDataset(plan, 'wind', area, 'wind-arome').datasetId).toBe('wind-arome');
+});

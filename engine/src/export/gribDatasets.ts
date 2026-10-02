@@ -12,7 +12,7 @@ import type { GribLevel } from './grib2.js';
 /** Knots per m/s, the constant the tile pipeline converts with (forecast-tiles ingest/sources/base.py). */
 export const MS_TO_KT = 1.943844;
 
-export type GribDatasetId = 'wind-gfs' | 'wind-ecmwf' | 'waves-gfs' | 'currents-global' | 'currents-ibi';
+export type GribDatasetId = 'wind-arome' | 'wind-icon-eu' | 'wind-gfs' | 'wind-ecmwf' | 'waves-gfs' | 'currents-global' | 'currents-ibi';
 
 export type GribDatasetKind = 'wind' | 'waves' | 'currents';
 
@@ -114,6 +114,12 @@ const ECMWF_WIND_VARIABLES: readonly GribVariableSpec[] = [
 ];
 
 export const GRIB_DATASETS: readonly GribDatasetSpec[] = [
+  {id: 'wind-arome', layer: 'weather-arome', kind: 'wind', label: 'Wind – AROME',
+    attribution: 'Météo-France AROME via Open-Meteo (CC BY 4.0)', centre: 85,
+    generatingProcess: 255, hasLand: true, variables: ECMWF_WIND_VARIABLES},
+  {id: 'wind-icon-eu', layer: 'weather-icon-eu', kind: 'wind', label: 'Wind – ICON-EU',
+    attribution: 'Deutscher Wetterdienst ICON-EU via Open-Meteo (CC BY 4.0)', centre: 78,
+    generatingProcess: 255, hasLand: true, variables: ECMWF_WIND_VARIABLES},
   {
     id: 'wind-gfs',
     layer: 'weather',

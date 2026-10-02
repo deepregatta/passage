@@ -6,6 +6,7 @@
  * tile is fetched.
  */
 
+import { REGIONAL_LAYERS, regionalTileBudget } from '../forecast/regional.js';
 import { parseUtc, toIso } from '../eta.js';
 import { newestRunCovering, runSpan } from '../forecast/modelRuns.js';
 import type { RunManifest } from '../forecast/store.js';
@@ -34,7 +35,7 @@ export interface GribExportRequest {
   fixture?: boolean;
 }
 
-export type GribAvailability = 'ok' | 'no-layer' | 'no-tiles' | 'outside-horizon';
+export type GribAvailability = 'ok' | 'no-layer' | 'no-tiles' | 'outside-horizon' | 'too-large';
 
 export interface GribPlannedStep {
   /** index on the tile time axis */
@@ -217,9 +218,26 @@ function planDataset(
   });
   if (axis === undefined || !timeAxis || !variables.length) return empty;
 
+  if (REGIONAL_LAYERS.includes(manifest.layer)) {
+    const c = manifest.coverage;
+    if (!c || request.bbox.minLat < c.minLat || request.bbox.maxLat > c.maxLat ||
+        request.bbox.minLon < c.minLon || request.bbox.maxLon > c.maxLon) return { ...empty, availability: 'no-tiles' };
+    const base = parseUtc(timeAxis.base);
+    const lo = base + Math.min(...timeAxis.offsets_h) * HOUR_MS;
+    const hi = base + Math.max(...timeAxis.offsets_h) * HOUR_MS;
+    if (startMs < lo || endMs > hi) return { ...empty, availability: 'outside-horizon' };
+  }
   const lattice = gribLattice(request.bbox, manifest.resolution_deg);
   const tiles = planTiles(manifest, lattice);
   const downloadBytesUpperBound = tiles.reduce((sum, tile) => sum + tile.bytes, 0);
+  if (REGIONAL_LAYERS.includes(manifest.layer)) {
+    try {
+      for (const tile of tiles) if (tile.present) regionalTileBudget(manifest.tiles[tile.id]!);
+      if (downloadBytesUpperBound > 50 * 1024 * 1024) throw new Error('transfer budget');
+    } catch {
+      return { ...empty, availability: 'too-large', downloadBytesUpperBound };
+    }
+  }
   const steps = selectSteps(manifest.cycle, timeAxis, request.step, startMs, endMs);
   const availability: GribAvailability = !tiles.some((tile) => tile.present)
     ? 'no-tiles'
@@ -236,6 +254,14 @@ function planDataset(
       bitmapBytes + Math.ceil((points * v.estBits) / 8),
     0,
   );
+  if (REGIONAL_LAYERS.includes(manifest.layer)) {
+    const cubeBytes = points * selected.length * variables.length * 4;
+    // Cover cubes, packed output and per-message work inside queuedLoad's
+    // output reserve. An oversized optional model cannot block root exports.
+    if (2 * cubeBytes + 2 * selected.length * bytesPerStep > 16 * 1024 * 1024) {
+      return { ...empty, availability: 'too-large', downloadBytesUpperBound };
+    }
+  }
   const windowsH = variables.map((v) => {
     const windows = v.statistic ? listed.get(v.tileVar)!.statistic!.window_h : null;
     return windows ? selected.map((step) => windows[step.index] ?? null) : null;
@@ -260,14 +286,16 @@ function planDataset(
 function planTiles(manifest: RunManifest, lattice: GribLattice): GribPlannedTile[] {
   const { n } = lattice;
   const pad = tilesAlignedToLattice(manifest.resolution_deg, n) ? 0 : 0.5;
-  const rowLo = Math.max(-9, Math.floor((lattice.kS - pad) / n));
-  const rowHi = Math.min(8, Math.floor((lattice.kN + pad) / n));
-  const colLo = Math.max(-18, Math.floor((lattice.kW - pad) / n));
-  const colHi = Math.min(17, Math.floor((lattice.kE + pad) / n));
+  const deg = manifest.tiling.tile_deg;
+  const cells = n * deg / 10;
+  const rowLo = Math.max(-90 / deg, Math.floor((lattice.kS - pad) / cells));
+  const rowHi = Math.min(90 / deg - 1, Math.floor((lattice.kN + pad) / cells));
+  const colLo = Math.max(-180 / deg, Math.floor((lattice.kW - pad) / cells));
+  const colHi = Math.min(180 / deg - 1, Math.floor((lattice.kE + pad) / cells));
   const wanted = new Set<string>();
   for (let row = rowLo; row <= rowHi; row++) {
     for (let col = colLo; col <= colHi; col++) {
-      wanted.add(tileIdFromOrigin({ lat0: row * 10, lon0: col * 10 }));
+      wanted.add(tileIdFromOrigin({ lat0: row * deg, lon0: col * deg }));
     }
   }
   const present = Object.keys(manifest.tiles).filter((id) => wanted.has(id));

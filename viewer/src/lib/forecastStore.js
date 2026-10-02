@@ -16,6 +16,7 @@ export function forecastStore() {
     const cache = createTileCache();
     storeInstance = new TileForecastStore({
       transport: new HttpTileTransport({ baseUrl: FORECAST_BASE_URL }),
+      regionalLayers: (import.meta.env.VITE_REGIONAL_MODELS || '').split(',').filter(Boolean),
       ...(cache ? { cache } : {}),
     });
   }
