@@ -691,6 +691,8 @@ const FR = {
   'Forecast tile transfer': 'Transfert des tuiles de prévision',
   'Wind – AROME': 'Vent – AROME',
   'Wind – ICON-EU': 'Vent – ICON-EU',
+  'Wind – UKV': 'Vent – UKV',
+  'British Crown copyright 2023–2025, Met Office UKV via Open-Meteo; CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/); native CRS corrected, remapped and quantized data': 'Données UKV du Met Office distribuées par Open-Meteo, copyright de la Couronne britannique 2023–2025 ; CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/) ; projection native corrigée, données reprojetées et quantifiées',
   'Météo-France AROME via Open-Meteo (CC BY 4.0)': 'Données Météo-France AROME distribuées par Open-Meteo (CC BY 4.0)',
   'Deutscher Wetterdienst ICON-EU via Open-Meteo (CC BY 4.0)': 'Données Deutscher Wetterdienst ICON-EU distribuées par Open-Meteo (CC BY 4.0)',
   'Waves – GFS-Wave': 'Vagues – GFS-Wave',

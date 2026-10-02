@@ -3,9 +3,10 @@ import { edgeNeighbourProbes, tileIdFor } from './tileMath.js';
 import { runSpan } from './modelRuns.js';
 import type { RunManifest } from './store.js';
 
-export const REGIONAL_LAYERS: readonly string[] = ['weather-arome', 'weather-icon-eu'];
+export const REGIONAL_LAYERS: readonly string[] = ['weather-arome', 'weather-icon-eu', 'weather-ukv'];
 export class RegionalUnavailableError extends Error {}
 export const REGIONAL_TRANSFER_BYTES = 20 * 1024 * 1024;
+export const REGIONAL_WORKING_BYTES = 128 * 1024 * 1024;
 
 export function regionalTileBudget(tile: RunManifest['tiles'][string]): number {
   const decoded = tile.decoded_bytes, inflated = tile.uncompressed_bytes;
@@ -15,11 +16,11 @@ export function regionalTileBudget(tile: RunManifest['tiles'][string]): number {
   }
   // Retained output, compressed/inflate copies, decoded arrays and request output reserve.
   const transient = 2 * tile.bytes + 2 * inflated! + 2 * decoded! + 16 * 1024 * 1024;
-  if (transient > 128 * 1024 * 1024) throw new RegionalUnavailableError('Regional working set exceeds browser budget');
+  if (transient > REGIONAL_WORKING_BYTES) throw new RegionalUnavailableError('Regional working set exceeds browser budget');
   return transient;
 }
 
-export function regionalAdmission(manifest: RunManifest, points: Array<{lat: number; lon: number}>, start: number, end: number): number {
+export function regionalResources(manifest: RunManifest, points: Array<{lat: number; lon: number}>, start: number, end: number): {transferBytes: number; decodedBytes: number; peakBytes: number} {
   const c = manifest.coverage, span = runSpan(manifest, 'wind_u_kt');
   if (!c || !manifest.capabilities?.includes('wind') || !Number.isFinite(start) || !Number.isFinite(end) ||
       end < start || !span || start < span.startMs || end > span.endMs) {
@@ -40,8 +41,19 @@ export function regionalAdmission(manifest: RunManifest, points: Array<{lat: num
       if (manifest.tiles[probe.tileId]) wanted.add(probe.tileId);
     }
   }
-  let bytes = 0;
-  for (const id of wanted) { regionalTileBudget(manifest.tiles[id]!); bytes += manifest.tiles[id]!.bytes; }
+  let bytes = 0, decodedBytes = 0;
+  for (const id of wanted) {
+    const tile = manifest.tiles[id]!;
+    regionalTileBudget(tile); bytes += tile.bytes; decodedBytes += tile.decoded_bytes!;
+  }
   if (bytes > REGIONAL_TRANSFER_BYTES) throw new RegionalUnavailableError('Regional request exceeds 20 MiB; choose a smaller region');
-  return bytes;
+  const peakBytes = Math.max(0, ...[...wanted].map(id => {
+    const tile = manifest.tiles[id]!;
+    return decodedBytes - tile.decoded_bytes! + regionalTileBudget(tile);
+  }));
+  return {transferBytes: bytes, decodedBytes, peakBytes};
+}
+
+export function regionalAdmission(manifest: RunManifest, points: Array<{lat: number; lon: number}>, start: number, end: number): number {
+  return regionalResources(manifest, points, start, end).transferBytes;
 }

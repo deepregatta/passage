@@ -20,7 +20,7 @@ export function normalizeLon(lon: number): number {
 }
 
 export function tileOrigin(lat: number, lon: number, tileDeg = TILE_DEG): TileOrigin {
-  if (tileDeg !== 5 && tileDeg !== 10) throw new Error(`unsupported tile size: ${tileDeg}`);
+  if (tileDeg !== 3 && tileDeg !== 5 && tileDeg !== 10) throw new Error(`unsupported tile size: ${tileDeg}`);
   return {
     lat0: Math.floor(lat / tileDeg) * tileDeg,
     lon0: Math.floor(normalizeLon(lon) / tileDeg) * tileDeg,

@@ -8,7 +8,7 @@
  * GridSampler interpolates in time.
  */
 
-import { REGIONAL_LAYERS, REGIONAL_TRANSFER_BYTES, regionalAdmission, regionalTileBudget, RegionalUnavailableError } from './regional.js';
+import { REGIONAL_LAYERS, REGIONAL_TRANSFER_BYTES, REGIONAL_WORKING_BYTES, regionalResources, regionalAdmission, regionalTileBudget, RegionalUnavailableError } from './regional.js';
 import { windFromDeg } from '../vectors.js';
 import { coarsenedGridNote } from '../fetch/liveGrids.js';
 import type { RegionGrid } from '../grids.js';
@@ -339,7 +339,7 @@ export class TileForecastStore implements ForecastStore {
       const transient = regionalTileBudget(manifest.tiles[tileId]!);
       const retained = () => [...this.decodedLru.values()].filter(e => REGIONAL_LAYERS.includes(e.state.manifest.layer)).reduce((sum, e) => sum + e.bytes, 0);
       for (const [tile, entry] of this.decodedLru) {
-        if (retained() + transient <= 128 * 1024 * 1024) break;
+        if (retained() + transient <= REGIONAL_WORKING_BYTES) break;
         if (!REGIONAL_LAYERS.includes(entry.state.manifest.layer)) continue;
         entry.state.decoded.delete(entry.tileId);
         this.decodedLru.delete(tile);
@@ -710,14 +710,22 @@ export class TileForecastStore implements ForecastStore {
         if (read) meta.push({ ...read.meta, served: servedRanges(hours, choice, i) });
       });
     }
-    let regionalBytes = 0;
+    let regionalBytes = 0, regionalDecodedBytes = 0;
+    // Optional comparisons must coexist with the current root workload and
+    // each other's decode buffers. Otherwise the LRU would churn every warm read.
+    const rootDecodedBytes = [...this.decodedLru.values()]
+      .filter(entry => !REGIONAL_LAYERS.includes(entry.state.manifest.layer))
+      .reduce((sum, entry) => sum + entry.bytes, 0);
     for (const layer of this.regionalLayers) {
       const state = this.layers.get(layer);
       if (!state) continue;
       try {
-        const bytes = regionalAdmission(state.manifest, points, startMs, endMs);
-        if (regionalBytes + bytes > REGIONAL_TRANSFER_BYTES) continue;
-        regionalBytes += bytes;
+        const resources = regionalResources(state.manifest, points, startMs, endMs);
+        if (regionalBytes + resources.transferBytes > REGIONAL_TRANSFER_BYTES ||
+            rootDecodedBytes + regionalDecodedBytes + resources.decodedBytes > this.maxDecodedBytes ||
+            regionalDecodedBytes + resources.peakBytes > REGIONAL_WORKING_BYTES) continue;
+        regionalBytes += resources.transferBytes;
+        regionalDecodedBytes += resources.decodedBytes;
         const read = await this.hazardRead(state, points, startMs, endMs);
         if (read.forecasts.some(fc => !fc.wind_kt.length || fc.wind_kt.some(v => v === null))) continue;
         byModel[state.manifest.model] = read.forecasts;

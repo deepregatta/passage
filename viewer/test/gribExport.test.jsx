@@ -579,3 +579,10 @@ it('offers opted-in regional GRIB models only when the catalogue provides them',
   expect(gribModelOrder('wind', area, plan)).toEqual(['wind-ecmwf', 'wind-gfs', 'wind-arome']);
   expect(gribKindDataset(plan, 'wind', area, 'wind-arome').datasetId).toBe('wind-arome');
 });
+
+it('offers opted-in UKV beside global models and exposes its label and data terms', () => {
+  const area = {minLat: 49, maxLat: 50, minLon: -5, maxLon: -4};
+  const plan = {datasets: [{datasetId: 'wind-ukv', availability: 'ok', tiles: []}]};
+  expect(gribModelOrder('wind', area, plan)).toEqual(['wind-ecmwf', 'wind-gfs', 'wind-ukv']);
+  expect(gribKindDataset(plan, 'wind', area, 'wind-ukv').datasetId).toBe('wind-ukv');
+});
