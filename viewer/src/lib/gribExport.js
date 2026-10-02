@@ -22,7 +22,7 @@ import { fmtTime } from './format.js';
 export const GRIB_ROUTE_MARGIN_DEG = 1;
 export const GRIB_STEPS = ['all', 3, 6];
 /** Days from now, or `full`: to the end of every pinned forecast. */
-export const GRIB_PERIODS = ['2', '3', '5', '7', 'full'];
+export const GRIB_PERIODS = ['1', '2', '3', '5', '7', 'full'];
 export const GRIB_DEFAULT_PERIOD = '3';
 export const GRIB_DATASET_IDS = GRIB_DATASETS.map((dataset) => dataset.id);
 /**
