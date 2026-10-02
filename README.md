@@ -89,6 +89,9 @@ Production builds default to `https://forecast.deepregatta.com` for forecast
 tiles and its `prepared/` prefix for prepared runs. `VITE_FORECAST_BASE_URL`
 can override that public host; another origin also requires updating the
 `connect-src` and `img-src` allowlists in `viewer/public/_headers`.
+Regional wind exports must fit the selected model's complete forecast horizon.
+The GRIB page offers an explicit **Next 1 day** period for these shorter runs.
+
 Development defaults to `/data/forecast` for tiles and always reads prepared
 runs from the local `/data/runs/` warehouse. A failed latest-pointer request
 does not switch hosts or change saved chart URLs. Use the `static-dist` launch

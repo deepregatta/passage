@@ -335,6 +335,17 @@ describe('GRIB files page', () => {
     expect(page().getByText('Generated using E.U. Copernicus Marine Service Information')).toBeInTheDocument();
   });
 
+  it('offers a one-day export window for short regional forecasts', async () => {
+    await openWith(CHANNEL);
+    const period = page().getByRole('combobox', { name: 'Period' });
+    expect(within(period).getByRole('option', { name: 'Next 1 day' })).toBeInTheDocument();
+    fireEvent.change(period, { target: { value: '1' } });
+    expect(useGrib.getState().period).toBe('1');
+    const window = gribPeriodWindow({ period: '1', nowMs: Date.parse(NOW) });
+    expect(Date.parse(window.endIso) - Date.parse(window.startIso)).toBe(24 * 3_600_000);
+    expect(page().getAllByText('Mon 20 Jul 06:00 → Tue 21 Jul 06:00 UTC')).toHaveLength(2);
+  });
+
   it('falls back to the global currents where IBI covers only part of the box', async () => {
     await openWith(ACROSS);
     const currents = kindItem('Download currents');

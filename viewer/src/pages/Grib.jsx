@@ -54,6 +54,7 @@ const KIND_BUTTONS = { wind: 'Download wind', currents: 'Download currents', wav
 const MODEL_SELECTS = { wind: 'Wind model', currents: 'Currents model' };
 
 const PERIOD_LABELS = {
+  1: 'Next 1 day',
   2: 'Next 2 days',
   3: 'Next 3 days',
   5: 'Next 5 days',
@@ -519,6 +520,9 @@ export default function Grib() {
               <details className="border-t hairline pt-3">
                 <summary className="cursor-pointer text-[13px]">More options</summary>
                 <div className="mt-3 space-y-3">
+                  {plan.datasets.some((dataset) => ['wind-arome', 'wind-icon-eu', 'wind-ukv'].includes(dataset.datasetId) && dataset.availability === 'outside-horizon') && (
+                    <p className="text-[12px] text-ink-soft">Regional models have shorter forecasts. Choose Next 1 day to include them.</p>
+                  )}
                   {kinds.filter(({ kindId }) => MODEL_SELECTS[kindId]).map(({ kindId, dataset }) => (
                     <label key={kindId} className="block">
                       <span className="eyebrow block mb-1">{MODEL_SELECTS[kindId]}</span>

@@ -623,6 +623,8 @@ const FR = {
   'Drag a corner of the box to adjust it.': 'Faites glisser un coin du cadre pour l’ajuster.',
   'Move the chart to your sailing area, press Draw a box, then drag across the chart.': 'Déplacez la carte sur votre zone de navigation, appuyez sur Tracer un cadre, puis faites glisser sur la carte.',
   'Period': 'Période',
+  'Next 1 day': 'Le prochain jour',
+  'Regional models have shorter forecasts. Choose Next 1 day to include them.': 'Les modèles régionaux ont des prévisions plus courtes. Choisissez Le prochain jour pour les inclure.',
   'Next 2 days': 'Les 2 prochains jours',
   'Next 3 days': 'Les 3 prochains jours',
   'Next 5 days': 'Les 5 prochains jours',
