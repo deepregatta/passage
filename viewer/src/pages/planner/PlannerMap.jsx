@@ -49,7 +49,7 @@ function FitRoute({ positions, fitKey }) {
 export default function PlannerMap({ mode, waypoints, computed, endpoints, fitNonce, addWaypoint, setWaypoints, children }) {
   const frameRef = useRef(null);
   return (
-    <div ref={frameRef} className="relative h-[55vh] min-h-[360px] lg:h-auto lg:min-h-[calc(100vh-8rem)] border border-ink/30 rounded-sm overflow-hidden">
+    <div ref={frameRef} className="isolate relative h-[55vh] min-h-[360px] lg:h-auto lg:min-h-[calc(100vh-8rem)] border border-ink/30 rounded-sm overflow-hidden">
       <MapContainer
         center={[49.9, -3.0]}
         zoom={8}
