@@ -18,7 +18,7 @@ from deepweather_analysis.verification.calibration import (
     LEAD_BANDS,
     accumulate_calibration,
 )
-from deepweather_analysis.verification.match import haversine_km, match_snapshot
+from deepweather_analysis.verification.match import case_revision, haversine_km, match_snapshot
 
 WINDOW_START = "2026-07-12T06:00:00Z"
 WINDOW_END = "2026-07-12T09:00:00Z"
@@ -175,6 +175,8 @@ class TestMatchSnapshot:
         # Distance 0, offset 0 — would be verified_near_observation, but synthetic.
         assert result["pairs"][0]["coverage_class"] == "emulated"
         assert result["source_mode"] == "synthetic"
+        assert result["source_kind"] == "emulated"
+        assert result["pairs"][0]["source_kind"] == "emulated"
 
     def test_leg_without_coverage_listed(self):
         findings = findings_doc(
@@ -228,16 +230,31 @@ class TestMatchSnapshot:
 # =============================================================================
 
 
-def verification_doc(pairs) -> dict:
-    return {"snapshot_id": "s", "observation_source": "era5", "pairs": pairs}
+def verification_doc(pairs, snapshot_id="s", emulated=False) -> dict:
+    doc = match_snapshot(findings_doc([]), obs_doc("synthetic" if emulated else "fixture", []))
+    doc.update(
+        snapshot_id=snapshot_id, observation_source="emulated" if emulated else "era5", pairs=pairs
+    )
+    doc["case_revision"] = case_revision(doc)
+    return doc
 
 
 def cal_pair(lead_h: float, error: float, coverage_class: str = "reanalysis_referenced") -> dict:
     return {
         "variable": "wind_kt",
         "lead_h": lead_h,
+        "check_lead_h": lead_h,
+        "model_lead_h": None,
+        "model_cycle": None,
         "error": error,
         "coverage_class": coverage_class,
+        "leg_id": "L1",
+        "station_id": "test",
+        "valid_time": WINDOW_START,
+        "forecast": 10 + error,
+        "observed": 10,
+        "distance_km": 0,
+        "time_offset_min": 0,
     }
 
 
@@ -245,7 +262,7 @@ class TestCalibration:
     def test_lead_bands_and_hand_checked_stats(self, tmp_path):
         docs = [
             verification_doc([cal_pair(6.0, 1.0), cal_pair(7.0, 3.0)]),
-            verification_doc([cal_pair(18.0, -2.0)]),
+            verification_doc([cal_pair(18.0, -2.0)], snapshot_id="s2"),
         ]
         out = accumulate_calibration(docs, path=tmp_path / "calibration.json")
         by_band = {tuple(r["lead_band_h"]): r for r in out["records"]}
@@ -263,10 +280,10 @@ class TestCalibration:
         assert late["bias"] == pytest.approx(-2.0)
         assert late["spread"] == pytest.approx(0.0)
 
-    def test_merge_with_existing_file_is_exact(self, tmp_path):
+    def test_distinct_cases_combine_with_existing_file_exactly(self, tmp_path):
         path = tmp_path / "calibration.json"
         accumulate_calibration([verification_doc([cal_pair(6.0, 1.0)])], path=path)
-        out = accumulate_calibration([verification_doc([cal_pair(6.0, 3.0)])], path=path)
+        out = accumulate_calibration([verification_doc([cal_pair(6.0, 3.0)], "s2")], path=path)
         record = next(r for r in out["records"] if r["lead_band_h"] == [0, 12])
         assert record["n_pairs"] == 2
         assert record["bias"] == pytest.approx(2.0)
@@ -314,11 +331,7 @@ class TestCalibration:
         assert record["n_pairs"] == 2
 
     def test_emulated_documents_are_excluded_from_skill_claims(self, tmp_path):
-        doc = {
-            "snapshot_id": "demo",
-            "observation_source": "emulated",
-            "pairs": [cal_pair(6.0, 99.0)],
-        }
+        doc = verification_doc([cal_pair(6.0, 99.0, "emulated")], "demo", emulated=True)
         out = accumulate_calibration([doc], path=tmp_path / "calibration.json")
         assert out["records"] == []
         assert out["skipped_pairs"] == 1
@@ -355,3 +368,18 @@ def test_verify_cli_writes_pairs_and_calibration(tmp_path, monkeypatch, capsys, 
     )
     assert (output_dir / "calibration.json").is_file()
     assert str(path) in capsys.readouterr().out
+    original_case = path.read_bytes()
+    original_calibration = (output_dir / "calibration.json").read_bytes()
+    assert main(["verify", "--snapshot", findings["snapshot_id"], "--route", "test-route"]) == 0
+    assert path.read_bytes() == original_case
+    assert (output_dir / "calibration.json").read_bytes() == original_calibration
+    index = json.loads((output_dir / "cases" / "index.json").read_text())
+    assert index["cases"][0]["snapshot_id"] == findings["snapshot_id"]
+    observations["stations"][0]["records"][0]["wind_kt"] = 10
+    assert main(["verify", "--snapshot", findings["snapshot_id"], "--route", "test-route"]) == 0
+    revised = json.loads((output_dir / "calibration.json").read_text())
+    if mode == "live":
+        assert revised["records"][0]["n_pairs"] == 1
+        assert revised["records"][0]["bias"] == 10
+    else:
+        assert revised["records"] == []

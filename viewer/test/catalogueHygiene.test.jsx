@@ -116,18 +116,19 @@ it('keeps only referenced catalogue keys or documented runtime labels', async ()
 it.each(['emulated', 'station'])('localises the loaded case study, including its %s source and error interpretations', async (observationSource) => {
   useApp.setState({ findings: { snapshot_id: 'case-34', causal_events: [] }, language: 'en' });
   vi.stubGlobal('fetch', vi.fn(async (url) => ({ ok: true, json: async () => String(url).endsWith('index.json') ? { cases: [{ snapshot_id: 'case-34' }] } : ({
+    schema_version: 1, snapshot_id: 'case-34', generated_at: '2026-07-21T12:00:00Z',
     observation_source: observationSource,
-    pairs: [1, 5].map((error) => ({ leg_id: 'L1', valid_time: '2026-07-20T12:00:00Z', variable: 'wind_kt', forecast: 12, observed: 12 - error, error })),
+    pairs: [1, -5].map((error) => ({ leg_id: 'L1', valid_time: '2026-07-20T12:00:00Z', variable: 'wind_kt', forecast: 12, observed: 12 - error, error, coverage_class: observationSource === 'emulated' ? 'emulated' : 'verified_near_observation' })),
   }) })));
   const content = <OutcomeSection />;
   const view = render(<div id="root">{content}<LocalizedDocument language="fr" /></div>);
-  await waitFor(() => expect(view.container.textContent).toContain('écart significatif, marge à élargir'));
-  expect(view.container.textContent).toContain('intensité utile');
+  await waitFor(() => expect(view.container.textContent).toContain('Prévision inférieure à l’observation'));
+  expect(view.container.textContent).toContain('Prévision supérieure à l’observation');
   expect(view.container.textContent).toContain('L’analyse initiale ne permettait pas d’attribuer les conditions à un système météo.');
   expect(view.container.textContent).toContain(observationSource === 'emulated'
     ? 'DÉMONSTRATION SIMULÉE · AUCUN RÉSULTAT RÉEL' : 'SOURCE DES OBSERVATIONS · station');
   view.rerender(<div id="root">{content}<LocalizedDocument language="en" /></div>);
-  expect(view.container.textContent).toContain('material miss; widen margin');
+  expect(view.container.textContent).toContain('Forecast below observation');
   expect(view.container.textContent).toContain(observationSource === 'emulated'
     ? 'EMULATED DEMO · NOT A SKILL CLAIM' : 'OBSERVATION SOURCE · station');
 });

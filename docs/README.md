@@ -6,6 +6,7 @@ This directory contains the maintained documentation for Passage.
 |---|---|
 | [Product brief](product-brief.md) | Current audience, value proposition, scope, safety principles, and product status |
 | [Saved identities](saved-identities.md) | Versioned passage, route revision and snapshot rules, retry semantics and legacy preservation |
+| [Verification evidence](verification.md) | Replaceable case contributions, explicit lead semantics, legacy preservation and unavailable browser-local verification |
 | [Testing and maintenance](testing.md) | Test suites, fixtures, scripts, generated files, and routine validation |
 | [2026-09-17 implementation verification](maintenance/2026-09-17-implementation-verification.md) | Historical verification of the archived September review and the resolution of IV-1 through IV-8 |
 | [2026-09-19 review closeout](maintenance/2026-09-19-review-closeout.md) | Remaining robustness/configuration fixes, CI coverage, and production smoke evidence |

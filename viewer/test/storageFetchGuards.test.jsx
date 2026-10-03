@@ -129,17 +129,23 @@ it('aborts verification reads on unmount', async () => {
 });
 it('ignores a verification case that completes after switching snapshots', async () => {
   const old = deferred();
+  const validCase = (id, klass, count) => ({ schema_version: 1, snapshot_id: id,
+    generated_at: '2026-07-21T12:00:00Z', observation_source: klass === 'emulated' ? 'emulated' : 'station',
+    coverage_summary: { [klass]: count }, pairs: Array.from({ length: count }, (_, i) => ({
+      leg_id: `L${i}`, valid_time: '2026-07-20T12:00:00Z', variable: 'wind_kt',
+      forecast: 18, observed: 16, error: 2, coverage_class: klass,
+    })) });
   fetch.mockImplementation(async (url) => {
     if (url.endsWith('index.json')) return json({ cases: ['A', 'B'] });
     if (url.endsWith('/A.json')) return old.promise;
-    if (url.endsWith('/B.json')) return json({ coverage_summary: { partially_observed: 22 }, comparisons: [] });
+    if (url.endsWith('/B.json')) return json(validCase('B', 'partially_observed', 22));
     return json(null);
   });
   useApp.setState({ findings: { ...findings, snapshot_id: 'A' } }); render(<OutcomeSection />);
   await waitFor(() => expect(fetch.mock.calls.some(([url]) => url.endsWith('/A.json'))).toBe(true));
   act(() => useApp.setState({ findings: { ...findings, snapshot_id: 'B' } }));
   expect(await screen.findByText('22')).toBeVisible();
-  await act(async () => old.resolve(json({ coverage_summary: { emulated: 11 }, comparisons: [] })));
+  await act(async () => old.resolve(json(validCase('A', 'emulated', 11))));
   expect(screen.queryByText('11')).not.toBeInTheDocument();
   expect(screen.getByText('22')).toBeVisible();
 });

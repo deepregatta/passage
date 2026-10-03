@@ -57,43 +57,18 @@ export default function About() {
             </p>
           )}
           {calibration && (
-            <div className="verification-table-scroll" role="region" aria-label="Calibration record" tabIndex={0}>
-              <table className="verification-table w-full font-sans text-[13px]">
-                <thead>
-                  <tr className="text-left border-b hairline">
-                    <th className="eyebrow py-1">variable</th>
-                    <th className="eyebrow">lead</th>
-                    <th className="eyebrow">area</th>
-                    <th className="eyebrow">n</th>
-                    <th className="eyebrow">bias</th>
-                    <th className="eyebrow">spread</th>
-                    <th className="eyebrow">coverage</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {calibration.records.map((r, i) => (
-                    <tr key={i} className="border-b hairline last:border-0">
-                      <td className="py-1">{r.variable}</td>
-                      <td className="font-mono">
-                        {r.lead_band_h[0]}–{r.lead_band_h[1]} h
-                      </td>
-                      <td>{r.area}</td>
-                      <td className="font-mono">{r.n_pairs}</td>
-                      <td className="font-mono">{r.bias ?? 'n/a'}</td>
-                      <td className="font-mono">{r.spread ?? 'n/a'}</td>
-                      <td>
-                        {Object.keys(r.coverage_classes ?? {}).includes('emulated') ? (
-                          <EmulatedStamp />
-                        ) : (
-                          Object.keys(r.coverage_classes ?? {}).join(', ')
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <CalibrationTable records={calibration.records} label="Calibration record" />
           )}
+          {calibration && <p className="font-sans text-sm text-ink-soft mt-3">
+            {calibration.lead_basis === 'time_since_check'
+              ? 'Calibration bands measure time since the check, not model-cycle lead.'
+              : 'Legacy calibration evidence: individual contributions and lead semantics are unavailable.'}
+          </p>}
+          {calibration?.legacy_evidence && <section className="mt-5 space-y-3">
+            <h3 className="font-instrument font-semibold">Legacy calibration evidence</h3>
+            <p className="font-sans text-sm text-ink-soft">Individual contributions are unavailable. These preserved totals may include retries and are excluded from the deduplicated record.</p>
+            <CalibrationTable records={calibration.legacy_evidence.records} label="Legacy calibration evidence" />
+          </section>}
           <p className="font-sans text-[12px] text-ink-soft mt-3">
             ERA5 comparisons use a reanalysis that assimilates observations but is not independent ground truth (brief §9). Sample sizes are always shown. Passage calls a probability calibrated only when the record supports it.
           </p>
@@ -137,4 +112,45 @@ export default function About() {
 function emulatedCaseLabel(caseIndex) {
   const count = caseIndex?.cases?.filter((item) => item.observation_source === 'emulated').length ?? 0;
   return `${count} emulated ${count === 1 ? 'case' : 'cases'} shown for demo only.`;
+}
+
+function CalibrationTable({ records, label }) {
+  return (
+    <div className="verification-table-scroll" role="region" aria-label={label} tabIndex={0}>
+      <table className="verification-table w-full font-sans text-[13px]">
+        <thead>
+          <tr className="text-left border-b hairline">
+            <th className="eyebrow py-1">variable</th>
+            <th className="eyebrow">lead</th>
+            <th className="eyebrow">area</th>
+            <th className="eyebrow">n</th>
+            <th className="eyebrow">bias</th>
+            <th className="eyebrow">spread</th>
+            <th className="eyebrow">coverage</th>
+          </tr>
+        </thead>
+        <tbody>
+          {records.map((r, i) => (
+            <tr key={i} className="border-b hairline last:border-0">
+              <td className="py-1">{r.variable}</td>
+              <td className="font-mono">
+                {r.lead_band_h[0]}–{r.lead_band_h[1]} h
+              </td>
+              <td>{r.area}</td>
+              <td className="font-mono">{r.n_pairs}</td>
+              <td className="font-mono">{r.bias ?? 'n/a'}</td>
+              <td className="font-mono">{r.spread ?? 'n/a'}</td>
+              <td>
+                {Object.keys(r.coverage_classes ?? {}).includes('emulated') ? (
+                  <EmulatedStamp />
+                ) : (
+                  Object.keys(r.coverage_classes ?? {}).join(', ')
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }
