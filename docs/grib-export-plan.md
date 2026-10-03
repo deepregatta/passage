@@ -1277,7 +1277,7 @@ cycles (in 5C below).
 - **No tuning (4).** No wait ran out, and the latest provider time of each
   layer is at least 40 min before its deadline: GFS 60 min (+ 4 h 55 against
   + 5 h 55), waves 63, GEFS 42, ECMWF 105, GLO12 2 h 56 (06:49 against
-  09:45), IBI 2 h 31. Each slot fires 9–24 min before the earliest time
+  09:45), IBI 2 h 31. Each slot fires 9–25 min before the earliest time
   seen. The timetable and Worker stay as deployed. GLO12's 09:05 of 1 Oct
   is still the only late update; revisit with the week's times.
 - **Bucket (3).** `latest.json`'s 14 retained runs (7 layers × current and
