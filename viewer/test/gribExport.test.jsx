@@ -284,10 +284,10 @@ describe('area, period and model choices', () => {
     };
     expect(describeGribDataset(ecmwf, { endIso: '2026-07-20T00:00:00Z' }).gustWindows).toEqual([1, 3, 6]);
     expect(fmtGustWindows([1, 3, 6])).toBe(
-      'Gusts are the maximum over the 1, 3 or 6 h before each time, as ECMWF publishes them, not an instantaneous value like GFS gusts.',
+      'Gusts are the maximum over the 1, 3 or 6 h before each time, rather than instantaneous values.',
     );
     expect(fmtGustWindows([1])).toBe(
-      'Gusts are the maximum over the 1 h before each time, as ECMWF publishes them, not an instantaneous value like GFS gusts.',
+      'Gusts are the maximum over the 1 h before each time, rather than instantaneous values.',
     );
     const gfs = { ...ecmwf, datasetId: 'wind-gfs', variables: [...wind, { tileVar: 'gust_kt' }], windowsH: [null, null, null] };
     expect(describeGribDataset(gfs, { endIso: '2026-07-20T00:00:00Z' }).gustWindows).toEqual([]);
