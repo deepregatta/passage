@@ -105,6 +105,9 @@ marine forecasts remain the authority of record.
 
 ## Documentation
 
+[Prepared publication spending control](docs/paid-work.md) covers optional
+production limits, pause behaviour and recovery without changing published reads.
+
 The maintained documentation index is [docs/README.md](docs/README.md).
 Superseded reports and one-off design material are retained under
 [`trashbin/`](trashbin/README.md) for history and are not authoritative.
