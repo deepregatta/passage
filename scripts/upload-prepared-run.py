@@ -194,9 +194,7 @@ def publish() -> int:
     existing = {}
     paginator = s3.get_paginator("list_objects_v2")
     for page in paginator.paginate(Bucket=bucket, Prefix=f"{PREFIX}runs/"):
-        existing.update(
-            {obj["Key"]: obj.get("ETag") for obj in page.get("Contents", [])}
-        )
+        existing.update({obj["Key"]: obj.get("ETag") for obj in page.get("Contents", [])})
 
     uploaded = 0
     for rel, body in objects.items():
