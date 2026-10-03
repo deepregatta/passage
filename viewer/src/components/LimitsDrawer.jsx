@@ -60,14 +60,13 @@ export default function LimitsDrawer() {
               <Field label="Max steepness" unit="H/L" step={0.005} value={limits.max_steepness} onChange={(v) => updateLimit(['max_steepness'], v)} />
               <Field label="Min visibility" unit="nm" value={limits.min_visibility_nm ?? 0} onChange={(v) => updateLimit(['min_visibility_nm'], v)} />
               <Field label="Scenario fraction floor" unit="0–1" step={0.05} value={limits.scenario_fraction_floor} onChange={(v) => updateLimit(['scenario_fraction_floor'], v)} />
-              <label className="col-span-2 font-sans text-sm flex items-center gap-2 min-h-11">
-                <input type="checkbox" checked={limits.night_ok} onChange={(e) => updateLimit(['night_ok'], e.target.checked)} />
-                night sailing acceptable
-              </label>
             </div>
           ) : (
             <p className="font-sans text-sm text-ink-soft">Loading profile…</p>
           )}
+          <p className="mt-4 font-sans text-sm text-ink-soft">
+            Night-sailing preference is not evaluated. It does not affect the verdict, departure scan or route timing.
+          </p>
           <p className="mt-4 border border-ink/25 bg-shoal/40 px-3 py-2 font-sans text-[13px]">
             Changes apply to your next check. Briefings you already made keep the limits they were checked against.
           </p>

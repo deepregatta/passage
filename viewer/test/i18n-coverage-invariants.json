@@ -157,7 +157,6 @@
         "max_sustained_kt",
         "max_wave_height_m",
         "min_visibility_nm",
-        "night_ok",
         "scenario_fraction_floor",
         "upwind"
       ],

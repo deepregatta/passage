@@ -43,7 +43,9 @@ pipeline: two places (**Plan** and **My passages**) and a **Limits** drawer.
   once verified, with emulated demonstrations clearly excluded.
 - **Limits** — declared limits are edited from any page and apply to the next
   check; the real-case corpus and calibration sample sizes live under
-  **About the data**.
+  **About the data**. Night-sailing preference is not evaluated: it has no effect
+  on the verdict, departure scan or route timing. The drawer discloses this in
+  both languages; existing profiles and frozen snapshots retain `night_ok`.
 
 The interface supports English and French, browser-local 24-hour time with an
 explicit timezone, deep-linked passages and sections, desktop and mobile navigation, and

@@ -141,6 +141,16 @@ is implied.
   it with `node scripts/build-demo-snapshots.mjs` only for an explicit fixture
   update. The identity-v2 engine produces new IDs; the current schema-version-1
   pair remains compatibility evidence, never an inferred saved-data migration.
+  Dev fixture mode refuses every non-read `/data/` request with HTTP 403;
+  new briefings use the existing browser-local IndexedDB fallback. Warehouse
+  mode retains dev persistence and write-once snapshot protection.
+  `viewer/test/fixturePersistence.test.js` sends real HTTP mutations to a scratch
+  copy and checks every file name and byte. `limitsDrawer.test.jsx` checks the
+  inactive night-preference disclosure and preservation of saved `night_ok`.
+  `viewer/e2e/fixture-persistence.spec.js` covers English/French desktop/mobile
+  limits, Check, local save, reload/reopen and local deletion. It forwards
+  mutations to the real dev handler rooted in a scratch copy, blocks external
+  transport/telemetry, and checks both scratch and committed fixture digests.
 - `viewer/test/fixtures/compatibility/` contains older saved snapshots kept to
   ensure current UI code degrades safely when a browser still holds an earlier
   schema shape. Dates in these fixture paths are identifiers, not expiry dates.
