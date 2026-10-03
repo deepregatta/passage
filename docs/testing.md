@@ -49,6 +49,43 @@ Suite ownership:
 | `viewer/e2e/` | Playwright | Desktop/mobile core flows and reviewed screenshot baselines |
 | `analysis/tests/` | pytest | Provider adapters, route-independent preparation, warnings, tides, observations, verification, and the ecCodes GRIB export contract |
 
+## Frozen Check and Scan inputs
+
+`viewer/src/lib/actionInputs.js` and `browserAnalysis.js` are checked with
+`npm run typecheck -w viewer`, also part of root `npm test`. One immutable action
+bundle holds the cloned route/timing and profile revisions, departure, pinned
+tile-layer identities and optional context. Check and Scan consume this bundle;
+they never reread the profile storage adapter. A deleted/changed tile run aborts
+the whole attempt; the existing freshness wrapper may retry with a new bundle,
+retaining the user inputs captured at the click.
+
+Prepared discovery bypasses a stale HTTP pointer at each action and does not
+memoize failures. Artifact paths are resolved from one selected pointer; saved
+chart references remain verbatim. Input provenance includes canonical FNV-1a64
+content digests (not cryptographic checksums) and the exact prepared artifact
+paths, including their producer revision suffixes when present. These additional
+records use the existing extensible `findings.inputs.forecast_tiles` array;
+shared JSON schemas and historical saved files are unchanged. This does not
+extend snapshot identity semantics; that remains the separate PASSAGE-03 task.
+
+Prepared current admission checks every leg midpoint at its current-adjusted
+entry/exit envelope and occupancy hours, including all successful drawn-scan
+candidates. Any spatial, time or finite-sample gap selects tile currents for the
+whole action. Partial tile availability stays partial; zero actual samples stays
+unavailable. Computed scans use their routing tile-current grid for every audit,
+with declared source provenance; there is no pointwise source blending. The
+coverage selector also downgrades older presence-based claims using saved
+samples alone, without changing snapshot bytes or substituting latest data.
+
+Regression ownership: `engine/test/currentAdmission.test.ts` covers admission,
+fallback, finite samples, partial coverage and single-source scans;
+`viewer/test/actionInputs.test.jsx` crosses the real loader, action bundle,
+engine and ModelsUsed UI; `plannerComputed.test.jsx` crosses visible limits,
+failed persistence and in-flight edits. `viewer/e2e/action-inputs.spec.js` and
+`routing-timing.spec.js` exercise Check/Scan and saved reopening on desktop and
+mobile, using synthetic transport, fresh storage, blocked telemetry and
+intercepted POSTs. Demo fixture files must stay untouched.
+
 ## Fixture policy
 
 - `engine/test/fixtures/` contains deterministic engine inputs and PFT1 golden

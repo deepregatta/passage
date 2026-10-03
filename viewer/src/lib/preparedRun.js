@@ -16,18 +16,24 @@ const RUNS_BASE = import.meta.env.DEV ? '/data/' : `${FORECAST_BASE_URL}/prepare
 const LATEST_URL = import.meta.env.DEV ? '/data/runs/latest.json' : `${RUNS_BASE}latest.json`;
 
 let sourcePromise = null;
+let latestSource = null;
 
 /** {doc, base}: latest.json content (or null) and the URL prefix for `runs/…` paths */
-export function preparedRun() {
+export function preparedRun({ refresh = false } = {}) {
+  if (!refresh && latestSource?.doc) return Promise.resolve(latestSource);
   sourcePromise ??= (async () => {
     try {
-      const res = await fetch(LATEST_URL);
+      const res = await fetch(LATEST_URL, { cache: 'no-cache' });
       if (res.ok) return { doc: await res.json(), base: RUNS_BASE };
     } catch {
       // No prepared runs published (or offline) — analysis degrades honestly.
     }
     return { doc: null, base: RUNS_BASE };
-  })();
+  })().then((source) => {
+    latestSource = source;
+    sourcePromise = null; // failures can retry; actions always rediscover
+    return source;
+  });
   return sourcePromise;
 }
 

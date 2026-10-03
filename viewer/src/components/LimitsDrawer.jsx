@@ -5,6 +5,7 @@ import { useApp } from '../stores/appStore.js';
  * the next check uses them, briefings already made keep the limits they used. */
 export default function LimitsDrawer() {
   const limits = useApp((s) => s.limits);
+  const limitsPersisted = useApp((s) => s.limitsPersisted);
   const updateLimit = useApp((s) => s.updateLimit);
   const ensureLimits = useApp((s) => s.ensureLimits);
   const close = useApp((s) => s.closeLimits);
@@ -70,6 +71,9 @@ export default function LimitsDrawer() {
           <p className="mt-4 border border-ink/25 bg-shoal/40 px-3 py-2 font-sans text-[13px]">
             Changes apply to your next check. Briefings you already made keep the limits they were checked against.
           </p>
+          {!limitsPersisted && <p role="status" className="mt-3 font-sans text-sm text-ink-soft">
+            These limits apply to your next check, but could not be saved for a future visit.
+          </p>}
           <button type="button" onClick={close} className="mt-4 w-full min-h-11 bg-ink text-paper font-medium rounded-sm px-3 py-2 hover:bg-ink-deep">
             Done
           </button>

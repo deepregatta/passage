@@ -1,11 +1,11 @@
-import { loadProfileDraft } from '../../lib/profileDraft.js';
+import { captureActionDraft, freezeActionInputs, routingCurrentInput } from '../../lib/actionInputs.js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { deriveLegs, totalDistanceNm, parseGpx, computeRoute, scanDepartures, candidateDepartures } from '@deepweather/engine';
 import { track } from '../../lib/analytics.js';
 import { localDateTimeToIso, toLocalDateTimeValue } from '../../lib/format.js';
 import { useApp } from '../../stores/appStore.js';
 import { usePlanner } from '../../stores/plannerStore.js';
-import { analyzeInBrowser, saveRoute } from '../../lib/browserAnalysis.js';
+import { analyzeInBrowser, saveRoute, prepareAnalysisInputs } from '../../lib/browserAnalysis.js';
 import { FORECAST_HOURS, loadRoutingInputs as loadLiveRoutingInputs } from '../../lib/routingInputs.js';
 import { forecastStore } from '../../lib/forecastStore.js';
 import { withFreshForecast } from '../../lib/forecastFreshness.js';
@@ -32,7 +32,6 @@ const routeForDeparture = (inputs, departureUtc) =>
 /** Owns the draft, routing, scan and audit lifecycle for the planner page. */
 export default function usePlannerController() {
   const openSnapshot = useApp((s) => s.openSnapshot);
-  const profileDefaults = useApp((s) => s.profileDefaults);
   const loadConfig = useApp((s) => s.loadConfig);
   const manifest = useApp((s) => s.manifest);
   const loadManifest = useApp((s) => s.loadManifest);
@@ -135,13 +134,14 @@ export default function usePlannerController() {
   );
 
   // shared by Compute route and the per-departure scan routing
-  const loadRoutingInputs = useCallback((scanning = false) =>
+  const loadRoutingInputs = useCallback((scanning = false, store = forecastStore()) =>
     loadLiveRoutingInputs({
       start: { lat: endpoints[0].lat, lon: endpoints[0].lng, name: 'Start' },
       finish: { lat: endpoints[1].lat, lon: endpoints[1].lng, name: 'Finish' },
       polarId,
       departureIso: departureUtc,
       scanning,
+      store,
       onProgress: setBusy,
     }), [endpoints, polarId, departureUtc]);
 
@@ -186,17 +186,26 @@ export default function usePlannerController() {
     setBusy('scanning departures');
     setError(null);
     setScan(null);
-    // one attempt; withFreshForecast runs it once more after a deleted run
+    let draft;
+    try {
+      if (!useApp.getState().limits) await useApp.getState().ensureLimits();
+      draft = captureActionDraft({ route, profile: useApp.getState().limits, departureUtc });
+    } catch (e) { setBusy(null); setError(e.message); return; }
+    // A deleted run retries discovery; the user draft remains the one at the click.
     const scanOnce = async () => {
-      const profile = loadProfileDraft(profileDefaults);
+      const action = await prepareAnalysisInputs(draft, setBusy);
       const departures = candidateDepartures(Date.parse(departureUtc), 120, 6);
       // weather-dependent routing: in compute mode every candidate departure
       // gets its own route through its own wind field
       const routes = {};
       let routeFor;
+      let currentInput;
       let scanPassageHours = passageHours ?? 48;
       if (mode === 'compute' && endpoints.length === 2 && polarId) {
-        const inputs = await loadRoutingInputs(true);
+        const inputs = await loadRoutingInputs(true, action.store);
+        // Computed candidates and their audits share the routing grid. A drawn
+        // scan selects prepared-vs-tile coverage across every candidate in engine.
+        currentInput = routingCurrentInput(inputs.currentGrid);
         scanPassageHours = inputs.maxHours;
         routeFor = (departureUtc) => {
           const result = {
@@ -218,7 +227,8 @@ export default function usePlannerController() {
         endDate: new Date(Math.max(scanEndMs, Date.parse(departures[0]))).toISOString().slice(0, 10),
       };
       const partial = [];
-      const result = await scanDepartures({ route, profile, routeFor, dateWindow, store: forecastStore() }, departures, (c) => {
+      const scanInputs = freezeActionInputs({ ...action, currentInput });
+      const result = await scanDepartures({ ...scanInputs, routeFor, dateWindow }, departures, (c) => {
         partial.push(c);
         setBusy(`scanning departures ${partial.length}/${departures.length}`);
       });
@@ -231,7 +241,7 @@ export default function usePlannerController() {
       setBusy(null);
       setError(e.message);
     }
-  }, [route, departureUtc, speedsValid, setScan, profileDefaults, passageHours, mode, endpoints, polarId, loadRoutingInputs]);
+  }, [route, departureUtc, speedsValid, setScan, passageHours, mode, endpoints, polarId, loadRoutingInputs]);
 
   // arriving from a briefing's "Find a departure that fits": run the scan once, then clear the flag
   const autoScan = usePlanner((s) => s.autoScan);
@@ -251,8 +261,8 @@ export default function usePlannerController() {
     setBusy('starting');
     setError(null);
     try {
-      const profile = loadProfileDraft(profileDefaults);
-      if (!profile) throw new Error('No limits profile available. Open My limits first.');
+      if (!useApp.getState().limits) await useApp.getState().ensureLimits();
+      const draft = captureActionDraft({ route: checkRoute, profile: useApp.getState().limits, departureUtc: checkDepartureUtc });
       if (!checkDepartureUtc) throw new Error('Enter a valid departure date and 24-hour time.');
       if (checkRoute.waypoints?.length < 2 || !checkRoute.waypoints?.every(wp => Number.isFinite(wp.lat) && Number.isFinite(wp.lon))) throw new Error('Specify at least two valid waypoints.');
       // Same non-secure-context fallback as analyticsClient's event ids.
@@ -260,12 +270,10 @@ export default function usePlannerController() {
         || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 14)}`;
       track('passage_attempt', { route_specified: true });
       await saveRoute(checkRoute);
-      const { snapshotId } = await withFreshForecast(() => analyzeInBrowser({
-        route: checkRoute,
-        profile,
-        departureUtc: checkDepartureUtc,
-        onProgress: setBusy,
-      }));
+      const { snapshotId } = await withFreshForecast(async () => {
+        const action = await prepareAnalysisInputs(draft, setBusy);
+        return analyzeInBrowser({ ...action, onProgress: setBusy });
+      });
       setBusy(null);
       await openSnapshot(snapshotId, measurementAttempt);
     } catch (e) {

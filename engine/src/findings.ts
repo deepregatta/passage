@@ -179,8 +179,12 @@ export function assembleFindings(options: AssembleOptions): Findings {
       mode: grid.source.mode,
       fetched_at: grid.source.fetched_at ?? grid.generated_at,
       resolution_deg: grid.source.resolution_deg ?? null,
+      ...(grid.source.mode === 'synthetic' ? { source_kind: 'emulated' } : {}),
+      ...options.currentProvenance,
     });
   }
+  if (!grid && options.currentProvenance) allMeta.push({ layer: 'currents', ...options.currentProvenance, available: false });
+  if (options.inputRecords) allMeta.push(...options.inputRecords);
   const inputs = {
     prepared_run_id: options.synoptic?.run_id ?? grid?.run_id ?? null,
     synoptic_run_id: options.synoptic?.run_id ?? null,
@@ -220,7 +224,9 @@ export function assembleFindings(options: AssembleOptions): Findings {
     hasMultiModel: Boolean(multiModel),
     deterministicModelCount: multiModel ? Object.keys(multiModel.byModel).length : 0,
     warnings: options.warnings,
-    hasCurrents: Boolean(grid),
+    currentSamples: legFindings.flatMap(leg => leg.hours).filter(hour => hour.current).length,
+    currentHours: legFindings.reduce((n, leg) => n + leg.hours.length, 0),
+    currentGridAvailable: Boolean(grid),
     hasTides: Boolean(options.tides && options.gates),
     hasSynoptic: Boolean(options.synoptic),
     synopticRunId: options.synoptic?.run_id,

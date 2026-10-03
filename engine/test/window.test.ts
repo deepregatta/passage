@@ -10,6 +10,7 @@ const base: ScanOptions = {
   route: read('../../config/routes/cherbourg-plymouth.json'),
   profile: read('../../config/profiles/default-limits.json'),
   store: {} as ScanOptions['store'],
+  currentInput: {}, // Analysis is mocked here; source selection is exercised by currentAdmission.
 };
 const departures = ['2026-07-12T06:00:00Z', '2026-07-12T12:00:00Z', '2026-07-12T18:00:00Z'];
 function result(value = 1): AnalyzeResult {

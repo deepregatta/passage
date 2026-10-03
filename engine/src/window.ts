@@ -7,6 +7,8 @@
 import { runAnalysis, type AnalyzeOptions, type AnalyzeResult } from './analyze.js';
 import { evidenceLimitRatio } from './findings.js';
 import { forecastRunGone } from './forecast/store.js';
+import { resolveCurrentInput } from './currentInput.js';
+import { computeRouteSchedules } from './eta.js';
 import type { Route, VerdictState } from './types.js';
 
 export interface WindowCandidate {
@@ -33,6 +35,8 @@ export interface ScanOptions extends Omit<AnalyzeOptions, 'departureUtc'> {
 }
 
 export interface WindowScan {
+  /** Shared source provenance, retained by the planner along with the comparison. */
+  input_records?: AnalyzeResult['findings']['inputs']['forecast_tiles'];
   candidates: WindowCandidate[];
   /** Candidates that failed routing or analysis, with the actual failure reason. */
   skipped: Array<{ departure_utc: string; reason: string }>;
@@ -59,20 +63,36 @@ export async function scanDepartures(
   const candidates: WindowCandidate[] = [];
   const skipped: WindowScan['skipped'] = [];
   const eventKeys: string[][] = [];
-
+  let inputRecords: WindowScan['input_records'];
+  const planned: Array<{ route: Route; departureUtc: string }> = [];
+  // Route once before selecting current coverage across the entire scan.
   for (const departureUtc of departures) {
-    let result: AnalyzeResult;
     try {
       const route = routeFor ? await routeFor(departureUtc) : analyzeBase.route;
-      result = await runAnalysis({ ...analyzeBase, route, departureUtc });
+      computeRouteSchedules(route, departureUtc); // invalid candidates cannot poison shared source admission
+      planned.push({ route, departureUtc });
+    } catch (error) {
+      if (forecastRunGone(error) || (error as { code?: string })?.code === 'forecast-updated') throw error;
+      skipped.push({ departure_utc: departureUtc, reason: error instanceof Error ? error.message : String(error || 'Unknown error') });
+    }
+  }
+  if (!planned.length) return { candidates, best_index: null, skipped };
+  if (!base.currentInput) await base.store.init();
+  const currentInput = base.currentInput ?? await resolveCurrentInput(planned, base.store, base.currentGrid, base.currentGridProvenance);
+
+  for (const { route, departureUtc } of planned) {
+    let result: AnalyzeResult;
+    try {
+      result = await runAnalysis({ ...analyzeBase, route, departureUtc, currentInput });
     } catch (error) {
       // a deleted forecast run fails every candidate: the caller refreshes and retries
-      if (forecastRunGone(error)) throw error;
+      if (forecastRunGone(error) || (error as { code?: string })?.code === 'forecast-updated') throw error;
       const reason = error instanceof Error ? error.message : error == null ? '' : String(error);
       skipped.push({ departure_utc: departureUtc, reason: reason || 'Unknown error' });
       continue;
     }
     const findings = result.findings;
+    inputRecords ??= findings.inputs.forecast_tiles;
     let worstRatio: number | null = null;
     let maxFraction: number | null = null;
     for (const e of findings.evidence) {
@@ -133,7 +153,8 @@ export async function scanDepartures(
     }
   }
 
-  return { candidates, best_index: bestIndex, skipped };
+  skipped.sort((a, b) => departures.indexOf(a.departure_utc) - departures.indexOf(b.departure_utc));
+  return { candidates, best_index: bestIndex, skipped, ...(inputRecords ? { input_records: inputRecords } : {}) };
 }
 
 function passageMetrics(findings: AnalyzeResult['findings']) {

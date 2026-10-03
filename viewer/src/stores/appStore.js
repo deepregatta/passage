@@ -52,6 +52,7 @@ export const useApp = create((set, get) => ({
   // the sailor's editable limits: the header chip, the limits drawer and every
   // new check read the same draft; frozen briefings keep the limits they used
   limits: null,
+  limitsPersisted: true,
   limitsOpen: false,
 
   nowMs: Date.now(),
@@ -143,8 +144,8 @@ export const useApp = create((set, get) => ({
     let obj = next;
     for (let i = 0; i < path.length - 1; i++) obj = obj[path[i]];
     obj[path[path.length - 1]] = value;
-    saveProfileDraft(next);
-    set({ limits: next });
+    const limitsPersisted = saveProfileDraft(next);
+    set({ limits: next, limitsPersisted });
   },
 
   loadConfig: async () => {

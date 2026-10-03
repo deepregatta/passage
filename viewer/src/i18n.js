@@ -445,6 +445,12 @@ const FR = {
   'Additional weather model': 'Modèle météo complémentaire',
   'Model comparison uses': 'La comparaison des modèles utilise',
   'Surface currents': 'Courants de surface',
+  'Synoptic features': 'Structures synoptiques',
+  'Tide predictions': 'Prévisions de marée',
+  'Tidal gates': 'Passages à contrainte de marée',
+  'Prepared data': 'Données préparées',
+  'Current grid': 'Grille de courants',
+  'These limits apply to your next check, but could not be saved for a future visit.': 'Ces limites seront utilisées pour votre prochaine vérification, mais n’ont pas pu être enregistrées pour une prochaine visite.',
   'Forecast tiles': 'Tuiles de prévision',
   'Fixture data': 'Données de test',
   'Source not recorded': 'Source non enregistrée',
@@ -1159,6 +1165,8 @@ function translateCapabilityList(value) {
     .replace(/waves \(deterministic wave model only; no wave ensemble\)/gi, 'vagues (modèle de vagues déterministe uniquement ; aucun ensemble de vagues)')
     .replace(/visibility_and_convection \(screening signals only \(single model, GFS\); official warnings remain authoritative\)/gi, 'visibilité et convection (signaux de dépistage uniquement, issus d’un seul modèle, GFS ; les alertes officielles restent la référence)')
     .replace(/tidal_currents \(stride-subsampled x(\d+) from native ([\d.]+) deg to ([\d.]+) deg \(target ([\d.]+) deg\); values are exact native cell values, no smoothing\)/gi, 'courants de marée (sous-échantillonnage par pas x$1, de $2° natif à $3°, cible $4° ; valeurs exactes des cellules natives, sans lissage)')
+    .replace(/tidal currents \(no finite current samples for the route and time\)/gi, 'courants de marée (aucun échantillon fini pour la route et l’horaire)')
+    .replace(/current samples available for (\d+)\/(\d+) route hours/gi, 'échantillons de courants disponibles pour $1/$2 heures de route')
     .replace(/tidal currents \(no prepared current grid\)/gi, 'courants de marée (aucune grille de courants préparée)')
     .replace(/tidal gates & HW\/LW heights \(no tide data\)/gi, 'portes de marée et hauteurs PM/BM (aucune donnée de marée)')
     .replace(/tropical systems/gi, 'systèmes tropicaux')
@@ -1213,6 +1221,8 @@ const FR_FRAGMENTS = [
   [/\bNo warning here does not mean no risk\b/g, 'L’absence d’alerte ici ne signifie pas l’absence de risque'],
   [/\bNot assessed:/g, 'Non évalué :'],
   [/\bNo flag does not mean no risk\b/g, 'L’absence de signalement ne signifie pas l’absence de risque'],
+  [/\btidal currents \(no finite current samples for the route and time\)/g, 'courants de marée (aucun échantillon fini pour la route et l’horaire)'],
+  [/\bcurrent samples available for (\d+)\/(\d+) route hours/g, 'échantillons de courants disponibles pour $1/$2 heures de route'],
   [/\btidal currents \(no prepared current grid\)/g, 'courants de marée (aucune grille de courants préparée)'],
   [/\btidal gates & HW\/LW heights \(no tide data\)/g, 'portes de marée et hauteurs PM/BM (aucune donnée de marée)'],
   [/\btropical systems\b/gi, 'systèmes tropicaux'],

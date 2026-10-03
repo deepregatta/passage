@@ -97,6 +97,19 @@ runs from the local `/data/runs/` warehouse. A failed latest-pointer request
 does not switch hosts or change saved chart URLs. Use the `static-dist` launch
 configuration to test production source resolution locally.
 
+Each Check or departure Scan captures the visible in-memory limits, route and
+timing revision before refreshing inputs. Prepared discovery refreshes at every
+action and retries after transient failures; the resulting bundle pins tile-run
+identities, prepared artifact references/digests and optional context throughout
+the action. Storage is an adapter: failed writes retain the current limits and
+the drawer reports that they could not be saved for a future visit.
+
+Prepared currents must cover every required midpoint/time sample with finite
+vectors. Otherwise the entire action uses tile currents. Drawn scans select one
+source across all candidate routes; computed scans audit with the same tile
+current grid used to route their candidates. Current coverage counts actual
+samples, and saved briefings retain their original data and provenance.
+
 ## Safety framing
 
 This is a decision *aid*: it never says "GO", official warnings override the personal-limit summary,

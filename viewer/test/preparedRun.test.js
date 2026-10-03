@@ -62,5 +62,21 @@ it('uses the checked-in production host without a deployment environment overrid
   vi.stubGlobal('fetch', fetchMock);
   const { preparedRun } = await import('../src/lib/preparedRun.js');
   expect(await preparedRun()).toEqual({ doc: { artifacts: {} }, base: 'https://forecast.deepregatta.com/prepared/' });
-  expect(fetchMock).toHaveBeenCalledWith('https://forecast.deepregatta.com/prepared/latest.json');
+  expect(fetchMock).toHaveBeenCalledWith('https://forecast.deepregatta.com/prepared/latest.json', { cache: 'no-cache' });
+});
+
+
+it('retries transient discovery failures and refreshes between actions', async () => {
+  const first = { run_id: 'first', artifacts: {} };
+  const next = { run_id: 'next', artifacts: {} };
+  const fetchMock = vi.fn().mockRejectedValueOnce(new Error('offline'))
+    .mockResolvedValueOnce(new Response(JSON.stringify(first)))
+    .mockResolvedValueOnce(new Response(JSON.stringify(next)));
+  vi.stubGlobal('fetch', fetchMock);
+  const { preparedRun } = await import('../src/lib/preparedRun.js');
+  expect((await preparedRun({ refresh: true })).doc).toBeNull();
+  const pinned = await preparedRun({ refresh: true });
+  expect(pinned.doc).toEqual(first);
+  expect((await preparedRun({ refresh: true })).doc).toEqual(next);
+  expect(pinned.doc).toEqual(first);
 });
