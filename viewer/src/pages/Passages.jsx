@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import clsx from 'clsx';
+import { usePlanner } from '../stores/plannerStore.js';
 import { useApp } from '../stores/appStore.js';
 import { VerdictChip } from '../components/common.jsx';
 import { fmtLocalTime, localTimeZoneName } from '../lib/format.js';
@@ -37,7 +38,7 @@ export default function Passages() {
     <div className="px-4 sm:px-6 py-5 max-w-6xl">
       <div className="flex flex-wrap items-end justify-between gap-3 mb-1">
         <h1 className="font-chart text-3xl">My passages</h1>
-        <button type="button" onClick={() => setPage('planner')} className="min-h-11 bg-ink text-paper rounded-sm px-4 font-medium hover:bg-ink-deep">
+        <button type="button" onClick={() => { usePlanner.getState().reset(); setPage('planner'); }} className="min-h-11 bg-ink text-paper rounded-sm px-4 font-medium hover:bg-ink-deep">
           + New passage
         </button>
       </div>
@@ -123,6 +124,7 @@ function PassageRow({ passage, verified }) {
                   example
                 </span>
               )}
+              {passage.legacy && <span className="font-sans text-[12px] text-ink-soft">Saved check · separate history</span>}
               {latest.verdict_state && <VerdictChip state={latest.verdict_state} small />}
             </span>
             <span className="font-mono text-[12px] text-ink-soft block mt-1">

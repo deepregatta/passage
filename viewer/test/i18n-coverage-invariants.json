@@ -3,7 +3,7 @@
   "categories": {
     "technical": {
       "engine/test/golden/briefing-cherbourg-plymouth.json": [
-        "20260712T060000Z_44d2cd5f_e56e8fe0",
+        "snapshot_v2_24c2d8022da4ff3c",
         "E1",
         "E10",
         "E11",
@@ -344,6 +344,7 @@
         "warnings"
       ],
       "viewer/src/pages/briefing/ChangesSection.jsx": [
+        "unavailable",
         "/data/snapshots/",
         ": HTTP",
         "A-WARN-01",

@@ -172,6 +172,11 @@ const FR = {
   "Loading example briefing…": "Chargement de l’exemple de briefing…",
 
   'Loading passage instruments…': 'Chargement des instruments de navigation…',
+  'Previous check order is unavailable.': 'L’ordre des analyses précédentes est indisponible.',
+  'These saved checks have been kept.': 'Ces analyses enregistrées ont été conservées.',
+  'Previous check order is unavailable. These saved checks have been kept.': 'L’ordre des analyses précédentes est indisponible. Ces analyses enregistrées ont été conservées.',
+  'Revise this passage': 'Modifier cette traversée',
+  'Saved check · separate history': 'Analyse enregistrée · historique séparé',
   'My passages': 'Mes traversées',
   'Main navigation': 'Navigation principale',
   'Limits': 'Limites',

@@ -34,7 +34,7 @@ pipeline: two places (**Plan** and **My passages**) and a **Limits** drawer.
   way in) or draw one, compare departure windows, and check the passage.
   GRIB2 files of the forecast (wind, currents, waves) are exported for a box
   from the planning chart.
-- **My passages** — each route and departure keeps its frozen checks together
+- **My passages** — each planning intent keeps its revisions and frozen checks together
   with its latest verdict, what changed since the previous check, and its
   progress through departure to verification.
 - **One page per passage** — a single decision band, then the causal story on

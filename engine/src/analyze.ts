@@ -5,7 +5,8 @@
  * downloaded per-route and cached locally; routing and audit never leave the browser.
  */
 
-import { assembleFindings } from './findings.js';
+import { assembleFindings, type AssembleOptions } from './findings.js';
+import { decisionInputs } from './identity.js';
 import { renderBriefing, nextForecastRuns, type Briefing } from './briefing.js';
 import { buildPlume, writeSnapshot, type Plume, type SnapshotStore } from './snapshot.js';
 import { deriveLegs, legMidpoints } from './route.js';
@@ -62,6 +63,7 @@ export interface AnalyzeResult {
   briefing: Briefing;
   plume: Plume;
   snapshotInputs: {
+    decisionInputs?: Record<string, unknown>;
     warnings?: WarningsInput['doc'];
     synoptic?: SynopticFeatures;
     tides?: import('./hazards/tides.js').TidesDoc;
@@ -127,12 +129,13 @@ export async function runAnalysis(options: AnalyzeOptions): Promise<AnalyzeResul
 
   progress('evaluating against your limits');
   const nowMs = (options.now ?? Date.now)();
-  const findings = assembleFindings({
+  const assembled: AssembleOptions = {
     route,
     profile,
     departureUtc,
     legForecasts: det.forecasts,
     requestMeta: [det.meta],
+    forecastRuns: layers,
     ...(ens ? { legEnsembles: ens.forecasts, ensembleMeta: ens.meta } : {}),
     ...(marine ? { legMarine: marine.forecasts, marineMeta: marine.meta } : {}),
     ...(multi ? { multiModel: multi } : {}),
@@ -145,7 +148,8 @@ export async function runAnalysis(options: AnalyzeOptions): Promise<AnalyzeResul
     ...(options.synoptic ? { synoptic: options.synoptic } : {}),
     engineVersion: ENGINE_VERSION,
     nowMs,
-  });
+  };
+  const findings = assembleFindings(assembled);
   const briefing = renderBriefing(findings, options.synoptic, { route, nextRuns: nextForecastRuns(layers, findings.generated_at) });
   const plume = buildPlume(findings, ens?.forecasts ?? [], profile.max_gust_kt, multi?.byModel);
   return {
@@ -153,6 +157,7 @@ export async function runAnalysis(options: AnalyzeOptions): Promise<AnalyzeResul
     briefing,
     plume,
     snapshotInputs: {
+      decisionInputs: decisionInputs(assembled),
       ...(options.warnings ? { warnings: options.warnings.doc } : {}),
       ...(options.synoptic ? { synoptic: options.synoptic } : {}),
       ...(options.tides ? { tides: options.tides } : {}),

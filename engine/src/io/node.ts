@@ -13,13 +13,33 @@ export class NodeFsSnapshotStore implements SnapshotStore {
     return existsSync(directory) && readdirSync(directory).length > 0;
   }
 
+  async list(): Promise<Array<Record<string, unknown>>> {
+    if (!existsSync(this.root)) return [];
+    const manifests: Array<Record<string, unknown>> = [];
+    for (const entry of readdirSync(this.root, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const file = join(this.root, entry.name, 'snapshot.json');
+      try {
+        const doc = JSON.parse(readFileSync(file, 'utf8'));
+        if (doc && typeof doc === 'object' && !Array.isArray(doc)) manifests.push(doc);
+      }
+      catch { /* Incomplete/invalid snapshots never establish creation order. */ }
+    }
+    return manifests;
+  }
+
+  async read(snapshotId: string, filename: string): Promise<string | null> {
+    const path = join(this.root, snapshotId, filename);
+    return existsSync(path) ? readFileSync(path, 'utf8') : null;
+  }
+
   async write(snapshotId: string, filename: string, content: string): Promise<void> {
     const path = join(this.root, snapshotId, filename);
     if (existsSync(path)) {
       throw new Error(`Snapshot artifact already exists (write-once): ${path}`);
     }
     mkdirSync(dirname(path), { recursive: true });
-    writeFileSync(path, content);
+    writeFileSync(path, content, { flag: 'wx' });
   }
 }
 

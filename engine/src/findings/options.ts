@@ -1,3 +1,4 @@
+import type { ForecastStore } from '../forecast/store.js';
 import type { RegionGrid } from '../grids.js';
 import type { GateDef, TidesDoc } from '../hazards/tides.js';
 import type { EnsemblePointForecast, HazardPointForecast, PointForecast, TileRequestMeta, WavePointForecast } from '../forecast/types.js';
@@ -10,6 +11,8 @@ export interface AssembleOptions {
   /** one forecast per leg (midpoint), index-aligned with derived legs */
   legForecasts: PointForecast[];
   requestMeta: TileRequestMeta[];
+  /** Pinned run descriptions also control the briefing's next-run schedule. */
+  forecastRuns?: ReturnType<ForecastStore['describe']>;
   /** ensemble forecasts per leg midpoint; index-aligned with legs */
   legEnsembles?: EnsemblePointForecast[];
   ensembleMeta?: TileRequestMeta;

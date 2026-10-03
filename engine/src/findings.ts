@@ -9,6 +9,7 @@
 import { computeRouteSchedules, parseUtc } from './eta.js';
 import { GridSampler } from './grids.js';
 import { contentHash } from './hash.js';
+import { decisionInputs, routeRevision, IDENTITY_VERSION } from './identity.js';
 import { assessGates } from './hazards/tides.js';
 import { approachingRatio } from './limits.js';
 import { deriveLegs, legMidpoints } from './route.js';
@@ -194,21 +195,8 @@ export function assembleFindings(options: AssembleOptions): Findings {
     profile_hash: profileHash,
   };
 
-  const departureCompact = departureUtc.replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
-  const snapshotId = `${departureCompact}_${routeHash.slice(0, 8)}_${contentHash({
-    routeHash,
-    profileHash,
-    departureUtc,
-    // exact immutable run ids; two analyses over the same runs share a snapshot id
-    digests: [
-      ...requestMeta.map((m) => `${m.layer}:${m.run_id}`),
-      ...(ensembleMeta ? [`${ensembleMeta.layer}:${ensembleMeta.run_id}`] : []),
-      ...(marineMeta ? [`${marineMeta.layer}:${marineMeta.run_id}`] : []),
-      ...(multiModel ? multiModel.meta.map((m) => `${m.layer}:${m.run_id}`) : []),
-      ...(grid ? [grid.run_id] : []),
-      ...(options.synoptic ? [options.synoptic.run_id] : []),
-    ],
-  }).slice(0, 8)}`;
+  const decisionHash = contentHash(decisionInputs(options));
+  const snapshotId = `snapshot_v2_${decisionHash}`;
 
   const causalEvents = assignEventKeys(
     [
@@ -236,6 +224,10 @@ export function assembleFindings(options: AssembleOptions): Findings {
   return {
     schema_version: 1,
     snapshot_id: snapshotId,
+    identity_version: IDENTITY_VERSION,
+    passage_id: route.passage_id ?? null,
+    route_revision: routeRevision(route, departureUtc),
+    decision_hash: decisionHash,
     route_id: route.route_id,
     profile_id: profile.profile_id,
     departure_utc: departureUtc,

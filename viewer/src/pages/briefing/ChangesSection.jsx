@@ -1,3 +1,4 @@
+import { comparisonForCheck } from '../../lib/passages.js';
 import { useEffect, useState } from 'react';
 import { diffFindings } from '@deepweather/engine';
 import { useApp } from '../../stores/appStore.js';
@@ -31,7 +32,10 @@ export default function ChangesSection() {
     let cancelled = false;
     // A shared (served) analysis compares against served checks only, read from
     // the server, so a reader's own local copies never enter its story.
-    const previous = manifest.snapshots.filter((item) => item.route_id === findings.route_id && item.departure_utc === findings.departure_utc && item.snapshot_id !== findings.snapshot_id && !(served && item.local)).sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))[0];
+    const checks = manifest.snapshots.filter(item => !(served && item.local));
+    const current = checks.find(item => item.snapshot_id === findings.snapshot_id);
+    const { previous, unavailable } = current ? comparisonForCheck(checks, current) : { previous: null, unavailable: false };
+    if (unavailable) return setState({ status: 'unavailable' });
     if (!previous) return setState({ status: 'first', changes: diffFindings(null, findings) });
     const read = served ? fetchServedJson : fetchSnapshotJson;
     Promise.all([
@@ -45,6 +49,7 @@ export default function ChangesSection() {
     return () => { cancelled = true; };
   }, [findings, manifest, briefing, served]);
   if (!findings) return null;
+  if (state.status === 'unavailable') return <p className="text-ink-soft">Previous check order is unavailable. These saved checks have been kept.</p>;
   if (state.status === 'first') return <div><h2 className="font-story text-2xl">First analysis of this passage</h2><p className="mt-2 font-instrument text-ink-soft">Nothing to compare yet. Reassess after the next model run.</p></div>;
   if (state.status === 'error') return <p className="text-verdict-exceeds">Change ledger error: {state.error}</p>;
   if (state.status !== 'ok') return <p className="text-ink-soft">Comparing frozen runs…</p>;

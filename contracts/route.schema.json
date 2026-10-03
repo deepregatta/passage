@@ -5,6 +5,7 @@
   "type": "object",
   "required": ["schema_version", "route_id", "name", "mode", "waypoints"],
   "properties": {
+    "passage_id": { "type": "string", "minLength": 1 },
     "schema_version": { "type": "integer" },
     "route_id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
     "name": { "type": "string" },

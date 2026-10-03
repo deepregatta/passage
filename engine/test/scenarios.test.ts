@@ -12,7 +12,8 @@ import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import { buildPlume, writeSnapshot } from '../src/snapshot.js';
 import { diffFindings } from '../src/diff.js';
-import { assembleFindings } from '../src/findings.js';
+import { decisionInputs } from '../src/identity.js';
+import { assembleFindings, type AssembleOptions } from '../src/findings.js';
 import { renderBriefing } from '../src/briefing.js';
 import { ScenarioBundleStore } from '../src/forecast/scenarioStore.js';
 import { deriveLegs, legMidpoints } from '../src/route.js';
@@ -78,7 +79,7 @@ async function runScenario(name: string, visibilityM?: number) {
     synoptic = JSON.parse(readFileSync(synopticPath, 'utf8')) as SynopticFeatures;
   }
 
-  const findings = assembleFindings({
+  const opts: AssembleOptions = {
     route,
     profile,
     departureUtc: DEPARTURE,
@@ -91,8 +92,9 @@ async function runScenario(name: string, visibilityM?: number) {
     synoptic,
     engineVersion: ENGINE_VERSION,
     nowMs: FIXED_NOW,
-  });
-  return { findings, briefing: renderBriefing(findings, synoptic), route, plume: buildPlume(findings, ens?.forecasts, profile.max_gust_kt, multi?.byModel) };
+  };
+  const findings = assembleFindings(opts);
+  return { snapshotInputs: { decisionInputs: decisionInputs(opts) }, findings, briefing: renderBriefing(findings, synoptic), route, plume: buildPlume(findings, ens?.forecasts, profile.max_gust_kt, multi?.byModel) };
 }
 
 describe('verdict-state harness: five scenarios -> five states', () => {
@@ -171,9 +173,9 @@ const validators = Object.fromEntries(['findings', 'briefing', 'snapshot', 'chan
 ]));
 for (const name of Object.keys(EXPECTED)) {
   it(`${name}: serialized engine artifacts satisfy their contracts`, async () => {
-    const { findings, briefing, route, plume } = await runScenario(name);
+    const { findings, briefing, route, plume, snapshotInputs } = await runScenario(name);
     const files = new Map<string, string>();
-    await writeSnapshot({ exists: async () => false, write: async (_id, file, body) => { files.set(file, body); } }, findings, briefing, { route, plume }, FIXED_NOW);
+    await writeSnapshot({ exists: async () => false, write: async (_id, file, body) => { files.set(file, body); } }, findings, briefing, { route, plume, ...snapshotInputs }, FIXED_NOW);
     const previous = (await runScenario('reference-demo-prev')).findings;
     files.set('changes.json', JSON.stringify(diffFindings(previous, findings)));
     for (const [artifact, validate] of Object.entries(validators)) {

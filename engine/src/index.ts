@@ -118,3 +118,5 @@ export type {
   GribExportProgress,
   GribExportSource,
 } from './export/exportGrib.js';
+
+export { routeRevision, decisionInputs, IDENTITY_VERSION, ENGINE_SEMANTICS } from './identity.js';

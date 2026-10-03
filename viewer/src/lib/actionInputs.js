@@ -1,5 +1,5 @@
 // @ts-check
-import { contentHash } from '@deepweather/engine';
+import { contentHash, routeRevision } from '@deepweather/engine';
 import { validateProfileDraft } from './profileDraft.js';
 import { ForecastUpdatedError } from './forecastFreshness.js';
 
@@ -38,7 +38,7 @@ export function captureActionDraft(draft) {
   validateProfileDraft(draft.profile);
   return freezeInput(structuredClone({
     route: draft.route, profile: draft.profile, departureUtc: draft.departureUtc,
-    routeRevision: contentHash(draft.route), profileRevision: contentHash(draft.profile),
+    routeRevision: routeRevision(draft.route, draft.departureUtc), profileRevision: contentHash(draft.profile),
   }));
 }
 

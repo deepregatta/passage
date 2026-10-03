@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { identityFields, linkReferenceHistory } from '../viewer/src/lib/passageIdentity.js';
 
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -24,6 +25,7 @@ if (existsSync(snapshotsRoot)) {
     try {
       const doc = JSON.parse(readFileSync(snapshotPath, 'utf8'));
       snapshots.push({
+        ...identityFields(doc),
         snapshot_id: doc.snapshot_id ?? entry.name,
         created_at: doc.created_at,
         route_id: doc.route_id,
@@ -41,7 +43,7 @@ snapshots.sort((a, b) => b.snapshot_id.localeCompare(a.snapshot_id));
 mkdirSync(snapshotsRoot, { recursive: true });
 writeFileSync(
   join(snapshotsRoot, 'manifest.json'),
-  JSON.stringify({ generated_at: new Date().toISOString(), snapshots }, null, 2) + '\n',
+  JSON.stringify({ generated_at: new Date().toISOString(), snapshots: linkReferenceHistory(snapshots, JSON.parse(readFileSync(join(dist, 'data', 'index.json'), 'utf8'))) }, null, 2) + '\n',
 );
 
 // The HTML shell ships Cache-Control: no-transform (see viewer/public/_headers)

@@ -4,7 +4,16 @@
   "title": "Snapshot manifest — immutable analysis record (brief §9)",
   "type": "object",
   "required": ["schema_version", "snapshot_id", "created_at", "engine_version", "route_id", "profile_id", "departure_utc", "artifacts"],
+  "allOf": [{
+    "if": { "required": ["identity_version"] },
+    "then": { "required": ["passage_id", "route_revision", "decision_hash", "check_sequence"], "properties": { "artifacts": { "required": ["decision_inputs"] } } }
+  }],
   "properties": {
+    "check_sequence": { "type": "integer", "minimum": 1 },
+    "identity_version": { "const": 2 },
+    "passage_id": { "type": ["string", "null"], "minLength": 1 },
+    "route_revision": { "type": "string", "pattern": "^[0-9a-f]{16}$" },
+    "decision_hash": { "type": "string", "pattern": "^[0-9a-f]{16}$" },
     "schema_version": { "type": "integer" },
     "snapshot_id": { "type": "string" },
     "created_at": { "type": "string", "format": "date-time" },
@@ -18,6 +27,7 @@
       "description": "Relative paths inside the snapshot dir. Mutable inputs are COPIED in, not referenced.",
       "required": ["findings"],
       "properties": {
+        "decision_inputs": { "type": "string" },
         "findings": { "type": "string" },
         "briefing": { "type": "string" },
         "plume": { "type": "string" },

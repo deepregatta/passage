@@ -4,6 +4,7 @@ import { isEmulatedWarning } from '../../components/BulletinPanel.jsx';
 import { ShareAnalysisButton } from '../../components/FooterActions.jsx';
 import { fmtLocalTime, fmtTime, localTimeZoneName, toLocalDateTimeValue, VERDICT } from '../../lib/format.js';
 import { useApp } from '../../stores/appStore.js';
+import { newPassageId } from '../../lib/passageIdentity.js';
 import { usePlanner } from '../../stores/plannerStore.js';
 import { routeTitle } from './routeLabels.jsx';
 
@@ -39,8 +40,9 @@ export default function DecisionBand({ findings, warningEvidence, onOpenBulletin
   const nextUpdate = nextRun ? fmtTime(nextRun.expected_at) : null;
 
   const offerScan = !example && ['exceeds', 'approaching', 'warning_active'].includes(state) && route;
-  const findDeparture = () => {
+  const continuePassage = (autoScan = false) => {
     usePlanner.getState().patch({
+      passageId: findings.identity_version === 2 && findings.passage_id ? findings.passage_id : newPassageId(),
       mode: 'draw',
       name: route.name ?? findings.route_id,
       waypoints: route.waypoints.map((wp) => ({ lat: wp.lat, lng: wp.lon })),
@@ -48,7 +50,7 @@ export default function DecisionBand({ findings, warningEvidence, onOpenBulletin
       departureLocal: toLocalDateTimeValue(findings.departure_utc),
       computed: null,
       scan: null,
-      autoScan: true,
+      autoScan,
     });
     setPage('planner');
   };
@@ -90,8 +92,9 @@ export default function DecisionBand({ findings, warningEvidence, onOpenBulletin
               {example ? 'Inspect example bulletin' : emulated ? 'Inspect emulated bulletin' : 'Open official bulletin'}
             </button>
           )}
+          {!example && findings.identity_version === 2 && route && <button type="button" onClick={() => continuePassage()} className={buttonClass}>Revise this passage</button>}
           {offerScan && (
-            <button type="button" onClick={findDeparture} className={buttonClass}>
+            <button type="button" onClick={() => continuePassage(true)} className={buttonClass}>
               Find a departure that fits
             </button>
           )}

@@ -1,6 +1,8 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, vi } from 'vitest';
 import { cleanup } from '@testing-library/react';
+import { linkReferenceHistory } from '../src/lib/passageIdentity.js';
+import referenceIndex from './fixtures/demo/index.json';
 import manifest from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/snapshot.json';
 import findings from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/findings.json';
 import briefing from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/briefing.json';
@@ -15,10 +17,10 @@ const snapshotId = manifest.snapshot_id;
 const fixtureRoutes = new Map([
   ['/data/snapshots/manifest.json', {
     generated_at: '2026-07-12T00:00:00Z',
-    snapshots: [
+    snapshots: linkReferenceHistory([
       { ...manifest, verdict_state: findings.verdict.state },
       { ...previousManifest, verdict_state: previousFindings.verdict.state },
-    ],
+    ], referenceIndex),
   }],
   [`/data/snapshots/${snapshotId}/snapshot.json`, manifest],
   [`/data/snapshots/${snapshotId}/findings.json`, findings],
