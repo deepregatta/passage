@@ -47,7 +47,7 @@ describe('public analysis with UTC offsets', () => {
         expect.any(Array), Date.UTC(2026, 6, 20), Date.UTC(2026, 6, 23),
       );
     }
-    // Input spelling remains in departure metadata and snapshot identities.
+    // Departure metadata retains input spelling; equivalent instants share identity.
     expect(actual.findings).toEqual({
       ...expected.findings,
       departure_utc: departureUtc,

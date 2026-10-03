@@ -30,6 +30,25 @@ class FallbackSnapshotStore {
     return res.ok;
   }
 
+  async list() {
+    const local = await localSnapshots.list();
+    if (!DEV_WRITES) return local;
+    const res = await fetch('/data/snapshots/manifest.json');
+    if (!res.ok) throw new Error(`Snapshot catalog unavailable: HTTP ${res.status}`);
+    const served = await res.json();
+    const localIds = new Set(local.map((/** @type {{snapshot_id: string}} */ item) => item.snapshot_id));
+    return [...local, ...(served.snapshots ?? []).filter((/** @type {{snapshot_id: string}} */ item) => !localIds.has(item.snapshot_id))];
+  }
+
+  /** @param {string} snapshotId @param {string} filename */
+  async read(snapshotId, filename) {
+    const local = await localSnapshots.read(snapshotId, filename);
+    if (local !== null || await localSnapshots.exists(snapshotId)) return local;
+    if (!DEV_WRITES) return null;
+    const res = await fetch(`/data/snapshots/${snapshotId}/${filename}`);
+    return res.ok ? res.text() : null;
+  }
+
   /** @param {string} snapshotId @param {string} filename @param {string} content */
   async write(snapshotId, filename, content) {
     if (!this.useLocal) {

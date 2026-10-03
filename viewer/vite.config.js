@@ -1,3 +1,4 @@
+import { identityFields, linkReferenceHistory } from './src/lib/passageIdentity.js';
 // Data middleware pattern vendored from coachregatta viewer2/vite.config.js (2026-07-11),
 // adapted for deepweather: snapshots manifest instead of race index, .png artifacts allowed,
 // and dev-only POST endpoints so the in-browser engine can persist routes and snapshots.
@@ -26,6 +27,7 @@ function buildSnapshotsManifest(dataRoot) {
       try {
         const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
         snapshots.push({
+          ...identityFields(manifest),
           snapshot_id: manifest.snapshot_id ?? entry.name,
           created_at: manifest.created_at,
           route_id: manifest.route_id,
@@ -40,7 +42,9 @@ function buildSnapshotsManifest(dataRoot) {
     }
   }
 
-  return { generated_at: new Date().toISOString(), snapshots };
+  let index;
+  try { index = JSON.parse(fs.readFileSync(path.join(dataRoot, 'index.json'), 'utf8')); } catch { /* no explicit reference pair */ }
+  return { generated_at: new Date().toISOString(), snapshots: linkReferenceHistory(snapshots, index) };
 }
 
 function readBody(req) {

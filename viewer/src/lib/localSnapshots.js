@@ -1,8 +1,9 @@
+import { identityFields } from './passageIdentity.js';
 // Browser-local snapshot persistence for static hosting (Cloudflare Pages).
 // The dev server accepts POST /data/snapshots/… and writes to the repo; in
 // production there is no write endpoint, so briefings persist here instead —
 // one IndexedDB record per artifact file, keyed `${snapshot_id}/${filename}`.
-// Snapshots remain write-once: exists() is checked before any write.
+// Snapshots remain write-once: any partial save exists, and add rejects replacement.
 
 const DB_NAME = 'passage-local-snapshots';
 const STORE = 'files';
@@ -41,7 +42,7 @@ function tx(db, mode, run) {
     const t = db.transaction(STORE, mode);
     const request = run(t.objectStore(STORE));
     t.oncomplete = () => resolve(request?.result);
-    t.onerror = () => reject(t.error);
+    t.onerror = () => reject(request?.error ?? t.error);
     t.onabort = () => reject(t.error);
   });
 }
@@ -53,8 +54,8 @@ export const localSnapshots = {
     if (!available()) return false;
     try {
       const db = await openDb();
-      const record = await tx(db, 'readonly', (s) => s.get(`${snapshotId}/snapshot.json`));
-      return record != null;
+      const count = await tx(db, 'readonly', (s) => s.index('snapshot_id').count(snapshotId));
+      return count > 0;
     } catch {
       return false;
     }
@@ -64,7 +65,7 @@ export const localSnapshots = {
     if (!available()) throw new Error('This browser cannot store briefings (no IndexedDB)');
     const db = await openDb();
     await tx(db, 'readwrite', (s) =>
-      s.put({ key: `${snapshotId}/${filename}`, snapshot_id: snapshotId, filename, content }),
+      s.add({ key: `${snapshotId}/${filename}`, snapshot_id: snapshotId, filename, content }),
     );
   },
 
@@ -93,6 +94,7 @@ export const localSnapshots = {
           try {
             const doc = JSON.parse(r.content);
             return {
+              ...identityFields(doc),
               snapshot_id: doc.snapshot_id ?? r.snapshot_id,
               created_at: doc.created_at,
               route_id: doc.route_id,

@@ -41,7 +41,7 @@ it('freezes user revisions, selected artifact digests and optional context befor
   expect(action.route.waypoints[0].lat).toBe(49.5);
   expect(Object.isFrozen(action.profile.max_sustained_kt)).toBe(true);
   const result = await runAnalysis(action);
-  expect(result.findings.inputs.route_hash).toBe(action.routeRevision);
+  expect(result.findings.route_revision).toBe(action.routeRevision);
   expect(result.findings.inputs.profile_hash).toBe(action.profileRevision);
   expect(result.findings.inputs.forecast_tiles.find(x => x.layer === 'currents')).toMatchObject({
     run_id: 'prepared-a', current_source: 'prepared', artifact_ref: 'runs/prepared-a/current.json', content_digest: contentHash(docs['prepared-a']),

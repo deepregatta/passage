@@ -1,3 +1,4 @@
+import { newPassageId } from '../lib/passageIdentity.js';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { localDateTimeToIso, toLocalDateTimeValue } from '../lib/format.js';
@@ -14,6 +15,7 @@ function defaultDeparture() {
 }
 
 const initial = () => ({
+  passageId: newPassageId(),
   mode: 'compute', // compute | draw — computing from the forecast is the primary way in
   waypoints: [],
   endpoints: [],
@@ -42,8 +44,9 @@ export const usePlanner = create(
         setItem: (key, value) => { try { localStorage.setItem(key, value); } catch { /* keep the in-memory draft */ } },
         removeItem: (key) => { try { localStorage.removeItem(key); } catch { /* optional persistence */ } },
       })),
-      version: 1,
+      version: 2,
       migrate: (persisted, version) => {
+        persisted = { ...persisted, passageId: persisted?.passageId || newPassageId() };
         if (version === 0 && persisted?.departureLocal) {
           return {
             ...persisted,

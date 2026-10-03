@@ -4,7 +4,15 @@
   "title": "Findings — evidence-bearing engine output",
   "type": "object",
   "required": ["schema_version", "snapshot_id", "route_id", "profile_id", "departure_utc", "engine_version", "inputs", "legs", "verdict", "evidence", "unsupported_hazards"],
+  "allOf": [{
+    "if": { "required": ["identity_version"] },
+    "then": { "required": ["passage_id", "route_revision", "decision_hash"] }
+  }],
   "properties": {
+    "identity_version": { "const": 2 },
+    "passage_id": { "type": ["string", "null"], "minLength": 1 },
+    "route_revision": { "type": "string", "pattern": "^[0-9a-f]{16}$" },
+    "decision_hash": { "type": "string", "pattern": "^[0-9a-f]{16}$" },
     "schema_version": { "type": "integer" },
     "snapshot_id": { "type": "string" },
     "route_id": { "type": "string" },

@@ -96,9 +96,9 @@ it.each([{ times: [] }, { wind_members: [] }, { wind_members: [[null]] }])('show
 
 it('does not let an old change-ledger failure replace a newly selected first run', async () => {
   const pending = deferred(); fetchSnapshotJson.mockReturnValue(pending.promise);
-  useApp.setState({ findings, manifest: { snapshots: [{ ...findings, snapshot_id: 'previous' }] } });
+  useApp.setState({ findings, manifest: { snapshots: [{ ...findings, identity_version: 2, passage_id: 'history', created_at: '2026-07-18T00:00Z', snapshot_id: 'previous' }, { ...findings, identity_version: 2, passage_id: 'history', created_at: '2026-07-19T00:00Z' }] } });
   render(<ChangesSection />);
-  act(() => useApp.setState({ findings: { ...findings, route_id: 'other' } }));
+  act(() => useApp.setState({ findings: { ...findings, snapshot_id: 'other', route_id: 'other' } }));
   expect(screen.getByText('First analysis of this passage')).toBeVisible();
   await act(async () => pending.reject(new Error('old offline failure')));
   expect(screen.getByText('First analysis of this passage')).toBeVisible();
@@ -107,7 +107,7 @@ it('clears the previous comparison while loading a different run', async () => {
   useApp.setState({ findings, manifest: { snapshots: [] } }); render(<ChangesSection />);
   expect(screen.getByText('First analysis of this passage')).toBeVisible();
   fetchSnapshotJson.mockReturnValue(new Promise(() => {}));
-  act(() => useApp.setState({ manifest: { snapshots: [{ ...findings, snapshot_id: 'previous' }] } }));
+  act(() => useApp.setState({ manifest: { snapshots: [{ ...findings, identity_version: 2, passage_id: 'history', created_at: '2026-07-18T00:00Z', snapshot_id: 'previous' }, { ...findings, identity_version: 2, passage_id: 'history', created_at: '2026-07-19T00:00Z' }] } }));
   expect(screen.getByText('Comparing frozen runs…')).toBeVisible();
 });
 
@@ -168,9 +168,9 @@ it('does not create infinite map bounds from empty waypoints', async () => {
 
 it('ignores a stale successful comparison after switching passages', async () => {
   const old = deferred(); fetchSnapshotJson.mockReturnValue(old.promise);
-  useApp.setState({ findings, manifest: { snapshots: [{ ...findings, snapshot_id: 'previous' }] } });
+  useApp.setState({ findings, manifest: { snapshots: [{ ...findings, identity_version: 2, passage_id: 'history', created_at: '2026-07-18T00:00Z', snapshot_id: 'previous' }, { ...findings, identity_version: 2, passage_id: 'history', created_at: '2026-07-19T00:00Z' }] } });
   render(<ChangesSection />);
-  act(() => useApp.setState({ findings: { ...findings, route_id: 'other' } }));
+  act(() => useApp.setState({ findings: { ...findings, snapshot_id: 'other', route_id: 'other' } }));
   await act(async () => old.resolve(findings));
   expect(screen.getByText('First analysis of this passage')).toBeVisible();
 });

@@ -64,3 +64,34 @@ def test_providers_load_with_valid_modes():
 def test_unknown_provider_raises():
     with pytest.raises(KeyError):
         provider_mode("nonexistent", load_providers())
+
+
+def test_saved_identity_contract_accepts_engine_v2_and_preserves_legacy():
+    repo = contracts_dir().parent
+    for name in ["snapshot", "route"]:
+        schema = _load(contracts_dir() / f"{name}.schema.json")
+        doc = _load(repo / f"engine/test/fixtures/identity-v2/{name}.json")
+        Draft202012Validator(schema).validate(doc)
+        assert doc["passage_id"] == "contract-intent"
+        if name == "snapshot":
+            assert doc["identity_version"] == 2
+            assert "decision_inputs" in doc["artifacts"]
+            for field in ["route_revision", "decision_hash", "passage_id", "check_sequence"]:
+                broken = dict(doc)
+                del broken[field]
+                assert not Draft202012Validator(schema).is_valid(broken)
+    findings = _load(repo / "engine/test/golden/findings-cherbourg-plymouth.json")
+    Draft202012Validator(_load(contracts_dir() / "findings.schema.json")).validate(findings)
+    assert findings["identity_version"] == 2
+    for root in ["viewer/test/fixtures/demo/snapshots", "viewer/test/fixtures/compatibility"]:
+        for directory in (repo / root).iterdir():
+            if not directory.is_dir():
+                continue
+            for name in ["snapshot", "route", "findings"]:
+                path = directory / f"{name}.json"
+                if path.exists():
+                    before = path.read_bytes()
+                    Draft202012Validator(_load(contracts_dir() / f"{name}.schema.json")).validate(
+                        _load(path)
+                    )
+                    assert path.read_bytes() == before

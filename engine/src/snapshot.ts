@@ -5,6 +5,7 @@
  * (filesystem storage for the CLI; dev HTTP writes or IndexedDB in the viewer).
  */
 
+import { canonicalJson, contentHash } from './hash.js';
 import type { Briefing } from './briefing.js';
 import type { EnsemblePointForecast, HazardPointForecast } from './forecast/types.js';
 import type { Findings, Route } from './types.js';
@@ -12,6 +13,10 @@ import type { Findings, Route } from './types.js';
 export interface SnapshotStore {
   /** true if any artifact already exists for this snapshot id */
   exists(snapshotId: string): Promise<boolean>;
+  /** Read immutable artifacts to verify a completed exact retry. */
+  read?(snapshotId: string, filename: string): Promise<string | null>;
+  /** Complete manifests only; used to allocate creation order within an intent. */
+  list?(): Promise<Array<Record<string, unknown>>>;
   /** write one artifact (relative filename inside the snapshot dir) */
   write(snapshotId: string, filename: string, content: string): Promise<void>;
 }
@@ -80,6 +85,7 @@ export function buildPlume(
 }
 
 export interface SnapshotExtras {
+  decisionInputs?: Record<string, unknown>;
   route: Route;
   plume?: Plume;
   warnings?: unknown;
@@ -95,15 +101,42 @@ export async function writeSnapshot(
   nowMs: number,
 ): Promise<{ snapshot_id: string; manifest: Record<string, unknown> }> {
   const id = findings.snapshot_id;
+  if (findings.identity_version === 2 && (!extras.decisionInputs || contentHash(extras.decisionInputs) !== findings.decision_hash ||
+      canonicalJson(extras.decisionInputs.route) !== canonicalJson(extras.route))) {
+    throw new Error('Snapshot decision inputs conflict with its identity.');
+  }
   if (await store.exists(id)) {
-    throw new Error(`Snapshot ${id} already exists. Snapshots are write-once.`);
+    const manifestJson = await store.read?.(id, 'snapshot.json');
+    const savedDecision = await store.read?.(id, 'decision-inputs.json');
+    if (findings.identity_version === 2 && manifestJson && savedDecision && extras.decisionInputs) {
+      const manifest = JSON.parse(manifestJson) as Record<string, unknown>;
+      if (manifest.identity_version === 2 && Number.isSafeInteger(manifest.check_sequence) && Number(manifest.check_sequence) > 0 && manifest.snapshot_id === id &&
+          manifest.decision_hash === findings.decision_hash &&
+          canonicalJson(JSON.parse(savedDecision)) === canonicalJson(extras.decisionInputs)) {
+        // Manifest-last completion is required. Also refuse missing advertised files.
+        const artifacts = manifest.artifacts as Record<string, string>;
+        if (artifacts?.findings === 'findings.json' && artifacts.briefing === 'briefing.json' &&
+            artifacts.route === 'route.json' && artifacts.decision_inputs === 'decision-inputs.json' && (await Promise.all(Object.values(artifacts).map(file => store.read!(id, file)))).every(file => file !== null)) {
+          return { snapshot_id: id, manifest };
+        }
+      }
+    }
+    throw new Error(`Snapshot ${id} is incomplete, legacy or conflicting. Snapshots are write-once.`);
   }
 
+  const history = findings.passage_id ? (await store.list?.() ?? []).filter(item =>
+    item.identity_version === 2 && item.passage_id === findings.passage_id) : [];
+  const checkSequence = 1 + history.reduce((max, item) =>
+    Number.isSafeInteger(item.check_sequence) ? Math.max(max, Number(item.check_sequence)) : max, 0);
   const artifacts: Record<string, unknown> = {
     findings: 'findings.json',
     briefing: 'briefing.json',
     route: 'route.json',
   };
+  if (extras.decisionInputs) {
+    artifacts.decision_inputs = 'decision-inputs.json';
+    await store.write(id, 'decision-inputs.json', stringify(extras.decisionInputs));
+  }
   await store.write(id, 'findings.json', stringify(findings));
   await store.write(id, 'briefing.json', stringify(briefing));
   await store.write(id, 'route.json', stringify(extras.route));
@@ -127,7 +160,11 @@ export async function writeSnapshot(
   const manifest = {
     schema_version: 1,
     snapshot_id: id,
-    created_at: new Date(nowMs).toISOString().replace(/\.\d{3}Z$/, 'Z'),
+    ...(findings.identity_version === 2 ? {
+      identity_version: 2, passage_id: findings.passage_id, check_sequence: checkSequence,
+      route_revision: findings.route_revision, decision_hash: findings.decision_hash,
+    } : {}),
+    created_at: new Date(nowMs).toISOString(),
     engine_version: findings.engine_version,
     route_id: findings.route_id,
     profile_id: findings.profile_id,

@@ -28,6 +28,8 @@ export type RouteTiming =
   };
 
 export interface Route {
+  /** Stable planning intent, independent of route content. Absent on legacy/config routes. */
+  passage_id?: string;
   schema_version: number;
   route_id: string;
   name: string;
@@ -280,6 +282,10 @@ export interface GateResult {
 }
 
 export interface Findings {
+  identity_version?: 2;
+  passage_id?: string | null;
+  route_revision?: string;
+  decision_hash?: string;
   schema_version: number;
   snapshot_id: string;
   route_id: string;

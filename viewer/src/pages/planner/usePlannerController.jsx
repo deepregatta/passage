@@ -38,6 +38,7 @@ export default function usePlannerController() {
   const language = useApp((s) => s.language);
 
   // working state survives stage switches; see plannerStore.js
+  const passageId = usePlanner((s) => s.passageId);
   const mode = usePlanner((s) => s.mode);
   const waypoints = usePlanner((s) => s.waypoints);
   const storedComputed = usePlanner((s) => s.computed);
@@ -95,11 +96,12 @@ export default function usePlannerController() {
   }, [language, name, patch]);
 
   const route = useMemo(() => {
-    if (mode === 'compute') return computed?.route ?? null;
+    if (mode === 'compute') return computed?.route ? { ...computed.route, passage_id: passageId } : null;
     if (waypoints.length < 2) return null;
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'route';
     return {
       schema_version: 1,
+      passage_id: passageId,
       route_id: `${slug}-${waypoints.length}wp`,
       name,
       mode: 'user',
@@ -111,7 +113,7 @@ export default function usePlannerController() {
       speeds_kt: { ...speeds },
       timing: { basis: 'through_water' },
     };
-  }, [mode, computed, waypoints, name, speeds]);
+  }, [mode, computed, waypoints, name, speeds, passageId]);
 
   const distance = useMemo(() => {
     if (!route) return null;
@@ -213,7 +215,7 @@ export default function usePlannerController() {
             inputKey: routingInputKey({ endpoints, polarId, departureLocal: toLocalDateTimeValue(departureUtc) }),
           };
           routes[departureUtc] = result;
-          return result.route;
+          return { ...result.route, passage_id: draft.route.passage_id };
         };
       }
       // one shared assessment window covering every candidate: all candidates read
@@ -255,7 +257,8 @@ export default function usePlannerController() {
   /** Picking a departure from the comparison checks it immediately, so the route
    * and departure it just chose are passed in — React state has not flushed yet. */
   const run = async (overrides = {}) => {
-    const checkRoute = overrides.route ?? route;
+    const selectedRoute = overrides.route ?? route;
+    const checkRoute = selectedRoute ? { ...selectedRoute, passage_id: passageId } : null;
     const checkDepartureUtc = overrides.departureUtc ?? departureUtc;
     if (!checkRoute || !speedsValid) return;
     setBusy('starting');
@@ -275,6 +278,8 @@ export default function usePlannerController() {
         return analyzeInBrowser({ ...action, onProgress: setBusy });
       });
       setBusy(null);
+      // Include the newly completed check before its comparison section opens.
+      await loadManifest();
       await openSnapshot(snapshotId, measurementAttempt);
     } catch (e) {
       setBusy(null);

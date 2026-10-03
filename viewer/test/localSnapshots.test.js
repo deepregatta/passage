@@ -46,8 +46,9 @@ it('upgrades legacy briefings and lists only snapshot documents, preserving list
 
   await localSnapshots.write('z-new', 'snapshot.json', JSON.stringify({ ...doc, snapshot_id: 'z-new', verdict_state: 'within' }));
   expect(await localSnapshots.list()).toEqual([{ ...entry, snapshot_id: 'z-new', verdict_state: 'within' }, entry]);
-  await localSnapshots.write('z-new', 'snapshot.json', '{malformed replacement');
-  expect(await localSnapshots.list()).toEqual([entry]);
+  await expect(localSnapshots.write('z-new', 'snapshot.json', '{malformed replacement')).rejects.toThrow();
+  expect(await localSnapshots.list()).toHaveLength(2);
+  await localSnapshots.remove('z-new');
   expect(await localSnapshots.remove('old')).toBe(true);
   expect(await localSnapshots.read('old', 'plume.json')).toBeNull();
   expect(await localSnapshots.list()).toEqual([]);
@@ -61,13 +62,22 @@ it('creates an empty database and fails soft when listing storage is unavailable
   expect(await localSnapshots.list()).toEqual([]);
 });
 
+it('recognizes partial saved artifacts and refuses replacement without modifying bytes', async () => {
+  vi.stubGlobal('indexedDB', new IDBFactory());
+  await localSnapshots.write('partial', 'route.json', '{"original":true}');
+  expect(await localSnapshots.exists('partial')).toBe(true);
+  expect(await localSnapshots.list()).toEqual([]);
+  await expect(localSnapshots.write('partial', 'route.json', '{"original":false}')).rejects.toThrow();
+  expect(await localSnapshots.read('partial', 'route.json')).toBe('{"original":true}');
+});
+
 // Only the request/transaction events used by these failure paths are emulated.
 function installDb({ openFailure, readFailure, record } = {}) {
   const error = new Error('IndexedDB unavailable');
   const db = {
     transaction: vi.fn(() => {
       if (readFailure === 'throw') throw error;
-      const transaction = { objectStore: () => ({ get: () => ({ result: record }) }) };
+      const transaction = { objectStore: () => ({ get: () => ({ result: record }), index: () => ({ count: () => ({ result: record ? 1 : 0 }) }) }) };
       queueMicrotask(() => {
         if (readFailure) {
           transaction.error = error;
@@ -123,4 +133,30 @@ it('loads a served snapshot when IndexedDB keeps failing', async () => {
 it('still rejects writes when opening storage fails', async () => {
   const { error } = installDb({ openFailure: 'error' });
   await expect(localSnapshots.write('saved', 'snapshot.json', '{}')).rejects.toBe(error);
+});
+
+it('round-trips every committed legacy artifact through storage without rewriting, and lists v2 identity fields', async () => {
+  const { readFileSync, readdirSync, statSync } = await import('node:fs');
+  const { resolve, join } = await import('node:path');
+  vi.stubGlobal('indexedDB', new IDBFactory());
+  for (const root of ['fixtures/demo/snapshots', 'fixtures/compatibility']) {
+    const dir = resolve(import.meta.dirname, root);
+    for (const id of readdirSync(dir)) {
+      for (const file of readdirSync(join(dir, id))) {
+        if (!statSync(join(dir, id, file)).isFile()) continue;
+        const original = readFileSync(join(dir, id, file), 'utf8');
+        await localSnapshots.write(id, file, original);
+        expect(await localSnapshots.read(id, file)).toBe(original);
+      }
+    }
+  }
+  const old = await localSnapshots.list();
+  expect(old).toHaveLength(3);
+  const modern = { snapshot_id: 'v2', created_at: '2026-10-03T00:00:00.001Z', route_id: 'same',
+    profile_id: 'default', departure_utc: '2026-10-04T00:00Z', identity_version: 2,
+    passage_id: 'intent', route_revision: '0123456789abcdef', decision_hash: 'fedcba9876543210' };
+  await localSnapshots.write('v2', 'snapshot.json', JSON.stringify(modern));
+  expect((await localSnapshots.list()).find(s => s.snapshot_id === 'v2')).toMatchObject(modern);
+  await localSnapshots.remove('v2');
+  expect(await localSnapshots.list()).toEqual(old);
 });

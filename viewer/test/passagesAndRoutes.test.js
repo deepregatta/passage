@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { groupPassages, routeName } from '../src/lib/passages.js';
+import { linkReferenceHistory } from '../src/lib/passageIdentity.js';
 import { pageHash, parseRoute } from '../src/lib/routes.js';
 
 const check = (snapshot_id, created_at, extra = {}) => ({
@@ -7,14 +8,14 @@ const check = (snapshot_id, created_at, extra = {}) => ({
 });
 
 describe('passages', () => {
-  it('groups checks of one route and departure, oldest first, and puts the example last', () => {
-    const passages = groupPassages([
+  it('groups explicit intent and reference histories, oldest first, and puts the example last', () => {
+    const passages = groupPassages(linkReferenceHistory([
       check('example-latest', '2026-07-19T18:00:00Z', { demo: true }),
       check('example-previous', '2026-07-19T18:00:00Z'),
-      check('mine-1', '2026-09-01T08:00:00Z', { route_id: 'my-passage-3wp' }),
-      check('mine-2', '2026-09-02T08:00:00Z', { route_id: 'my-passage-3wp' }),
+      check('mine-1', '2026-09-01T08:00:00Z', { identity_version: 2, passage_id: 'mine', route_id: 'my-passage-3wp' }),
+      check('mine-2', '2026-09-02T08:00:00Z', { identity_version: 2, passage_id: 'mine', route_id: 'my-passage-3wp' }),
       check('other-departure', '2026-09-03T08:00:00Z', { route_id: 'my-passage-3wp', departure_utc: '2026-09-10T06:00:00Z' }),
-    ]);
+    ], { previous_snapshot_id: 'example-previous', latest_snapshot_id: 'example-latest' }));
     expect(passages.map((p) => p.checks.map((c) => c.snapshot_id))).toEqual([
       ['other-departure'],
       ['mine-1', 'mine-2'],

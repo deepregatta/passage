@@ -48,7 +48,7 @@ The viewer is organised around the passage, not the processing pipeline. The
 header has two places, **Plan** and **My passages**, plus a **Limits** chip:
 
 - **Plan** — compute a weather route from the forecast and your boat polar (the default), or draw one; pick a departure or compare departure windows, then check the passage. **Export GRIB for this area** on the chart opens the GRIB2 page (wind, currents, waves) for a box ([grib-export.md](docs/grib-export.md)).
-- **My passages** — each passage (route + departure) keeps its checks together, with its latest verdict, whether it changed since the previous check, and a progress track from checks through departure to verification.
+- **My passages** — each planning intent keeps its revisions and checks together, with its latest verdict, whether it changed since the previous check, and a progress track from checks through departure to verification.
 - **A passage page** — one decision band (route, verdict against your limits, any official warning, next forecast update, share), then sections on one scrolling page: the weather **Story** with a single pressure-chart / route-map view, **Along the route** (the condition strip is also the time scrubber), claim-level **Evidence** with models and coverage, **What changed** since the previous check, and **How it turned out** once the frozen forecast is verified.
 - **Limits** — a drawer, reachable from every page, edits the limits the next check uses; frozen briefings keep their own.
 - **About the data** (footer) — the fleet-wide track record, provider modes and glossary.
@@ -62,7 +62,9 @@ node scripts/build-demo-snapshots.mjs
 VITE_DW_FIXTURE=demo npm run dev -w viewer
 ```
 
-The builder runs the engine CLI twice with a fixed clock and rebuilds the committed previous/latest snapshot pair in `viewer/test/fixtures/demo/`. It includes archived synthetic bulletin text, synoptic tracks/charts, an ensemble gust-scenario claim, a six-hour/four-hPa before/after low, a changes artifact, and an explicitly emulated verification case. Re-running it must leave the fixture byte-identical.
+The builder runs the engine CLI twice with a fixed clock and rebuilds the committed previous/latest snapshot pair in `viewer/test/fixtures/demo/`. It includes archived synthetic bulletin text, synoptic tracks/charts, an ensemble gust-scenario claim, a six-hour/four-hPa before/after low, a changes artifact, and an explicitly emulated verification case. The current committed pair is retained as schema-version-1 compatibility evidence.
+The identity-v2 engine produces new IDs; regeneration requires an explicit fixture
+update and is not a saved-data migration.
 
 ## Verification commands
 
@@ -96,6 +98,13 @@ Development defaults to `/data/forecast` for tiles and always reads prepared
 runs from the local `/data/runs/` warehouse. A failed latest-pointer request
 does not switch hosts or change saved chart URLs. Use the `static-dist` launch
 configuration to test production source resolution locally.
+
+[Saved identity rules](docs/saved-identities.md) distinguish a persisted planning
+intent, route/timing revision and immutable decision snapshot. **New passage**
+creates a fresh intent; **Revise this passage** retains its history. Exact retries
+reopen the original result; changed decision inputs create another snapshot.
+Ambiguous legacy checks stay individually accessible/deletable. No saved data is
+rewritten or inferred into a shared deletable group.
 
 Each Check or departure Scan captures the visible in-memory limits, route and
 timing revision before refreshing inputs. Prepared discovery refreshes at every

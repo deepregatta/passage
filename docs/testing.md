@@ -65,8 +65,8 @@ chart references remain verbatim. Input provenance includes canonical FNV-1a64
 content digests (not cryptographic checksums) and the exact prepared artifact
 paths, including their producer revision suffixes when present. These additional
 records use the existing extensible `findings.inputs.forecast_tiles` array;
-shared JSON schemas and historical saved files are unchanged. This does not
-extend snapshot identity semantics; that remains the separate PASSAGE-03 task.
+forecast schemas and historical saved files remain unchanged. The additive saved
+identity contract covers this frozen bundle; see [saved identities](saved-identities.md).
 
 Prepared current admission checks every leg midpoint at its current-adjusted
 entry/exit envelope and occupancy hours, including all successful drawn-scan
@@ -85,6 +85,27 @@ failed persistence and in-flight edits. `viewer/e2e/action-inputs.spec.js` and
 `routing-timing.spec.js` exercise Check/Scan and saved reopening on desktop and
 mobile, using synthetic transport, fresh storage, blocked telemetry and
 intercepted POSTs. Demo fixture files must stay untouched.
+
+## Saved identity and history regressions
+
+`engine/test/snapshotIdentity.test.ts` covers changed authority/tide/gate/prepared,
+forecast, geometry, profile and engine inputs; tile cache/retrieval clocks;
+exact retry; and partial/conflicting write-once preservation. Current engine
+goldens intentionally contain the new identity/version fields; the verdicts,
+evidence and briefing text remain unchanged. Existing demo/compatibility files
+remain byte-identical.
+
+`viewer/test/passageIdentity.test.jsx`, `plannerIdentity.test.js` and
+`localSnapshots.test.js` cover intent grouping, chronological/tied predecessors,
+draft migration/reopen and byte-preserving artifact round trips. The existing
+scenario/contract suites and Python consumers validate both old saved records
+and additive identity-v2 fields. `viewer/e2e/passage-identity.spec.js` exercises
+real Check/retry/revise/new intent, saved reopen, three-check comparison and
+unrelated-history preservation during scratch deletion and rejection of an
+interrupted browser save at both viewports.
+Run it through the existing viewer-demo launch configuration; intercept every
+POST/DELETE and block telemetry/external transport. No production data proof
+is implied.
 
 ## Fixture policy
 
@@ -105,9 +126,9 @@ intercepted POSTs. Demo fixture files must stay untouched.
   dataset-registry change, run `npm run make:grib-fixtures -w engine`, review
   the diff, and re-run the contract test. See [grib-export.md](grib-export.md).
 - `viewer/test/fixtures/demo/` is the current committed reference demo. Rebuild
-  it with `node scripts/build-demo-snapshots.mjs`; a clean regeneration must be
-  byte-identical unless an intentional product or contract change is under
-  review.
+  it with `node scripts/build-demo-snapshots.mjs` only for an explicit fixture
+  update. The identity-v2 engine produces new IDs; the current schema-version-1
+  pair remains compatibility evidence, never an inferred saved-data migration.
 - `viewer/test/fixtures/compatibility/` contains older saved snapshots kept to
   ensure current UI code degrades safely when a browser still holds an earlier
   schema shape. Dates in these fixture paths are identifiers, not expiry dates.

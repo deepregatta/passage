@@ -63,6 +63,7 @@ async function runCommand(args: Map<string, string>): Promise<number> {
   }
 
   const route = JSON.parse(readFileSync(routePath, 'utf8')) as Route;
+  if (args.has('passage-id')) route.passage_id = args.get('passage-id')!;
   const profile = JSON.parse(readFileSync(profilePath, 'utf8')) as LimitsProfile;
   const fixedNow = args.get('now') ? Date.parse(args.get('now')!) : Date.now();
   if (!Number.isFinite(fixedNow)) {

@@ -1,10 +1,14 @@
 {
   "schema_version": 1,
-  "snapshot_id": "20260712T060000Z_44d2cd5f_e56e8fe0",
+  "snapshot_id": "snapshot_v2_24c2d8022da4ff3c",
+  "identity_version": 2,
+  "passage_id": null,
+  "route_revision": "a3a053d22ba21c4d",
+  "decision_hash": "24c2d8022da4ff3c",
   "route_id": "cherbourg-plymouth-v1",
   "profile_id": "coastal-cruising-cautious",
   "departure_utc": "2026-07-12T06:00:00Z",
-  "engine_version": "0.1.0",
+  "engine_version": "0.2.0",
   "generated_at": "2026-07-11T18:00:00Z",
   "inputs": {
     "prepared_run_id": null,

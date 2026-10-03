@@ -60,3 +60,23 @@ it.each(['--print', '--no-snapshot'])('CLI preserves departure after %s', (flag)
   ], { cwd: repo, encoding: 'utf8', maxBuffer: 5_000_000 });
   expect((JSON.parse(output) as Findings).departure_utc).toBe('2026-07-20T06:00:00Z');
 });
+
+it('CLI persists explicit passage intent, reopens exact retries and distinguishes changed warning content', () => {
+  const snapshotRoot = join(temp, 'identity-snapshots');
+  const args = ['--import', 'tsx', join(repo, 'engine/src/cli.ts'), 'run',
+    '--route', join(repo, 'config/routes/cherbourg-plymouth.json'), '--passage-id', 'cli-intent',
+    '--fixture-dir', join(repo, 'engine/test/fixtures/scenarios/calm'), '--warnings', join(temp, 'identity-warning.json'),
+    '--departure', '2026-07-20T06:00:00Z', '--now', '2026-07-19T18:00:00Z', '--snapshot-dir', snapshotRoot];
+  writeFileSync(join(temp, 'identity-warning.json'), JSON.stringify({ ...doc, bulletins: [] }));
+  const run = () => execFileSync(process.execPath, args, { cwd: repo, encoding: 'utf8' }).match(/snapshot: (\S+)/)![1]!;
+  const first = run();
+  const frozen = readFileSync(join(snapshotRoot, first, 'snapshot.json'), 'utf8');
+  expect(run()).toBe(first);
+  expect(readFileSync(join(snapshotRoot, first, 'snapshot.json'), 'utf8')).toBe(frozen);
+  expect(JSON.parse(frozen).passage_id).toBe('cli-intent');
+  writeFileSync(join(temp, 'identity-warning.json'), JSON.stringify(doc));
+  const warned = run();
+  expect(warned).not.toBe(first);
+  expect(JSON.parse(readFileSync(join(snapshotRoot, warned, 'findings.json'), 'utf8')).verdict.state).toBe('warning_active');
+  expect(readFileSync(join(snapshotRoot, first, 'snapshot.json'), 'utf8')).toBe(frozen);
+});
