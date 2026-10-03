@@ -355,10 +355,10 @@ export function fmtHorizonShort(lastIso) {
   return `This forecast ends ${fmtTime(lastIso)} UTC, before the end of your period.`;
 }
 
-/** ECMWF's gust is a maximum over the hours before each step, GFS's an instant. */
+/** Display the maximum windows declared by the selected forecast. */
 export function fmtGustWindows(windows) {
   const list = windows.length > 1 ? `${windows.slice(0, -1).join(', ')} or ${windows.at(-1)}` : String(windows[0]);
-  return `Gusts are the maximum over the ${list} h before each time, as ECMWF publishes them, not an instantaneous value like GFS gusts.`;
+  return `Gusts are the maximum over the ${list} h before each time, rather than instantaneous values.`;
 }
 
 export function fmtTooLarge(bytes) {
