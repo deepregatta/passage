@@ -52,9 +52,7 @@ def positive(value) -> float:
 
 
 class Guard:
-    def __init__(
-        self, client, bucket: str, key="ops/paid-work.json", *, clock=time.time
-    ):
+    def __init__(self, client, bucket: str, key="ops/paid-work.json", *, clock=time.time):
         self.client, self.bucket, self.key, self.clock = client, bucket, key, clock
 
     @classmethod
@@ -66,8 +64,7 @@ class Guard:
             # No SDK retries of admission PUTs: an unknown outcome must stop work.
             client = boto3.client(
                 "s3",
-                endpoint_url=os.environ.get("R2_ENDPOINT")
-                or os.environ["R2_ENDPOINT_URL"],
+                endpoint_url=os.environ.get("R2_ENDPOINT") or os.environ["R2_ENDPOINT_URL"],
                 aws_access_key_id=os.environ["R2_ACCESS_KEY_ID"],
                 aws_secret_access_key=os.environ["R2_SECRET_ACCESS_KEY"],
                 region_name="auto",
@@ -137,11 +134,7 @@ class Guard:
                 IfMatch=etag,
             )
         except Exception as exc:
-            status = (
-                getattr(exc, "response", {})
-                .get("ResponseMetadata", {})
-                .get("HTTPStatusCode")
-            )
+            status = getattr(exc, "response", {}).get("ResponseMetadata", {}).get("HTTPStatusCode")
             if status == 412:
                 return False
             raise Paused("reservation outcome unknown; review before retry") from exc
@@ -160,12 +153,8 @@ class Guard:
                 limits = doc["channels"][channel]
                 if type(doc.get("single_active", False)) is not bool:
                     raise ValueError("single_active must be boolean")
-                usage = doc.setdefault(
-                    "usage", {"seconds": 0, "starts": 0, "channels": {}}
-                )
-                state = usage["channels"].setdefault(
-                    channel, {"seen": {}, "days": {}, "last": 0}
-                )
+                usage = doc.setdefault("usage", {"seconds": 0, "starts": 0, "channels": {}})
+                state = usage["channels"].setdefault(channel, {"seen": {}, "days": {}, "last": 0})
                 for value in (
                     usage["seconds"],
                     usage["starts"],
@@ -195,8 +184,7 @@ class Guard:
                 if seconds > positive(limits["max_run_seconds"]):
                     raise Paused("run exceeds its reserved duration")
                 if any(
-                    s.get("active", {}).get("until", 0) > now
-                    for s in usage["channels"].values()
+                    s.get("active", {}).get("until", 0) > now for s in usage["channels"].values()
                 ):
                     # Limit concurrent jobs across every participating producer.
                     if doc.get("single_active", False):
