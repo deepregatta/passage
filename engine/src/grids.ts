@@ -38,15 +38,18 @@ export interface GridSample {
 
 export class GridSampler {
   private timesMs: number[];
+  private validTimeAxis: boolean;
 
   constructor(private grid: RegionGrid) {
     this.timesMs = grid.time_axis.map(parseUtc);
+    this.validTimeAxis = this.timesMs.every((t, i) => Number.isFinite(t) && (i === 0 || t > this.timesMs[i - 1]!));
   }
 
   private at(t: number, i: number, j: number, component: 'u_kt' | 'v_kt'): number | null {
     const { nlat, nlon } = this.grid;
     if (i < 0 || i >= nlat || j < 0 || j >= nlon) return null;
-    return this.grid[component][(t * nlat + i) * nlon + j] ?? null;
+    const value = this.grid[component][(t * nlat + i) * nlon + j];
+    return typeof value === 'number' && Number.isFinite(value) ? value : null;
   }
 
   /** bilinear over the 4 surrounding cells at one time index; nearest non-null fallback */
@@ -89,7 +92,12 @@ export class GridSampler {
 
   /** sample u/v at (lat, lon, time); null outside coverage (space or time) */
   sample(lat: number, lon: number, timeMs: number): GridSample | null {
+    const { lat0, lon0, dlat, dlon, nlat, nlon } = this.grid;
+    const fi = (lat - lat0) / dlat;
+    const fj = (lon - lon0) / dlon;
+    if (![fi, fj].every(Number.isFinite) || fi < 0 || fj < 0 || fi > nlat - 1 || fj > nlon - 1) return null;
     const times = this.timesMs;
+    if (!this.validTimeAxis) return null;
     if (!times.length || !Number.isFinite(timeMs) || timeMs < times[0]! || timeMs > times[times.length - 1]!) return null;
     // First timestamp >= timeMs on the ordered axis, including irregular steps.
     let k = 0;
@@ -110,7 +118,9 @@ export class GridSampler {
     const v0 = this.sampleAtTime(t0, lat, lon, 'v_kt');
     const v1 = this.sampleAtTime(t1, lat, lon, 'v_kt');
     if (v0 === null || v1 === null) return null;
-    return { u_kt: round2(u0 + (u1 - u0) * alpha), v_kt: round2(v0 + (v1 - v0) * alpha) };
+    const u = round2(u0 + (u1 - u0) * alpha);
+    const v = round2(v0 + (v1 - v0) * alpha);
+    return Number.isFinite(u) && Number.isFinite(v) ? { u_kt: u, v_kt: v } : null;
   }
 }
 

@@ -12,7 +12,7 @@
   ],
   "scripts": {
     "lint": "eslint . --max-warnings 0",
-    "test": "npm run build -w engine && npm run typecheck -w engine && npm run test -w engine && npm run test -w viewer --if-present",
+    "test": "npm run build -w engine && npm run typecheck -w engine && npm run test -w engine && npm run typecheck -w viewer && npm run test -w viewer --if-present",
     "test:e2e": "npm run test:e2e -w viewer",
     "dev": "npm run dev -w viewer",
     "build": "npm run build -w engine && npm run build -w viewer",

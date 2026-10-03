@@ -10,8 +10,8 @@ import { renderBriefing, nextForecastRuns, type Briefing } from './briefing.js';
 import { buildPlume, writeSnapshot, type Plume, type SnapshotStore } from './snapshot.js';
 import { deriveLegs, legMidpoints } from './route.js';
 import { computeRouteSchedules, parseUtc, toIso } from './eta.js';
-import { passageMaxHours, routeBbox } from './fetch/liveGrids.js';
-import { forecastRunGone, type ForecastStore } from './forecast/store.js';
+import { type ForecastStore } from './forecast/store.js';
+import { currentGridCovers, resolveCurrentInput, type CurrentInput } from './currentInput.js';
 import { ENGINE_VERSION } from './version.js';
 import type { Findings, LimitsProfile, Route, SynopticFeatures, WarningsInput } from './types.js';
 
@@ -24,6 +24,11 @@ export interface AnalyzeOptions {
   warnings?: WarningsInput;
   /** prepared CMEMS current grid override; when absent the store's currents layer is used */
   currentGrid?: import('./grids.js').RegionGrid;
+  currentGridProvenance?: Record<string, unknown>;
+  /** Already selected once for a whole departure scan. An empty input means unavailable. */
+  currentInput?: CurrentInput;
+  /** Frozen optional artifacts and action revisions; stored in the extensible input records. */
+  inputRecords?: Array<Record<string, unknown>>;
   /** HW/LW predictions + named tidal gates */
   tides?: import('./hazards/tides.js').TidesDoc;
   gates?: import('./hazards/tides.js').GateDef[];
@@ -112,24 +117,13 @@ export async function runAnalysis(options: AnalyzeOptions): Promise<AnalyzeResul
       () => store.getHazardForecasts(points, startMs, endMs)),
   ]);
 
-  let currentGrid = options.currentGrid;
-  if (!currentGrid) {
+  if (!options.currentInput && (!options.currentGrid || !currentGridCovers(options.currentGrid, { route, departureUtc }))) {
     progress('reading current tiles');
-    const start = legs[0]!.from;
-    const finish = legs[legs.length - 1]!.to;
-    try {
-      currentGrid =
-        (await store.getCurrentGrid(
-          routeBbox(start, finish),
-          departureUtc,
-          passageMaxHours(start, finish),
-        )) ?? undefined;
-    } catch (error) {
-      // a deleted run means refresh and retry, not "no currents"
-      if (forecastRunGone(error)) throw error;
-      currentGrid = undefined; // currents degrade gracefully; coverage reports it
-    }
   }
+  const currentInput = options.currentInput ?? await resolveCurrentInput(
+    [{ route, departureUtc }], store, options.currentGrid, options.currentGridProvenance,
+  );
+  const currentGrid = currentInput.grid;
 
   progress('evaluating against your limits');
   const nowMs = (options.now ?? Date.now)();
@@ -144,6 +138,8 @@ export async function runAnalysis(options: AnalyzeOptions): Promise<AnalyzeResul
     ...(multi ? { multiModel: multi } : {}),
     ...(options.warnings ? { warnings: options.warnings } : {}),
     ...(currentGrid ? { currentGrid } : {}),
+    currentProvenance: currentInput.provenance,
+    inputRecords: options.inputRecords,
     ...(options.tides ? { tides: options.tides } : {}),
     ...(options.gates ? { gates: options.gates } : {}),
     ...(options.synoptic ? { synoptic: options.synoptic } : {}),

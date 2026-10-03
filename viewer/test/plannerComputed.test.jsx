@@ -2,10 +2,11 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { beforeEach, expect, it, vi } from 'vitest';
 import { computeRoute, scanDepartures } from '@deepweather/engine';
 import Planner from '../src/pages/Planner.jsx';
+import LimitsDrawer from '../src/components/LimitsDrawer.jsx';
 import { usePlanner } from '../src/stores/plannerStore.js';
 import { useApp } from '../src/stores/appStore.js';
 import { loadRoutingInputs } from '../src/lib/routingInputs.js';
-import { analyzeInBrowser, saveRoute } from '../src/lib/browserAnalysis.js';
+import { analyzeInBrowser, saveRoute, prepareAnalysisInputs } from '../src/lib/browserAnalysis.js';
 import { localDateTimeToIso, toLocalDateTimeValue } from '../src/lib/format.js';
 import limits from '../../config/profiles/default-limits.json';
 import { auditStore, DEPARTURE, routingInputs } from './fixtures/routingTiming.js';
@@ -24,7 +25,9 @@ vi.mock('../src/components/BoatPicker.jsx', () => ({ default: ({ onSelect }) =>
   <button onClick={() => onSelect({ polar_id: 'other-boat', label: 'Other boat' })}>Other boat</button>,
 }));
 vi.mock('../src/lib/routingInputs.js', async (original) => ({ ...await original(), loadRoutingInputs: vi.fn() }));
-vi.mock('../src/lib/browserAnalysis.js', () => ({ analyzeInBrowser: vi.fn(), saveRoute: vi.fn() }));
+vi.mock('../src/lib/browserAnalysis.js', () => ({ analyzeInBrowser: vi.fn(), saveRoute: vi.fn(),
+  prepareAnalysisInputs: vi.fn(async draft => ({ ...draft, store: {}, tileRuns: {}, inputRecords: [] })),
+}));
 vi.mock('../src/lib/analytics.js', () => ({ track: vi.fn() }));
 vi.mock('../src/lib/forecastStore.js', () => ({ forecastStore: () => ({}) }));
 vi.mock('@deepweather/engine', async (original) => ({
@@ -59,11 +62,12 @@ beforeEach(() => {
   usePlanner.getState().reset();
   usePlanner.setState({ mode: 'compute', departureLocal: '2026-09-15T08:00',
     endpoints: [{ lat: 50.5, lng: -1.5 }, { lat: 50.6, lng: -1.4 }] });
-  useApp.setState({ manifest: { snapshots: [] }, profileDefaults: {}, language: 'en',
+  useApp.setState({ manifest: { snapshots: [] }, profileDefaults: limits, limits: null, language: 'en',
     loadConfig: vi.fn(), openSnapshot: vi.fn() });
   loadRoutingInputs.mockResolvedValue({ notes: [], maxHours: 120 });
   computeRoute.mockImplementation(({ departureUtc }) => result(departureUtc));
   analyzeInBrowser.mockResolvedValue({ snapshotId: 'checked' });
+  prepareAnalysisInputs.mockImplementation(async draft => ({ ...draft, store: {}, tileRuns: {}, inputRecords: [] }));
 });
 
 it.each([2, -2, 0])('carries real routed timing through Compute, Check, Scan and candidate Check with %s kt current', async (along) => {
@@ -287,37 +291,48 @@ it('keeps partial departure times local to the field and restores the valid time
   expect(usePlanner.getState().departureLocal).toBe('2026-09-16T23:45');
 });
 
-it.each(['audit', 'scan'])('passes the saved profile unchanged to %s', async (action) => {
-  const profile = { max_gust_kt: 19, retained_extension: { value: 7 } };
-  localStorage.setItem('deepweather.profile-draft', JSON.stringify(profile));
+it.each(['audit', 'scan'])('recovers malformed or blocked storage for %s', async (action) => {
+  localStorage.setItem('deepweather.profile-draft', '{broken');
+  vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('blocked'); });
   scanDepartures.mockResolvedValue({ candidates: [] });
   render(<Planner />);
   await compute();
   fireEvent.click(action === 'audit' ? checkButton() : scanButton());
   const operation = action === 'audit' ? analyzeInBrowser : scanDepartures;
   await waitFor(() => expect(operation).toHaveBeenCalled());
-  expect(operation.mock.calls[0][0].profile).toEqual(profile);
+  expect(operation.mock.calls[0][0].profile).toEqual(limits);
 });
 
-it.each(['audit', 'scan'])('retains the %s error when profile storage is blocked', async (action) => {
-  render(<Planner />);
+it.each(['audit', 'scan'])('uses the visible limits after a failed persistence write for %s', async (action) => {
+  localStorage.setItem('deepweather.profile-draft', JSON.stringify(limits));
+  scanDepartures.mockResolvedValue({ candidates: [] });
+  render(<><Planner /><LimitsDrawer /></>);
   await compute();
-  vi.spyOn(Storage.prototype, 'getItem').mockImplementation((key) => {
-    if (key === 'deepweather.profile-draft') throw new Error('Profile storage blocked');
-    return null;
-  });
+  vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('full'); });
+  fireEvent.change(screen.getByLabelText(/Max gusts/), { target: { value: '23' } });
+  expect(screen.getByLabelText(/Max gusts/)).toHaveValue(23);
+  expect(JSON.parse(localStorage.getItem('deepweather.profile-draft')).max_gust_kt).toBe(28);
   fireEvent.click(action === 'audit' ? checkButton() : scanButton());
-  expect(await screen.findByText('Profile storage blocked')).toBeVisible();
-  expect(analyzeInBrowser).not.toHaveBeenCalled();
-  expect(scanDepartures).not.toHaveBeenCalled();
+  const operation = action === 'audit' ? analyzeInBrowser : scanDepartures;
+  await waitFor(() => expect(operation).toHaveBeenCalled());
+  expect(operation.mock.calls[0][0].profile.max_gust_kt).toBe(23);
 });
 
-it.each(['audit', 'scan'])('retains the %s error for malformed profile JSON', async (action) => {
-  localStorage.setItem('deepweather.profile-draft', '{broken');
+
+it.each(['audit', 'scan'])('pins the visible profile while %s discovery is running', async action => {
+  useApp.setState({ limits: structuredClone(limits) });
+  let release;
+  const held = new Promise(resolve => { release = resolve; });
+  prepareAnalysisInputs.mockImplementation(async draft => { await held; return { ...draft, store: {}, tileRuns: {}, inputRecords: [] }; });
+  scanDepartures.mockResolvedValue({ candidates: [] });
   render(<Planner />);
   await compute();
   fireEvent.click(action === 'audit' ? checkButton() : scanButton());
-  await waitFor(() => expect(screen.getByText(/JSON/)).toBeVisible());
-  expect(analyzeInBrowser).not.toHaveBeenCalled();
-  expect(scanDepartures).not.toHaveBeenCalled();
+  await waitFor(() => expect(prepareAnalysisInputs).toHaveBeenCalledOnce());
+  act(() => useApp.getState().updateLimit(['max_gust_kt'], 19));
+  release();
+  const operation = action === 'audit' ? analyzeInBrowser : scanDepartures;
+  await waitFor(() => expect(operation).toHaveBeenCalledOnce());
+  expect(operation.mock.calls[0][0].profile.max_gust_kt).toBe(28);
+  expect(useApp.getState().limits.max_gust_kt).toBe(19);
 });

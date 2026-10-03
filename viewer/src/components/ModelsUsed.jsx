@@ -9,8 +9,9 @@ const LAYERS = {
   'weather-ecmwf': 'Additional weather model', 'weather-ecmwf-short': 'Additional weather model',
   'weather-multimodel': 'Additional weather model',
   currents: 'Surface currents',
+  synoptic: 'Synoptic features', tides: 'Tide predictions', gates: 'Tidal gates', warnings: 'Official warnings',
 };
-const SOURCES = { tiles: 'Forecast tiles', fixture: 'Fixture data', synthetic: 'emulated' };
+const SOURCES = { tiles: 'Forecast tiles', fixture: 'Fixture data', synthetic: 'emulated', 'prepared-artifact': 'Prepared data', 'region-grid': 'Current grid' };
 
 /**
  * The models and coverage recorded with the open briefing, with run age and
@@ -20,7 +21,7 @@ export default function ModelsUsed() {
   const findings = useApp((s) => s.findings);
   const nowMs = useApp((s) => s.nowMs);
   if (!findings) return null;
-  const inputs = findings.inputs?.forecast_tiles ?? [];
+  const inputs = (findings.inputs?.forecast_tiles ?? []).filter(input => input.source !== 'action-inputs');
   // ECMWF's comparison series may join a 06Z/18Z run (to +144 h) and a 00Z/12Z one
   const ecmwfRuns = describeEcmwfRuns(inputs);
   const coverage = findings.coverage?.length ? deriveCoverage(findings).items : [];

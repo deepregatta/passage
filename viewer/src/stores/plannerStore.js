@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { createJSONStorage, persist } from 'zustand/middleware';
 import { localDateTimeToIso, toLocalDateTimeValue } from '../lib/format.js';
 
 /** Planner working state lives outside the page component so a drawn route,
@@ -36,6 +36,12 @@ export const usePlanner = create(
     }),
     {
       name: 'deepweather.planner-draft',
+      // Persistence is optional; blocked/full storage must not abort a Check or Scan.
+      storage: createJSONStorage(() => ({
+        getItem: (key) => { try { return localStorage.getItem(key); } catch { return null; } },
+        setItem: (key, value) => { try { localStorage.setItem(key, value); } catch { /* keep the in-memory draft */ } },
+        removeItem: (key) => { try { localStorage.removeItem(key); } catch { /* optional persistence */ } },
+      })),
       version: 1,
       migrate: (persisted, version) => {
         if (version === 0 && persisted?.departureLocal) {

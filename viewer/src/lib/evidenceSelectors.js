@@ -14,10 +14,21 @@ const CAPABILITY_RULES = {
 export function deriveCoverage(findings) {
   const coverage = recordedOrLegacyCoverage(findings);
   const prepared = preparedSynopticCoverage(findings?.inputs?.synoptic_run_id);
-  if (!prepared) return coverage;
-  return { ...coverage, items: coverage.items.map((item) => item.capability === 'synoptic_attribution'
-    ? { ...item, detail: prepared.detail, status: item.status === 'assessed' ? prepared.status : item.status }
-    : item) };
+  const hours = (findings?.legs ?? []).flatMap(leg => leg.hours ?? []);
+  const currentCount = hours.filter(hour => Number.isFinite(hour.current?.u_kt) && Number.isFinite(hour.current?.v_kt)).length;
+  return { ...coverage, items: coverage.items.map((item) => {
+    // Correct older presence-based claims using only the saved samples. Never
+    // fetch latest currents or alter archived findings/briefing bytes.
+    if (item.capability === 'tidal_currents' && item.status !== 'not_assessed') {
+      if (!currentCount) return { ...item, status: 'not_assessed', detail: 'tidal currents (no finite current samples for the route and time)' };
+      if (currentCount < hours.length && item.status === 'assessed') return {
+        ...item, status: 'partially_assessed', detail: `current samples available for ${currentCount}/${hours.length} route hours`,
+      };
+    }
+    return item.capability === 'synoptic_attribution' && prepared
+      ? { ...item, detail: prepared.detail, status: item.status === 'assessed' ? prepared.status : item.status }
+      : item;
+  }) };
 }
 
 function recordedOrLegacyCoverage(findings) {

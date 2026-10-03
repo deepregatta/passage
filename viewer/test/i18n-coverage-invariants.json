@@ -176,6 +176,9 @@
         "value"
       ],
       "viewer/src/components/ModelsUsed.jsx": [
+        "action-inputs",
+        "prepared-artifact",
+        "region-grid",
         "weather-ecmwf",
         "weather-ecmwf-short",
         "weather-multimodel"

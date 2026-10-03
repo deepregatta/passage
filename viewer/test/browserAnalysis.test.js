@@ -2,10 +2,11 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { beforeEach, afterEach, expect, it, vi } from 'vitest';
 import { runAnalysis, persistSnapshot } from '@deepweather/engine';
+import limits from '../../config/profiles/default-limits.json';
 import { analyzeInBrowser } from '../src/lib/browserAnalysis.js';
 
-vi.mock('@deepweather/engine', () => ({ runAnalysis: vi.fn(), persistSnapshot: vi.fn() }));
-vi.mock('../src/lib/forecastStore.js', () => ({ forecastStore: () => ({}) }));
+vi.mock('@deepweather/engine', async original => ({ ...await original(), runAnalysis: vi.fn(), persistSnapshot: vi.fn() }));
+vi.mock('../src/lib/forecastStore.js', () => ({ forecastStore: () => Object.fromEntries(['init', 'getPointForecasts', 'getEnsembleForecasts', 'getWaveForecasts', 'getHazardForecasts', 'getCurrentGrid', 'getWindGrid'].map(key => [key, async () => null]).concat([['describe', () => ({})]])) }));
 vi.mock('../src/lib/localSnapshots.js', () => ({ localSnapshots: {} }));
 vi.mock('../src/lib/preparedRun.js', () => ({ preparedRun: async () => ({ doc: null }) }));
 
@@ -40,7 +41,7 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 async function analyze(route) {
-  await analyzeInBrowser({ route, profile: {}, departureUtc: '2026-07-20T06:00:00Z' });
+  await analyzeInBrowser({ route, profile: limits, departureUtc: '2026-07-20T06:00:00Z' });
   return runAnalysis.mock.calls[0][0];
 }
 

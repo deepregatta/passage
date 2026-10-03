@@ -5,6 +5,7 @@ import Planner from '../src/pages/Planner.jsx';
 import { useApp } from '../src/stores/appStore.js';
 import { usePlanner } from '../src/stores/plannerStore.js';
 import { analyzeInBrowser, saveRoute } from '../src/lib/browserAnalysis.js';
+import limits from '../../config/profiles/default-limits.json';
 import { toLocalDateTimeValue } from '../src/lib/format.js';
 
 vi.mock('react-leaflet', () => ({
@@ -14,6 +15,7 @@ vi.mock('react-leaflet', () => ({
 }));
 vi.mock('../src/lib/browserAnalysis.js', () => ({
   analyzeInBrowser: vi.fn(), saveRoute: vi.fn(),
+  prepareAnalysisInputs: vi.fn(async draft => ({ ...draft, tileRuns: {}, inputRecords: [], store: {} })),
 }));
 vi.mock('../src/lib/analytics.js', () => ({ track: vi.fn() }));
 vi.mock('../src/lib/forecastStore.js', () => ({ forecastStore: () => ({}) }));
@@ -43,7 +45,7 @@ beforeEach(() => {
     },
   });
   useApp.setState({
-    manifest: { snapshots: [] }, profileDefaults: {}, findings: null, language: 'en',
+    manifest: { snapshots: [] }, profileDefaults: limits, limits: null, findings: null, language: 'en',
     loadConfig: vi.fn(), openSnapshot,
   });
   saveRoute.mockResolvedValue(undefined);

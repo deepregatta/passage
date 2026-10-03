@@ -22,6 +22,8 @@ export interface AssembleOptions {
   warnings?: WarningsInput;
   /** prepared CMEMS surface-current region grid */
   currentGrid?: RegionGrid;
+  currentProvenance?: Record<string, unknown>;
+  inputRecords?: Array<Record<string, unknown>>;
   /** tidal gates: HW/LW predictions + named-gate timing rules */
   tides?: TidesDoc;
   gates?: GateDef[];

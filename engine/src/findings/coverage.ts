@@ -9,7 +9,9 @@ interface CoverageInputs {
   hasMultiModel: boolean;
   deterministicModelCount: number;
   warnings?: WarningsInput;
-  hasCurrents: boolean;
+  currentSamples: number;
+  currentHours: number;
+  currentGridAvailable: boolean;
   hasTides: boolean;
   hasSynoptic: boolean;
   synopticRunId?: string;
@@ -62,10 +64,14 @@ export function deriveCoverage(input: CoverageInputs): CapabilityCoverage[] {
     },
     {
       capability: 'tidal_currents',
-      status: input.hasCurrents ? (input.currentDetail ? 'partially_assessed' : 'assessed') : 'not_assessed',
-      detail: input.hasCurrents
-        ? input.currentDetail ?? 'prepared current grid assessed'
-        : 'tidal currents (no prepared current grid)',
+      status: !input.currentSamples ? 'not_assessed'
+        : input.currentDetail || input.currentSamples < input.currentHours ? 'partially_assessed' : 'assessed',
+      detail: input.currentSamples
+        ? input.currentDetail ?? (input.currentSamples < input.currentHours
+          ? `current samples available for ${input.currentSamples}/${input.currentHours} route hours`
+          : 'current grid assessed')
+        : input.currentGridAvailable ? 'tidal currents (no finite current samples for the route and time)'
+          : 'tidal currents (no prepared current grid)',
       evidence_ids: ids([RULES.WIND_AGAINST_CURRENT]),
     },
     {
