@@ -330,9 +330,9 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
     // Through-water speeds remain available if this geometry is reused as a
     // drawn route. Routed audits use the per-leg durations below, including current.
     speeds_kt: {
-      slow: avgStw * 0.85,
-      nominal: avgStw,
-      fast: avgStw * 1.15,
+      slow: Math.round(avgStw * 0.85 * 10) / 10,
+      nominal: Math.round(avgStw * 10) / 10,
+      fast: Math.round(avgStw * 1.15 * 10) / 10,
     },
     timing: {
       basis: 'routed', departure_utc: new Date(departureMs).toISOString(),

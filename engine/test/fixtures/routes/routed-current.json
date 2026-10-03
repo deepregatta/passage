@@ -16,9 +16,9 @@
     }
   ],
   "speeds_kt": {
-    "slow": 4.24999999978835,
-    "nominal": 4.999999999751,
-    "fast": 5.7499999997136495
+    "slow": 4.2,
+    "nominal": 5,
+    "fast": 5.7
   },
   "timing": {
     "basis": "routed",
