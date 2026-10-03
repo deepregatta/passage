@@ -331,7 +331,7 @@ const FR = {
   'Max steepness': 'Cambrure max.',
   'Min visibility': 'Visibilité min.',
   'Scenario fraction floor': 'Seuil de fraction des scénarios',
-  'night sailing acceptable': 'navigation de nuit acceptable',
+  'Night-sailing preference is not evaluated. It does not affect the verdict, departure scan or route timing.': 'La préférence de navigation de nuit n’est pas évaluée. Elle ne modifie ni le verdict, ni la comparaison des départs, ni les horaires de la route.',
   'Loading profile…': 'Chargement du profil…',
   'Data providers': 'Fournisseurs de données',
   'Feeds marked': 'Les flux marqués',

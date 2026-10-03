@@ -62,11 +62,12 @@ function safeResolve(root, relativePath) {
   return filePath;
 }
 
-function dataMiddleware() {
-  const fixture = process.env.VITE_DW_FIXTURE === 'demo' ? 'demo' : null;
-  const dataRoot = fixture === 'demo'
+// Explicit roots let server regressions exercise copies rather than the fixtures.
+export function dataMiddleware({ dataRoot: scratchDataRoot, fixtureMode = process.env.VITE_DW_FIXTURE } = {}) {
+  const fixture = fixtureMode === 'demo' ? 'demo' : null;
+  const dataRoot = scratchDataRoot ?? (fixture === 'demo'
     ? path.resolve(__dirname, './test/fixtures/demo')
-    : path.resolve(__dirname, '../data/processed');
+    : path.resolve(__dirname, '../data/processed'));
 
   return {
     name: 'data-middleware',
@@ -84,6 +85,14 @@ function dataMiddleware() {
 
         // Validate escapes before any branch can decode or use the request path.
         decodeURIComponent(requestPath);
+
+        // Demo files are committed baselines. Refusing mutations also selects
+        // the browser's existing IndexedDB fallback for new user snapshots.
+        if (fixtureMode && !['GET', 'HEAD'].includes(req.method)) {
+          res.statusCode = 403;
+          res.end('Fixture data is read-only');
+          return;
+        }
 
         // ---- dev-only persistence for the in-browser engine ----
         if (req.method === 'POST') {
@@ -130,11 +139,6 @@ function dataMiddleware() {
 
         // ---- dev-only deletion: a briefing is the user's to discard ----
         if (req.method === 'DELETE') {
-          if (process.env.VITE_DW_FIXTURE) {
-            res.statusCode = 403;
-            res.end('Fixture data is read-only');
-            return;
-          }
           const match = requestPath.match(/^\/data\/snapshots\/([^/]+)$/);
           const dirPath = match && safeResolve(path.join(dataRoot, 'snapshots'), decodeURIComponent(match[1]));
           if (!dirPath || !fs.existsSync(path.join(dirPath, 'snapshot.json'))) {
