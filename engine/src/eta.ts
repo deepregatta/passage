@@ -7,7 +7,8 @@
 
 import { alongCourseComponentKt } from './vectors.js';
 import { interpolatePosition } from './geo.js';
-import type { Leg, SpeedsKt } from './types.js';
+import { deriveLegs } from './route.js';
+import type { Leg, Route, SpeedsKt } from './types.js';
 
 export interface LegSchedule {
   leg_id: string;
@@ -32,6 +33,52 @@ const SCENARIOS = ['slow', 'nominal', 'fast'] as const;
 const MIN_SOG_KT = 0.5;
 /** ETA and the current you meet are coupled — a few fixed-point rounds converge fast */
 const CURRENT_ITERATIONS = 3;
+
+/** One timing boundary shared by forecast-window selection and final findings. */
+export function computeRouteSchedules(
+  route: Route,
+  departureUtc: string,
+  currentSampler?: CurrentSampler,
+): LegSchedule[] {
+  if (!route.speeds_kt) throw new Error(`Route ${route.route_id} needs speeds_kt`);
+  const legs = deriveLegs(route);
+  const timing = route.timing;
+  if (timing?.basis === 'routed') {
+    const departureMs = parseUtc(departureUtc);
+    if (departureMs !== parseUtc(timing.departure_utc)) {
+      throw new Error('Computed route timing belongs to another departure. Compute the route again.');
+    }
+    if (timing.legs.length !== legs.length) throw new Error('Computed route timing does not match its legs');
+    const time = { slow: departureMs, nominal: departureMs, fast: departureMs };
+    return legs.map((leg, i) => {
+      const routed = timing.legs[i]!;
+      if (routed.leg_id !== leg.leg_id ||
+        !SCENARIOS.every(s => Number.isFinite(routed.duration_ms[s]) && routed.duration_ms[s] > 0) ||
+        !Number.isFinite(routed.through_water_kt) || routed.through_water_kt <= 0 ||
+        !Number.isFinite(routed.speed_over_ground_kt) || routed.speed_over_ground_kt <= 0 ||
+        routed.duration_ms.fast > routed.duration_ms.nominal ||
+        routed.duration_ms.nominal > routed.duration_ms.slow) {
+        throw new Error('Invalid computed route leg timing');
+      }
+      const enter = { slow: toIso(time.slow), nominal: toIso(time.nominal), fast: toIso(time.fast) };
+      for (const s of SCENARIOS) time[s] += routed.duration_ms[s];
+      const exit = { slow: toIso(time.slow), nominal: toIso(time.nominal), fast: toIso(time.fast) };
+      const sog = (s: typeof SCENARIOS[number]) => round2(
+        routed.speed_over_ground_kt * routed.duration_ms.nominal / routed.duration_ms[s],
+      );
+      return {
+        leg_id: leg.leg_id, enter, exit,
+        sog_kt: { slow: sog('slow'), nominal: sog('nominal'), fast: sog('fast') },
+        occupancy_hours: hourlyRange(parseUtc(enter.fast), parseUtc(exit.slow)),
+      };
+    });
+  }
+  // Pre-timing computed routes stored SOG. Drawn, imported and fixed routes
+  // stored through-water speeds. Keep both saved-data interpretations explicit.
+  const basis = timing?.basis ?? (route.mode === 'computed' ? 'speed_over_ground' : 'through_water');
+  return computeSchedules(legs, route.speeds_kt, departureUtc,
+    basis === 'through_water' ? currentSampler : undefined);
+}
 
 export function computeSchedules(
   legs: Leg[],

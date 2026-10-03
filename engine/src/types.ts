@@ -13,6 +13,20 @@ export interface SpeedsKt {
   fast: number;
 }
 
+/** Routed durations include current already; only valid at the routed departure. */
+export type RouteTiming =
+  | { basis: 'through_water' | 'speed_over_ground' }
+  | {
+    basis: 'routed';
+    departure_utc: string;
+    legs: Array<{
+      leg_id: string;
+      duration_ms: SpeedsKt;
+      through_water_kt: number;
+      speed_over_ground_kt: number;
+    }>;
+  };
+
 export interface Route {
   schema_version: number;
   route_id: string;
@@ -20,6 +34,7 @@ export interface Route {
   mode: 'fixed' | 'user' | 'computed';
   waypoints: Waypoint[];
   speeds_kt?: SpeedsKt;
+  timing?: RouteTiming;
   polar_ref?: string;
   polar_scaling?: number;
   provenance?: Record<string, unknown>;

@@ -63,5 +63,6 @@ export function parseGpx(
     mode: 'user',
     waypoints,
     speeds_kt: options.speeds_kt,
+    timing: { basis: 'through_water' },
   };
 }

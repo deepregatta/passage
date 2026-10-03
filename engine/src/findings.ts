@@ -6,7 +6,7 @@
  * rule id, model, run, leg, hour, value, limit, source kind.
  */
 
-import { computeSchedules, parseUtc } from './eta.js';
+import { computeRouteSchedules, parseUtc } from './eta.js';
 import { GridSampler } from './grids.js';
 import { contentHash } from './hash.js';
 import { assessGates } from './hazards/tides.js';
@@ -58,7 +58,7 @@ export function assembleFindings(options: AssembleOptions): Findings {
   const currentSampler = gridSampler
     ? (lat: number, lon: number, timeMs: number) => gridSampler.sample(lat, lon, timeMs)
     : undefined;
-  const schedules = computeSchedules(legs, route.speeds_kt, departureUtc, currentSampler);
+  const schedules = computeRouteSchedules(route, departureUtc, currentSampler);
   const ratio = approachingRatio(profile);
   const scenarioFloor = profile.scenario_fraction_floor ?? DEFAULT_SCENARIO_FLOOR;
 

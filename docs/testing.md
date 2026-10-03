@@ -53,6 +53,14 @@ Suite ownership:
 
 - `engine/test/fixtures/` contains deterministic engine inputs and PFT1 golden
   payloads.
+- `engine/test/fixtures/routes/routed-current.json` is saved output from the
+  TypeScript router with a constant 5 kt polar and 2 kt following current.
+  Both TypeScript and Python validate it against the additive route timing
+  contract. `routingTiming.test.ts`, the real-engine planner tests and
+  `viewer/e2e/routing-timing.spec.js` cover Compute → Check, rerouted departure
+  scans, persistence, current hazards and the routing horizon. The browser
+  test uses synthetic transport, fresh browser storage and intercepted POSTs;
+  it never writes demo artifacts.
 - `engine/test/fixtures/grib/` contains the golden GRIB2 export files and their
   `*.expected.json`. An engine test requires a byte-identical re-encode, and
   `analysis/tests/test_grib_export_contract.py` decodes every file with ecCodes
@@ -96,3 +104,28 @@ Do not commit local caches or generated output: `.venv/`, `node_modules/`,
 `dist/`, `output/`, `.playwright-cli/`, `.pytest_cache/`, `.ruff_cache/`,
 `__pycache__/`, and `data/` are intentionally ignored. A failing test may leave
 artifacts under `output/playwright-results/`; they are diagnostic, not source.
+
+## Route timing compatibility
+
+`Route.timing` declares `through_water`, `speed_over_ground` or `routed`.
+Drawn and GPX-imported routes explicitly use through-water scenario speeds;
+current is added once by the existing fixed-point ETA calculation. Without
+`timing`, fixed/user routes retain that behavior, while legacy computed routes
+interpret `speeds_kt` as their stored SOG and receive no second current correction.
+Historical snapshots remain readable and are not rewritten.
+
+New computed routes carry exact per-leg scenario durations for their departure,
+plus separate through-water and ground speeds. Audit forecast-window selection,
+findings and departure scans consume these durations. Current sampling still
+produces hazard evidence; preserving routed timing does not disable hazards or
+recompute the route against a different current source. Each computed scan
+candidate is rerouted for its own departure. Reusing routed timing at a different
+departure fails with a request to compute again. Reusing computed geometry in
+Draw mode deliberately switches to through-water timing.
+
+The router applies `maxHours` to every evaluated edge, including both endpoint
+connections, and checks the final arrival before returning a route. The limit
+applies to the nominal routed arrival; the existing slow/fast scenarios remain a
+±15% SOG approximation inheriting polar uncertainty. They are not calibrated
+confidence intervals. Times and durations displayed by the app retain their
+existing rounding.

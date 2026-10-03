@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "route_id": "computed-2026072000-constant-5",
+  "name": "Start → Finish (computed)",
+  "mode": "computed",
+  "waypoints": [
+    {
+      "id": "wp1",
+      "lat": 49.5,
+      "lon": -3.5
+    },
+    {
+      "id": "wp2",
+      "lat": 49.5,
+      "lon": -3.2
+    }
+  ],
+  "speeds_kt": {
+    "slow": 4.24999999978835,
+    "nominal": 4.999999999751,
+    "fast": 5.7499999997136495
+  },
+  "timing": {
+    "basis": "routed",
+    "departure_utc": "2026-07-20T00:00:00.000Z",
+    "legs": [
+      {
+        "leg_id": "L1",
+        "duration_ms": {
+          "slow": 7077749.98448989,
+          "nominal": 6016087.486816406,
+          "fast": 5231380.423318614
+        },
+        "through_water_kt": 4.999999999751,
+        "speed_over_ground_kt": 6.999995449491666
+      }
+    ]
+  },
+  "provenance": {
+    "engine_version": "grid-dijkstra-v1",
+    "routing_request": {
+      "departure": "2026-07-20T00:00:00Z",
+      "polar_id": "constant-5",
+      "polar_scaling": 1,
+      "wind_run": "test-wind10m-0",
+      "current_run": "test-surface_current-2",
+      "resolution_deg": 0.1
+    },
+    "polar_ref": "constant-5",
+    "computed_at": "2026-07-20T00:00:00Z"
+  }
+}
