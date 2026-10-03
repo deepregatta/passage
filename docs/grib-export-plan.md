@@ -25,8 +25,11 @@ between actions, `cadence_hours` in the next-run estimate). **Phase 5B
 switched on 2026-10-01 06:44 UTC** (forecast-tiles `eb39ef0`): after a dry
 run of 22 fires (all 16 slots of 30 Sep, each 27–48 s after its minute), the
 dispatcher starts every provider cycle, `cadence_hours` follows the
-providers, and each workflow keeps a 6-hourly fallback cron. Its exit
-criteria need two days of GFS and a week of currents runs; see
+providers, and each workflow keeps a 6-hourly fallback cron. **Verified
+2026-10-03** over the first two days: 36 dispatched cycles published, none
+missed, every GFS and ECMWF cycle within target, GEFS 18Z of 2 Oct 6 min
+late (NOAA finished it at + 7 h 03); bucket 7.44 GB, no tuning needed. Only
+the week of IBI and GLO12 runs (to about 8 Oct) remains; see
 [5B](#5b--switch-on-publish-every-provider-update-after-davi-has-deployed-the-worker).
 **Phase 5C landed 2026-10-01** (Passage `edaf6ec`, CI run 36853682081
 green; forecast-tiles `2c3b59f`, CI run 36853723703 green; Worker version
@@ -1234,15 +1237,75 @@ Done on 2026-10-01 (forecast-tiles `eb39ef0`, CI run 36826385892 green):
   --log` returned empty output that afternoon; the jobs API
   `gh api repos/deepregatta/forecast-tiles/actions/jobs/<id>/logs` works.)
 
-Still open: tasks 3 and 4 need the cycles of the next days, and the exit
-criteria below need two days of GFS and a week of currents.
+Verified on 2026-10-03, at 12:00 UTC (tasks 3 and 4). Every
+`workflow_dispatch` run from the 07:20 slot of 1 Oct on, read from its job
+log through the jobs API. "Ready" is the log's `available after N checks`
+line, "live" its `published … to R2` line (`published_at` reads early, see
+above). The 06:45 catch-ups of 1 Oct are not counted; neither are the 5C
+cycles (in 5C below).
+
+| Layer | Cycles expected | Published | Missed | `live − cycle` min–max | Within target |
+|---|---|---|---|---|---|
+| weather (1 Oct 06Z – 3 Oct 06Z) | 9 | 9 | 0 | 4 h 54 – 5 h 13 | 9 of 9 (+ 5 h 15) |
+| waves (1 Oct 06Z – 3 Oct 06Z) | 9 | 9 | 0 | 5 h 27 – 5 h 43 | 9 of 9 (+ 5 h 50) |
+| ensemble (1 Oct 06Z – 3 Oct 00Z) | 8 | 8 | 0 | 6 h 44 – 7 h 21 | 7 of 8 (+ 7 h 15) |
+| weather-ecmwf (1 Oct 00Z – 3 Oct 00Z) | 5 | 5 | 0 | 7 h 46 – 7 h 53 | 5 of 5 (+ 8 h 15) |
+| currents-ibi (1–3 Oct 00Z) | 3 | 3 | 0 | provider + 2 min 33 – 3 min 07 | 3 of 3 (+ 15 min) |
+| currents (2–3 Oct 00Z) | 2 | 2 | 0 | provider + 32 – 44 min | 2 of 2 (+ 60 min) |
+
+- **Dispatcher: healthy.** Every slot of 1 Oct 07:20 to 3 Oct 11:00 has
+  its `workflow_dispatch` run, with the timetable's cycle; all 36 (and the
+  4 of 5C) succeeded and none ran out of wait. The 42 fallback runs
+  (`37 2,8,14,20`; GitHub created them in 6 batches, 1–6 h after their cron
+  minute) all exited "already published", or for GLO12 at 00:06 on 2 Oct
+  "not available yet, skipping": no dispatch was missed.
+- **The one late cycle is the provider's.** GEFS 18Z of 2 Oct turned ready
+  at 01:03:24, cycle + 7 h 03 (other cycles + 6 h 28–6 h 36; 18Z of 1 Oct
+  + 6 h 35), and went live at 01:21:39, + 7 h 21, 6 min past + 7 h 15. Its
+  wait ran to 01:46, 42 min after.
+- **Provider times seen (ready, cycle +).** GFS 4 h 35–4 h 40, twice 4 h 55
+  (18Z of 1 Oct, 00Z of 3 Oct; both still live at + 5 h 13–5 h 14).
+  GFS-Wave 5 h 09–5 h 15, once 5 h 27 (00Z of 2 Oct). ECMWF 7 h 35 every
+  time (release minute 7 h 34). GLO12 `provider_updated_at` 2 Oct 06:48:39,
+  3 Oct 06:12:16 (with 29 Sep–1 Oct: 06:10–09:05). IBI 1 Oct 10:13:50,
+  2 Oct 10:03:50, 3 Oct 09:55:39 (24 Sep–3 Oct: 09:54–11:36).
+- **Job time (ready → live):** weather 14–28 min, waves 14–29 min,
+  ensemble 13–22, ECMWF 11–17, GLO12 31–42, IBI 2. Weather's two + 5 h 13
+  cycles had 18 min jobs after a late provider; the 25–29 min jobs (06Z and
+  12Z of 1 Oct, 06Z of 2 Oct) came after on-time providers. Waves' worst,
+  + 5 h 43, is the provider's 5 h 27. No target was missed on job time.
+- **No tuning (4).** No wait ran out, and the latest provider time of each
+  layer is at least 40 min before its deadline: GFS 60 min (+ 4 h 55 against
+  + 5 h 55), waves 63, GEFS 42, ECMWF 105, GLO12 2 h 56 (06:49 against
+  09:45), IBI 2 h 31. Each slot fires 9–24 min before the earliest time
+  seen. The timetable and Worker stay as deployed. GLO12's 09:05 of 1 Oct
+  is still the only late update; revisit with the week's times.
+- **Bucket (3).** `latest.json`'s 14 retained runs (7 layers × current and
+  previous, both 5C runs included) total **6.63 GB**; `latest-regional.json`
+  (the AROME, ICON-EU and UKV canaries, landed 2 Oct in a separate track)
+  holds 6 more, 0.82 GB. `check_storage_guard` counts both pointers:
+  **7.44 GB**, under 8 GB; an ensemble upload adds up to 1.07 GB for its
+  duration. The enforced guard is now the repo variable
+  `MAX_BUCKET_BYTES` = 14 GB (set 2 Oct for the regional work), so 8 GB is
+  this plan's target rather than the limit.
+- **R2 Class A.** Tiles per publish (`status/<layer>.json` `tile_count`) ×
+  publishes a day: weather 648 × 4, waves 520 × 4, ensemble 648 × 4, ECMWF
+  648 × 2, ECMWF short 648 × 2, GLO12 542, IBI 11: 10,409 a day. The
+  regional canaries add (28 + 60 + 80) × 2 = 336. With manifests, status
+  files and pointers (about 4 writes per publish, 24 publishes) that is
+  about 10,840 a day, **≈ 325k a month**, under 1M.
 
 Exit criteria:
 
-- [ ] 8 consecutive GFS cycles published within target; no ECMWF 00Z/12Z cycle missed.
-- [ ] A week of IBI and GLO12 runs within target.
-- [ ] Bucket under 8 GB; R2 Class A projection under 1M a month.
-- [ ] Docs updated in both repos.
+- [x] 8 consecutive GFS cycles published within target; no ECMWF 00Z/12Z cycle missed.
+      9 of 9 GFS and GFS-Wave cycles; 5 of 5 ECMWF. GEFS 7 of 8 (18Z of
+      2 Oct, provider late).
+- [ ] A week of IBI and GLO12 runs within target. So far IBI 3 of 3
+      (1–3 Oct), GLO12 2 of 2 (2–3 Oct); the week ends about 8 Oct.
+- [x] Bucket under 8 GB; R2 Class A projection under 1M a month. 7.44 GB
+      with the regional canaries; ≈ 325k a month.
+- [x] Docs updated in both repos (forecast-tiles README *Dispatcher*
+      timetable and status, 2026-10-03).
 
 ### 5C — ECMWF 06Z/18Z short-range layer (after 5B)
 
@@ -1364,13 +1427,16 @@ Built on 2026-10-01 (where it goes beyond the tasks above):
 Exit criteria:
 
 - [ ] A week of 06Z/18Z runs published within + 8 h 15 of their cycle. First:
-      20261001T06Z at + 6 h 37.
+      20261001T06Z at + 6 h 37. By 2026-10-03: 4 of 4 (1–2 Oct 06Z/18Z),
+      ready at + 6 h 28 every time, live + 6 h 37–6 h 41, none missed.
 - [x] Passage's briefing uses the short run to + 144 h and the 240 h run
       beyond it, labelled; a GRIB ECMWF file's details name its run. Checked
       on the live runs on 2026-10-01 (above): the engine's analysis on
       production tiles and the production GRIB page.
-- [ ] Bucket under 8 GB; R2 Class A projection under 1M a month. Projected
-      6.66 GB and ≈ 315k a month; confirm once both short runs are retained.
+- [x] Bucket under 8 GB; R2 Class A projection under 1M a month. Projected
+      6.66 GB and ≈ 315k a month; confirmed 2026-10-03 with both short runs
+      retained (189–193 MB each): 6.63 GB in `latest.json`, 7.44 GB with
+      the regional canaries, ≈ 325k a month (see 5B).
 - [x] Docs updated in both repos.
 
 ### Risks
