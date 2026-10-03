@@ -51,6 +51,7 @@ def upload(tmp_path, monkeypatch):
     store = Store()
     monkeypatch.setitem(sys.modules, "boto3", SimpleNamespace(client=lambda *a, **kw: store))
     path = Path(__file__).resolve().parents[2] / "scripts/upload-prepared-run.py"
+    monkeypatch.syspath_prepend(str(path.parent))
     spec = importlib.util.spec_from_file_location("upload_prepared_run", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -74,6 +75,21 @@ def prepare(module, rels):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(b"current")
     return body
+
+
+def test_paid_pause_preserves_pointer_and_objects(upload, monkeypatch):
+    module, store = upload
+    prepare(module, ["runs/ecmwf-ifs025-20261003T00Z/a.json"])
+    monkeypatch.setenv("PAID_WORK_ENFORCE", "1")
+
+    def pause():
+        raise module.Paused("provider spending limit")
+
+    monkeypatch.setattr(module.Guard, "from_env", lambda: SimpleNamespace(check=pause))
+    store.objects["prepared/latest.json"] = {"Body": b"existing readable data"}
+    assert module.main() == 0
+    assert store.calls == []
+    assert store.objects["prepared/latest.json"]["Body"] == b"existing readable data"
 
 
 @pytest.mark.parametrize("remote", [b"current", b"obsolete", None])

@@ -35,6 +35,7 @@ from datetime import datetime
 from pathlib import Path
 
 import boto3
+from paid_work import Guard, Paused, RuntimeExpired, deadline, enforced
 
 REPO = Path(__file__).resolve().parent.parent
 RUNS_DIR = REPO / "data" / "processed" / "runs"
@@ -140,9 +141,37 @@ def prune_keys(existing: dict[str, str | None], referenced: set[str]) -> list[st
 
 
 def main() -> int:
+    guard = None
+    token = None
+    try:
+        if enforced():
+            guard = Guard.from_env()
+            guard.check()
+            pointer = (RUNS_DIR / "latest.json").read_bytes()
+            # Content changes still obey frequency/runtime limits. Exact retries
+            # are denied, including re-runs after an uncertain upload outcome.
+            token = guard.acquire("prepared", hashlib.sha256(pointer).hexdigest(), 2700)
+            with deadline(2700):
+                return publish()
+        return publish()
+    except (Paused, RuntimeExpired) as exc:
+        print(f"prepared production paused: {exc}; existing data remains available")
+        return 0
+    finally:
+        if guard and token:
+            try:
+                guard.finish("prepared", token)
+            except Paused as exc:
+                print(f"prepared lease retained until expiry: {exc}")
+
+
+def publish() -> int:
     latest_path = RUNS_DIR / "latest.json"
     if not latest_path.exists():
-        print("no data/processed/runs/latest.json — run prepare-run first", file=sys.stderr)
+        print(
+            "no data/processed/runs/latest.json — run prepare-run first",
+            file=sys.stderr,
+        )
         return 1
     latest_bytes = latest_path.read_bytes()
     latest = json.loads(latest_bytes)
@@ -165,7 +194,9 @@ def main() -> int:
     existing = {}
     paginator = s3.get_paginator("list_objects_v2")
     for page in paginator.paginate(Bucket=bucket, Prefix=f"{PREFIX}runs/"):
-        existing.update({obj["Key"]: obj.get("ETag") for obj in page.get("Contents", [])})
+        existing.update(
+            {obj["Key"]: obj.get("ETag") for obj in page.get("Contents", [])}
+        )
 
     uploaded = 0
     for rel, body in objects.items():
