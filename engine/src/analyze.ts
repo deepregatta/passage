@@ -9,7 +9,7 @@ import { assembleFindings } from './findings.js';
 import { renderBriefing, nextForecastRuns, type Briefing } from './briefing.js';
 import { buildPlume, writeSnapshot, type Plume, type SnapshotStore } from './snapshot.js';
 import { deriveLegs, legMidpoints } from './route.js';
-import { computeSchedules, parseUtc, toIso } from './eta.js';
+import { computeRouteSchedules, parseUtc, toIso } from './eta.js';
 import { passageMaxHours, routeBbox } from './fetch/liveGrids.js';
 import { forecastRunGone, type ForecastStore } from './forecast/store.js';
 import { ENGINE_VERSION } from './version.js';
@@ -70,7 +70,7 @@ export async function runAnalysis(options: AnalyzeOptions): Promise<AnalyzeResul
 
   const legs = deriveLegs(route);
   const midpoints = legMidpoints(legs);
-  const schedules = computeSchedules(legs, route.speeds_kt, departureUtc);
+  const schedules = computeRouteSchedules(route, departureUtc);
   const derivedStart = toIso(parseUtc(departureUtc)).slice(0, 10);
   const derivedEnd = toIso(
     parseUtc(schedules[schedules.length - 1]!.exit.slow) + 24 * 3600_000,

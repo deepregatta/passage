@@ -7,6 +7,8 @@ import { useApp } from '../src/stores/appStore.js';
 import { loadRoutingInputs } from '../src/lib/routingInputs.js';
 import { analyzeInBrowser, saveRoute } from '../src/lib/browserAnalysis.js';
 import { localDateTimeToIso, toLocalDateTimeValue } from '../src/lib/format.js';
+import limits from '../../config/profiles/default-limits.json';
+import { auditStore, DEPARTURE, routingInputs } from './fixtures/routingTiming.js';
 
 const mapEvents = vi.hoisted(() => ({ click: null, fitBounds: vi.fn() }));
 
@@ -62,6 +64,51 @@ beforeEach(() => {
   loadRoutingInputs.mockResolvedValue({ notes: [], maxHours: 120 });
   computeRoute.mockImplementation(({ departureUtc }) => result(departureUtc));
   analyzeInBrowser.mockResolvedValue({ snapshotId: 'checked' });
+});
+
+it.each([2, -2, 0])('carries real routed timing through Compute, Check, Scan and candidate Check with %s kt current', async (along) => {
+  const engine = await vi.importActual('@deepweather/engine');
+  const inputs = routingInputs(along);
+  const store = auditStore(engine, inputs.currentGrid);
+  useApp.setState({ profileDefaults: limits });
+  usePlanner.setState({ departureLocal: toLocalDateTimeValue(DEPARTURE),
+    endpoints: [inputs.start, inputs.finish].map(({ lat, lon }) => ({ lat, lng: lon })) });
+  loadRoutingInputs.mockResolvedValue(inputs);
+  computeRoute.mockImplementation(engine.computeRoute);
+  scanDepartures.mockImplementation((options, ...rest) => engine.scanDepartures({ ...options, store }, ...rest));
+  const audits = [];
+  analyzeInBrowser.mockImplementation(async (options) => {
+    const result = await engine.runAnalysis({ ...options, store });
+    audits.push(result.findings);
+    return { snapshotId: result.findings.snapshot_id };
+  });
+  render(<Planner />);
+  fireEvent.click(computeButton());
+  await waitFor(() => expect(usePlanner.getState().computed?.route.timing.basis).toBe('routed'));
+  const routed = usePlanner.getState().computed;
+  fireEvent.click(checkButton());
+  await waitFor(() => expect(useApp.getState().openSnapshot).toHaveBeenCalledOnce());
+  expect(audits[0].legs.at(-1).eta_range.nominal).toBe(routed.arrival_utc);
+  fireEvent.click(scanButton());
+  const region = await screen.findByRole('region', { name: 'Departure comparison' });
+  const scan = usePlanner.getState().scan;
+  expect(scan.skipped).toEqual([]);
+  expect(scan.candidates.map(c => c.passage_h)).toEqual(scan.candidates.map(c => scan.routes[c.departure_utc].duration_h));
+  fireEvent.click(within(region).getAllByRole('button')[0]);
+  await waitFor(() => expect(audits).toHaveLength(2));
+  expect(audits[1].legs.at(-1).eta_range.nominal).toBe(usePlanner.getState().computed.arrival_utc);
+  expect(saveRoute.mock.lastCall[0].timing).toEqual(usePlanner.getState().computed.route.timing);
+});
+
+it('disables Check and Scan when real routing cannot arrive within the horizon', async () => {
+  const engine = await vi.importActual('@deepweather/engine');
+  usePlanner.setState({ departureLocal: toLocalDateTimeValue(DEPARTURE) });
+  loadRoutingInputs.mockResolvedValue(routingInputs(0, 0.1));
+  computeRoute.mockImplementation(engine.computeRoute);
+  render(<Planner />);
+  fireEvent.click(computeButton());
+  await screen.findByText(/No route found within 0.1 h/);
+  noSummary();
 });
 
 it('removes an earlier arrival after departure change and failed recomputation, then recovers', async () => {

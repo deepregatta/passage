@@ -26,6 +26,16 @@ def test_canonical_route_validates():
     Draft202012Validator(schema).validate(route)
 
 
+def test_browser_routed_timing_contract():
+    # Actual TS router output: the Python consumer accepts the additive contract.
+    route_path = contracts_dir().parent / "engine/test/fixtures/routes/routed-current.json"
+    route = _load(route_path)
+    Draft202012Validator(_load(contracts_dir() / "route.schema.json")).validate(route)
+    assert route["timing"]["basis"] == "routed"
+    assert route["speeds_kt"]["nominal"] == pytest.approx(5)
+    assert route["timing"]["legs"][0]["speed_over_ground_kt"] == pytest.approx(7, abs=0.01)
+
+
 def test_default_limits_profile_validates():
     schema = _load(contracts_dir() / "limits-profile.schema.json")
     profile = _load(config_dir() / "profiles" / "default-limits.json")

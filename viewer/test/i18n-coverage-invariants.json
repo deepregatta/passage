@@ -442,6 +442,7 @@
         "passage_attempt",
         "route",
         "slow",
+        "through_water",
         "user",
         "wp"
       ],

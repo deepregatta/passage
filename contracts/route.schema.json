@@ -24,6 +24,7 @@
       }
     },
     "speeds_kt": {
+      "description": "Through-water scenario speeds unless timing explicitly declares speed_over_ground. Legacy computed routes without timing stored SOG; other legacy routes stored through-water speed.",
       "type": "object",
       "required": ["slow", "nominal", "fast"],
       "properties": {
@@ -31,6 +32,48 @@
         "nominal": { "type": "number", "exclusiveMinimum": 0 },
         "fast": { "type": "number", "exclusiveMinimum": 0 }
       }
+    },
+    "timing": {
+      "description": "Explicit timing basis. Routed leg durations include current and are valid only for their departure. The routed slow/fast durations retain the existing +/-15 percent SOG approximation, not a calibrated uncertainty model.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["basis"],
+          "properties": { "basis": { "enum": ["through_water", "speed_over_ground"] } },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["basis", "departure_utc", "legs"],
+          "properties": {
+            "basis": { "const": "routed" },
+            "departure_utc": { "type": "string", "format": "date-time" },
+            "legs": {
+              "type": "array", "minItems": 1,
+              "items": {
+                "type": "object",
+                "required": ["leg_id", "duration_ms", "through_water_kt", "speed_over_ground_kt"],
+                "properties": {
+                  "leg_id": { "type": "string" },
+                  "duration_ms": {
+                    "type": "object", "required": ["slow", "nominal", "fast"],
+                    "properties": {
+                      "slow": { "type": "number", "exclusiveMinimum": 0 },
+                      "nominal": { "type": "number", "exclusiveMinimum": 0 },
+                      "fast": { "type": "number", "exclusiveMinimum": 0 }
+                    },
+                    "additionalProperties": false
+                  },
+                  "through_water_kt": { "type": "number", "exclusiveMinimum": 0 },
+                  "speed_over_ground_kt": { "type": "number", "exclusiveMinimum": 0 }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
     },
     "polar_ref": { "type": "string", "description": "config/polars/<slug>.json — alternative to speeds_kt" },
     "polar_scaling": { "type": "number", "exclusiveMinimum": 0 },

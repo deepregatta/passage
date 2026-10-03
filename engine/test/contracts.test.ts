@@ -15,6 +15,24 @@ function loadSchema(name: string): object {
 }
 
 describe('contracts', () => {
+  it('accepts saved routed timing and rejects missing or nonpositive durations', () => {
+    const ajv = new Ajv2020({ strict: false });
+    addFormats(ajv);
+    const validate = ajv.compile(loadSchema('route.schema.json'));
+    const route = JSON.parse(readFileSync(join(HERE, 'fixtures/routes/routed-current.json'), 'utf8'));
+    expect(validate(route), JSON.stringify(validate.errors)).toBe(true);
+    const legacy = structuredClone(route);
+    delete legacy.timing;
+    expect(validate(legacy)).toBe(true);
+    for (const bad of [0, -1, null]) {
+      const invalid = structuredClone(route);
+      invalid.timing.legs[0].duration_ms.nominal = bad;
+      expect(validate(invalid)).toBe(false);
+    }
+    delete route.timing.departure_utc;
+    expect(validate(route)).toBe(false);
+  });
+
   it('every schema compiles under JSON Schema 2020-12', () => {
     const ajv = new Ajv2020({ strict: false });
     addFormats(ajv);

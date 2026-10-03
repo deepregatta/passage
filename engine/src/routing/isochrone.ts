@@ -8,7 +8,7 @@
  * the graph and fast enough for the browser. Land checks use the supplied
  * mask and its segment sampler; they are not a navigation safety guarantee.
  *
- * Routing is route ACQUISITION: the computed route feeds the unchanged audit,
+ * Routing is route ACQUISITION: the computed route carries its leg timing into the audit,
  * flagged as inheriting polar uncertainty.
  */
 
@@ -62,6 +62,11 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
   const departureMs = parseUtc(request.departureUtc);
   const scaling = request.polarScaling ?? 1;
   const maxMs = (request.maxHours ?? 48) * 3600_000;
+  if (!Number.isFinite(maxMs) || maxMs < 0) throw new Error('Routing horizon must be finite and nonnegative');
+  const deadlineMs = departureMs + maxMs;
+  const noRoute = () => new Error(
+    `No route found within ${request.maxHours ?? 48} h (wind coverage, land, or no-go conditions)`,
+  );
 
   if (landMask && (isLand(landMask, start.lat, start.lon) || isLand(landMask, finish.lat, finish.lon))) {
     throw new Error('Start or finish is on land');
@@ -101,14 +106,35 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
 
   const wind = new GridSampler(windGrid);
   const current = currentGrid ? new GridSampler(currentGrid) : null;
+  // Includes the endpoint connections, which previously had zero travel time.
+  const travel = (from: { lat: number; lon: number }, to: { lat: number; lon: number }, t: number) => {
+    const dist = haversineNm(from.lat, from.lon, to.lat, to.lon);
+    if (dist === 0) return { arrivalMs: t, waterNm: 0 };
+    const w = wind.sample(from.lat, from.lon, t);
+    if (!w) return null;
+    const heading = bearingDegTrue(from.lat, from.lon, to.lat, to.lon);
+    const stw = boatSpeedKt(polar, Math.hypot(w.u_kt, w.v_kt),
+      Math.abs(wrap180(windFromDeg(w.u_kt, w.v_kt) - heading))) * scaling;
+    const c = current?.sample(from.lat, from.lon, t) ?? { u_kt: 0, v_kt: 0 };
+    const sog = stw + alongCourseComponentKt(c, heading);
+    if (stw < MIN_SOG_KT || sog < MIN_SOG_KT) return null;
+    const hours = dist / sog;
+    const arrivalMs = t + hours * 3600_000;
+    return arrivalMs <= deadlineMs ? { arrivalMs, waterNm: stw * hours } : null;
+  };
 
-  const snap = (p: { lat: number; lon: number }): [number, number] => {
+  const snap = (p: { lat: number; lon: number }, fromStart = false): [number, number] => {
     let bi = Math.round((p.lat - lat0) / res);
     let bj = Math.round((p.lon - lon0) / res);
     bi = Math.max(0, Math.min(nlat - 1, bi));
     bj = Math.max(0, Math.min(nlon - 1, bj));
-    const connects = (i: number, j: number) => !landMask ||
-      !segmentCrossesLand(landMask, p, { lat: latOf(i), lon: lonOf(j) });
+    let hasSeaConnection = false;
+    const connects = (i: number, j: number) => {
+      const node = { lat: latOf(i), lon: lonOf(j) };
+      if (landMask && segmentCrossesLand(landMask, p, node)) return false;
+      hasSeaConnection = true;
+      return !fromStart || travel(p, node, departureMs) !== null;
+    };
     if (!connects(bi, bj)) {
       // A sea node can still be across a peninsula or a thin wall. Search
       // nearby rings for a node with a checked connection to the endpoint.
@@ -123,22 +149,32 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
           }
         }
       }
+      if (hasSeaConnection) throw noRoute();
       throw new Error('No sea node near start/finish');
     }
     return [bi, bj];
   };
 
-  const [si, sj] = snap(start);
-  const [fi, fj] = snap(finish);
+  const startPoint = { lat: rounded(start.lat), lon: rounded(start.lon) };
+  const finishPoint = { lat: rounded(finish.lat), lon: rounded(finish.lon) };
+  if (landMask && (isLand(landMask, startPoint.lat, startPoint.lon) || isLand(landMask, finishPoint.lat, finishPoint.lon))) {
+    throw new Error('Start or finish is on land');
+  }
+  const [si, sj] = snap(startPoint, true);
+  const [fi, fj] = snap(finishPoint);
   const startId = id(si, sj);
   const finishId = id(fi, fj);
+  const connection = travel(startPoint, { lat: latOf(si), lon: lonOf(sj) }, departureMs);
+  if (!connection) throw noRoute();
 
   // earliest arrival labels + binary heap
   const arrival = new Float64Array(nlat * nlon).fill(Infinity);
   const parent = new Int32Array(nlat * nlon).fill(-1);
-  arrival[startId] = departureMs;
+  const waterDistance = new Float64Array(nlat * nlon);
+  arrival[startId] = connection.arrivalMs;
+  waterDistance[startId] = connection.waterNm;
 
-  const heap: Array<{ t: number; node: number }> = [{ t: departureMs, node: startId }];
+  const heap: Array<{ t: number; node: number }> = [{ t: connection.arrivalMs, node: startId }];
   const push = (t: number, node: number) => {
     heap.push({ t, node });
     let k = heap.length - 1;
@@ -171,25 +207,23 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
 
   const settled = new Uint8Array(nlat * nlon);
   let settledCount = 0;
+  let terminal: ReturnType<typeof travel> = null;
 
   while (heap.length) {
     const { t, node } = pop();
     if (settled[node]) continue;
+    if (t > deadlineMs) break;
     settled[node] = 1;
     settledCount += 1;
-    if (node === finishId) break;
-    if (t - departureMs > maxMs) continue;
+    if (node === finishId) {
+      terminal = travel({ lat: latOf(fi), lon: lonOf(fj) }, finishPoint, t);
+      break;
+    }
 
     const i = Math.floor(node / nlon);
     const j = node % nlon;
     const fromLat = latOf(i);
     const fromLon = lonOf(j);
-
-    const w = wind.sample(fromLat, fromLon, t);
-    if (!w) continue; // outside wind coverage (space or time): branch ends
-    const twsKt = Math.hypot(w.u_kt, w.v_kt);
-    const windDirection = windFromDeg(w.u_kt, w.v_kt);
-    const c = current?.sample(fromLat, fromLon, t) ?? { u_kt: 0, v_kt: 0 };
 
     for (const [di, dj] of NEIGHBORS) {
       const ni = i + di;
@@ -201,13 +235,6 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
       const toLon = lonOf(nj);
       if (landMask && isLand(landMask, toLat, toLon)) continue;
 
-      const heading = bearingDegTrue(fromLat, fromLon, toLat, toLon);
-      const twa = Math.abs(wrap180(windDirection - heading));
-      const stw = boatSpeedKt(polar, twsKt, twa) * scaling;
-      const along = alongCourseComponentKt(c, heading);
-      const sog = stw + along;
-      if (stw < MIN_SOG_KT || sog < MIN_SOG_KT) continue;
-
       // Even adjacent sea nodes can straddle land in a finer-resolution mask.
       if (
         landMask &&
@@ -216,10 +243,12 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
         continue;
       }
 
-      const dist = haversineNm(fromLat, fromLon, toLat, toLon);
-      const arrivalMs = t + (dist / sog) * 3600_000;
+      const edge = travel({ lat: fromLat, lon: fromLon }, { lat: toLat, lon: toLon }, t);
+      if (!edge) continue;
+      const { arrivalMs } = edge;
       if (arrivalMs < arrival[nid]!) {
         arrival[nid] = arrivalMs;
+        waterDistance[nid] = waterDistance[node]! + edge.waterNm;
         parent[nid] = node;
         push(arrivalMs, nid);
       }
@@ -234,24 +263,20 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
     }
   }
 
-  if (!settled[finishId] || !Number.isFinite(arrival[finishId]!)) {
-    throw new Error(
-      `No route found within ${request.maxHours ?? 48} h (wind coverage, land, or no-go conditions)`,
-    );
-  }
+  if (!terminal || terminal.arrivalMs > deadlineMs) throw noRoute();
 
   // backtrack over grid nodes
-  const gridPath: Array<{ lat: number; lon: number; timeMs: number }> = [];
+  const gridPath: Array<{ lat: number; lon: number; timeMs: number; waterNm: number }> = [];
   for (let n = finishId; n !== -1; n = parent[n]!) {
-    gridPath.unshift({ lat: latOf(Math.floor(n / nlon)), lon: lonOf(n % nlon), timeMs: arrival[n]! });
+    gridPath.unshift({ lat: latOf(Math.floor(n / nlon)), lon: lonOf(n % nlon), timeMs: arrival[n]!, waterNm: waterDistance[n]! });
   }
 
   // Keep the checked endpoint-to-grid connections. Replacing the first/last
   // grid nodes can create unchecked legs, even when both snap to one node.
   const path = [
-    { lat: start.lat, lon: start.lon, timeMs: departureMs },
+    { ...startPoint, timeMs: departureMs, waterNm: 0 },
     ...gridPath,
-    { lat: finish.lat, lon: finish.lon, timeMs: arrival[finishId]! },
+    { ...finishPoint, timeMs: terminal.arrivalMs, waterNm: waterDistance[finishId]! + terminal.waterNm },
   ].filter((p, k, points) => k === 0 ||
     p.lat !== points[k - 1]!.lat || p.lon !== points[k - 1]!.lon);
   // Keep real corners regardless of waypoint count. Check each shortcut from
@@ -269,6 +294,7 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
     }
   }
   kept.push(path.at(-1)!);
+  if (kept.length < 2 || terminal.arrivalMs <= departureMs) throw noRoute();
 
   const waypoints: Waypoint[] = kept.map((n, k) => ({
     id: `wp${k + 1}`,
@@ -288,11 +314,12 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
   }
 
   let distance = 0;
-  for (let k = 1; k < path.length; k++) {
-    distance += haversineNm(path[k - 1]!.lat, path[k - 1]!.lon, path[k]!.lat, path[k]!.lon);
+  for (let k = 1; k < kept.length; k++) {
+    distance += haversineNm(kept[k - 1]!.lat, kept[k - 1]!.lon, kept[k]!.lat, kept[k]!.lon);
   }
-  const durationH = (arrival[finishId]! - departureMs) / 3600_000;
-  const avgSog = distance / Math.max(0.1, durationH);
+  const durationH = (terminal.arrivalMs - departureMs) / 3600_000;
+  const avgSog = distance / durationH;
+  const avgStw = (waterDistance[finishId]! + terminal.waterNm) / durationH;
 
   const route: Route = {
     schema_version: 1,
@@ -300,15 +327,28 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
     name: `${start.name ?? 'Start'} → ${finish.name ?? 'Finish'} (computed)`,
     mode: 'computed',
     waypoints,
-    // the audit's ETA machinery needs slow/nominal/fast: derived from the routed
-    // average SOG ±15% — a documented approximation inheriting polar uncertainty
+    // Through-water speeds remain available if this geometry is reused as a
+    // drawn route. Routed audits use the per-leg durations below, including current.
     speeds_kt: {
-      slow: Math.max(0.5, Math.round(avgSog * 0.85 * 10) / 10),
-      nominal: Math.round(avgSog * 10) / 10,
-      fast: Math.round(avgSog * 1.15 * 10) / 10,
+      slow: avgStw * 0.85,
+      nominal: avgStw,
+      fast: avgStw * 1.15,
+    },
+    timing: {
+      basis: 'routed', departure_utc: new Date(departureMs).toISOString(),
+      legs: kept.slice(1).map((point, i) => {
+        const prev = kept[i]!;
+        const duration = point.timeMs - prev.timeMs;
+        return {
+          leg_id: `L${i + 1}`,
+          duration_ms: { slow: duration / 0.85, nominal: duration, fast: duration / 1.15 },
+          through_water_kt: (point.waterNm - prev.waterNm) * 3600_000 / duration,
+          speed_over_ground_kt: haversineNm(prev.lat, prev.lon, point.lat, point.lon) * 3600_000 / duration,
+        };
+      }),
     },
     provenance: {
-      engine_version: 'grid-dijkstra-v0',
+      engine_version: 'grid-dijkstra-v1',
       routing_request: {
         departure: request.departureUtc,
         polar_id: polar.polar_id,
@@ -324,7 +364,7 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
 
   return {
     route,
-    arrival_utc: toIso(arrival[finishId]!),
+    arrival_utc: toIso(terminal.arrivalMs),
     duration_h: Math.round(durationH * 10) / 10,
     distance_nm: Math.round(distance * 10) / 10,
     avg_sog_kt: Math.round(avgSog * 100) / 100,

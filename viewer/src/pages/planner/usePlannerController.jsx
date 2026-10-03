@@ -110,6 +110,7 @@ export default function usePlannerController() {
         lon: Math.round(wp.lng * 10000) / 10000,
       })),
       speeds_kt: { ...speeds },
+      timing: { basis: 'through_water' },
     };
   }, [mode, computed, waypoints, name, speeds]);
 

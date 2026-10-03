@@ -13,7 +13,7 @@ export { ENGINE_VERSION } from './version.js';
 export { runAnalysis, persistSnapshot } from './analyze.js';
 export type { AnalyzeOptions, AnalyzeResult } from './analyze.js';
 export { deriveLegs, deriveSamplePoints, legMidpoints, totalDistanceNm } from './route.js';
-export { computeSchedules, parseUtc, toIso } from './eta.js';
+export { computeSchedules, computeRouteSchedules, parseUtc, toIso } from './eta.js';
 export { parseGpx } from './gpx.js';
 export { renderBriefing, nextForecastRuns } from './briefing.js';
 export type { Briefing, BriefingSection } from './briefing.js';
