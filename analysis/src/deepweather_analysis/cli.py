@@ -118,13 +118,15 @@ def cmd_verify(args: argparse.Namespace) -> int:
     observations = fetch_observations(first_hour, last_hour, route_id=args.route)
     verification = match_snapshot(findings, observations)
     verification_path = write_verification(verification)
-    calibration_path = accumulate_calibration([verification])
+    calibration = accumulate_calibration([verification])
     source = observations["source"]
-    print(f"verified {findings['snapshot_id']}")
+    print(f"verification case recorded for {findings['snapshot_id']}")
     print(f"  observations: {source['mode'].upper()} ({source.get('name', '?')})")
     print(f"  pairs: {len(verification['pairs'])} | coverage: {verification['coverage_summary']}")
     print(f"  verification: {verification_path}")
-    print(f"  calibration: {calibration_path}")
+    print(f"  calibration: {len(calibration['records'])} records (time since check)")
+    if calibration.get("legacy_evidence"):
+        print("  legacy aggregate retained separately; deduplication history unavailable")
     return 0
 
 

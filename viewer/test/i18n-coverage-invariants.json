@@ -277,7 +277,8 @@
         "/data/verification/calibration.json",
         "/data/verification/cases/index.json",
         "/data/verification/corpus.json",
-        "synthetic"
+        "synthetic",
+        "time_since_check"
       ],
       "viewer/src/pages/Briefing.jsx": [
         "A-WARN-01",
@@ -374,6 +375,7 @@
         "/data/verification/cases/index.json",
         "about",
         "afterprint",
+        "local",
         "outcome"
       ],
       "viewer/src/pages/briefing/PassageChart.jsx": [
@@ -726,6 +728,8 @@
       ],
       "viewer/src/pages/briefing/OutcomeSection.jsx": [
         "+",
+        ":",
+        "h",
         "·"
       ],
       "viewer/src/pages/briefing/WeatherStoryCard.jsx": [

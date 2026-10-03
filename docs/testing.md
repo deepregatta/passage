@@ -49,6 +49,18 @@ Suite ownership:
 | `viewer/e2e/` | Playwright | Desktop/mobile core flows and reviewed screenshot baselines |
 | `analysis/tests/` | pytest | Provider adapters, route-independent preparation, warnings, tides, observations, verification, and the ecCodes GRIB export contract |
 
+Verification regressions cross the real matcher, CLI retry and calibration
+persistence (`analysis/tests/test_verification*.py`). They check same-case
+idempotence, corrected/empty/emulated replacements, deterministic order, legacy
+preservation and schema compatibility. The actual Python-generated
+`viewer/test/fixtures/verification-case-v2.json` is also validated by Python and
+rendered by viewer unit/browser tests. Regenerate it only from
+`analysis/tests/test_verification_retries.py:case`, passing the retained demo
+snapshot ID `20260720T060000Z_44d2cd5f_64ea971e` and fixing `generated_at` to
+`2026-07-13T00:00:00Z`; demo fixtures stay unchanged. Bilingual outcome smoke
+uses `viewer/e2e/verification-outcome.spec.js` with scratch browser persistence
+and intercepted observation responses, never production calibration data.
+
 ## Frozen Check and Scan inputs
 
 `viewer/src/lib/actionInputs.js` and `browserAnalysis.js` are checked with

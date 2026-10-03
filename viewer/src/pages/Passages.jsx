@@ -18,7 +18,7 @@ export default function Passages() {
   const loadManifest = useApp((s) => s.loadManifest);
   const setPage = useApp((s) => s.setPage);
   const loadError = useApp((s) => s.loadError);
-  const [verified, setVerified] = useState(new Set());
+  const [publishedCases, setPublishedCases] = useState(new Set());
 
   useEffect(() => {
     loadManifest();
@@ -26,7 +26,7 @@ export default function Passages() {
   useEffect(() => {
     const controller = new AbortController();
     loadJson('/data/verification/cases/index.json', controller.signal).then((index) => {
-      if (!controller.signal.aborted) setVerified(new Set((index?.cases ?? []).map((item) => item.snapshot_id ?? item)));
+      if (!controller.signal.aborted) setPublishedCases(new Set((index?.cases ?? []).map((item) => item.snapshot_id ?? item)));
     });
     return () => controller.abort();
   }, []);
@@ -62,7 +62,7 @@ export default function Passages() {
       )}
 
       <ul className="space-y-3">
-        {passages.map((passage) => <PassageRow key={passage.key} passage={passage} verified={verified} />)}
+        {passages.map((passage) => <PassageRow key={passage.key} passage={passage} publishedCases={publishedCases} />)}
       </ul>
 
       {manifest && !hasExample && (
@@ -75,7 +75,7 @@ export default function Passages() {
   );
 }
 
-function PassageRow({ passage, verified }) {
+function PassageRow({ passage, publishedCases }) {
   const openSnapshot = useApp((s) => s.openSnapshot);
   const deleteSnapshot = useApp((s) => s.deleteSnapshot);
   const loading = useApp((s) => s.loading);
@@ -91,7 +91,7 @@ function PassageRow({ passage, verified }) {
 
   const title = route?.name ?? routeName(passage.route_id);
   const departed = Date.parse(passage.departure_utc) < Date.now();
-  const isVerified = checks.some((check) => verified.has(check.snapshot_id));
+  const hasPublishedCase = !latest.local && publishedCases.has(latest.snapshot_id);
   const remove = async () => {
     const departure = fmtLocalTime(passage.departure_utc);
     const message = checks.length === 1
@@ -144,7 +144,7 @@ function PassageRow({ passage, verified }) {
             )}
           </span>
         </button>
-        <Lifecycle checks={checks} latestId={latest.snapshot_id} departure={passage.departure_utc} departed={departed} verified={isVerified} onOpen={openSnapshot} disabled={loading} />
+        <Lifecycle checks={checks} latestId={latest.snapshot_id} departure={passage.departure_utc} departed={departed} hasPublishedCase={hasPublishedCase} localOnly={latest.local} onOpen={openSnapshot} disabled={loading} />
         {deleteError && <p className="px-3 pb-2 font-sans text-sm text-verdict-exceeds">{deleteError}</p>}
       </article>
       <button
@@ -162,7 +162,7 @@ function PassageRow({ passage, verified }) {
 }
 
 /** Checks → departure → verification, as stations along one line. */
-function Lifecycle({ checks, latestId, departure, departed, verified, onOpen, disabled }) {
+function Lifecycle({ checks, latestId, departure, departed, hasPublishedCase, localOnly, onOpen, disabled }) {
   // long histories keep their first and last two checks
   const shown = checks.length > 4 ? [checks[0], null, ...checks.slice(-2)] : checks;
   return (
@@ -183,8 +183,8 @@ function Lifecycle({ checks, latestId, departure, departed, verified, onOpen, di
         <span>Departure</span>
         <span className="block font-mono text-[10px] text-ink-soft">{fmtLocalTime(departure)}</span>
       </Station>
-      <Station filled={verified} last>
-        <span>{verified ? 'Verified' : 'Verify'}</span>
+      <Station filled={hasPublishedCase} last>
+        <span>{localOnly ? 'Local only' : hasPublishedCase ? 'Published case' : 'No published case'}</span>
       </Station>
     </ol>
   );

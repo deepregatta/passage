@@ -1,17 +1,8 @@
-"""Calibration accumulation. Records only — never weighting.
+"""Replaceable case contributions; evidence only, never model weighting.
 
-Aggregates matched forecast/observation pairs into per-(variable, lead band,
-area) records: sample size, coverage-class counts, bias (mean error) and
-spread (population std of error).
-
-Calibration rules:
-- every record carries its sample size (the contract makes n_pairs required);
-- NO weighting logic lives here — records are evidence, and nothing may turn
-  them into model weights until the sample justifies it.
-
-Merging with an existing calibration.json combines aggregates exactly
-(n-weighted mean; pooled population variance), so incremental accumulation
-matches a one-shot computation up to stored rounding.
+Rebuild in canonical order instead of merging rounded aggregates. One current
+revision per snapshot is persisted in the aggregate itself. Legacy totals are
+preserved separately because their unknown retry history cannot be recovered.
 """
 
 from __future__ import annotations
@@ -20,25 +11,20 @@ import json
 import math
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, Optional, Tuple
 
 from ..paths import contracts_dir, processed_dir
+from .match import canonical_case, validate_case
+from .persistence import atomic_write_json
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 DEFAULT_AREA = "channel"
-
-# Lead-time bands in hours: [lo, hi) — pairs with lead outside all bands are
-# counted nowhere (recorded honestly in the return value's 'skipped_pairs').
+# Preserve the original meaning: valid time minus check creation, not model cycle.
 LEAD_BANDS: Tuple[Tuple[int, int], ...] = ((0, 12), (12, 24), (24, 48))
-
-_ROUND = 4
 
 
 def _band_for(lead_h: float) -> Optional[Tuple[int, int]]:
-    for lo, hi in LEAD_BANDS:
-        if lo <= lead_h < hi:
-            return (lo, hi)
-    return None
+    return next((band for band in LEAD_BANDS if band[0] <= lead_h < band[1]), None)
 
 
 def default_calibration_path() -> Path:
@@ -49,41 +35,7 @@ def _validate(doc: Dict[str, Any]) -> None:
     import jsonschema
 
     schema = json.loads((contracts_dir() / "calibration.schema.json").read_text())
-    jsonschema.validate(instance=doc, schema=schema)
-
-
-class _Agg:
-    """Exact-mergeable population aggregate (n, mean, variance)."""
-
-    def __init__(self) -> None:
-        self.n = 0
-        self.mean = 0.0
-        self.var = 0.0  # population variance
-        self.classes: Dict[str, int] = {}
-
-    def add_value(self, value: float) -> None:
-        # Incremental population mean/variance (Welford, population form).
-        self.n += 1
-        delta = value - self.mean
-        self.mean += delta / self.n
-        self.var += (delta * (value - self.mean) - self.var) / self.n
-
-    def merge_aggregate(self, n: int, mean: Optional[float], var: Optional[float]) -> None:
-        if n <= 0:
-            return
-        mean = mean or 0.0
-        var = var or 0.0
-        total = self.n + n
-        combined_mean = (self.n * self.mean + n * mean) / total
-        # Pooled population variance: E[x^2] - mean^2 over the union.
-        ex2 = (self.n * (self.var + self.mean**2) + n * (var + mean**2)) / total
-        self.n = total
-        self.mean = combined_mean
-        self.var = max(0.0, ex2 - combined_mean**2)
-
-    def add_classes(self, classes: Dict[str, int]) -> None:
-        for name, count in (classes or {}).items():
-            self.classes[name] = self.classes.get(name, 0) + int(count)
+    jsonschema.validate(doc, schema, format_checker=jsonschema.FormatChecker())
 
 
 def accumulate_calibration(
@@ -92,97 +44,107 @@ def accumulate_calibration(
     area: str = DEFAULT_AREA,
     path: Optional[Path] = None,
 ) -> Dict[str, Any]:
-    """
-    Accumulate verification pairs into the calibration record and persist it.
+    """Upsert a current versioned case per snapshot, then rebuild all statistics.
 
-    Args:
-        verification_docs: match_snapshot outputs (each with a 'pairs' list)
-        area: area label for the new pairs (v0: 'channel')
-        path: calibration.json location (default
-            data/processed/verification/calibration.json); an existing file is
-            merged, not overwritten.
-
-    Returns:
-        the schema-valid calibration document that was written.
+    A later call replaces earlier observations for the same snapshot. Conflicting
+    revisions of one snapshot in one batch are ambiguous and rejected. Retrying
+    identical content does not write or change clocks. Unsupported/corrupt saved
+    documents fail closed; nothing is silently discarded. Single local writer.
     """
     target = path or default_calibration_path()
+    existing = json.loads(target.read_text()) if target.exists() else None
+    contributions = {}
+    legacy = None
+    if existing is not None:
+        _validate(existing)
+        if existing["schema_version"] == 1:
+            legacy = existing
+        else:
+            legacy = existing.get("legacy_evidence")
+            for contribution in existing["contributions"]:
+                case = contribution["case"]
+                validate_case(case)
+                if case["snapshot_id"] in contributions:
+                    raise ValueError("duplicate persisted verification contributions")
+                contributions[case["snapshot_id"]] = contribution
 
-    aggs: Dict[Tuple[str, Tuple[int, int], str], _Agg] = {}
+    updates = {}
+    for case in verification_docs:
+        validate_case(case)
+        if case["schema_version"] != 2:
+            raise ValueError("legacy cases require explicit re-verification before aggregation")
+        contribution = {
+            "area": area,
+            "case": {
+                **canonical_case(case),
+                "case_revision": case["case_revision"],
+                "generated_at": case["generated_at"],
+            },
+        }
+        key = case["snapshot_id"]
+        if key in updates and updates[key]["case"]["case_revision"] != case["case_revision"]:
+            raise ValueError(f"conflicting verification revisions for {key}")
+        previous = contributions.get(key) or updates.get(key)
+        if (
+            previous
+            and previous["area"] == area
+            and previous["case"]["case_revision"] == case["case_revision"]
+        ):
+            contribution = previous
+        updates[key] = contribution
+    contributions.update(updates)
+    ordered = [contributions[key] for key in sorted(contributions)]
 
-    # 1. Fold in the existing persisted records (exact aggregate merge).
-    if target.exists():
-        try:
-            existing = json.loads(target.read_text())
-        except (json.JSONDecodeError, OSError):
-            existing = {}
-        for record in existing.get("records", []):
-            classes = record.get("coverage_classes", {})
-            if classes and set(classes) <= {"emulated"}:
-                continue
-            band = tuple(record.get("lead_band_h", ()))
-            if len(band) != 2:
-                continue
-            key = (record["variable"], (int(band[0]), int(band[1])), record.get("area", area))
-            agg = aggs.setdefault(key, _Agg())
-            spread = record.get("spread")
-            agg.merge_aggregate(
-                int(record.get("n_pairs", 0)),
-                record.get("bias"),
-                None if spread is None else float(spread) ** 2,
-            )
-            agg.add_classes(record.get("coverage_classes", {}))
-
-    # 2. Fold in the new pairs.
+    groups = {}
     skipped = 0
-    for doc in verification_docs:
-        if doc.get("observation_source") == "emulated":
-            skipped += len(doc.get("pairs", []))
-            continue
-        for pair in doc.get("pairs", []):
-            lead_h = pair.get("lead_h")
-            error = pair.get("error")
-            if lead_h is None or error is None:
+    for contribution in ordered:
+        case = contribution["case"]
+        emulated = case["observation_source"] == "emulated"
+        for pair in case["pairs"]:
+            lead, error = pair["check_lead_h"], pair["error"]
+            band = _band_for(lead) if lead is not None else None
+            if emulated or pair["coverage_class"] == "emulated" or band is None or error is None:
                 skipped += 1
                 continue
-            band = _band_for(float(lead_h))
-            if band is None:
-                skipped += 1
-                continue
-            cls = pair.get("coverage_class", "not_independently_observed")
-            if cls == "emulated":
-                skipped += 1
-                continue
-            key = (pair.get("variable", "wind_kt"), band, area)
-            agg = aggs.setdefault(key, _Agg())
-            agg.add_value(float(error))
-            agg.add_classes({cls: 1})
+            key = (pair["variable"], band, contribution["area"])
+            groups.setdefault(key, []).append((error, pair["coverage_class"]))
 
-    records: List[Dict[str, Any]] = []
-    for (variable, band, rec_area), agg in sorted(
-        aggs.items(), key=lambda kv: (kv[0][0], kv[0][1], kv[0][2])
-    ):
+    records = []
+    for (variable, band, rec_area), samples in sorted(groups.items()):
+        values = sorted(value for value, _ in samples)
+        mean = math.fsum(values) / len(values)
+        variance = math.fsum((value - mean) ** 2 for value in values) / len(values)
+        classes = sorted({klass for _, klass in samples})
         records.append(
             {
                 "variable": variable,
-                "lead_band_h": [band[0], band[1]],
+                "lead_band_h": list(band),
                 "area": rec_area,
-                "n_pairs": agg.n,
-                "coverage_classes": agg.classes,
-                "bias": round(agg.mean, _ROUND) if agg.n else None,
-                "spread": round(math.sqrt(agg.var), _ROUND) if agg.n else None,
+                "n_pairs": len(values),
+                "bias": round(mean, 4),
+                "spread": round(math.sqrt(variance), 4),
+                "coverage_classes": {
+                    klass: sum(c == klass for _, c in samples) for klass in classes
+                },
             }
         )
-
     doc = {
         "schema_version": SCHEMA_VERSION,
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "lead_basis": "time_since_check",
         "records": records,
+        "contributions": ordered,
+        "skipped_pairs": skipped,
     }
+    if legacy is not None:
+        doc["legacy_evidence"] = legacy
+    # Comparing all derived content also detects inconsistent saved statistics.
+    if existing is not None and {k: v for k, v in existing.items() if k != "generated_at"} == {
+        k: v for k, v in doc.items() if k != "generated_at"
+    }:
+        return existing
     _validate(doc)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(json.dumps(doc, indent=2) + "\n")
-    if skipped:
-        doc = {**doc, "skipped_pairs": skipped}  # returned, not persisted (not in contract)
+    atomic_write_json(target, doc)
     return doc
 
 

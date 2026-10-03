@@ -1,0 +1,42 @@
+{
+  "schema_version": 2,
+  "snapshot_id": "20260720T060000Z_44d2cd5f_64ea971e",
+  "generated_at": "2026-07-13T00:00:00Z",
+  "check_generated_at": "2026-07-12T08:00:00Z",
+  "source_mode": "fixture",
+  "observation_source": "test-station",
+  "observation_provenance": {
+    "name": "test-station",
+    "mode": "fixture"
+  },
+  "lead_basis": "time_since_check",
+  "pairs": [
+    {
+      "leg_id": "L1",
+      "station_id": "test",
+      "valid_time": "2026-07-12T12:00:00Z",
+      "variable": "wind_kt",
+      "forecast": 18.0,
+      "observed": 16.0,
+      "error": 2.0,
+      "distance_km": 0.0,
+      "time_offset_min": 0.0,
+      "lead_h": 4.0,
+      "check_lead_h": 4.0,
+      "model_cycle": "2026-07-12T00:00:00Z",
+      "model_lead_h": 12.0,
+      "coverage_class": "verified_near_observation"
+    }
+  ],
+  "coverage_summary": {
+    "verified_near_observation": 1
+  },
+  "not_independently_observed": [],
+  "params": {
+    "max_km": 25.0,
+    "max_min": 40.0,
+    "near_km": 10.0,
+    "near_min": 20.0
+  },
+  "case_revision": "c4752b81ab95dc981078acfe546c07273933f1e33f29b838428a4db8c3502132"
+}

@@ -1,31 +1,490 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://deepweather.local/contracts/calibration.schema.json",
-  "title": "Calibration record — never displayed without sample size (brief §9)",
+  "title": "Calibration record \u2014 never displayed without sample size (brief \u00a79)",
   "type": "object",
-  "required": ["schema_version", "generated_at", "records"],
+  "required": [
+    "schema_version",
+    "generated_at",
+    "records"
+  ],
   "properties": {
-    "schema_version": { "type": "integer" },
-    "generated_at": { "type": "string", "format": "date-time" },
+    "schema_version": {
+      "enum": [
+        1,
+        2
+      ]
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
     "records": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["variable", "lead_band_h", "area", "n_pairs", "coverage_classes"],
+        "required": [
+          "variable",
+          "lead_band_h",
+          "area",
+          "n_pairs",
+          "coverage_classes"
+        ],
         "properties": {
-          "variable": { "type": "string" },
-          "lead_band_h": { "type": "array", "items": { "type": "integer" }, "minItems": 2, "maxItems": 2 },
-          "area": { "type": "string" },
-          "n_pairs": { "type": "integer", "minimum": 0 },
+          "variable": {
+            "type": "string"
+          },
+          "lead_band_h": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "area": {
+            "type": "string"
+          },
+          "n_pairs": {
+            "type": "integer",
+            "minimum": 0
+          },
           "coverage_classes": {
             "type": "object",
             "description": "counts per class: verified_near_observation | partially_observed | reanalysis_referenced | not_independently_observed | emulated",
-            "additionalProperties": { "type": "integer" }
+            "additionalProperties": {
+              "type": "integer"
+            }
           },
-          "bias": { "type": ["number", "null"] },
-          "spread": { "type": ["number", "null"] }
+          "bias": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "spread": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "lead_basis": {
+      "const": "time_since_check"
+    },
+    "contributions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "area",
+          "case"
+        ],
+        "properties": {
+          "area": {
+            "type": "string"
+          },
+          "case": {
+            "allOf": [
+              {
+                "$ref": "#/$defs/case"
+              },
+              {
+                "properties": {
+                  "schema_version": {
+                    "const": 2
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "skipped_pairs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "legacy_evidence": {
+      "$ref": "#/$defs/legacy"
+    }
+  },
+  "$defs": {
+    "case": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "snapshot_id",
+        "generated_at",
+        "pairs"
+      ],
+      "properties": {
+        "schema_version": {
+          "enum": [
+            1,
+            2
+          ]
+        },
+        "snapshot_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]+$"
+        },
+        "generated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "observation_source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_mode": {
+          "enum": [
+            "live",
+            "fixture",
+            "synthetic"
+          ]
+        },
+        "observation_provenance": {
+          "type": "object",
+          "required": [
+            "mode",
+            "name"
+          ],
+          "properties": {
+            "mode": {
+              "enum": [
+                "live",
+                "fixture",
+                "synthetic"
+              ]
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "case_revision": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "check_generated_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "lead_basis": {
+          "const": "time_since_check"
+        },
+        "pairs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "leg_id",
+              "valid_time",
+              "variable",
+              "forecast",
+              "observed",
+              "error",
+              "coverage_class"
+            ],
+            "properties": {
+              "leg_id": {
+                "type": "string"
+              },
+              "station_id": {
+                "type": "string"
+              },
+              "valid_time": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "variable": {
+                "type": "string"
+              },
+              "forecast": {
+                "type": "number"
+              },
+              "observed": {
+                "type": "number"
+              },
+              "error": {
+                "type": "number"
+              },
+              "coverage_class": {
+                "enum": [
+                  "verified_near_observation",
+                  "partially_observed",
+                  "reanalysis_referenced",
+                  "not_independently_observed",
+                  "emulated"
+                ]
+              },
+              "lead_h": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "check_lead_h": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "model_lead_h": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "model_cycle": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
+              "distance_km": {
+                "type": "number",
+                "minimum": 0
+              },
+              "time_offset_min": {
+                "type": "number",
+                "minimum": 0
+              },
+              "source_kind": {
+                "const": "emulated"
+              }
+            }
+          }
+        },
+        "coverage_summary": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "not_independently_observed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "source_kind": {
+          "const": "emulated"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "schema_version": {
+                "const": 2
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "observation_source",
+              "observation_provenance",
+              "case_revision",
+              "lead_basis",
+              "check_generated_at",
+              "coverage_summary",
+              "not_independently_observed",
+              "params"
+            ],
+            "properties": {
+              "pairs": {
+                "items": {
+                  "required": [
+                    "station_id",
+                    "check_lead_h",
+                    "model_lead_h",
+                    "model_cycle",
+                    "distance_km",
+                    "time_offset_min",
+                    "lead_h"
+                  ]
+                }
+              },
+              "params": {
+                "type": "object",
+                "required": [
+                  "max_km",
+                  "max_min",
+                  "near_km",
+                  "near_min"
+                ],
+                "additionalProperties": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "source_mode"
+            ],
+            "properties": {
+              "source_mode": {
+                "const": "synthetic"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "observation_source": {
+                "const": "emulated"
+              },
+              "pairs": {
+                "items": {
+                  "properties": {
+                    "coverage_class": {
+                      "const": "emulated"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "observation_provenance"
+            ],
+            "properties": {
+              "observation_provenance": {
+                "required": [
+                  "mode"
+                ],
+                "properties": {
+                  "mode": {
+                    "const": "synthetic"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "observation_source"
+            ],
+            "properties": {
+              "observation_source": {
+                "const": "emulated"
+              },
+              "pairs": {
+                "items": {
+                  "properties": {
+                    "coverage_class": {
+                      "const": "emulated"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "legacy": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "generated_at",
+        "records"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "generated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "records": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "variable",
+              "lead_band_h",
+              "area",
+              "n_pairs",
+              "coverage_classes"
+            ],
+            "properties": {
+              "variable": {
+                "type": "string"
+              },
+              "lead_band_h": {
+                "type": "array",
+                "items": {
+                  "type": "integer"
+                },
+                "minItems": 2,
+                "maxItems": 2
+              },
+              "area": {
+                "type": "string"
+              },
+              "n_pairs": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "coverage_classes": {
+                "type": "object",
+                "description": "counts per class: verified_near_observation | partially_observed | reanalysis_referenced | not_independently_observed | emulated",
+                "additionalProperties": {
+                  "type": "integer"
+                }
+              },
+              "bias": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "spread": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              }
+            }
+          }
         }
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "schema_version": {
+            "const": 2
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "lead_basis",
+          "contributions",
+          "skipped_pairs"
+        ]
+      }
+    }
+  ]
 }

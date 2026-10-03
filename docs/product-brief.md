@@ -72,6 +72,9 @@ are unsupported or locally under-resolved must be disclosed in the briefing.
   the separate `forecast-tiles` pipeline.
 - Inputs and findings are frozen into immutable snapshots so comparisons and
   later verification refer to the exact forecast that the sailor saw.
+  Verification currently requires a filesystem snapshot or an explicitly
+  published case. Automatic matching of browser-local briefings is unavailable;
+  see [the verification contract and bounded follow-up](verification.md).
 - External providers use `live`, `fixture`, or `synthetic` modes. Emulated data
   carries `source_kind: "emulated"`, is visibly badged, and never contributes
   to real skill claims.

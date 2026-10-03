@@ -15,17 +15,68 @@ accumulator never drops the sample size.
 from __future__ import annotations
 
 import json
+import hashlib
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from ..geo import EARTH_RADIUS_KM as EARTH_RADIUS_KM
 from ..geo import haversine_km
-from ..paths import processed_dir
+from ..paths import contracts_dir, processed_dir
+from .persistence import atomic_write_json
 from ..timeutil import iso_z as _iso_z
 from ..timeutil import parse_iso_utc
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
+
+
+def canonical_case(doc: Dict[str, Any]) -> Dict[str, Any]:
+    """Semantic case content; retry clocks and pair ordering are not revisions."""
+    content = {k: v for k, v in doc.items() if k not in {"generated_at", "case_revision"}}
+    content["pairs"] = sorted(content["pairs"], key=lambda p: json.dumps(p, sort_keys=True))
+    content["not_independently_observed"] = sorted(content["not_independently_observed"])
+    return content
+
+
+def case_revision(doc: Dict[str, Any]) -> str:
+    content = json.dumps(
+        canonical_case(doc), sort_keys=True, separators=(",", ":"), allow_nan=False
+    )
+    return hashlib.sha256(content.encode()).hexdigest()
+
+
+def validate_case(doc: Dict[str, Any]) -> None:
+    import jsonschema
+
+    schema = json.loads((contracts_dir() / "verification-case.schema.json").read_text())
+    jsonschema.validate(doc, schema, format_checker=jsonschema.FormatChecker())
+    if doc.get("observation_provenance", {}).get("mode") == "synthetic" and (
+        doc.get("observation_source") != "emulated"
+        or any(p["coverage_class"] != "emulated" for p in doc["pairs"])
+    ):
+        raise ValueError("synthetic observations must remain emulated")
+    if doc["schema_version"] == 2 and doc["case_revision"] != case_revision(doc):
+        raise ValueError("verification case revision does not match its content")
+
+
+def _wind_cycle(findings: Dict[str, Any]) -> Optional[str]:
+    # Only an unambiguous frozen primary wind cycle can describe these pairs.
+    # Multimodel comparisons, tides, and prepared publication clocks are not it.
+    primary = [
+        m
+        for m in findings.get("inputs", {}).get("forecast_tiles", [])
+        if m.get("layer") == "weather"
+    ]
+    cycles = {m.get("cycle") for m in primary}
+    if len(cycles) != 1:
+        return None
+    cycle = next(iter(cycles))
+    try:
+        return _iso_z(parse_iso_utc(cycle)) if cycle else None
+    except (TypeError, ValueError):
+        return None
+
 
 DEFAULT_MAX_KM = 25.0
 DEFAULT_MAX_MIN = 40.0
@@ -76,13 +127,15 @@ def match_snapshot(
         observations: observations document (contracts/observations.schema.json)
 
     Returns:
-        {snapshot_id, generated_at, source_mode, pairs, coverage_summary,
-        not_independently_observed, params}
+        A schema-version-2 verification case with observation provenance and
+        separate check/model lead times. Calibration retains check-lead bands.
     """
     stations = list(observations.get("stations", []))
     synthetic = (observations.get("source") or {}).get("mode") == "synthetic"
-    generated_at_raw = findings.get("generated_at") or findings.get("departure_utc")
+    # A departure time is not evidence of when a sailor made the check.
+    generated_at_raw = findings.get("generated_at")
     generated_at = parse_iso_utc(generated_at_raw) if generated_at_raw else None
+    model_cycle = _wind_cycle(findings)
 
     pairs: List[Dict[str, Any]] = []
     uncovered: List[str] = []
@@ -136,7 +189,15 @@ def match_snapshot(
                     "distance_km": round(distance_km, 2),
                     "time_offset_min": round(offset_min, 1),
                     "lead_h": lead_h,
+                    "check_lead_h": lead_h,
+                    "model_cycle": model_cycle,
+                    "model_lead_h": round(
+                        (valid_time - parse_iso_utc(model_cycle)).total_seconds() / 3600, 2
+                    )
+                    if model_cycle
+                    else None,
                     "coverage_class": coverage_class,
+                    **({"source_kind": "emulated"} if synthetic else {}),
                 }
             )
             leg_pairs += 1
@@ -151,25 +212,57 @@ def match_snapshot(
     if uncovered:
         coverage_summary["not_independently_observed"] = len(uncovered)
 
-    return {
+    provenance = observations.get("source") or {}
+    doc = {
         "schema_version": SCHEMA_VERSION,
         "snapshot_id": findings.get("snapshot_id"),
         "generated_at": _iso_z(datetime.now(timezone.utc)),
-        "forecast_generated_at": generated_at_raw,
+        "check_generated_at": generated_at_raw,
         "source_mode": (observations.get("source") or {}).get("mode"),
+        "observation_source": "emulated" if synthetic else provenance.get("name") or "unknown",
+        **({"source_kind": "emulated"} if synthetic else {}),
+        "observation_provenance": provenance,
+        "lead_basis": "time_since_check",
         "pairs": pairs,
         "coverage_summary": coverage_summary,
         "not_independently_observed": uncovered,
         "params": {"max_km": max_km, "max_min": max_min, "near_km": NEAR_KM, "near_min": NEAR_MIN},
     }
+    doc["case_revision"] = case_revision(doc)
+    validate_case(doc)
+    return doc
 
 
 def write_verification(doc: Dict[str, Any]) -> Path:
     """Write to data/processed/verification/cases/<snapshot_id>.json."""
-    snapshot_id = doc.get("snapshot_id") or "unknown-snapshot"
+    validate_case(doc)
+    snapshot_id = doc["snapshot_id"]
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", snapshot_id):
+        raise ValueError("invalid verification snapshot identifier")
     out_dir = processed_dir("verification", "cases")
     path = out_dir / f"{snapshot_id}.json"
-    path.write_text(json.dumps(doc, separators=(",", ":")) + "\n")
+    # Keep the original verification clock on an exact semantic retry.
+    if path.exists():
+        existing = json.loads(path.read_text())
+        validate_case(existing)
+        if existing.get("case_revision") != doc.get("case_revision"):
+            atomic_write_json(path, doc)
+    else:
+        atomic_write_json(path, doc)
+    index_path = out_dir / "index.json"
+    entries = []
+    for case_path in sorted(out_dir.glob("*.json")):
+        if case_path == index_path:
+            continue
+        case = json.loads(case_path.read_text())
+        validate_case(case)
+        entries.append(
+            {
+                "snapshot_id": case["snapshot_id"],
+                "observation_source": case.get("observation_source", "unknown"),
+            }
+        )
+    atomic_write_json(index_path, {"cases": entries})
     return path
 
 

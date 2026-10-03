@@ -63,6 +63,13 @@ VITE_DW_FIXTURE=demo npm run dev -w viewer
 ```
 
 The builder runs the engine CLI twice with a fixed clock and rebuilds the committed previous/latest snapshot pair in `viewer/test/fixtures/demo/`. It includes archived synthetic bulletin text, synoptic tracks/charts, an ensemble gust-scenario claim, a six-hour/four-hPa before/after low, a changes artifact, and an explicitly emulated verification case. The current committed pair is retained as schema-version-1 compatibility evidence.
+
+Verification compares filesystem snapshots with configured observations, or
+shows explicitly published cases. Browser-local briefings have no automatic
+verification path. [Verification evidence](docs/verification.md) defines the v2
+case contract, replaceable calibration contributions, time-since-check buckets
+and separate model lead, plus preservation of legacy aggregates with unknown
+retry history.
 The identity-v2 engine produces new IDs; regeneration requires an explicit fixture
 update and is not a saved-data migration.
 
