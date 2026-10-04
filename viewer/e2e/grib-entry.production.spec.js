@@ -145,11 +145,14 @@ for (const [path, language, hash] of [['/', 'en', true], ['/fr/', 'fr', true], [
 
 test('packaged EN/FR HTML and sitemap expose the GRIB canonicals before hydration', async ({ request, baseURL }) => {
   for (const [path, language] of [['/grib', 'en'], ['/fr/grib', 'fr']]) {
-    const response = await request.get(`${baseURL}${path}?dr_traffic=qa`);
-    expect(response.ok()).toBe(true);
+    const response = await request.get(`${baseURL}${path}?dr_traffic=qa`, { maxRedirects: 0 });
+    expect(response.status()).toBe(200);
+    const head = await request.head(`${baseURL}${path}?dr_traffic=qa`, { maxRedirects: 0 });
+    expect(head.status()).toBe(200);
     const html = await response.text();
     expect(html).toContain(`<title>${GRIB_COPY[language].title}</title>`);
     expect(html).toContain(`<link rel="canonical" href="${origin}${path}"`);
+    expect(html).toContain(`property="og:url" content="${origin}${path}"`);
     expect(html).toContain(`hreflang="en" href="${origin}/grib"`);
     expect(html).toContain(`hreflang="fr" href="${origin}/fr/grib"`);
   }
@@ -157,3 +160,50 @@ test('packaged EN/FR HTML and sitemap expose the GRIB canonicals before hydratio
   expect(sitemap).toContain(`<loc>${origin}/grib</loc>`);
   expect(sitemap).toContain(`<loc>${origin}/fr/grib</loc>`);
 });
+
+test('slashed GRIB entries redirect once to the canonicals with the complete query', async ({ request, baseURL }) => {
+  const query = new URLSearchParams({ ...utm, area, lang: 'en', dr_traffic: 'qa' }).toString();
+  for (const path of ['/grib', '/fr/grib']) {
+    for (const method of ['get', 'head']) {
+      const response = await request[method](`${baseURL}${path}/?${query}`, { maxRedirects: 0 });
+      expect(response.status()).toBe(308);
+      const destination = new URL(response.headers().location, baseURL);
+      expect(destination.pathname).toBe(path);
+      expect(destination.search).toBe(`?${query}`);
+      const canonical = await request[method](destination.href, { maxRedirects: 0 });
+      expect(canonical.status()).toBe(200);
+    }
+  }
+});
+
+for (const path of ['/', '/fr/', '/grib', '/fr/grib']) {
+  test(`URL language wins over a stored preference on ${path} until the user switches`, async ({ page, baseURL }) => {
+    await instrument(page, baseURL);
+    await page.addInitScript(() => {
+      if (!sessionStorage.getItem('language-test-seeded')) {
+        localStorage.setItem('passage-language', 'fr');
+        sessionStorage.setItem('language-test-seeded', '1');
+      }
+    });
+    const query = new URLSearchParams({ ...utm, lang: 'en', dr_traffic: 'qa', dr_verification: verification });
+    await page.goto(`${origin}${path}?${query}`);
+    await expect(page.getByRole('heading', { name: path.includes('grib') ? 'Download GRIB files' : 'Plan a passage', exact: true })).toBeVisible();
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+    expect(await page.evaluate(() => localStorage.getItem('passage-language'))).toBe('fr');
+    await page.reload();
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+    expect(await page.evaluate(() => localStorage.getItem('passage-language'))).toBe('fr');
+    await page.getByRole('button', { name: 'Français', exact: true }).click();
+    await expect(page.locator('html')).toHaveAttribute('lang', 'fr');
+    const switched = new URL(page.url());
+    expect(switched.searchParams.get('lang')).toBe('fr');
+    for (const [key, value] of query) expect(switched.searchParams.get(key)).toBe(key === 'lang' ? 'fr' : value);
+    expect(await page.evaluate(() => localStorage.getItem('passage-language'))).toBe('fr');
+    await page.reload();
+    await expect(page.locator('html')).toHaveAttribute('lang', 'fr');
+    await page.getByRole('button', { name: 'English', exact: true }).click();
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+    expect(new URL(page.url()).searchParams.get('lang')).toBe('en');
+    expect(await page.evaluate(() => localStorage.getItem('passage-language'))).toBe('en');
+  });
+}

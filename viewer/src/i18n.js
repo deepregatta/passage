@@ -19,6 +19,10 @@ export function getLanguageFromPath(pathname) {
 
 export function getInitialLanguage() {
   if (typeof location !== 'undefined') {
+    // Campaign links choose the language for this visit, without saving a
+    // preference. Only the language switcher writes the stored choice.
+    const explicit = new URLSearchParams(location.search).get('lang');
+    if (explicit === 'en' || explicit === 'fr') return explicit;
     if (/^\/grib\/?$/.test(location.pathname)) return 'en';
     const fromPath = getLanguageFromPath(location.pathname);
     if (fromPath) return fromPath;

@@ -80,6 +80,30 @@ describe('language selection', () => {
     expect(getInitialLanguage()).toBe('en');
   });
 
+  it.each(['/', '/fr/', '/grib', '/fr/grib'])('honours an explicit URL language on %s without saving it', (path) => {
+    for (const language of ['en', 'fr']) {
+      const saved = language === 'en' ? 'fr' : 'en';
+      localStorage.setItem('passage-language', saved);
+      history.replaceState(null, '', `${path}?lang=${language}&utm_source=bluesky`);
+      expect(getInitialLanguage()).toBe(language);
+      expect(localStorage.getItem('passage-language')).toBe(saved);
+    }
+  });
+
+  it.each(['', 'de', 'EN'])('ignores an unsupported URL language %s', (language) => {
+    localStorage.setItem('passage-language', 'fr');
+    history.replaceState(null, '', `/?lang=${language}`);
+    expect(getInitialLanguage()).toBe('fr');
+    history.replaceState(null, '', `/grib?lang=${language}`);
+    expect(getInitialLanguage()).toBe('en');
+  });
+
+  it('does not create a saved preference from a URL language', () => {
+    history.replaceState(null, '', '/?lang=fr');
+    expect(getInitialLanguage()).toBe('fr');
+    expect(localStorage.getItem('passage-language')).toBeNull();
+  });
+
   it('recognises only the /fr/ path prefix as French', () => {
     expect(getLanguageFromPath('/fr/')).toBe('fr');
     expect(getLanguageFromPath('/fr')).toBe('fr');

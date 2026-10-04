@@ -1,0 +1,3 @@
+# GRIB canonicals are slashless. Pages preserves the incoming query string.
+/grib/ /grib 308
+/fr/grib/ /fr/grib 308

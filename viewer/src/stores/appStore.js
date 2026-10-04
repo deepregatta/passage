@@ -106,10 +106,16 @@ export const useApp = create((set, get) => ({
     // /fr/ is the crawlable French URL: keep the path in step with the
     // language so the served head, client head and content always agree.
     if (typeof location !== 'undefined') {
+      const url = new URL(location.href);
+      // Keep an inbound override in step with the switcher's explicit choice,
+      // so reloading cannot restore the campaign link's previous language.
+      if (url.searchParams.has('lang')) url.searchParams.set('lang', language);
       const onFrenchPath = getLanguageFromPath(location.pathname) === 'fr';
       if ((language === 'fr') !== onFrenchPath) {
-        const path = isGribPath() ? (language === 'fr' ? '/fr/grib' : '/grib') : (language === 'fr' ? '/fr/' : '/');
-        history.replaceState(null, '', `${path}${location.search}${location.hash}`);
+        url.pathname = isGribPath() ? (language === 'fr' ? '/fr/grib' : '/grib') : (language === 'fr' ? '/fr/' : '/');
+      }
+      if (url.href !== location.href) {
+        history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
       }
     }
     set({ language });
