@@ -1,0 +1,185 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://deepweather.local/contracts/briefing-reader.schema.json",
+  "title": "Briefing reader envelope (unknown decision IDs retained as English fallback)",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "snapshot_id",
+    "sections"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "snapshot_id": {
+      "type": "string"
+    },
+    "sections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "register_plain",
+          "register_pro",
+          "evidence_ids"
+        ],
+        "properties": {
+          "id": {
+            "enum": [
+              "warnings",
+              "synoptic_story",
+              "route_impact",
+              "decision",
+              "what_could_change",
+              "unsupported",
+              "emulated_disclosure"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "register_plain": {
+            "type": "string",
+            "description": "No jargon, action-oriented; never states probabilities for raw scenario fractions"
+          },
+          "register_pro": {
+            "type": "string"
+          },
+          "evidence_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "per_leg": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "glossary_terms": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "availability": {
+            "type": "object",
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "enum": [
+                  "available",
+                  "unavailable"
+                ]
+              },
+              "reason": {
+                "type": "string"
+              }
+            }
+          },
+          "messages": {
+            "$ref": "#/$defs/decisionMessages"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "required": [
+                "messages"
+              ]
+            },
+            "then": {
+              "properties": {
+                "id": {
+                  "const": "decision"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "next_runs": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "next_run": {
+      "type": "object",
+      "required": [
+        "model",
+        "expected_at"
+      ],
+      "properties": {
+        "model": {
+          "type": "string"
+        },
+        "expected_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "decisionMessage": {
+      "type": "object",
+      "required": [
+        "message_id",
+        "params"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "message_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "params": {
+          "type": "object"
+        }
+      }
+    },
+    "decisionMessages": {
+      "type": "object",
+      "required": [
+        "title"
+      ],
+      "additionalProperties": false,
+      "dependentRequired": {
+        "plain": [
+          "pro"
+        ],
+        "pro": [
+          "plain"
+        ]
+      },
+      "properties": {
+        "title": {
+          "$ref": "#/$defs/decisionMessage"
+        },
+        "plain": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/$defs/decisionMessage"
+          }
+        },
+        "pro": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/$defs/decisionMessage"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,11 +1,65 @@
 # Engine prose: message IDs and saved-briefing compatibility
 
-Design for review step 3.5, based on repository HEAD `86b8640` (2026-09-14).
-This document specifies a future change; it does not change the live contract,
-engine output or viewer. Implementation slices below require their own tracker
-rows after design review.
+Original design for review step 3.5, based on `86b8640` (2026-09-14).
+PASSAGE-07 implements the bounded decision slice below (2026-10-04). The wider
+version-2 migration remains deferred; its design follows the current record.
 
-## Problem and current boundaries
+## PASSAGE-07: implemented decision slice
+
+| Scope | Current contract |
+|---|---|
+| Title and verdict | Stable `briefing.decision.*.v1` IDs, separate plain/pro IDs for all five verdicts |
+| Drivers | Numeric and ensemble IDs; typed literal names/IDs, UTC instants, finite values, unit enums, raw counts and engine-selected relation/style |
+| Compatibility | Briefing version 1 retained; optional `messages` on decision sections only. `title` required; `plain`/`pro` are paired, non-empty arrays when present. No other section or leg emits IDs. |
+| Unmigrated decisions | Any tidal gate retains both complete legacy registers because `rule_text` remains prose. Noncatalogued driver units/invalid typed facts also retain both registers. The title still uses its ID. |
+| Read/write validation | Generated closed writer schema in `contracts/briefing.schema.json`; separate `briefing-reader.schema.json` permits future IDs. The reader adapter validates field metadata and falls back at whole-field granularity. Unknown whole versions are unsupported by the decision reader. |
+| Legacy decoding | No metadata means stored prose plus the existing legacy EN/FR translator; no inferred IDs, storage rewrite, analysis rerun or latest-input substitution. |
+| Rendering | `BriefingMessage` subscribes to language and owns the decision title and both registers in `AssessmentDetails`. Unknown IDs/params or missing locale entries show the entire original English with a visible status label. No usable fallback shows unavailable content. |
+
+[`briefingMessages.ts`](../../engine/src/briefingMessages.ts) is the registry,
+inferred discriminated TypeScript types and canonical English catalogue.
+[`briefingMessages.js`](../../viewer/src/lib/briefingMessages.js) owns French
+with a checked catalogue signature and the legacy read adapter. Numeric relation
+and rounding style are selected in the engine; the translator does not evaluate
+limits or infer verdicts. Names and identifiers remain literal React text,
+including words resembling translation keys and markup. French changes unit
+labels (`kt` → `nd`) without converting values and localizes only the typed UTC
+date; professional values/instants retain their precision.
+
+`data-i18n-owned="message"` excludes decision nodes and descendants from the
+legacy DOM text/attribute walker, its mutation callbacks and its EN restoration
+pass. Legacy decision regexes remain necessary for archived/gated registers and
+are called explicitly by the adapter; migrated IDs bypass them. Synoptic
+first-sentence previews, unsupported-coverage overrides, findings consequences,
+change stories and all other families keep their existing legacy path. There is
+no decision preview consumer. CLI and saved fallbacks use canonical English;
+print keeps the selected locale.
+
+The writer's pure `validDecisionMessageFields` check additionally rejects
+cross-parameter count/style violations and mismatched English fallbacks; standard
+JSON Schema cannot compare two count properties. `npm run generate:messages -w
+engine` regenerates writer/reader definitions from the registry; drift checking
+is part of engine `npm test`. No separate manually maintained ID/type/schema
+lists exist. The registry and English catalogue remain DOM-free.
+
+New metadata intentionally changes serialized briefing bytes. A projection
+without `messages` must equal prior English/section/evidence bytes; engine
+version, decision semantics, frozen inputs, findings and snapshot identity do
+not change. Existing goldens/demo/compatibility/GRIB files remain untouched.
+The separate emulated `engine/test/fixtures/decision-messages.json` contains
+actual engine-produced decision sections for every ID; TypeScript/AJV, Python
+and viewer tests consume it. Run the focused `decisionMessages` tests and
+`viewer/e2e/decision-messages.spec.js` through `viewer-demo` with scratch browser
+persistence and intercepted writes. No deployment, device or scientific proof
+is implied by local validation.
+
+PASSAGE-07 stops at this boundary. Unsupported capability detail/reason facts,
+tidal-gate rule facts, full version-2 emission and regex retirement need their
+own assigned work.
+
+## Remaining full migration design
+
+## Original problem and boundaries (2026-09-14)
 
 `engine/src/briefing.ts` emits `schema_version: 1`. Its sections contain English
 `title`, `register_plain` and `register_pro`; `route_impact.per_leg` contains both
@@ -254,7 +308,7 @@ artifacts must remain readable. Never rewrite snapshots to roll back.
 ## Proposed implementation slices after review
 
 These are a dependency plan, not newly authorized runtime changes or active rows.
-The next current tracker step remains 3.6.
+These are not permission to expand the PASSAGE-07 decision slice.
 
 1. Contract/registry and reader foundation: closed writer schema, tolerant reader,
    generated types, EN/FR renderer and validation/fallback fixtures. No emission

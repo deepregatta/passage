@@ -95,3 +95,42 @@ def test_saved_identity_contract_accepts_engine_v2_and_preserves_legacy():
                         _load(path)
                     )
                     assert path.read_bytes() == before
+
+
+def test_decision_message_writer_and_tolerant_reader_contracts():
+    repo = contracts_dir().parent
+    writer = Draft202012Validator(_load(contracts_dir() / "briefing.schema.json"))
+    reader = Draft202012Validator(_load(contracts_dir() / "briefing-reader.schema.json"))
+    produced = _load(repo / "engine/test/fixtures/decision-messages.json")
+    assert produced["source_kind"] == "emulated"
+    for case in produced["cases"]:
+        doc = case["briefing"]
+        writer.validate(doc)
+        reader.validate(doc)
+        section = doc["sections"][0]
+        assert section["messages"]["plain"]
+        assert section["messages"]["pro"]
+    for root in [
+        "engine/test/golden",
+        "viewer/test/fixtures/demo",
+        "viewer/test/fixtures/compatibility",
+    ]:
+        for path in (repo / root).rglob("*.json"):
+            if path.name != "briefing.json" and not path.name.startswith("briefing-"):
+                continue
+            before = path.read_bytes()
+            writer.validate(_load(path))
+            reader.validate(_load(path))
+            assert path.read_bytes() == before
+    future = json.loads(json.dumps(produced["cases"][5]["briefing"]))
+    future["sections"][0]["messages"]["plain"].append(
+        {"message_id": "briefing.decision.future.v9", "params": {"future": True}}
+    )
+    assert not writer.is_valid(future)
+    reader.validate(future)
+    future["schema_version"] = 99
+    assert not reader.is_valid(future)
+    for bad in [{"units": "mph"}, {"valid_time": "tomorrow"}, {"value": "28"}]:
+        doc = json.loads(json.dumps(produced["cases"][5]["briefing"]))
+        doc["sections"][0]["messages"]["plain"][1]["params"].update(bad)
+        assert not writer.is_valid(doc)

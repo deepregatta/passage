@@ -61,6 +61,31 @@ snapshot ID `20260720T060000Z_44d2cd5f_64ea971e` and fixing `generated_at` to
 uses `viewer/e2e/verification-outcome.spec.js` with scratch browser persistence
 and intercepted observation responses, never production calibration data.
 
+## Decision message compatibility
+
+PASSAGE-07 emits optional decision-only metadata while retaining briefing
+version 1 and canonical English fields. `engine/test/decisionMessages.test.ts`
+checks all emitted IDs, canonical byte/fact parity, unknown IDs, unit/date/count
+constraints and whole-register legacy gates. Types and writer/reader schemas
+come from one registry; `npm run check:messages -w engine` is included in engine
+tests. `validDecisionMessageFields` also checks bounds relating two parameters
+and English fallback parity. The old briefing golden compares its unchanged
+projection without new metadata, and no archival fixture is regenerated.
+
+`viewer/test/decisionMessages.test.jsx` checks typed EN/FR, legacy decoding,
+copy independence, whole-field fallback, literal interpolation, unit formatting,
+zero/one/many scenario grammar and DOM ownership across language switches and
+mutations. The French catalogue has a TypeScript-checked parameter signature.
+Python contract tests independently validate both legacy files and the actual
+engine-produced emulated `engine/test/fixtures/decision-messages.json`.
+
+`viewer/e2e/decision-messages.spec.js` exercises served legacy/new/unknown IDs,
+professional text, print locale, repeated language switches and scratch
+IndexedDB reopen at desktop/mobile sizes in EN/FR. Use the existing
+`viewer-demo` configuration, block telemetry/external transport and intercept
+all POST/DELETE requests. Snapshot identity, verdicts, analysis and untouched
+message families must remain stable. Full briefing version 2 is deferred.
+
 ## Frozen Check and Scan inputs
 
 `viewer/src/lib/actionInputs.js` and `browserAnalysis.js` are checked with

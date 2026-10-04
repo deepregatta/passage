@@ -5,6 +5,7 @@
  * (filesystem storage for the CLI; dev HTTP writes or IndexedDB in the viewer).
  */
 
+import { validDecisionMessageFields } from './briefingMessages.js';
 import { canonicalJson, contentHash } from './hash.js';
 import type { Briefing } from './briefing.js';
 import type { EnsemblePointForecast, HazardPointForecast } from './forecast/types.js';
@@ -122,6 +123,13 @@ export async function writeSnapshot(
       }
     }
     throw new Error(`Snapshot ${id} is incomplete, legacy or conflicting. Snapshots are write-once.`);
+  }
+
+  // New metadata must be valid before any artifact is written. Existing exact
+  // retries above still reopen immutable originals, even after copy-only edits.
+  if (briefing.sections.some(section => section.messages !== undefined &&
+      (section.id !== 'decision' || !validDecisionMessageFields(section)))) {
+    throw new Error('Invalid decision message metadata or canonical English fallback.');
   }
 
   const history = findings.passage_id ? (await store.list?.() ?? []).filter(item =>

@@ -1366,7 +1366,7 @@ const originalAttrs = new WeakMap();
 const ATTRIBUTES = ['aria-label', 'title', 'placeholder', 'alt'];
 
 function localizeText(node, language) {
-  if (node.parentElement?.closest('script, style, pre, code')) return;
+  if (node.parentElement?.closest('script, style, pre, code, [data-i18n-owned="message"]')) return;
   let original = originalText.get(node);
   if (original === undefined || (node.data !== original && node.data !== translateText(original, 'fr'))) {
     original = node.data;
@@ -1377,6 +1377,7 @@ function localizeText(node, language) {
 }
 
 function localizeAttributes(element, language, attributes = ATTRIBUTES) {
+  if (element.closest('[data-i18n-owned="message"]')) return;
   let originals = originalAttrs.get(element);
   if (!originals) {
     originals = new Map();

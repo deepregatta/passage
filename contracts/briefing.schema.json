@@ -3,41 +3,645 @@
   "$id": "https://deepweather.local/contracts/briefing.schema.json",
   "title": "Briefing — two-register templated narrative",
   "type": "object",
-  "required": ["schema_version", "snapshot_id", "sections"],
+  "required": [
+    "schema_version",
+    "snapshot_id",
+    "sections"
+  ],
   "properties": {
-    "schema_version": { "type": "integer" },
-    "snapshot_id": { "type": "string" },
+    "schema_version": {
+      "const": 1
+    },
+    "snapshot_id": {
+      "type": "string"
+    },
     "sections": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["id", "register_plain", "register_pro", "evidence_ids"],
+        "required": [
+          "id",
+          "register_plain",
+          "register_pro",
+          "evidence_ids"
+        ],
         "properties": {
-          "id": { "enum": ["warnings", "synoptic_story", "route_impact", "decision", "what_could_change", "unsupported", "emulated_disclosure"] },
-          "title": { "type": "string" },
-          "register_plain": { "type": "string", "description": "No jargon, action-oriented; never states probabilities for raw scenario fractions" },
-          "register_pro": { "type": "string" },
-          "evidence_ids": { "type": "array", "items": { "type": "string" } },
-          "per_leg": { "type": "array", "items": { "type": "object" } },
-          "glossary_terms": { "type": "array", "items": { "type": "string" } }
-          ,"availability": {
+          "id": {
+            "enum": [
+              "warnings",
+              "synoptic_story",
+              "route_impact",
+              "decision",
+              "what_could_change",
+              "unsupported",
+              "emulated_disclosure"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "register_plain": {
+            "type": "string",
+            "description": "No jargon, action-oriented; never states probabilities for raw scenario fractions"
+          },
+          "register_pro": {
+            "type": "string"
+          },
+          "evidence_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "per_leg": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "glossary_terms": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "availability": {
             "type": "object",
-            "required": ["status"],
+            "required": [
+              "status"
+            ],
             "properties": {
-              "status": { "enum": ["available", "unavailable"] },
-              "reason": { "type": "string" }
+              "status": {
+                "enum": [
+                  "available",
+                  "unavailable"
+                ]
+              },
+              "reason": {
+                "type": "string"
+              }
+            }
+          },
+          "messages": {
+            "$ref": "#/$defs/decisionMessages"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "required": [
+                "messages"
+              ]
+            },
+            "then": {
+              "properties": {
+                "id": {
+                  "const": "decision"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "next_runs": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "next_run": {
+      "type": "object",
+      "required": [
+        "model",
+        "expected_at"
+      ],
+      "properties": {
+        "model": {
+          "type": "string"
+        },
+        "expected_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "decisionMessage": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "message_id",
+            "params"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "message_id": {
+              "const": "briefing.decision.title.v1"
+            },
+            "params": {
+              "type": "object",
+              "required": [],
+              "additionalProperties": false,
+              "properties": {}
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "message_id",
+            "params"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "message_id": {
+              "const": "briefing.decision.within.plain.v1"
+            },
+            "params": {
+              "type": "object",
+              "required": [],
+              "additionalProperties": false,
+              "properties": {}
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "message_id",
+            "params"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "message_id": {
+              "const": "briefing.decision.within.pro.v1"
+            },
+            "params": {
+              "type": "object",
+              "required": [],
+              "additionalProperties": false,
+              "properties": {}
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "message_id",
+            "params"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "message_id": {
+              "const": "briefing.decision.approaching.plain.v1"
+            },
+            "params": {
+              "type": "object",
+              "required": [],
+              "additionalProperties": false,
+              "properties": {}
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "message_id",
+            "params"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "message_id": {
+              "const": "briefing.decision.approaching.pro.v1"
+            },
+            "params": {
+              "type": "object",
+              "required": [],
+              "additionalProperties": false,
+              "properties": {}
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "message_id",
+            "params"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "message_id": {
+              "const": "briefing.decision.exceeds.plain.v1"
+            },
+            "params": {
+              "type": "object",
+              "required": [],
+              "additionalProperties": false,
+              "properties": {}
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "message_id",
+            "params"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "message_id": {
+              "const": "briefing.decision.exceeds.pro.v1"
+            },
+            "params": {
+              "type": "object",
+              "required": [],
+              "additionalProperties": false,
+              "properties": {}
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "message_id",
+            "params"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "message_id": {
+              "const": "briefing.decision.insufficient.plain.v1"
+            },
+            "params": {
+              "type": "object",
+              "required": [],
+              "additionalProperties": false,
+              "properties": {}
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "message_id",
+            "params"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "message_id": {
+              "const": "briefing.decision.insufficient.pro.v1"
+            },
+            "params": {
+              "type": "object",
+              "required": [],
+              "additionalProperties": false,
+              "properties": {}
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "message_id",
+            "params"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "message_id": {
+              "const": "briefing.decision.warning_active.plain.v1"
+            },
+            "params": {
+              "type": "object",
+              "required": [],
+              "additionalProperties": false,
+              "properties": {}
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "message_id",
+            "params"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "message_id": {
+              "const": "briefing.decision.warning_active.pro.v1"
+            },
+            "params": {
+              "type": "object",
+              "required": [],
+              "additionalProperties": false,
+              "properties": {}
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "message_id",
+            "params"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "message_id": {
+              "const": "briefing.decision.numeric.plain.v1"
+            },
+            "params": {
+              "type": "object",
+              "required": [
+                "leg_name",
+                "valid_time",
+                "value",
+                "limit",
+                "units",
+                "hazard",
+                "relation",
+                "style"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "leg_name": {
+                  "type": "string",
+                  "maxLength": 4096
+                },
+                "valid_time": {
+                  "type": "string",
+                  "maxLength": 4096,
+                  "minLength": 1,
+                  "format": "date-time",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,3})?Z$"
+                },
+                "value": {
+                  "type": "number"
+                },
+                "limit": {
+                  "type": "number"
+                },
+                "units": {
+                  "type": "string",
+                  "enum": [
+                    "kt",
+                    "m",
+                    "nm",
+                    "hPa",
+                    "J/kg",
+                    ""
+                  ]
+                },
+                "hazard": {
+                  "type": "string",
+                  "enum": [
+                    "gusts",
+                    "winds",
+                    "seas",
+                    "wind against the tide",
+                    "squall risk",
+                    "visibility",
+                    "conditions"
+                  ]
+                },
+                "relation": {
+                  "type": "string",
+                  "enum": [
+                    "over",
+                    "close to",
+                    "under",
+                    "below",
+                    "above"
+                  ]
+                },
+                "style": {
+                  "type": "string",
+                  "enum": [
+                    "up_to",
+                    "just_over",
+                    "down_to"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "message_id",
+            "params"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "message_id": {
+              "const": "briefing.decision.numeric.pro.v1"
+            },
+            "params": {
+              "type": "object",
+              "required": [
+                "rule_id",
+                "leg_id",
+                "valid_time",
+                "limit",
+                "units",
+                "value"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "rule_id": {
+                  "type": "string",
+                  "maxLength": 4096,
+                  "minLength": 1
+                },
+                "leg_id": {
+                  "type": "string",
+                  "maxLength": 4096,
+                  "minLength": 1
+                },
+                "valid_time": {
+                  "type": "string",
+                  "maxLength": 4096,
+                  "minLength": 1,
+                  "format": "date-time",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,3})?Z$"
+                },
+                "limit": {
+                  "type": "number"
+                },
+                "units": {
+                  "type": "string",
+                  "enum": [
+                    "kt",
+                    "m",
+                    "nm",
+                    "hPa",
+                    "J/kg",
+                    ""
+                  ]
+                },
+                "value": {
+                  "type": "number"
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "message_id",
+            "params"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "message_id": {
+              "const": "briefing.decision.ensemble.plain.v1"
+            },
+            "params": {
+              "type": "object",
+              "required": [
+                "leg_name",
+                "valid_time",
+                "limit",
+                "exceed",
+                "total"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "leg_name": {
+                  "type": "string",
+                  "maxLength": 4096
+                },
+                "valid_time": {
+                  "type": "string",
+                  "maxLength": 4096,
+                  "minLength": 1,
+                  "format": "date-time",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,3})?Z$"
+                },
+                "limit": {
+                  "type": "number"
+                },
+                "exceed": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 10000
+                },
+                "total": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 10000
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "message_id",
+            "params"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "message_id": {
+              "const": "briefing.decision.ensemble.pro.v1"
+            },
+            "params": {
+              "type": "object",
+              "required": [
+                "rule_id",
+                "leg_id",
+                "valid_time",
+                "limit",
+                "units",
+                "exceed",
+                "total"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "rule_id": {
+                  "type": "string",
+                  "maxLength": 4096,
+                  "minLength": 1
+                },
+                "leg_id": {
+                  "type": "string",
+                  "maxLength": 4096,
+                  "minLength": 1
+                },
+                "valid_time": {
+                  "type": "string",
+                  "maxLength": 4096,
+                  "minLength": 1,
+                  "format": "date-time",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,3})?Z$"
+                },
+                "limit": {
+                  "type": "number"
+                },
+                "units": {
+                  "type": "string",
+                  "enum": [
+                    "kt",
+                    "m",
+                    "nm",
+                    "hPa",
+                    "J/kg",
+                    ""
+                  ]
+                },
+                "exceed": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 10000
+                },
+                "total": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 10000
+                }
+              }
             }
           }
         }
-      }
+      ]
     },
-    "next_runs": { "type": "array", "items": { "type": "object" } },
-    "next_run": {
+    "decisionMessages": {
       "type": "object",
-      "required": ["model", "expected_at"],
+      "required": [
+        "title"
+      ],
+      "additionalProperties": false,
+      "dependentRequired": {
+        "plain": [
+          "pro"
+        ],
+        "pro": [
+          "plain"
+        ]
+      },
       "properties": {
-        "model": { "type": "string" },
-        "expected_at": { "type": "string", "format": "date-time" }
+        "title": {
+          "$ref": "#/$defs/decisionMessage"
+        },
+        "plain": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/$defs/decisionMessage"
+          }
+        },
+        "pro": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/$defs/decisionMessage"
+          }
+        }
       }
     }
   }

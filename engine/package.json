@@ -11,9 +11,11 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.test.json",
-    "test": "vitest run",
+    "test": "npm run check:messages && vitest run",
     "cli": "tsx src/cli.ts",
-    "make:grib-fixtures": "tsx scripts/make-grib-fixtures.ts"
+    "make:grib-fixtures": "tsx scripts/make-grib-fixtures.ts",
+    "generate:messages": "tsx scripts/generate-message-schemas.ts",
+    "check:messages": "tsx scripts/generate-message-schemas.ts --check"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

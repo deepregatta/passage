@@ -1,6 +1,6 @@
 # Capability and verification map
 
-Source checked 2026-10-04 for PASSAGE-06, after committed PASSAGE-01–05.
+Source checked 2026-10-04 for PASSAGE-06 and PASSAGE-07, after committed PASSAGE-01–05.
 Dated proof establishes only the stated revision/workload. Provider `live`
 configuration does not establish publication or coverage. The deployed revision
 of PASSAGE-01–05 was not independently verified here. Read-only curl checks at
@@ -18,7 +18,8 @@ not complete valid-time coverage, artifact freshness or operational accuracy.
 | **Local-only adapter paths:** warnings, route tides/gates, observations and filesystem verification | [Optional browser inputs](../viewer/src/lib/browserAnalysis.js), [factory CLI](../analysis/src/deepweather_analysis/cli.py), [verification contract](verification.md); provider/contract/retry tests | Production warning loading is disabled; the workflow publishes neither warnings nor tides/verification. Static demo artifacts are emulated. `live` adapter mode creates no production service. |
 | **Production-enabled reference demo; local-only generation:** demo, synthetic scenarios, reader for published cases | [Fixture policy](testing.md), [ScenarioBundleStore](../engine/src/forecast/scenarioStore.ts), [outcome reader](../viewer/src/pages/briefing/OutcomeSection.jsx); compatibility/i18n/outcome/fixture-persistence tests | Pages packages the emulated reference demo. Dev fixture writes are refused; new checks use IndexedDB. Other published cases need an explicit producer/publication path; emulated cases contribute no calibration samples. |
 | **Deferred:** automatic verification of browser-local checks | [Bounded follow-up](verification.md); outcome/browser tests assert unavailable | No private route transport or browser observation matcher. A missing case is not a scheduled job. |
-| **Deferred:** message IDs, wider synoptic/authority publication, night-risk evaluation, routing Worker | [Message-ID design](maintenance/briefing-message-ids.md), [product scope](product-brief.md), remaining work below | IDs remain a design; prose/regex translation stays active. Saved `night_ok` changes no verdict, scan or timing. None is implemented by this cleanup. |
+| **Implemented in source:** bounded decision message IDs | [Message-ID contract](maintenance/briefing-message-ids.md), engine/viewer `decisionMessages` and browser `decision-messages.spec.js` | Optional version-1 metadata; typed EN/FR verdict/driver rendering, literal names, visible whole-field fallback. Gated registers and other families remain legacy. Current deployed revision unverified. |
+| **Deferred:** wider message-ID migration, wider synoptic/authority publication, night-risk evaluation, routing Worker | [Message-ID design](maintenance/briefing-message-ids.md), [product scope](product-brief.md), remaining work below | Full version-2 IDs remain deferred; legacy prose/regex translation stays active for unmigrated and archived fields. Saved `night_ok` changes no verdict, scan or timing. The bounded decision slice changes none of these deferred capabilities. |
 
 ## Preserved contracts
 
