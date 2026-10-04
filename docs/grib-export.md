@@ -21,7 +21,12 @@ and includes both entries in the sitemap. The campaign's `/#plan/grib` and
 `/fr/#plan/grib` links remain supported. Put UTM parameters before the fragment;
 an optional `?area=S,N,W,E` belongs in the fragment on hash links, or in the
 ordinary query on the crawlable entries. The URL's box wins over a saved box.
-Language switching and area edits preserve the attribution query.
+The build emits `grib.html` and `fr/grib.html` so these slashless URLs serve 200
+directly on Cloudflare Pages. Slashed forms redirect to them with the complete
+query intact. A valid `?lang=en` or `?lang=fr` selects the language for that visit
+ahead of the path, stored preference and browser language, without saving a new
+preference. The language switcher saves the choice and updates any existing
+`lang` query. Language switching and area edits preserve the attribution query.
 
 After a non-empty file is prepared and handed to the browser download, the
 next-step panel opens Plan with the chart fitted to that box, preserving any

@@ -84,9 +84,10 @@ function main() {
   mkdirSync(join(dist, 'fr'), { recursive: true });
   writeFileSync(join(dist, 'fr', 'index.html'), renderFrenchHtml(html));
   for (const language of ['en', 'fr']) {
-    const directory = join(dist, language === 'fr' ? 'fr/grib' : 'grib');
-    mkdirSync(directory, { recursive: true });
-    writeFileSync(join(directory, 'index.html'), renderGribHtml(html, language));
+    // Pages serves *.html at the slashless URL; directory index.html would
+    // redirect every canonical/campaign request to a trailing slash.
+    const entry = language === 'fr' ? 'fr/grib.html' : 'grib.html';
+    writeFileSync(join(dist, entry), renderGribHtml(html, language));
   }
   console.log('Prerendered French entry and EN/FR GRIB entries');
 }

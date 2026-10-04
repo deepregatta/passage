@@ -193,6 +193,21 @@ describe('area, period and model choices', () => {
     expect(location.pathname).toBe('/grib');
   });
 
+  it.each(['/grib', '/fr/grib'])('updates an explicit URL language on %s when the user switches', (path) => {
+    history.replaceState(null, '', `${path}?lang=en&utm_source=bluesky&area=50.2,50.9,-9.9,-9.1#plan/grib`);
+    act(() => useApp.getState().setLanguage('fr'));
+    expect(location.pathname).toBe('/fr/grib');
+    expect(Object.fromEntries(new URLSearchParams(location.search))).toEqual({
+      lang: 'fr', utm_source: 'bluesky', area: '50.2,50.9,-9.9,-9.1',
+    });
+    expect(location.hash).toBe('#plan/grib');
+    expect(localStorage.getItem('passage-language')).toBe('fr');
+    act(() => useApp.getState().setLanguage('en'));
+    expect(location.pathname).toBe('/grib');
+    expect(new URLSearchParams(location.search).get('lang')).toBe('en');
+    expect(localStorage.getItem('passage-language')).toBe('en');
+  });
+
   it('adopts a path query area without losing attribution, then updates it when resized', async () => {
     history.replaceState(null, '', '/grib?utm_source=bluesky&dr_traffic=qa&area=50.2,50.9,-9.9,-9.1');
     render(<Grib />);
