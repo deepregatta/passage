@@ -40,7 +40,8 @@ npm test
 
 Use the `viewer-demo` launch configuration in `.claude/launch.json` for the
 fixture-backed viewer. The complete command and test catalog lives in
-[docs/testing.md](docs/testing.md).
+[docs/testing.md](docs/testing.md); the [capability map](docs/capabilities.md)
+separates current source, recorded production evidence and remaining gates.
 
 ## Product flow
 

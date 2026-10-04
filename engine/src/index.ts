@@ -13,15 +13,15 @@ export { contentHash } from './hash.js';
 
 export { runAnalysis, persistSnapshot } from './analyze.js';
 export type { AnalyzeOptions, AnalyzeResult } from './analyze.js';
-export { deriveLegs, deriveSamplePoints, legMidpoints, totalDistanceNm } from './route.js';
+export { deriveLegs, legMidpoints, totalDistanceNm } from './route.js';
 export { computeSchedules, computeRouteSchedules, parseUtc, toIso } from './eta.js';
 export { parseGpx } from './gpx.js';
 export { renderBriefing, nextForecastRuns } from './briefing.js';
 export type { Briefing, BriefingSection } from './briefing.js';
 export { buildPlume, writeSnapshot } from './snapshot.js';
 export type { Plume, SnapshotStore } from './snapshot.js';
-export { routeBbox, passageMaxHours, planGrid } from './fetch/liveGrids.js';
-export type { RouteBbox, GridPlan } from './fetch/liveGrids.js';
+export { routeBbox, passageMaxHours } from './fetch/liveGrids.js';
+export type { RouteBbox } from './fetch/liveGrids.js';
 export { GridSampler, alongCourseKt, currentSetDeg, currentSpeedKt } from './grids.js';
 export type { RegionGrid, GridSample } from './grids.js';
 export { computeRoute } from './routing/isochrone.js';
@@ -67,7 +67,6 @@ export type {
   EnsemblePointForecast,
   WavePointForecast,
   HazardPointForecast,
-  CurrentPointForecast,
   TileRequestMeta,
 } from './forecast/types.js';
 export {

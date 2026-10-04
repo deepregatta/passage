@@ -3,7 +3,13 @@
 `scripts/upload-prepared-run.py` supports `PAID_WORK_ENFORCE=1` using the
 existing R2 credentials and `ops/paid-work.json` in the forecast bucket.
 The prepare-synoptic workflow reads the repository variable of that name;
-absent/default `0` leaves activation pending. No plan upgrade is needed.
+absent/default `0` disables this admission guard. No plan upgrade is needed.
+
+Read-only configuration check on 2026-10-04: Passage's repository variable is
+`1` (updated 2026-10-03T08:51:01Z). This confirms enforcement configuration,
+not current ledger admission or publication. No job was dispatched here.
+The public prepared pointer was readable with curl; that metadata alone does
+not establish artifact freshness/coverage or the outcome of a guarded job.
 
 The uploader checks reviewed provider gates before constructing the data
 uploader, reserves 2,700 seconds (the existing 45-minute job limit) in the
