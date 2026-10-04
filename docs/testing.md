@@ -234,3 +234,9 @@ applies to the nominal routed arrival; the existing slow/fast scenarios remain a
 ±15% SOG approximation inheriting polar uncertainty. They are not calibrated
 confidence intervals. Times and durations displayed by the app retain their
 existing rounding.
+
+## Shared forecast contracts
+
+`npm run check:contracts` verifies the four forecast schemas and producer golden
+pins, then exercises isolated positive/drift cases. It runs first in `npm test`
+and in a dedicated CI job. See [ownership and refresh rules](shared-contracts.md).

@@ -12,12 +12,13 @@
   ],
   "scripts": {
     "lint": "eslint . --max-warnings 0",
-    "test": "npm run build -w engine && npm run typecheck -w engine && npm run test -w engine && npm run typecheck -w viewer && npm run test -w viewer --if-present",
+    "test": "npm run check:contracts && npm run build -w engine && npm run typecheck -w engine && npm run test -w engine && npm run typecheck -w viewer && npm run test -w viewer --if-present",
     "test:e2e": "npm run test:e2e -w viewer",
     "dev": "npm run dev -w viewer",
     "build": "npm run build -w engine && npm run build -w viewer",
     "build:pages": "npm run build && node scripts/build-pages.mjs && node scripts/check-dist.mjs",
-    "publish:polars": "node scripts/publish-polars.mjs"
+    "publish:polars": "node scripts/publish-polars.mjs",
+    "check:contracts": "python3 scripts/check_shared_contracts.py && python3 -m unittest discover -s scripts -p test_shared_contracts.py"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

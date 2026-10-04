@@ -8,6 +8,16 @@ permissions:
   contents: read
 
 jobs:
+  shared-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: python3 scripts/check_shared_contracts.py
+      - run: python3 -m unittest discover -s scripts -p test_shared_contracts.py
+
   javascript:
     runs-on: ubuntu-latest
     steps:
