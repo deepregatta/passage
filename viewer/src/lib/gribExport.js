@@ -149,16 +149,16 @@ export function normalizeGribPeriod(value) {
 /**
  * From now, floored to the hour, for the period's days, or with `full` to the
  * last step of the longest pinned forecast (`forecastEndIso`, see
- * gribForecastEnd). Each dataset is then clipped to its own horizon by the plan.
+ * gribForecastEnd). Full marks the plan to end each dataset at its own horizon.
  */
 export function gribPeriodWindow({ period, nowMs, forecastEndIso = null }) {
   const startMs = Math.floor(nowMs / HOUR_MS) * HOUR_MS;
   const chosen = normalizeGribPeriod(period);
   if (chosen === 'full' && forecastEndIso) {
-    return { startIso: toIso(startMs), endIso: toIso(Math.max(startMs, parseUtc(forecastEndIso))) };
+    return { startIso: toIso(startMs), endIso: toIso(Math.max(startMs, parseUtc(forecastEndIso))), extent: 'full' };
   }
   const days = chosen === 'full' ? Number(GRIB_DEFAULT_PERIOD) : Number(chosen);
-  return { startIso: toIso(startMs), endIso: toIso(startMs + days * 24 * HOUR_MS) };
+  return { startIso: toIso(startMs), endIso: toIso(startMs + days * 24 * HOUR_MS), ...(chosen === 'full' ? { extent: 'full' } : {}) };
 }
 
 /**
@@ -240,7 +240,7 @@ export function gribModelSpacing(manifests, dataset) {
  */
 export function gribPeriodFor(manifests, { area, step, nowMs, datasetId }) {
   const forecastEndIso = gribForecastEnd(manifests);
-  for (const period of [...GRIB_PERIODS].reverse()) {
+  for (const period of GRIB_PERIODS.filter((value) => value !== 'full').reverse()) {
     const window = gribPeriodWindow({ period, nowMs, forecastEndIso });
     const dataset = planAreaGrib(manifests, { area, window, step }).datasets.find((d) => d.datasetId === datasetId);
     if (dataset?.availability === 'ok') return period;
@@ -256,6 +256,7 @@ export function planAreaGrib(manifests, { area, window, step, fixture = GRIB_TIL
     datasetIds: GRIB_DATASET_IDS,
     startIso: window.startIso,
     endIso: window.endIso,
+    extent: window.extent,
     step,
     lonConvention: '0-360',
     checkpoints: [centre],

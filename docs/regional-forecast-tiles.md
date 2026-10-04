@@ -35,7 +35,9 @@ their separate request budgets. The shared retained cache remains 64 MiB. Region
 data use IndexedDB; the memory fallback does not accumulate another cache.
 
 The GRIB selector offers AROME/ICON-EU/UKV only when their opted-in manifests exist.
-Their export plans require full time and rectangular-domain coverage, retain
+Their fixed-period export plans require full time and rectangular-domain coverage;
+Full forecast keeps the requested start and ends at each model's own last step.
+Both retain
 missing mask cells, use source attribution and one-hour maximum gust windows,
 and cap compressed tile transfer at 50 MiB for an explicit download. UKV
 preserves instantaneous +0 h gust at 10 m, Met Office centre 74, its upstream

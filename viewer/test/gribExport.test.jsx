@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { gunzipSync } from 'node:zlib';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { TileForecastStore } from '@deepweather/engine';
+import { decodeTile, TileForecastStore } from '@deepweather/engine';
 import { buildFixtureRun } from '../../engine/test/helpers/fixtureRun.ts';
+import { readGrib2 } from '../../engine/test/helpers/grib2Reader.ts';
 import Grib from '../src/pages/Grib.jsx';
 import Planner from '../src/pages/Planner.jsx';
 import { useApp } from '../src/stores/appStore.js';
@@ -118,7 +120,11 @@ function withArome(transport) {
   }]);
   for (const [runId, manifest] of extra.manifests) {
     manifest.coverage = { minLat: 45, maxLat: 55, minLon: -12, maxLon: 5 };
-    for (const tile of Object.values(manifest.tiles)) Object.assign(tile, { decoded_bytes: 4096, uncompressed_bytes: 4096 });
+    for (const [id, tile] of Object.entries(manifest.tiles)) {
+      const bytes = gunzipSync(extra.tiles.get(`${runId}/${manifest.tiling.path_template.replace('{tile_id}', id)}`));
+      tile.uncompressed_bytes = bytes.length;
+      tile.decoded_bytes = Object.values(decodeTile(bytes).arrays).reduce((sum, values) => sum + values.byteLength, 0);
+    }
     transport.manifests.set(runId, manifest);
   }
   for (const [key, bytes] of extra.tiles) transport.tiles.set(key, bytes);
@@ -478,6 +484,32 @@ describe('GRIB files page', () => {
     expect(kindItem('Download wind').getByText('Wind – AROME')).toBeInTheDocument();
     // waves has one model: no picker
     expect(page().queryByRole('radiogroup', { name: /waves/i })).not.toBeInTheDocument();
+  });
+
+  it('downloads a regional model’s full remaining forecast independently of the longest model', async () => {
+    store.current = new TileForecastStore({ transport: withArome(fixtureTransport()), regionalLayers: ['weather-arome'] });
+    await openWith(CHANNEL);
+    fireEvent.change(page().getByRole('combobox', { name: 'Period' }), { target: { value: 'full' } });
+    expect(page().getByText('Each model runs from now to the end of its available forecast.')).toBeInTheDocument();
+    const arome = within(page().getByRole('radiogroup', { name: 'Wind model' })).getByRole('radio', { name: /^AROME/ });
+    expect(arome).toBeEnabled();
+    fireEvent.click(arome);
+    const wind = kindItem('Download wind');
+    expect(wind.getByText('Mon 20 Jul 06:00 → Tue 21 Jul 06:00 UTC')).toBeInTheDocument();
+    fireEvent.click(wind.getByRole('button', { name: 'Download wind' }));
+    await waitFor(() => expect(saves).toHaveLength(1));
+    expect(saves[0].name).toContain('wind-arome');
+    const bytes = new Uint8Array(await URL.createObjectURL.mock.calls[0][0].arrayBuffer());
+    const messages = readGrib2(bytes);
+    expect(messages).toHaveLength(25 * 2);
+    expect(new Set(messages.map(message => message.product.forecastTime))).toEqual(new Set(hours(25).map(h => h + 6)));
+    expect(new Set(messages.map(message => message.refTime))).toEqual(new Set(['2026-07-20T00:00:00Z']));
+  });
+
+  it('explains the per-model full forecast range in French', async () => {
+    act(() => useGrib.setState({ area: CHANNEL, period: 'full' }));
+    render(<><Grib /><LocalizedDocument language="fr" /></>);
+    expect(await screen.findByText('Chaque modèle couvre la période allant de maintenant à la fin de sa prévision disponible.')).toBeInTheDocument();
   });
 
   it('falls back to the global currents where IBI covers only part of the box', async () => {

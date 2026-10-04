@@ -569,7 +569,11 @@ export default function Grib() {
               >
                 {GRIB_PERIODS.map((value) => <option key={value} value={value}>{PERIOD_LABELS[value]}</option>)}
               </select>
-              <p className="font-mono text-[12px]">{fmtUtcRange(timeWindow.startIso, timeWindow.endIso)}</p>
+              {period === 'full' ? (
+                <p className="text-[12px]">Each model runs from now to the end of its available forecast.</p>
+              ) : (
+                <p className="font-mono text-[12px]">{fmtUtcRange(timeWindow.startIso, timeWindow.endIso)}</p>
+              )}
             </Step>
 
             <Step number={3} title="Download">
