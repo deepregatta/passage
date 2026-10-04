@@ -14,6 +14,7 @@ This directory contains the maintained documentation for Passage.
 | [2026-09-19 review closeout](maintenance/2026-09-19-review-closeout.md) | Remaining robustness/configuration fixes, CI coverage, and production smoke evidence |
 | [Shared contracts](shared-contracts.md) | Canonical owners, committed revision/digest pins, deliberate representations and offline drift gates |
 | [PFT1 forecast tile format](forecast-tile-format.md) | Binary forecast-tile and publication contract shared with `forecast-tiles` |
+| [Forecast consumers and freshness](forecast-consumers.md) | Custom-domain consumers, pointer revalidation, saved/offline compatibility and approval-gated F02 handoff |
 | [Regional forecast tiles](regional-forecast-tiles.md) | AROME/ICON-EU/UKV admission, recorded canary activation, device evidence and release gates |
 | [Prepared publication spending control](paid-work.md) | Paid-work admission, its limits, pause and recovery rules |
 | [Prepared capacity and retention](storage-admission.md) | Vendored F01 physical-byte reservations, immutable pointer history, protected references and gated rollout |
