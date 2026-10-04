@@ -99,6 +99,10 @@ Production builds default to `https://forecast.deepregatta.com` for forecast
 tiles and its `prepared/` prefix for prepared runs. `VITE_FORECAST_BASE_URL`
 can override that public host; another origin also requires updating the
 `connect-src` and `img-src` allowlists in `viewer/public/_headers`.
+The [consumer and freshness guide](docs/forecast-consumers.md) records pointer
+revalidation, immutable caching, saved/offline compatibility and the F02 access
+gates. A four-hour browser response header does not establish a four-hour
+application staleness defect.
 Regional wind exports must fit the selected model's complete forecast horizon.
 The GRIB page offers an explicit **Next 1 day** period for these shorter runs.
 
