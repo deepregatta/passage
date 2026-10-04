@@ -35,7 +35,16 @@ const CANONICAL = {
 
 export function initialPage() {
   if (typeof location === 'undefined') return 'planner';
-  return parseRoute(location.hash).page ?? 'planner';
+  return locationRoute().page ?? 'planner';
+}
+
+export function isGribPath(pathname = globalThis.location?.pathname ?? '') {
+  return /^\/(?:fr\/)?grib\/?$/.test(pathname);
+}
+
+export function locationRoute() {
+  const route = parseRoute(location.hash);
+  return !location.hash && isGribPath() ? { ...route, page: 'grib' } : route;
 }
 
 // A shared URL names a served artifact directory, never an arbitrary URL/path.

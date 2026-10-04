@@ -19,6 +19,7 @@ export function getLanguageFromPath(pathname) {
 
 export function getInitialLanguage() {
   if (typeof location !== 'undefined') {
+    if (/^\/grib\/?$/.test(location.pathname)) return 'en';
     const fromPath = getLanguageFromPath(location.pathname);
     if (fromPath) return fromPath;
   }
@@ -35,6 +36,9 @@ export function getInitialLanguage() {
 // This catalogue deliberately uses the English copy as its key, which lets old
 // snapshots and lazy-loaded panels participate without changing their schemas.
 const FR = {
+  "After your download": "Après le téléchargement",
+  "Plan a passage in this area": "Planifier une traversée dans cette zone",
+  "Replay a race sailed here": "Revoir une course disputée ici",
   [CHANNEL_PREPARED_COVERAGE]: 'Préparation pour la Manche uniquement : domaine synoptique fixe sur l’Atlantique nord-est (35–65°N, 35°O–10°E) et grille de vent de la Manche (49–51°N, 6°O–0°). Ces domaines ne suivent pas votre route ; la couverture synoptique hors de la Manche n’est pas établie. La couverture des tuiles de prévision est distincte.',
   "Previous run": "Analyse précédente",
   "Latest run": "Dernière analyse",

@@ -44,8 +44,13 @@ createServer(async (req, res) => {
       body = await readFile(file);
     } catch {
       if (extname(pathname)) throw new Error('not found');
-      file = join(root, 'index.html');
-      body = await readFile(file);
+      try {
+        file = join(root, pathname, 'index.html');
+        body = await readFile(file);
+      } catch {
+        file = join(root, 'index.html');
+        body = await readFile(file);
+      }
     }
     res.writeHead(200, { 'Content-Type': types[extname(file)] ?? 'application/octet-stream' });
     res.end(body);

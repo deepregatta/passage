@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect } from 'react';
 import { useApp } from './stores/appStore.js';
 import Shell from './components/Shell.jsx';
-import { parseRoute, pageHash } from './lib/routes.js';
+import { locationRoute, pageHash } from './lib/routes.js';
 import { track } from './lib/analytics.js';
 import { LocalizedDocument } from './i18n.js';
 import { HeadMetadata } from './components/HeadMetadata.jsx';
@@ -26,7 +26,7 @@ export default function App() {
 
   useEffect(() => {
     const sync = () => {
-      const { page: target, snapshotId, section, limits } = parseRoute(location.hash);
+      const { page: target, snapshotId, section, limits } = locationRoute();
       if (target) {
         setPage(target, false);
         const state = useApp.getState();
@@ -41,7 +41,11 @@ export default function App() {
     };
     sync();
     window.addEventListener('hashchange', sync);
-    return () => window.removeEventListener('hashchange', sync);
+    window.addEventListener('popstate', sync);
+    return () => {
+      window.removeEventListener('hashchange', sync);
+      window.removeEventListener('popstate', sync);
+    };
   }, [setPage]);
 
   useEffect(() => {
@@ -51,7 +55,7 @@ export default function App() {
   return (
     <>
       <LocalizedDocument language={language} />
-      <HeadMetadata language={language} />
+      <HeadMetadata language={language} page={page} />
       <Shell page={page} onNavigate={setPage}>
         {/* Dispose the old page's imperative map even if the next page suspends. */}
         <Suspense key={page} fallback={<div className="p-8 font-instrument text-ink-soft">Loading passage instruments…</div>}>

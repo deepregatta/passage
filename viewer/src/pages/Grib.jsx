@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { GRIB_EXPORT_NOTICE, FORECAST_UPDATED_MESSAGE, gribDataset } from '@deepweather/engine';
 import { EmulatedStamp, Panel } from '../components/common.jsx';
-import { track } from '../lib/analytics.js';
+import { track, withUtm } from '../lib/analytics.js';
+import { gribReplayRaces, gribReplayUrl } from '../lib/gribNextSteps.js';
+import { useApp } from '../stores/appStore.js';
 import { fmtTime } from '../lib/format.js';
 import { forecastStore, friendlyForecastError } from '../lib/forecastStore.js';
 import { withFreshForecast } from '../lib/forecastFreshness.js';
@@ -24,7 +26,7 @@ import {
   fmtTooLarge,
   fmtUtc,
   fmtUtcRange,
-  gribAreaFromHash,
+  gribAreaFromLocation,
   gribAreaHash,
   gribFileWithUrl,
   gribForecastEnd,
@@ -44,7 +46,7 @@ import {
   runDatasetGrib,
   saveGribFile,
 } from '../lib/gribExport.js';
-import { parseRoute } from '../lib/routes.js';
+import { isGribPath, locationRoute } from '../lib/routes.js';
 import { useGrib } from '../stores/gribStore.js';
 import GribMap from './grib/GribMap.jsx';
 
@@ -310,6 +312,7 @@ function KindRow({ kindId, dataset, timeWindow, period, result, running, progres
  * runs (docs/grib-export.md → GRIB files page).
  */
 export default function Grib() {
+  const language = useApp((state) => state.language);
   const { area, period, step, models, fitNonce, patch, showArea } = useGrib();
   const [manifestState, setManifestState] = useState({ status: 'loading', manifests: null, attempt: 0 });
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -341,25 +344,35 @@ export default function Grib() {
     // once; after that the address follows the box, so it can always be bookmarked.
     if (!adoptedLink.current) {
       adoptedLink.current = true;
-      const linked = gribAreaFromHash();
+      const linked = gribAreaFromLocation();
       if (linked && !sameArea(linked, area)) {
         showArea(linked);
         return;
       }
     }
     const target = `#${gribAreaHash(area)}`;
-    if (parseRoute(location.hash).page === 'grib' && location.hash !== target) {
+    if (isGribPath() && !location.hash) {
+      const url = new URL(location.href);
+      const value = gribAreaHash(area).split('area=')[1];
+      if (value) url.searchParams.set('area', value);
+      else url.searchParams.delete('area');
+      history.replaceState(null, '', `${url.pathname}${url.search}`);
+    } else if (locationRoute().page === 'grib' && location.hash !== target) {
       history.replaceState(null, '', `${location.pathname}${location.search}${target}`);
     }
   }, [area, showArea]);
 
   useEffect(() => {
     const follow = () => {
-      const linked = gribAreaFromHash();
+      const linked = gribAreaFromLocation();
       if (linked && !sameArea(linked, useGrib.getState().area)) useGrib.getState().showArea(linked);
     };
     window.addEventListener('hashchange', follow);
-    return () => window.removeEventListener('hashchange', follow);
+    window.addEventListener('popstate', follow);
+    return () => {
+      window.removeEventListener('hashchange', follow);
+      window.removeEventListener('popstate', follow);
+    };
   }, []);
 
   useEffect(() => () => {
@@ -493,6 +506,13 @@ export default function Grib() {
     .catch((e) => setError(e?.code === 'forecast-updated' ? FORECAST_UPDATED_MESSAGE : friendlyForecastError(e).message));
 
   const savedAny = Object.values(results).some((result) => result.file.url);
+  const replayRaces = savedAny ? gribReplayRaces(area) : [];
+  const planHere = () => {
+    track('grib_next_step', { target: 'plan' });
+    useApp.getState().setPlannerArea({ ...area });
+    useApp.getState().setPage('planner');
+    window.scrollTo({ top: 0, left: 0 });
+  };
 
   return (
     <div className="px-6 py-5 max-w-[1600px]">
@@ -594,6 +614,22 @@ export default function Grib() {
                 </p>
               )}
             </Step>
+
+            {savedAny && (
+              <section aria-label="After your download" className="border-t hairline pt-3 space-y-2">
+                <button type="button" onClick={planHere} className="min-h-11 block underline underline-offset-4">
+                  Plan a passage in this area
+                </button>
+                {replayRaces.map((race) => (
+                  <a key={race.id} href={withUtm(gribReplayUrl(race, language))}
+                    target="_blank" rel="noopener"
+                    onClick={() => track('grib_next_step', { target: race.id })}
+                    className="min-h-11 flex flex-wrap items-center gap-x-1 underline underline-offset-4">
+                    <span>Replay a race sailed here</span><span aria-hidden="true"> · </span><span>{race.name}</span>
+                  </a>
+                ))}
+              </section>
+            )}
 
             {plan && (
               <details className="border-t hairline pt-3">

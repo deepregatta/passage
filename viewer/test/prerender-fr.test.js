@@ -1,12 +1,36 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { COPY, NO_JS_COPY, ORIGIN } from '../src/metadata.js';
-import { renderFrenchHtml } from '../scripts/prerender-fr.mjs';
+import { COPY, GRIB_COPY, NO_JS_COPY, ORIGIN } from '../src/metadata.js';
+import { renderFrenchHtml, renderGribHtml } from '../scripts/prerender-fr.mjs';
 
 // The transform runs on dist/index.html; Vite keeps the head markup of the
 // source page intact, so the committed index.html is a faithful stand-in.
 const sourceHtml = readFileSync(resolve(import.meta.dirname, '..', 'index.html'), 'utf8');
+
+describe('crawlable GRIB HTML', () => {
+  it.each(['en', 'fr'])('serves route-specific %s metadata and body without JavaScript', (language) => {
+    const html = renderGribHtml(sourceHtml, language);
+    const page = new DOMParser().parseFromString(html, 'text/html');
+    const path = language === 'fr' ? '/fr/grib' : '/grib';
+    expect(page.title).toBe(GRIB_COPY[language].title);
+    expect(page.documentElement.lang).toBe(language);
+    for (const selector of ['meta[name="description"]', 'meta[property="og:description"]']) {
+      expect(page.querySelector(selector).content).toBe(GRIB_COPY[language].description);
+    }
+    expect(page.querySelector('meta[property="og:title"]').content).toBe(page.title);
+    expect(page.querySelector('meta[property="og:url"]').content).toBe(`${ORIGIN}${path}`);
+    expect(page.querySelector('link[rel="canonical"]').href).toBe(`${ORIGIN}${path}`);
+    expect(page.querySelector('main').textContent).toContain(GRIB_COPY[language].description);
+    expect(page.querySelector('main').textContent).toContain(language === 'fr' ? 'pas pour la navigation' : 'not for navigation');
+    for (const [code, target] of [['en', '/grib'], ['fr', '/fr/grib'], ['x-default', '/grib']]) {
+      expect(page.querySelector(`link[hreflang="${code}"]`).href).toBe(`${ORIGIN}${target}`);
+    }
+    expect(page.querySelector('body > script').outerHTML).toBe(new DOMParser().parseFromString(sourceHtml, 'text/html').querySelector('body > script').outerHTML);
+    const sitemap = readFileSync(resolve(import.meta.dirname, '../public/sitemap.xml'), 'utf8');
+    expect(sitemap).toContain(`<loc>${ORIGIN}${path}</loc>`);
+  });
+});
 
 describe('static EN head', () => {
   it('stays in sync with the shared metadata table', () => {

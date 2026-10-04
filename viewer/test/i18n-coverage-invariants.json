@@ -48,6 +48,7 @@
         "briefing",
         "hashchange",
         "page_view",
+        "popstate",
         "served"
       ],
       "viewer/src/components/BoatPicker.jsx": [
@@ -118,11 +119,14 @@
         "keydown"
       ],
       "viewer/src/components/HeadMetadata.jsx": [
+        "\"]",
         "content",
         "description",
         "en",
         "fr",
+        "grib",
         "href",
+        "link[rel=\"alternate\"][hreflang=\"",
         "link[rel=\"canonical\"]",
         "meta",
         "meta[name=\"description\"]",
@@ -144,7 +148,8 @@
         "passage-structured-data",
         "twitter:description",
         "twitter:image",
-        "twitter:title"
+        "twitter:title",
+        "x-default"
       ],
       "viewer/src/components/LimitsDrawer.jsx": [
         "Escape",
@@ -299,18 +304,25 @@
       ],
       "viewer/src/pages/Grib.jsx": [
         "#",
+        "_blank",
         "all",
+        "area=",
         "d",
         "forecast-updated",
         "full",
         "grib",
         "grib_export",
+        "grib_next_step",
         "hashchange",
         "loading",
         "no-layer",
         "no-tiles",
+        "noopener",
         "ok",
         "outside-horizon",
+        "plan",
+        "planner",
+        "popstate",
         "ready",
         "settings-changed",
         "tiles",

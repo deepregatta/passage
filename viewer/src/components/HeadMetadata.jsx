@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { COPY, SHARE_IMAGE, ogLocale, pageUrl, softwareApplication } from '../metadata.js';
+import { COPY, GRIB_COPY, SHARE_IMAGE, ogLocale, pageUrl, softwareApplication } from '../metadata.js';
 
 function setMeta(selector, attributes, content) {
   let element = document.querySelector(selector);
@@ -11,13 +11,17 @@ function setMeta(selector, attributes, content) {
   element.setAttribute('content', content);
 }
 
-export function HeadMetadata({ language }) {
+export function HeadMetadata({ language, page }) {
   useEffect(() => {
-    const metadata = COPY[language === 'fr' ? 'fr' : 'en'];
-    const url = pageUrl(language);
-    document.title = `${metadata.title} | DeepRegatta`;
+    const metadata = (page === 'grib' ? GRIB_COPY : COPY)[language === 'fr' ? 'fr' : 'en'];
+    const url = pageUrl(language, page);
+    document.title = page === 'grib' ? metadata.title : `${metadata.title} | DeepRegatta`;
     document.documentElement.lang = language;
     document.querySelector('link[rel="canonical"]')?.setAttribute('href', url);
+    for (const code of ['en', 'fr', 'x-default']) {
+      document.querySelector(`link[rel="alternate"][hreflang="${code}"]`)
+        ?.setAttribute('href', pageUrl(code === 'fr' ? 'fr' : 'en', page));
+    }
     setMeta('meta[name="description"]', { name: 'description' }, metadata.description);
     setMeta('meta[property="og:title"]', { property: 'og:title' }, metadata.title);
     setMeta('meta[property="og:description"]', { property: 'og:description' }, metadata.description);
@@ -30,9 +34,9 @@ export function HeadMetadata({ language }) {
     setMeta('meta[name="twitter:image"]', { name: 'twitter:image' }, SHARE_IMAGE);
     const structuredData = document.getElementById('passage-structured-data');
     if (structuredData) {
-      structuredData.textContent = JSON.stringify(softwareApplication(language));
+      structuredData.textContent = JSON.stringify(softwareApplication(language, page));
     }
-  }, [language]);
+  }, [language, page]);
 
   return null;
 }

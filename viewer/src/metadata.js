@@ -20,6 +20,19 @@ export const COPY = {
   },
 };
 
+export const GRIB_COPY = {
+  en: {
+    ...COPY.en,
+    title: 'Free GRIB files: wind, waves and currents | Passage',
+    description: 'Download free GRIB2 files for wind, waves and currents. Choose your sailing area and forecast period in Passage.',
+  },
+  fr: {
+    ...COPY.fr,
+    title: 'Fichiers GRIB gratuits : vent, vagues et courants | Passage',
+    description: 'Téléchargez gratuitement des fichiers GRIB2 de vent, vagues et courants. Choisissez votre zone de navigation et la période de prévision dans Passage.',
+  },
+};
+
 // Complete static fallback copy. English entries mirror index.html; the prerender
 // rejects unknown, missing or repeated text so source edits cannot silently leak English.
 export const NO_JS_COPY = [
@@ -77,7 +90,8 @@ export const NO_JS_COPY = [
   },
 ];
 
-export function pageUrl(language) {
+export function pageUrl(language, page) {
+  if (page === 'grib') return `${ORIGIN}${language === 'fr' ? '/fr/grib' : '/grib'}`;
   return language === 'fr' ? `${ORIGIN}/fr/` : `${ORIGIN}/`;
 }
 
@@ -85,7 +99,7 @@ export function ogLocale(language) {
   return language === 'fr' ? 'fr_FR' : 'en_GB';
 }
 
-export function softwareApplication(language) {
+export function softwareApplication(language, page) {
   const isFrench = language === 'fr';
   return {
     '@context': 'https://schema.org',
@@ -93,8 +107,8 @@ export function softwareApplication(language) {
     name: 'Passage',
     applicationCategory: 'WeatherApplication',
     operatingSystem: 'Web',
-    url: pageUrl(language),
-    description: COPY[isFrench ? 'fr' : 'en'].description,
+    url: pageUrl(language, page),
+    description: (page === 'grib' ? GRIB_COPY : COPY)[isFrench ? 'fr' : 'en'].description,
     inLanguage: isFrench ? 'fr' : 'en',
     offers: {
       '@type': 'Offer',

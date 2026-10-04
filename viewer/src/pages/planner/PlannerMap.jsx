@@ -1,6 +1,6 @@
 import { palette } from '../../lib/palette.js';
 import { useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Polyline, useMap, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Polyline, Rectangle, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { BASEMAP } from '../../lib/basemap.js';
@@ -32,21 +32,24 @@ function ClickCapture({ onClick }) {
 
 /** Bring the whole route into view when returning to the planner or when a
  * route arrives whole (computed / GPX); never while the user is drawing. */
-function FitRoute({ positions, fitKey }) {
+function FitRoute({ positions, fitKey, chartArea }) {
   const map = useMap();
   const lastFit = useRef(null);
   useEffect(() => {
     // Positions change while drawing; only an explicit fit request moves the map.
-    if (lastFit.current?.map === map && lastFit.current.key === fitKey) return;
-    lastFit.current = { map, key: fitKey };
-    if (positions.length >= 2) {
+    if (lastFit.current?.map === map && lastFit.current.key === fitKey && lastFit.current.area === chartArea) return;
+    const newArea = chartArea && (lastFit.current?.map !== map || lastFit.current?.area !== chartArea);
+    lastFit.current = { map, key: fitKey, area: chartArea };
+    if (newArea) {
+      map.fitBounds([[chartArea.minLat, chartArea.minLon], [chartArea.maxLat, chartArea.maxLon]], { padding: [32, 32] });
+    } else if (positions.length >= 2) {
       map.fitBounds(L.latLngBounds(positions), { padding: [32, 32], maxZoom: 10 });
     }
-  }, [map, fitKey, positions]);
+  }, [map, fitKey, positions, chartArea]);
   return null;
 }
 
-export default function PlannerMap({ mode, waypoints, computed, endpoints, fitNonce, addWaypoint, setWaypoints, children }) {
+export default function PlannerMap({ mode, waypoints, computed, endpoints, fitNonce, chartArea, addWaypoint, setWaypoints, children }) {
   const frameRef = useRef(null);
   return (
     <div ref={frameRef} className="isolate relative h-[55vh] min-h-[360px] lg:h-auto lg:min-h-[calc(100vh-8rem)] border border-ink/30 rounded-sm overflow-hidden">
@@ -63,6 +66,7 @@ export default function PlannerMap({ mode, waypoints, computed, endpoints, fitNo
         <TrackFrameSize frameRef={frameRef} />
         <ClickCapture onClick={addWaypoint} />
         <FitRoute
+          chartArea={chartArea}
           positions={
             mode === 'compute'
               ? computed
@@ -72,6 +76,8 @@ export default function PlannerMap({ mode, waypoints, computed, endpoints, fitNo
           }
           fitKey={`${fitNonce}:${mode === 'compute' ? computed?.arrival_utc ?? '' : ''}`}
         />
+        {chartArea && <Rectangle bounds={[[chartArea.minLat, chartArea.minLon], [chartArea.maxLat, chartArea.maxLon]]}
+          pathOptions={{ color: palette.ink.DEFAULT, weight: 1, dashArray: '6 4', fill: false }} />}
         {mode === 'draw' &&
           waypoints.map((wp, i) => (
             <Marker
