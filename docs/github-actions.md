@@ -98,10 +98,12 @@ new scheduler, bot, automatic merge or PR requirement is configured.
    broader rollback only after reviewing its security impact. Never reset or
    force-push `main`.
 
-## Main protection proposal (approval required)
+## Main history protection
 
-[`.github/main-protection.json`](../.github/main-protection.json) is an exact
-**proposal**, not an activated provider configuration. It defines the repository
+[`.github/main-protection.json`](../.github/main-protection.json) is the exact
+configuration approved and activated on 2026-10-04. Provider read-back confirmed
+active enforcement, the main-only condition, both effective rules and an empty
+bypass list. It defines the repository
 ruleset `main-history-safety`, active only for `refs/heads/main`, with `deletion`
 and `non_fast_forward` rules and **no bypass actors**. Normal fast-forward pushes
 remain available to authorized writers, including the owner and the existing
@@ -123,14 +125,14 @@ flow or require a broad bypass. Even green post-push CI alone does not establish
 compatible bootstrap ordering. Revisit checks only under a separately demonstrated
 contribution/deployment design and approval.
 
-Before activation, refresh `branches/main`, legacy `branches/main/protection`,
+Before a future reapplication or change, refresh `branches/main`, legacy `branches/main/protection`,
 `rulesets?includes_parents=true` and `rules/branches/main`; compare them with the
-approved proposal and check for overlapping organization rules. Confirm the
+approved configuration and check for overlapping organization rules. Confirm the
 owner still has administration access. Preserve existing rules; do not blindly
 create a duplicate or replace an equivalent implementation. Keep the fresh
 snapshot, returned ruleset ID and approval in private audit evidence.
 
-After explicit approval, when no equivalent/conflicting rule exists:
+The activation command, usable only with approval and when no equivalent/conflicting rule exists:
 
 ```bash
 gh api --method POST repos/deepregatta/passage/rulesets \
@@ -157,6 +159,8 @@ gh api --method PUT repos/deepregatta/passage/rulesets/<returned-id> \
   --jq '{id,name,enforcement}'
 ```
 
-No paid plan, visibility, subscription, credential or access-role change is
-needed by this proposal. Activation is held until owner approval; the current
-live state and final delivery results belong in the private dated P03 report.
+Activation changed no paid plan, visibility, subscription, credential or access
+role. The owner approved activation and the disable-only rollback on 2026-10-04.
+The returned ruleset ID, approval, delivery observations and exact rollback
+command are retained in the private dated P03 report. Future provider changes
+require their own authorization.
