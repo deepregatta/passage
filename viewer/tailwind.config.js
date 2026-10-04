@@ -16,6 +16,8 @@ export default {
         sans: ['Archivo Narrow', 'Arial Narrow', 'sans-serif'],
         mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
       },
+      // Keep the existing 2px control corners (v4's sm defaults to 4px).
+      borderRadius: { sm: '0.125rem' },
       boxShadow: {
         panel: `0 1px 0 ${rgba(palette.ink.DEFAULT, '0.08')}, 0 2px 8px ${rgba(palette.ink.DEFAULT, '0.06')}`,
       },

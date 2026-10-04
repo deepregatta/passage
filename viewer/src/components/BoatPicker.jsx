@@ -91,7 +91,7 @@ export default function BoatPicker({ polarId, polarLabel, onSelect }) {
             }}
             placeholder="Type a model, for example First 36.7 or JPK 10.10"
             aria-label="Search boat models"
-            className="w-full sticky top-0 bg-white/95 border-b hairline px-2 py-2 text-sm outline-none"
+            className="w-full sticky top-0 bg-white/95 border-b hairline px-2 py-2 text-sm outline-hidden"
           />
           {!index && <p className="px-2 py-2 text-[12px] text-ink-soft">Loading boat database…</p>}
           {index && query && matches.length === 0 && (

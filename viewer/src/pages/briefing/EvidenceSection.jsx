@@ -55,7 +55,7 @@ export default function EvidenceSection() {
       <header className="border-b border-ink/40 pb-4 mb-4">
         <p className="eyebrow">Claim-level evidence · {evidence.rule_id}</p>
         <div className="grid lg:grid-cols-[1fr_auto] gap-4 items-end">
-          <h2 className="font-story text-3xl sm:text-4xl leading-[1.02] max-w-4xl">
+          <h2 className="font-story text-3xl sm:text-4xl leading-[1.02] sm:leading-10 max-w-4xl">
             <span className="text-verdict-exceeds">{evidence.member_fraction.exceed} of {evidence.member_fraction.total}</span>{' '}
             {`forecast scenarios exceed your ${variable} limit`}
           </h2>
@@ -99,7 +99,7 @@ export default function EvidenceSection() {
 
 function ClaimPanel({ evidence, leg }) {
   const pct = Math.round((evidence.member_fraction.exceed / evidence.member_fraction.total) * 100);
-  return <aside className="hidden 2xl:block border-l border-ink/40 pl-4 sticky top-28 self-start" aria-label="Selected evidence summary"><p className="eyebrow">Selected claim</p><dl className="mt-2 divide-y hairline text-sm"><div className="py-2"><dt className="eyebrow">Rule</dt><dd className="font-mono">{evidence.rule_id}</dd></div><div className="py-2"><dt className="eyebrow">Route window</dt><dd>{evidence.leg_id} · {leg?.name}</dd><dd className="font-mono text-xs">{fmtTime(evidence.valid_time)} UTC</dd></div><div className="py-2"><dt className="eyebrow">Raw fraction</dt><dd className="font-story text-3xl">{evidence.member_fraction.exceed}/{evidence.member_fraction.total}</dd><dd>{pct}% · not calibrated</dd></div><div className="py-2"><dt className="eyebrow">Limit</dt><dd className="font-mono">{evidence.limit} {evidence.units}</dd></div></dl><p className="mt-4 p-3 bg-shoal/50 border hairline text-xs">Agreement is not proof. This panel stays tied to the claim selected at left.</p></aside>;
+  return <aside className="hidden 2xl:block border-l border-ink/40 pl-4 sticky top-28 self-start" aria-label="Selected evidence summary"><p className="eyebrow">Selected claim</p><dl className="mt-2 divide-y-legacy hairline text-sm"><div className="py-2"><dt className="eyebrow">Rule</dt><dd className="font-mono">{evidence.rule_id}</dd></div><div className="py-2"><dt className="eyebrow">Route window</dt><dd>{evidence.leg_id} · {leg?.name}</dd><dd className="font-mono text-xs">{fmtTime(evidence.valid_time)} UTC</dd></div><div className="py-2"><dt className="eyebrow">Raw fraction</dt><dd className="font-story text-3xl">{evidence.member_fraction.exceed}/{evidence.member_fraction.total}</dd><dd>{pct}% · not calibrated</dd></div><div className="py-2"><dt className="eyebrow">Limit</dt><dd className="font-mono">{evidence.limit} {evidence.units}</dd></div></dl><p className="mt-4 p-3 bg-shoal/50 border hairline text-xs">Agreement is not proof. This panel stays tied to the claim selected at left.</p></aside>;
 }
 
 function EvidenceTable({ leg, evidence, variable }) {

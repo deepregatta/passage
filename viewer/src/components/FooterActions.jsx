@@ -155,7 +155,7 @@ function FeedbackDialog({ onNavigate, onClose }) {
               rows={5}
               autoFocus
               placeholder="Which area or route should we cover, or what looks wrong?"
-              className="w-full resize-none border border-ink/30 bg-paper px-3 py-2 font-instrument text-sm text-ink placeholder:text-ink-soft/70 focus:border-event focus:outline-none"
+              className="w-full resize-none border border-ink/30 bg-paper px-3 py-2 font-instrument text-sm text-ink placeholder:text-ink-soft/70 focus:border-event focus:outline-hidden"
             />
             <input
               type="text"

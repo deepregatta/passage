@@ -35,14 +35,14 @@ test('Back during planner loading restores the shared briefing without reinitial
 });
 
 for (const french of [false, true]) {
-  test(`copied analysis opens in an independent ${french ? 'French' : 'English'} browser context and survives reload/history`, async ({ page, context, browser }) => {
+  test(`copied analysis opens in an independent ${french ? 'French' : 'English'} browser context and survives reload/history`, async ({ page, context, browser, baseURL }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
     await openAuditedSnapshot(page);
     if (french) await page.getByRole('button', { name: 'Français' }).click();
     await page.getByRole('button', { name: french ? 'Partager cette analyse' : 'Share this analysis' }).click();
     await expect(page.getByRole('button', { name: french ? 'Lien copié' : 'Link copied' })).toBeVisible();
     const url = await page.evaluate(() => navigator.clipboard.readText());
-    expect(url).toBe(`http://127.0.0.1:5174/${french ? 'fr/' : ''}#passage?snapshot=${SNAPSHOT_ID}`);
+    expect(url).toBe(new URL(`/${french ? 'fr/' : ''}#passage?snapshot=${SNAPSHOT_ID}`, baseURL).href);
     const recipient = await browser.newContext();
     try {
       const tab = await recipient.newPage();

@@ -86,12 +86,12 @@ test('track record and outcome render complete French copy, including dynamic co
   await expect(page.getByText(/How the forecasts|Skill claims|emulated cases|Not verified yet|Reanalysis-referenced|Track record/)).toHaveCount(0);
 });
 
-test('the /fr/ URL renders French and the switcher navigates between language URLs', async ({ page }) => {
+test('the /fr/ URL renders French and the switcher navigates between language URLs', async ({ page, baseURL }) => {
   await page.goto('/fr/');
   await expect(page).toHaveTitle(/Planification météo explicable/);
   await expect(page.getByRole('heading', { name: 'Planifier une traversée' })).toBeVisible();
   await page.getByRole('button', { name: 'English', exact: true }).click();
-  await expect(page).toHaveURL(/127\.0\.0\.1:5174\/#plan$/);
+  await expect(page).toHaveURL(new URL('/#plan', baseURL).href);
   await expect(page.getByRole('heading', { name: 'Plan a passage' })).toBeVisible();
   await page.getByRole('button', { name: 'Français', exact: true }).click();
   await expect(page).toHaveURL(/\/fr\/#plan$/);
