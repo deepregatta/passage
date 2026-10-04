@@ -5,6 +5,7 @@
 Run the same core checks used by CI from the repository root:
 
 ```bash
+bash scripts/check-workflows.sh
 npm run lint
 npm audit
 npm test
@@ -14,6 +15,9 @@ npm run build:pages
 (cd analysis && uv run ruff format --check . ../scripts/upload-prepared-run.py)
 python3 scripts/check_storage_admission.py
 ```
+
+[GitHub Actions maintenance](github-actions.md) documents the checksum-verified
+workflow lint gate, deliberate upstream updates and main protection proposal.
 
 P01's standalone scripts are also checked/formatted in CI: `prepared_storage.py`,
 `storage_admission.py`, `preview_prepared_retention.py`, `check_storage_admission.py`.
