@@ -216,6 +216,33 @@ export function gribRunLabel(file) {
   return `${GRIB_RUN_NAMES[file.datasetId] ?? file.model} ${cycleHourLabel(file.cycle)}`;
 }
 
+/** A model's short name on the page's model picker. */
+export function gribModelName(datasetId) {
+  return datasetId === 'currents-global' ? 'Global' : GRIB_RUN_NAMES[datasetId] ?? datasetId;
+}
+
+/** A model's grid spacing in the pinned run, as "3.1 km"; null without a run. */
+export function gribModelSpacing(manifests, dataset) {
+  const deg = manifests?.(dataset.spec.layer)?.resolution_deg;
+  if (!deg) return null;
+  const km = deg * 111.2;
+  return `${km < 10 ? Math.round(km * 10) / 10 : Math.round(km)} km`;
+}
+
+/**
+ * The longest period over which a model whose forecast ends too early becomes
+ * available for this area, else null.
+ */
+export function gribPeriodFor(manifests, { area, step, nowMs, datasetId }) {
+  const forecastEndIso = gribForecastEnd(manifests);
+  for (const period of [...GRIB_PERIODS].reverse()) {
+    const window = gribPeriodWindow({ period, nowMs, forecastEndIso });
+    const dataset = planAreaGrib(manifests, { area, window, step }).datasets.find((d) => d.datasetId === datasetId);
+    if (dataset?.availability === 'ok') return period;
+  }
+  return null;
+}
+
 /** Plan every dataset, so the page can show each model's availability. */
 export function planAreaGrib(manifests, { area, window, step, fixture = GRIB_TILES_ARE_FIXTURE }) {
   const centre = { lat: (area.minLat + area.maxLat) / 2, lon: (area.minLon + area.maxLon) / 2 };

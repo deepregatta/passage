@@ -371,9 +371,15 @@ The page is three numbered steps next to the chart:
 | Longitudes | `0-360`, validated in Adrena across 0° on 2026-09-27 |
 | Spot values | the centre of the box |
 
-The rule is **local model first**. **More options** has a model select per
-kind (unavailable models are disabled) and the time step. A model the sailor
-picks overrides the default wherever it is available.
+The rule is **local model first**. Under each download button, a row of
+model chips (name and grid spacing of the pinned run, e.g. `IBI 3.1 km`)
+shows every model of that kind with a published run; the chosen one is
+pressed and one click switches. Unavailable models stay visible but
+disabled, with the reason as a tooltip. When a model's forecast ends before
+the period (a regional wind model over Next 3 days), a **Shorter forecast**
+line names it and offers the longest period it covers. A model the sailor
+picks overrides the default wherever it is available. **More options** holds
+only the time step.
 
 - Sources of the area, in order: a `#plan/grib?area=S,N,W,E` link (adopted
   once, when the page opens), the remembered area, or none (the page asks for
