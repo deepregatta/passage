@@ -11,6 +11,7 @@ This directory contains the maintained documentation for Passage.
 | [Testing and maintenance](testing.md) | Test suites, fixtures, scripts, generated files, and routine validation |
 | [2026-09-17 implementation verification](maintenance/2026-09-17-implementation-verification.md) | Historical verification of the archived September review and the resolution of IV-1 through IV-8 |
 | [2026-09-19 review closeout](maintenance/2026-09-19-review-closeout.md) | Remaining robustness/configuration fixes, CI coverage, and production smoke evidence |
+| [Shared contracts](shared-contracts.md) | Canonical owners, committed revision/digest pins, deliberate representations and offline drift gates |
 | [PFT1 forecast tile format](forecast-tile-format.md) | Binary forecast-tile and publication contract shared with `forecast-tiles` |
 | [Regional forecast tiles](regional-forecast-tiles.md) | AROME/ICON-EU/UKV admission, recorded canary activation, device evidence and release gates |
 | [Prepared publication spending control](paid-work.md) | Paid-work admission, its limits, pause and recovery rules |

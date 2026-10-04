@@ -1,0 +1,127 @@
+{
+  "pin_format": 1,
+  "repository": "passage",
+  "recorded_at": "2026-10-04",
+  "artifacts": [
+    {
+      "path": "contracts/forecast-latest-regional.schema.json",
+      "canonical_repository": "passage",
+      "canonical_path": "contracts/forecast-latest-regional.schema.json",
+      "canonical_revision": "git-blob:67dea7a0317d9f4bfc2754b2bf170ccd94ddc78e",
+      "contract": "PFT1/schema-1",
+      "producer": "forecast-tiles",
+      "consumers": [
+        "passage",
+        "tactician"
+      ],
+      "sha256": "a2983d169c45d004f937a9d5dbda2c9e23b390591d00decc7caf2ead222444dd",
+      "representation": "exact",
+      "intentional_divergence": null
+    },
+    {
+      "path": "contracts/forecast-latest.schema.json",
+      "canonical_repository": "passage",
+      "canonical_path": "contracts/forecast-latest.schema.json",
+      "canonical_revision": "git-blob:9aee3401e79312dc234d257fc50e78aad7c6041e",
+      "contract": "PFT1/schema-1",
+      "producer": "forecast-tiles",
+      "consumers": [
+        "passage",
+        "tactician"
+      ],
+      "sha256": "b64fe16cfebbc361ed7760c8ba9e13c408c6e76dc83ee4c0e5171712e8f8f0b8",
+      "representation": "exact",
+      "intentional_divergence": null
+    },
+    {
+      "path": "contracts/forecast-manifest.schema.json",
+      "canonical_repository": "passage",
+      "canonical_path": "contracts/forecast-manifest.schema.json",
+      "canonical_revision": "git-blob:d4f3a0c32b9394257efc453f1a6aeebb8eda73fc",
+      "contract": "PFT1/schema-1",
+      "producer": "forecast-tiles",
+      "consumers": [
+        "passage",
+        "tactician"
+      ],
+      "sha256": "b17d5496a03e48ffb0e47fb033afab5c3b065d34cd0cd229eab42ff4d500a83d",
+      "representation": "exact",
+      "intentional_divergence": null
+    },
+    {
+      "path": "contracts/forecast-tile.schema.json",
+      "canonical_repository": "passage",
+      "canonical_path": "contracts/forecast-tile.schema.json",
+      "canonical_revision": "git-blob:0c0c5746f4eb05d43680fbc74b09fbfecc1b0fa2",
+      "contract": "PFT1/schema-1",
+      "producer": "forecast-tiles",
+      "consumers": [
+        "passage",
+        "tactician"
+      ],
+      "sha256": "7595781322bd7fcad1534ea634bdc03b7b3e0e8be6c303af849e19a1e0626f82",
+      "representation": "exact",
+      "intentional_divergence": null
+    },
+    {
+      "path": "engine/test/fixtures/tiles/golden-N40W010-ensemble.bin.gz",
+      "canonical_repository": "forecast-tiles",
+      "canonical_path": "tests/fixtures/golden-N40W010-ensemble.bin.gz",
+      "canonical_revision": "git-blob:f284b19772413a95595b11f4350902e448b9e92c",
+      "contract": "PFT1/schema-1",
+      "producer": "forecast-tiles",
+      "consumers": [
+        "passage",
+        "tactician"
+      ],
+      "sha256": "26223896b8b9ee7b9cf4388b57de97f15ddc343a16ae213c196b29756371eec4",
+      "representation": "exact",
+      "intentional_divergence": null
+    },
+    {
+      "path": "engine/test/fixtures/tiles/golden-N40W010-ensemble.expected.json",
+      "canonical_repository": "forecast-tiles",
+      "canonical_path": "tests/fixtures/golden-N40W010-ensemble.expected.json",
+      "canonical_revision": "git-blob:1d19382275ced2fda136d014d176c3f06c2d140d",
+      "contract": "PFT1/schema-1",
+      "producer": "forecast-tiles",
+      "consumers": [
+        "passage",
+        "tactician"
+      ],
+      "sha256": "9e9a66324657ab131ca4595760b8889d889b64f256e87bba00a5e98bdfc6cded",
+      "representation": "exact",
+      "intentional_divergence": null
+    },
+    {
+      "path": "engine/test/fixtures/tiles/golden-N40W010-weather.bin.gz",
+      "canonical_repository": "forecast-tiles",
+      "canonical_path": "tests/fixtures/golden-N40W010-weather.bin.gz",
+      "canonical_revision": "git-blob:c1e69d892092ff1544c9cd7054f2f4f3cfe68ac1",
+      "contract": "PFT1/schema-1",
+      "producer": "forecast-tiles",
+      "consumers": [
+        "passage",
+        "tactician"
+      ],
+      "sha256": "5028cdf6d30cadf96a36fe94e2a747efd2a20ad8f9ad9da4a11f49e148e1f1d7",
+      "representation": "exact",
+      "intentional_divergence": null
+    },
+    {
+      "path": "engine/test/fixtures/tiles/golden-N40W010-weather.expected.json",
+      "canonical_repository": "forecast-tiles",
+      "canonical_path": "tests/fixtures/golden-N40W010-weather.expected.json",
+      "canonical_revision": "git-blob:221ee3f5ea46005ccbc59cfb2e8503beb5e84565",
+      "contract": "PFT1/schema-1",
+      "producer": "forecast-tiles",
+      "consumers": [
+        "passage",
+        "tactician"
+      ],
+      "sha256": "7b44f334d52820f9aeebb36da84d44e0e8fb0d00ffee4141816460b78da3aa79",
+      "representation": "exact",
+      "intentional_divergence": null
+    }
+  ]
+}
