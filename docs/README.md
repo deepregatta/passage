@@ -15,6 +15,7 @@ This directory contains the maintained documentation for Passage.
 | [PFT1 forecast tile format](forecast-tile-format.md) | Binary forecast-tile and publication contract shared with `forecast-tiles` |
 | [Regional forecast tiles](regional-forecast-tiles.md) | AROME/ICON-EU/UKV admission, recorded canary activation, device evidence and release gates |
 | [Prepared publication spending control](paid-work.md) | Paid-work admission, its limits, pause and recovery rules |
+| [Prepared capacity and retention](storage-admission.md) | Vendored F01 physical-byte reservations, immutable pointer history, protected references and gated rollout |
 | [Briefing message-ID design](maintenance/briefing-message-ids.md) | Implemented decision slice, deferred wider migration and saved prose compatibility |
 | [Engine API retirement](maintenance/engine-api-retirement.md) | PASSAGE-06 reference/export audit and deliberate 0.2.0 package boundary |
 | [GRIB2 export](grib-export.md) | Canonical specification of the route-area GRIB2 files: encoding, lattice, datasets, CLI and contract tests |

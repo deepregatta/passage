@@ -12,7 +12,17 @@ npm run build:pages
 (cd analysis && uv run pytest -q)
 (cd analysis && uv run ruff check . ../scripts/upload-prepared-run.py)
 (cd analysis && uv run ruff format --check . ../scripts/upload-prepared-run.py)
+python3 scripts/check_storage_admission.py
 ```
+
+P01's standalone scripts are also checked/formatted in CI: `prepared_storage.py`,
+`storage_admission.py`, `preview_prepared_retention.py`, `check_storage_admission.py`.
+Run Ruff on those explicit paths alongside the uploader. The vendored admission
+helper must retain its pinned canonical bytes; do not format a divergent copy.
+`analysis/tests/test_storage_admission_contract.py` runs the portable F01 vectors
+and scratch negative drift checks. `test_upload_prepared_run.py` owns concurrent
+forecast/prepared reservations, interrupted/uncertain publication, pointer graph
+identity, transport inventory and non-destructive retention preview acceptance.
 
 The root `eslint.config.mjs` applies ESLint's recommended JavaScript rules,
 typescript-eslint's recommended rules, and React Hook order/dependency checks.

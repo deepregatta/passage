@@ -43,3 +43,13 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
 
 These identities do not introduce warning publication, verification lifecycle,
 forecast-schema changes, or any rewrite/deletion of historical records.
+
+Prepared publication preserves the exact content-versioned chart/manifest
+graph used by historical briefings, plus legacy/direct revisions. The publisher
+archives old/new pointer bytes and updates previous before latest using CAS.
+The server cannot enumerate users' browser-local or offline saved references;
+six older unreferenced cycles never establishes permission to prune. P01's
+[protected-reference policy and read-only preview](storage-admission.md) retain
+unknown ownership and stop optional production at admitted capacity instead.
+No snapshot or saved reference is migrated; this cannot recover an artifact
+already deleted before the policy changed.

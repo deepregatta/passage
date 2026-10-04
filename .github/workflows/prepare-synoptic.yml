@@ -28,6 +28,8 @@ permissions:
 # Enable only after the reviewed R2 control document has been provisioned.
 env:
   PAID_WORK_ENFORCE: ${{ vars.PAID_WORK_ENFORCE || '0' }}
+  # F01/P01 staged rollout: leave off until the shared policy and all writers are reviewed.
+  CAPACITY_ENFORCE: ${{ vars.CAPACITY_ENFORCE || '0' }}
 
 jobs:
   prepare:

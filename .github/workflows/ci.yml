@@ -16,6 +16,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: python3 scripts/check_shared_contracts.py
+      - run: python3 scripts/check_storage_admission.py
       - run: python3 -m unittest discover -s scripts -p test_shared_contracts.py
 
   javascript:
@@ -69,5 +70,5 @@ jobs:
       - uses: astral-sh/setup-uv@v7
       - run: uv sync --all-extras
       - run: uv run pytest -q
-      - run: uv run ruff check . ../scripts/upload-prepared-run.py
-      - run: uv run ruff format --check . ../scripts/upload-prepared-run.py
+      - run: uv run ruff check . ../scripts/upload-prepared-run.py ../scripts/prepared_storage.py ../scripts/storage_admission.py ../scripts/preview_prepared_retention.py ../scripts/check_storage_admission.py
+      - run: uv run ruff format --check . ../scripts/upload-prepared-run.py ../scripts/prepared_storage.py ../scripts/storage_admission.py ../scripts/preview_prepared_retention.py ../scripts/check_storage_admission.py
