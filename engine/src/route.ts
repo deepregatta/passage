@@ -1,4 +1,4 @@
-/** Route geometry: legs and sample points derived deterministically from waypoints. */
+/** Route geometry: legs and representative midpoints derived deterministically from waypoints. */
 
 import { bearingDegTrue, haversineNm, interpolatePosition } from './geo.js';
 import type { Leg, Route, SamplePoint } from './types.js';
@@ -28,34 +28,6 @@ export function deriveLegs(route: Route): Leg[] {
 
 export function totalDistanceNm(legs: Leg[]): number {
   return legs.length ? legs[legs.length - 1]!.dist_end_nm : 0;
-}
-
-/**
- * Densified sample points every ~spacingNm along the route (leg midpoint guaranteed
- * for short legs). Deterministic: same route -> same points. These are the positions
- * used for point-forecast fetches and (later) grid sampling.
- */
-export function deriveSamplePoints(legs: Leg[], spacingNm = 5): SamplePoint[] {
-  const points: SamplePoint[] = [];
-  let distStart = 0;
-  let counter = 0;
-  for (const leg of legs) {
-    const n = Math.max(1, Math.round(leg.distance_nm / spacingNm));
-    for (let k = 0; k < n; k++) {
-      const fraction = (k + 0.5) / n;
-      const pos = interpolatePosition(leg.from, leg.to, fraction);
-      counter += 1;
-      points.push({
-        point_id: `P${counter}`,
-        leg_id: leg.leg_id,
-        lat: round4(pos.lat),
-        lon: round4(pos.lon),
-        dist_from_start_nm: round2(distStart + leg.distance_nm * fraction),
-      });
-    }
-    distStart += leg.distance_nm;
-  }
-  return points;
 }
 
 /** Representative point per leg (midpoint sample) for per-leg condition evaluation. */

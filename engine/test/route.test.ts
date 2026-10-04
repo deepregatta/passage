@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { deriveLegs, deriveSamplePoints, legMidpoints, totalDistanceNm } from '../src/route.js';
+import { deriveLegs, legMidpoints, totalDistanceNm } from '../src/route.js';
 import { haversineNm, bearingDegTrue, wrap180 } from '../src/geo.js';
 import type { Route } from '../src/types.js';
 
@@ -45,16 +45,6 @@ describe('route derivation (Cherbourg → Plymouth)', () => {
     for (const leg of legs.slice(1, 5)) {
       expect(leg.bearing_deg_true).toBeGreaterThan(260);
       expect(leg.bearing_deg_true).toBeLessThan(340);
-    }
-  });
-
-  it('sample points are ~5 nm apart and monotonically increasing', () => {
-    const points = deriveSamplePoints(legs, 5);
-    expect(points.length).toBeGreaterThan(15);
-    for (let i = 1; i < points.length; i++) {
-      const gap = points[i]!.dist_from_start_nm - points[i - 1]!.dist_from_start_nm;
-      expect(gap).toBeGreaterThan(0);
-      expect(gap).toBeLessThan(12);
     }
   });
 

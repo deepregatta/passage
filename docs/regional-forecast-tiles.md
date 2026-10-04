@@ -1,11 +1,16 @@
 # Optional AROME, ICON-EU and UKV forecast tiles
 
 The consumer supports forecast-tiles' separate `latest-regional.json` alongside
-required root `latest.json`. Production regionals remain disabled at the
-producer. `VITE_REGIONAL_MODELS` is empty by default; an explicit comma-separated
+required root `latest.json`. The producer's 2026-10-02/03 activation record
+confirms reduced-cadence production canaries for all three models; full cadence
+remains gated by seven-day acceptance. `VITE_REGIONAL_MODELS` is empty by default;
+an explicit comma-separated
 `weather-arome,weather-icon-eu,weather-ukv` allowlist enables only those named models.
-Do not enable the production feature before the producer plan's browser,
-capacity and canary gates pass.
+The deployed allowlist is recorded in the producer's
+[regional delivery evidence](https://github.com/deepregatta/forecast-tiles/blob/main/docs/regional-delivery.md).
+Do not expand cadence or claims beyond those gates. The public regional pointer
+was readable at 2026-10-04 06:00 UTC with `updated_at=2026-10-04T05:49:26Z`.
+This metadata read does not prove complete coverage or canary acceptance.
 
 Missing/failed regional discovery is harmless to root forecasts. Refresh
 retires removed regional runs and evicts caches using both catalogues. GFS
@@ -72,7 +77,7 @@ AROME/ICON-EU request one regional tile; UKV requests two. CDP
 `Runtime.getHeapUsage` was sampled every 25 ms, with fresh pages/GC between
 models. Increases include the root workload; these are not process RSS or
 proof of the absolute peak. All stay below 128 MiB and transfer limits.
-### Physical phone, before combined-admission refinement
+### Historical phone checkpoint, before combined-admission refinement
 
 Samsung Galaxy A53 (SM-A536B), Android 16, Chrome 154.0.8037.92 ran the same
 root workload through USB loopback. This measures real phone decoding and
@@ -99,7 +104,8 @@ transferred 3,845,933 B cold / zero warm, took 462 / 17 ms, and increased sample
 heap plus backing storage by 100,139,367 B. Root-only increase was 47,859,812 B.
 Regression tests cover both retained and transient refusal before a second
 model downloads. The phone became unavailable before this combined fix could
-be retested; **that final combined-phone gate remains open**. Boundary/mask
+be retested at this checkpoint; final combined-phone proof was still open then.
+The later evidence below supersedes that gate state. Boundary/mask
 regressions are separate from these three-point route measurements.
 
 
@@ -111,7 +117,26 @@ already-admitted tile. The larger explicit ICON-EU mosaic transferred
 previous tile. Automatic comparison omitted that request before transfer,
 preserving the root workload. Explicit mosaics remain subject to their request
 budgets and may require a smaller region for warm reuse. Boundary-phone
-measurement remains outstanding.
+measurement was outstanding at this checkpoint and is superseded below.
+
+## Later phone and production evidence
+
+The producer's 2026-10-02 final Galaxy A53 measurements passed individual,
+combined and boundary workloads using the actual consumer. Automatic warm
+repeats made zero tile requests/decodes; the combined three-point selection
+admitted AROME and the boundary selection admitted UKV. Named ICON-EU boundary
+mosaics still evict/redownload warm; the smaller one-tile request reuses warm.
+These close the phone gate for those workloads, not network latency, absolute
+process peak or operational forecast accuracy. Detailed bytes, sampled memory
+and decoder times remain in the linked producer record rather than replacing
+the historical tables above.
+
+That record also confirms a Passage deployment at `b8108c1` with all three
+model flags and live one-day GRIB exports independently decoded with ecCodes.
+Reduced cadence remains two selected cycles/day. Seven-day acceptance has not
+passed: preserve AROME/UKV's original windows, ICON-EU's original miss and the
+owner-approved separate ICON-EU recheck. Do not infer activation/freshness from
+an empty source default or a successful local test.
 
 Tactician requires its own model/export audit before adopting the new layers.
 

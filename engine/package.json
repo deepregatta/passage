@@ -1,6 +1,6 @@
 {
   "name": "@deepweather/engine",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "deepweather per-user analysis engine — pure TS, runs in Node CLI and (later) the browser",
   "type": "module",
   "main": "./dist/index.js",

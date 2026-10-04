@@ -52,14 +52,6 @@ export interface HazardPointForecast {
   precip_mm: Array<number | null>;
 }
 
-export interface CurrentPointForecast {
-  lat: number;
-  lon: number;
-  times: string[];
-  current_kt: Array<number | null>;
-  current_dir_deg: Array<number | null>;
-}
-
 /** Provenance of one tile-layer read, recorded in findings.inputs.forecast_tiles. */
 export interface TileRequestMeta {
   source: 'tiles' | 'fixture';
