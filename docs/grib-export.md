@@ -272,7 +272,9 @@ typeOfGeneratingProcess 2, shapeOfTheEarth 6, scanningMode 0, hours).
 
 `planGribExport(manifests, request)`: the request is `bbox` (margin applied),
 `datasetIds`, `startIso`, `endIso`, `step`, `lonConvention`, optional
-`checkpoints: [{lat, lon}]` and `fixture`.
+`checkpoints: [{lat, lon}]`, `fixture` and `extent: 'window' | 'full'`.
+The default window preserves existing callers; full keeps the requested start
+and uses each dataset's last available time as its end.
 
 Every message of a file has the same reference time, so a file is read from
 one run. For ECMWF wind that run is chosen per request (`gribRunFor`, from
@@ -385,12 +387,16 @@ The page is three numbered steps next to the chart:
    opposite corner stays put). The handles' positions are memoised per box:
    react-leaflet moves a marker whenever its `position` prop is a new array,
    so re-rendering during a drag would snap the handle back.
-2. **Period.** Next 2, 3 (default), 5 or 7 days, or **Full forecast**, from
-   now floored to the hour. Full runs to the last step of the longest pinned
-   forecast (`gribForecastEnd`: the end of the time axes the registry
-   variables use, over every dataset's run). Each file is clipped to its own
-   model's horizon (IBI +120 h from the runs published on 2026-09-29, +72 h
+2. **Period.** Next 1, 2, 3 (default), 5 or 7 days, or **Full forecast**, from
+   now floored to the hour. Full uses `extent: 'full'` in the export request:
+   each file runs to its own model's last available forecast step, including
+   AROME, ICON-EU and UKV. The longest pinned forecast supplies the planning
+   envelope (`gribForecastEnd`), rather than a required end for every model.
+   Model horizons differ (IBI +120 h from the runs published on 2026-09-29, +72 h
    before; GFS wind +240 h, GFS-Wave +384 h).
+   Fixed-day periods retain the regional wind models' whole-window coverage
+   requirement. The page shows each file's actual start/end times and, for
+   Full forecast, explains that the end depends on the selected model.
 3. **Download.** One button per kind (**Download wind**, **Download
    currents**, **Download waves**). One click builds that file and starts
    the browser download. Files stay separate, one per kind, so any GRIB

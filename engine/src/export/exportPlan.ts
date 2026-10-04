@@ -27,6 +27,8 @@ export interface GribExportRequest {
   datasetIds: readonly string[];
   startIso: string;
   endIso: string;
+  /** Full forecast keeps startIso and ends at each dataset's own last forecast step. */
+  extent?: 'window' | 'full';
   step: GribStep;
   lonConvention: LonConvention;
   /** spot values to report (the route's first and last waypoints) */
@@ -218,6 +220,10 @@ function planDataset(
   });
   if (axis === undefined || !timeAxis || !variables.length) return empty;
 
+  if (request.extent === 'full') {
+    endMs = parseUtc(timeAxis.base) + Math.max(...timeAxis.offsets_h) * HOUR_MS;
+  }
+
   if (REGIONAL_LAYERS.includes(manifest.layer)) {
     const c = manifest.coverage;
     if (!c || request.bbox.minLat < c.minLat || request.bbox.maxLat > c.maxLat ||
@@ -360,6 +366,9 @@ function validateRequest(request: GribExportRequest): void {
     throw new Error('GRIB export bbox is outside −90..90 / −180..180');
   }
   if (parseUtc(request.endIso) < parseUtc(request.startIso)) throw new Error('GRIB export window ends before it starts');
+  if (request.extent !== undefined && request.extent !== 'window' && request.extent !== 'full') {
+    throw new Error(`Unsupported GRIB extent: ${String(request.extent)}`);
+  }
   if (request.step !== 'all' && request.step !== 3 && request.step !== 6) {
     throw new Error(`Unsupported GRIB step: ${String(request.step)}`);
   }

@@ -663,6 +663,7 @@ const FR = {
   'Next 5 days': 'Les 5 prochains jours',
   'Next 7 days': 'Les 7 prochains jours',
   'Full forecast': 'Prévision complète',
+  'Each model runs from now to the end of its available forecast.': 'Chaque modèle couvre la période allant de maintenant à la fin de sa prévision disponible.',
   'Download': 'Téléchargement',
   'One file for each, to open in your GRIB software.': 'Un fichier pour chacun, à ouvrir dans votre logiciel GRIB.',
   'Draw your area first.': 'Tracez d’abord votre zone.',

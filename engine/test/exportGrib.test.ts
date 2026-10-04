@@ -112,6 +112,15 @@ describe('planGribExport', () => {
     expect(() => planGribExport(manifests, request({ datasetIds: ['pressure'] }))).toThrow('Unknown GRIB dataset');
   });
 
+  it('Full forecast extends to the model end while retaining the requested start and step thinning', async () => {
+    const { manifests } = await storeFor([weatherSpec()]);
+    const dataset = planGribExport(manifests, request({
+      extent: 'full', endIso: '2026-07-20T03:00Z', step: 3,
+    })).datasets[0]!;
+    expect(dataset.availability).toBe('ok');
+    expect(dataset.steps.map(step => step.forecastHours)).toEqual([0, 3, 6, 9, 12]);
+  });
+
   it('estimates output and download size and names the file by cycle and whole-degree corners', async () => {
     const { manifests, transport } = await storeFor([weatherSpec()]);
     const plan = planGribExport(manifests, request()).datasets[0]!;

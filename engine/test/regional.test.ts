@@ -113,6 +113,26 @@ describe('regional geometry and catalogues',()=>{
 });
 
 describe('regional admission and export',()=>{
+  it.each(['weather-arome', 'weather-icon-eu', 'weather-ukv'])('exports %s to its own horizon for Full forecast', (layer) => {
+    const manifest = structuredClone(fixture().manifest);
+    manifest.layer = layer;
+    const datasetId = layer.replace('weather-', 'wind-');
+    const request = {
+      bbox: {minLat: 42.5, maxLat: 45, minLon: -7.5, maxLon: -5},
+      datasetIds: [datasetId], startIso: cycle, endIso: '2026-07-20T06:00Z',
+      step: 'all' as const, lonConvention: '0-360' as const,
+    };
+    const plan = (overrides = {}) => planGribExport({[layer]: manifest}, {...request, ...overrides}).datasets[0]!;
+    expect(plan().availability).toBe('outside-horizon');
+    const full = plan({extent: 'full'});
+    expect(full.availability).toBe('ok');
+    expect(full.steps.map(step => step.forecastHours)).toEqual([0, 1, 2]);
+    expect(plan({extent: 'full', startIso: '2026-07-20T03:00Z'}).availability).toBe('outside-horizon');
+    expect(plan({extent: 'full', bbox: {...request.bbox, minLat: 30}}).availability).toBe('no-tiles');
+    for (const tile of Object.values(manifest.tiles)) tile.bytes = 9 * 1024 * 1024;
+    expect(plan({extent: 'full'}).availability).toBe('too-large');
+  });
+
   it('refuses excessive tile/transfer budgets before downloading and outside horizons',()=>{
     const {manifest}=fixture(), tile=Object.values(manifest.tiles)[0]!;
     tile.bytes=9*1024*1024; expect(()=>regionalTileBudget(tile)).toThrow('budget');
