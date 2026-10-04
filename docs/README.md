@@ -8,6 +8,7 @@ This directory contains the maintained documentation for Passage.
 | [Capability and verification map](capabilities.md) | Source owners, dated production evidence, gated/local/deferred surfaces and existing checks |
 | [Saved identities](saved-identities.md) | Versioned passage, route revision and snapshot rules, retry semantics and legacy preservation |
 | [Verification evidence](verification.md) | Replaceable case contributions, explicit lead semantics, legacy preservation and unavailable browser-local verification |
+| [GitHub Actions maintenance](github-actions.md) | Verified action pins, workflow lint/update procedure and approval-gated main protection |
 | [Testing and maintenance](testing.md) | Test suites, fixtures, scripts, generated files, and routine validation |
 | [2026-09-17 implementation verification](maintenance/2026-09-17-implementation-verification.md) | Historical verification of the archived September review and the resolution of IV-1 through IV-8 |
 | [2026-09-19 review closeout](maintenance/2026-09-19-review-closeout.md) | Remaining robustness/configuration fixes, CI coverage, and production smoke evidence |
