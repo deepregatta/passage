@@ -25,6 +25,12 @@ async function instrument(page, baseURL) {
       receipts.push({ event: payload.event, target: payload.props.target, status: response.status() });
     }
   });
+  page.on('requestfailed', (request) => {
+    if (request.url() === 'https://oscar.deepregatta.com/api/event') {
+      const payload = request.postDataJSON();
+      receipts.push({ event: payload.event, target: payload.props.target, status: 0, failure: request.failure()?.errorText });
+    }
+  });
   if (live) {
     page.on('request', (request) => {
       if (request.url() === 'https://oscar.deepregatta.com/api/event') events.push(request.postDataJSON());
@@ -60,19 +66,27 @@ async function instrument(page, baseURL) {
 
 for (const [path, language, hash] of [['/', 'en', true], ['/fr/', 'fr', true], ['/grib', 'en', false], ['/fr/grib', 'fr', false]]) {
   test(`production build ${path}${hash ? '#plan/grib' : ''}: saved file, next steps and session attribution`, async ({ page, baseURL }, testInfo) => {
+    test.setTimeout(live ? 90_000 : 30_000);
     const { events, receipts } = await instrument(page, baseURL);
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));
     const query = new URLSearchParams({ ...utm, dr_traffic: 'qa', dr_verification: verification, ...(hash ? {} : { area }) });
+    if (live) await page.waitForTimeout(10_100);
     await page.goto(`${origin}${path}?${query}${hash ? `#plan/grib?area=${area}` : ''}`);
     await expect(page).toHaveTitle(GRIB_COPY[language].title);
     await expect(page.locator('.leaflet-marker-icon')).toHaveCount(4);
     const tuple = await page.evaluate(() => sessionStorage.getItem('dr.utm.session'));
     expect(JSON.parse(tuple)).toEqual(utm);
     const session = await page.evaluate(() => sessionStorage.getItem('dr.sid'));
+    if (live) {
+      await expect.poll(() => receipts.some((row) => row.event === 'page_view' && row.status >= 200 && row.status < 300)).toBe(true);
+      // Live admission returned Retry-After: 2 during rapid QA; space actions.
+      await page.waitForTimeout(2_100);
+    }
     await page.reload();
     await expect(page).toHaveTitle(GRIB_COPY[language].title);
     expect(await page.evaluate(() => sessionStorage.getItem('dr.sid'))).toBe(session);
+    if (live) await page.waitForTimeout(2_100);
     const plan = page.getByRole('button', { name: language === 'fr' ? 'Planifier une traversée dans cette zone' : 'Plan a passage in this area' });
     await expect(plan).toHaveCount(0);
     const downloadButton = page.getByRole('button', { name: language === 'fr' ? 'Télécharger le vent' : 'Download wind' });
@@ -83,6 +97,7 @@ for (const [path, language, hash] of [['/', 'en', true], ['/fr/', 'fr', true], [
     await download.saveAs(testInfo.outputPath(download.suggestedFilename()));
     const bytes = await readFile(await download.path());
     expect(bytes.subarray(0, 4).toString()).toBe('GRIB');
+    if (live) await page.waitForTimeout(2_100);
     await expect(plan).toBeVisible();
     const replay = page.getByRole('link', { name: /(?:Replay a race sailed here|Revoir une course disputée ici).*Rolex Fastnet 2025/ });
     await expect(replay).toBeVisible();
@@ -104,6 +119,7 @@ for (const [path, language, hash] of [['/', 'en', true], ['/fr/', 'fr', true], [
       await expect(replayPage.getByRole('button', { name: 'Rolex Fastnet 2025', exact: true })).toBeVisible();
     }
     await replayPage.close();
+    if (live) await page.waitForTimeout(5_100);
     await plan.click();
     await expect(page.getByRole('heading', { name: language === 'fr' ? 'Planifier une traversée' : 'Plan a passage', exact: true })).toBeVisible();
     await expect(page.locator('.leaflet-overlay-pane path')).toHaveCount(1);
@@ -118,11 +134,11 @@ for (const [path, language, hash] of [['/', 'en', true], ['/fr/', 'fr', true], [
       ].sort());
     }
     await expect.poll(() => receipts.filter((row) => row.event === 'grib_next_step').length).toBe(2);
-    expect(receipts.filter((row) => ['grib_export', 'grib_next_step'].includes(row.event)).every((row) => row.status === 200)).toBe(true);
     await testInfo.attach('attribution', { contentType: 'application/json', body: Buffer.from(JSON.stringify({
       mode: live ? 'live' : 'build', path, language, sessionPreserved: true,
       events: events.filter((row) => ['grib_export', 'grib_next_step'].includes(row.event)).map(({ event, props }) => ({ event, props })), receipts,
     }, null, 2)) });
+    expect(receipts.filter((row) => ['grib_export', 'grib_next_step'].includes(row.event)).every((row) => row.status >= 200 && row.status < 300)).toBe(true);
     expect(errors).toEqual([]);
   });
 }
