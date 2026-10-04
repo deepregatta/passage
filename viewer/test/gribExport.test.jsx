@@ -106,6 +106,26 @@ function fixtureTransport({ ibiHours = 25, waves = false, ecmwfTiles = [[50, -10
   ]);
 }
 
+/** The fixture plus a regional AROME run over the western Channel, here to +30 h. */
+function withArome(transport) {
+  const extra = buildFixtureRun([{
+    layer: 'weather-arome', model: 'arome_france', cycle: CYCLE, resolution_deg: 0.25,
+    time_axes: { hourly: { base: CYCLE, offsets_h: hours(31) } },
+    variables: [{ name: 'wind_u_kt', axis: 'hourly', dtype: 'i16', scale: 0.01, value: () => 12 },
+      { name: 'wind_v_kt', axis: 'hourly', dtype: 'i16', scale: 0.01, value: () => 3 }],
+    tiles: [[50, -10]],
+  }]);
+  for (const [runId, manifest] of extra.manifests) {
+    manifest.coverage = { minLat: 45, maxLat: 55, minLon: -12, maxLon: 5 };
+    for (const tile of Object.values(manifest.tiles)) Object.assign(tile, { decoded_bytes: 4096, uncompressed_bytes: 4096 });
+    transport.manifests.set(runId, manifest);
+  }
+  for (const [key, bytes] of extra.tiles) transport.tiles.set(key, bytes);
+  // regional runs are listed in their own catalogue, read only for allowlisted models
+  transport.fetchRegionalLatest = async () => extra.latest;
+  return transport;
+}
+
 async function planFor(area, { period = '3', step = 'all' } = {}) {
   await store.current.init();
   const manifests = (layer) => store.current.manifestFor(layer);
@@ -346,13 +366,37 @@ describe('GRIB files page', () => {
     expect(page().getAllByText('Mon 20 Jul 06:00 → Tue 21 Jul 06:00 UTC')).toHaveLength(2);
   });
 
+  it('shows each kind’s models beside its button and offers the period a shorter regional model needs', async () => {
+    store.current = new TileForecastStore({ transport: withArome(fixtureTransport()), regionalLayers: ['weather-arome'] });
+    await openWith(CHANNEL);
+    const windModels = page().getByRole('radiogroup', { name: 'Wind model' });
+    expect(within(windModels).getAllByRole('radio').map((radio) => radio.textContent)).toEqual(['ECMWF28 km', 'GFS28 km', 'AROME28 km']);
+    expect(within(windModels).getByRole('radio', { name: /^ECMWF/ })).toHaveAttribute('aria-checked', 'true');
+    // AROME ends before the 3-day period: one click switches to the period it covers
+    expect(within(windModels).getByRole('radio', { name: /^AROME/ })).toBeDisabled();
+    const wind = kindItem('Download wind');
+    expect(wind.getByText('Shorter forecast:').parentElement).toHaveTextContent(/^Shorter forecast: AROME · Switch to Next 1 day$/);
+    fireEvent.click(wind.getByRole('button', { name: 'Switch to Next 1 day' }));
+    expect(useGrib.getState().period).toBe('1');
+    const arome = within(page().getByRole('radiogroup', { name: 'Wind model' })).getByRole('radio', { name: /^AROME/ });
+    expect(arome).toBeEnabled();
+    expect(kindItem('Download wind').queryByRole('button', { name: /^Switch to/ })).not.toBeInTheDocument();
+    fireEvent.click(arome);
+    expect(useGrib.getState().models.wind).toBe('wind-arome');
+    expect(kindItem('Download wind').getByText('Wind – AROME')).toBeInTheDocument();
+    // waves has one model: no picker
+    expect(page().queryByRole('radiogroup', { name: /waves/i })).not.toBeInTheDocument();
+  });
+
   it('falls back to the global currents where IBI covers only part of the box', async () => {
     await openWith(ACROSS);
     const currents = kindItem('Download currents');
     expect(currents.getByText('Currents – global (6-hourly)')).toBeInTheDocument();
     expect(currents.getByText('6-hourly ocean-model currents. Tides are not resolved; do not use as tidal streams.')).toBeInTheDocument();
     // the regional model stays one choice away, with its coverage caveat
-    fireEvent.change(page().getByLabelText('Currents model'), { target: { value: 'currents-ibi' } });
+    const currentsModels = page().getByRole('radiogroup', { name: 'Currents model' });
+    expect(within(currentsModels).getByRole('radio', { name: /^Global/ })).toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(within(currentsModels).getByRole('radio', { name: /^IBI/ }));
     expect(useGrib.getState().models.currents).toBe('currents-ibi');
     expect(kindItem('Download currents').getByText(/^Partial coverage: this regional model covers only part of the area\./)).toBeInTheDocument();
   });
@@ -417,7 +461,7 @@ describe('GRIB files page', () => {
     fireEvent.click(page().getByRole('button', { name: 'Download currents' }));
     await waitFor(() => expect(saves).toHaveLength(1));
     expect(saves[0].name).toMatch(/^passage-fixture_currents-ibi_20260720T00Z_/);
-    fireEvent.change(page().getByLabelText('Wind model'), { target: { value: 'wind-gfs' } });
+    fireEvent.click(within(page().getByRole('radiogroup', { name: 'Wind model' })).getByRole('radio', { name: /^GFS/ }));
     fireEvent.click(page().getByRole('button', { name: 'Download wind' }));
     await waitFor(() => expect(saves).toHaveLength(2));
     expect(saves[1].name).toMatch(/^passage-fixture_wind-gfs_20260720T00Z_/);
@@ -542,8 +586,9 @@ describe('GRIB files page', () => {
     const region = await screen.findByRole('region', { name: 'Téléchargement GRIB' });
     const waves = await within(region).findByRole('button', { name: 'Télécharger les vagues' });
     await waitFor(() => expect(waves).toBeEnabled());
-    fireEvent.click(waves);
+    // the row, not the button: the button becomes Cancel while the file is built
     const item = within(waves.closest('li'));
+    fireEvent.click(waves);
     // "waves" is a French fragment elsewhere ("vagues"); identifiers must survive it
     expect((await item.findByText('passage-fixture_waves-gfs_20260720T00Z_N50W010_N51W009.grb2')).tagName).toBe('CODE');
     expect(item.getByText('waves-20260720T00Z').tagName).toBe('CODE');

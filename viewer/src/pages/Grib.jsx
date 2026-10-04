@@ -29,7 +29,10 @@ import {
   gribFileWithUrl,
   gribForecastEnd,
   gribKindDataset,
+  gribModelName,
   gribModelOrder,
+  gribModelSpacing,
+  gribPeriodFor,
   gribPeriodWindow,
   gribRunIds,
   gribRunLabel,
@@ -60,6 +63,15 @@ const PERIOD_LABELS = {
   5: 'Next 5 days',
   7: 'Next 7 days',
   full: 'Full forecast',
+};
+
+const SWITCH_LABELS = {
+  1: 'Switch to Next 1 day',
+  2: 'Switch to Next 2 days',
+  3: 'Switch to Next 3 days',
+  5: 'Switch to Next 5 days',
+  7: 'Switch to Next 7 days',
+  full: 'Switch to Full forecast',
 };
 
 const STEP_LABELS = { all: 'Every forecast step', 3: 'Every 3 h', 6: 'Every 6 h' };
@@ -183,7 +195,35 @@ function FileDetails({ file }) {
   );
 }
 
-function KindRow({ kindId, dataset, timeWindow, period, result, running, progress, busy, onDownload, onCancel }) {
+/** The kind's models side by side, the chosen one pressed; one click switches. */
+function ModelPicker({ kindId, options, selected, disabled, onChoose }) {
+  return (
+    <div role="radiogroup" aria-label={MODEL_SELECTS[kindId]} className="flex flex-wrap items-center gap-1.5 text-[12px]">
+      <span aria-hidden="true" className="eyebrow mr-0.5">Model</span>
+      {options.map((option) => {
+        const checked = option.id === selected;
+        const usable = option.availability === 'ok';
+        return (
+          <button
+            key={option.id}
+            type="button"
+            role="radio"
+            aria-checked={checked}
+            disabled={disabled || !usable}
+            title={usable ? undefined : UNAVAILABLE[option.availability]}
+            onClick={() => onChoose(option.id)}
+            className={`rounded-sm border px-2 py-1 ${checked ? 'border-ink bg-ink text-paper' : 'hairline bg-white/60 hover:bg-white hover:border-ink/50'} disabled:cursor-not-allowed ${!usable ? 'border-dashed text-ink-soft' : ''} ${disabled && !checked ? 'opacity-60' : ''}`}
+          >
+            <span className="font-medium">{option.name}</span>
+            {option.spacing && <span className={`ml-1 font-mono ${checked ? 'opacity-80' : 'text-ink-soft'}`}>{option.spacing}</span>}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function KindRow({ kindId, dataset, timeWindow, period, result, running, progress, busy, models, shorter, onChoose, onPeriod, onDownload, onCancel }) {
   const info = describeGribDataset(dataset, timeWindow);
   const note = gribDataset(dataset.datasetId)?.note;
   const tooLarge = info.ok && dataset.estBytes > GRIB_MAX_EST_BYTES;
@@ -213,6 +253,17 @@ function KindRow({ kindId, dataset, timeWindow, period, result, running, progres
           </button>
         )}
       </div>
+      {models.length > 1 && (
+        <ModelPicker kindId={kindId} options={models} selected={dataset.datasetId} disabled={busy} onChoose={onChoose} />
+      )}
+      {shorter && !running && (
+        <p className="text-[12px] text-ink-soft">
+          <span>Shorter forecast:</span>{' '}<span>{shorter.names.join(', ')}</span>{' · '}
+          <button type="button" className="underline disabled:no-underline" disabled={busy} onClick={() => onPeriod(shorter.period)}>
+            {SWITCH_LABELS[shorter.period]}
+          </button>
+        </p>
+      )}
       <p className="text-[12px]">
         <span className="font-medium">{dataset.label}</span>
         {info.ok && (
@@ -325,6 +376,30 @@ export default function Grib() {
     ? GRIB_KINDS.map((kind) => ({ kindId: kind.id, dataset: gribKindDataset(plan, kind.id, area, models[kind.id] ?? null) }))
       .filter(({ dataset }) => dataset)
     : [];
+  // Each kind's models for the picker, and the period that brings in the ones
+  // whose forecast ends too early.
+  const pickers = useMemo(() => {
+    if (!plan) return {};
+    return Object.fromEntries(GRIB_KINDS.map((kind) => {
+      const options = gribModelOrder(kind.id, area, plan)
+        .map((id) => plan.datasets.find((dataset) => dataset.datasetId === id))
+        .filter((dataset) => dataset && dataset.availability !== 'no-layer')
+        .map((dataset) => ({
+          id: dataset.datasetId,
+          name: gribModelName(dataset.datasetId),
+          spacing: gribModelSpacing(manifests, dataset),
+          availability: dataset.availability,
+        }));
+      const later = options
+        .filter((option) => option.availability === 'outside-horizon')
+        .map((option) => ({ name: option.name, period: gribPeriodFor(manifests, { area, step, nowMs, datasetId: option.id }) }))
+        .filter((option) => option.period);
+      const shorter = later.length
+        ? { names: later.map((option) => option.name), period: later.map((option) => option.period).sort((a, b) => GRIB_PERIODS.indexOf(b) - GRIB_PERIODS.indexOf(a))[0] }
+        : null;
+      return [kind.id, { options, shorter }];
+    }));
+  }, [plan, manifests, area, step, nowMs]);
   const kindKey = (kindId, datasetId) => JSON.stringify([key, kindId, datasetId]);
   const liveKeys = new Set(kinds.map(({ kindId, dataset }) => kindKey(kindId, dataset.datasetId)));
   const liveKeysSignature = [...liveKeys].sort().join('|');
@@ -502,6 +577,10 @@ export default function Grib() {
                       running={progress?.kindId === kindId}
                       progress={progress}
                       busy={running || drawing}
+                      models={pickers[kindId]?.options ?? []}
+                      shorter={pickers[kindId]?.shorter ?? null}
+                      onChoose={(id) => patch({ models: { ...models, [kindId]: id } })}
+                      onPeriod={(value) => patch({ period: value })}
                       onDownload={() => download(kindId)}
                       onCancel={() => jobRef.current?.controller.abort()}
                     />
@@ -520,34 +599,6 @@ export default function Grib() {
               <details className="border-t hairline pt-3">
                 <summary className="cursor-pointer text-[13px]">More options</summary>
                 <div className="mt-3 space-y-3">
-                  {plan.datasets.some((dataset) => ['wind-arome', 'wind-icon-eu', 'wind-ukv'].includes(dataset.datasetId) && dataset.availability === 'outside-horizon') && (
-                    <p className="text-[12px] text-ink-soft">Regional models have shorter forecasts. Choose Next 1 day to include them.</p>
-                  )}
-                  {kinds.filter(({ kindId }) => MODEL_SELECTS[kindId]).map(({ kindId, dataset }) => (
-                    <label key={kindId} className="block">
-                      <span className="eyebrow block mb-1">{MODEL_SELECTS[kindId]}</span>
-                      <select
-                        value={dataset.datasetId}
-                        onChange={(e) => patch({ models: { ...models, [kindId]: e.target.value } })}
-                        disabled={running}
-                        className="w-full bg-white/60 border hairline rounded-sm px-2 py-1.5"
-                      >
-                        {gribModelOrder(kindId, area, plan).map((id) => {
-                          const option = plan.datasets.find((candidate) => candidate.datasetId === id);
-                          if (!option) return null;
-                          return (
-                            <option key={id} value={id} disabled={option.availability !== 'ok'}>
-                              {option.label}
-                            </option>
-                          );
-                        })}
-                      </select>
-                    </label>
-                  ))}
-                  <p className="text-[12px] text-ink-soft">
-                    By default each file uses the local model for your area: ECMWF wind in Europe, and IBI
-                    regional currents where they cover the whole box.
-                  </p>
                   <label className="block">
                     <span className="eyebrow block mb-1">Time step</span>
                     <select
