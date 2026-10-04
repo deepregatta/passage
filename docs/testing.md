@@ -61,6 +61,23 @@ snapshot ID `20260720T060000Z_44d2cd5f_64ea971e` and fixing `generated_at` to
 uses `viewer/e2e/verification-outcome.spec.js` with scratch browser persistence
 and intercepted observation responses, never production calibration data.
 
+## Viewer build dependencies
+
+The viewer uses pinned Tailwind CSS 4.3.3 with `@tailwindcss/postcss`; the
+separate Autoprefixer plugin is removed. This removes the Tailwind 3 build
+chain through `braces` 3.0.3, affected by
+[GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm).
+The full `npm audit` remains required; the production-only audit does not
+substitute for it.
+
+The [Tailwind upgrade guide](https://tailwindcss.com/docs/upgrade-guide)
+sets CSS browser minimums of Safari 16.4, Chrome 111 and Firefox 128.
+The existing palette and font configuration remain loaded through `@config`.
+Compatibility rules retain absolute text line heights, responsive heading
+metrics, 2px control corners, divider sides, hover borders and forced-color
+focus outlines. Existing desktop/mobile screenshots and demo fixtures must
+remain unchanged when maintaining this compiler configuration.
+
 ## Decision message compatibility
 
 PASSAGE-07 emits optional decision-only metadata while retaining briefing

@@ -118,7 +118,7 @@ function PassageRow({ passage, publishedCases }) {
           <RouteSketch route={route} />
           <span className="min-w-0 flex-1">
             <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <span className="font-chart text-xl sm:text-2xl leading-tight">{title}</span>
+              <span className="font-chart text-xl sm:text-2xl leading-tight sm:leading-8">{title}</span>
               {passage.demo && (
                 <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink-soft border border-line px-1.5 py-0.5 rounded-sm">
                   example

@@ -56,13 +56,13 @@ export default function ChangesSection() {
   const story = deriveChangeStory(state.changes, briefing);
   const emulatedWarning = findings.evidence.some((item) => item.rule_id === 'A-WARN-01' && item.source_kind === 'emulated');
   return <div>
-    <header className="border-b-2 border-ink pb-5"><p className="eyebrow">Edited change story · previous → latest</p><h2 className="font-story text-3xl sm:text-4xl leading-tight max-w-5xl">{story.headline_plain}</h2><div className="flex items-center gap-3 mt-3"><TransitionChip state={state.changes.verdict_transition.from} emulated={emulatedWarning}/><span>→</span><TransitionChip state={state.changes.verdict_transition.to} emulated={emulatedWarning}/></div></header>
+    <header className="border-b-2 border-ink pb-5"><p className="eyebrow">Edited change story · previous → latest</p><h2 className="font-story text-3xl sm:text-4xl leading-tight sm:leading-10 max-w-5xl">{story.headline_plain}</h2><div className="flex items-center gap-3 mt-3"><TransitionChip state={state.changes.verdict_transition.from} emulated={emulatedWarning}/><span>→</span><TransitionChip state={state.changes.verdict_transition.to} emulated={emulatedWarning}/></div></header>
     <section className="py-5"><SynopticCompare previous={state.previousSynoptic} latest={latestSynoptic} previousId={state.previousId} latestId={findings.snapshot_id}/></section>
     <OnsetShift previous={state.previous} latest={findings} />
-    <section className="grid lg:grid-cols-3 border-y border-ink/40 divide-y lg:divide-y-0 lg:divide-x divide-ink/30">
+    <section className="grid lg:grid-cols-3 border-y border-ink/40 divide-y-legacy lg:divide-y-legacy-0 lg:divide-x-legacy divide-ink/30">
       {story.material.length ? story.material.map((item, index) => { const entry = state.changes.entries[item.change_ref]; return <article key={item.change_ref} className="p-4"><p className="eyebrow">material change {index + 1} · {ruleLabels[entry?.rule_id] ?? kindLabels[entry?.kind] ?? 'change'}</p><p className="font-story text-xl mt-2">{entry?.description}</p><p className="font-instrument text-sm text-ink-soft mt-3">{item.why_it_matters}</p>{item.evidence_ids.length > 0 && <p className="font-mono text-[10px] mt-2">{item.evidence_ids.map((id) => <EvidenceLink key={id} evidenceId={id}>{id} </EvidenceLink>)}</p>}</article>; }) : <p className="p-5 text-ink-soft">No material change. The forecast held steady.</p>}
     </section>
-    <details className="py-4 border-b border-ink/40"><summary className="font-instrument cursor-pointer py-2.5">Full change ledger · {state.changes.entries.length} entries</summary><ul className="mt-3 max-w-3xl divide-y hairline">{state.changes.entries.map((entry, index) => <li key={index} className="py-2 font-instrument text-sm">{entry.description}</li>)}</ul></details>
+    <details className="py-4 border-b border-ink/40"><summary className="font-instrument cursor-pointer py-2.5">Full change ledger · {state.changes.entries.length} entries</summary><ul className="mt-3 max-w-3xl divide-y-legacy hairline">{state.changes.entries.map((entry, index) => <li key={index} className="py-2 font-instrument text-sm">{entry.description}</li>)}</ul></details>
   </div>;
 }
 

@@ -1,6 +1,53 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@config "../tailwind.config.js";
+
+/* V3 used absolute text line heights. Keep inherited label/link metrics
+   stable instead of adopting v4's proportional defaults. */
+@theme {
+  --text-xs--line-height: 1rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base--line-height: 1.5rem;
+  --text-lg--line-height: 1.75rem;
+  --text-xl--line-height: 1.75rem;
+  --text-2xl--line-height: 2rem;
+  --text-3xl--line-height: 2.25rem;
+  --text-4xl--line-height: 2.5rem;
+}
+
+/* Preserve v3 divider sides and their responsive reset. */
+@utility divide-y-legacy {
+  & > :where(:not([hidden]) ~ :not([hidden])) {
+    border-top-width: 1px;
+    border-bottom-width: 0;
+    border-color: var(--legacy-divide-color, #e5e7eb);
+  }
+}
+@utility divide-y-legacy-0 {
+  & > :where(:not([hidden]) ~ :not([hidden])) {
+    border-top-width: 0;
+    border-bottom-width: 0;
+  }
+}
+@utility divide-x-legacy {
+  & > :where(:not([hidden]) ~ :not([hidden])) {
+    border-left-width: 1px;
+    border-right-width: 0;
+    border-color: var(--legacy-divide-color, #e5e7eb);
+  }
+}
+.divide-ink\/30 { --legacy-divide-color: theme('colors.ink.DEFAULT / 0.3'); }
+
+/* Preserve the existing controls while the v4 compiler removes the vulnerable
+   build-only glob dependency path. */
+@layer base {
+  *, ::before, ::after, ::backdrop, ::file-selector-button { border-color: #e5e7eb; }
+  input::placeholder, textarea::placeholder { color: #9ca3af; }
+  /* Retain the native date-control metrics from the existing screenshots. */
+  input::-webkit-datetime-edit { display: revert; padding-block: revert; }
+  input::-webkit-datetime-edit-fields-wrapper { padding: revert; }
+  input::-webkit-calendar-picker-indicator { line-height: revert; }
+  button:not(:disabled), [role="button"]:not(:disabled) { cursor: pointer; }
+}
 
 @font-face { font-family: 'Source Serif 4'; src: url('./assets/fonts/SourceSerif4.woff2') format('woff2'); font-weight: 200 900; font-display: swap; }
 @font-face { font-family: 'Archivo Narrow'; src: url('./assets/fonts/ArchivoNarrow.woff2') format('woff2'); font-weight: 400 700; font-display: swap; }
@@ -27,7 +74,7 @@ body {
   text-decoration-style: solid;
 }
 .evidence-link:focus-visible {
-  @apply outline outline-2 outline-offset-2 outline-ink;
+  @apply outline-2 outline-offset-2 outline-ink;
 }
 
 /* chart title-block panels (the boxed corner block of a paper chart) */
@@ -40,8 +87,11 @@ body {
   @apply text-[11px] uppercase tracking-[0.18em] text-ink-soft font-instrument;
 }
 
-.hairline {
-  @apply border-line;
+/* Keep hover border utilities above the base hairline in the v4 cascade. */
+@layer utilities {
+  .hairline {
+    @apply border-line;
+  }
 }
 
 /* Synthetic data is conspicuous but never receives authority magenta. */
@@ -58,7 +108,7 @@ button:focus-visible,
 a:focus-visible,
 input:focus-visible,
 select:focus-visible {
-  @apply outline outline-2 outline-offset-2 outline-ink;
+  @apply outline-2 outline-offset-2 outline-ink;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -78,7 +128,7 @@ select:focus-visible {
 }
 
 .verification-table-scroll:focus-visible {
-  @apply outline outline-2 outline-offset-2 outline-ink;
+  @apply outline-2 outline-offset-2 outline-ink;
 }
 
 .verification-table th,
