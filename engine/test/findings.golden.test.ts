@@ -124,7 +124,9 @@ describe('findings golden (Cherbourg → Plymouth, recorded fixture)', () => {
 
   it('briefing golden: two registers, byte-stable, safe wording', async () => {
     const { briefing } = await computePipeline();
-    const serialized = JSON.stringify(briefing, null, 2);
+    // Optional message metadata is new; frozen prose/facts stay byte-identical.
+    const legacy = { ...briefing, sections: briefing.sections.map(({ messages: _messages, ...section }) => section) };
+    const serialized = JSON.stringify(legacy, null, 2);
     if (process.env.UPDATE_GOLDEN === '1' || !existsSync(GOLDEN_BRIEFING)) {
       writeFileSync(GOLDEN_BRIEFING, serialized);
     }

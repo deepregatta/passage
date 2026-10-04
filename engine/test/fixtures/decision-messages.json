@@ -1,0 +1,418 @@
+{
+  "source_kind": "emulated",
+  "cases": [
+    {
+      "name": "within",
+      "briefing": {
+        "schema_version": 1,
+        "snapshot_id": "synthetic-message-contract",
+        "sections": [
+          {
+            "id": "decision",
+            "title": "Against your declared limits",
+            "messages": {
+              "title": {
+                "message_id": "briefing.decision.title.v1",
+                "params": {}
+              },
+              "plain": [
+                {
+                  "message_id": "briefing.decision.within.plain.v1",
+                  "params": {}
+                }
+              ],
+              "pro": [
+                {
+                  "message_id": "briefing.decision.within.pro.v1",
+                  "params": {}
+                }
+              ]
+            },
+            "register_plain": "Forecast conditions stay inside the limits you declared for this departure.",
+            "register_pro": "All evaluated condition-hours remain below declared thresholds.",
+            "evidence_ids": []
+          }
+        ],
+        "next_runs": []
+      }
+    },
+    {
+      "name": "approaching",
+      "briefing": {
+        "schema_version": 1,
+        "snapshot_id": "synthetic-message-contract",
+        "sections": [
+          {
+            "id": "decision",
+            "title": "Against your declared limits",
+            "messages": {
+              "title": {
+                "message_id": "briefing.decision.title.v1",
+                "params": {}
+              },
+              "plain": [
+                {
+                  "message_id": "briefing.decision.approaching.plain.v1",
+                  "params": {}
+                }
+              ],
+              "pro": [
+                {
+                  "message_id": "briefing.decision.approaching.pro.v1",
+                  "params": {}
+                }
+              ]
+            },
+            "register_plain": "Forecast conditions come close to the limits you declared. Look at what is driving this before deciding.",
+            "register_pro": "One or more condition-hours reach ≥75% of a declared limit, or the ensemble scenario fraction is above your declared floor.",
+            "evidence_ids": []
+          }
+        ],
+        "next_runs": []
+      }
+    },
+    {
+      "name": "exceeds",
+      "briefing": {
+        "schema_version": 1,
+        "snapshot_id": "synthetic-message-contract",
+        "sections": [
+          {
+            "id": "decision",
+            "title": "Against your declared limits",
+            "messages": {
+              "title": {
+                "message_id": "briefing.decision.title.v1",
+                "params": {}
+              },
+              "plain": [
+                {
+                  "message_id": "briefing.decision.exceeds.plain.v1",
+                  "params": {}
+                }
+              ],
+              "pro": [
+                {
+                  "message_id": "briefing.decision.exceeds.pro.v1",
+                  "params": {}
+                }
+              ]
+            },
+            "register_plain": "Forecast conditions go beyond the limits you declared for this departure.",
+            "register_pro": "At least one condition-hour exceeds a declared threshold in the deterministic run.",
+            "evidence_ids": []
+          }
+        ],
+        "next_runs": []
+      }
+    },
+    {
+      "name": "insufficient",
+      "briefing": {
+        "schema_version": 1,
+        "snapshot_id": "synthetic-message-contract",
+        "sections": [
+          {
+            "id": "decision",
+            "title": "Against your declared limits",
+            "messages": {
+              "title": {
+                "message_id": "briefing.decision.title.v1",
+                "params": {}
+              },
+              "plain": [
+                {
+                  "message_id": "briefing.decision.insufficient.plain.v1",
+                  "params": {}
+                }
+              ],
+              "pro": [
+                {
+                  "message_id": "briefing.decision.insufficient.pro.v1",
+                  "params": {}
+                }
+              ]
+            },
+            "register_plain": "The forecasts disagree too much to assess this passage against your limits. Reassess after the next model run.",
+            "register_pro": "Deterministic model divergence exceeds assessment tolerance within the passage window.",
+            "evidence_ids": []
+          }
+        ],
+        "next_runs": []
+      }
+    },
+    {
+      "name": "warning_active",
+      "briefing": {
+        "schema_version": 1,
+        "snapshot_id": "synthetic-message-contract",
+        "sections": [
+          {
+            "id": "decision",
+            "title": "Against your declared limits",
+            "messages": {
+              "title": {
+                "message_id": "briefing.decision.title.v1",
+                "params": {}
+              },
+              "plain": [
+                {
+                  "message_id": "briefing.decision.warning_active.plain.v1",
+                  "params": {}
+                }
+              ],
+              "pro": [
+                {
+                  "message_id": "briefing.decision.warning_active.pro.v1",
+                  "params": {}
+                }
+              ]
+            },
+            "register_plain": "An official marine warning covers part of your route. That takes precedence over everything below.",
+            "register_pro": "Authority override active: an official bulletin covers route zones during the passage window.",
+            "evidence_ids": []
+          }
+        ],
+        "next_runs": []
+      }
+    },
+    {
+      "name": "numeric",
+      "briefing": {
+        "schema_version": 1,
+        "snapshot_id": "synthetic-message-contract",
+        "sections": [
+          {
+            "id": "decision",
+            "title": "Against your declared limits",
+            "messages": {
+              "title": {
+                "message_id": "briefing.decision.title.v1",
+                "params": {}
+              },
+              "plain": [
+                {
+                  "message_id": "briefing.decision.exceeds.plain.v1",
+                  "params": {}
+                },
+                {
+                  "message_id": "briefing.decision.numeric.plain.v1",
+                  "params": {
+                    "valid_time": "2026-07-12T18:00:00Z",
+                    "limit": 28,
+                    "leg_name": "Wind limit <img src=x onerror=alert(1)> Jul",
+                    "value": 28.1,
+                    "units": "kt",
+                    "hazard": "gusts",
+                    "relation": "over",
+                    "style": "just_over"
+                  }
+                }
+              ],
+              "pro": [
+                {
+                  "message_id": "briefing.decision.exceeds.pro.v1",
+                  "params": {}
+                },
+                {
+                  "message_id": "briefing.decision.numeric.pro.v1",
+                  "params": {
+                    "valid_time": "2026-07-12T18:00:00Z",
+                    "limit": 28,
+                    "rule_id": "W-GUST-01",
+                    "leg_id": "L3",
+                    "units": "kt",
+                    "value": 28.1
+                  }
+                }
+              ]
+            },
+            "register_plain": "Forecast conditions go beyond the limits you declared for this departure. The main signal: gusts just over your 28 kt limit on Wind limit <img src=x onerror=alert(1)> Jul around Sun 12 Jul 18:00 UTC.",
+            "register_pro": "At least one condition-hour exceeds a declared threshold in the deterministic run. Driver: W-GUST-01 on L3 at 2026-07-12T18:00:00Z; 28.1 kt vs declared 28 kt.",
+            "evidence_ids": [
+              "E8"
+            ]
+          }
+        ],
+        "next_runs": []
+      }
+    },
+    {
+      "name": "ensemble-0-10",
+      "briefing": {
+        "schema_version": 1,
+        "snapshot_id": "synthetic-message-contract",
+        "sections": [
+          {
+            "id": "decision",
+            "title": "Against your declared limits",
+            "messages": {
+              "title": {
+                "message_id": "briefing.decision.title.v1",
+                "params": {}
+              },
+              "plain": [
+                {
+                  "message_id": "briefing.decision.exceeds.plain.v1",
+                  "params": {}
+                },
+                {
+                  "message_id": "briefing.decision.ensemble.plain.v1",
+                  "params": {
+                    "valid_time": "2026-07-12T18:00:00Z",
+                    "limit": 28,
+                    "leg_name": "Wind limit <img src=x onerror=alert(1)> Jul",
+                    "exceed": 0,
+                    "total": 10
+                  }
+                }
+              ],
+              "pro": [
+                {
+                  "message_id": "briefing.decision.exceeds.pro.v1",
+                  "params": {}
+                },
+                {
+                  "message_id": "briefing.decision.ensemble.pro.v1",
+                  "params": {
+                    "valid_time": "2026-07-12T18:00:00Z",
+                    "limit": 28,
+                    "rule_id": "W-GUST-03",
+                    "leg_id": "L3",
+                    "units": "kt",
+                    "exceed": 0,
+                    "total": 10
+                  }
+                }
+              ]
+            },
+            "register_plain": "Forecast conditions go beyond the limits you declared for this departure. The main signal: none of the 10 forecast scenarios exceed your 28 kt limit on Wind limit <img src=x onerror=alert(1)> Jul around Sun 12 Jul 18:00 UTC.",
+            "register_pro": "At least one condition-hour exceeds a declared threshold in the deterministic run. Driver: W-GUST-03 on L3 at 2026-07-12T18:00:00Z; 0/10 members > 28 kt.",
+            "evidence_ids": [
+              "E8"
+            ]
+          }
+        ],
+        "next_runs": []
+      }
+    },
+    {
+      "name": "ensemble-1-1",
+      "briefing": {
+        "schema_version": 1,
+        "snapshot_id": "synthetic-message-contract",
+        "sections": [
+          {
+            "id": "decision",
+            "title": "Against your declared limits",
+            "messages": {
+              "title": {
+                "message_id": "briefing.decision.title.v1",
+                "params": {}
+              },
+              "plain": [
+                {
+                  "message_id": "briefing.decision.exceeds.plain.v1",
+                  "params": {}
+                },
+                {
+                  "message_id": "briefing.decision.ensemble.plain.v1",
+                  "params": {
+                    "valid_time": "2026-07-12T18:00:00Z",
+                    "limit": 28,
+                    "leg_name": "Wind limit <img src=x onerror=alert(1)> Jul",
+                    "exceed": 1,
+                    "total": 1
+                  }
+                }
+              ],
+              "pro": [
+                {
+                  "message_id": "briefing.decision.exceeds.pro.v1",
+                  "params": {}
+                },
+                {
+                  "message_id": "briefing.decision.ensemble.pro.v1",
+                  "params": {
+                    "valid_time": "2026-07-12T18:00:00Z",
+                    "limit": 28,
+                    "rule_id": "W-GUST-03",
+                    "leg_id": "L3",
+                    "units": "kt",
+                    "exceed": 1,
+                    "total": 1
+                  }
+                }
+              ]
+            },
+            "register_plain": "Forecast conditions go beyond the limits you declared for this departure. The main signal: all 1 forecast scenarios exceed your 28 kt limit on Wind limit <img src=x onerror=alert(1)> Jul around Sun 12 Jul 18:00 UTC.",
+            "register_pro": "At least one condition-hour exceeds a declared threshold in the deterministic run. Driver: W-GUST-03 on L3 at 2026-07-12T18:00:00Z; 1/1 members > 28 kt.",
+            "evidence_ids": [
+              "E8"
+            ]
+          }
+        ],
+        "next_runs": []
+      }
+    },
+    {
+      "name": "ensemble-3-10",
+      "briefing": {
+        "schema_version": 1,
+        "snapshot_id": "synthetic-message-contract",
+        "sections": [
+          {
+            "id": "decision",
+            "title": "Against your declared limits",
+            "messages": {
+              "title": {
+                "message_id": "briefing.decision.title.v1",
+                "params": {}
+              },
+              "plain": [
+                {
+                  "message_id": "briefing.decision.exceeds.plain.v1",
+                  "params": {}
+                },
+                {
+                  "message_id": "briefing.decision.ensemble.plain.v1",
+                  "params": {
+                    "valid_time": "2026-07-12T18:00:00Z",
+                    "limit": 28,
+                    "leg_name": "Wind limit <img src=x onerror=alert(1)> Jul",
+                    "exceed": 3,
+                    "total": 10
+                  }
+                }
+              ],
+              "pro": [
+                {
+                  "message_id": "briefing.decision.exceeds.pro.v1",
+                  "params": {}
+                },
+                {
+                  "message_id": "briefing.decision.ensemble.pro.v1",
+                  "params": {
+                    "valid_time": "2026-07-12T18:00:00Z",
+                    "limit": 28,
+                    "rule_id": "W-GUST-03",
+                    "leg_id": "L3",
+                    "units": "kt",
+                    "exceed": 3,
+                    "total": 10
+                  }
+                }
+              ]
+            },
+            "register_plain": "Forecast conditions go beyond the limits you declared for this departure. The main signal: 3 of 10 forecast scenarios exceed your 28 kt limit on Wind limit <img src=x onerror=alert(1)> Jul around Sun 12 Jul 18:00 UTC.",
+            "register_pro": "At least one condition-hour exceeds a declared threshold in the deterministic run. Driver: W-GUST-03 on L3 at 2026-07-12T18:00:00Z; 3/10 members > 28 kt.",
+            "evidence_ids": [
+              "E8"
+            ]
+          }
+        ],
+        "next_runs": []
+      }
+    }
+  ]
+}

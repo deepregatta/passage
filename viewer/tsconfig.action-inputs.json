@@ -4,5 +4,5 @@
     "lib": ["ES2022", "DOM"], "allowJs": true, "checkJs": false,
     "strict": true, "noEmit": true, "skipLibCheck": true, "types": ["vite/client"]
   },
-  "files": ["src/lib/actionInputs.js", "src/lib/browserAnalysis.js"]
+  "files": ["src/lib/actionInputs.js", "src/lib/browserAnalysis.js", "src/lib/briefingMessages.js"]
 }

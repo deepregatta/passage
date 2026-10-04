@@ -10,6 +10,8 @@
  *  - an active official warning always renders first and overrides the summary
  */
 
+import { decisionMessages, renderDecisionMessage, renderDecisionRegister } from './briefingMessages.js';
+import type { DecisionMessages } from './briefingMessages.js';
 import { fraction, phraseExceedance } from './exceedance.js';
 import { plainValueVsLimit, VERDICT_TEXT } from './plainLanguage.js';
 import { bearingDegTrue, haversineNm } from './geo.js';
@@ -29,6 +31,7 @@ export interface BriefingSection {
   register_plain: string;
   register_pro: string;
   evidence_ids: string[];
+  messages?: DecisionMessages;
   per_leg?: Array<{ leg_id: string; register_plain: string; register_pro: string; evidence_ids: string[] }>;
   glossary_terms?: string[];
   availability?: { status: 'available' | 'unavailable'; reason?: string };
@@ -208,9 +211,15 @@ export function renderBriefing(
     }
   }
 
+  const messages = decisionMessages(findings, driver);
+  // Canonical English comes from the same catalogue the viewer uses. Gates
+  // retain their complete legacy register until their rule facts are typed.
+  decisionPlain = renderDecisionRegister(messages.plain) ?? decisionPlain;
+  decisionPro = renderDecisionRegister(messages.pro) ?? decisionPro;
   sections.push({
     id: 'decision',
-    title: 'Against your declared limits',
+    title: renderDecisionMessage(messages.title)!,
+    messages,
     register_plain: decisionPlain,
     register_pro: decisionPro,
     evidence_ids: [...(driver ? [driver.evidence_id] : []), ...gateEvidence.map((e) => e.evidence_id)],

@@ -1,4 +1,6 @@
 import { CHANNEL_PREPARED_COVERAGE } from '@deepweather/engine';
+import BriefingMessage from '../../components/BriefingMessage.jsx';
+import { useApp } from '../../stores/appStore.js';
 import clsx from 'clsx';
 import { EvidenceLink } from '../../components/common.jsx';
 import { deriveCoverage } from '../../lib/evidenceSelectors.js';
@@ -15,6 +17,8 @@ export default function AssessmentDetails({ sections, findings }) {
 }
 
 function StorySection({ section, findings }) {
+  const version = useApp(s => s.briefing?.schema_version ?? 1);
+  const decision = section.id === 'decision';
   const coverage = section.id === 'unsupported' ? deriveCoverage(findings) : null;
   const unassessed = coverage?.items.filter((item) => item.status === 'not_assessed') ?? [];
   const plain = coverage
@@ -29,8 +33,8 @@ function StorySection({ section, findings }) {
 
   return (
     <div className={tone}>
-      <h3 className="eyebrow mb-1">{section.title}</h3>
-      <p className="font-sans text-[13px] leading-relaxed">{plain}</p>
+      <h3 className="eyebrow mb-1">{decision ? <BriefingMessage section={section} field="title" version={version} /> : section.title}</h3>
+      <p className="font-sans text-[13px] leading-relaxed">{decision ? <BriefingMessage section={section} field="plain" version={version} /> : plain}</p>
       {section.per_leg && (
         <ul className="mt-1.5 space-y-1.5">
           {section.per_leg.map((leg) => (
@@ -49,7 +53,7 @@ function StorySection({ section, findings }) {
           professional register
         </summary>
         <p className="font-sans text-[12px] leading-relaxed text-ink-soft mt-1">
-          {section.register_pro}
+          {decision ? <BriefingMessage section={section} field="pro" version={version} /> : section.register_pro}
         </p>
         {section.evidence_ids.length > 0 && (
           <p className="mt-1 font-mono text-[11px] text-ink-soft">

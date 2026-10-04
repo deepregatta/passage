@@ -341,7 +341,11 @@
         "emulated_disclosure",
         "not_assessed",
         "unsupported",
-        "warnings"
+        "warnings",
+        "decision",
+        "title",
+        "plain",
+        "pro"
       ],
       "viewer/src/pages/briefing/ChangesSection.jsx": [
         "unavailable",
@@ -521,6 +525,12 @@
         "unsupported",
         "warnings",
         "what_could_change"
+      ],
+      "viewer/src/components/BriefingMessage.jsx": [
+        "fallback",
+        "unavailable",
+        "unsupported",
+        "message"
       ]
     },
     "french": {
