@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 // Check the emitted HTML, including the French entry, after Pages packaging.
-for (const entry of ['index.html', 'fr/index.html']) {
+for (const entry of ['index.html', 'fr/index.html', 'grib/index.html', 'fr/grib/index.html']) {
   const html = readFileSync(new URL(`../viewer/dist/${entry}`, import.meta.url), 'utf8');
   const preloads = (html.match(/<link\b[^>]*>/gi) ?? []).filter((tag) =>
     /\brel\s*=\s*["']modulepreload["']/i.test(tag));

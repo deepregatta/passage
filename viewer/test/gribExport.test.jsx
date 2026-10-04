@@ -9,6 +9,7 @@ import { useGrib } from '../src/stores/gribStore.js';
 import { usePlanner } from '../src/stores/plannerStore.js';
 import { track } from '../src/lib/analytics.js';
 import { LocalizedDocument } from '../src/i18n.js';
+import { initialPage } from '../src/lib/routes.js';
 import {
   describeGribDataset,
   fmtGustWindows,
@@ -46,7 +47,7 @@ vi.mock('react-leaflet', () => ({
   useMap: () => ({ fitBounds: (bounds) => mapState.fits.push(bounds) }), useMapEvents: vi.fn(),
 }));
 vi.mock('../src/lib/browserAnalysis.js', () => ({ analyzeInBrowser: vi.fn(), saveRoute: vi.fn() }));
-vi.mock('../src/lib/analytics.js', () => ({ track: vi.fn() }));
+vi.mock('../src/lib/analytics.js', () => ({ track: vi.fn(), withUtm: (href) => href }));
 vi.mock('../src/lib/forecastStore.js', () => ({
   forecastStore: () => store.current,
   friendlyForecastError: () => new Error("Couldn't load the forecast tiles. Check your connection and try again."),
@@ -164,6 +165,7 @@ beforeEach(() => {
   usePlanner.getState().reset();
   useApp.setState({
     page: 'grib', manifest: { snapshots: [] }, profileDefaults: {}, findings: null, language: 'en',
+    plannerArea: null,
     loadConfig: vi.fn(), openSnapshot: vi.fn(),
   });
 });
@@ -175,6 +177,31 @@ afterEach(() => {
 });
 
 describe('area, period and model choices', () => {
+  it.each(['/grib', '/fr/grib', '/grib/'])('opens %s directly and respects explicit hash navigation', (path) => {
+    history.replaceState(null, '', `${path}?utm_source=bluesky&area=50.2,50.9,-9.9,-9.1`);
+    expect(initialPage()).toBe('grib');
+    history.replaceState(null, '', `${path}#plan`);
+    expect(initialPage()).toBe('planner');
+  });
+
+  it('preserves the GRIB path, query and area when switching language', () => {
+    history.replaceState(null, '', '/grib?utm_source=bluesky&area=50.2,50.9,-9.9,-9.1');
+    act(() => useApp.getState().setLanguage('fr'));
+    expect(location.pathname).toBe('/fr/grib');
+    expect(location.search).toBe('?utm_source=bluesky&area=50.2,50.9,-9.9,-9.1');
+    act(() => useApp.getState().setLanguage('en'));
+    expect(location.pathname).toBe('/grib');
+  });
+
+  it('adopts a path query area without losing attribution, then updates it when resized', async () => {
+    history.replaceState(null, '', '/grib?utm_source=bluesky&dr_traffic=qa&area=50.2,50.9,-9.9,-9.1');
+    render(<Grib />);
+    await waitFor(() => expect(useGrib.getState().area).toEqual(CHANNEL));
+    act(() => useGrib.getState().patch({ area: { ...CHANNEL, maxLat: 51.5 } }));
+    expect(new URLSearchParams(location.search).get('area')).toBe('50.2,51.5,-9.9,-9.1');
+    expect(new URLSearchParams(location.search).get('utm_source')).toBe('bluesky');
+    expect(new URLSearchParams(location.search).get('dr_traffic')).toBe('qa');
+  });
   it('snaps a drawn box outward to 0.1°, keeps a minimum size and clamps it to the globe', () => {
     expect(gribArea({ lat: 50.87, lon: 1.23 }, { lat: 49.13, lon: -2.71 }))
       .toEqual({ minLat: 49.1, maxLat: 50.9, minLon: -2.8, maxLon: 1.3 });
@@ -311,6 +338,56 @@ describe('area, period and model choices', () => {
     );
     const gfs = { ...ecmwf, datasetId: 'wind-gfs', variables: [...wind, { tileVar: 'gust_kt' }], windowsH: [null, null, null] };
     expect(describeGribDataset(gfs, { endIso: '2026-07-20T00:00:00Z' }).gustWindows).toEqual([]);
+  });
+});
+
+describe('next steps after a download', () => {
+  const fastnetArea = { ...CHANNEL, maxLat: 51.5 };
+  it('only offers next steps after saving and hands the box to Plan without replacing its draft', async () => {
+    await openWith(fastnetArea);
+    expect(screen.queryByRole('button', { name: 'Plan a passage in this area' })).toBeNull();
+    const draft = usePlanner.getState();
+    vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+    fireEvent.click(page().getByRole('button', { name: 'Download wind' }));
+    await waitFor(() => expect(saves).toHaveLength(1));
+    expect(screen.getByRole('link', { name: /Replay a race sailed here.*Rolex Fastnet 2025/ })).toHaveAttribute('href',
+      'https://oscar.deepregatta.com/?race=fastnet2025&tab=map&lang=en');
+    fireEvent.click(screen.getByRole('button', { name: 'Plan a passage in this area' }));
+    expect(useApp.getState()).toMatchObject({ page: 'planner', plannerArea: fastnetArea });
+    expect(usePlanner.getState()).toBe(draft);
+    expect(track).toHaveBeenCalledWith('grib_next_step', { target: 'plan' });
+  });
+
+  it('tracks just the race target and removes the panel when saved settings change', async () => {
+    await openWith(fastnetArea);
+    fireEvent.click(page().getByRole('button', { name: 'Download wind' }));
+    await waitFor(() => expect(saves).toHaveLength(1));
+    const replay = screen.getByRole('link', { name: /Replay a race sailed here/ });
+    replay.addEventListener('click', (event) => event.preventDefault());
+    fireEvent.click(replay);
+    expect(track).toHaveBeenCalledWith('grib_next_step', { target: 'fastnet2025' });
+    act(() => useGrib.getState().patch({ area: { ...fastnetArea, maxLat: 52 } }));
+    expect(screen.queryByRole('button', { name: 'Plan a passage in this area' })).toBeNull();
+  });
+
+  it('translates the panel and opens a French replay', async () => {
+    useApp.setState({ language: 'fr' });
+    useGrib.setState({ area: fastnetArea });
+    render(<><LocalizedDocument language="fr" /><Grib /></>);
+    const button = await screen.findByRole('button', { name: 'Télécharger le vent' });
+    await waitFor(() => expect(button).toBeEnabled());
+    fireEvent.click(button);
+    await waitFor(() => expect(saves).toHaveLength(1));
+    expect(screen.getByRole('button', { name: 'Planifier une traversée dans cette zone' })).toBeVisible();
+    expect(screen.getByRole('link', { name: /Revoir une course disputée ici.*Rolex Fastnet 2025/ }))
+      .toHaveAttribute('href', 'https://oscar.deepregatta.com/?race=fastnet2025&tab=map&lang=fr');
+  });
+
+  it('fits the planner chart to the requested area even with an existing route', () => {
+    useApp.setState({ plannerArea: CHANNEL });
+    usePlanner.setState({ mode: 'draw', waypoints: [{ lat: 20, lng: 10 }, { lat: 21, lng: 11 }] });
+    render(<Planner />);
+    expect(mapState.fits).toContainEqual([[50.2, -9.9], [50.9, -9.1]]);
   });
 });
 

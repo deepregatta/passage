@@ -1,14 +1,16 @@
 #!/usr/bin/env node
-// Emits dist/fr/index.html: the built shell with the French head and body baked in, so
+// Emits the French root and EN/FR GRIB entries with route-specific heads and bodies, so
 // non-JS scrapers (link previews) and Google's English-Accept-Language crawler
-// see French content without hydration. Strings come from src/metadata.js,
+// see the route's content without hydration. Strings come from src/metadata.js,
 // which also supplies the client-side HeadMetadata.jsx component.
 // Runs after `vite build` (wired into the viewer build script).
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { COPY, NO_JS_COPY, ogLocale, pageUrl, softwareApplication } from '../src/metadata.js';
+import { COPY, GRIB_COPY, NO_JS_COPY, ogLocale, pageUrl, softwareApplication } from '../src/metadata.js';
+import { GRIB_EXPORT_NOTICE } from '@deepweather/engine';
+import { translateText } from '../src/i18n.js';
 
 function escapeHtml(value) {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -81,7 +83,36 @@ function main() {
   const html = readFileSync(join(dist, 'index.html'), 'utf8');
   mkdirSync(join(dist, 'fr'), { recursive: true });
   writeFileSync(join(dist, 'fr', 'index.html'), renderFrenchHtml(html));
-  console.log('Prerendered dist/fr/index.html');
+  for (const language of ['en', 'fr']) {
+    const directory = join(dist, language === 'fr' ? 'fr/grib' : 'grib');
+    mkdirSync(directory, { recursive: true });
+    writeFileSync(join(directory, 'index.html'), renderGribHtml(html, language));
+  }
+  console.log('Prerendered French entry and EN/FR GRIB entries');
+}
+
+export function renderGribHtml(html, language) {
+  const copy = GRIB_COPY[language];
+  let out = language === 'fr' ? renderFrenchHtml(html) : html;
+  out = replaceOnce(out, /<title>[^<]*<\/title>/, () => `<title>${escapeHtml(copy.title)}</title>`, 'GRIB title');
+  for (const [attribute, name, content] of [
+    ['name', 'description', copy.description],
+    ['property', 'og:title', copy.title],
+    ['property', 'og:description', copy.description],
+    ['property', 'og:url', pageUrl(language, 'grib')],
+    ['name', 'twitter:title', copy.title],
+    ['name', 'twitter:description', copy.description],
+  ]) out = setMetaContent(out, attribute, name, content);
+  out = replaceOnce(out, /(<link rel="canonical" href=")[^"]*(")/,
+    (_match, before, after) => `${before}${pageUrl(language, 'grib')}${after}`, 'GRIB canonical');
+  for (const code of ['en', 'fr', 'x-default']) {
+    out = replaceOnce(out, new RegExp(`(<link rel="alternate" hreflang="${code}" href=")[^"]*(")`),
+      (_match, before, after) => `${before}${pageUrl(code === 'fr' ? 'fr' : 'en', 'grib')}${after}`, `GRIB alternate ${code}`);
+  }
+  out = replaceOnce(out, /(<script id="passage-structured-data" type="application\/ld\+json">)[\s\S]*?(<\/script>)/,
+    (_match, before, after) => `${before}${JSON.stringify(softwareApplication(language, 'grib'))}${after}`, 'GRIB structured data');
+  return replaceOnce(out, /<main>[\s\S]*?<\/main>/g, () =>
+    `<main><h1>${escapeHtml(translateText('Download GRIB files', language))}</h1><p>${escapeHtml(copy.description)}</p><p>${escapeHtml(translateText(GRIB_EXPORT_NOTICE, language))}</p></main>`, 'GRIB static body');
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();

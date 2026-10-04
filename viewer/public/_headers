@@ -25,3 +25,21 @@
 
 /fr/index.html
   Cache-Control: public, max-age=0, must-revalidate, no-transform
+
+/grib
+  Cache-Control: public, max-age=0, must-revalidate, no-transform
+
+/grib/
+  Cache-Control: public, max-age=0, must-revalidate, no-transform
+
+/grib/index.html
+  Cache-Control: public, max-age=0, must-revalidate, no-transform
+
+/fr/grib
+  Cache-Control: public, max-age=0, must-revalidate, no-transform
+
+/fr/grib/
+  Cache-Control: public, max-age=0, must-revalidate, no-transform
+
+/fr/grib/index.html
+  Cache-Control: public, max-age=0, must-revalidate, no-transform

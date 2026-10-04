@@ -12,4 +12,16 @@
     <xhtml:link rel="alternate" hreflang="fr" href="https://passage.deepregatta.com/fr/" />
     <xhtml:link rel="alternate" hreflang="x-default" href="https://passage.deepregatta.com/" />
   </url>
+  <url>
+    <loc>https://passage.deepregatta.com/grib</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://passage.deepregatta.com/grib" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://passage.deepregatta.com/fr/grib" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://passage.deepregatta.com/grib" />
+  </url>
+  <url>
+    <loc>https://passage.deepregatta.com/fr/grib</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://passage.deepregatta.com/grib" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://passage.deepregatta.com/fr/grib" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://passage.deepregatta.com/grib" />
+  </url>
 </urlset>

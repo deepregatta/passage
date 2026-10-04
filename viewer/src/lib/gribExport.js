@@ -130,6 +130,11 @@ export function gribAreaFromHash(hash = globalThis.location?.hash ?? '') {
   return validGribArea({ minLat, maxLat, minLon, maxLon });
 }
 
+/** Fragment areas remain authoritative; crawlable routes also accept ?area=. */
+export function gribAreaFromLocation() {
+  return gribAreaFromHash() ?? gribAreaFromHash(globalThis.location?.search ?? '');
+}
+
 export function gribAreaHash(area) {
   const valid = validGribArea(area);
   if (!valid) return 'plan/grib';

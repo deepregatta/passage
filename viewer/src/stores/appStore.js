@@ -1,6 +1,6 @@
 import { evidenceById } from '../lib/evidenceSelectors.js';
 import { create } from 'zustand';
-import { initialPage, pageHash, validSnapshotId } from '../lib/routes.js';
+import { initialPage, isGribPath, pageHash, validSnapshotId } from '../lib/routes.js';
 import { localSnapshots, fetchSnapshotJson, snapshotTombstones } from '../lib/localSnapshots.js';
 import { preparedRun } from '../lib/preparedRun.js';
 import { getInitialLanguage, getLanguageFromPath, LANGUAGE_STORAGE_KEY } from '../i18n.js';
@@ -27,6 +27,8 @@ export const useApp = create((set, get) => ({
   page: initialPage(), // plan a passage unless the URL deep-links elsewhere
   // where the passage page scrolls once its briefing is on screen (story when null)
   passageSection: null,
+  plannerArea: null,
+  setPlannerArea: (plannerArea) => set({ plannerArea }),
   manifest: null,
   manifestError: null,
 
@@ -64,7 +66,13 @@ export const useApp = create((set, get) => ({
     }
     const hash = pageHash(page, get().snapshotSource === 'served' ? get().snapshotId : null);
     if (writeHistory && typeof location !== 'undefined' && hash && location.hash !== `#${hash}`) {
-      history.pushState(null, '', `${location.pathname}${location.search}#${hash}`);
+      const url = new URL(location.href);
+      if (isGribPath() && page !== 'grib') {
+        url.pathname = getLanguageFromPath(location.pathname) === 'fr' ? '/fr/' : '/';
+        url.searchParams.delete('area');
+      }
+      url.hash = hash;
+      history.pushState(null, '', `${url.pathname}${url.search}${url.hash}`);
     }
     set({ page });
   },
@@ -100,7 +108,8 @@ export const useApp = create((set, get) => ({
     if (typeof location !== 'undefined') {
       const onFrenchPath = getLanguageFromPath(location.pathname) === 'fr';
       if ((language === 'fr') !== onFrenchPath) {
-        history.replaceState(null, '', `${language === 'fr' ? '/fr/' : '/'}${location.search}${location.hash}`);
+        const path = isGribPath() ? (language === 'fr' ? '/fr/grib' : '/grib') : (language === 'fr' ? '/fr/' : '/');
+        history.replaceState(null, '', `${path}${location.search}${location.hash}`);
       }
     }
     set({ language });

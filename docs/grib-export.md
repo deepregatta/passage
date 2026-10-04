@@ -15,6 +15,35 @@ scheduled run on, and ECMWF wind files carry them as ECMWF's own maximum over
 the 1, 3 or 6 h before each step, written with template 4.8
 ([Gusts over a window](#gusts-over-a-window-template-48)).
 
+The crawlable entries are `/grib` and `/fr/grib`; each build emits its own EN/FR
+HTML title, description, social metadata, canonical and reciprocal hreflang,
+and includes both entries in the sitemap. The campaign's `/#plan/grib` and
+`/fr/#plan/grib` links remain supported. Put UTM parameters before the fragment;
+an optional `?area=S,N,W,E` belongs in the fragment on hash links, or in the
+ordinary query on the crawlable entries. The URL's box wins over a saved box.
+Language switching and area edits preserve the attribution query.
+
+After a non-empty file is prepared and handed to the browser download, the
+next-step panel opens Plan with the chart fitted to that box, preserving any
+existing planner draft. Replay links appear only where the box intersects a
+static OSCAR course: `fastnet2025`, `rmsr2025`, or `arc2018` (public catalogue
+and course metadata checked 2026-10-04). These links open in a new tab, use `tab=map`, carry the
+selected language and the session attribution tuple, and exclude the box.
+`grib_next_step` records only a `target` (`plan` or the selected race ID), plus
+the shared event-contract-2 attribution context. It never records coordinates.
+The existing `grib_export` fields, models and disclosures are unchanged.
+
+The browser CI job runs the built-app regressions after the fixture suite.
+Locally, run `npm run build:pages` then `npm run test:e2e:build -w viewer --
+--workers=1`. This uses the `static-dist` launch configuration with intercepted
+test tiles and collector requests; live availability and stored-event receipts
+require separate production verification. `PASSAGE_E2E_PORT` selects a free
+port for either configured server when the default is in use.
+For an explicitly authorized live QA, `PASSAGE_E2E_MODE=live npm run test:e2e -w
+viewer -- --workers=1 --project=desktop` visits the deployed app and real forecast
+host and sends QA events to the live collector under verification label
+`passage-grib-20261004`; it does not intercept those services.
+
 ## Overview
 
 The export runs in the browser, from the same pinned tile runs Passage uses

@@ -24,6 +24,7 @@ export default function Planner() {
     runRouting, onGpx, runScan, run
   } = usePlannerController();
   const setPage = useApp((state) => state.setPage);
+  const chartArea = useApp((state) => state.plannerArea);
   const openGrib = () => {
     // A route hands its area (± the route margin) to the GRIB page; without one, the sailor draws a box there.
     const points = gribRoutePoints({ mode, waypoints, computed, endpoints });
@@ -47,6 +48,7 @@ export default function Planner() {
           computed={computed}
           endpoints={endpoints}
           fitNonce={fitNonce}
+          chartArea={chartArea}
           addWaypoint={addWaypoint}
           setWaypoints={setWaypoints}
         >

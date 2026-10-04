@@ -11,6 +11,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "test:e2e:build": "PASSAGE_E2E_MODE=build playwright test",
     "typecheck": "tsc -p tsconfig.action-inputs.json"
   },
   "dependencies": {
