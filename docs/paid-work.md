@@ -51,3 +51,13 @@ Prefer leaving enforcement active with `paused=true` during an incident.
 
 The full shared protocol and R2 exposure are documented in
 [forecast-tiles](https://github.com/deepregatta/forecast-tiles/blob/main/docs/paid-work.md).
+
+P01 adds a separate opt-in `CAPACITY_ENFORCE` boundary using F01's canonical
+physical-byte ledger. See [capacity and retention](storage-admission.md) for
+the pinned revision, permanent reservations, immutable pointer archives,
+preview and coordinated provider rollout. No capacity policy is activated by
+this code change. Prepared publication no longer deletes old runs; unknown
+offline/saved owners keep historical revisions protected. When capacity is
+enabled, rollback must keep every writer coordinated and admissions paused;
+disabling one flag while others assume its allocation is unsafe. Existing
+paid-work counters and approved start/runtime/spending controls are preserved.

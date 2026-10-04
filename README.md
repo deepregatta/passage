@@ -137,6 +137,8 @@ marine forecasts remain the authority of record.
 
 [Prepared publication spending control](docs/paid-work.md) covers optional
 production limits, pause behaviour and recovery without changing published reads.
+[Prepared capacity and retention](docs/storage-admission.md) documents the
+separate gated physical-byte admission and preservation of historical references.
 
 The maintained documentation index is [docs/README.md](docs/README.md).
 Superseded reports and one-off design material are retained under

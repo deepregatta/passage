@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "canonical_repository": "deepregatta/forecast-tiles",
+  "canonical_revision": "036dc0bd406844fea4ca0c02ef34de1f64370e79",
+  "recorded_on": "2026-10-04",
+  "artifacts": [
+    {
+      "path": "scripts/storage_admission.py",
+      "canonical_path": "src/ingest/storage_admission.py",
+      "sha256": "d3ce5a4305c43fa747c8444c8d8248f690cbae720a721bd0b88b12093329a964",
+      "canonical_blob": "git-blob:0732994c7c3b075ebeddecd2e21dac8e0ad106a7"
+    },
+    {
+      "path": "contracts/storage-admission-v1.schema.json",
+      "canonical_path": "contracts/storage-admission-v1.schema.json",
+      "sha256": "1faa96d5ce57423e99bad6e71b7baaf0739db52ea1bd319612ff8c7ba74b19e2",
+      "canonical_blob": "git-blob:850bc5b06e51c39fa79aecdb3126858cbc975c62"
+    },
+    {
+      "path": "contracts/storage-admission-v1.example.json",
+      "canonical_path": "contracts/storage-admission-v1.example.json",
+      "sha256": "dc251a42f8141c0a890d4948b1dcfb3f7771fcc7b6ccb007966595c034fb0f06",
+      "canonical_blob": "git-blob:b58c6936e9405b7faea775a5ea189a037bbdd9a9"
+    },
+    {
+      "path": "contracts/storage-admission-v1.vectors.json",
+      "canonical_path": "contracts/storage-admission-v1.vectors.json",
+      "sha256": "0b7ccacd25a4619705b2ec164ba64a1f4e48cc3de6dde05b67f594bcaa792c70",
+      "canonical_blob": "git-blob:99136e5fedcf474bf77ae392af0c706a3d3f3991"
+    }
+  ]
+}

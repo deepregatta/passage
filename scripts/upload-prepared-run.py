@@ -15,10 +15,9 @@ purge. Existing clients adopt these URLs when they next load latest.json (curren
 once per page load, with up to its 5 min HTTP cache lifetime). Already-open pages
 and saved briefings keep their original references; legacy URLs are not repaired.
 
-Only artifacts referenced by latest.json are uploaded. Old prepared runs are
-pruned per timestamped family, keeping referenced runs plus the newest few others so saved
-briefings keep their chart images for a while. All revisions within retained runs
-are kept, including legacy keys; direct files such as land masks remain unpruned.
+Only artifacts referenced by latest.json are uploaded. Historical artifacts and
+pointer archives are retained: offline/local/shared references cannot be enumerated
+centrally. scripts/preview_prepared_retention.py is read-only; no automatic pruning.
 
 Env: R2_ENDPOINT, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET.
 """
@@ -28,19 +27,25 @@ from __future__ import annotations
 import hashlib
 import json
 import mimetypes
-import os
-import re
 import sys
-from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
-import boto3
 from paid_work import Guard, Paused, RuntimeExpired, deadline, enforced
+from prepared_storage import PreconditionFailed, from_env
+from storage_admission import (
+    ATTEMPTS,
+    MUTABLE_UPLOAD_BYTES,
+    Admission,
+    CapacityDenied,
+    ReservedStore,
+    enforced as capacity_enforced,
+)
 
 REPO = Path(__file__).resolve().parent.parent
 RUNS_DIR = REPO / "data" / "processed" / "runs"
 PREFIX = "prepared/"
-KEEP_UNREFERENCED_RUNS = 6
+LATEST = PREFIX + "latest.json"
+PREVIOUS = PREFIX + "previous.json"
 
 IMMUTABLE = "public, max-age=31536000, immutable"
 POINTER = "public, max-age=300, must-revalidate"
@@ -64,6 +69,14 @@ def versioned_publication(latest: dict) -> tuple[bytes, dict[str, bytes]]:
     """Snapshot local bytes and rewrite the publication graph before any R2 writes."""
     artifacts = latest.get("artifacts", {})
     rels = dict.fromkeys(artifact_paths(latest))
+    if any(
+        not rel.startswith("runs/")
+        or ".." in PurePosixPath(rel).parts
+        or "\\" in rel
+        or rel != str(PurePosixPath(rel))
+        for rel in rels
+    ):
+        raise ValueError("artifact path outside prepared runs")
     bodies = {rel: (RUNS_DIR.parent / rel).read_bytes() for rel in rels}
     versions: dict[str, str] = {}
     objects: dict[str, bytes] = {}
@@ -111,33 +124,50 @@ def versioned_publication(latest: dict) -> tuple[bytes, dict[str, bytes]]:
     return encode({**latest, "artifacts": rewrite_artifacts(artifacts)}), objects
 
 
-def prune_keys(existing: dict[str, str | None], referenced: set[str]) -> list[str]:
-    """Retain references and six unreferenced cycles per family; unknown IDs are safe."""
-    families: dict[str, list[tuple[datetime, str]]] = {}
-    run_keys: dict[str, list[str]] = {}
-    for key in existing:
-        # Direct files such as runs/land_mask.json are not run directories.
-        parts = key.removeprefix(f"{PREFIX}runs/").split("/", 1)
-        if len(parts) != 2 or not parts[1]:
-            continue
-        run_keys.setdefault(parts[0], []).append(key)
-    for run_id in run_keys:
-        if run_id in referenced:
-            continue
-        match = re.fullmatch(r"(.+)-(\d{8}T\d{2}Z)", run_id)
-        if match is None:
-            continue
-        family, stamp = match.groups()
-        try:
-            timestamp = datetime.strptime(stamp, "%Y%m%dT%HZ")
-        except ValueError:
-            continue
-        families.setdefault(family, []).append((timestamp, run_id))
-    doomed = []
-    for runs in families.values():
-        for _, run_id in sorted(runs, reverse=True)[KEEP_UNREFERENCED_RUNS:]:
-            doomed.extend(run_keys[run_id])
-    return sorted(doomed)
+def archive_key(body: bytes) -> str:
+    return f"{PREFIX}pointers/{hashlib.sha256(body).hexdigest()}.json"
+
+
+def put_immutable(store, key, body, *, content_type):
+    existing, _ = store.get_with_etag(key)
+    if existing is not None:
+        if existing != body:
+            raise RuntimeError("immutable prepared bytes differ; publication refused")
+        return False
+    try:
+        store.put(
+            key,
+            body,
+            content_type=content_type,
+            cache_control=IMMUTABLE,
+            if_none_match=True,
+        )
+    except PreconditionFailed:
+        # Only a definite conflict may be settled as identical content. Unknown
+        # write outcomes stop the publication; its reservation remains charged.
+        if store.get_with_etag(key)[0] != body:
+            raise RuntimeError("immutable prepared conflict; publication refused")
+        return False
+    return True
+
+
+def commit_pointer(store, key, body, etag):
+    try:
+        store.put(
+            key,
+            body,
+            content_type="application/json",
+            cache_control=POINTER,
+            if_match=etag,
+            if_none_match=etag is None,
+        )
+    except CapacityDenied:
+        raise  # a guard refusal is not a lost transport response
+    except Exception:
+        # An authenticated GET can confirm a committed but lost response.
+        # Anything else stops: no retry against a changed base and no cleanup.
+        if store.get_with_etag(key)[0] != body:
+            raise
 
 
 def main() -> int:
@@ -154,7 +184,7 @@ def main() -> int:
             with deadline(2700):
                 return publish()
         return publish()
-    except (Paused, RuntimeExpired) as exc:
+    except (Paused, RuntimeExpired, CapacityDenied) as exc:
         print(f"prepared production paused: {exc}; existing data remains available")
         return 0
     finally:
@@ -165,7 +195,7 @@ def main() -> int:
                 print(f"prepared lease retained until expiry: {exc}")
 
 
-def publish() -> int:
+def publish(*, store=None, capacity_admission=None) -> int:
     latest_path = RUNS_DIR / "latest.json"
     if not latest_path.exists():
         print(
@@ -173,68 +203,70 @@ def publish() -> int:
             file=sys.stderr,
         )
         return 1
-    latest_bytes = latest_path.read_bytes()
-    latest = json.loads(latest_bytes)
+    latest = json.loads(latest_path.read_bytes())
     try:
         pointer_bytes, objects = versioned_publication(latest)
     except (OSError, ValueError, KeyError, TypeError) as exc:
-        # Never publish a pointer to missing files or unversioned dependencies.
         print(f"cannot prepare artifact publication, aborting: {exc}", file=sys.stderr)
         return 1
 
-    bucket = os.environ["R2_BUCKET"]
-    s3 = boto3.client(
-        "s3",
-        endpoint_url=os.environ["R2_ENDPOINT"],
-        aws_access_key_id=os.environ["R2_ACCESS_KEY_ID"],
-        aws_secret_access_key=os.environ["R2_SECRET_ACCESS_KEY"],
-        region_name="auto",
-    )
+    store = store or (capacity_admission.store if capacity_admission is not None else from_env())
+    # Snapshot the entire wire graph before inventory, reservations or writes.
+    store.list_objects(PREFIX)
+    old, old_etag = store.get_with_etag(LATEST)
+    previous, previous_etag = store.get_with_etag(PREVIOUS)
+    for body in (old, previous):
+        if body is not None:
+            doc = json.loads(body)
+            if not isinstance(doc, dict) or not isinstance(doc.get("artifacts"), dict):
+                raise RuntimeError("prepared pointer invalid; retain data and review")
+    if ATTEMPTS * (len(pointer_bytes) + len(old or b"")) > MUTABLE_UPLOAD_BYTES:
+        raise CapacityDenied("prepared pointer attempts exceed reserved control allowance")
 
-    existing = {}
-    paginator = s3.get_paginator("list_objects_v2")
-    for page in paginator.paginate(Bucket=bucket, Prefix=f"{PREFIX}runs/"):
-        existing.update({obj["Key"]: obj.get("ETag") for obj in page.get("Contents", [])})
+    archives = {archive_key(pointer_bytes): pointer_bytes}
+    if old is not None:
+        archives[archive_key(old)] = old
+    # Reserve full graph bytes even for skipped immutable objects. Baselines
+    # count all earlier revisions, legacy/direct files and incomplete uploads.
+    # Archive bytes plus bounded current/previous attempts cover control peaks.
+    peak = sum(map(len, objects.values())) + sum(map(len, archives.values())) + MUTABLE_UPLOAD_BYTES
+    admission = capacity_admission
+    if admission is None and capacity_enforced():
+        admission = Admission(store, conflicts=(PreconditionFailed,))
+    reservation = None
+    writer = store
+    if admission is not None:
+        reservation = admission.acquire(
+            "prepared",
+            hashlib.sha256(pointer_bytes).hexdigest(),
+            peak,
+            seconds=2700,
+        )
+        writer = ReservedStore(
+            admission, reservation, prefix=PREFIX, mutable_keys=(LATEST, PREVIOUS)
+        )
 
     uploaded = 0
     for rel, body in objects.items():
-        key = f"{PREFIX}{rel}"
-        # Single-part R2 PUTs have MD5 ETags. Multipart/unknown ETags never
-        # compare equal, so conservatively replace rather than skip stale data.
-        digest = hashlib.md5(body, usedforsecurity=False).hexdigest()
-        remote_etag = existing.get(key)
-        if remote_etag is not None and remote_etag.strip('"') == digest:
-            continue
-        s3.put_object(
-            Bucket=bucket,
-            Key=key,
-            Body=body,
-            ContentType=content_type(Path(rel)),
-            CacheControl=IMMUTABLE,
+        uploaded += put_immutable(
+            writer, f"{PREFIX}{rel}", body, content_type=content_type(Path(rel))
         )
-        uploaded += 1
+    for key, body in archives.items():
+        put_immutable(writer, key, body, content_type="application/json")
 
-    # pointer last: readers only see a fully-published run
-    s3.put_object(
-        Bucket=bucket,
-        Key=f"{PREFIX}latest.json",
-        Body=pointer_bytes,
-        ContentType="application/json",
-        CacheControl=POINTER,
-    )
-
-    # Only prune after all uploads and the validated pointer have succeeded.
-    referenced = {rel.split("/")[1] for rel in objects if rel.startswith("runs/")}
-    doomed = prune_keys(existing, referenced)
-    for i in range(0, len(doomed), 1000):
-        s3.delete_objects(
-            Bucket=bucket,
-            Delete={"Objects": [{"Key": k} for k in doomed[i : i + 1000]]},
-        )
-
+    # Verify the base before moving previous. Current remains the final publish
+    # marker, conditional on the original base; an unconverted writer can cause
+    # refusal, never deletion or rebase onto an unreviewed graph.
+    if store.get_with_etag(LATEST) != (old, old_etag):
+        raise RuntimeError("prepared pointer changed during upload; publication refused")
+    if old is not None and old != pointer_bytes:
+        commit_pointer(writer, PREVIOUS, old, previous_etag)
+    commit_pointer(writer, LATEST, pointer_bytes, old_etag)
+    if reservation is not None:
+        admission.finish(reservation)  # diagnostic only; never releases its bytes
     print(
-        f"published run {latest.get('run_id')}: {uploaded} uploaded objects, "
-        f"{len(doomed)} pruned, pointer {PREFIX}latest.json updated"
+        f"published run {latest.get('run_id')}: {uploaded} uploaded artifacts, "
+        f"historical data retained, pointer {LATEST} confirmed"
     )
     return 0
 
