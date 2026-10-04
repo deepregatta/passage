@@ -16,6 +16,13 @@ reserve 4; domains excluded. Preserve free plans. Forecast's observed 14 GB
 `MAX_BUCKET_BYTES` is a retained-forecast setting, not a universal physical-byte
 or monetary ceiling. P01 chooses no new production byte allocation.
 
+D01's [coordinated rollout runbook](https://github.com/deepregatta/forecast-tiles/blob/main/docs/storage-rollout.md)
+adds read-only paused policy preparation. Existing epochs, baselines, reservations
+and duplicate history must survive an update. Old prepared processes must be
+drained before enabling the flag: new repository variables do not change an
+already-running workflow. Fleet resume also requires the OSCAR GCS/native-only
+and manual-writer gates. D01 preparation is not activation or scheduled evidence.
+
 ## Physical admission
 
 When enabled, the uploader uses `ops/capacity-v1.json` and owner `prepared` in
