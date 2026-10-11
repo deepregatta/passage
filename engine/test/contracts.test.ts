@@ -104,7 +104,7 @@ describe('contracts', () => {
   });
 
   for (const [directory, schemaName] of [
-    ['routes', 'route'], ['profiles', 'limits-profile'], ['polars', 'polar'],
+    ['routes', 'route'], ['profiles', 'limits-profile'],
   ]) {
     const files = readdirSync(join(CONFIG_DIR, directory!)).filter(file => file.endsWith('.json') && file !== 'index.json');
     it(`${directory} corpus is nonempty`, () => expect(files.length).toBeGreaterThan(0));

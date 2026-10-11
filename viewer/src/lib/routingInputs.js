@@ -5,9 +5,16 @@ import { forecastStore, friendlyForecastError } from './forecastStore.js';
 /** deterministic tile horizon (GFS 240 h); scans beyond it fail with a clear message */
 export const FORECAST_HOURS = 240;
 
-async function loadJson(url) {
-  const response = await fetch(url);
-  return response.ok ? response.json() : null;
+/** Boat polars are read at request time from /api/polars/<id> (a Pages
+ * Function); this site never ships polar files. Any failure, including a
+ * non-JSON fallback page, means the polar is unavailable. */
+async function loadPolar(polarId) {
+  try {
+    const response = await fetch(`/api/polars/${encodeURIComponent(polarId)}`);
+    return response.ok ? await response.json() : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function loadRoutingInputs({
@@ -20,11 +27,9 @@ export async function loadRoutingInputs({
   now = Date.now,
   store = forecastStore(),
 }) {
-  const polar = await loadJson(`/data/polars/boats/${polarId}.json`).then(
-    (doc) => doc ?? loadJson(`/data/config/polars/${polarId}.json`),
-  );
+  const polar = await loadPolar(polarId);
   if (!polar) {
-    throw new Error(`Boat polar “${polarId}” not found. Regenerate and publish the ORC polar database.`);
+    throw new Error('Boat polars are unavailable right now. Use Draw my route instead.');
   }
 
   const bbox = routeBbox(start, finish);

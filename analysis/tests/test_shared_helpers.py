@@ -18,7 +18,6 @@ from deepweather_analysis import (
     environment_grid,
     grids_prep,
     observations,
-    polars,
     synoptic_prep,
     tides,
     warnings_au,
@@ -98,10 +97,9 @@ def test_utc_formatter_rollover_and_fractional_seconds(offset):
         ("", ""),
     ],
 )
-def test_slug_identifiers_and_polar_fallback(text, expected):
+def test_slug_identifiers(text, expected):
     assert warnings_us._event_slug(text) == expected
     assert warnings_au._slug(text) == expected
-    assert polars._slugify(text) == (expected or "polar")
 
 
 def test_wind_conversion_precision_and_geo_conventions():

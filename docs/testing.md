@@ -222,7 +222,7 @@ is implied.
 |---|---|
 | `scripts/build-demo-snapshots.mjs` | Regenerate the deterministic viewer demo |
 | `scripts/build-pages.mjs` | Package deployment data and Pages-compatible fallback files |
-| `scripts/publish-polars.mjs` | Copy a generated polar database into viewer public assets |
+| `scripts/check-no-polar-data.mjs` | Fail if polar data is in the repository or, given a directory, a built site (`npm run check:polars`, `build:pages`) |
 | `scripts/scenarios.sh` | Generate all synthetic verdict scenarios and run them through the engine |
 | `scripts/serve-pages.mjs` | Serve `viewer/dist` with Pages-like routing; use the `static-dist` launch configuration |
 | `scripts/upload-prepared-run.py` | Publish a prepared run from CI to R2 |
@@ -271,3 +271,14 @@ existing rounding.
 `npm run check:contracts` verifies the four forecast schemas and producer golden
 pins, then exercises isolated positive/drift cases. It runs first in `npm test`
 and in a dedicated CI job. See [ownership and refresh rules](shared-contracts.md).
+
+## No polar data
+
+Polar data never goes into this public repository or onto its site. `npm run
+check:polars` scans the files Git would commit for polar paths (`data/polars/`,
+`config/polars/`, `.pol`, `ALL20xx`, `boats.json.gz`) and polar content (speed
+matrices, ORC VPP rows, deep-polars licence records, `.pol` tables, gzip
+included), then runs its own planted-sample test. `npm run build:pages` repeats
+the scan over `viewer/dist` with no exceptions. Findings name the file and rule,
+never the data. Tests use invented tables only; each file holding one is listed
+with its reason in `SYNTHETIC_POLAR_FILES`.

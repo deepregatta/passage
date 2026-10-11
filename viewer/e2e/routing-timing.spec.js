@@ -42,7 +42,7 @@ for (const along of [2, -2, 0]) {
     } }));
     await page.route('**/data/land/global-005.bin.gz', route => route.fulfill({ body: Buffer.alloc(2) }));
     await page.route('**/data/runs/latest.json', route => route.fulfill({ json: null }));
-    await page.route(/\/data\/(polars\/boats|config\/polars)\/constant-5\.json$/, route =>
+    await page.route(/\/api\/polars\/constant-5$/, route =>
       route.fulfill({ json: routingInputs(along).polar }));
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));

@@ -52,13 +52,11 @@
         "served"
       ],
       "viewer/src/components/BoatPicker.jsx": [
-        "/data/config/polars/index.json",
-        "/data/polars/index.json",
+        "/api/polars",
         "Enter",
         "Escape",
         "certs",
         "generic",
-        "orc_vpp",
         "pointerdown"
       ],
       "viewer/src/components/BulletinPanel.jsx": [

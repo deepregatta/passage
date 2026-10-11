@@ -1,25 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import clsx from 'clsx';
 
-/** Search the full published ORC polar database (3k+ boat types) with the
- * length-bucket generics as the fallback when a boat isn't listed.
- * Index: /data/polars/index.json (built by `deepweather-analysis build-polar-db`);
- * legacy fallback: /data/config/polars/index.json (the two curated boats). */
+/** Search the boat polar index with the length-bucket generics as the
+ * fallback when a boat isn't listed. The index comes from /api/polars (a
+ * Pages Function); this site never ships polar files. */
 
 let indexPromise = null;
 function loadIndex() {
   indexPromise ??= (async () => {
     try {
-      const res = await fetch('/data/polars/index.json');
+      const res = await fetch('/api/polars');
       if (res.ok) return (await res.json()).polars ?? [];
-    } catch { /* fall through to legacy */ }
-    try {
-      const res = await fetch('/data/config/polars/index.json');
-      if (!res.ok) return [];
-      return ((await res.json()).polars ?? []).map((p) => ({ ...p, kind: p.source_kind ?? 'orc_vpp' }));
-    } catch {
-      return [];
-    }
+    } catch { /* unavailable */ }
+    indexPromise = null; // the next opening retries
+    return [];
   })();
   return indexPromise;
 }
@@ -44,6 +38,7 @@ export default function BoatPicker({ polarId, polarLabel, onSelect }) {
     return () => document.removeEventListener('pointerdown', onDown);
   }, []);
 
+  const unavailable = index !== null && index.length === 0;
   const generics = useMemo(() => (index ?? []).filter((p) => p.kind === 'generic'), [index]);
   const matches = useMemo(() => {
     if (!index) return [];
@@ -94,7 +89,10 @@ export default function BoatPicker({ polarId, polarLabel, onSelect }) {
             className="w-full sticky top-0 bg-white/95 border-b hairline px-2 py-2 text-sm outline-hidden"
           />
           {!index && <p className="px-2 py-2 text-[12px] text-ink-soft">Loading boat database…</p>}
-          {index && query && matches.length === 0 && (
+          {unavailable && (
+            <p className="px-2 py-2 text-[12px] text-ink-soft">The boat list is unavailable right now.</p>
+          )}
+          {index && !unavailable && query && matches.length === 0 && (
             <p className="px-2 py-2 text-[12px] text-ink-soft">
               No ORC boat matches “{query}”. Choose a generic cruiser by length below. The
               briefing will identify the generic polar.
@@ -115,7 +113,7 @@ export default function BoatPicker({ polarId, polarLabel, onSelect }) {
               </ul>
             </>
           )}
-          {index && !query && (
+          {index && !unavailable && !query && (
             <p className="px-2 py-2 text-[12px] text-ink-soft">
               {index.filter((p) => p.kind !== 'generic').length.toLocaleString()} boat types from
               the ORC 2025 database. Start typing to search.

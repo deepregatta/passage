@@ -90,10 +90,13 @@ policy, generated outputs, and maintenance scripts.
 
 The full corpus command without `--no-fetch` uses CDS credentials and may be slow. Calibration excludes every record whose `observation_source` or coverage class is `emulated`; demo cases are displayed but never contribute to skill claims.
 
-After regenerating the ORC database with `build-polar-db`, publish it into the
-static viewer with `npm run publish:polars`. Cloudflare Pages uses
-`npm run build:pages`, which merges deployment data into Vite's output and
-keeps a real `404.html` for missing data artifacts.
+Polar data never enters this public repository or its site: ORC and SailGrib
+polars may be used only where no polar file is publicly downloadable. The
+viewer asks `/api/polars` for one boat's polar when it routes;
+`npm run check:polars` (in `npm test`) and `npm run build:pages` fail if polar
+data comes back. Cloudflare Pages uses `npm run build:pages`, which merges
+deployment data into Vite's output and keeps a real `404.html` for missing data
+artifacts.
 
 Production builds default to `https://forecast.deepregatta.com` for forecast
 tiles and its `prepared/` prefix for prepared runs. `VITE_FORECAST_BASE_URL`

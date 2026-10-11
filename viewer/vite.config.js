@@ -242,7 +242,7 @@ export function dataMiddleware({ dataRoot: scratchDataRoot, fixtureMode = proces
         if (!contentTypes[ext]) {
           // Vite's public/ directory owns these committed deployment assets
           // (including .bin.gz, which the allowlist above would otherwise 403).
-          if (requestPath.startsWith('/data/polars/') || requestPath.startsWith('/data/land/')) {
+          if (requestPath.startsWith('/data/land/')) {
             return next();
           }
           res.statusCode = 403;
@@ -260,11 +260,7 @@ export function dataMiddleware({ dataRoot: scratchDataRoot, fixtureMode = proces
         // Vite's public/ directory owns these committed deployment assets
         // (tides fall through too: the synthetic constituents are committed
         // for production and only overridden by a local pipeline run).
-        if (
-          requestPath.startsWith('/data/polars/') ||
-          requestPath.startsWith('/data/land/') ||
-          requestPath.startsWith('/data/tides/')
-        ) {
+        if (requestPath.startsWith('/data/land/') || requestPath.startsWith('/data/tides/')) {
           return next();
         }
 

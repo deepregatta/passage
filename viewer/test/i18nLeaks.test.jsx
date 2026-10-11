@@ -23,7 +23,7 @@ it.each([
   ['reading 51-member ensemble tiles', 'lecture des tuiles d’ensemble à 51 membres'],
   ['reading deterministic forecast tiles…', 'lecture des tuiles de prévision déterministe…'],
   ['No route found within 48 h (wind coverage, land, or no-go conditions)', 'Aucune route trouvée en 48 h (couverture du vent, terre ou conditions impraticables)'],
-  ['Boat polar “sun-fast-3200” not found. Regenerate and publish the ORC polar database.', 'Polaire du bateau « sun-fast-3200 » introuvable. Régénérez et publiez la base de polaires ORC.'],
+  ['Boat polars are unavailable right now. Use Draw my route instead.', 'Les polaires de bateau sont indisponibles pour le moment. Utilisez plutôt « Tracer ma route ».'],
   ['Forecast grid coarsened to 0.5° to keep this crossing within the browser point budget.', 'Grille de prévision ramenée à 0.5° pour respecter le nombre de points gérable par le navigateur pour cette traversée.'],
   ['scanning departures 3/21…', 'comparaison des départs 3/21…'],
   [' · 12 h old', ' · il y a 12 h'],

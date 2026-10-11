@@ -37,6 +37,7 @@ Dev servers — use `.claude/launch.json` configs, not ad-hoc commands:
 - Commit and push to main after edits — don't wait to be asked.
 - Every external feed runs `live` / `fixture` / `synthetic` (`config/providers.json`); every emulated value must carry `source_kind: "emulated"` and a visible UI badge.
 - Reuse from coachregatta (oscar) is by vendoring with a `Vendored from coachregatta <path>, <date>` header — never cross-repo imports.
+- Polar data never enters this public repository, its Pages build or a log (deep-polars decisions 2 and 7). The browser gets one boat's polar at request time from `/api/polars`; `npm run check:polars` and `build:pages` fail if polar data comes back.
 
 ## Scoped maintenance
 
