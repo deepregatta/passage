@@ -9,7 +9,7 @@ request time from a Pages Function that reads the private release.
 
 | Surface | Public | Holds polar data |
 |---|---|---|
-| This repository and its history | yes | no: removed 2026-10-11, history rewrite pending ([below](#history)) |
+| This repository and its published branch/tag history | yes | no: rewritten 2026-10-11; old GitHub views await purge ([below](#history)) |
 | The Pages build (`viewer/dist`) | yes | no: `npm run build:pages` fails if any comes back |
 | `GET /api/polars` | yes, rate limited | no: picker fields only (id, label, kind, variant, aliases, builder, length, year, source) |
 | `GET /api/polars/<id>` | yes, rate limited | one boat's release entry, for the router in the browser |
@@ -111,6 +111,22 @@ Polar files were published from 2026-07-12 to 2026-10-11:
 `viewer/public/data/polars/` (3,250 boats and an index), `config/polars/`
 (two ORC extracts, served under `/data/config/polars/`) and a 20-certificate
 ORC test sample. On 2026-10-11 they were removed from the tree and the 345
-Pages deployments that served them were deleted. Removing them from Git
-history is a force-push of a prepared rewrite, gated on Davi; until it lands,
-old commits still contain them.
+Pages deployments that served them were deleted. The two public cache prefixes,
+`passage.deepregatta.com/data/polars/` and
+`passage.deepregatta.com/data/config/polars/`, were purged in Cloudflare.
+
+The Git history rewrite was force-pushed on 2026-10-11. GitHub's published
+`main` branch and `review-2026-09-07-baseline` tag were checked: neither retains
+history for the three removed paths. At that check the repository had no forks
+or pull requests.
+
+Old commit objects still resolved through GitHub's API after the rewrite.
+GitHub Support ticket **4846801**, submitted on 2026-10-11, requests removal of
+cached old commit/blob views and server-side garbage collection. **That purge
+is pending GitHub's confirmation.** A rewritten branch or tag does not prove
+that old GitHub views, existing clones or downloaded copies have been erased.
+
+The pre-rewrite backup and commit map are retained outside this checkout in
+`~/projects/deepregatta/backups/`. The backup contains polar data and must never
+be pushed or uploaded. The local `feat/forecast-tiles` branch also retains the
+old paths; do not push it or merge its old history into the rewritten branch.
