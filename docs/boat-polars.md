@@ -61,11 +61,14 @@ deliberately: update both, then check the boat list and a routed passage.
 
 ## Rate limit
 
-Pages Functions cannot hold Cloudflare's Rate Limiting binding, and a zone rule
-would not cover `*.pages.dev`. The [`passage-polar-limiter`](../workers/polar-limiter/)
-Worker holds two limits, **30 boat reads** and **10 boat-list reads per client
-per 60 s**, and has no public route. Its counts are per Cloudflare location and
-approximate. Deploy it by hand after a change, with credentials that can edit
+A zone rule would not cover `*.pages.dev`, so the function asks the
+[`passage-polar-limiter`](../workers/polar-limiter/) Worker, which has no public
+route. It allows **30 boat reads** and **10 boat-list reads per client in any
+60 s**, counted exactly: one Durable Object per kind and client holds a sliding
+window of that client's allowed requests and deletes itself after a quiet
+minute. Cloudflare's Rate Limiting binding was used first; it is approximate by
+design and, on 2026-10-11, let 126 boat reads from one address through in about
+two minutes. Deploy the Worker by hand after a change, with credentials that can edit
 Workers scripts. A `CLOUDFLARE_API_TOKEN` in the environment overrides
 `wrangler login`; if that token lacks Workers permissions the deploy fails with
 "No access to the specified resource", so leave it out for this command:

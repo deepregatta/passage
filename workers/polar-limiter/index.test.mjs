@@ -1,29 +1,80 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+import { afterEach, beforeEach, mock, test } from 'node:test';
 
-import limiter from './index.mjs';
+import limiter, { ClientWindow, LIMITS, WINDOW_MS } from './index.mjs';
 
-function binding(allowUntil) {
-  const seen = [];
-  return { seen, limit: async ({ key }) => { seen.push(key); return { success: seen.length <= allowUntil }; } };
+function storage() {
+  const data = new Map();
+  return {
+    data, alarm: null,
+    get: async (key) => data.get(key),
+    put: async (key, value) => { data.set(key, value); },
+    setAlarm: async function (at) { this.alarm = at; },
+    deleteAll: async () => { data.clear(); },
+  };
 }
-const post = (body) => new Request('https://passage-polar-limiter/limit', { method: 'POST', body: JSON.stringify(body) });
+// The CLIENT_WINDOWS namespace: one ClientWindow per name, as Durable Objects are.
+function namespace() {
+  const objects = new Map();
+  return {
+    objects,
+    idFromName: (name) => name,
+    get: (id) => {
+      if (!objects.has(id)) objects.set(id, new ClientWindow({ storage: storage() }));
+      return { fetch: (url) => objects.get(id).fetch(new Request(url)) };
+    },
+  };
+}
+const ask = async (env, kind, key) => {
+  const response = await limiter.fetch(new Request('https://passage-polar-limiter/limit', {
+    method: 'POST', body: JSON.stringify({ kind, key }),
+  }), env);
+  return (await response.json()).allowed;
+};
+const times = async (n, fn) => { const out = []; for (let i = 0; i < n; i++) out.push(await fn()); return out; };
 
-test('boat and index reads use their own limits, keyed per client', async () => {
-  const env = { BOAT_READS: binding(1), INDEX_READS: binding(5) };
-  const ask = async (body) => (await (await limiter.fetch(post(body), env)).json()).allowed;
-  assert.equal(await ask({ kind: 'boat', key: '203.0.113.7' }), true);
-  assert.equal(await ask({ kind: 'boat', key: '203.0.113.7' }), false);
-  assert.equal(await ask({ kind: 'index', key: '203.0.113.7' }), true);
-  assert.deepEqual(env.BOAT_READS.seen, ['boat:203.0.113.7', 'boat:203.0.113.7']);
-  assert.deepEqual(env.INDEX_READS.seen, ['index:203.0.113.7']);
+beforeEach(() => mock.timers.enable({ apis: ['Date'], now: 1_000_000 }));
+afterEach(() => mock.timers.reset());
+
+test('a client gets exactly its limit per kind in any 60 s, counted apart from other clients and kinds', async () => {
+  const env = { CLIENT_WINDOWS: namespace() };
+  const boats = await times(LIMITS.boat + 5, () => ask(env, 'boat', '203.0.113.7'));
+  assert.equal(boats.filter(Boolean).length, LIMITS.boat);
+  assert.deepEqual(boats.slice(LIMITS.boat), [false, false, false, false, false]);
+  assert.equal(await ask(env, 'boat', '198.51.100.4'), true);
+  const lists = await times(LIMITS.index + 1, () => ask(env, 'index', '203.0.113.7'));
+  assert.equal(lists.filter(Boolean).length, LIMITS.index);
+  assert.deepEqual([...env.CLIENT_WINDOWS.objects.keys()].sort(),
+    ['boat:198.51.100.4', 'boat:203.0.113.7', 'index:203.0.113.7']);
 });
 
-test('anything else is refused', async () => {
-  const env = { BOAT_READS: binding(9), INDEX_READS: binding(9) };
-  assert.equal((await limiter.fetch(new Request('https://passage-polar-limiter/limit'), env)).status, 405);
-  assert.equal((await limiter.fetch(post({ kind: 'other', key: 'x' }), env)).status, 400);
-  assert.equal((await limiter.fetch(post({ kind: 'boat' }), env)).status, 400);
-  assert.equal((await limiter.fetch(new Request('https://passage-polar-limiter/limit', { method: 'POST', body: '{' }), env)).status, 400);
-  assert.deepEqual(env.BOAT_READS.seen, []);
+test('the window slides: a request is allowed again once the oldest allowed one is 60 s old', async () => {
+  const counter = new ClientWindow({ storage: storage() });
+  const admit = async () => (await (await counter.fetch(new Request('https://client-window/?limit=2'))).json()).allowed;
+  assert.equal(await admit(), true);
+  mock.timers.tick(30_000);
+  assert.equal(await admit(), true);
+  assert.equal(await admit(), false, 'denied requests are not counted');
+  mock.timers.tick(WINDOW_MS - 30_000);
+  assert.equal(await admit(), true);
+  assert.equal(await admit(), false);
+});
+
+test('a quiet minute deletes the window', async () => {
+  const state = { storage: storage() };
+  const counter = new ClientWindow(state);
+  await counter.fetch(new Request('https://client-window/?limit=2'));
+  assert.equal(state.storage.alarm, 1_000_000 + WINDOW_MS);
+  await counter.alarm();
+  assert.equal(state.storage.data.size, 0);
+});
+
+test('anything else is refused without counting', async () => {
+  const env = { CLIENT_WINDOWS: namespace() };
+  const send = (init) => limiter.fetch(new Request('https://passage-polar-limiter/limit', init), env).then((r) => r.status);
+  assert.equal(await send(), 405);
+  assert.equal(await send({ method: 'POST', body: JSON.stringify({ kind: 'other', key: 'x' }) }), 400);
+  assert.equal(await send({ method: 'POST', body: JSON.stringify({ kind: 'boat' }) }), 400);
+  assert.equal(await send({ method: 'POST', body: '{' }), 400);
+  assert.equal(env.CLIENT_WINDOWS.objects.size, 0);
 });
