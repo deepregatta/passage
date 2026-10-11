@@ -64,10 +64,13 @@ Pages Functions cannot hold Cloudflare's Rate Limiting binding, and a zone rule
 would not cover `*.pages.dev`. The [`passage-polar-limiter`](../workers/polar-limiter/)
 Worker holds two limits, **30 boat reads** and **10 boat-list reads per client
 per 60 s**, and has no public route. Its counts are per Cloudflare location and
-approximate. Deploy it by hand after a change:
+approximate. Deploy it by hand after a change, with credentials that can edit
+Workers scripts. A `CLOUDFLARE_API_TOKEN` in the environment overrides
+`wrangler login`; if that token lacks Workers permissions the deploy fails with
+"No access to the specified resource", so leave it out for this command:
 
 ```bash
-npx wrangler deploy --config workers/polar-limiter/wrangler.toml
+env -u CLOUDFLARE_API_TOKEN npx wrangler deploy --config workers/polar-limiter/wrangler.toml
 ```
 
 ## Configuration (Davi)
