@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://deepweather.local/contracts/polar.schema.json",
-  "title": "Boat polar — extracted from vendored ORC db or user override",
+  "title": "Boat polar — the router's shape, converted in the browser from a deepregatta-polars/1 release entry (engine polarFromRelease)",
   "type": "object",
   "required": ["schema_version", "polar_id", "label", "tws_kt", "twa_deg", "speeds_kt", "source"],
   "properties": {

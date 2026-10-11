@@ -19,6 +19,15 @@ export default defineConfig([
     rules: { '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', ignoreRestSiblings: true }] },
   },
   {
+    // Pages Functions and the limiter Worker run in the Workers runtime.
+    files: ['functions/**/*.js', 'server/**/*.mjs', 'workers/**/*.mjs'],
+    languageOptions: { globals: globals.serviceworker },
+  },
+  {
+    files: ['server/**/*.test.mjs', 'workers/**/*.test.mjs'],
+    languageOptions: { globals: globals.node },
+  },
+  {
     files: ['eslint.config.mjs', 'scripts/**/*.{js,mjs,cjs}', 'viewer/*.{js,mjs,cjs}', 'viewer/scripts/**/*.mjs', 'engine/test/**/*.ts'],
     languageOptions: { globals: globals.node },
   },

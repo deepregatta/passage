@@ -11,6 +11,7 @@ Dev codename `deepweather` survives in internal identifiers (package names, CLI 
 - `analysis/` — Python factory (uv, Python 3.12 — 3.14 breaks the geo stack): route-independent prep publishing JSON artifacts per model run.
 - `contracts/` — JSON Schemas: the treaty between Python and TypeScript. Change these deliberately and keep both sides in sync.
 - `data/` — git-ignored warehouse.
+- `functions/` + `server/` — the only server code: the `/api/polars` Pages Function over the private polar release; `workers/polar-limiter/` is its rate-limit Worker.
 - Forecast tiles come from the separate [forecast-tiles](https://github.com/deepregatta/forecast-tiles) repo (PFT1 on Cloudflare R2).
 
 ## Commands
@@ -31,13 +32,14 @@ Dev servers — use `.claude/launch.json` configs, not ad-hoc commands:
 
 - `viewer-demo` — viewer on port 5174 with `VITE_DW_FIXTURE=demo`
 - `static-dist` — static pages server on port 8788
+- `pages-functions` — `wrangler pages dev viewer/dist` with the `/api/polars` function on port 8789 (build first; `.dev.vars`)
 
 ## Conventions
 
 - Commit and push to main after edits — don't wait to be asked.
 - Every external feed runs `live` / `fixture` / `synthetic` (`config/providers.json`); every emulated value must carry `source_kind: "emulated"` and a visible UI badge.
 - Reuse from coachregatta (oscar) is by vendoring with a `Vendored from coachregatta <path>, <date>` header — never cross-repo imports.
-- Polar data never enters this public repository, its Pages build or a log (deep-polars decisions 2 and 7). The browser gets one boat's polar at request time from `/api/polars`; `npm run check:polars` and `build:pages` fail if polar data comes back.
+- Polar data never enters this public repository, its Pages build or a log (deep-polars decisions 2 and 7). The browser gets one boat's polar at request time from `/api/polars` ([boat polars](docs/boat-polars.md)); `npm run check:polars` and `build:pages` fail if polar data comes back. Tests use invented entries only; agents never see or type `DEEP_POLARS_TOKEN`.
 
 ## Scoped maintenance
 

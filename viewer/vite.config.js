@@ -285,6 +285,9 @@ export default defineConfig(({ mode }) => ({
   server: {
     port: 5174,
     strictPort: true,
+    // Boat polars come only from the Pages Function. The pages-functions
+    // launch configuration serves it locally (docs/boat-polars.md).
+    proxy: { '/api': 'http://127.0.0.1:8789' },
   },
   build: {
     outDir: 'dist',

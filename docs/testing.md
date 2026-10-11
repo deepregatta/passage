@@ -222,6 +222,7 @@ is implied.
 |---|---|
 | `scripts/build-demo-snapshots.mjs` | Regenerate the deterministic viewer demo |
 | `scripts/build-pages.mjs` | Package deployment data and Pages-compatible fallback files |
+| `server/polars.test.mjs`, `workers/polar-limiter/index.test.mjs` | `/api/polars` read/check/limit and the limiter Worker against invented entries (`npm run test:functions`, in `npm test`) |
 | `scripts/check-no-polar-data.mjs` | Fail if polar data is in the repository or, given a directory, a built site (`npm run check:polars`, `build:pages`) |
 | `scripts/scenarios.sh` | Generate all synthetic verdict scenarios and run them through the engine |
 | `scripts/serve-pages.mjs` | Serve `viewer/dist` with Pages-like routing; use the `static-dist` launch configuration |

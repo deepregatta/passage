@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import path from 'node:path';
-import { DEPARTURE, routingInputs } from '../test/fixtures/routingTiming.js';
+import { CONSTANT_5_RELEASE_ENTRY, DEPARTURE } from '../test/fixtures/routingTiming.js';
 
 const engineUrl = `/@fs/${path.resolve(import.meta.dirname, '../../engine/dist/index.js')}`;
 async function installForecast(page, along) {
@@ -43,7 +43,7 @@ for (const along of [2, -2, 0]) {
     await page.route('**/data/land/global-005.bin.gz', route => route.fulfill({ body: Buffer.alloc(2) }));
     await page.route('**/data/runs/latest.json', route => route.fulfill({ json: null }));
     await page.route(/\/api\/polars\/constant-5$/, route =>
-      route.fulfill({ json: routingInputs(along).polar }));
+      route.fulfill({ json: CONSTANT_5_RELEASE_ENTRY }));
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
     page.on('console', message => {

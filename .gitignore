@@ -22,3 +22,8 @@ __pycache__/
 .idea/
 output/
 .playwright-cli/
+
+# Local Pages Function secrets (DEEP_POLARS_TOKEN); never committed.
+.dev.vars
+.dev.vars.*
+.wrangler/

@@ -55,7 +55,6 @@
         "/api/polars",
         "Enter",
         "Escape",
-        "certs",
         "generic",
         "pointerdown"
       ],

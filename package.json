@@ -12,11 +12,12 @@
   ],
   "scripts": {
     "lint": "eslint . --max-warnings 0",
-    "test": "npm run check:contracts && npm run check:polars && npm run build -w engine && npm run typecheck -w engine && npm run test -w engine && npm run typecheck -w viewer && npm run test -w viewer --if-present",
+    "test": "npm run check:contracts && npm run check:polars && npm run test:functions && npm run build -w engine && npm run typecheck -w engine && npm run test -w engine && npm run typecheck -w viewer && npm run test -w viewer --if-present",
     "test:e2e": "npm run test:e2e -w viewer",
     "dev": "npm run dev -w viewer",
     "build": "npm run build -w engine && npm run build -w viewer",
     "build:pages": "npm run build && node scripts/build-pages.mjs && node scripts/check-dist.mjs && node scripts/check-no-polar-data.mjs viewer/dist",
+    "test:functions": "node --test server/polars.test.mjs workers/polar-limiter/index.test.mjs",
     "check:polars": "node scripts/check-no-polar-data.mjs && node --test scripts/check-no-polar-data.test.mjs",
     "check:contracts": "python3 scripts/check_shared_contracts.py && python3 -m unittest discover -s scripts -p test_shared_contracts.py"
   },

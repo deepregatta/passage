@@ -12,6 +12,7 @@ This directory contains the maintained documentation for Passage.
 | [Testing and maintenance](testing.md) | Test suites, fixtures, scripts, generated files, and routine validation |
 | [2026-09-17 implementation verification](maintenance/2026-09-17-implementation-verification.md) | Historical verification of the archived September review and the resolution of IV-1 through IV-8 |
 | [2026-09-19 review closeout](maintenance/2026-09-19-review-closeout.md) | Remaining robustness/configuration fixes, CI coverage, and production smoke evidence |
+| [Boat polars](boat-polars.md) | What is public, `/api/polars` read/check/limit path, release pin, limiter Worker, configuration and local development |
 | [Shared contracts](shared-contracts.md) | Canonical owners, committed revision/digest pins, deliberate representations and offline drift gates |
 | [PFT1 forecast tile format](forecast-tile-format.md) | Binary forecast-tile and publication contract shared with `forecast-tiles` |
 | [Forecast consumers and freshness](forecast-consumers.md) | Custom-domain consumers, pointer revalidation, saved/offline compatibility and approval-gated F02 handoff |

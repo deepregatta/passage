@@ -1,0 +1,18 @@
+# Deployed by hand: npx wrangler deploy --config workers/polar-limiter/wrangler.toml
+# The Pages project binds it as POLAR_LIMITER (service binding, production).
+name = "passage-polar-limiter"
+main = "index.mjs"
+compatibility_date = "2026-07-12"
+workers_dev = false
+preview_urls = false
+
+# 30 boat reads and 10 boat-list reads per client per 60 s (decision 11).
+[[ratelimits]]
+name = "BOAT_READS"
+namespace_id = "2026101101"
+simple = { limit = 30, period = 60 }
+
+[[ratelimits]]
+name = "INDEX_READS"
+namespace_id = "2026101102"
+simple = { limit = 10, period = 60 }

@@ -1,19 +1,29 @@
-import { forecastRunGone, passageMaxHours, routeBbox, snapToSea } from '@deepweather/engine';
+import { forecastRunGone, passageMaxHours, polarFromRelease, routeBbox, snapToSea } from '@deepweather/engine';
 import { landMaskForBbox } from './landMask.js';
 import { forecastStore, friendlyForecastError } from './forecastStore.js';
 
 /** deterministic tile horizon (GFS 240 h); scans beyond it fail with a clear message */
 export const FORECAST_HOURS = 240;
 
-/** Boat polars are read at request time from /api/polars/<id> (a Pages
- * Function); this site never ships polar files. Any failure, including a
- * non-JSON fallback page, means the polar is unavailable. */
+const POLARS_UNAVAILABLE = 'Boat polars are unavailable right now. Use Draw my route instead.';
+
+/** One boat's polar, read at request time from /api/polars/<id> (a Pages
+ * Function over the pinned deep-polars release); this site never ships polar
+ * files. The engine converts the release entry to the router's shape. */
 async function loadPolar(polarId) {
+  let response;
   try {
-    const response = await fetch(`/api/polars/${encodeURIComponent(polarId)}`);
-    return response.ok ? await response.json() : null;
-  } catch {
-    return null;
+    response = await fetch(`/api/polars/${encodeURIComponent(polarId)}`);
+  } catch (error) {
+    throw new Error(POLARS_UNAVAILABLE, { cause: error });
+  }
+  if (response.status === 429) throw new Error('Too many boat polar requests. Wait a minute and try again.');
+  if (response.status === 404) throw new Error('This boat is no longer in the polar list. Choose your boat again.');
+  try {
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return polarFromRelease(await response.json());
+  } catch (error) {
+    throw new Error(POLARS_UNAVAILABLE, { cause: error });
   }
 }
 
@@ -28,9 +38,6 @@ export async function loadRoutingInputs({
   store = forecastStore(),
 }) {
   const polar = await loadPolar(polarId);
-  if (!polar) {
-    throw new Error('Boat polars are unavailable right now. Use Draw my route instead.');
-  }
 
   const bbox = routeBbox(start, finish);
   const maxHours = passageMaxHours(start, finish);

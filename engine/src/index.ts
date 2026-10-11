@@ -28,6 +28,8 @@ export { computeRoute } from './routing/isochrone.js';
 export type { RoutingRequest, RoutingResult } from './routing/isochrone.js';
 export { boatSpeedKt } from './routing/polar.js';
 export type { Polar } from './routing/polar.js';
+export { polarFromRelease } from './routing/deepPolars.js';
+export type { DeepPolarsEntry } from './routing/deepPolars.js';
 export { isLand, segmentCrossesLand } from './routing/landmask.js';
 export type { LandMask } from './routing/landmask.js';
 export { windowLandMask, snapToSea } from './routing/landmaskPack.js';

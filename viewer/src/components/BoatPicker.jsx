@@ -48,9 +48,9 @@ export default function BoatPicker({ polarId, polarLabel, onSelect }) {
     const starts = [];
     const contains = [];
     for (const p of boats) {
-      const key = norm(p.label);
-      if (key.startsWith(q)) starts.push(p);
-      else if (key.includes(q)) contains.push(p);
+      const keys = [p.label, ...(p.aliases ?? [])].map(norm);
+      if (keys.some((key) => key.startsWith(q))) starts.push(p);
+      else if (keys.some((key) => key.includes(q))) contains.push(p);
       if (starts.length >= 30) break;
     }
     return [...starts, ...contains].slice(0, 30);
@@ -64,7 +64,7 @@ export default function BoatPicker({ polarId, polarLabel, onSelect }) {
 
   return (
     <div ref={rootRef} className="relative">
-      <span className="eyebrow block mb-1">Your boat (ORC polar)</span>
+      <span className="eyebrow block mb-1">Your boat (polar)</span>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -94,7 +94,7 @@ export default function BoatPicker({ polarId, polarLabel, onSelect }) {
           )}
           {index && !unavailable && query && matches.length === 0 && (
             <p className="px-2 py-2 text-[12px] text-ink-soft">
-              No ORC boat matches “{query}”. Choose a generic cruiser by length below. The
+              No boat matches “{query}”. Choose a generic cruiser by length below. The
               briefing will identify the generic polar.
             </p>
           )}
@@ -115,8 +115,8 @@ export default function BoatPicker({ polarId, polarLabel, onSelect }) {
           )}
           {index && !unavailable && !query && (
             <p className="px-2 py-2 text-[12px] text-ink-soft">
-              {index.filter((p) => p.kind !== 'generic').length.toLocaleString()} boat types from
-              the ORC 2025 database. Start typing to search.
+              {index.filter((p) => p.kind !== 'generic').length.toLocaleString()} boats from ORC 2025,
+              SailGrib and Meltemus. Start typing to search.
             </p>
           )}
         </div>
@@ -130,7 +130,7 @@ function Row({ entry, selected, onPick }) {
     entry.loa_m ? `${entry.loa_m} m` : null,
     entry.builder,
     entry.year,
-    entry.certs > 1 ? `${entry.certs} certs` : null,
+    entry.source,
   ].filter(Boolean).join(' · ');
   return (
     <li>

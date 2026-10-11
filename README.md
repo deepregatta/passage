@@ -13,6 +13,7 @@ The product name is **Passage by DeepRegatta**; `deepweather` was the dev codena
 | `analysis/` | Python factory: the remaining **route-independent** prep — synoptic feature detection, warnings, tides, verification, scenario bundles. Publishes compact JSON artifacts per model run. | Scheduled shared-prep job publishing to R2 |
 | `engine/` | TypeScript pure library: everything **per-user** — route geometry, ForecastStore tile reads, ETA ranges, limits, ensemble exceedance, verdicts, briefing text, isochrone routing. Zero DOM deps, no weather APIs. | Runs unchanged **in the user's browser** (no per-user server compute, no runtime API quotas) |
 | `viewer/` | React + Vite showroom. Dev middleware serves `/data/*` from `../data/processed`, including a local fixture tile run at `/data/forecast/`. Forecast tiles cache in IndexedDB per immutable run id. | Cloudflare Pages + R2 (`https://forecast.deepregatta.com`) |
+| `functions/`, `server/`, `workers/polar-limiter/` | The only server code: `/api/polars` reads one boat's polar from the private, pinned polar release, checks it and rate-limits each client ([boat polars](docs/boat-polars.md)). No per-user compute. | Cloudflare Pages Function + a rate-limit Worker |
 | `data/` | Git-ignored warehouse: caches, prepared runs, and immutable local snapshots. | Local working data; published artifacts use R2 |
 | `contracts/` | JSON Schemas — the treaty between Python and TypeScript, including the forecast tile/manifest/latest schemas vendored into the pipeline repo. | The API between the shared jobs and every browser |
 
@@ -91,10 +92,11 @@ policy, generated outputs, and maintenance scripts.
 The full corpus command without `--no-fetch` uses CDS credentials and may be slow. Calibration excludes every record whose `observation_source` or coverage class is `emulated`; demo cases are displayed but never contribute to skill claims.
 
 Polar data never enters this public repository or its site: ORC and SailGrib
-polars may be used only where no polar file is publicly downloadable. The
-viewer asks `/api/polars` for one boat's polar when it routes;
-`npm run check:polars` (in `npm test`) and `npm run build:pages` fail if polar
-data comes back. Cloudflare Pages uses `npm run build:pages`, which merges
+polars may be used only where no polar file is publicly downloadable. A Pages
+Function at `/api/polars` reads the pinned private release, checks each file
+and rate-limits each client; the engine converts the one boat a user picks
+([boat polars](docs/boat-polars.md)). `npm run check:polars` (in `npm test`)
+and `npm run build:pages` fail if polar data comes back. Cloudflare Pages uses `npm run build:pages`, which merges
 deployment data into Vite's output and keeps a real `404.html` for missing data
 artifacts.
 

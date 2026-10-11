@@ -36,6 +36,16 @@ repository.
 four producer golden files consumed by `engine/test/tileCodec.test.ts`.
 All are exact copies; no intentional artifact divergence exists.
 
+## Pinned release read at request time
+
+The lock's `releases` entry pins deep-polars release **2026.2**: canonical
+repository `deepregatta/deep-polars`, commit `1d1e72e`, and the SHA-256 of its
+`index.json`. Nothing of it is vendored: polar data never enters this
+repository, so the Pages Function reads the pinned files at request time and
+checks them against that digest ([boat polars](boat-polars.md)).
+`server/deepPolarsPin.mjs` must equal the entry (`npm run test:functions`).
+The artifact checker below ignores this section.
+
 Run `npm run check:contracts` (also first in `npm test`). The dedicated
 `shared-contracts` CI job runs the same stdlib Python checks independently of
 JavaScript dependency audits. Existing tile codec/store/regional tests exercise

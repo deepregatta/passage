@@ -5,12 +5,14 @@ const mocks = vi.hoisted(() => ({
   getCurrentGrid: vi.fn(),
   snapToSea: vi.fn(),
   landMaskForBbox: vi.fn(),
+  polarFromRelease: vi.fn(),
 }));
 
 vi.mock('@deepweather/engine', () => ({
   routeBbox: () => ({ minLat: 0, maxLat: 1, minLon: 0, maxLon: 1 }),
   passageMaxHours: () => 48,
   snapToSea: mocks.snapToSea,
+  polarFromRelease: mocks.polarFromRelease,
   forecastRunGone: (error) => (error?.name === 'ForecastRunGoneError' ? error : null),
   TileForecastStore: class TileForecastStore {},
   HttpTileTransport: class HttpTileTransport {},
@@ -24,6 +26,7 @@ import { loadRoutingInputs } from '../src/lib/routingInputs.js';
 
 const departureIso = '2026-07-20T00:00:00Z';
 const now = () => Date.parse('2026-07-19T00:00:00Z');
+const entry = { format: 'deepregatta-polars/1', id: 'test' };
 const polar = { polar_id: 'test', label: 'Test boat' };
 const windGrid = { kind: 'wind10m', under_resolved_note: 'Grid was coarsened.' };
 const landMask = { kind: 'land_mask' };
@@ -32,7 +35,8 @@ const store = { getWindGrid: mocks.getWindGrid, getCurrentGrid: mocks.getCurrent
 describe('live routing inputs', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    global.fetch = vi.fn(async () => new Response(JSON.stringify(polar)));
+    global.fetch = vi.fn(async () => new Response(JSON.stringify(entry)));
+    mocks.polarFromRelease.mockReturnValue(polar);
     mocks.landMaskForBbox.mockResolvedValue(landMask);
     mocks.snapToSea
       .mockReturnValueOnce({ lat: 0.1, lon: 0.1 })
@@ -53,10 +57,33 @@ describe('live routing inputs', () => {
       start: { lat: 0.1, lon: 0.1, name: 'Start' },
       finish: { lat: 0.9, lon: 0.9, name: 'Finish' },
     });
+    expect(global.fetch).toHaveBeenCalledWith('/api/polars/test');
+    expect(mocks.polarFromRelease).toHaveBeenCalledWith(entry);
     expect(result.notes).toEqual(['Grid was coarsened.']);
     expect(onProgress.mock.calls.map(([stage]) => stage)).toEqual([
       'loading coastline', 'loading forecast tiles', 'loading current tiles',
     ]);
+  });
+
+  it.each([
+    [() => new Response(null, { status: 429 }), /Too many boat polar requests/],
+    [() => new Response(null, { status: 404 }), /no longer in the polar list/],
+    [() => new Response(null, { status: 503 }), /Boat polars are unavailable/],
+    [() => new Response('<!doctype html>'), /Boat polars are unavailable/],
+    [() => { throw new TypeError('Failed to fetch'); }, /Boat polars are unavailable/],
+  ])('reports a polar it cannot read before loading anything else (%#)', async (respond, message) => {
+    global.fetch = vi.fn(async () => respond());
+    await expect(loadRoutingInputs({
+      start: { lat: 0, lon: 0 }, finish: { lat: 1, lon: 1 }, polarId: 'test', departureIso, now, store,
+    })).rejects.toThrow(message);
+    expect(mocks.landMaskForBbox).not.toHaveBeenCalled();
+  });
+
+  it('reports an entry the engine cannot convert as unavailable', async () => {
+    mocks.polarFromRelease.mockImplementation(() => { throw new Error('Not a deepregatta-polars/1 entry'); });
+    await expect(loadRoutingInputs({
+      start: { lat: 0, lon: 0 }, finish: { lat: 1, lon: 1 }, polarId: 'test', departureIso, now, store,
+    })).rejects.toThrow(/Boat polars are unavailable/);
   });
 
   it('clamps a scan grid to the deterministic tile horizon', async () => {

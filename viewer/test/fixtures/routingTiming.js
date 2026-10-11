@@ -14,6 +14,13 @@ export function routingInputs(along = 2, maxHours = 48) {
     windGrid: grid('wind10m', 0, -12), currentGrid: grid('surface_current', along, 0),
   };
 }
+// The same constant 5 kt boat as /api/polars/constant-5 serves it: a
+// deepregatta-polars/1 entry (speeds_kt[twa][tws]) the engine converts.
+export const CONSTANT_5_RELEASE_ENTRY = {
+  format: 'deepregatta-polars/1', id: 'constant-5', label: 'Constant 5 kt', kind: 'type',
+  source: { id: 'synthetic', name: 'Synthetic' },
+  table: { twa_deg: [45, 180], tws_kt: [6, 20], speeds_kt: [[5, 5], [5, 5]] },
+};
 export function auditStore({ ScenarioBundleStore }, currentGrid) {
   const times = Array.from({ length: 241 }, (_, h) => new Date(Date.parse(DEPARTURE) + h * 3600_000).toISOString().slice(0, 16));
   const store = new ScenarioBundleStore({ loadBundle: async (name) => name === 'forecast' ? {

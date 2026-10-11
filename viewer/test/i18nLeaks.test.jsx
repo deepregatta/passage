@@ -24,6 +24,8 @@ it.each([
   ['reading deterministic forecast tiles…', 'lecture des tuiles de prévision déterministe…'],
   ['No route found within 48 h (wind coverage, land, or no-go conditions)', 'Aucune route trouvée en 48 h (couverture du vent, terre ou conditions impraticables)'],
   ['Boat polars are unavailable right now. Use Draw my route instead.', 'Les polaires de bateau sont indisponibles pour le moment. Utilisez plutôt « Tracer ma route ».'],
+  ['Too many boat polar requests. Wait a minute and try again.', 'Trop de demandes de polaires de bateau. Patientez une minute puis réessayez.'],
+  ['This boat is no longer in the polar list. Choose your boat again.', 'Ce bateau ne figure plus dans la liste des polaires. Choisissez à nouveau votre bateau.'],
   ['Forecast grid coarsened to 0.5° to keep this crossing within the browser point budget.', 'Grille de prévision ramenée à 0.5° pour respecter le nombre de points gérable par le navigateur pour cette traversée.'],
   ['scanning departures 3/21…', 'comparaison des départs 3/21…'],
   [' · 12 h old', ' · il y a 12 h'],

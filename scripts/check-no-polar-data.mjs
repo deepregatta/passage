@@ -42,12 +42,14 @@ const CONTENT_RULES = [
 // Invented tables, never ORC, SailGrib or Meltemus data. Each entry is a
 // reviewed exception for repository files; the built site has none.
 export const SYNTHETIC_POLAR_FILES = new Map([
+  ['engine/test/deepPolars.test.ts', 'invented release-shaped tables'],
   ['engine/test/routing.test.ts', 'invented 3×4 "test-32ft" table'],
   ['engine/test/routingTiming.test.ts', 'constant 5 kt table'],
   ['engine/test/tileStore.test.ts', 'invented 3×4 table'],
   ['viewer/test/fixtures/routingTiming.js', 'constant 5 kt table'],
   ['docs/maintenance/2026-09-17-implementation-verification.md', 'quotes the invented "test-32ft" table'],
   ['scripts/check-no-polar-data.test.mjs', 'planted samples for this check\'s own test'],
+  ['server/polars.test.mjs', 'invented 2×2 release entry'],
 ]);
 
 function textOf(path) {

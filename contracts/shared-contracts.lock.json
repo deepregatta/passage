@@ -123,5 +123,18 @@
       "representation": "exact",
       "intentional_divergence": null
     }
+  ],
+  "releases": [
+    {
+      "name": "deepregatta-polars",
+      "canonical_repository": "deepregatta/deep-polars",
+      "version": "2026.2",
+      "revision": "git-commit:1d1e72e61cb186e4ab01f4c2955a6439f37ae5c3",
+      "pinned_file": "releases/2026.2/index.json",
+      "sha256": "d9fffe0ec8fb42a8b3c41232f73daebe80fd8cd8ab198c55d4d029a58436795e",
+      "contract": "deepregatta-polars/1",
+      "representation": "read at request time by server/polars.mjs; never vendored, never in this repository or its build",
+      "recorded_at": "2026-10-11"
+    }
   ]
 }
