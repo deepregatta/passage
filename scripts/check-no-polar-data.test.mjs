@@ -31,6 +31,7 @@ test('clean files pass, including words that merely name polars', () => {
   plant('docs/readme.md', 'Polars come from /api/polars/<id>; speeds_kt is speeds_kt[tws][twa].\n');
   plant('src/polar.ts', 'export interface Polar { speeds_kt: number[][] }\n');
   plant('functions/api/polars/[id].js', 'export const onRequestGet = () => new Response(null);\n');
+  plant('functions/data/polars/[[path]].js', 'export const onRequest = () => new Response(null, { status: 410 });\n');
   plant('data/land/tile.bin.gz', gzipSync(Buffer.from([0, 1, 2, 3])));
   assert.deepEqual(rules(), []);
 });
@@ -59,10 +60,12 @@ test('polar paths are found even when their content is harmless', () => {
   plant('viewer/public/data/polars/index.json', '{}');
   plant('config/polars/x.json', '{}');
   plant('x/boat.pol', '');
+  plant('functions/data/polars/boat.json', JSON.stringify({ speeds_kt: [[4, 5], [6, 7]] }));
   plant('raw/ALL2025.json', '{}');
   plant('release/boats.json.gz', gzipSync(Buffer.from('{}')));
   assert.deepEqual(rules(), [
     'config/polars/x.json: published polar directory',
+    'functions/data/polars/boat.json: boat speed matrix',
     'raw/ALL2025.json: ORC certificate dump',
     'release/boats.json.gz: deep-polars release body',
     'viewer/public/data/polars/index.json: published polar directory',

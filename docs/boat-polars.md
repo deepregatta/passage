@@ -11,6 +11,7 @@ request time from a Pages Function that reads the private release.
 |---|---|---|
 | This repository and its published branch/tag history | yes | no: rewritten 2026-10-11; old GitHub views await purge ([below](#history)) |
 | The Pages build (`viewer/dist`) | yes | no: `npm run build:pages` fails if any comes back |
+| `/data/polars/*`, `/data/config/polars/*` | yes | no: a Function answers `410 Gone` before static serving |
 | `GET /api/polars` | yes, rate limited | no: picker fields only (id, label, kind, variant, aliases, builder, length, year, source) |
 | `GET /api/polars/<id>` | yes, rate limited | one boat's release entry, for the router in the browser |
 
@@ -114,6 +115,16 @@ ORC test sample. On 2026-10-11 they were removed from the tree and the 345
 Pages deployments that served them were deleted. The two public cache prefixes,
 `passage.deepregatta.com/data/polars/` and
 `passage.deepregatta.com/data/config/polars/`, were purged in Cloudflare.
+
+The zone purge did not clear copies held in Pages' own static-serving cache:
+five URLs fetched before the removal still returned the old files hours later
+(`cf-cache-status: DYNAMIC` with a growing `age`), while new deployments and
+uncached paths returned 404. Pages runs Functions before static serving, so
+[`functions/data/polars/`](../functions/data/polars/) and
+[`functions/data/config/polars/`](../functions/data/config/polars/) now answer
+every request on those paths with `410 Gone` and `no-store`. The polar guard
+exempts route code under `functions/` from its path rule only; its content is
+still scanned.
 
 The Git history rewrite was force-pushed on 2026-10-11. GitHub's published
 `main` branch and `review-2026-09-07-baseline` tag were checked: neither retains

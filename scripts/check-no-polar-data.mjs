@@ -19,7 +19,9 @@ import { gunzipSync } from 'node:zlib';
 const repo = resolve(fileURLToPath(new URL('..', import.meta.url)));
 
 const PATH_RULES = [
-  ['published polar directory', /(^|\/)(data|config)\/polars(\/|$)/i],
+  // Route code under functions/ (the 410 answers for the removed paths) is
+  // exempt by path only; its content is still scanned.
+  ['published polar directory', /^(?!functions\/)(.*\/)?(data|config)\/polars(\/|$)/i],
   ['.pol polar file', /\.pol$/i],
   ['ORC certificate dump', /ALL20\d\d/i],
   ['deep-polars release body', /(^|\/)boats\.json\.gz$/i],
