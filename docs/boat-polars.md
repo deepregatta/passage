@@ -9,7 +9,7 @@ request time from a Pages Function that reads the private release.
 
 | Surface | Public | Holds polar data |
 |---|---|---|
-| This repository and its published branch/tag history | yes | no: rewritten 2026-10-11; old GitHub views await purge ([below](#history)) |
+| This repository and its published branch/tag history | yes | no: rewritten 2026-10-11; GitHub cleanup confirmed 2026-10-12 ([below](#history)) |
 | The Pages build (`viewer/dist`) | yes | no: `npm run build:pages` fails if any comes back |
 | `/data/polars/*`, `/data/config/polars/*` | yes | no: a Function answers `410 Gone` before static serving |
 | `GET /api/polars` | yes, rate limited | no: picker fields only (id, label, kind, variant, aliases, builder, length, year, source) |
@@ -135,10 +135,14 @@ history for the three removed paths. At that check the repository had no forks
 or pull requests.
 
 Old commit objects still resolved through GitHub's API after the rewrite.
-GitHub Support ticket **4846801**, submitted on 2026-10-11, requests removal of
-cached old commit/blob views and server-side garbage collection. **That purge
-is pending GitHub's confirmation.** A rewritten branch or tag does not prove
-that old GitHub views, existing clones or downloaded copies have been erased.
+GitHub Support ticket **4846801**, submitted on 2026-10-11, requested removal of
+cached old commit/blob views and server-side garbage collection. On 2026-10-12
+at 04:07 UTC, Support confirmed that the unreferenced commits had been cleared.
+The old first changed commit and former `main` tip both returned **404** from
+GitHub's commit metadata API when checked that day; the current `main` commit
+remained readable. The published branch and tag were rechecked and still had
+no history for the removed paths. This confirms GitHub's cleanup with those
+two read-back checks; it does not erase existing clones or downloaded copies.
 
 The pre-rewrite backup and commit map are retained outside this checkout in
 `~/projects/deepregatta/backups/`. The backup contains polar data and must never
