@@ -248,6 +248,17 @@ describe('analysis with ECMWF 06Z/18Z runs', () => {
     expect(describeEcmwfRuns(findings.inputs.forecast_tiles)).toBe('ECMWF 06Z');
     expect(findings.snapshot_id).not.toBe(agreeing.findings.snapshot_id);
   });
+
+  it('records the GFS run once, though the point and hazard reads both use it', async () => {
+    const { findings } = await analyse([
+      gfsSpec('2026-07-20T00:00Z', 10), ecmwfSpec('weather-ecmwf', '2026-07-20T00:00Z', FULL_AXIS, 11),
+    ]);
+    const keys = findings.inputs.forecast_tiles
+      .filter((m) => m.source === 'tiles')
+      .map((m) => `${m.layer}|${m.model}|${m.run_id}`);
+    expect(keys).toEqual([...new Set(keys)]);
+    expect(keys.filter((key) => key.startsWith('weather|'))).toEqual(['weather|gfs_0p25|weather-20260720T00Z']);
+  });
 });
 
 it('keeps the ECMWF axes in step with forecast-tiles', () => {

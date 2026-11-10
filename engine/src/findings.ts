@@ -170,7 +170,17 @@ export function assembleFindings(options: AssembleOptions): Findings {
   const allMeta: Array<Record<string, unknown>> = requestMeta.map((m) => ({ ...m }));
   if (ensembleMeta) allMeta.push({ ...ensembleMeta });
   if (marineMeta) allMeta.push({ ...marineMeta });
-  if (multiModel) allMeta.push(...multiModel.meta.map((m) => ({ ...m })));
+  if (multiModel) {
+    // The hazard/model-comparison read re-reads the deterministic `weather`
+    // run already recorded by the point read: record each layer+model+run once.
+    const runKey = (m: Record<string, unknown>) => `${m.layer}|${m.model}|${m.run_id}`;
+    const recorded = new Set(allMeta.map(runKey));
+    for (const m of multiModel.meta) {
+      if (recorded.has(runKey(m as unknown as Record<string, unknown>))) continue;
+      recorded.add(runKey(m as unknown as Record<string, unknown>));
+      allMeta.push({ ...m });
+    }
+  }
   if (grid) {
     allMeta.push({
       source: 'region-grid',
