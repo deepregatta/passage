@@ -304,6 +304,13 @@ it('translates the ECMWF runs behind a briefing\'s model comparison', () => {
   expect(translateText('ECMWF 12Z', 'fr')).toBe('ECMWF 12Z');
 });
 
+it('translates the phone map toggle and its hints', () => {
+  expect(translateText('Move the map', 'fr')).toBe('Déplacer la carte');
+  expect(translateText('Use two fingers to move the map', 'fr')).toBe('Utilisez deux doigts pour déplacer la carte');
+  expect(translateText('One finger moves the map. Tap again to scroll the page.', 'fr'))
+    .toBe('Un doigt déplace la carte. Touchez à nouveau pour faire défiler la page.');
+});
+
 it('translates skipped-departure labels and unknown failures', () => {
   for (const text of ['Unassessed departures', 'A missing cell does not mean safe conditions.', 'Unknown error', '2 of 21 departure times could not be assessed and are not shown.']) {
     expect(translateText(text, 'fr')).not.toBe(text);
