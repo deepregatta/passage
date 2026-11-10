@@ -31,6 +31,7 @@ import {
   gribRoutePoints,
   gribRunIds,
   gribRunLabel,
+  gribExportedDatasetIds,
   gribSizeBucket,
   planAreaGrib,
   validGribArea,
@@ -667,6 +668,14 @@ describe('GRIB files page', () => {
     fireEvent.click(within(page().getByRole('radiogroup', { name: 'Wind model' })).getByRole('radio', { name: /^ECMWF/ }));
     expect(kindItem('Download wind + currents').queryByText('Saved')).not.toBeInTheDocument();
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:grib-1');
+  });
+
+  it('lists only the datasets that contributed messages to an exported file', () => {
+    const datasets = [{ datasetId: 'wind-gfs' }, { datasetId: 'currents-ibi' }];
+    expect(gribExportedDatasetIds({ files: [{ datasetId: 'wind-gfs' }] }, datasets)).toBe('wind-gfs');
+    expect(gribExportedDatasetIds({ files: datasets }, datasets)).toBe('wind-gfs,currents-ibi');
+    expect(gribExportedDatasetIds({ name: 'single.grb2' }, [datasets[0]])).toBe('wind-gfs');
+    expect(gribExportedDatasetIds(null, datasets)).toBe('wind-gfs,currents-ibi');
   });
 
   it('offers the single file only when both wind and currents files can be made', async () => {

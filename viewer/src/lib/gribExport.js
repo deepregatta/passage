@@ -359,6 +359,12 @@ export async function runCombinedGrib(store, plan, datasets, { signal, onProgres
   return combineGribFiles(files, { fixture: plan.request.fixture === true });
 }
 
+/** Analytics list of the datasets whose messages are in the file (a combined file drops empty parts). */
+export function gribExportedDatasetIds(file, datasets) {
+  const contributed = file?.files ?? datasets;
+  return contributed.map((dataset) => dataset.datasetId).join();
+}
+
 /** A Blob URL for the file's download; revoke it with revokeGribFile. */
 export function gribFileWithUrl({ parts, ...file }) {
   return { ...file, url: URL.createObjectURL(new Blob(parts, { type: 'application/octet-stream' })) };

@@ -41,6 +41,7 @@ import {
   gribPeriodWindow,
   gribRunIds,
   gribRunLabel,
+  gribExportedDatasetIds,
   gribSizeBucket,
   gribSpotKeys,
   loadGribManifests,
@@ -563,7 +564,7 @@ export default function Grib() {
       setResultsBoth({ ...resultsRef.current, [kindId]: { key: jobKey, file: prepared } });
       if (prepared.url) saveGribFile(prepared);
       track('grib_export', {
-        datasets: datasets.map((dataset) => dataset.datasetId).join(),
+        datasets: gribExportedDatasetIds(file, datasets),
         window: period === 'full' ? 'full' : `${period}d`,
         size_bucket: gribSizeBucket(file?.bytes ?? 0),
       });

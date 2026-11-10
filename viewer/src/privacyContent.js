@@ -62,7 +62,7 @@ export const PRIVACY_BLOCKS = [
     'Language choice, saved only if you use the language switcher.',
     'Planner draft: route, boat, speeds and departure time.',
     'Your personal limits.',
-    'GRIB files page choices: last area, period and models.',
+    'GRIB files page choices: last area, period, time step and models.',
     'The demo briefings you have hidden.',
     'Briefings you save in this browser (IndexedDB).',
     'A cache of forecast tiles so they load faster (IndexedDB).',

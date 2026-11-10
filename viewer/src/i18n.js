@@ -786,7 +786,7 @@ const FR = {
   'Language choice, saved only if you use the language switcher.': 'Choix de langue, enregistré seulement si vous utilisez le sélecteur de langue.',
   'Planner draft: route, boat, speeds and departure time.': 'Brouillon du planificateur : route, bateau, vitesses et heure de départ.',
   'Your personal limits.': 'Vos limites personnelles.',
-  'GRIB files page choices: last area, period and models.': 'Choix de la page des fichiers GRIB : dernière zone, période et modèles.',
+  'GRIB files page choices: last area, period, time step and models.': 'Choix de la page des fichiers GRIB : dernière zone, période, pas de temps et modèles.',
   'The demo briefings you have hidden.': 'Les briefings de démonstration que vous avez masqués.',
   'Briefings you save in this browser (IndexedDB).': 'Les briefings que vous enregistrez dans ce navigateur (IndexedDB).',
   'A cache of forecast tiles so they load faster (IndexedDB).': 'Un cache de tuiles de prévision pour qu’elles se chargent plus vite (IndexedDB).',
