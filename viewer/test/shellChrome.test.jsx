@@ -47,9 +47,9 @@ describe('limits in the header and bottom navigation', () => {
   it('translates the chip into French', () => {
     // The catalogue's own fragments render knots as "nd" everywhere in French.
     expect(translateText('Wind 18 · Gusts 28 kt', 'fr')).toBe('Vent 18 · Rafales 28 nd');
-    expect(translateText(' · Waves 2.5 m', 'fr')).toBe(' · Vagues 2.5 m');
+    expect(translateText(' · Waves 2.5 m', 'fr')).toBe(' · Vagues 2,5 m');
     expect(translateText('Edit my limits: wind 18 kt, gusts 28 kt, waves 2.5 m', 'fr'))
-      .toBe('Modifier mes limites : vent 18 nd, rafales 28 nd, vagues 2.5 m');
+      .toBe('Modifier mes limites : vent 18 nd, rafales 28 nd, vagues 2,5 m');
   });
 });
 
