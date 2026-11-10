@@ -67,6 +67,10 @@ for (const language of ['en', 'fr']) {
       } else await route.continue();
     });
     await page.goto(language === 'fr' ? '/fr/#plan' : '/#plan');
+    // Let the planner's lazy chunk and first data requests settle: an evaluate sent while
+    // they are still arriving failed with 'Execution context was destroyed' on the phone
+    // project in French (13 of 16 runs locally, intermittently on the hosted runner).
+    await page.waitForLoadState('networkidle');
     await page.evaluate(async ({ engineUrl, departure }) => {
       const engine = await import(engineUrl);
       const fixture = (await import('/test/fixtures/routingTiming.js')).auditStore(engine, undefined);
