@@ -14,10 +14,10 @@ const BLOCKS = {
     </ul>
   ),
   contact: ({ text }) => (
-    <p>{text} <a className="text-event underline underline-offset-4 hover:no-underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a></p>
+    <p>{text} <a className="inline-flex min-h-11 items-center text-event underline underline-offset-4 hover:no-underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a></p>
   ),
   link: ({ text, language }) => (
-    <p><a className="text-event underline underline-offset-4 hover:no-underline" href={fullPolicyUrl(language)}>{text}</a></p>
+    <p><a className="inline-flex min-h-11 items-center text-event underline underline-offset-4 hover:no-underline" href={fullPolicyUrl(language)}>{text}</a></p>
   ),
 };
 

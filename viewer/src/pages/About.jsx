@@ -1,9 +1,29 @@
 import { useEffect, useState } from 'react';
+import clsx from 'clsx';
 import { useApp } from '../stores/appStore.js';
 import { Panel, EmulatedStamp } from '../components/common.jsx';
 import { GLOSSARY } from '../lib/glossary.jsx';
 import { loadJson } from '../lib/verification.js';
 import { PlanBackLink } from '../components/BackLink.jsx';
+
+// Human names for the feeds in config/providers.json. An id not listed here is
+// still shown readably (see providerName), so a new feed never prints raw.
+const PROVIDER_NAMES = {
+  forecast_tiles: 'Forecast tiles (NOAA, ECMWF, Copernicus)',
+  ecmwf_open_data: 'ECMWF open data',
+  cmems_currents: 'Ocean currents (Copernicus Marine)',
+  era5: 'ERA5 reanalysis (Copernicus)',
+  warnings_fr: 'Weather warnings, France (Météo-France bulletins)',
+  warnings_uk: 'Weather warnings, UK (Met Office)',
+  warnings_us: 'Weather warnings, US (NWS marine alerts)',
+  warnings_meteoalarm: 'Weather warnings (Meteoalarm)',
+  warnings_au: 'Weather warnings, Australia (BOM)',
+  tides: 'Tide data',
+  observations: 'Observations (buoys and moorings)',
+};
+
+const providerName = (id) => PROVIDER_NAMES[id]
+  ?? (id.replace(/_+/g, ' ').trim().replace(/^./, (letter) => letter.toUpperCase()) || id);
 
 /** Where the data comes from and how well it has held up: the fleet-wide track
  * record, provider modes and the glossary. Each passage shows its own outcome. */
@@ -29,7 +49,7 @@ export default function About() {
   }, []);
 
   return (
-    <div className="px-4 sm:px-6 py-5 max-w-5xl space-y-4">
+    <div className="min-text-12 px-4 sm:px-6 py-5 max-w-5xl space-y-4">
       <PlanBackLink>Back to Plan</PlanBackLink>
       <header>
         <h1 className="font-chart text-3xl">About the data</h1>
@@ -72,7 +92,7 @@ export default function About() {
             <CalibrationTable records={calibration.legacy_evidence.records} label="Legacy calibration evidence" />
           </section>}
           <p className="font-sans text-[12px] text-ink-soft mt-3">
-            ERA5 comparisons use a reanalysis that assimilates observations but is not independent ground truth (brief §9). Sample sizes are always shown. Passage calls a probability calibrated only when the record supports it.
+            ERA5 comparisons use a reanalysis that assimilates observations but is not independent ground truth. Sample sizes are always shown. Passage calls a probability calibrated only when the record supports it.
           </p>
         </Panel>
       </section>
@@ -86,11 +106,11 @@ export default function About() {
           {providers?.providers &&
             Object.entries(providers.providers).map(([name, p]) => (
               <li key={name} className="flex items-center justify-between py-1.5 border-b hairline">
-                <span className="font-mono text-[13px]">{name}</span>
+                <span className="font-sans text-[13px]">{providerName(name)}</span>
                 {p.mode === 'synthetic' ? (
                   <EmulatedStamp />
                 ) : (
-                  <span className="font-sans text-[12px] text-verdict-within">{p.mode}</span>
+                  <span className={clsx('font-sans text-[12px]', p.mode === 'live' ? 'text-verdict-within' : 'text-ink-soft')}>{p.mode}</span>
                 )}
               </li>
             ))}

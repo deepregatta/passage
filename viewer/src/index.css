@@ -87,6 +87,12 @@ body {
   @apply text-[11px] uppercase tracking-[0.18em] text-ink-soft font-instrument;
 }
 
+/* Reading pages keep every label at 12px or larger, including the shared small caps. */
+.min-text-12 .eyebrow,
+.min-text-12 .stamp-emulated {
+  font-size: 12px;
+}
+
 /* Keep hover border utilities above the base hairline in the v4 cascade. */
 @layer utilities {
   .hairline {
