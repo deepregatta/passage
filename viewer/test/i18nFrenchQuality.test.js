@@ -116,3 +116,28 @@ describe('French typography, wording and ages', () => {
     expect(fr(english)).toBe(french);
   });
 });
+
+describe('French wording fixes from the page walk', () => {
+  it.each([
+    // "raz de marée" means tsunami in French; a tidal race is a "raz de courant".
+    ['Global models under-resolve coastal wind acceleration, harbours and tidal races. Ocean-model currents are not tidal stream predictions.',
+      'Les modèles globaux représentent mal l’accélération côtière du vent, les ports et les raz de courant. Les courants des modèles océaniques ne sont pas des prévisions de courants de marée.'],
+    // "la" used to read as a stray pronoun for "rafales".
+    ['A brief burst above the sustained wind. Gusts are often 20–40% stronger; squalls can double it.',
+      'Une brève pointe au-dessus du vent moyen. Les rafales sont souvent 20 à 40 % plus fortes ; les grains peuvent aller jusqu’au double.'],
+    // The verification table prints raw variable ids from the published case.
+    ['Low L1 is the same system as in the previous briefing. It now reaches the route 3 h earlier.',
+      'La dépression L1 est le même système que dans le briefing précédent. Elle atteint désormais la route 3 h plus tôt.'],
+    ['Low L2 is the same system as in the previous briefing. It now reaches the route 2 h later.',
+      'La dépression L2 est le même système que dans le briefing précédent. Elle atteint désormais la route 2 h plus tard.'],
+    // Near-gale is force 7, which French calls "grand frais" (not "close to" it).
+    ['L5 Mid-Channel → Finish: near-gale winds while you are on this stretch (Mon 20 Jul 17:28–Tue 21 Jul 04:04 UTC).',
+      'L5 milieu de la Manche → Arrivée : vents de grand frais pendant ce tronçon (lun. 20 juil. 17:28–mar. 21 juil. 04:04 UTC).'],
+    ['gust_kt', 'rafales (nd)'],
+    ['wind_kt', 'vent (nd)'],
+    ['wave_height_m', 'hauteur des vagues (m)'],
+  ])('%s', (english, french) => {
+    expect(fr(english)).toBe(french);
+    expect(translateText(english, 'en')).toBe(english);
+  });
+});

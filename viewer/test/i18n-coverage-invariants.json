@@ -402,12 +402,10 @@
       "viewer/src/pages/briefing/WeatherStoryCard.jsx": [
         "conflict",
         "gate",
-        "gust_kt",
         "number",
         "ok",
         "synoptic_story",
-        "wind_against_current",
-        "wind_kt"
+        "wind_against_current"
       ],
       "viewer/src/pages/grib/GribAreaFields.jsx": [
         "-error",

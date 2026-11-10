@@ -527,10 +527,13 @@ const FR = {
   'warning': 'alerte',
   'squalls?': 'grains ?',
   'leg': 'tronçon',
+  'wind_kt': 'vent (nd)',
+  'gust_kt': 'rafales (nd)',
+  'wave_height_m': 'hauteur des vagues (m)',
   'run': 'cycle',
   'age': 'âge',
   'models in agreement across this passage': 'modèles concordants sur toute la traversée',
-  'Global models under-resolve coastal wind acceleration, harbours and tidal races. Ocean-model currents are not tidal stream predictions.': 'Les modèles globaux représentent mal l’accélération côtière du vent, les ports et les raz de marée. Les courants des modèles océaniques ne sont pas des prévisions de courants de marée.',
+  'Global models under-resolve coastal wind acceleration, harbours and tidal races. Ocean-model currents are not tidal stream predictions.': 'Les modèles globaux représentent mal l’accélération côtière du vent, les ports et les raz de courant. Les courants des modèles océaniques ne sont pas des prévisions de courants de marée.',
   'synoptic situation': 'situation synoptique',
   'no attributed system': 'aucun système attribué',
   'system': 'système',
@@ -601,7 +604,7 @@ const FR = {
   'The average of the highest third of waves. Individual waves can be nearly twice this height.': 'La moyenne du tiers des vagues les plus hautes. Certaines vagues peuvent atteindre près du double de cette hauteur.',
   'Wave height relative to wavelength. Steep waves break; short, steep seas are dangerous well below your height limit.': 'Rapport entre la hauteur et la longueur d’onde. Les vagues cambrées déferlent ; une mer courte et abrupte est dangereuse bien avant votre limite de hauteur.',
   // Current glossary wording (viewer/src/lib/glossary.jsx).
-  'A brief burst above the sustained wind. Gusts are often 20–40% stronger; squalls can double it.': 'Une brève pointe au-dessus du vent moyen. Les rafales sont souvent 20 à 40 % plus fortes ; les grains peuvent la doubler.',
+  'A brief burst above the sustained wind. Gusts are often 20–40% stronger; squalls can double it.': 'Une brève pointe au-dessus du vent moyen. Les rafales sont souvent 20 à 40 % plus fortes ; les grains peuvent aller jusqu’au double.',
   'The ensemble members. "24 of 31 scenarios exceed your limit" is a raw count, not a calibrated probability. The total comes from the current run.': 'Les membres de l’ensemble. « 24 scénarios sur 31 dépassent votre limite » est un décompte brut, pas une probabilité étalonnée. Le total provient du cycle en cours.',
   'Weather models restart from fresh observations every 6–12 h. A new run can shift the forecast, so recheck before departure.': 'Les modèles météo redémarrent à partir de nouvelles observations toutes les 6 à 12 h. Un nouveau cycle peut décaler la prévision ; vérifiez à nouveau avant le départ.',
   'Wind against the tidal stream makes waves shorter and steeper. The Alderney Race is a well-known example.': 'Le vent contre le courant de marée rend les vagues plus courtes et plus abruptes. Le raz Blanchard en est un exemple bien connu.',
@@ -936,7 +939,11 @@ const FR_PATTERNS = [
   [/^(.+): (-?\d+) → (-?\d+) ?(\S*) \((up|down) (\d+)\)\.$/, (_match, phrase, prev, next, units, direction, delta) => `${translateChangePhrase(phrase)} : ${prev} → ${next}${units ? ` ${units === 'kt' ? 'nd' : units}` : ''} (${direction === 'up' ? 'en hausse' : 'en baisse'} de ${delta}).`],
   [/^(.+): (\d+) of (\d+) → (\d+) of (\d+) scenarios exceed\.$/, (_match, phrase, a, b, c, d) => `${translateChangePhrase(phrase)} : ${a} sur ${b} → ${c} sur ${d} scénarios en dépassement.`],
   [/^(.+) no longer flagged\.$/, (_match, phrase) => `${translateChangePhrase(phrase)} n’est plus signalé.`],
-  [/^(.+) is the same system as in the previous briefing\. It now reaches the route (\d+) h (earlier|later)\.$/, (_match, name, hours, direction) => `${name} est le même système que dans le briefing précédent. Il atteint désormais la route ${hours} h ${direction === 'earlier' ? 'plus tôt' : 'plus tard'}.`],
+  [/^(.+) is the same system as in the previous briefing\. It now reaches the route (\d+) h (earlier|later)\.$/, (_match, name, hours, direction) => {
+    // "Low L1" becomes the feminine "la dépression L1"; other names keep "Il".
+    const low = name.match(/^Low (L\d+)$/);
+    return `${low ? `La dépression ${low[1]}` : name} est le même système que dans le briefing précédent. ${low ? 'Elle' : 'Il'} atteint désormais la route ${hours} h ${direction === 'earlier' ? 'plus tôt' : 'plus tard'}.`;
+  }],
   [/^Model run updated: (.+) → (.+)\.$/, 'Cycle du modèle mis à jour : $1 → $2.'],
   [/^The verdict changed from “(.+)” to “(.+)”\.$/, (_match, from, to) => `Le verdict est passé de « ${translateVerdictLabel(from)} » à « ${translateVerdictLabel(to)} ».`],
   [/^The verdict is still “(.+)”, but the timing or strength changed\.$/, (_match, state) => `Le verdict reste « ${translateVerdictLabel(state)} », mais la chronologie ou l’intensité a changé.`],
@@ -1308,7 +1315,7 @@ function translateWindStrength(strength) {
     moderate: 'vents modérés',
     fresh: 'vents frais',
     strong: 'vents forts',
-    'near-gale': 'vents proches du grand frais',
+    'near-gale': 'vents de grand frais',
     'gale-force': 'vents de force coup de vent',
   }[strength];
 }
