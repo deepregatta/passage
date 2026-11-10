@@ -2,12 +2,14 @@ import clsx from 'clsx';
 import { EvidenceLink, VerdictChip } from '../../components/common.jsx';
 import { isEmulatedWarning } from '../../components/BulletinPanel.jsx';
 import { ShareAnalysisButton } from '../../components/FooterActions.jsx';
-import { fmtLocalTime, fmtTime, localTimeZoneName, toLocalDateTimeValue, VERDICT } from '../../lib/format.js';
+import { fmtLocalTime, localTimeZoneName, toLocalDateTimeValue, VERDICT } from '../../lib/format.js';
 import { useApp } from '../../stores/appStore.js';
 import { newPassageId } from '../../lib/passageIdentity.js';
 import { usePlanner } from '../../stores/plannerStore.js';
 import { routeTitle } from './routeLabels.jsx';
 import { userRouteName } from '../../lib/passages.js';
+import { nextRunText } from './nextRunText.js';
+import useNowMs from '../../hooks/useNowMs.js';
 
 /** the plain-language layer: what each verdict state means for what you DO next (labels stay exact) */
 const NEXT_STEP = {
@@ -17,8 +19,7 @@ const NEXT_STEP = {
     'It is close to your limits. Read the weather story below before deciding.',
   exceeds:
     'This forecast crosses your limits. Compare departure times before changing the route.',
-  insufficient:
-    'The models disagree near your limits. Wait for the next update before deciding.',
+  insufficient: 'Wait for the next run before deciding.',
 };
 
 /**
@@ -36,9 +37,10 @@ export default function DecisionBand({ findings, warningEvidence, onOpenBulletin
   // An official warning is a separate decision; the pill stays about your limits.
   const personalState = warningActive ? recomputePersonalState(findings) : findings.verdict.state;
 
-  // when to look again; the single place the briefing states it
-  const nextRun = useApp((s) => s.briefing?.next_run ?? s.briefing?.next_runs?.[0]);
-  const nextUpdate = nextRun ? fmtTime(nextRun.expected_at) : null;
+  // when to look again; the single place the page states it, read at display time
+  const briefing = useApp((s) => s.briefing);
+  const nowMs = useNowMs();
+  const nextRun = nextRunText(briefing, nowMs);
 
   const offerScan = !example && ['exceeds', 'approaching', 'warning_active'].includes(state) && route;
   const continuePassage = (autoScan = false) => {
@@ -86,7 +88,13 @@ export default function DecisionBand({ findings, warningEvidence, onOpenBulletin
             </p>
           </div>
         )}
-        {!warningActive && <p className="font-sans text-[14px] text-ink-soft max-w-[72ch]">{NEXT_STEP[state]}</p>}
+        {!warningActive && (
+          <p className="font-sans text-[14px] text-ink-soft max-w-[72ch]">
+            <span>{NEXT_STEP[state]}</span>
+            {/* models disagree: the action is the next run, so it is stated right here */}
+            {state === 'insufficient' && <>{' '}<span data-testid="next-run">{nextRun.text}</span></>}
+          </p>
+        )}
         <div className="flex items-center gap-x-3 gap-y-2 flex-wrap">
           {warningActive && (
             <button type="button" onClick={onOpenBulletin} className={buttonClass}>
@@ -103,11 +111,9 @@ export default function DecisionBand({ findings, warningEvidence, onOpenBulletin
             <EvidenceLink evidenceId={warningEvidence.evidence_id}>evidence</EvidenceLink>
           )}
           <ShareAnalysisButton onNavigate={setPage} className="font-instrument text-sm text-event underline underline-offset-4 min-h-11 disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline" />
-          <span className="font-mono text-[12px] text-ink-soft sm:ml-auto">
-            {nextUpdate
-              ? <>next forecast ~{nextUpdate} UTC · recheck before departure</>
-              : 'Next forecast update time unavailable. Check the published forecast before departure.'}
-          </span>
+          {state !== 'insufficient' && (
+            <span className="font-mono text-[12px] text-ink-soft sm:ml-auto" data-testid="next-run">{nextRun.text}</span>
+          )}
         </div>
       </div>
     </section>

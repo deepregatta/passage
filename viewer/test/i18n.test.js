@@ -167,8 +167,10 @@ describe('language selection', () => {
         'Une dépression se trouve près de votre zone de navigation, au nord.',
       'A strengthening low-pressure system sits west of the approaches, at your latitude. It sets the wind pattern over your route. The charts track it over the next few days.':
         'Une dépression qui se renforce se trouve à l’ouest des approches, à votre latitude. Elle détermine le régime de vent sur votre route. Les cartes suivent son déplacement au cours des prochains jours.',
-      'next forecast ~Sun 19 Jul 18:00 UTC · recheck before departure':
-        'prochaine prévision vers dim. 19 juil. 18:00 UTC · revérifiez avant le départ',
+      'Next ECMWF run (12Z) expected about Sun 19 Jul 20:37.':
+        'Prochain cycle ECMWF (12Z) attendu vers dim. 19 juil. 20:37.',
+      'Next GFS run (18Z) is due now.': 'Prochain cycle GFS (18Z) attendu maintenant.',
+      'Next GFS run is late; no estimate.': 'Prochain cycle GFS en retard ; pas d’estimation.',
     };
     for (const [english, french] of Object.entries(samples)) {
       expect(translateText(english, 'fr')).toBe(french);
