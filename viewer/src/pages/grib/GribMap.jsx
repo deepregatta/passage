@@ -187,7 +187,8 @@ export default function GribMap({ area, fitNonce, drawing, onDrawn, onCancelDraw
   const button = 'pointer-events-auto min-h-11 font-sans font-medium text-sm rounded-sm px-4 py-2 shadow-panel disabled:opacity-40';
   return (
     // On wide screens the chart stays in view beside the tool panel (below the 56 px header).
-    <div className="isolate lg:col-span-2 lg:sticky lg:top-[4.5rem] lg:self-start relative border border-ink/30 rounded-sm overflow-hidden" style={{ height: 480 }}>
+    // On phones it is a little shorter, so the Next cue under it clears the 64 px bottom navigation.
+    <div className="isolate h-[420px] sm:h-[480px] lg:col-span-2 lg:sticky lg:top-[4.5rem] lg:self-start relative border border-ink/30 rounded-sm overflow-hidden">
       <MapContainer
         center={[48.5, -3.5]}
         zoom={6}

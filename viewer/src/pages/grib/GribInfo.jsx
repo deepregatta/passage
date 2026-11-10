@@ -11,7 +11,7 @@ const BLOCKS = {
       {items.map((item) => <li key={item}>{item}</li>)}
     </ul>
   ),
-  privacy: ({ text, language }) => <p><a className="text-event underline underline-offset-4 hover:no-underline" href={privacyPath(language)}>{text}</a></p>,
+  privacy: ({ text, language }) => <p><a className="inline-flex min-h-11 md:min-h-0 items-center text-event underline underline-offset-4 hover:no-underline" href={privacyPath(language)}>{text}</a></p>,
 };
 
 // Open on arrival: what a sailor checks most before opening a file.
