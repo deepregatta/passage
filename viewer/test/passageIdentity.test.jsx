@@ -26,7 +26,7 @@ it('opening old/middle/new checks never compares to a future entry, including fi
   fetchSnapshotJson.mockImplementation(async (id, file) => file === 'findings.json' ? docs[id] : null);
   useApp.setState({ manifest: { snapshots: [...checks].reverse() }, findings: docs.a });
   render(<ChangesSection />);
-  expect(await screen.findByText('First analysis of this passage')).toBeVisible();
+  expect(await screen.findByText('First check of this passage')).toBeVisible();
   expect(fetchSnapshotJson).not.toHaveBeenCalled();
   act(() => useApp.setState({ findings: docs.b }));
   await waitFor(() => expect(fetchSnapshotJson).toHaveBeenCalledWith('a', 'findings.json'));

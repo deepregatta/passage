@@ -5,7 +5,7 @@ import { useApp } from '../../stores/appStore.js';
 import { EvidenceLink, VerdictChip } from '../../components/common.jsx';
 import SynopticCompare from '../../components/SynopticCompare.jsx';
 import { deriveChangeStory, kindLabels, ruleLabels } from '../../lib/changeStory.js';
-import { fmtTime } from '../../lib/format.js';
+import { fmtTextTime } from '../../lib/format.js';
 import { fetchSnapshotJson } from '../../lib/localSnapshots.js';
 
 async function fetchServedJson(snapshotId, filename) {
@@ -50,9 +50,9 @@ export default function ChangesSection() {
   }, [findings, manifest, briefing, served]);
   if (!findings) return null;
   if (state.status === 'unavailable') return <p className="text-ink-soft">Previous check order is unavailable. These saved checks have been kept.</p>;
-  if (state.status === 'first') return <div><h2 className="font-story text-2xl">First analysis of this passage</h2><p className="mt-2 font-instrument text-ink-soft">Nothing to compare yet. Reassess after the next model run.</p></div>;
-  if (state.status === 'error') return <p className="text-verdict-exceeds">Change ledger error: {state.error}</p>;
-  if (state.status !== 'ok') return <p className="text-ink-soft">Comparing frozen runs…</p>;
+  if (state.status === 'first') return <div><h2 className="font-story text-2xl">First check of this passage</h2><p className="mt-2 font-instrument text-ink-soft">Nothing to compare yet. Reassess after the next model run.</p></div>;
+  if (state.status === 'error') return <p role="alert" className="text-verdict-exceeds">Change ledger error: {state.error}</p>;
+  if (state.status !== 'ok') return <p role="status" className="text-ink-soft">Comparing frozen checks…</p>;
   const story = deriveChangeStory(state.changes, briefing);
   const emulatedWarning = findings.evidence.some((item) => item.rule_id === 'A-WARN-01' && item.source_kind === 'emulated');
   return <div>
@@ -60,7 +60,7 @@ export default function ChangesSection() {
     <section className="py-5"><SynopticCompare previous={state.previousSynoptic} latest={latestSynoptic} previousId={state.previousId} latestId={findings.snapshot_id}/></section>
     <OnsetShift previous={state.previous} latest={findings} />
     <section className="grid lg:grid-cols-3 border-y border-ink/40 divide-y-legacy lg:divide-y-legacy-0 lg:divide-x-legacy divide-ink/30">
-      {story.material.length ? story.material.map((item, index) => { const entry = state.changes.entries[item.change_ref]; return <article key={item.change_ref} className="p-4"><p className="eyebrow">material change {index + 1} · {ruleLabels[entry?.rule_id] ?? kindLabels[entry?.kind] ?? 'change'}</p><p className="font-story text-xl mt-2">{entry?.description}</p><p className="font-instrument text-sm text-ink-soft mt-3">{item.why_it_matters}</p>{item.evidence_ids.length > 0 && <p className="font-mono text-[10px] mt-2">{item.evidence_ids.map((id) => <EvidenceLink key={id} evidenceId={id}>{id} </EvidenceLink>)}</p>}</article>; }) : <p className="p-5 text-ink-soft">No material change. The forecast held steady.</p>}
+      {story.material.length ? story.material.map((item, index) => { const entry = state.changes.entries[item.change_ref]; return <article key={item.change_ref} className="p-4"><p className="eyebrow">material change {index + 1} · {ruleLabels[entry?.rule_id] ?? kindLabels[entry?.kind] ?? 'change'}</p><p className="font-story text-xl mt-2">{entry?.description}</p><p className="font-instrument text-sm text-ink-soft mt-3">{item.why_it_matters}</p>{item.evidence_ids.length > 0 && <p className="font-mono text-xs mt-2">{item.evidence_ids.map((id) => <EvidenceLink key={id} evidenceId={id}>{id} </EvidenceLink>)}</p>}</article>; }) : <p className="p-5 text-ink-soft">No material change. The forecast held steady.</p>}
     </section>
     <details className="py-4 border-b border-ink/40"><summary className="font-instrument cursor-pointer py-2.5">Full change ledger · {state.changes.entries.length} entries</summary><ul className="mt-3 max-w-3xl divide-y-legacy hairline">{state.changes.entries.map((entry, index) => <li key={index} className="py-2 font-instrument text-sm">{entry.description}</li>)}</ul></details>
   </div>;
@@ -79,5 +79,5 @@ function OnsetShift({ previous, latest }) {
   const prior = previous.causal_events?.find((event) => event.event_key && event.event_key === current?.event_key && event.route_intersection) ?? previous.causal_events?.find((event) => event.route_intersection);
   if (!current?.route_intersection || !prior?.route_intersection) return null;
   const delta = Math.round((Date.parse(current.route_intersection.window_start) - Date.parse(prior.route_intersection.window_start)) / 3600_000);
-  return <section className="border-y border-ink/40 py-3 mb-5"><div className="flex justify-between gap-3"><p className="eyebrow">Event onset at the route</p><p className="font-mono text-xs text-ink">{Math.abs(delta)} h {delta < 0 ? 'earlier' : 'later'}</p></div><div className="relative h-10 mt-2"><div className="absolute left-0 right-0 top-5 border-t border-ink/40"/><span className="absolute left-[28%] top-0 -translate-x-1/2 font-mono text-[10px]">previous · {fmtTime(prior.route_intersection.window_start)}</span><span className="absolute left-[64%] top-5 -translate-x-1/2 font-mono text-[10px] text-ink font-semibold">latest · {fmtTime(current.route_intersection.window_start)}</span><span className="absolute left-[28%] top-4 w-2 h-2 rounded-full bg-ink"/><span className="absolute left-[64%] top-4 w-2 h-2 rounded-full bg-event"/></div></section>;
+  return <section className="border-y border-ink/40 py-3 mb-5"><div className="flex justify-between gap-3"><p className="eyebrow">Event onset at the route</p><p className="font-mono text-xs text-ink">{Math.abs(delta)} h {delta < 0 ? 'earlier' : 'later'}</p></div><dl className="mt-2 space-y-1 font-mono text-xs"><div><dt className="inline">previous · </dt><dd className="inline">{fmtTextTime(prior.route_intersection.window_start)}</dd></div><div className="text-ink font-semibold"><dt className="inline">latest · </dt><dd className="inline">{fmtTextTime(current.route_intersection.window_start)}</dd></div></dl></section>;
 }

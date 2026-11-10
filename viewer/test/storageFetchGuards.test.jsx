@@ -100,16 +100,16 @@ it('does not let an old change-ledger failure replace a newly selected first run
   useApp.setState({ findings, manifest: { snapshots: [{ ...findings, identity_version: 2, passage_id: 'history', created_at: '2026-07-18T00:00Z', snapshot_id: 'previous' }, { ...findings, identity_version: 2, passage_id: 'history', created_at: '2026-07-19T00:00Z' }] } });
   render(<ChangesSection />);
   act(() => useApp.setState({ findings: { ...findings, snapshot_id: 'other', route_id: 'other' } }));
-  expect(screen.getByText('First analysis of this passage')).toBeVisible();
+  expect(screen.getByText('First check of this passage')).toBeVisible();
   await act(async () => pending.reject(new Error('old offline failure')));
-  expect(screen.getByText('First analysis of this passage')).toBeVisible();
+  expect(screen.getByText('First check of this passage')).toBeVisible();
 });
 it('clears the previous comparison while loading a different run', async () => {
   useApp.setState({ findings, manifest: { snapshots: [] } }); render(<ChangesSection />);
-  expect(screen.getByText('First analysis of this passage')).toBeVisible();
+  expect(screen.getByText('First check of this passage')).toBeVisible();
   fetchSnapshotJson.mockReturnValue(new Promise(() => {}));
   act(() => useApp.setState({ manifest: { snapshots: [{ ...findings, identity_version: 2, passage_id: 'history', created_at: '2026-07-18T00:00Z', snapshot_id: 'previous' }, { ...findings, identity_version: 2, passage_id: 'history', created_at: '2026-07-19T00:00Z' }] } }));
-  expect(screen.getByText('Comparing frozen runs…')).toBeVisible();
+  expect(screen.getByText('Comparing frozen checks…')).toBeVisible();
 });
 
 it('handles offline verification resources independently', async () => {
@@ -179,7 +179,7 @@ it('ignores a stale successful comparison after switching passages', async () =>
   render(<ChangesSection />);
   act(() => useApp.setState({ findings: { ...findings, snapshot_id: 'other', route_id: 'other' } }));
   await act(async () => old.resolve(findings));
-  expect(screen.getByText('First analysis of this passage')).toBeVisible();
+  expect(screen.getByText('First check of this passage')).toBeVisible();
 });
 it('discards stale gate positions after the route changes', async () => {
   const old = deferred();

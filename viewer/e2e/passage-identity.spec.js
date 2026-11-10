@@ -113,7 +113,7 @@ test('separate intent, reroute history, exact retry, reopen, predecessor and del
     await expect(page.getByTestId('decision-band')).toBeVisible();
     expect((await state(page)).id).toBe(checks[i]);
     await page.getByRole('navigation', { name: 'Passage sections' }).getByRole('button', { name: 'What changed', exact: true }).click();
-    if (i === 0) await expect(page.getByText('First analysis of this passage')).toBeVisible();
+    if (i === 0) await expect(page.getByText('First check of this passage')).toBeVisible();
     else await expect(page.getByText('Edited change story · previous → latest')).toBeVisible();
     const reads = await page.evaluate(() => window.scratchReads);
     if (i > 0) expect(reads).toContain(checks[i - 1]);
