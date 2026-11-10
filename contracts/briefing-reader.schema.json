@@ -120,6 +120,11 @@
         "model": {
           "type": "string"
         },
+        "cycle": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Expected model cycle (loaded cycle + publication cadence); absent before 2026-11-10."
+        },
         "expected_at": {
           "type": "string",
           "format": "date-time"

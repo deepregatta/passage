@@ -49,10 +49,11 @@ describe('route-relative briefing geography', () => {
   });
 });
 
+// Since 2026-11-10 each estimate also records its expected cycle (additive `cycle`).
 describe('one metadata-based next update', () => {
   it('uses the daily tile publication cadence and observed publication lag', () => {
     expect(nextForecastRuns({ weather: layer() }, now)).toEqual([
-      { model: 'gfs_0p25', expected_at: '2026-09-09T04:20:00Z' },
+      { model: 'gfs_0p25', cycle: '2026-09-09T00:00:00Z', expected_at: '2026-09-09T04:20:00Z' },
     ]);
   });
   it('orders available layers by expected publication, with their actual model names', () => {
@@ -67,11 +68,11 @@ describe('one metadata-based next update', () => {
   it('uses the producer cadence_hours from latest.json over the fallback table', () => {
     // GFS every 6 h, published 4 h 20 after its cycle
     expect(nextForecastRuns({ weather: layer({ cadence_hours: 6 }) }, '2026-09-08T05:00:00Z')).toEqual([
-      { model: 'gfs_0p25', expected_at: '2026-09-08T10:20:00Z' },
+      { model: 'gfs_0p25', cycle: '2026-09-08T06:00:00Z', expected_at: '2026-09-08T10:20:00Z' },
     ]);
     // producer-declared: no table entry needed
     expect(nextForecastRuns({ weather: layer({ model: 'gfs_future', cadence_hours: 6 }) }, '2026-09-08T05:00:00Z'))
-      .toEqual([{ model: 'gfs_future', expected_at: '2026-09-08T10:20:00Z' }]);
+      .toEqual([{ model: 'gfs_future', cycle: '2026-09-08T06:00:00Z', expected_at: '2026-09-08T10:20:00Z' }]);
   });
   it('lets a sub-daily cadence lag past one cycle, as GEFS does at 6-hourly', () => {
     const gefs = layer({
@@ -79,7 +80,7 @@ describe('one metadata-based next update', () => {
       published_at: '2026-09-08T06:50:00Z', cadence_hours: 6,
     });
     expect(nextForecastRuns({ ensemble: gefs }, '2026-09-08T07:00:00Z')).toEqual([
-      { model: 'gefs_0p50', expected_at: '2026-09-08T12:50:00Z' },
+      { model: 'gefs_0p50', cycle: '2026-09-08T06:00:00Z', expected_at: '2026-09-08T12:50:00Z' },
     ]);
     // a day late is stale at any cadence
     expect(nextForecastRuns({ ensemble: { ...gefs, published_at: '2026-09-09T00:00:00Z' } }, '2026-09-09T01:00:00Z'))
@@ -96,18 +97,18 @@ describe('one metadata-based next update', () => {
       'weather-ecmwf-short': ecmwf('weather-ecmwf-short', '2026-10-01T06:00:00Z', '2026-10-01T12:40:00Z', 12),
     };
     expect(nextForecastRuns(layers, '2026-10-01T14:00:00Z')).toEqual([
-      { model: 'ecmwf_ifs_0p25', expected_at: '2026-10-01T19:53:00Z' },
-      { model: 'ecmwf_ifs_0p25', expected_at: '2026-10-02T00:40:00Z' },
+      { model: 'ecmwf_ifs_0p25', cycle: '2026-10-01T12:00:00Z', expected_at: '2026-10-01T19:53:00Z' },
+      { model: 'ecmwf_ifs_0p25', cycle: '2026-10-01T18:00:00Z', expected_at: '2026-10-02T00:40:00Z' },
     ]);
     // without the producer's cadence the short layer falls back to its own 12 h, never a day
     const { cadence_hours: _cadence, ...undeclared } = layers['weather-ecmwf-short'];
     expect(nextForecastRuns({ 'weather-ecmwf-short': undeclared }, '2026-10-01T14:00:00Z')).toEqual([
-      { model: 'ecmwf_ifs_0p25', expected_at: '2026-10-02T00:40:00Z' },
+      { model: 'ecmwf_ifs_0p25', cycle: '2026-10-01T18:00:00Z', expected_at: '2026-10-02T00:40:00Z' },
     ]);
   });
   it.each([0, -6, 1.5, Number.NaN])('falls back to the table for an unusable cadence_hours %s', (cadence) => {
     expect(nextForecastRuns({ weather: layer({ cadence_hours: cadence }) }, now)).toEqual([
-      { model: 'gfs_0p25', expected_at: '2026-09-09T04:20:00Z' },
+      { model: 'gfs_0p25', cycle: '2026-09-09T00:00:00Z', expected_at: '2026-09-09T04:20:00Z' },
     ]);
   });
   it('does not roll overdue publications forward and conceal stale data', () => {
@@ -135,13 +136,16 @@ describe('one metadata-based next update', () => {
       profile: read('../../config/profiles/default-limits.json') as LimitsProfile,
       departureUtc: '2026-07-20T06:00:00Z', now: () => Date.parse(now), synoptic,
     });
-    expect(result.briefing.next_run).toEqual({ model: 'gfs_0p25', expected_at: '2026-09-09T04:20:00Z' });
+    expect(result.briefing.next_run).toEqual({ model: 'gfs_0p25', cycle: '2026-09-09T00:00:00Z', expected_at: '2026-09-09T04:20:00Z' });
     expect(result.briefing.sections.find((s) => s.id === 'synoptic_story')?.register_plain).toContain('of the centre of your route');
   });
 });
 
-for (const nextRuns of [[], [{ model: 'gfs_0p25', expected_at: '2026-09-09T04:20:00Z' }]]) {
-  it(`validates briefing and changes with ${nextRuns.length} update estimates`, () => {
+for (const nextRuns of [
+  [], [{ model: 'gfs_0p25', expected_at: '2026-09-09T04:20:00Z' }],
+  [{ model: 'gfs_0p25', cycle: '2026-09-09T00:00:00Z', expected_at: '2026-09-09T04:20:00Z' }],
+]) {
+  it(`validates briefing and changes with ${JSON.stringify(nextRuns)}`, () => {
     const ajv = new Ajv2020({ strict: false });
     addFormats(ajv);
     const briefing = renderBriefing(findings, undefined, { nextRuns });

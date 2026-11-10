@@ -58,6 +58,7 @@
           "required": ["model", "expected_at"],
           "properties": {
             "model": { "type": "string" },
+            "cycle": { "type": "string", "format": "date-time" },
             "expected_at": { "type": "string", "format": "date-time" }
           }
         }

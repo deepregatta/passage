@@ -39,6 +39,8 @@ export interface BriefingSection {
 
 export interface NextForecastRun {
   model: string;
+  /** Expected cycle (loaded cycle + cadence), ISO UTC. Absent in briefings saved before 2026-11-10. */
+  cycle?: string;
   expected_at: string;
 }
 
@@ -416,6 +418,10 @@ export function nextForecastRuns(layers: Record<string, LayerInfo>, afterIso: st
     if (!Number.isFinite(lag) || lag < 0 || lag >= maxLag || published > after) return [];
     const expected = cycle + cadence + lag;
     if (expected <= after) return [];
-    return [{ model: layer.model, expected_at: new Date(expected).toISOString().replace(/\.\d{3}Z$/, 'Z') }];
+    return [{
+      model: layer.model,
+      cycle: new Date(cycle + cadence).toISOString().replace(/\.\d{3}Z$/, 'Z'),
+      expected_at: new Date(expected).toISOString().replace(/\.\d{3}Z$/, 'Z'),
+    }];
   }).sort((a, b) => a.expected_at.localeCompare(b.expected_at) || a.model.localeCompare(b.model));
 }
