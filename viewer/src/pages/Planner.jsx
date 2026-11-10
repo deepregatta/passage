@@ -106,7 +106,7 @@ export default function Planner() {
           </button>
           <p
             aria-live="polite"
-            className="absolute left-3 bottom-7 z-[800] max-w-[calc(100%-1.5rem)] bg-paper/95 border border-ink/40 rounded-sm px-2 py-1 text-[12px] shadow-panel pointer-events-none"
+            className="absolute right-3 top-[4.25rem] z-[800] max-w-[calc(100%-4.5rem)] text-right bg-paper/95 border border-ink/40 rounded-sm px-2 py-1 text-[12px] shadow-panel pointer-events-none"
           >
             {mapHint({ mode, endpoints, waypoints, computed, distance })}
           </p>

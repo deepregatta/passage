@@ -20,6 +20,7 @@ vi.mock('react-leaflet', () => ({
   useMap: () => mapEvents,
   useMapEvents: (events) => { mapEvents.click = events.click; },
 }));
+vi.mock('../src/components/MapTouchScroll.jsx', () => ({ default: () => null }));
 vi.mock('../src/components/BoatPicker.jsx', () => ({ default: () => null }));
 vi.mock('../src/lib/routingInputs.js', async (original) => ({ ...await original(), loadRoutingInputs: vi.fn() }));
 vi.mock('../src/lib/browserAnalysis.js', () => ({ analyzeInBrowser: vi.fn(), saveRoute: vi.fn(),
