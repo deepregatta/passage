@@ -104,6 +104,10 @@ body {
 
 button { touch-action: manipulation; }
 
+/* Phone maps let one finger scroll the page (lib/mapTouchScroll.js); a
+   draggable waypoint or box corner still takes its own one-finger drag. */
+.map-touch-scroll .leaflet-marker-draggable { touch-action: none; }
+
 button:focus-visible,
 a:focus-visible,
 input:focus-visible,

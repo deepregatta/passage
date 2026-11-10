@@ -7,6 +7,7 @@ import { preparedRun } from '../src/lib/preparedRun.js';
 vi.mock('react-leaflet', () => ({
   MapContainer: ({ children }) => <div>{children}</div>,
   TileLayer: () => null, Marker: () => null, Polyline: () => null, Tooltip: () => null,
+  useMap: () => ({}),
 }));
 vi.mock('../src/lib/preparedRun.js', () => ({
   preparedRun: vi.fn(async () => ({ doc: {} })), artifactUrl: vi.fn(),

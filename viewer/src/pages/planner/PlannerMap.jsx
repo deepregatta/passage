@@ -4,6 +4,7 @@ import { MapContainer, TileLayer, Marker, Polyline, Rectangle, useMap, useMapEve
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { BASEMAP } from '../../lib/basemap.js';
+import MapTouchScroll from '../../components/MapTouchScroll.jsx';
 
 // ink-navy waypoint dots instead of Leaflet's default blue pin
 const waypointIcon = L.divIcon({
@@ -64,6 +65,7 @@ export default function PlannerMap({ mode, waypoints, computed, endpoints, fitNo
           attribution='seamarks &copy; OpenSeaMap'
         />
         <TrackFrameSize frameRef={frameRef} />
+        <MapTouchScroll />
         <ClickCapture onClick={addWaypoint} />
         <FitRoute
           chartArea={chartArea}

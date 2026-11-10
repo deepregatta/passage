@@ -21,6 +21,7 @@ vi.mock('../src/components/lazy/EChartsLazy.jsx', () => ({ default: ({ option })
 vi.mock('react-leaflet', () => ({
   MapContainer: ({ children, bounds }) => <div data-testid="map" data-bounds={JSON.stringify(bounds)}>{children}</div>,
   TileLayer: () => null, Polyline: () => null, Marker: ({ children }) => <div>{children}</div>, Tooltip: ({ children }) => <span>{children}</span>,
+  useMap: () => ({}),
 }));
 const deferred = () => {
   let resolve, reject;

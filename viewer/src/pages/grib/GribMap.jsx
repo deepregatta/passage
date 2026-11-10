@@ -5,6 +5,7 @@ import 'leaflet/dist/leaflet.css';
 import { BASEMAP } from '../../lib/basemap.js';
 import { gribArea } from '../../lib/gribExport.js';
 import { palette } from '../../lib/palette.js';
+import MapTouchScroll from '../../components/MapTouchScroll.jsx';
 
 // a press that moves less than this is a click: the first corner of a two-click box
 const DRAG_THRESHOLD_PX = 6;
@@ -163,6 +164,8 @@ export default function GribMap({ area, fitNonce, drawing, onDrawn, onCancelDraw
         />
         <FitArea area={area} fitNonce={fitNonce} />
         <BoxDrawer drawing={drawing} onDrawn={onDrawn} onCancel={onCancelDraw} onPreview={setPreview} />
+        {/* after BoxDrawer: once drawing ends it re-enables dragging, then this re-applies phone scrolling */}
+        <MapTouchScroll suspended={drawing} />
         {shown && (
           <Rectangle
             bounds={toBounds(shown)}

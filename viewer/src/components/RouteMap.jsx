@@ -9,6 +9,8 @@ import { frameForCursor, usePlayback } from '../stores/playbackStore.js';
 import { STATUS_HEX, hourStatus, fmtTime } from '../lib/format.js';
 import { preparedRun, artifactUrl } from '../lib/preparedRun.js';
 import { BASEMAP } from '../lib/basemap.js';
+import MapTouchScroll from './MapTouchScroll.jsx';
+import { windArrowHtml } from '../lib/windArrowHtml.js';
 
 /**
  * The passage on a chart (mockup 1): marine-styled Leaflet; light base +
@@ -45,16 +47,10 @@ function windArrowIcon(windFromDeg, windKt) {
   const rotation = (windFromDeg + 180) % 360;
   return L.divIcon({
     className: '',
-    html: `<div style="display:flex;flex-direction:column;align-items:center;pointer-events:none">
-      <svg width="30" height="30" viewBox="0 0 30 30" style="transform:rotate(${rotation}deg);opacity:.85">
-        <path d="M15 4 L15 24 M15 4 L10 11 M15 4 L20 11" stroke="${palette.wind}" stroke-width="2.4"
-          fill="none" stroke-linecap="round"/>
-      </svg>
-      <span style="font:600 9px ui-monospace,monospace;color:${palette.wind};background:${palette.paper.DEFAULT}cc;
-        padding:0 3px;border-radius:2px;margin-top:-4px">${Math.round(windKt)}kt</span>
-    </div>`,
-    iconSize: [30, 40],
-    iconAnchor: [15, 20],
+    html: windArrowHtml(rotation, windKt, palette),
+    // wide enough for a three-digit "100 kt" label on one line; anchored on the arrow's centre
+    iconSize: [56, 44],
+    iconAnchor: [28, 15],
   });
 }
 
@@ -203,6 +199,7 @@ export default function RouteMap({ height = 420 }) {
   return (
     <div className="isolate border border-ink/30 rounded-sm overflow-hidden" style={{ height }}>
       <MapContainer bounds={bounds} style={seaStyle} scrollWheelZoom={false} attributionControl>
+        <MapTouchScroll />
         <TileLayer {...BASEMAP} />
         <TileLayer
           url="https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png"
