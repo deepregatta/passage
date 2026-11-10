@@ -70,7 +70,7 @@ export default function EvidenceSection() {
             <div className="font-instrument text-xs text-ink-soft max-w-56">raw count, not a calibrated probability</div>
           </div>
         </div>
-        <p className="font-instrument text-sm mt-3">{legLabel(findings, evidence.leg_id, { bare: true })} · {fmtTextTime(evidence.valid_time)} · limit {evidence.limit} {evidence.units} · <EvidenceLink evidenceId={evidence.evidence_id}>inspect claim</EvidenceLink></p>
+        <p className="font-instrument text-sm mt-3">{legLabel(findings, evidence.leg_id, { bare: true })} · forecast hour {fmtTextTime(evidence.valid_time)} · limit {evidence.limit} {evidence.units} · <EvidenceLink evidenceId={evidence.evidence_id}>inspect claim</EvidenceLink></p>
       </header>
 
       <div className="grid grid-cols-1 xl:grid-cols-[14rem_minmax(0,1fr)] 2xl:grid-cols-[14rem_minmax(0,1fr)_20rem] gap-4">
@@ -106,7 +106,7 @@ export default function EvidenceSection() {
 /** Side summary (2xl only). The count, place and limit are in the headline above; this adds the
  * claim's rule and its time with a marked UTC secondary for cross-reference to the chart axis. */
 function ClaimPanel({ evidence }) {
-  return <aside className="hidden 2xl:block border-l border-ink/40 pl-4 sticky top-28 self-start" aria-label="Selected evidence summary"><p className="eyebrow">Selected claim</p><dl className="mt-2 divide-y-legacy hairline text-sm"><div className="py-2"><dt className="eyebrow">Rule</dt><dd>{ruleLabel(evidence.rule_id)}</dd></div><div className="py-2"><dt className="eyebrow">Route window</dt><dd>{fmtTextTime(evidence.valid_time)}</dd><dd className="font-mono text-xs text-ink-soft">{fmtUtcClock(evidence.valid_time)}</dd></div></dl><p className="mt-4 p-3 bg-shoal/50 border hairline text-xs">Agreement is not proof. This panel stays tied to the claim selected at left.</p></aside>;
+  return <aside className="hidden 2xl:block border-l border-ink/40 pl-4 sticky top-28 self-start" aria-label="Selected evidence summary"><p className="eyebrow">Selected claim</p><dl className="mt-2 divide-y-legacy hairline text-sm"><div className="py-2"><dt className="eyebrow">Rule</dt><dd>{ruleLabel(evidence.rule_id)}</dd></div><div className="py-2"><dt className="eyebrow">Forecast hour</dt><dd>{fmtTextTime(evidence.valid_time)}</dd><dd className="font-mono text-xs text-ink-soft">{fmtUtcClock(evidence.valid_time)}</dd></div></dl><p className="mt-4 p-3 bg-shoal/50 border hairline text-xs">Agreement is not proof. This panel stays tied to the claim selected at left.</p></aside>;
 }
 
 function EvidenceTable({ leg, evidence, variable }) {
