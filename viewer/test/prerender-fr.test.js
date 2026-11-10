@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { COPY, GRIB_COPY, NO_JS_COPY, ORIGIN, PRIVACY_COPY } from '../src/metadata.js';
 import { renderFrenchHtml, renderGribHtml, renderPrivacyHtml } from '../scripts/prerender-fr.mjs';
+import { gribInfoTexts } from '../src/gribContent.js';
 import { privacyTexts } from '../src/privacyContent.js';
 import { translateText } from '../src/i18n.js';
 
@@ -31,6 +32,48 @@ describe('crawlable GRIB HTML', () => {
     expect(page.querySelector('body > script').outerHTML).toBe(new DOMParser().parseFromString(sourceHtml, 'text/html').querySelector('body > script').outerHTML);
     const sitemap = readFileSync(resolve(import.meta.dirname, '../public/sitemap.xml'), 'utf8');
     expect(sitemap).toContain(`<loc>${ORIGIN}${path}</loc>`);
+  });
+});
+
+describe('crawlable GRIB information', () => {
+  const mainOf = (language) => new DOMParser().parseFromString(renderGribHtml(sourceHtml, language), 'text/html').querySelector('main');
+
+  it.each(['en', 'fr'])('puts the whole %s information section in <main>, after the heading and notice', (language) => {
+    const main = mainOf(language);
+    expect(main.querySelectorAll('h1')).toHaveLength(1);
+    const body = main.textContent;
+    for (const english of gribInfoTexts()) expect(body).toContain(translateText(english, language));
+    // the tool-first order: h1, intro and notice come before the information
+    const headings = [...main.querySelectorAll('h1, h2')].map((node) => node.textContent);
+    expect(headings[0]).toBe(language === 'fr' ? 'Télécharger des fichiers GRIB' : 'Download GRIB files');
+    expect(headings).toHaveLength(8);
+    expect(main.querySelector('a[href$="privacy"]').getAttribute('href')).toBe(language === 'fr' ? '/fr/privacy' : '/privacy');
+  });
+
+  it('states the models, what the files hold and omit, and each program honestly in English', () => {
+    const body = mainOf('en').textContent;
+    for (const text of ['ECMWF: the default when the centre of your box is in Europe', 'AROME (Météo-France), optional', 'ICON-EU (DWD), optional',
+      'GFS-Wave (NOAA/NCEP) is the only wave model', 'IBI (Copernicus Marine)', 'GLO12', 'No pressure or isobars, rain, temperature',
+      'Wind + currents file', 'Adrena: read the wind and currents files', 'OpenCPN (GRIB plugin)', 'It drops swell and the primary wave period and direction',
+      'XyGrib: choose File > Open. Not yet tested in the application', 'qtVlm: load the wind file in one GRIB slot', 'Not for navigation',
+      'refused with “Choose a smaller area for this regional model.”', 'Forecast data for planning, not for navigation.']) {
+      expect(body).toContain(text);
+    }
+  });
+
+  it('states the same facts in French without English leftovers', () => {
+    const body = mainOf('fr').textContent;
+    for (const text of ['ECMWF : choix par défaut', 'Fichier vent + courants', 'Pas encore testé dans l’application', 'Ni pression ni isobares',
+      'la houle', 'Politique de confidentialité', 'pas pour la navigation']) {
+      expect(body).toContain(text);
+    }
+    for (const english of ['Which models are used', 'What is not in the files', 'Not yet tested', 'Opening the files in your software', 'Draw a smaller box']) {
+      expect(body).not.toContain(english);
+    }
+  });
+
+  it('is longer than the old two-sentence body, by a wide margin', () => {
+    for (const language of ['en', 'fr']) expect(mainOf(language).textContent.length).toBeGreaterThan(6000);
   });
 });
 

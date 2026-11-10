@@ -433,6 +433,19 @@ because a sailor could not find the download on his own: it needed a route
 first, the button was third in the Passage panel, and it took three verbs
 (Download → Prepare → Save) and about eight choices.
 
+Below the tool, an information section (`viewer/src/gribContent.js`,
+rendered by `pages/grib/GribInfo.jsx`) states what a sailor wants before
+downloading: the models per file and how one is chosen, grids, steps and
+horizons, what the files hold and omit, what each reader program is known to
+do (with "not yet tested in the application" wherever it has not been opened),
+the limits, the sources and a link to `/privacy`. The same blocks are written
+into the `<main>` of the prerendered `/grib` and `/fr/grib`
+(`scripts/prerender-fr.mjs`, after the heading and the notice), so a fetch
+without JavaScript reads them; React replaces that body on load, so the tool
+stays first for users. French strings sit in the "GRIB information" block of
+`i18n.js`, and the prerender fails on a missing one. Re-check each statement
+when a model, horizon or reader finding changes.
+
 The page is three numbered steps next to the chart:
 
 1. **Area.** **Draw a box** (on the chart) enters draw mode: press and drag

@@ -9,6 +9,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { COPY, GRIB_COPY, NO_JS_COPY, PRIVACY_COPY, ogLocale, pageUrl, softwareApplication, structuredData } from '../src/metadata.js';
+import { gribInfoHtml, gribInfoTexts } from '../src/gribContent.js';
 import { privacyHtml, privacyTexts } from '../src/privacyContent.js';
 import { GRIB_EXPORT_NOTICE } from '@deepweather/engine';
 import { translateText } from '../src/i18n.js';
@@ -99,6 +100,11 @@ function main() {
 
 export function renderGribHtml(html, language) {
   const copy = GRIB_COPY[language];
+  // A French page must never ship English text: every block needs a catalogue entry.
+  if (language === 'fr') {
+    const missing = gribInfoTexts().filter((text) => translateText(text, 'fr') === text);
+    if (missing.length) throw new Error(`prerender-fr: untranslated GRIB text: ${missing[0]}`);
+  }
   let out = language === 'fr' ? renderFrenchHtml(html) : html;
   out = replaceOnce(out, /<title>[^<]*<\/title>/, () => `<title>${escapeHtml(copy.title)}</title>`, 'GRIB title');
   for (const [attribute, name, content] of [
@@ -118,7 +124,7 @@ export function renderGribHtml(html, language) {
   out = replaceOnce(out, /(<script id="passage-structured-data" type="application\/ld\+json">)[\s\S]*?(<\/script>)/,
     (_match, before, after) => `${before}${JSON.stringify(softwareApplication(language, 'grib'))}${after}`, 'GRIB structured data');
   return replaceOnce(out, /<main>[\s\S]*?<\/main>/g, () =>
-    `<main><h1>${escapeHtml(translateText('Download GRIB files', language))}</h1><p>${escapeHtml(copy.description)}</p><p>${escapeHtml(translateText(GRIB_EXPORT_NOTICE, language))}</p></main>`, 'GRIB static body');
+    `<main><h1>${escapeHtml(translateText('Download GRIB files', language))}</h1><p>${escapeHtml(copy.description)}</p><p>${escapeHtml(translateText(GRIB_EXPORT_NOTICE, language))}</p>${gribInfoHtml(language, translateText)}</main>`, 'GRIB static body');
 }
 
 // /privacy and /fr/privacy: the policy text itself is in the static HTML (shared

@@ -52,6 +52,7 @@ import {
 } from '../lib/gribExport.js';
 import { isGribPath, locationRoute } from '../lib/routes.js';
 import { useGrib } from '../stores/gribStore.js';
+import GribInfo from './grib/GribInfo.jsx';
 import GribMap from './grib/GribMap.jsx';
 
 const HOUR_MS = 3_600_000;
@@ -757,6 +758,8 @@ export default function Grib() {
           </div>
         </Panel>
       </div>
+
+      <GribInfo language={language} />
     </div>
   );
 }

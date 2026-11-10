@@ -424,6 +424,41 @@ describe('GRIB files page', () => {
     expect(screen.getByText('Local test tiles, not the live forecast.')).toBeInTheDocument();
   });
 
+  it('explains models, contents, programs and limits below the tool, with an honest status per program', () => {
+    render(<Grib />);
+    const info = screen.getByRole('region', { name: 'About the GRIB files' });
+    // the tool comes first in the document; the information follows it
+    expect(page().getByText('Draw your area first.').compareDocumentPosition(info) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    expect(within(info).getAllByRole('heading', { level: 2 }).map((node) => node.textContent)).toEqual([
+      'Which models are used', 'How current the forecast is', 'What is in the files', 'What is not in the files',
+      'Opening the files in your software', 'Limits', 'Data and privacy',
+    ]);
+    const text = info.textContent;
+    expect(text).toContain('ECMWF: the default when the centre of your box is in Europe (25–72°N, 35°W–45°E).');
+    expect(text).toContain('GFS-Wave (NOAA/NCEP) is the only wave model');
+    expect(text).toContain('IBI (Copernicus Marine), the default wherever it covers your whole box');
+    expect(text).toContain('No pressure or isobars, rain, temperature, cloud cover or visibility.');
+    expect(text).toContain('Adrena: read the wind and currents files in our test on 2026-09-27');
+    for (const program of ['OpenCPN', 'XyGrib']) {
+      expect(within(info).getByText(new RegExp(`^${program}.*Not yet tested in the application`))).toBeInTheDocument();
+    }
+    expect(within(info).getByText(/^qtVlm.*Not yet tested\./)).toBeInTheDocument();
+    expect(text).toContain('Not for navigation: this is forecast data for planning.');
+    expect(within(info).getByRole('link', { name: 'Privacy policy' })).toHaveAttribute('href', '/privacy');
+  });
+
+  it('translates the information below the tool into French, with the French privacy link', () => {
+    useApp.setState({ language: 'fr' });
+    render(<><Grib /><LocalizedDocument language="fr" /></>);
+    const info = screen.getByRole('region', { name: 'À propos des fichiers GRIB' });
+    expect(within(info).getByRole('heading', { level: 2, name: 'Quels modèles sont utilisés' })).toBeInTheDocument();
+    expect(info.textContent).toContain('Pas encore testé dans l’application.');
+    expect(info.textContent).toContain('Ni pression ni isobares');
+    expect(info.textContent).not.toContain('Which models are used');
+    expect(within(info).getByRole('link', { name: 'Politique de confidentialité' })).toHaveAttribute('href', '/fr/privacy');
+  });
+
   it('offers one download per kind with the local model, its times, size and notes', async () => {
     await openWith(CHANNEL);
     expect(mapState.rectangle.bounds).toEqual([[50.2, -9.9], [50.9, -9.1]]);
