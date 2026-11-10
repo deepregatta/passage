@@ -144,8 +144,8 @@ it('describes a drawn route in the chip and the bar, in French too', () => {
   expect(translateText('3 waypoints · 42 nm', 'fr')).toBe('3 points de route · 42 M');
   expect(mapHint({ ...draft, waypoints: [] })).toBe('Add your start on the chart');
   expect(barStatus({ ...draft, failure: null, busy: null, blocked: null })).toBe('3 waypoints · 42 nm');
-  expect(translateText('Route ready: 12.3 nm · 2 h', 'fr')).toBe('Route prête : 12.3 M · 2 h');
-  expect(translateText('Route computed · 12.3 nm · 2 h', 'fr')).toBe('Route calculée : 12.3 M · 2 h');
+  expect(translateText('Route ready: 12.3 nm · 2 h', 'fr')).toBe('Route prête : 12,3 M · 2 h');
+  expect(translateText('Route computed · 12.3 nm · 2 h', 'fr')).toBe('Route calculée : 12,3 M · 2 h');
   expect(translateText('Waypoint 2 of 5', 'fr')).toBe('Point de route 2 sur 5');
 });
 
