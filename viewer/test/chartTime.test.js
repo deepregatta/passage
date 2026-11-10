@@ -135,7 +135,7 @@ describe('chart accessible text', () => {
   it('describes the model comparison with names, span and divergence, and translates to French', () => {
     const label = modelComparisonAriaLabel({ modelNames: ['ECMWF IFS 0.25°', 'GFS 0.25°'], startMs: at(13, 6), endMs: at(15, 6), divergentHours: 3 });
     expect(label).toBe(`Model comparison of 10 m sustained wind: ECMWF IFS 0.25°, GFS 0.25°, from Mon 13 Jul 06:00 to Wed 15 Jul 06:00, local time ${zone}. Models diverge in 3 h of this period.`);
-    expect(translateText(label, 'fr')).toBe(`Comparaison des modèles pour le vent moyen à 10 m : ECMWF IFS 0.25°, GFS 0.25°, de lun. 13 juil. 06:00 à mer. 15 juil. 06:00, heure locale ${zone}. Les modèles divergent pendant 3 h sur cette période.`);
+    expect(translateText(label, 'fr')).toBe(`Comparaison des modèles pour le vent moyen à 10 m : ECMWF IFS 0,25°, GFS 0,25°, de lun. 13 juil. 06:00 à mer. 15 juil. 06:00, heure locale ${zone}. Les modèles divergent pendant 3 h sur cette période.`);
     const calm = modelComparisonAriaLabel({ modelNames: ['GFS 0.25°'], startMs: at(13, 6), endMs: at(15, 6), divergentHours: 0 });
     expect(calm).toMatch(/No divergent hours flagged\.$/);
     expect(translateText(calm, 'fr')).toMatch(/Aucune heure de divergence signalée\.$/);

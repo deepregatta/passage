@@ -290,7 +290,7 @@ describe('GRIB files page copy', () => {
     ['Move north-west corner', 'Déplacer le coin nord-ouest'],
     ['Move south-east corner', 'Déplacer le coin sud-est'],
     ['West', 'Ouest'],
-    ['Enter a longitude from -180 to 180, such as -9.5 or 9.5W.', 'Saisissez une longitude entre -180 et 180, par exemple -9.5 ou 9.5O.'],
+    ['Enter a longitude from -180 to 180, such as -9.5 or 9.5W.', 'Saisissez une longitude entre -180 et 180, par exemple -9,5 ou 9,5O.'],
     ['South must be below north.', 'Le sud doit être en dessous du nord.'],
     ['Next: choose the period and download', 'Étape suivante : choisir la période et télécharger'],
     ['File covers', 'Le fichier couvre'],
