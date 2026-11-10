@@ -433,3 +433,20 @@ describe('document localiser scope', () => {
     expect(host.querySelector('span').textContent).toBe('Finish');
   });
 });
+
+describe('source names, run labels, ages and leg labels', () => {
+  it.each([
+    ['GFS run 10 Nov 12Z', 'cycle GFS du 10 nov. 12Z'],
+    ['Run 1 Oct 06Z', 'Cycle du 1 oct. 06Z'],
+    ['Emulated scenario run', 'Cycle de scénario simulé'],
+    ['Copernicus IBI ocean currents', 'Courants océaniques Copernicus IBI'],
+    ['114 days old', 'il y a 114 jours'],
+    ['under 1 h old', 'il y a moins d’1 h'],
+    ['114 days', '114 jours'],
+    ['near Plymouth breakwater (leg 6)', 'près de brise-lames de Plymouth (tronçon 6)'],
+    ['Plymouth breakwater (leg 6)', 'brise-lames de Plymouth (tronçon 6)'],
+    ['leg 9', 'tronçon 9'],
+  ])('translates %s', (english, french) => {
+    expect(translateText(english, 'fr')).toBe(french);
+  });
+});

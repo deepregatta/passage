@@ -797,6 +797,8 @@
         "▾"
       ],
       "viewer/src/pages/briefing/routeLabels.jsx": [
+        "(",
+        ")",
         ",",
         "→"
       ],

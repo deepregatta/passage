@@ -63,13 +63,54 @@ export function fmtHour(iso) {
   return `${String(d.getUTCHours()).padStart(2, '0')}:00`;
 }
 
+/** Time inside page text. Page text uses the zone the header states ("times in
+ * <zone>", localTimeZoneName()), so no zone is repeated here. Chart axes and
+ * the engine's own prose are separate; a cross-reference to a UTC axis adds
+ * fmtUtcClock as a clearly marked secondary. */
+export function fmtTextTime(iso) {
+  return fmtLocalTime(iso);
+}
+
+/** Header-zone clock only ("21:38"), for sentences that already name the day. */
+export function fmtTextClock(iso) {
+  if (!iso) return 'n/a';
+  const d = new Date(Date.parse(iso));
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+/** Marked secondary UTC clock ("19:38 UTC") for cross-references to UTC axes. */
+export function fmtUtcClock(iso) {
+  if (!iso) return 'n/a';
+  const d = new Date(Date.parse(iso));
+  return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')} UTC`;
+}
+
+/**
+ * An age for display: minutes under an hour, hours up to 48 h, days beyond
+ * ("114 days"). Negative ages (clock skew) read as zero. `exact` keeps the
+ * minutes inside the first 48 h ("2 h 05 min") for run-age lines.
+ */
+export function fmtAge(ms, { exact = false } = {}) {
+  const totalMin = Math.round(Math.max(0, ms) / 60_000);
+  const hours = totalMin / 60;
+  if (hours >= 48) return `${Math.round(hours / 24)} days`;
+  if (exact) {
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    return h > 0 ? `${h} h ${String(m).padStart(2, '0')} min` : `${m} min`;
+  }
+  if (totalMin < 60) return 'under 1 h';
+  return `${Math.round(hours)} h`;
+}
+
+/** "5 h old" / "114 days old" / "under 1 h old". */
+export function fmtAgeOld(ms) {
+  return `${fmtAge(ms)} old`;
+}
+
 export function runAge(fetchedAtIso, nowMs) {
   if (!fetchedAtIso) return null;
-  const ms = nowMs - Date.parse(fetchedAtIso);
-  if (ms < 0) return '0 min';
-  const h = Math.floor(ms / 3600_000);
-  const m = Math.round((ms % 3600_000) / 60_000);
-  return h > 0 ? `${h} h ${String(m).padStart(2, '0')} min` : `${m} min`;
+  return fmtAge(nowMs - Date.parse(fetchedAtIso), { exact: true });
 }
 
 /** Verdict states; exact wording, never "GO". */
