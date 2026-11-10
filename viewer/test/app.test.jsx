@@ -59,7 +59,7 @@ describe('viewer fixture harness', () => {
     render(<App />);
 
     expect(screen.getByText(/A DeepRegatta instrument for offshore sailors/i)).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Privacy' }).getAttribute('href')).toBe('https://deepregatta.com/privacy');
+    expect(screen.getByRole('link', { name: 'Privacy' }).getAttribute('href')).toBe('/privacy');
     expect(screen.getByRole('link', { name: 'Terms' }).getAttribute('href')).toBe('https://deepregatta.com/terms');
     expect(screen.getByRole('link', { name: 'Legal notice' }).getAttribute('href')).toBe('https://deepregatta.com/legal');
     expect(screen.getByRole('link', { name: 'DeepRegatta' }).getAttribute('href')).toBe('https://deepregatta.com');

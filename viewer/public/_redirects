@@ -1,3 +1,6 @@
 # GRIB canonicals are slashless. Pages preserves the incoming query string.
 /grib/ /grib 308
 /fr/grib/ /fr/grib 308
+# The privacy policy follows the same slashless rule.
+/privacy/ /privacy 308
+/fr/privacy/ /fr/privacy 308

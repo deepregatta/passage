@@ -33,6 +33,27 @@ export const GRIB_COPY = {
   },
 };
 
+export const PRIVACY_COPY = {
+  en: {
+    ...COPY.en,
+    title: 'Privacy policy | Passage',
+    description: 'What Passage does with personal data: no accounts or ads, routes and briefings kept in your browser, first-party usage counts and the services your browser contacts.',
+  },
+  fr: {
+    ...COPY.fr,
+    title: 'Politique de confidentialité | Passage',
+    description: 'Ce que Passage fait des données personnelles : ni comptes ni publicité, routes et briefings conservés dans votre navigateur, mesure d’usage propriétaire et services contactés par votre navigateur.',
+  },
+};
+
+// Pages with their own crawlable URL and complete document title.
+const STANDALONE_COPY = { grib: GRIB_COPY, privacy: PRIVACY_COPY };
+export const pageCopy = (page) => STANDALONE_COPY[page] ?? COPY;
+export const documentTitle = (language, page) => {
+  const copy = pageCopy(page)[language === 'fr' ? 'fr' : 'en'];
+  return page in STANDALONE_COPY ? copy.title : `${copy.title} | DeepRegatta`;
+};
+
 // Complete static fallback copy. English entries mirror index.html; the prerender
 // rejects unknown, missing or repeated text so source edits cannot silently leak English.
 export const NO_JS_COPY = [
@@ -91,7 +112,7 @@ export const NO_JS_COPY = [
 ];
 
 export function pageUrl(language, page) {
-  if (page === 'grib') return `${ORIGIN}${language === 'fr' ? '/fr/grib' : '/grib'}`;
+  if (page === 'grib' || page === 'privacy') return `${ORIGIN}${language === 'fr' ? '/fr' : ''}/${page}`;
   return language === 'fr' ? `${ORIGIN}/fr/` : `${ORIGIN}/`;
 }
 
@@ -108,7 +129,7 @@ export function softwareApplication(language, page) {
     applicationCategory: 'WeatherApplication',
     operatingSystem: 'Web',
     url: pageUrl(language, page),
-    description: (page === 'grib' ? GRIB_COPY : COPY)[isFrench ? 'fr' : 'en'].description,
+    description: pageCopy(page)[isFrench ? 'fr' : 'en'].description,
     inLanguage: isFrench ? 'fr' : 'en',
     offers: {
       '@type': 'Offer',
@@ -120,5 +141,21 @@ export function softwareApplication(language, page) {
       name: 'DeepRegatta',
       url: 'https://deepregatta.com/',
     },
+  };
+}
+
+/** Head JSON-LD for a page: the application, or a WebPage for the privacy policy. */
+export function structuredData(language, page) {
+  if (page !== 'privacy') return softwareApplication(language, page);
+  const isFrench = language === 'fr';
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'WebPage',
+    name: PRIVACY_COPY[isFrench ? 'fr' : 'en'].title,
+    url: pageUrl(language, page),
+    description: PRIVACY_COPY[isFrench ? 'fr' : 'en'].description,
+    inLanguage: isFrench ? 'fr' : 'en',
+    isPartOf: { '@type': 'WebSite', name: 'Passage', url: `${ORIGIN}/` },
+    publisher: { '@type': 'Organization', name: 'DeepRegatta', url: 'https://deepregatta.com/' },
   };
 }

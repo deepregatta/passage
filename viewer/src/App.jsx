@@ -13,6 +13,7 @@ const PAGES = {
   grib: lazy(() => import('./pages/Grib.jsx')),
   briefing: lazy(() => import('./pages/Briefing.jsx')),
   about: lazy(() => import('./pages/About.jsx')),
+  privacy: lazy(() => import('./pages/Privacy.jsx')),
 };
 const EvidenceInspector = lazy(() => import('./components/EvidenceInspector.jsx'));
 const LimitsDrawer = lazy(() => import('./components/LimitsDrawer.jsx'));

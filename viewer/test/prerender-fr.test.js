@@ -1,8 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { COPY, GRIB_COPY, NO_JS_COPY, ORIGIN } from '../src/metadata.js';
-import { renderFrenchHtml, renderGribHtml } from '../scripts/prerender-fr.mjs';
+import { COPY, GRIB_COPY, NO_JS_COPY, ORIGIN, PRIVACY_COPY } from '../src/metadata.js';
+import { renderFrenchHtml, renderGribHtml, renderPrivacyHtml } from '../scripts/prerender-fr.mjs';
+import { privacyTexts } from '../src/privacyContent.js';
+import { translateText } from '../src/i18n.js';
 
 // The transform runs on dist/index.html; Vite keeps the head markup of the
 // source page intact, so the committed index.html is a faithful stand-in.
@@ -29,6 +31,50 @@ describe('crawlable GRIB HTML', () => {
     expect(page.querySelector('body > script').outerHTML).toBe(new DOMParser().parseFromString(sourceHtml, 'text/html').querySelector('body > script').outerHTML);
     const sitemap = readFileSync(resolve(import.meta.dirname, '../public/sitemap.xml'), 'utf8');
     expect(sitemap).toContain(`<loc>${ORIGIN}${path}</loc>`);
+  });
+});
+
+describe('crawlable privacy HTML', () => {
+  it.each(['en', 'fr'])('serves the %s policy text, head and hreflang without JavaScript', (language) => {
+    const html = renderPrivacyHtml(sourceHtml, language);
+    const page = new DOMParser().parseFromString(html, 'text/html');
+    const path = language === 'fr' ? '/fr/privacy' : '/privacy';
+    expect(page.title).toBe(PRIVACY_COPY[language].title);
+    expect(page.documentElement.lang).toBe(language);
+    for (const selector of ['meta[name="description"]', 'meta[property="og:description"]', 'meta[name="twitter:description"]']) {
+      expect(page.querySelector(selector).content).toBe(PRIVACY_COPY[language].description);
+    }
+    expect(page.querySelector('meta[property="og:title"]').content).toBe(page.title);
+    expect(page.querySelector('meta[property="og:url"]').content).toBe(`${ORIGIN}${path}`);
+    expect(page.querySelector('meta[property="og:locale"]').content).toBe(language === 'fr' ? 'fr_FR' : 'en_GB');
+    expect(page.querySelector('link[rel="canonical"]').href).toBe(`${ORIGIN}${path}`);
+    for (const [code, target] of [['en', '/privacy'], ['fr', '/fr/privacy'], ['x-default', '/privacy']]) {
+      expect(page.querySelector(`link[hreflang="${code}"]`).href).toBe(`${ORIGIN}${target}`);
+    }
+    const data = JSON.parse(page.querySelector('#passage-structured-data').textContent);
+    expect(data).toMatchObject({ '@type': 'WebPage', url: `${ORIGIN}${path}`, inLanguage: language });
+    // The whole notice is in <main>, every block in the page's language.
+    const main = page.querySelector('main');
+    expect(main.querySelectorAll('h1')).toHaveLength(1);
+    const body = main.textContent;
+    for (const english of privacyTexts()) expect(body).toContain(translateText(english, language));
+    expect(body).toContain(language === 'fr' ? 'Le responsable du traitement est Davi Silva de Vasconcellos' : 'The data controller is Davi Silva de Vasconcellos');
+    expect(body).toContain('contact@deepregatta.com');
+    expect(body).toContain('tile.openstreetmap.org');
+    expect(body).not.toContain('Passage audits the weather along your intended route');
+    expect(page.querySelector('body > script').outerHTML).toBe(new DOMParser().parseFromString(sourceHtml, 'text/html').querySelector('body > script').outerHTML);
+    expect(readFileSync(resolve(import.meta.dirname, '../public/sitemap.xml'), 'utf8')).toContain(`<loc>${ORIGIN}${path}</loc>`);
+  });
+
+  it('keeps English out of the French page', () => {
+    const body = new DOMParser().parseFromString(renderPrivacyHtml(sourceHtml, 'fr'), 'text/html').querySelector('main').textContent;
+    for (const english of ['What your browser sends', 'Usage measurement', 'Your rights', 'Feedback form', 'Passage sets no cookies']) {
+      expect(body).not.toContain(english);
+    }
+  });
+
+  it('fails the build when the built HTML no longer matches expectations', () => {
+    expect(() => renderPrivacyHtml('<html lang="en"><head></head></html>', 'en')).toThrow(/prerender-fr:/);
   });
 });
 

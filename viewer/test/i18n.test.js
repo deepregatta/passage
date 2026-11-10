@@ -80,7 +80,7 @@ describe('language selection', () => {
     expect(getInitialLanguage()).toBe('en');
   });
 
-  it.each(['/', '/fr/', '/grib', '/fr/grib'])('honours an explicit URL language on %s without saving it', (path) => {
+  it.each(['/', '/fr/', '/grib', '/fr/grib', '/privacy', '/fr/privacy'])('honours an explicit URL language on %s without saving it', (path) => {
     for (const language of ['en', 'fr']) {
       const saved = language === 'en' ? 'fr' : 'en';
       localStorage.setItem('passage-language', saved);

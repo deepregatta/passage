@@ -27,8 +27,28 @@ for (const path of ['/grib', '/fr/grib']) {
   }
 }
 
+// The privacy policy ships as slashless HTML files with its text in the static body.
+for (const [path, language, needle] of [['/privacy', 'en', 'What your browser sends when you use Passage'], ['/fr/privacy', 'fr', 'Ce que votre navigateur envoie lorsque vous utilisez Passage']]) {
+  assert.ok(!existsSync(new URL(`${path.slice(1)}/index.html`, dist)), `${path} must use an HTML file, not a directory index`);
+  assert.ok(redirects.split('\n').some((line) => line.trim() === `${path}/ ${path} 308`), `${path}/ must redirect to its slashless canonical`);
+  for (const served of [path, `${path}.html`]) {
+    assert.ok(headers.includes(`${served}\n  Cache-Control: public, max-age=0, must-revalidate, no-transform`),
+      `${served} must keep the HTML cache/no-transform policy`);
+  }
+  const canonical = `https://passage.deepregatta.com${path}`;
+  const html = readFileSync(new URL(`${path.slice(1)}.html`, dist), 'utf8');
+  assert.ok(html.includes(`<link rel="canonical" href="${canonical}"`));
+  assert.ok(html.includes(`property="og:url" content="${canonical}"`));
+  assert.ok(html.includes(`<html lang="${language}">`));
+  assert.ok(html.includes(needle), `${path} must carry the policy text without JavaScript`);
+  assert.ok(sitemap.includes(`<loc>${canonical}</loc>`));
+  for (const [code, target] of [['en', '/privacy'], ['fr', '/fr/privacy'], ['x-default', '/privacy']]) {
+    assert.ok(html.includes(`hreflang="${code}" href="https://passage.deepregatta.com${target}"`));
+  }
+}
+
 // Check the emitted HTML, including the French entry, after Pages packaging.
-for (const entry of ['index.html', 'fr/index.html', 'grib.html', 'fr/grib.html']) {
+for (const entry of ['index.html', 'fr/index.html', 'grib.html', 'fr/grib.html', 'privacy.html', 'fr/privacy.html']) {
   const html = readFileSync(new URL(entry, dist), 'utf8');
   const preloads = (html.match(/<link\b[^>]*>/gi) ?? []).filter((tag) =>
     /\brel\s*=\s*["']modulepreload["']/i.test(tag));

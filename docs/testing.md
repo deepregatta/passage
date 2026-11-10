@@ -230,7 +230,7 @@ is implied.
 | `analysis/scripts/build_global_land_mask.py` | Rebuild the packed global land mask when its source/version changes |
 | `analysis/scripts/inspect_grib.py` | Print one row per GRIB message (parameter, level, time, grid, range, spot value) with ecCodes |
 | `engine/scripts/make-grib-fixtures.ts` | Regenerate the golden GRIB2 export fixtures (`npm run make:grib-fixtures -w engine`) |
-| `viewer/scripts/prerender-fr.mjs` | Build-time French HTML prerender step; invoked by the viewer build |
+| `viewer/scripts/prerender-fr.mjs` | Build-time HTML prerender step (French root, EN/FR GRIB and privacy pages); invoked by the viewer build |
 
 The former infinite local refresh loop is archived under `trashbin/scripts/`.
 The scheduled `prepare-synoptic` workflow now owns that job in production.

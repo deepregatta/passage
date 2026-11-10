@@ -121,7 +121,6 @@
         "description",
         "en",
         "fr",
-        "grib",
         "href",
         "link[rel=\"alternate\"][hreflang=\"",
         "link[rel=\"canonical\"]",
@@ -258,7 +257,6 @@
         "grib",
         "https://deepregatta.com",
         "https://deepregatta.com/legal",
-        "https://deepregatta.com/privacy",
         "https://deepregatta.com/terms",
         "passages",
         "plan",
@@ -617,9 +615,6 @@
       ],
       "viewer/src/components/FullscreenChart.jsx": [
         "✕"
-      ],
-      "viewer/src/components/HeadMetadata.jsx": [
-        "| DeepRegatta"
       ],
       "viewer/src/components/LimitsDrawer.jsx": [
         "0–1",

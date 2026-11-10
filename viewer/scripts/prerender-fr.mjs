@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Emits the French root and EN/FR GRIB entries with route-specific heads and bodies, so
+// Emits the French root and EN/FR GRIB and privacy entries with route-specific heads and bodies, so
 // non-JS scrapers (link previews) and Google's English-Accept-Language crawler
 // see the route's content without hydration. Strings come from src/metadata.js,
 // which also supplies the client-side HeadMetadata.jsx component.
@@ -8,7 +8,8 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { COPY, GRIB_COPY, NO_JS_COPY, ogLocale, pageUrl, softwareApplication } from '../src/metadata.js';
+import { COPY, GRIB_COPY, NO_JS_COPY, PRIVACY_COPY, ogLocale, pageUrl, softwareApplication, structuredData } from '../src/metadata.js';
+import { privacyHtml, privacyTexts } from '../src/privacyContent.js';
 import { GRIB_EXPORT_NOTICE } from '@deepweather/engine';
 import { translateText } from '../src/i18n.js';
 
@@ -89,7 +90,11 @@ function main() {
     const entry = language === 'fr' ? 'fr/grib.html' : 'grib.html';
     writeFileSync(join(dist, entry), renderGribHtml(html, language));
   }
-  console.log('Prerendered French entry and EN/FR GRIB entries');
+  // Same slashless-HTML rule for the privacy policy (/privacy, /fr/privacy).
+  for (const language of ['en', 'fr']) {
+    writeFileSync(join(dist, language === 'fr' ? 'fr/privacy.html' : 'privacy.html'), renderPrivacyHtml(html, language));
+  }
+  console.log('Prerendered French entry and EN/FR GRIB and privacy entries');
 }
 
 export function renderGribHtml(html, language) {
@@ -114,6 +119,39 @@ export function renderGribHtml(html, language) {
     (_match, before, after) => `${before}${JSON.stringify(softwareApplication(language, 'grib'))}${after}`, 'GRIB structured data');
   return replaceOnce(out, /<main>[\s\S]*?<\/main>/g, () =>
     `<main><h1>${escapeHtml(translateText('Download GRIB files', language))}</h1><p>${escapeHtml(copy.description)}</p><p>${escapeHtml(translateText(GRIB_EXPORT_NOTICE, language))}</p></main>`, 'GRIB static body');
+}
+
+// /privacy and /fr/privacy: the policy text itself is in the static HTML (shared
+// with pages/Privacy.jsx through src/privacyContent.js), so a non-JS fetch reads
+// the real notice. The head follows the GRIB entries: title, description, OG,
+// canonical, reciprocal hreflang and JSON-LD all name the privacy URL.
+export function renderPrivacyHtml(html, language) {
+  const copy = PRIVACY_COPY[language];
+  const url = pageUrl(language, 'privacy');
+  // A French page must never ship English text: every block needs a catalogue entry.
+  if (language === 'fr') {
+    const missing = privacyTexts().filter((text) => translateText(text, 'fr') === text);
+    if (missing.length) throw new Error(`prerender-fr: untranslated privacy text: ${missing[0]}`);
+  }
+  let out = language === 'fr' ? renderFrenchHtml(html) : html;
+  out = replaceOnce(out, /<title>[^<]*<\/title>/, () => `<title>${escapeHtml(copy.title)}</title>`, 'privacy title');
+  for (const [attribute, name, content] of [
+    ['name', 'description', copy.description],
+    ['property', 'og:title', copy.title],
+    ['property', 'og:description', copy.description],
+    ['property', 'og:url', url],
+    ['name', 'twitter:title', copy.title],
+    ['name', 'twitter:description', copy.description],
+  ]) out = setMetaContent(out, attribute, name, content);
+  out = replaceOnce(out, /(<link rel="canonical" href=")[^"]*(")/,
+    (_match, before, after) => `${before}${url}${after}`, 'privacy canonical');
+  for (const code of ['en', 'fr', 'x-default']) {
+    out = replaceOnce(out, new RegExp(`(<link rel="alternate" hreflang="${code}" href=")[^"]*(")`),
+      (_match, before, after) => `${before}${pageUrl(code === 'fr' ? 'fr' : 'en', 'privacy')}${after}`, `privacy alternate ${code}`);
+  }
+  out = replaceOnce(out, /(<script id="passage-structured-data" type="application\/ld\+json">)[\s\S]*?(<\/script>)/,
+    (_match, before, after) => `${before}${JSON.stringify(structuredData(language, 'privacy'))}${after}`, 'privacy structured data');
+  return replaceOnce(out, /<main>[\s\S]*?<\/main>/g, () => `<main>${privacyHtml(language, translateText)}</main>`, 'privacy static body');
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();

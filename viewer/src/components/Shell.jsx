@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { withUtm } from '../lib/analytics.js';
+import { privacyPath } from '../lib/routes.js';
 import clsx from 'clsx';
 import { useApp } from '../stores/appStore.js';
 import FooterActions from './FooterActions.jsx';
@@ -95,9 +96,11 @@ function LimitsChip({ onClick, expanded }) {
 
 function SiteFooter({ onNavigate }) {
   const year = new Date().getFullYear();
+  const language = useApp((state) => state.language);
   const links = [
     ['DeepRegatta', 'https://deepregatta.com'],
-    ['Privacy', 'https://deepregatta.com/privacy'],
+    // Passage's own privacy page; it links on to the full DeepRegatta policy.
+    ['Privacy', privacyPath(language)],
     ['Terms', 'https://deepregatta.com/terms'],
     ['Legal notice', 'https://deepregatta.com/legal'],
   ];

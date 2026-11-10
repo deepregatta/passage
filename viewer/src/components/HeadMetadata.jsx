@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { COPY, GRIB_COPY, SHARE_IMAGE, ogLocale, pageUrl, softwareApplication } from '../metadata.js';
+import { SHARE_IMAGE, documentTitle, ogLocale, pageCopy, pageUrl, structuredData } from '../metadata.js';
 
 function setMeta(selector, attributes, content) {
   let element = document.querySelector(selector);
@@ -13,9 +13,9 @@ function setMeta(selector, attributes, content) {
 
 export function HeadMetadata({ language, page }) {
   useEffect(() => {
-    const metadata = (page === 'grib' ? GRIB_COPY : COPY)[language === 'fr' ? 'fr' : 'en'];
+    const metadata = pageCopy(page)[language === 'fr' ? 'fr' : 'en'];
     const url = pageUrl(language, page);
-    document.title = page === 'grib' ? metadata.title : `${metadata.title} | DeepRegatta`;
+    document.title = documentTitle(language, page);
     document.documentElement.lang = language;
     document.querySelector('link[rel="canonical"]')?.setAttribute('href', url);
     for (const code of ['en', 'fr', 'x-default']) {
@@ -32,9 +32,9 @@ export function HeadMetadata({ language, page }) {
     setMeta('meta[name="twitter:title"]', { name: 'twitter:title' }, metadata.title);
     setMeta('meta[name="twitter:description"]', { name: 'twitter:description' }, metadata.description);
     setMeta('meta[name="twitter:image"]', { name: 'twitter:image' }, SHARE_IMAGE);
-    const structuredData = document.getElementById('passage-structured-data');
-    if (structuredData) {
-      structuredData.textContent = JSON.stringify(softwareApplication(language, page));
+    const jsonLd = document.getElementById('passage-structured-data');
+    if (jsonLd) {
+      jsonLd.textContent = JSON.stringify(structuredData(language, page));
     }
   }, [language, page]);
 

@@ -1,6 +1,6 @@
 import { evidenceById } from '../lib/evidenceSelectors.js';
 import { create } from 'zustand';
-import { initialPage, isGribPath, pageHash, validSnapshotId } from '../lib/routes.js';
+import { initialPage, pageHash, standalonePage, validSnapshotId } from '../lib/routes.js';
 import { localSnapshots, fetchSnapshotJson, snapshotTombstones } from '../lib/localSnapshots.js';
 import { preparedRun } from '../lib/preparedRun.js';
 import { getInitialLanguage, getLanguageFromPath, LANGUAGE_STORAGE_KEY } from '../i18n.js';
@@ -67,7 +67,8 @@ export const useApp = create((set, get) => ({
     const hash = pageHash(page, get().snapshotSource === 'served' ? get().snapshotId : null);
     if (writeHistory && typeof location !== 'undefined' && hash && location.hash !== `#${hash}`) {
       const url = new URL(location.href);
-      if (isGribPath() && page !== 'grib') {
+      const standalone = standalonePage();
+      if (standalone && page !== standalone) {
         url.pathname = getLanguageFromPath(location.pathname) === 'fr' ? '/fr/' : '/';
         url.searchParams.delete('area');
       }
@@ -112,7 +113,8 @@ export const useApp = create((set, get) => ({
       if (url.searchParams.has('lang')) url.searchParams.set('lang', language);
       const onFrenchPath = getLanguageFromPath(location.pathname) === 'fr';
       if ((language === 'fr') !== onFrenchPath) {
-        url.pathname = isGribPath() ? (language === 'fr' ? '/fr/grib' : '/grib') : (language === 'fr' ? '/fr/' : '/');
+        const standalone = standalonePage();
+        url.pathname = standalone ? `${language === 'fr' ? '/fr' : ''}/${standalone}` : (language === 'fr' ? '/fr/' : '/');
       }
       if (url.href !== location.href) {
         history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);

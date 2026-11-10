@@ -10,6 +10,7 @@ const ROUTES = {
   'passage/changes': { page: 'briefing', section: 'changes' },
   'passage/outcome': { page: 'briefing', section: 'outcome' },
   'about': { page: 'about' },
+  'privacy': { page: 'privacy' },
   'example': { page: 'example' },
   // Retired Plan / Brief / Watch / Verify stage links keep opening the same
   // content for shared and bookmarked URLs; navigation writes the paths above.
@@ -30,6 +31,7 @@ const CANONICAL = {
   passages: 'passages',
   briefing: 'passage',
   about: 'about',
+  privacy: 'privacy',
   example: 'example',
 };
 
@@ -42,9 +44,22 @@ export function isGribPath(pathname = globalThis.location?.pathname ?? '') {
   return /^\/(?:fr\/)?grib\/?$/.test(pathname);
 }
 
+export function isPrivacyPath(pathname = globalThis.location?.pathname ?? '') {
+  return /^\/(?:fr\/)?privacy\/?$/.test(pathname);
+}
+
+/** The crawlable privacy policy URL for a language. */
+export const privacyPath = (language) => (language === 'fr' ? '/fr/privacy' : '/privacy');
+
+/** Pages with their own crawlable URL (and prerendered HTML): 'grib', 'privacy' or null. */
+export function standalonePage(pathname = globalThis.location?.pathname ?? '') {
+  return isGribPath(pathname) ? 'grib' : isPrivacyPath(pathname) ? 'privacy' : null;
+}
+
 export function locationRoute() {
   const route = parseRoute(location.hash);
-  return !location.hash && isGribPath() ? { ...route, page: 'grib' } : route;
+  const standalone = location.hash ? null : standalonePage();
+  return standalone ? { ...route, page: standalone } : route;
 }
 
 // A shared URL names a served artifact directory, never an arbitrary URL/path.

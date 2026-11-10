@@ -37,3 +37,15 @@
 
 /fr/grib.html
   Cache-Control: public, max-age=0, must-revalidate, no-transform
+
+/privacy
+  Cache-Control: public, max-age=0, must-revalidate, no-transform
+
+/privacy.html
+  Cache-Control: public, max-age=0, must-revalidate, no-transform
+
+/fr/privacy
+  Cache-Control: public, max-age=0, must-revalidate, no-transform
+
+/fr/privacy.html
+  Cache-Control: public, max-age=0, must-revalidate, no-transform
