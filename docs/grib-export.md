@@ -331,6 +331,63 @@ Per dataset it returns:
   attribution lines for the ticked datasets: NOAA/NCEP; ECMWF open data,
   CC BY 4.0; "Generated using E.U. Copernicus Marine Service Information".
 
+## One file for wind and currents
+
+Some GRIB software opens one file at a time: XyGrib's `loadMeteoDataFile`
+replaces the loaded file, so wind and currents can only be shown together from
+one file. The page therefore also offers **Download wind + currents** when both
+the wind and the currents files can be made (both `ok`, sum of estimates under
+the 200 MB cap). It is an extra file; the separate files are unchanged.
+
+- `combineGribFiles(files, {fixture})` (engine) concatenates the messages of
+  the chosen wind file, then the chosen currents file, exactly as the separate
+  files write them: nothing is resampled or re-encoded. A file therefore holds
+  two grids (for example AROME 0.025° and IBI 1/36°) and up to two model runs
+  (two section-1 reference times). Files without messages are left out.
+- Name: `passage_<wind id>_<cycle>_<currents id>_<cycle>_<SW>_<NE>.grb2`, the
+  corners taken around both grids, for example
+  `passage_wind-arome_20261110T03Z_currents-ibi_20261109T00Z_N48W006_N50W003.grb2`.
+- File details list each part (model, run, grid, times, spot values); the
+  analytics event sends `datasets: 'wind-arome,currents-ibi'`.
+- Readers, from their source code (2026-11-10): OpenCPN `grib_pi` keeps a grid
+  per record and keys records by parameter and level, and XyGrib keeps a grid
+  per record and draws wind and current arrows from their own records, so both
+  read mixed grids and runs. qtVlm is closed source; its manual loads wind and
+  currents into separate slots, so it does not need this file. None of the
+  three has opened a combined file yet.
+- Sizes measured on 2026-11-10 for a 2°×3° western Channel box
+  (48.5–50.5°N, 5–2°W): AROME (9,801 points, ≈ 9.5 kB a message) + IBI
+  (7,957 points, ≈ 8.3 kB) over the next 48 h hourly: 129 + 98 messages,
+  1.23 + 0.82 = 2.0 MB. Over 5 days 3-hourly, AROME (to +51 h) and ICON-EU (to
+  +120 h) don't reach; ECMWF 3-hourly + IBI 3-hourly to its +120 h end: 123 + 58
+  messages, 0.04 + 0.48 = 0.52 MB.
+
+## Reader compatibility
+
+Checked on 2026-11-10 against the readers' source (OpenCPN master
+`plugins/grib_pi/src/grib_v2_record.cpp`, XyGrib master `src/Grib2Record.cpp`
+and `src/GribReader.cpp`) and ecCodes 2.50 on sample files for three boxes
+(Channel with AROME and IBI, mid-Atlantic with GFS/ECMWF and GLO12, and a box
+across 0°). Every message decoded, and every value matched its tile within
+half a unit of the last written decimal. Not yet opened in OpenCPN, XyGrib or
+qtVlm themselves.
+
+- Both readers take template 3.0 with Lo1 > Lo2 across 0° (OpenCPN subtracts
+  360 from Lo1, XyGrib likewise), recompute Di/Dj from the corners, and read
+  4.0, 4.8 (valid at the end of the window), 5.0 with `nbits = 0` and the
+  bitmap. Neither checks the centre, so currents' centre 255 is fine.
+- OpenCPN maps only 10/0/3, 4, 5, 6, 14 and 15 for waves: swell (10/0/7–9)
+  and the primary period and direction (10/0/10–11) are dropped, and its wave
+  arrows and period come from the wind waves (10/0/4, 10/0/6). NOAA's own
+  GFS-Wave files read the same way.
+- XyGrib reads every wave parameter at the surface but drops level type 241,
+  so the swell (first partition, 241/1 as NCEP writes it) is not shown. The
+  level stays 241: writing the first partition as a surface field would
+  label it as the total swell.
+- Gusts written with template 4.8 (ECMWF, AROME, ICON-EU) need a reader that
+  takes 4.8; the 2013 open-source qtVlm accepted 4.0 only and skipped other
+  messages. The current qtVlm is closed source and untested.
+
 ## Runner (bounded memory)
 
 ```
@@ -400,7 +457,9 @@ The page is three numbered steps next to the chart:
 3. **Download.** One button per kind (**Download wind**, **Download
    currents**, **Download waves**). One click builds that file and starts
    the browser download. Files stay separate, one per kind, so any GRIB
-   software can open them.
+   software can open them. Below them, **Download wind + currents** writes
+   the chosen wind and currents models into one file
+   ([One file for wind and currents](#one-file-for-wind-and-currents)).
 
 | Setting | Default |
 |---|---|
@@ -506,7 +565,8 @@ and at most 33 MB of tiles to fetch (IBI 20 MB of it).
 | Plan and runner: windows, availability, sizes, mosaic with an unpublished tile, Greenwich, CMEMS offsets, abort, 404, checkpoints, ECMWF gust windows and the registry–manifest statistic agreement | `engine/test/exportGrib.test.ts` |
 | `readTile` / `manifestFor`: no LRU effect, shared in-flight load, unpublished tile | `engine/test/tileStore.test.ts` |
 | CLI output = in-process engine output | `engine/test/cliGrib.test.ts` |
-| Page: box snapping, route area, bookmark links, periods, local-first models, one-click save and re-save, revocation, cancel, rotated runs, French identifiers | `viewer/test/gribExport.test.jsx` |
+| Page: box snapping, route area, bookmark links, periods, local-first models, one-click save and re-save, revocation, cancel, rotated runs, French identifiers, the wind + currents file | `viewer/test/gribExport.test.jsx` |
+| Wind + currents in one file: the separate files' messages unchanged, two grids and two reference times | `engine/test/exportGrib.test.ts` (`combineGribFiles`) |
 | Drawing the box on the real map (drag, two clicks, Escape), remembered area, entry points | `viewer/e2e/grib.spec.js` |
 | French copy for the page, the registry labels and the generated text | `viewer/test/i18n.test.js`, `viewer/test/i18nCoverage.test.js` |
 | Golden files re-encode byte-for-byte | `engine/test/exportGrib.test.ts` against `engine/test/fixtures/grib/` |

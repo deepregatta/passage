@@ -8,6 +8,8 @@ import { fmtTime } from '../lib/format.js';
 import { forecastStore, friendlyForecastError } from '../lib/forecastStore.js';
 import { withFreshForecast } from '../lib/forecastFreshness.js';
 import {
+  GRIB_COMBINED,
+  GRIB_COMBINED_KINDS,
   GRIB_KINDS,
   GRIB_MAX_EST_BYTES,
   GRIB_PERIODS,
@@ -27,6 +29,7 @@ import {
   fmtUtc,
   fmtUtcRange,
   gribAreaFromLocation,
+  gribDatasetsKey,
   gribAreaHash,
   gribFileWithUrl,
   gribForecastEnd,
@@ -43,6 +46,7 @@ import {
   loadGribManifests,
   planAreaGrib,
   revokeGribFile,
+  runCombinedGrib,
   runDatasetGrib,
   saveGribFile,
 } from '../lib/gribExport.js';
@@ -55,6 +59,9 @@ const HOUR_MS = 3_600_000;
 const SETTINGS_CHANGED = 'settings-changed';
 
 const KIND_BUTTONS = { wind: 'Download wind', currents: 'Download currents', waves: 'Download waves' };
+
+// The optional single file with the chosen wind and currents models (GRIB_COMBINED_KINDS).
+const COMBINED = GRIB_COMBINED;
 
 const MODEL_SELECTS = { wind: 'Wind model', currents: 'Currents model' };
 
@@ -166,7 +173,7 @@ function SpotValues({ file }) {
   );
 }
 
-function FileDetails({ file }) {
+function FileDetails({ file, label = null }) {
   const rows = [
     // identifiers sit in <code>, which the French DOM translator leaves alone
     ['Model', <code className="font-mono">{file.model}</code>],
@@ -176,11 +183,14 @@ function FileDetails({ file }) {
     ['Area', <span className="font-mono">{fmtGribArea(file.grid)}</span>],
     ['GRIB messages', <span className="font-mono">{file.messages}</span>],
     ['Points with data', <span className="font-mono">{fmtGribCoverage(file.coverage)}</span>],
-    ['Checksum (FNV-1a 64)', <code className="font-mono">{file.fnv64}</code>],
   ];
+  // A part of a combined file has no checksum of its own.
+  if (file.fnv64) rows.push(['Checksum (FNV-1a 64)', <code className="font-mono">{file.fnv64}</code>]);
   return (
     <details className="mt-1">
-      <summary className="cursor-pointer text-[12px] text-ink-soft">File details</summary>
+      <summary className="cursor-pointer text-[12px] text-ink-soft">
+        <span>File details</span>{label && <>{' · '}<span>{label}</span></>}
+      </summary>
       <dl className="mt-2 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 text-[12px]">
         {rows.map(([label, value]) => (
           <div key={label} className="contents">
@@ -225,36 +235,65 @@ function ModelPicker({ kindId, options, selected, disabled, onChoose }) {
   );
 }
 
+/** A file's download button, or Cancel with the progress while it is being prepared. */
+function DownloadControl({ label, running, progress, disabled, onDownload, onCancel }) {
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      {running ? (
+        <>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="min-w-[11rem] border border-ink/50 rounded-sm px-4 py-2 hover:bg-white/50"
+          >
+            Cancel
+          </button>
+          <progress className="w-32" value={progress.done} max={Math.max(1, progress.total)} aria-label="GRIB file progress" />
+          <span className="text-[12px] text-ink-soft">{STAGE_LABELS[progress.stage]}</span>
+        </>
+      ) : (
+        <button
+          type="button"
+          onClick={onDownload}
+          disabled={disabled}
+          className="min-w-[11rem] bg-ink text-paper font-medium rounded-sm px-4 py-2 hover:bg-ink-deep disabled:opacity-40"
+        >
+          <span aria-hidden="true">⬇ </span>{label}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** The saved file: its name, size, a Save again link, then its details. */
+function SavedFile({ file, children }) {
+  return (
+    <div className="border-l-2 border-verdict-within pl-2">
+      <p className="flex flex-wrap items-baseline gap-x-2 text-[12px]">
+        <span className="font-medium">Saved</span>
+        <code className="font-mono break-all">{file.name}</code>
+        <span className="text-ink-soft">{fmtGribBytes(file.bytes)}</span>
+        <a href={file.url} download={file.name} className="underline">Save again</a>
+      </p>
+      {children}
+    </div>
+  );
+}
+
 function KindRow({ kindId, dataset, timeWindow, period, result, running, progress, busy, models, shorter, onChoose, onPeriod, onDownload, onCancel }) {
   const info = describeGribDataset(dataset, timeWindow);
   const note = gribDataset(dataset.datasetId)?.note;
   const tooLarge = info.ok && dataset.estBytes > GRIB_MAX_EST_BYTES;
   return (
     <li className="space-y-1">
-      <div className="flex flex-wrap items-center gap-3">
-        {running ? (
-          <>
-            <button
-              type="button"
-              onClick={onCancel}
-              className="min-w-[11rem] border border-ink/50 rounded-sm px-4 py-2 hover:bg-white/50"
-            >
-              Cancel
-            </button>
-            <progress className="w-32" value={progress.done} max={Math.max(1, progress.total)} aria-label="GRIB file progress" />
-            <span className="text-[12px] text-ink-soft">{STAGE_LABELS[progress.stage]}</span>
-          </>
-        ) : (
-          <button
-            type="button"
-            onClick={onDownload}
-            disabled={!info.ok || tooLarge || busy}
-            className="min-w-[11rem] bg-ink text-paper font-medium rounded-sm px-4 py-2 hover:bg-ink-deep disabled:opacity-40"
-          >
-            <span aria-hidden="true">⬇ </span>{KIND_BUTTONS[kindId]}
-          </button>
-        )}
-      </div>
+      <DownloadControl
+        label={KIND_BUTTONS[kindId]}
+        running={running}
+        progress={progress}
+        disabled={!info.ok || tooLarge || busy}
+        onDownload={onDownload}
+        onCancel={onCancel}
+      />
       {models.length > 1 && (
         <ModelPicker kindId={kindId} options={models} selected={dataset.datasetId} disabled={busy} onChoose={onChoose} />
       )}
@@ -290,15 +329,44 @@ function KindRow({ kindId, dataset, timeWindow, period, result, running, progres
       {note && <p className="text-[12px] text-ink-soft">{note}</p>}
       {info.gustWindows.length > 0 && <p className="text-[12px] text-ink-soft">{fmtGustWindows(info.gustWindows)}</p>}
       {result && (result.file.url ? (
-        <div className="border-l-2 border-verdict-within pl-2">
-          <p className="flex flex-wrap items-baseline gap-x-2 text-[12px]">
-            <span className="font-medium">Saved</span>
-            <code className="font-mono break-all">{result.file.name}</code>
-            <span className="text-ink-soft">{fmtGribBytes(result.file.bytes)}</span>
-            <a href={result.file.url} download={result.file.name} className="underline">Save again</a>
-          </p>
-          <FileDetails file={result.file} />
-        </div>
+        <SavedFile file={result.file}><FileDetails file={result.file} /></SavedFile>
+      ) : (
+        <p className="text-[12px] text-ink-soft">No values in this area for these times, so there is no file.</p>
+      ))}
+    </li>
+  );
+}
+
+/**
+ * The chosen wind and currents models in one file, for GRIB software that
+ * opens one file at a time. The messages are the separate files' own.
+ */
+function CombinedRow({ datasets, estBytes, result, running, progress, busy, onDownload, onCancel }) {
+  return (
+    <li className="space-y-1 border-t hairline pt-3">
+      <DownloadControl
+        label="Download wind + currents"
+        running={running}
+        progress={progress}
+        disabled={busy}
+        onDownload={onDownload}
+        onCancel={onCancel}
+      />
+      <p className="text-[12px] text-ink-soft">
+        Wind and currents in one file, for GRIB software that opens one file at a time, such as XyGrib. Each keeps its own model, grid and forecast run.
+      </p>
+      <p className="text-[12px]">
+        {datasets.map((dataset, index) => (
+          <span key={dataset.datasetId}>{index > 0 && ' · '}<span className="font-medium">{dataset.label}</span></span>
+        ))}
+        {' · ≈ '}<span>{fmtGribBytes(estBytes)}</span>
+      </p>
+      {result && (result.file.url ? (
+        <SavedFile file={result.file}>
+          {result.file.files.map((file) => (
+            <FileDetails key={file.datasetId} file={{ ...file, fnv64: null }} label={gribDataset(file.datasetId)?.label ?? file.datasetId} />
+          ))}
+        </SavedFile>
       ) : (
         <p className="text-[12px] text-ink-soft">No values in this area for these times, so there is no file.</p>
       ))}
@@ -414,7 +482,14 @@ export default function Grib() {
     }));
   }, [plan, manifests, area, step, nowMs]);
   const kindKey = (kindId, datasetId) => JSON.stringify([key, kindId, datasetId]);
+  // The single wind + currents file, offered when both files can be made.
+  const combinedDatasets = GRIB_COMBINED_KINDS.map((kindId) => kinds.find((kind) => kind.kindId === kindId)?.dataset);
+  const combinedEstBytes = combinedDatasets.reduce((sum, dataset) => sum + (dataset?.estBytes ?? 0), 0);
+  const combined = combinedDatasets.every((dataset) => dataset?.availability === 'ok') && combinedEstBytes <= GRIB_MAX_EST_BYTES
+    ? { datasets: combinedDatasets, estBytes: combinedEstBytes, key: kindKey(COMBINED, gribDatasetsKey(combinedDatasets)) }
+    : null;
   const liveKeys = new Set(kinds.map(({ kindId, dataset }) => kindKey(kindId, dataset.datasetId)));
+  if (combined) liveKeys.add(combined.key);
   const liveKeysSignature = [...liveKeys].sort().join('|');
 
   const setResultsBoth = (next) => {
@@ -461,9 +536,11 @@ export default function Grib() {
       : { key, plan };
     if (fresh.key !== key) setNowMs(now);
     if (!fresh.plan) return;
-    const dataset = gribKindDataset(fresh.plan, kindId, area, models[kindId] ?? null);
-    if (!dataset || dataset.availability !== 'ok' || dataset.estBytes > GRIB_MAX_EST_BYTES) return;
-    const jobKey = JSON.stringify([fresh.key, kindId, dataset.datasetId]);
+    const datasets = (kindId === COMBINED ? GRIB_COMBINED_KINDS : [kindId])
+      .map((id) => gribKindDataset(fresh.plan, id, area, models[id] ?? null));
+    if (datasets.some((dataset) => dataset?.availability !== 'ok') ||
+        datasets.reduce((sum, dataset) => sum + dataset.estBytes, 0) > GRIB_MAX_EST_BYTES) return;
+    const jobKey = JSON.stringify([fresh.key, kindId, gribDatasetsKey(datasets)]);
     const saved = resultsRef.current[kindId];
     if (saved?.key === jobKey && saved.file.url) {
       saveGribFile(saved.file);
@@ -475,19 +552,19 @@ export default function Grib() {
     setError(null);
     setProgress({ kindId, stage: 'tiles', done: 0, total: 1 });
     try {
-      const file = await runDatasetGrib(forecastStore(), fresh.plan, dataset, {
-        signal: controller.signal,
-        onProgress: (update) => setProgress({ ...update, kindId }),
-      });
+      const options = { signal: controller.signal, onProgress: (update) => setProgress({ ...update, kindId }) };
+      const file = kindId === COMBINED
+        ? await runCombinedGrib(forecastStore(), fresh.plan, datasets, options)
+        : await runDatasetGrib(forecastStore(), fresh.plan, datasets[0], options);
       controller.signal.throwIfAborted();
-      const prepared = file.messages > 0 ? gribFileWithUrl(file) : { ...file, parts: undefined };
+      const prepared = file?.messages > 0 ? gribFileWithUrl(file) : { ...file, messages: 0, parts: undefined };
       revokeGribFile(resultsRef.current[kindId]?.file);
       setResultsBoth({ ...resultsRef.current, [kindId]: { key: jobKey, file: prepared } });
       if (prepared.url) saveGribFile(prepared);
       track('grib_export', {
-        datasets: dataset.datasetId,
+        datasets: datasets.map((dataset) => dataset.datasetId).join(),
         window: period === 'full' ? 'full' : `${period}d`,
-        size_bucket: gribSizeBucket(file.bytes),
+        size_bucket: gribSizeBucket(file?.bytes ?? 0),
       });
     } catch (e) {
       if (controller.signal.aborted) {
@@ -609,6 +686,18 @@ export default function Grib() {
                       onCancel={() => jobRef.current?.controller.abort()}
                     />
                   ))}
+                  {combined && (
+                    <CombinedRow
+                      datasets={combined.datasets}
+                      estBytes={combined.estBytes}
+                      result={results[COMBINED]?.key === combined.key ? results[COMBINED] : null}
+                      running={progress?.kindId === COMBINED}
+                      progress={progress}
+                      busy={running || drawing}
+                      onDownload={() => download(COMBINED)}
+                      onCancel={() => jobRef.current?.controller.abort()}
+                    />
+                  )}
                 </ul>
               )}
               {error && <p className="text-verdict-exceeds text-[13px]">{error}</p>}

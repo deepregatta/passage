@@ -674,6 +674,8 @@ const FR = {
   'Download wind': 'Télécharger le vent',
   'Download currents': 'Télécharger les courants',
   'Download waves': 'Télécharger les vagues',
+  'Download wind + currents': 'Télécharger vent + courants',
+  'Wind and currents in one file, for GRIB software that opens one file at a time, such as XyGrib. Each keeps its own model, grid and forecast run.': 'Vent et courants dans un seul fichier, pour les logiciels GRIB qui n’ouvrent qu’un fichier à la fois, comme XyGrib. Chacun garde son modèle, sa grille et son cycle de prévision.',
   'Saved': 'Enregistré',
   'Save again': 'Enregistrer à nouveau',
   'Your browser saves the files in its Downloads folder. Open them from there in your GRIB software.': 'Votre navigateur enregistre les fichiers dans son dossier Téléchargements. Ouvrez-les depuis ce dossier dans votre logiciel GRIB.',

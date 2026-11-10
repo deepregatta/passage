@@ -63,7 +63,7 @@ const CHANNEL = { minLat: 50.2, maxLat: 50.9, minLon: -9.9, maxLon: -9.1 };
 /** Across N40W010 too, where IBI has no tile. */
 const ACROSS = { minLat: 49.5, maxLat: 50.8, minLon: -9.9, maxLon: -9.1 };
 
-function fixtureTransport({ ibiHours = 25, waves = false, ecmwfTiles = [[50, -10], [40, -10]], ecmwfShort = false } = {}) {
+function fixtureTransport({ ibiHours = 25, waves = false, ecmwfTiles = [[50, -10], [40, -10]], ecmwfShort = false, glo12Tiles = [[50, -10], [40, -10]] } = {}) {
   const wind = (name, scale, value) => ({ name, axis: 'hourly', dtype: 'i16', scale, value });
   const current = (name, value) => ({ name, axis: 'steps', dtype: 'i16', scale: 0.01, value });
   const wave = (name, scale) => ({ name, axis: 'steps', dtype: 'i16', scale, value: () => 1.5 });
@@ -97,7 +97,7 @@ function fixtureTransport({ ibiHours = 25, waves = false, ecmwfTiles = [[50, -10
       layer: 'currents', model: 'cmems_glo12', cycle: CYCLE, resolution_deg: 1 / 12,
       time_axes: { steps: { base: CYCLE, offsets_h: hours(41, 6) } },
       variables: [current('cur_u_kt', (_m, _t, i) => (i === 0 ? NaN : 0.5)), current('cur_v_kt', () => -0.25)],
-      tiles: [[50, -10], [40, -10]],
+      tiles: glo12Tiles,
     },
     {
       // regional: only the northern tile, and a 24 h horizon
@@ -596,6 +596,50 @@ describe('GRIB files page', () => {
     expect(URL.revokeObjectURL.mock.calls.map(([url]) => url).sort()).toEqual(['blob:grib-1', 'blob:grib-2']);
   });
 
+  it('offers wind and currents in one file: both chosen models, each message on its own grid and run', async () => {
+    await openWith(CHANNEL);
+    const combined = kindItem('Download wind + currents');
+    expect(combined.getByText(/^Wind and currents in one file, for GRIB software that opens one file at a time, such as XyGrib\./)).toBeInTheDocument();
+    expect(combined.getByText('Wind – ECMWF')).toBeInTheDocument();
+    expect(combined.getByText('Currents – IBI regional (hourly, tide included)')).toBeInTheDocument();
+    fireEvent.click(within(page().getByRole('radiogroup', { name: 'Wind model' })).getByRole('radio', { name: /^GFS/ }));
+
+    fireEvent.click(page().getByRole('button', { name: 'Download wind + currents' }));
+    await waitFor(() => expect(saves).toHaveLength(1));
+    expect(saves[0].name).toBe('passage-fixture_wind-gfs_20260720T00Z_currents-ibi_20260720T00Z_N50W010_N51W009.grb2');
+    expect(track).toHaveBeenCalledWith('grib_export', { datasets: 'wind-gfs,currents-ibi', window: '3d', size_bucket: '0-1MB' });
+    const bytes = new Uint8Array(await URL.createObjectURL.mock.calls[0][0].arrayBuffer());
+    const messages = readGrib2(bytes);
+    const winds = messages.filter((message) => message.discipline === 0);
+    const currents = messages.filter((message) => message.discipline === 10);
+    // wind first, then currents, each on its own lattice (0.25° and 1/36°)
+    expect(messages.findIndex((message) => message.discipline === 10)).toBe(winds.length);
+    expect(winds.length).toBeGreaterThan(0);
+    expect(currents.length).toBeGreaterThan(0);
+    expect(new Set(winds.map((message) => message.grid.di))).toEqual(new Set([250000]));
+    expect(new Set(currents.map((message) => message.grid.di))).toEqual(new Set([27778]));
+
+    const row = kindItem('Download wind + currents');
+    expect(row.getByText('Saved')).toBeInTheDocument();
+    expect(row.getByText('weather-20260720T00Z').tagName).toBe('CODE');
+    expect(row.getByText('currents-ibi-20260720T00Z').tagName).toBe('CODE');
+    // the separate files are untouched
+    expect(kindItem('Download wind').queryByText('Saved')).not.toBeInTheDocument();
+
+    // Changing a model it holds drops the file.
+    fireEvent.click(within(page().getByRole('radiogroup', { name: 'Wind model' })).getByRole('radio', { name: /^ECMWF/ }));
+    expect(kindItem('Download wind + currents').queryByText('Saved')).not.toBeInTheDocument();
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:grib-1');
+  });
+
+  it('offers the single file only when both wind and currents files can be made', async () => {
+    // South of IBI's one tile, and with no global currents tile there either.
+    store.current = new TileForecastStore({ transport: fixtureTransport({ glo12Tiles: [[50, -10]] }) });
+    await openWith({ minLat: 45.2, maxLat: 45.9, minLon: -9.9, maxLon: -9.1 });
+    expect(page().getByRole('button', { name: 'Download currents' })).toBeDisabled();
+    expect(page().queryByRole('button', { name: 'Download wind + currents' })).not.toBeInTheDocument();
+  });
+
   it('adopts a bookmarked area, then keeps the address in step with the box', async () => {
     history.replaceState(null, '', '/#plan/grib?area=50.2,50.9,-9.9,-9.1');
     render(<Grib />);
@@ -718,6 +762,8 @@ describe('GRIB files page', () => {
     expect(item.getByText('waves-20260720T00Z').tagName).toBe('CODE');
     expect(await item.findByRole('link', { name: 'Enregistrer à nouveau' })).toBeInTheDocument();
     expect(item.getByText('Détails du fichier')).toBeInTheDocument();
+    expect(within(region).getByRole('button', { name: 'Télécharger vent + courants' })).toBeInTheDocument();
+    expect(within(region).getByText(/^Vent et courants dans un seul fichier/)).toBeInTheDocument();
   });
 });
 

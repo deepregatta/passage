@@ -7,6 +7,7 @@
 
 import {
   GRIB_DATASETS,
+  combineGribFiles,
   cycleHourLabel,
   gribExportSourceFromStore,
   parseUtc,
@@ -334,6 +335,28 @@ export function gribKindDataset(plan, kindId, area, choice = null) {
 export async function runDatasetGrib(store, plan, dataset, { signal, onProgress } = {}) {
   const files = await runGribExport(gribExportSourceFromStore(store), { ...plan, datasets: [dataset] }, { signal, onProgress });
   return files[0];
+}
+
+/**
+ * The kinds the optional single file holds, in file order, for GRIB software
+ * that opens one file at a time (XyGrib): the chosen wind and currents models.
+ */
+export const GRIB_COMBINED_KINDS = ['wind', 'currents'];
+/** The page's key for that file, beside the kind ids. */
+export const GRIB_COMBINED = 'combined';
+
+/** The datasets a file holds, as one id for its cache key (one dataset: its own id). */
+export function gribDatasetsKey(datasets) {
+  return datasets.map((dataset) => dataset.datasetId).join('+');
+}
+
+/**
+ * Run several datasets of the plan (one at a time, as separate files would be)
+ * and write their messages into one file; null when none has a value here.
+ */
+export async function runCombinedGrib(store, plan, datasets, { signal, onProgress } = {}) {
+  const files = await runGribExport(gribExportSourceFromStore(store), { ...plan, datasets }, { signal, onProgress });
+  return combineGribFiles(files, { fixture: plan.request.fixture === true });
 }
 
 /** A Blob URL for the file's download; revoke it with revokeGribFile. */
