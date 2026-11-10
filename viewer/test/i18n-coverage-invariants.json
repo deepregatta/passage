@@ -395,6 +395,7 @@
         "draw",
         "insufficient",
         "planner",
+        "polite",
         "warning_active"
       ],
       "viewer/src/pages/briefing/LegProgressBar.jsx": [

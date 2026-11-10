@@ -101,7 +101,7 @@ export default function DecisionBand({ findings, warningEvidence, onOpenBulletin
             )
             : <span>{NEXT_STEP[state]}</span>}
           {/* models disagree: the action is the next run, so it is stated right here */}
-          {state === 'insufficient' && <>{' '}<span data-testid="next-run">{nextRun.text}</span></>}
+          {state === 'insufficient' && <>{' '}<span data-testid="next-run" aria-live="polite">{nextRun.text}</span></>}
         </p>
         <div className="flex items-center gap-x-3 gap-y-2 flex-wrap">
           {warningActive && (
@@ -120,7 +120,7 @@ export default function DecisionBand({ findings, warningEvidence, onOpenBulletin
           )}
           <ShareAnalysisButton onNavigate={setPage} className="font-instrument text-sm text-event underline underline-offset-4 min-h-11 disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline" />
           {state !== 'insufficient' && (
-            <span className="font-mono text-[12px] text-ink-soft sm:ml-auto" data-testid="next-run">{nextRun.text}</span>
+            <span className="font-mono text-[12px] text-ink-soft sm:ml-auto" data-testid="next-run" aria-live="polite">{nextRun.text}</span>
           )}
         </div>
       </div>
