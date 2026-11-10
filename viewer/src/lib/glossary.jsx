@@ -1,5 +1,6 @@
 // One shared glossary: tooltip terms in the briefing AND the reference list in
 // Settings. The tool should teach while briefing.
+import { useState } from 'react';
 
 export const GLOSSARY = {
   gust: 'A brief burst above the sustained wind. Gusts are often 20–40% stronger; squalls can double it.',
@@ -22,13 +23,26 @@ export const GLOSSARY = {
     'A passage best crossed in fair or slack stream. Miss the window and you meet foul current, rougher seas, or both.',
 };
 
+const TOOLTIP_WIDTH = 256; // w-64
+const TOOLTIP_MARGIN = 8;
+
+/** Horizontal shift (px) from the term's left edge that keeps the tooltip inside the viewport. */
+export function tooltipShift(termLeft, viewportWidth, width = TOOLTIP_WIDTH, margin = TOOLTIP_MARGIN) {
+  const w = Math.min(width, viewportWidth - 2 * margin);
+  const left = Math.min(Math.max(termLeft, margin), viewportWidth - margin - w);
+  return left - termLeft;
+}
+
 /** Keyboard- and touch-focusable teaching popover. */
 export function Term({ children, term }) {
+  const [shift, setShift] = useState(0);
   const def = GLOSSARY[term ?? String(children).toLowerCase()];
   if (!def) return children;
   const id = `term-${String(term ?? children).toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
-  return <span className="relative inline-block group">
+  // measured when the tooltip is about to show (hover or focus, which a tap also gives)
+  const measure = (event) => setShift(tooltipShift(event.currentTarget.getBoundingClientRect().left, document.documentElement.clientWidth));
+  return <span className="relative inline-block group" onMouseEnter={measure} onFocus={measure}>
     <button type="button" aria-describedby={id} className="border-b border-dotted border-ink-soft/60 cursor-help leading-inherit">{children}</button>
-    <span id={id} role="tooltip" className="hidden group-focus-within:block group-hover:block absolute z-20 left-0 top-full mt-1 w-64 bg-ink-deep text-paper p-2 font-instrument text-xs leading-relaxed shadow-lg">{def}</span>
+    <span id={id} role="tooltip" style={{ left: shift }} className="hidden group-focus-within:block group-hover:block absolute z-20 top-full mt-1 w-64 max-w-[calc(100vw-1rem)] bg-ink-deep text-paper p-2 font-instrument text-xs leading-relaxed shadow-lg">{def}</span>
   </span>;
 }

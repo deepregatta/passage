@@ -12,7 +12,7 @@ export default function Example() {
   return (
     <div>
       <section className="px-4 sm:px-6 py-2 border-b border-ink/30 bg-paper flex flex-wrap items-center gap-x-4 gap-y-1" aria-label="Example briefing">
-        <h2 className="font-instrument font-semibold uppercase tracking-wider text-sm">Example briefing</h2>
+        <p className="font-instrument font-semibold uppercase tracking-wider text-sm">Example briefing</p>
         <p className="font-instrument text-sm">Synthetic / emulated example. Not a live forecast or a safety decision.</p>
         <a href="#plan" className="inline-flex min-h-11 items-center underline underline-offset-4 text-sm text-event sm:ml-auto">Plan my own passage</a>
       </section>
