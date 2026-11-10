@@ -21,7 +21,7 @@ test('Back during planner loading restores the shared briefing without reinitial
     await expect(page.locator('.leaflet-container')).toBeVisible();
     await page.getByRole('button', { name: 'Plan', exact: true }).first().click();
     await requested;
-    await expect(page.getByText('Loading passage instruments…', { exact: true })).toBeVisible();
+    await expect(page.getByText('Loading your passage…', { exact: true })).toBeVisible();
     await page.goBack();
     await expect(page).toHaveURL(new RegExp(`#passage\\?snapshot=${SNAPSHOT_ID}$`));
     await expect(page.getByTestId('decision-band')).toBeVisible();

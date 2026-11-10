@@ -59,7 +59,7 @@ export default function App() {
       <HeadMetadata language={language} page={page} />
       <Shell page={page} onNavigate={setPage}>
         {/* Dispose the old page's imperative map even if the next page suspends. */}
-        <Suspense key={page} fallback={<div className="p-8 font-instrument text-ink-soft">Loading passage instruments…</div>}>
+        <Suspense key={page} fallback={<div className="p-8 font-instrument text-ink-soft">Loading your passage…</div>}>
           <Page />
         </Suspense>
         <Suspense fallback={null}><EvidenceInspector /></Suspense>

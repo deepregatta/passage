@@ -191,7 +191,7 @@ const FR = {
   "Try again": "Réessayer",
   "Loading example briefing…": "Chargement de l’exemple de briefing…",
 
-  'Loading passage instruments…': 'Chargement des instruments de navigation…',
+  'Loading your passage…': 'Chargement de votre traversée…',
   'Previous check order is unavailable.': 'L’ordre des analyses précédentes est indisponible.',
   'These saved checks have been kept.': 'Ces analyses enregistrées ont été conservées.',
   'Previous check order is unavailable. These saved checks have been kept.': 'L’ordre des analyses précédentes est indisponible. Ces analyses enregistrées ont été conservées.',

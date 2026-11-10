@@ -192,7 +192,7 @@ describe('snapshot load feedback', () => {
     const gate = delaySnapshot('A');
     let pending;
     act(() => { pending = useApp.getState().openSnapshot('A'); });
-    expect(screen.getByRole('status')).toHaveTextContent('Loading passage instruments…');
+    expect(screen.getByRole('status')).toHaveTextContent('Loading your passage…');
     await act(async () => { gate.reject(new Error('load failed')); await pending; });
     expect(screen.getByRole('alert')).toHaveTextContent('load failed');
   });

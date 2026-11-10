@@ -42,7 +42,7 @@ export default function Briefing() {
     setSection(null);
   }, [ready, section, setSection]);
   if (loadError) return <p role="alert" className="p-6 font-sans text-sm text-verdict-exceeds break-words">{loadError}</p>;
-  if (loading) return <p role="status" className="p-6 font-instrument text-ink-soft">Loading passage instruments…</p>;
+  if (loading) return <p role="status" className="p-6 font-instrument text-ink-soft">Loading your passage…</p>;
   if (!findings || !briefing) return <EmptyState />;
   const warningEvidence = findings.evidence.find((item) => item.rule_id === 'A-WARN-01');
   // the synoptic chart is the product's differentiator: it renders whenever the
