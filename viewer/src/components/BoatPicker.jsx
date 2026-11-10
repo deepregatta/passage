@@ -75,7 +75,7 @@ export default function BoatPicker({ polarId, polarLabel, onSelect }) {
 
   return (
     <div ref={rootRef} className="relative" onKeyDown={(e) => { if (open && e.key === 'Escape') close(); }}>
-      <span id={labelId} className="eyebrow block mb-1">Your boat (polar)</span>
+      <span id={labelId} className="eyebrow text-xs! block mb-1">Your boat (polar)</span>
       <button
         ref={triggerRef}
         type="button"
@@ -89,7 +89,7 @@ export default function BoatPicker({ polarId, polarLabel, onSelect }) {
         )}
       >
         <span id={valueId} className={clsx(!chosen && 'text-ink-soft')}>{chosen ?? 'Choose your boat…'}</span>
-        <span className="text-ink-soft text-[12px] underline shrink-0">{open ? 'Close' : chosen ? 'Change' : 'Search'}</span>
+        <span aria-hidden="true" className="text-ink-soft text-[12px] underline shrink-0">{open ? 'Close' : chosen ? 'Change' : 'Search'}</span>
       </button>
       {open && (
         <div className="absolute z-30 inset-x-0 mt-1 bg-paper border border-ink/40 rounded-sm shadow-panel max-h-80 overflow-y-auto">
@@ -121,7 +121,7 @@ export default function BoatPicker({ polarId, polarLabel, onSelect }) {
           </ul>
           {(query.length > 0 || matches.length === 0) && generics.length > 0 && (
             <>
-              <p className="eyebrow px-2 pt-2">Not listed? Generic by boat length</p>
+              <p className="eyebrow text-xs! px-2 pt-2">Not listed? Generic by boat length</p>
               <ul role="listbox" aria-label="Generic cruiser polars">
                 {generics.map((p) => (
                   <Row key={p.polar_id} entry={p} selected={p.polar_id === polarId} onPick={pick} />

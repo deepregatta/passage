@@ -81,6 +81,8 @@ it('offers a skip link that moves focus to the route form', () => {
   fireEvent.click(skip);
   const form = screen.getByRole('heading', { level: 1 }).closest('section');
   expect(form).toHaveAttribute('tabindex', '-1');
+  // clear of the 57 px sticky header when scrolled to
+  expect(form).toHaveClass('scroll-mt-16');
   expect(form).toHaveFocus();
   expect(location.href).toBe(url);
 });
@@ -232,6 +234,7 @@ it('brings the finished comparison into view, focuses its heading, and can be re
   const heading = await screen.findByRole('heading', { name: /Departure comparison/ });
   await waitFor(() => expect(heading).toHaveFocus());
   expect(heading).toHaveAttribute('tabindex', '-1');
+  expect(heading).toHaveClass('scroll-mt-16');
   expect(Element.prototype.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
   // the sidebar line jumps back to it
   (document.activeElement).blur();

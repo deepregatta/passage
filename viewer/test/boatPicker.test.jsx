@@ -31,6 +31,9 @@ it('prompts for a boat when none is chosen, with a button that is named, 44px ta
   expect(trigger()).toHaveClass('min-h-11');
   expect(trigger()).toHaveTextContent('Search');
   expect(trigger()).not.toHaveTextContent('▾');
+  // the Search/Change word is decoration: the name is the label and the boat only
+  expect(screen.getByText('Search')).toHaveAttribute('aria-hidden', 'true');
+  expect(screen.getByText('Your boat (polar)')).toHaveClass('text-xs!');
 });
 
 it('names the chosen boat and offers Change', () => {

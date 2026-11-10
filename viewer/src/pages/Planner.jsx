@@ -112,7 +112,7 @@ export default function Planner() {
           </p>
         </PlannerMap>
 
-        <section ref={formRef} tabIndex={-1} className="bg-white/40 border hairline rounded-sm shadow-panel p-4 sm:p-5 font-sans text-sm focus:outline-hidden" aria-labelledby="plan-title">
+        <section ref={formRef} tabIndex={-1} className="bg-white/40 border hairline rounded-sm shadow-panel p-4 sm:p-5 font-sans text-sm scroll-mt-16 focus:outline-hidden" aria-labelledby="plan-title">
           <h1 id="plan-title" className="font-chart text-3xl">Plan a passage</h1>
           <p className="mt-1 text-[13px] text-ink-soft">
             Check a planned passage against the forecast and your boat’s limits: an explainable verdict, with the uncertainty shown.
@@ -146,7 +146,7 @@ export default function Planner() {
               <p className="text-[12px] text-ink-soft">Add waypoints on the chart (drag to adjust).</p>
             )}
             <label className="flex items-center gap-2">
-              <span className="eyebrow shrink-0">Name</span>
+              <span className="eyebrow text-xs! shrink-0">Name</span>
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -235,7 +235,7 @@ export default function Planner() {
               />
             ) : (
               <div>
-                <span className="eyebrow block mb-1">Speed (kt) · slow / usual / fast</span>
+                <span className="eyebrow text-xs! block mb-1">Speed (kt) · slow / usual / fast</span>
                 <div className="flex gap-2">
                   {['slow', 'nominal', 'fast'].map((k) => (
                     <label key={k} className="block flex-1 min-w-0">
@@ -332,7 +332,7 @@ function Step({ n, title, children }) {
       <legend className="sr-only">{title}</legend>
       <div className="flex items-center gap-2.5 mb-3" aria-hidden>
         <span className="w-6 h-6 grid place-items-center border border-ink/50 font-chart text-[13px]">{n}</span>
-        <span className="eyebrow">{title}</span>
+        <span className="eyebrow text-xs!">{title}</span>
       </div>
       <div className="space-y-3">{children}</div>
     </fieldset>

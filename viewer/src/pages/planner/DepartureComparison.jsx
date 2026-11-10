@@ -46,7 +46,7 @@ export default function DepartureComparison({ scan, departureLocal, busy, disabl
   if (scan.candidates.length === 0) {
     return (
       <section className="mt-6 border-t border-ink/40 pt-3" aria-label="Departure comparison">
-        <h2 ref={headingRef} tabIndex={-1} className="font-instrument font-semibold uppercase tracking-wider">Departure comparison</h2>
+        <h2 ref={headingRef} tabIndex={-1} className="scroll-mt-16 font-instrument font-semibold uppercase tracking-wider">Departure comparison</h2>
         <p className="font-sans text-sm text-ink-soft mt-2 max-w-[70ch]">
           None of the candidate departures could be assessed.
         </p>
@@ -69,10 +69,10 @@ export default function DepartureComparison({ scan, departureLocal, busy, disabl
   return (
     <section className="mt-6 border-t border-ink/40 pt-3" aria-label="Departure comparison">
       <div className="flex justify-between items-baseline flex-wrap gap-2">
-        <h2 ref={headingRef} tabIndex={-1} className="font-instrument font-semibold uppercase tracking-wider">
+        <h2 ref={headingRef} tabIndex={-1} className="scroll-mt-16 font-instrument font-semibold uppercase tracking-wider">
           Departure comparison · next 5 days
         </h2>
-        <span className="eyebrow">
+        <span className="eyebrow text-xs!">
           <span>24-hour local time</span> · {localTimeZoneName()} ·{' '}
           <span>{scan.rerouted ? 'each departure sails its own computed route' : 'same route, different weather'}</span>
         </span>
