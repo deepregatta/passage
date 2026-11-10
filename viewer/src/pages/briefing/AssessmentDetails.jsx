@@ -1,17 +1,20 @@
-import { CHANNEL_PREPARED_COVERAGE } from '@deepweather/engine';
 import BriefingMessage from '../../components/BriefingMessage.jsx';
 import { useApp } from '../../stores/appStore.js';
-import clsx from 'clsx';
 import { EvidenceLink } from '../../components/common.jsx';
 import { deriveCoverage } from '../../lib/evidenceSelectors.js';
 
+/** Why the assessment reads as it does: the reasoning, once. Per-leg numbers live in the timeline
+ * and leg table, counts in the Evidence section, capability coverage under "Models and coverage". */
 export default function AssessmentDetails({ sections, findings }) {
+  // The route-impact section only lists legs, which the timeline already shows; its method note
+  // stays in the professional register below.
+  const reasoning = sections.filter((section) => !section.per_leg);
   return (
-    <div className="mt-3 space-y-4 max-h-[340px] overflow-y-auto pr-1">
-      {sections.map((section) => (
+    <div className="mt-3 space-y-4">
+      {reasoning.map((section) => (
         <StorySection key={section.id} section={section} findings={findings} />
       ))}
-      <CoverageMatrix findings={findings} />
+      <ProfessionalRegister sections={sections} />
     </div>
   );
 }
@@ -35,61 +38,42 @@ function StorySection({ section, findings }) {
     <div className={tone}>
       <h3 className="eyebrow mb-1">{decision ? <BriefingMessage section={section} field="title" version={version} /> : section.title}</h3>
       <p className="font-sans text-[13px] leading-relaxed">{decision ? <BriefingMessage section={section} field="plain" version={version} /> : plain}</p>
-      {section.per_leg && (
-        <ul className="mt-1.5 space-y-1.5">
-          {section.per_leg.map((leg) => (
-            <li key={leg.leg_id} className="font-sans text-[13px] leading-relaxed">
-              <span className="font-mono text-[11px] text-ink-soft mr-1.5">{leg.leg_id}</span>
-              {leg.register_plain}{' '}
-              {leg.evidence_ids.length > 0 && (
-                <EvidenceLink evidenceId={leg.evidence_ids[0]}>evidence</EvidenceLink>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-      <details className="mt-1">
-        <summary className="font-sans text-[12px] text-ink-soft cursor-pointer">
-          professional register
-        </summary>
-        <p className="font-sans text-[12px] leading-relaxed text-ink-soft mt-1">
-          {decision ? <BriefingMessage section={section} field="pro" version={version} /> : section.register_pro}
-        </p>
-        {section.evidence_ids.length > 0 && (
-          <p className="mt-1 font-mono text-[11px] text-ink-soft">
-            evidence:{' '}
-            {section.evidence_ids.map((id, i) => (
-              <span key={id}>
-                {i > 0 && ', '}
-                <EvidenceLink evidenceId={id}>{id}</EvidenceLink>
-              </span>
-            ))}
-          </p>
-        )}
-      </details>
     </div>
   );
 }
 
-function CoverageMatrix({ findings }) {
-  const coverage = deriveCoverage(findings);
+/** One disclosure for the whole block: the engine's professional wording of every section above. */
+function ProfessionalRegister({ sections }) {
+  const version = useApp(s => s.briefing?.schema_version ?? 1);
   return (
-    <section className="border-t hairline pt-3" aria-label="Capability coverage">
-      <div className="flex items-center justify-between gap-3 mb-2">
-        <h3 className="eyebrow">Capability coverage</h3>
-        {coverage.derived && <span className="font-mono text-[9px] text-ink-soft">derived from evidence · legacy snapshot</span>}
+    <details className="border-t hairline pt-1">
+      <summary className="font-sans text-xs text-ink-soft cursor-pointer min-h-11 flex items-center">
+        Professional register
+      </summary>
+      <div className="space-y-3 pb-1">
+        {sections.map((section) => {
+          const decision = section.id === 'decision';
+          return (
+            <div key={section.id}>
+              <h4 className="font-sans text-xs font-medium">{decision ? <BriefingMessage section={section} field="title" version={version} /> : section.title}</h4>
+              <p className="font-sans text-xs leading-relaxed text-ink-soft mt-0.5">
+                {decision ? <BriefingMessage section={section} field="pro" version={version} /> : section.register_pro}
+              </p>
+              {section.evidence_ids.length > 0 && (
+                <p className="mt-1 font-mono text-xs text-ink-soft">
+                  evidence:{' '}
+                  {section.evidence_ids.map((id, i) => (
+                    <span key={id}>
+                      {i > 0 && ', '}
+                      <EvidenceLink evidenceId={id}>{id}</EvidenceLink>
+                    </span>
+                  ))}
+                </p>
+              )}
+            </div>
+          );
+        })}
       </div>
-      <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
-        {coverage.items.map((item) => (
-          <li key={item.capability} className="flex flex-wrap items-baseline justify-between gap-2 border-b hairline py-1 font-instrument text-[12px]">
-            <span>{item.capability.replaceAll('_', ' ')}</span>
-            <span className={clsx('font-mono text-[10px]', item.status === 'not_assessed' ? 'text-verdict-insufficient' : item.status === 'assessed_emulated' ? 'stamp-emulated' : 'text-verdict-within')}>
-              {item.status.replaceAll('_', ' ')}
-            </span>
-            {item.detail === CHANNEL_PREPARED_COVERAGE && <p className="basis-full text-ink-soft leading-relaxed">{item.detail}</p>}
-          </li>
-        ))}
-      </ul>
-    </section>
+    </details>
   );
 }

@@ -138,8 +138,9 @@ it('connects actual assessment titles and both registers while other sections re
   useApp.setState({ briefing: data, language: 'fr' });
   render(<><LocalizedDocument language="fr" /><AssessmentDetails sections={data.sections} findings={findings} /></>);
   const titles = document.querySelectorAll('[data-message-field="title"]');
-  expect(titles).toHaveLength(1);
-  expect(titles[0]).toHaveAttribute('data-message-status', 'translated');
+  // once as the section heading, once in the single professional-register disclosure
+  expect(titles).toHaveLength(2);
+  for (const title of titles) expect(title).toHaveAttribute('data-message-status', 'translated');
   expect(document.querySelector('[data-message-field="pro"]')).toHaveTextContent('Facteur déterminant');
-  expect(document.querySelectorAll('[data-message-field]')).toHaveLength(3);
+  expect(document.querySelectorAll('[data-message-field]')).toHaveLength(4);
 });

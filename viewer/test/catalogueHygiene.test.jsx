@@ -83,8 +83,8 @@ const dynamicKeys = {
   'A deepening low crosses your passage window': 'WeatherStoryCard.jsx: headline uses capitalize(plainEventNoun(...))',
   'A high-pressure ridge crosses your passage window': 'WeatherStoryCard.jsx: headline uses capitalize(plainEventNoun(...))',
   'A weather front crosses your passage window': 'WeatherStoryCard.jsx: headline uses capitalize(plainEventNoun(...))',
-  'partially assessed': 'ModelsUsed.jsx and AssessmentDetails.jsx: status.replaceAll replaces underscores with spaces',
-  'model agreement': 'AssessmentDetails.jsx: capability.replaceAll replaces underscores with spaces',
+  'partially assessed': 'ModelsUsed.jsx: status.replaceAll replaces underscores with spaces',
+  'model agreement': 'ModelsUsed.jsx: capability.replaceAll replaces underscores with spaces',
   'Zoom in': 'Leaflet zoom control title and aria-label',
   'Zoom out': 'Leaflet zoom control title and aria-label',
 };

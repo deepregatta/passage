@@ -105,13 +105,14 @@ it('translates the new disclosure copy and recorded fields into French', () => {
   }
 });
 
-it.each(['models', 'assessment'])('discloses fixed prepared windows in archived %s coverage without changing the snapshot', (place) => {
+it('discloses fixed prepared windows in archived coverage, shown once under Models and coverage, without changing the snapshot', () => {
   findings.inputs.synoptic_run_id = 'ecmwf-ifs025-20260916T00Z';
   const before = structuredClone(findings);
   render(<Briefing />);
-  if (place === 'models') fireEvent.click(screen.getByText('Models and coverage'));
-  else fireEvent.click(screen.getByRole('button', { name: 'Why this assessment' }));
-  const coverage = screen.getByRole('region', { name: place === 'models' ? 'Recorded coverage' : 'Capability coverage' });
+  fireEvent.click(screen.getByText('Models and coverage'));
+  fireEvent.click(screen.getByRole('button', { name: 'Why this assessment' }));
+  expect(screen.queryByRole('region', { name: 'Capability coverage' })).toBeNull();
+  const coverage = screen.getByRole('region', { name: 'Recorded coverage' });
   const synoptic = within(coverage).getByText('synoptic attribution').closest('li');
   expect(synoptic).toHaveTextContent('partially assessed');
   expect(synoptic).toHaveTextContent('Channel-only prepared run');

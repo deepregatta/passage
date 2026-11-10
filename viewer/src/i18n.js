@@ -615,7 +615,7 @@ const FR = {
   'Why this assessment': 'Pourquoi cette évaluation',
   'Strongest': 'Conditions les plus fortes',
   'around': 'vers',
-  'professional register': 'registre professionnel',
+  'Professional register': 'Registre professionnel',
   'fine': 'dans les limites',
   'close to your limits': 'proche de vos limites',
   'beyond your limits': 'au-delà de vos limites',

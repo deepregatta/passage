@@ -41,7 +41,7 @@ it.each([true, false])('hands the saved route to the planner with recorded speed
   expect(useApp.getState().page).toBe('planner');
 });
 
-it('expands ordered assessment sections, coverage and evidence, then collapses them', () => {
+it('expands the ordered reasoning once, with one professional-register disclosure, then collapses it', () => {
   const orderedTitles = briefing.sections.map(({ title }) => title);
   briefing.sections.reverse();
   render(<Briefing />);
@@ -50,19 +50,24 @@ it('expands ordered assessment sections, coverage and evidence, then collapses t
   fireEvent.click(why);
   expect(why).toHaveAttribute('aria-expanded', 'true');
   const details = why.nextElementSibling;
-  expect(within(details).getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent))
-    .toEqual([...orderedTitles, 'Capability coverage']);
-  const coverage = within(details).getByRole('region', { name: 'Capability coverage' });
-  expect(within(coverage).getByText('official warnings').closest('li')).toHaveTextContent('assessed emulated');
-  expect(within(coverage).getByText('tidal gates').closest('li')).toHaveTextContent('not assessed');
+  // the per-leg route-impact list repeats the timeline and leg table: it is not rendered here
+  const shown = orderedTitles.filter((title) => title !== 'Route impact, leg by leg');
+  expect(within(details).getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent)).toEqual(shown);
+  expect(details.querySelector('li')).toBeNull();
+  expect(details.className).not.toMatch(/overflow|max-h/);
+  // one disclosure for the whole block, not one per section
+  expect(within(details).getAllByText('Professional register')).toHaveLength(1);
+  expect(details.querySelectorAll('details')).toHaveLength(1);
+  // coverage is stated once, under Models and coverage
+  expect(within(details).queryByRole('region', { name: 'Capability coverage' })).toBeNull();
   expect(details).toHaveTextContent('No flag does not mean no risk.');
-  const routeSection = briefing.sections.find(({ id }) => id === 'route_impact');
-  const section = within(details).getByRole('heading', { name: routeSection.title }).parentElement;
-  fireEvent.click(within(section).getAllByRole('button', { name: 'evidence', exact: true })[0]);
-  expect(useApp.getState()).toMatchObject({ inspectorOpen: true, selectedEvidenceId: routeSection.per_leg[0].evidence_ids[0] });
+  const register = details.querySelector('details');
+  expect(register).toHaveTextContent('Authority override: bulletin');
+  fireEvent.click(within(register).getAllByRole('button', { name: 'E23' })[0]);
+  expect(useApp.getState()).toMatchObject({ inspectorOpen: true, selectedEvidenceId: 'E23' });
   fireEvent.click(why);
   expect(why).toHaveAttribute('aria-expanded', 'false');
-  expect(screen.queryByRole('region', { name: 'Capability coverage' })).toBeNull();
+  expect(screen.queryByRole('heading', { name: 'Official warning active', level: 3 })).toBeNull();
   expect(briefing.sections.map(({ title }) => title)).toEqual([...orderedTitles].reverse());
 });
 
