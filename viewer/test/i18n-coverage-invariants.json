@@ -452,7 +452,8 @@
         "insufficient"
       ],
       "viewer/src/pages/planner/DepartureField.jsx": [
-        "T"
+        "T",
+        "w-full min-h-11 bg-white/60 border hairline rounded-sm px-2 py-2 text-base sm:text-sm font-mono aria-[invalid=true]:border-verdict-exceeds"
       ],
       "viewer/src/pages/planner/PlannerMap.jsx": [
         "\"></div>",
@@ -796,7 +797,6 @@
         "◎"
       ],
       "viewer/src/pages/planner/DepartureField.jsx": [
-        "(?:[01][0-9]|2[0-3]):[0-5][0-9]",
         "HH:mm",
         "·"
       ],

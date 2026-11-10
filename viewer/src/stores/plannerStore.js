@@ -1,17 +1,18 @@
 import { newPassageId } from '../lib/passageIdentity.js';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import { localDateTimeToIso, toLocalDateTimeValue } from '../lib/format.js';
+import { localDateTimeToIso, nextQuarterHour, toLocalDateTimeValue } from '../lib/format.js';
 
 /** Planner working state lives outside the page component so a drawn route,
  * computed route, and departure scan survive switching stages — and is
  * persisted to localStorage so a half-planned passage survives a reload
  * (a briefing is only saved to My briefings when the passage is checked). */
 
-/** The departure control opens on the sailor's real local clock — a stale
- * departure restored from a past session would silently plan the wrong day. */
+/** The departure control opens on the sailor's real local clock, rounded up to
+ * the next quarter hour — a stale departure restored from a past session would
+ * silently plan the wrong day. */
 function defaultDeparture() {
-  return toLocalDateTimeValue(new Date().toISOString());
+  return nextQuarterHour();
 }
 
 const initial = () => ({

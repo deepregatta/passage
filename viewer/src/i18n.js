@@ -318,6 +318,8 @@ const FR = {
   'Departure date': 'Date de départ',
   'Departure time, 24-hour clock': 'Heure de départ, format 24 heures',
   '24-hour clock (HH:mm)': 'format 24 heures (HH:mm)',
+  'Enter the time as HH:mm, for example 08:30.': 'Saisissez l’heure au format HH:mm, par exemple 08:30.',
+  'Choose a departure that is not in the past': 'Choisissez un départ qui n’est pas dans le passé',
   '24-hour local time': 'heure locale au format 24 heures',
   'your local time': 'votre heure locale',
   'local time': 'heure locale',
@@ -891,6 +893,8 @@ const FR_PATTERNS = [
   [/^(All \d+|\d+ of \d+) forecast scenarios exceed your [\d.]+ kt (gust|wind) limit around .+ UTC\.$/, (value) => translateExceedanceSuffix(` ${value}`).trim()],
   [/^Unassessed hazard classes: ([^.]+)\.$/, (_match, capabilities) => `Catégories de dangers non évaluées : ${translateCapabilityList(capabilities)}.`],
   [/^Partial capability coverage: (.+)\.$/, (_match, capabilities) => `Couverture partielle des capacités : ${translateCapabilityList(capabilities)}.`],
+  [/^Forecasts cover the next (\d+) days, up to (.+)$/, 'Les prévisions couvrent les $1 prochains jours, jusqu’au $2'],
+  [/^Choose a departure within the forecast, up to (.+)$/, 'Choisissez un départ dans la période couverte par les prévisions, jusqu’au $1'],
   [/^(reading forecast run manifest|evaluating against your limits|reading current tiles|loading coastline|loading forecast tiles|loading current tiles|loading prepared data|saving immutable snapshot|starting|computing route|scanning departures)( \d+\/\d+)?(…)?$/, (_match, label, count = '', ellipsis = '') => `${FR[label]}${count}${ellipsis}`],
   [/^(· )?(\d+) h old$/, (_match, separator = '', hours) => `${separator}il y a ${hours} h`],
   // ModelsUsed: the ECMWF runs behind the model comparison (engine describeEcmwfRuns)

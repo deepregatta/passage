@@ -4,6 +4,8 @@ import { forecastStore, friendlyForecastError } from './forecastStore.js';
 
 /** deterministic tile horizon (GFS 240 h); scans beyond it fail with a clear message */
 export const FORECAST_HOURS = 240;
+/** A routed departure needs at least this many forecast hours after it. */
+export const ROUTING_MIN_HOURS = 12;
 
 const POLARS_UNAVAILABLE = 'Boat polars are unavailable right now. Use Draw my route instead.';
 
@@ -44,7 +46,7 @@ export async function loadRoutingInputs({
   const departureMs = Date.parse(departureIso);
   const remaining = Math.floor((now() + FORECAST_HOURS * 3600_000 - departureMs) / 3600_000);
   const hours = Math.min((scanning ? 120 : 0) + maxHours + 6, remaining);
-  if (!Number.isFinite(departureMs) || hours < 12) {
+  if (!Number.isFinite(departureMs) || hours < ROUTING_MIN_HOURS) {
     throw new Error('This departure is beyond the forecast horizon');
   }
 

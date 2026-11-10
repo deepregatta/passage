@@ -33,6 +33,12 @@ export function toLocalDateTimeValue(iso) {
   return `${year}-${month}-${day}T${hh}:${mm}`;
 }
 
+/** The next quarter hour at or after the given instant, as a planner value. */
+export function nextQuarterHour(nowMs = Date.now()) {
+  const step = 15 * 60_000;
+  return toLocalDateTimeValue(new Date(Math.ceil(nowMs / step) * step).toISOString());
+}
+
 /** Interpret a planner value as browser-local wall time and return a UTC instant. */
 export function localDateTimeToIso(value) {
   const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value ?? '');
