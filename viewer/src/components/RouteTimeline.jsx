@@ -230,11 +230,9 @@ function nowLine(time) {
   return { xAxis: time, label: { formatter: 'NOW', color: palette.ink.DEFAULT, fontSize: 12 }, lineStyle: { color: palette.event, type: 'solid', width: 1 } };
 }
 
-/** Table alternative: header-zone time first, the chart's UTC hour as a marked secondary column,
- * legs by number ("leg 3", never the raw "L3"); no nested scroll box inside the disclosure. */
 function TimelineTable({ findings }) {
-  const rows = findings.legs.flatMap((leg, legIndex) => leg.hours.filter((_, index) => index % 3 === 0).map((hour) => ({ leg: leg.leg_id, legNumber: /^L(\d+)$/.exec(leg.leg_id)?.[1] ?? legIndex + 1, ...hour })));
-  return <details className="mt-3 border-t hairline pt-2"><summary className="font-instrument text-xs cursor-pointer min-h-11 flex items-center">Table alternative for route timeline</summary><div className="overflow-x-auto mt-2"><table className="w-full font-mono text-xs"><thead><tr className="text-left"><th>local time</th><th>UTC</th><th>leg</th><th>wind kt</th><th>gust kt</th><th>waves m</th><th>status</th></tr></thead><tbody>{rows.map((row) => <tr key={`${row.leg}-${row.valid_time}`} className="border-t hairline"><td className="py-1">{fmtLocalTime(row.valid_time)}</td><td>{fmtHour(row.valid_time)}</td><td>{`leg ${row.legNumber}`}</td><td>{row.wind_kt ?? 'n/a'}</td><td>{row.gust_kt ?? 'n/a'}</td><td>{row.waves?.hs_m ?? 'not assessed'}</td><td>{hourStatus(row)}</td></tr>)}</tbody></table></div></details>;
+  const rows = findings.legs.flatMap((leg) => leg.hours.filter((_, index) => index % 3 === 0).map((hour) => ({ leg: leg.leg_id, ...hour })));
+  return <details className="mt-3 border-t hairline pt-2"><summary className="font-instrument text-xs cursor-pointer">Table alternative for route timeline</summary><div className="overflow-x-auto max-h-64 mt-2"><table className="w-full font-mono text-[10px]"><thead><tr className="text-left"><th>UTC</th><th>leg</th><th>wind kt</th><th>gust kt</th><th>waves m</th><th>status</th></tr></thead><tbody>{rows.map((row) => <tr key={`${row.leg}-${row.valid_time}`} className="border-t hairline"><td className="py-1">{fmtHour(row.valid_time)}</td><td>{row.leg}</td><td>{row.wind_kt ?? 'n/a'}</td><td>{row.gust_kt ?? 'n/a'}</td><td>{row.waves?.hs_m ?? 'not assessed'}</td><td>{hourStatus(row)}</td></tr>)}</tbody></table></div></details>;
 }
 
 const EVENT_LABEL = {
