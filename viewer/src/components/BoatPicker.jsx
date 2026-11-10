@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import clsx from 'clsx';
 
 /** Search the boat polar index with the length-bucket generics as the
@@ -25,6 +25,10 @@ export default function BoatPicker({ polarId, polarLabel, onSelect }) {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
+  const triggerRef = useRef(null);
+  const labelId = useId();
+  const valueId = useId();
+  const chosen = polarLabel ?? polarId;
 
   useEffect(() => {
     if (open && !index) loadIndex().then(setIndex);
@@ -60,19 +64,32 @@ export default function BoatPicker({ polarId, polarLabel, onSelect }) {
     onSelect(entry);
     setOpen(false);
     setQuery('');
+    triggerRef.current?.focus();
+  };
+
+  // Escape closes the list and hands focus back to the button that opened it.
+  const close = () => {
+    setOpen(false);
+    triggerRef.current?.focus();
   };
 
   return (
-    <div ref={rootRef} className="relative">
-      <span className="eyebrow block mb-1">Your boat (polar)</span>
+    <div ref={rootRef} className="relative" onKeyDown={(e) => { if (open && e.key === 'Escape') close(); }}>
+      <span id={labelId} className="eyebrow block mb-1">Your boat (polar)</span>
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="w-full bg-white/60 border hairline rounded-sm px-2 py-1.5 text-left flex justify-between items-baseline gap-2"
+        aria-haspopup="listbox"
+        aria-labelledby={`${labelId} ${valueId}`}
+        className={clsx(
+          'w-full min-h-11 bg-white/60 border rounded-sm px-2 py-2 text-left flex justify-between items-center gap-2',
+          chosen ? 'hairline' : 'border-ink/60',
+        )}
       >
-        <span>{polarLabel ?? polarId ?? 'Choose your boat…'}</span>
-        <span className="text-ink-soft text-[11px]" aria-hidden>{open ? '▴' : '▾ search'}</span>
+        <span id={valueId} className={clsx(!chosen && 'text-ink-soft')}>{chosen ?? 'Choose your boat…'}</span>
+        <span className="text-ink-soft text-[12px] underline shrink-0">{open ? 'Close' : chosen ? 'Change' : 'Search'}</span>
       </button>
       {open && (
         <div className="absolute z-30 inset-x-0 mt-1 bg-paper border border-ink/40 rounded-sm shadow-panel max-h-80 overflow-y-auto">
@@ -81,12 +98,11 @@ export default function BoatPicker({ polarId, polarLabel, onSelect }) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Escape') setOpen(false);
               if (e.key === 'Enter' && matches.length) pick(matches[0]);
             }}
             placeholder="Type a model, for example First 36.7 or JPK 10.10"
             aria-label="Search boat models"
-            className="w-full sticky top-0 bg-white/95 border-b hairline px-2 py-2 text-sm outline-hidden"
+            className="w-full sticky top-0 bg-white/95 border-b hairline px-2 py-2 min-h-11 text-base sm:text-sm outline-hidden"
           />
           {!index && <p className="px-2 py-2 text-[12px] text-ink-soft">Loading boat database…</p>}
           {unavailable && (
@@ -133,19 +149,19 @@ function Row({ entry, selected, onPick }) {
     entry.source,
   ].filter(Boolean).join(' · ');
   return (
-    <li>
+    <li role="presentation">
       <button
         type="button"
         role="option"
         aria-selected={selected}
         onClick={() => onPick(entry)}
         className={clsx(
-          'w-full text-left px-2 py-1.5 hover:bg-shoal/50 flex justify-between gap-2 items-baseline',
+          'w-full min-h-11 text-left px-2 py-2 hover:bg-shoal/50 flex justify-between gap-2 items-center',
           selected && 'bg-shoal/60',
         )}
       >
         <span className="text-sm">{entry.label}</span>
-        <span className="font-mono text-[10px] text-ink-soft whitespace-nowrap">{meta}</span>
+        <span className="font-mono text-[12px] text-ink-soft text-right">{meta}</span>
       </button>
     </li>
   );

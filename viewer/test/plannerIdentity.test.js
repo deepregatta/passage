@@ -25,3 +25,14 @@ it.each([0, 1])('migrates draft v%s without linking any legacy history or losing
   expect(saved.version).toBe(2);
   expect(saved.state.passageId).toBe(state.passageId);
 });
+
+it('starts a new draft without a boat, and a saved draft keeps the boat it holds', async () => {
+  expect(usePlanner.getState()).toMatchObject({ polarId: null, polarLabel: null });
+  localStorage.setItem('deepweather.planner-draft', JSON.stringify({ version: 2, state: {
+    passageId: 'saved', polarId: 'saved-boat', polarLabel: 'Saved boat', departureLocal: '2099-07-20T12:00',
+  } }));
+  await usePlanner.persist.rehydrate();
+  expect(usePlanner.getState()).toMatchObject({ polarId: 'saved-boat', polarLabel: 'Saved boat' });
+  usePlanner.getState().reset();
+  expect(usePlanner.getState().polarId).toBeNull();
+});

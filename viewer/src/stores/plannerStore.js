@@ -24,8 +24,10 @@ const initial = () => ({
   name: 'My passage',
   speeds: { slow: 4.5, nominal: 5.5, fast: 6.5 },
   departureLocal: defaultDeparture(),
-  polarId: 'sun-fast-3200',
-  polarLabel: 'SUN FAST 3200',
+  // No boat until the sailor chooses one: a preselected polar would route a boat they never picked.
+  // (A draft saved before this change keeps whatever boat it holds.)
+  polarId: null,
+  polarLabel: null,
   scan: null,
   autoScan: false, // set by the briefing's "Find a departure that fits" — Planner runs one scan and clears it
 });
