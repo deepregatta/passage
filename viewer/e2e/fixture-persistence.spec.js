@@ -80,12 +80,11 @@ for (const language of ['en', 'fr']) {
         name: 'Scratch fixture protection', departureLocal: toLocalDateTimeValue(departure), speeds: { slow: 4, nominal: 5, fast: 6 } });
     }, { engineUrl, departure });
     const mobile = testInfo.project.name === 'mobile';
-    await page.getByRole('button', { name: language === 'fr'
-      ? (mobile ? 'Limites' : 'Modifier mes limites') : (mobile ? 'Limits' : 'Edit my limits'), exact: true }).click();
+    await page.locator(mobile ? 'nav.md\\:hidden' : 'header').getByRole('button', { name: language === 'fr' ? /^Modifier mes limites/ : /^Edit my limits/ }).click();
     const dialog = page.getByRole('dialog');
     await expect(dialog.getByRole('checkbox')).toHaveCount(0);
     await expect(dialog.getByText(disclosure[language], { exact: true })).toBeVisible();
-    await dialog.getByLabel(language === 'fr' ? 'Rafales max.' : 'Max gusts').fill('23');
+    await dialog.getByLabel(language === 'fr' ? 'Rafales max.' : 'Max gusts').fill('31');
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem('deepweather.profile-draft')).night_ok)).toBe(false);
     const screenshot = testInfo.outputPath('limits.png');
     await dialog.screenshot({ path: screenshot });

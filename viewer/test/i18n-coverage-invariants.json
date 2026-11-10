@@ -151,9 +151,12 @@
       ],
       "viewer/src/components/LimitsDrawer.jsx": [
         "Escape",
+        "-help",
+        "-message",
         "Tab",
-        "button, input",
+        "button, input, select, textarea, a[href], [tabindex]:not([tabindex=\"-1\"])",
         "downwind",
+        "hidden",
         "keydown",
         "max_gust_kt",
         "max_steepness",

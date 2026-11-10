@@ -19,6 +19,7 @@ export default function Shell({ page, onNavigate, children }) {
   const openLimits = useApp((state) => state.openLimits);
   const limitsOpen = useApp((state) => state.limitsOpen);
   const active = PLACES.find((place) => place.pages.includes(page));
+  const summary = useLimitsSummary();
   return (
     <div className="min-h-screen bg-paper pb-16 md:pb-0 flex flex-col">
       <a href="#main-content" onClick={(event) => {
@@ -26,9 +27,9 @@ export default function Shell({ page, onNavigate, children }) {
         event.preventDefault();
         mainRef.current?.focus();
       }} className="sr-only focus:not-sr-only fixed left-3 top-3 z-[100] bg-paper border border-ink px-3 py-2">Skip to briefing content</a>
-      <header className="sticky top-0 z-30 bg-ink-deep text-paper border-b border-paper/20">
+      <header className="on-dark md:sticky md:top-0 z-30 bg-ink-deep text-paper border-b border-paper/20">
         <div className="h-14 px-3 sm:px-5 flex items-center gap-4">
-          <button type="button" onClick={() => onNavigate('planner')} className="min-h-11 flex items-center gap-2" aria-label="Passage home">
+          <button type="button" onClick={() => onNavigate('planner')} className="min-h-11 min-w-11 flex items-center justify-center gap-2" aria-label="Passage home">
             <CompassMark />
             <span className="hidden sm:inline whitespace-nowrap font-instrument tracking-[0.08em]"><span className="font-semibold">Passage</span> <span className="text-paper/60 text-xs">by DeepRegatta</span></span>
           </button>
@@ -36,8 +37,8 @@ export default function Shell({ page, onNavigate, children }) {
             {PLACES.map((place) => <PlaceButton key={place.id} place={place} active={active?.id === place.id} onClick={() => onNavigate(place.target)} />)}
           </nav>
           <div className="ml-auto flex items-center gap-3">
-            <LimitsChip onClick={openLimits} expanded={limitsOpen} />
-            <div className="flex rounded-sm border border-paper/35 p-0.5 font-mono text-[10px]" role="group" aria-label={language === 'fr' ? 'Choisir la langue' : 'Select language'}>
+            <LimitsChip onClick={openLimits} expanded={limitsOpen} summary={summary} />
+            <div className="flex rounded-sm border border-paper/35 p-0.5 font-mono text-xs" role="group" aria-label={language === 'fr' ? 'Choisir la langue' : 'Select language'}>
               {['en', 'fr'].map((code) => (
                 <button
                   key={code}
@@ -46,7 +47,7 @@ export default function Shell({ page, onNavigate, children }) {
                   aria-pressed={language === code}
                   aria-label={code === 'fr' ? 'Français' : 'English'}
                   onClick={() => setLanguage(code)}
-                  className={clsx('min-h-9 min-w-9 px-1.5 transition-colors', language === code ? 'bg-paper text-ink' : 'text-paper/65 hover:text-paper')}
+                  className={clsx('min-h-11 min-w-11 md:min-h-9 md:min-w-9 px-1.5 transition-colors', language === code ? 'bg-paper text-ink' : 'text-paper/65 hover:text-paper')}
                 >
                   {code.toUpperCase()}
                 </button>
@@ -57,10 +58,11 @@ export default function Shell({ page, onNavigate, children }) {
       </header>
       <main ref={mainRef} id="main-content" tabIndex={-1} className="min-w-0 flex-1">{children}</main>
       <SiteFooter onNavigate={onNavigate} />
-      <nav aria-label="Main navigation" className="md:hidden fixed bottom-0 inset-x-0 h-16 z-40 bg-ink-deep text-paper grid grid-cols-3 border-t border-paper/20">
+      <nav aria-label="Main navigation" className="on-dark md:hidden fixed bottom-0 inset-x-0 h-16 z-40 bg-ink-deep text-paper grid grid-cols-3 border-t border-paper/20">
         {PLACES.map((place) => <PlaceButton key={place.id} place={place} active={active?.id === place.id} onClick={() => onNavigate(place.target)} mobile />)}
-        <button type="button" onClick={openLimits} aria-expanded={limitsOpen} className={clsx('relative min-h-11 flex flex-col items-center justify-center font-instrument uppercase tracking-[0.12em] text-[11px]', limitsOpen ? 'text-white' : 'text-paper/60')}>
+        <button type="button" onClick={openLimits} aria-expanded={limitsOpen} aria-label={summary ? limitsAriaLabel(summary) : undefined} className={clsx('relative min-h-11 flex flex-col items-center justify-center font-instrument uppercase tracking-[0.12em] text-xs', limitsOpen ? 'text-white' : 'text-paper/60')}>
           Limits
+          {summary && <span className="font-mono normal-case tracking-normal text-xs whitespace-nowrap">{`${summary.wind}/${summary.gust} kt · ${summary.wave} m`}</span>}
           {limitsOpen && <span className="absolute bg-event top-0 inset-x-3 h-0.5" />}
         </button>
       </nav>
@@ -68,25 +70,33 @@ export default function Shell({ page, onNavigate, children }) {
   );
 }
 
-/** The limits every new check uses, always in view and one click from editing. */
-function LimitsChip({ onClick, expanded }) {
+/** The strictest sustained wind, the gust limit and the wave limit, as numbers. */
+function useLimitsSummary() {
   const limits = useApp((state) => state.limits);
   const ensureLimits = useApp((state) => state.ensureLimits);
   useEffect(() => { void ensureLimits(); }, [ensureLimits]);
-  const sustained = limits ? Math.min(...['upwind', 'reach', 'downwind'].map((key) => limits.max_sustained_kt[key] ?? limits.max_sustained_kt.default)) : null;
+  if (!limits) return null;
+  const wind = Math.min(...['upwind', 'reach', 'downwind'].map((key) => limits.max_sustained_kt[key] ?? limits.max_sustained_kt.default));
+  return { wind, gust: limits.max_gust_kt, wave: limits.max_wave_height_m };
+}
+
+const limitsAriaLabel = ({ wind, gust, wave }) => `Edit my limits: wind ${wind} kt, gusts ${gust} kt, waves ${wave} m`;
+
+/** The limits every new check uses, always in view and one click from editing. */
+function LimitsChip({ onClick, expanded, summary }) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-expanded={expanded}
-      aria-label="Edit my limits"
+      aria-label={summary ? limitsAriaLabel(summary) : 'Edit my limits'}
       className="hidden md:flex min-h-9 items-center gap-2 border border-paper/35 rounded-sm px-2.5 text-paper/90 hover:border-paper hover:text-paper"
     >
-      <span className="font-instrument text-[11px] uppercase tracking-[0.14em] text-paper/60">Limits</span>
-      {limits && (
-        <span className="font-mono text-[11px] whitespace-nowrap" title="Wind / gust limits">
-          {`${sustained} / ${limits.max_gust_kt} kt`}
-          <span className="hidden xl:inline">{` · ${limits.max_wave_height_m} m`}</span>
+      <span className="font-instrument text-xs uppercase tracking-[0.14em] text-paper/60">Limits</span>
+      {summary && (
+        <span className="font-mono text-xs whitespace-nowrap" title="Strictest sustained wind, gust limit and wave height limit">
+          {`Wind ${summary.wind} · Gusts ${summary.gust} kt`}
+          <span className="hidden xl:inline">{` · Waves ${summary.wave} m`}</span>
         </span>
       )}
       <svg aria-hidden width="11" height="11" viewBox="0 0 12 12" className="opacity-70"><path d="M8.5 1.5l2 2L4 10H2V8z" fill="none" stroke="currentColor" strokeWidth="1.2" /></svg>
@@ -100,7 +110,7 @@ function SiteFooter({ onNavigate }) {
   const links = [
     ['DeepRegatta', 'https://deepregatta.com'],
     // Passage's own privacy page; it links on to the full DeepRegatta policy.
-    ['Privacy', privacyPath(language)],
+    ['Privacy', privacyPath(language), true],
     ['Terms', 'https://deepregatta.com/terms'],
     ['Legal notice', 'https://deepregatta.com/legal'],
   ];
@@ -109,7 +119,7 @@ function SiteFooter({ onNavigate }) {
     <footer className="mt-12 border-t border-ink/25 bg-paper-deep/55 print:hidden" aria-label="DeepRegatta information">
       <div className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6">
         <div className="mb-4 border-b hairline pb-4 flex flex-wrap items-center gap-x-5 gap-y-2">
-          <button type="button" onClick={() => onNavigate('about')} className="font-instrument text-sm text-event underline-offset-4 hover:underline">
+          <button type="button" onClick={() => onNavigate('about')} className="min-h-11 font-instrument text-sm text-event underline-offset-4 hover:underline md:min-h-8">
             About the data
           </button>
           <FooterActions onNavigate={onNavigate} />
@@ -122,9 +132,10 @@ function SiteFooter({ onNavigate }) {
             <span aria-hidden="true">·</span>
             <span>© {year} DeepRegatta</span>
           </p>
-          <nav aria-label="DeepRegatta legal and contact links" className="flex flex-wrap gap-x-5 gap-y-2">
-            {links.map(([label, href]) => (
-              <a key={href} href={withUtm(href)} className="text-event underline-offset-4 hover:underline">
+          <nav aria-label="DeepRegatta legal and contact links" className="flex flex-wrap gap-x-5 gap-y-0">
+            {links.map(([label, href, internal]) => (
+              // Campaign attribution travels only on links that leave Passage.
+              <a key={href} href={internal ? href : withUtm(href)} className="inline-flex min-h-11 items-center text-event underline-offset-4 hover:underline md:min-h-8">
                 {label}
               </a>
             ))}
@@ -136,7 +147,7 @@ function SiteFooter({ onNavigate }) {
 }
 
 function PlaceButton({ place, active, onClick, mobile = false }) {
-  return <button type="button" onClick={onClick} aria-current={active ? 'page' : undefined} className={clsx('relative min-h-11 font-instrument uppercase tracking-[0.12em] transition-colors', mobile ? 'flex flex-col items-center justify-center text-[11px]' : 'px-4 lg:px-8 text-xs whitespace-nowrap', active ? 'text-white' : 'text-paper/60 hover:text-paper')}>
+  return <button type="button" onClick={onClick} aria-current={active ? 'page' : undefined} className={clsx('relative min-h-11 font-instrument uppercase tracking-[0.12em] transition-colors', mobile ? 'flex flex-col items-center justify-center text-xs' : 'px-4 lg:px-8 text-xs whitespace-nowrap', active ? 'text-white' : 'text-paper/60 hover:text-paper')}>
     {place.label}{active && <span className={clsx('absolute bg-event', mobile ? 'top-0 inset-x-3 h-0.5' : 'bottom-0 inset-x-3 lg:inset-x-5 h-0.5')} />}
   </button>;
 }

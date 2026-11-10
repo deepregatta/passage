@@ -41,7 +41,7 @@ describe('viewer fixture harness', () => {
     for (const retired of ['Brief', 'Watch', 'Verify', 'My briefings', 'Causal brief', 'Evidence', 'Track record', 'Case study']) {
       expect(screen.queryByRole('button', { name: retired })).toBeNull();
     }
-    await user.click(screen.getByRole('button', { name: 'Edit my limits' }));
+    await user.click(screen.getAllByRole('button', { name: /^Edit my limits/ })[0]);
     expect(await screen.findByRole('dialog', { name: 'My limits' })).toBeTruthy();
     await user.click(screen.getByRole('button', { name: 'Done' }));
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'My limits' })).toBeNull());

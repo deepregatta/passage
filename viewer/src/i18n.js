@@ -201,7 +201,7 @@ const FR = {
   'Main navigation': 'Navigation principale',
   'Limits': 'Limites',
   'Edit my limits': 'Modifier mes limites',
-  'Wind / gust limits': 'Limites de vent / de rafales',
+  'Strictest sustained wind, gust limit and wave height limit': 'Vent moyen max. le plus strict, limite de rafales et limite de hauteur de vague',
   'Close limits': 'Fermer les limites',
   'Changes apply to your next check. Briefings you already made keep the limits they were checked against.': 'Les modifications s’appliquent à votre prochaine vérification. Les briefings déjà réalisés conservent les limites avec lesquelles ils ont été vérifiés.',
   'Done': 'Terminé',
@@ -384,7 +384,16 @@ const FR = {
   'each departure sails its own computed route': 'chaque départ suit sa propre route calculée',
   'Plan a passage, set a departure time and check it against your limits.': 'Planifiez une traversée, choisissez une heure de départ et vérifiez-la selon vos limites.',
   'example': 'exemple',
-  'Set the conditions you will accept for this passage. Presets are only a starting point. Every value remains editable. Squall and storm tolerance never changes with a preset.': 'Définissez les conditions que vous acceptez pour cette traversée. Les préréglages sont un point de départ. Chaque valeur reste modifiable. La tolérance aux grains et aux tempêtes ne change jamais avec un préréglage.',
+  'Set the conditions you will accept. These limits apply to every check you make from now on, not only to the passage you are planning. Every value remains editable.': 'Définissez les conditions que vous acceptez. Ces limites s’appliquent à toutes les vérifications que vous ferez désormais, pas seulement à la traversée en cours de planification. Chaque valeur reste modifiable.',
+  'Enter a number.': 'Saisissez un nombre.',
+  'Enter a number above 0.': 'Saisissez un nombre supérieur à 0.',
+  'Enter a number above 0, up to 1.': 'Saisissez un nombre supérieur à 0 et au plus égal à 1.',
+  'Enter 0 or more.': 'Saisissez 0 ou plus.',
+  'Gusts cannot be below your highest sustained wind limit.': 'Les rafales ne peuvent pas être inférieures à votre limite de vent moyen la plus haute.',
+  'Sustained wind cannot be above your gust limit.': 'Le vent moyen ne peut pas dépasser votre limite de rafales.',
+  'Not saved. Your previous value is kept.': 'Non enregistré. La valeur précédente est conservée.',
+  'Wave height divided by wavelength. A short, steep sea is rougher than its height alone suggests.': 'Hauteur des vagues divisée par la longueur d’onde. Une mer courte et abrupte est plus dure que sa seule hauteur ne le laisse penser.',
+  'If at least this share of forecast scenarios goes over a wind or gust limit, the check reads as close to your limits. For example, 0.3 means 3 in 10 scenarios.': 'Si au moins cette part des scénarios de prévision dépasse une limite de vent ou de rafales, la vérification indique que vous êtes proche de vos limites. Par exemple, 0,3 correspond à 3 scénarios sur 10.',
   'Max sustained · upwind': 'Vent moyen max. · près',
   'Max sustained · reach': 'Vent moyen max. · travers',
   'Max sustained · downwind': 'Vent moyen max. · portant',
@@ -925,6 +934,10 @@ const FR = {
 };
 
 const FR_PATTERNS = [
+  // Header limits chip and phone Limits button (Shell.jsx).
+  [/^Wind ([\d.]+) · Gusts ([\d.]+) kt$/, 'Vent $1 · Rafales $2 kt'],
+  [/^· Waves ([\d.]+) m$/, '· Vagues $1 m'],
+  [/^Edit my limits: wind ([\d.]+) kt, gusts ([\d.]+) kt, waves ([\d.]+) m$/, 'Modifier mes limites : vent $1 kt, rafales $2 kt, vagues $3 m'],
   [/^(OBSERVATION SOURCE)( ·.*)$/, (_match, label, suffix) => `${FR[label]}${suffix}`],
   [/^(reading deterministic forecast tiles|checking ensemble tiles|reading wave tiles|reading hazard and model-comparison tiles)(…)?$/, (_match, label, ellipsis = '') => `${FR[label]}${ellipsis}`],
   [/^reading (\d+)-member ensemble tiles(…)?$/, (_match, members, ellipsis = '') => `lecture des tuiles d’ensemble à ${members} membres${ellipsis}`],

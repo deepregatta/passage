@@ -72,8 +72,8 @@ for (const invalid of ['outside', 'expired', 'empty']) {
         return nativeSet.call(this, key, value);
       };
     }, { engineUrl, tileGrid: grid('tile-empty', { u_kt: Array(18).fill(null) }), departure: DEPARTURE });
-    await page.getByRole('button', { name: testInfo.project.name === 'mobile' ? 'Limits' : 'Edit my limits', exact: true }).click();
-    await page.getByLabel('Max gusts').fill('23');
+    await page.locator(testInfo.project.name === 'mobile' ? 'nav.md\\:hidden' : 'header').getByRole('button', { name: /^Edit my limits/ }).click();
+    await page.getByLabel('Max gusts').fill('31');
     await expect(page.getByRole('status')).toContainText('could not be saved');
     await page.getByRole('button', { name: 'Done', exact: true }).click();
     await settleMap(page);
@@ -82,7 +82,7 @@ for (const invalid of ['outside', 'expired', 'empty']) {
     await expect(page.getByTestId('decision-band')).toBeVisible();
     const first = await findings(page);
     const profileRecord = first.evidence.find(item => item.rule_id === 'W-GUST-01');
-    expect(profileRecord.limit).toBe(23);
+    expect(profileRecord.limit).toBe(31);
     await page.getByText('Models and coverage', { exact: true }).click();
     const row = page.getByRole('region', { name: 'Recorded coverage' }).locator('li').filter({ hasText: 'tidal currents' });
     await expect(row).toContainText('not assessed');

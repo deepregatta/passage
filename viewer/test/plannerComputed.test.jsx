@@ -316,13 +316,13 @@ it.each(['audit', 'scan'])('uses the visible limits after a failed persistence w
   render(<><Planner /><LimitsDrawer /></>);
   await compute();
   vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('full'); });
-  fireEvent.change(screen.getByLabelText(/Max gusts/), { target: { value: '23' } });
-  expect(screen.getByLabelText(/Max gusts/)).toHaveValue(23);
+  fireEvent.change(screen.getByLabelText(/Max gusts/), { target: { value: '31' } });
+  expect(screen.getByLabelText(/Max gusts/)).toHaveValue(31);
   expect(JSON.parse(localStorage.getItem('deepweather.profile-draft')).max_gust_kt).toBe(28);
   fireEvent.click(action === 'audit' ? checkButton() : scanButton());
   const operation = action === 'audit' ? analyzeInBrowser : scanDepartures;
   await waitFor(() => expect(operation).toHaveBeenCalled());
-  expect(operation.mock.calls[0][0].profile.max_gust_kt).toBe(23);
+  expect(operation.mock.calls[0][0].profile.max_gust_kt).toBe(31);
 });
 
 
