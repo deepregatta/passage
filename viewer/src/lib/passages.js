@@ -1,4 +1,5 @@
-import { capitalize } from './format.js';
+import { capitalize, fmtLocalTime } from './format.js';
+import { translateText } from '../i18n.js';
 
 /** "cherbourg-plymouth-v1" / "my-passage-5wp" → "Cherbourg plymouth" / "My passage" */
 export function routeName(routeId) {
@@ -79,4 +80,51 @@ export function ambiguousCheckOrder(snapshots, entry) {
     groupKey(other) === groupKey(entry) && other.snapshot_id !== entry.snapshot_id && created(other) === created(entry) &&
     !(entry.legacy_history_id && entry.legacy_history_id === other.legacy_history_id && entry.history_order !== other.history_order) &&
     !(Number.isSafeInteger(entry.check_sequence) && Number.isSafeInteger(other.check_sequence) && entry.check_sequence !== other.check_sequence));
+}
+
+/** Marks text the document localiser must leave alone: it was already composed
+ * in the right language, and may contain a name the sailor typed. */
+export const OWNED = { 'data-i18n-owned': 'message' };
+
+// Phrases with a sailor-typed or generated value in them. The value is put in
+// after translation, so the French catalogue can never rewrite a passage name.
+export const PASSAGE_TEMPLATES = [
+  'Open {name}, departing {time}',
+  'Open check {n} of {name}, made {time}',
+  'Open check {n} of {name}, made {time}, on a different route',
+  'Open check {n} of {name}, made {time}, on a different route or departure',
+  'Check {n}',
+  '+{n} more checks',
+  'Rename {name}',
+  'Delete {name}, departing {time}',
+  'Delete "{name}"?',
+  'Departing {time} local time ({tz}).',
+  'This will also delete its {count} saved checks.',
+  'Passage renamed to {name}.',
+  'Passage renamed to {name}. This browser could not save the name, so it lasts only until you leave this page.',
+  'Original name restored.',
+];
+
+export function passageText(template, values, language) {
+  return translateText(template, language).replace(/\{(\w+)\}/g, (token, key) => String(values[key] ?? token));
+}
+
+/** Local time in the page language. */
+export const localTime = (iso, language) => translateText(fmtLocalTime(iso), language);
+
+/** Did the route content or departure fingerprint differ between checks of one
+ * passage? route_revision covers route content AND departure, so an equal
+ * departure makes it a route change; otherwise the manifest cannot say which.
+ * Checks without a revision (legacy, schema 1) are never compared. */
+export function routeChanges(checks) {
+  const latest = checks.at(-1);
+  const none = { kind: null, differing: new Map() };
+  if (!latest?.route_revision) return none;
+  const differing = new Map();
+  for (const check of checks) {
+    if (!check.route_revision || check.route_revision === latest.route_revision) continue;
+    differing.set(check.snapshot_id, check.departure_utc === latest.departure_utc ? 'route' : 'route_or_departure');
+  }
+  if (!differing.size) return none;
+  return { kind: [...differing.values()].includes('route') ? 'route' : 'route_or_departure', differing };
 }

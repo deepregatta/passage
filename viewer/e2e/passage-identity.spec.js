@@ -91,7 +91,7 @@ test('separate intent, reroute history, exact retry, reopen, predecessor and del
   await page.reload();
   const modernRows = page.locator('article').filter({ hasText: 'Scratch identity' });
   await expect(modernRows).toHaveCount(2);
-  const historyRow = modernRows.filter({ has: page.getByRole('button', { name: 'Check 3', exact: true }) });
+  const historyRow = modernRows.filter({ has: page.getByRole('button', { name: /^Open check 3 of / }) });
   // The first two creation timestamps tie; persisted sequence preserves their
   // actual creation order independently of snapshot hashes or insertion order.
   const checks = await page.evaluate(async () => {
@@ -109,7 +109,7 @@ test('separate intent, reroute history, exact retry, reopen, predecessor and del
         return local.scratchRead(id, file);
       };
     });
-    await historyRow.getByRole('button', { name: `Check ${i + 1}`, exact: true }).click();
+    await historyRow.getByRole('button', { name: new RegExp(`^Open check ${i + 1} of `) }).click();
     await expect(page.getByTestId('decision-band')).toBeVisible();
     expect((await state(page)).id).toBe(checks[i]);
     await page.getByRole('navigation', { name: 'Passage sections' }).getByRole('button', { name: 'What changed', exact: true }).click();
@@ -121,25 +121,26 @@ test('separate intent, reroute history, exact retry, reopen, predecessor and del
     await page.goto('/#passages');
   }
   await page.screenshot({ path: path.resolve(import.meta.dirname, `../../output/passage-03/history-${testInfo.project.name}.png`), fullPage: true });
-  page.on('dialog', dialog => dialog.accept());
-  await historyRow.locator('..').getByRole('button', { name: 'Delete this passage', exact: true }).click();
+  await historyRow.getByRole('button', { name: /^Delete / }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Delete passage' }).click();
   await expect(modernRows).toHaveCount(1);
   const local = await page.evaluate(async () => (await import('/src/lib/localSnapshots.js')).localSnapshots.list());
   expect(local.map(s => s.snapshot_id).sort()).toEqual([separate.id, 'legacy-a', 'legacy-b'].sort());
   const legacyRows = page.locator('article').filter({ hasText: 'Legacy scratch' });
   await expect(legacyRows).toHaveCount(2);
   await expect(legacyRows.first()).toContainText('Saved check · separate history');
-  await legacyRows.first().getByRole('button', { name: 'Check 1', exact: true }).click();
+  await legacyRows.first().getByRole('button', { name: /^Open check 1 of / }).click();
   const legacyId = (await state(page)).id;
   expect(['legacy-a', 'legacy-b']).toContain(legacyId);
   await expect(page.getByTestId('decision-band')).toBeVisible();
   await page.goto('/#passages');
-  await page.locator(`button[title="${legacyId}"]`).locator('..').locator('..').getByRole('button', { name: 'Delete this passage' }).click();
+  await page.locator('article').filter({ has: page.locator(`button[data-snapshot-id="${legacyId}"]`) }).getByRole('button', { name: /^Delete / }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Delete briefing' }).click();
   await expect(legacyRows).toHaveCount(1);
   const survivors = await page.evaluate(async () => (await import('/src/lib/localSnapshots.js')).localSnapshots.list());
   expect(survivors.map(s => s.snapshot_id).sort()).toEqual([separate.id, legacyId === 'legacy-a' ? 'legacy-b' : 'legacy-a'].sort());
   // Simulate an interrupted save in scratch storage, then retry through Check.
-  await page.locator(`button[title="${separate.id}"]`).click();
+  await page.locator(`button[data-snapshot-id="${separate.id}"]`).click({ position: { x: 8, y: 8 } });
   await expect(page.getByTestId('decision-band')).toBeVisible();
   await page.getByRole('button', { name: 'Revise this passage', exact: true }).click();
   await configure(page);

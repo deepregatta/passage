@@ -76,7 +76,7 @@ test('local briefings cannot be shared by link', async ({ page }) => {
     }
   }, SNAPSHOT_ID);
   await page.reload();
-  await page.locator('button[title="local-analysis"]').click();
+  await page.locator('button[data-snapshot-id="local-analysis"]').click({ position: { x: 8, y: 8 } });
   await expect(page.getByTestId('decision-band')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Share this analysis' })).toBeDisabled();
   await expect(page.getByText('This briefing is stored only in this browser and cannot be shared by link.')).toBeVisible();

@@ -65,6 +65,13 @@
         "keydown",
         "synthetic"
       ],
+      "viewer/src/components/ConfirmDialog.jsx": [
+        "Escape",
+        "Tab",
+        "button, input, select, textarea, a[href], [tabindex]:not([tabindex=\"-1\"])",
+        "hidden",
+        "keydown"
+      ],
       "viewer/src/components/EnsemblePlume.jsx": [
         "0.08",
         "0.10",
@@ -333,9 +340,12 @@
         ".15",
         "/data/verification/cases/index.json",
         "3.5",
+        "Escape",
         "planner",
+        "polite",
+        "route",
         "route.json",
-        "w-24 h-16 sm:w-40 sm:h-24 shrink-0 border hairline rounded-sm"
+        "w-16 h-10 sm:w-40 sm:h-24 sm:row-span-2 shrink-0 border hairline rounded-sm"
       ],
       "viewer/src/pages/Planner.jsx": [
         "compute",
@@ -726,11 +736,8 @@
         "⬇"
       ],
       "viewer/src/pages/Passages.jsx": [
-        "+",
         ",",
-        "·",
-        "→",
-        "✕"
+        "→"
       ],
       "viewer/src/pages/Planner.jsx": [
         "h",

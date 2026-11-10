@@ -7,7 +7,7 @@ export async function openAuditedSnapshot(page) {
   // The example passage groups the demo pair; opening it opens its latest
   // check, the EXAMPLE briefing.
   await page.goto('/#passages');
-  await page.getByRole('button', { name: /cherbourg → plymouth.*example.*official warning/i }).first().click();
+  await page.getByRole('button', { name: /^(open|ouvrir) cherbourg → plymouth/i }).first().click();
   // the passage page is one lazy chunk; a cold dev server can take a while to serve it
   await expect(page.getByText(/EMULATED WARNING SCENARIO/i).first()).toBeVisible({ timeout: 15_000 });
   // the decision band is the first-screen contract; charts render lazily behind it
