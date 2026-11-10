@@ -48,3 +48,31 @@ export function ledgerText(text, referenceIso) {
     })
     .replace(/^(Low|High) (\S+) is the same system as in the previous briefing\./, (_m, kind, id) => `The ${kind.toLowerCase()} (${id} on the chart) is the same system as in the previous check.`);
 }
+
+const ENGINE_DRIVER_SENTENCE = 'This is the rule currently driving the personal-limit assessment.';
+const RESTS_ON_SENTENCE = 'This is the claim the verdict sentence rests on.';
+const LEDGER_SENTENCE = 'This remains in the full ledger because it may matter to passage margins.';
+
+/**
+ * The engine ranks the "what changed" story around its verdict driver (a different claim from the
+ * one the top sentence quotes). Re-target it at the governing claim so the page names one driver:
+ * the governing claim's change leads and says it is the claim the sentence rests on; a change that
+ * was promoted only for being the engine's verdict driver drops back to the full ledger.
+ * @param {{material: object[]}} story engine or client-derived story (not mutated)
+ * @param {{entries: object[]}} changes
+ * @param {{rule_id: string, leg_id: string|null}|null} claim from governingClaim()
+ */
+export function governedStory(story, changes, claim) {
+  if (!claim || !story?.material) return story;
+  const entries = changes?.entries ?? [];
+  const isGoverning = (ref) => entries[ref]?.rule_id === claim.rule_id && entries[ref]?.leg_id === claim.leg_id;
+  const kept = story.material.filter((item) => item.why_it_matters !== ENGINE_DRIVER_SENTENCE || isGoverning(item.change_ref));
+  if (!kept.some((item) => isGoverning(item.change_ref))) {
+    const ref = entries.findIndex((_entry, index) => isGoverning(index));
+    const entry = entries[ref];
+    if (entry) kept.unshift({ change_ref: ref, before: entry.previous ?? null, after: entry.latest ?? null, why_it_matters: ENGINE_DRIVER_SENTENCE, evidence_ids: entry.evidence_pair ?? [] });
+  }
+  const material = kept.slice(0, 3).map((item) => isGoverning(item.change_ref) ? { ...item, why_it_matters: RESTS_ON_SENTENCE }
+    : item.why_it_matters === ENGINE_DRIVER_SENTENCE ? { ...item, why_it_matters: LEDGER_SENTENCE } : item);
+  return { ...story, material };
+}

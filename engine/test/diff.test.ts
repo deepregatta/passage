@@ -105,6 +105,20 @@ describe('change ledger', () => {
     expect(changes.entries.filter((e) => e.kind === 'value_changed')).toHaveLength(0);
   });
 
+  it('states a scenario-share change as a count of scenarios, never in wind units', () => {
+    const scenarios = (exceed: number) => ({
+      rule_id: 'W-GUST-03', leg_id: 'L5', source_kind: 'ensemble' as const, value: exceed, units: 'kt', member_fraction: { exceed, total: 51 },
+    });
+    const changes = diffFindings(
+      fakeFindings({ snapshot_id: 'a', verdict: 'approaching', evidence: [scenarios(40)] }),
+      fakeFindings({ snapshot_id: 'b', verdict: 'approaching', evidence: [scenarios(51)] }),
+    );
+    const entry = changes.entries.find((e) => e.kind === 'value_changed')!;
+    expect(entry.description).toContain('40 → 51 of 51 scenarios');
+    expect(entry.description).not.toMatch(/\bkt\b/);
+    expect(entry.latest).toEqual({ exceed: 51, total: 51 });
+  });
+
   it('phrases warning changes by zone and never leaks a null leg', () => {
     const previous = fakeFindings({ snapshot_id: 'a', verdict: 'within', evidence: [] });
     const latest = fakeFindings({

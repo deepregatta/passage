@@ -105,7 +105,27 @@ export function diffFindings(previous: Findings | null, latest: Findings, nextRu
         });
       }
     }
-    if (typeof p.value === 'number' && typeof e.value === 'number') {
+    // A scenario-share claim stores its member count as `value` (units 'kt' from the limit kind), so
+    // it must be tested first: it is a count of scenarios, never a wind speed.
+    if (p.member_fraction && e.member_fraction) {
+      const deltaMembers = e.member_fraction.exceed - p.member_fraction.exceed;
+      if (Math.abs(deltaMembers) >= 5) {
+        const was = p.member_fraction;
+        const now = e.member_fraction;
+        const counts = was.total === now.total
+          ? `${was.exceed} → ${now.exceed} of ${now.total} scenarios exceed (${deltaMembers > 0 ? 'up' : 'down'} ${Math.abs(deltaMembers)})`
+          : `${was.exceed} of ${was.total} → ${now.exceed} of ${now.total} scenarios exceed`;
+        entries.push({
+          kind: 'value_changed',
+          description: `${ruleLabel(e.rule_id)} ${subject(e, latest)}: ${counts}.`,
+          previous: was,
+          latest: now,
+          evidence_pair: [p.evidence_id, e.evidence_id],
+          rule_id: e.rule_id,
+          leg_id: e.leg_id,
+        });
+      }
+    } else if (typeof p.value === 'number' && typeof e.value === 'number') {
       const delta = e.value - p.value;
       if (Math.abs(delta) >= VALUE_DELTA_MIN) {
         entries.push({
@@ -113,19 +133,6 @@ export function diffFindings(previous: Findings | null, latest: Findings, nextRu
           description: `${ruleLabel(e.rule_id)} ${subject(e, latest)}: ${Math.round(p.value)} → ${Math.round(e.value)} ${e.units ?? ''} (${delta > 0 ? 'up' : 'down'} ${Math.abs(Math.round(delta))}).`,
           previous: p.value,
           latest: e.value,
-          evidence_pair: [p.evidence_id, e.evidence_id],
-          rule_id: e.rule_id,
-          leg_id: e.leg_id,
-        });
-      }
-    } else if (p.member_fraction && e.member_fraction) {
-      const deltaMembers = e.member_fraction.exceed - p.member_fraction.exceed;
-      if (Math.abs(deltaMembers) >= 5) {
-        entries.push({
-          kind: 'value_changed',
-          description: `${ruleLabel(e.rule_id)} ${subject(e, latest)}: ${p.member_fraction.exceed} of ${p.member_fraction.total} → ${e.member_fraction.exceed} of ${e.member_fraction.total} scenarios exceed.`,
-          previous: p.member_fraction,
-          latest: e.member_fraction,
           evidence_pair: [p.evidence_id, e.evidence_id],
           rule_id: e.rule_id,
           leg_id: e.leg_id,

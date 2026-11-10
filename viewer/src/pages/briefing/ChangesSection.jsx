@@ -4,7 +4,8 @@ import { diffFindings } from '@deepweather/engine';
 import { useApp } from '../../stores/appStore.js';
 import { EvidenceLink, VerdictChip } from '../../components/common.jsx';
 import SynopticCompare from '../../components/SynopticCompare.jsx';
-import { deriveChangeStory, kindLabels, ledgerText, ruleLabels } from '../../lib/changeStory.js';
+import { deriveChangeStory, governedStory, kindLabels, ledgerText, ruleLabels } from '../../lib/changeStory.js';
+import { governingClaim, useGoverningReason } from './verdictSentence.js';
 import { fmtTextTime } from '../../lib/format.js';
 import { fetchSnapshotJson } from '../../lib/localSnapshots.js';
 
@@ -23,6 +24,7 @@ export default function ChangesSection() {
   const manifest = useApp((state) => state.manifest);
   const loadManifest = useApp((state) => state.loadManifest);
   const served = useApp((state) => state.snapshotSource === 'served');
+  const reason = useGoverningReason(findings);
   const [state, setState] = useState({ status: 'idle' });
   useEffect(() => { if (!manifest) loadManifest(); }, [manifest, loadManifest]);
   useEffect(() => {
@@ -53,7 +55,7 @@ export default function ChangesSection() {
   if (state.status === 'first') return <div><h2 className="font-story text-2xl">First check of this passage</h2><p className="mt-2 font-instrument text-ink-soft">Nothing to compare yet. Reassess after the next model run.</p></div>;
   if (state.status === 'error') return <p role="alert" className="text-verdict-exceeds">Change ledger error: {state.error}</p>;
   if (state.status !== 'ok') return <p role="status" className="text-ink-soft">Comparing frozen checks…</p>;
-  const story = deriveChangeStory(state.changes, briefing);
+  const story = governedStory(deriveChangeStory(state.changes, briefing), state.changes, governingClaim(findings, reason));
   const emulatedWarning = findings.evidence.some((item) => item.rule_id === 'A-WARN-01' && item.source_kind === 'emulated');
   return <div>
     <header className="border-b-2 border-ink pb-5"><p className="eyebrow">Edited change story · previous → latest</p><h2 className="font-story text-3xl sm:text-4xl leading-tight sm:leading-10 max-w-5xl">{story.headline_plain}</h2><div className="flex items-center gap-3 mt-3"><TransitionChip state={state.changes.verdict_transition.from} emulated={emulatedWarning}/><span>→</span><TransitionChip state={state.changes.verdict_transition.to} emulated={emulatedWarning}/></div></header>
