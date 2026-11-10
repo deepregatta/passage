@@ -170,6 +170,12 @@ describe('language selection', () => {
       'Next ECMWF run (12Z) expected about Sun 19 Jul 20:37.':
         'Prochain cycle ECMWF (12Z) attendu vers dim. 19 juil. 20:37.',
       'Next GFS run (18Z) is due now.': 'Prochain cycle GFS (18Z) attendu maintenant.',
+      'Gusts up to 30 kt, over your 28 kt limit while the low crosses Casquets TSS crossing → Mid-Channel.':
+        'Rafales jusqu’à 30 nd, au-dessus de votre limite de 28 nd pendant que la dépression traverse traversée du DST des Casquets → milieu de la Manche.',
+      'All 51 forecast scenarios exceed your 18 kt limit (winds) while the high crosses waypoint 2 → Finish.':
+        'Les 51 scénarios de prévision dépassent votre limite de 18 nd (vents) pendant que l’anticyclone traverse point de route 2 → Arrivée.',
+      'Seas up to 3 m, close to your 2.5 m limit while the low crosses Start → waypoint 1.':
+        'Mer jusqu’à 3 m, proche de votre limite de 2,5 m pendant que la dépression traverse Départ → point de route 1.',
       'Next GFS run is late; no estimate.': 'Prochain cycle GFS en retard ; pas d’estimation.',
     };
     for (const [english, french] of Object.entries(samples)) {

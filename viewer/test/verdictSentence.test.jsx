@@ -112,5 +112,8 @@ it('example page in French: one verdict sentence, no English left', async () => 
   expect(screen.getByTestId('verdict-detail').textContent).toBe([
     LIMIT_FR, '24 scénarios de prévision simulés sur 51 dépassent cette limite.',
   ].join(' '));
+  // the governing-leg causal note under the story heading is translated whole
+  expect(screen.getByTestId('leg-note').textContent)
+    .toBe('Vents juste au-dessus de votre limite de 18 nd pendant que la dépression traverse NO de Cap de la Hague → traversée du DST des Casquets.');
   expect(container.querySelector('[data-testid="decision-band"]').textContent).not.toMatch(/\b(?:the|your|limit|forecast|scenarios)\b/i);
 });

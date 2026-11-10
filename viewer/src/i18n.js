@@ -1129,6 +1129,8 @@ const FR_PATTERNS = [
   [/^High (.+) track and route occupancy$/, 'Trajectoire de l’anticyclone $1 et occupation de la route'],
   [/^gusts up to ([\d.]+) kt; close to your ([\d.]+) kt limit while the low crosses (.+)\.$/, 'rafales jusqu’à $1 nd; proches de votre limite de $2 nd pendant que la dépression traverse $3.'],
   [/^gusts up to ([\d.]+) kt; over your ([\d.]+) kt limit while the low crosses (.+)\.$/, 'rafales jusqu’à $1 nd; au-dessus de votre limite de $2 nd pendant que la dépression traverse $3.'],
+  // engine findings/events.ts causal consequence: "<Claim> while the low|high crosses <leg name>."
+  [/^([A-Z].+) while the (low|high) crosses (.+)\.$/, (_m, claim, system, leg) => `${translateCausalClaim(claim)} pendant que ${system === 'low' ? 'la dépression' : 'l’anticyclone'} traverse ${translateRouteName(leg)}.`],
   [/^(.+): fresh winds while you are on this stretch \((.+)\)\.(.*)$/, '$1 : vents frais pendant ce tronçon ($2).$3'],
   [/^(.+): strong winds while you are on this stretch \((.+)\)\.(.*)$/, '$1 : vents forts pendant ce tronçon ($2).$3'],
   [/^(.+): light winds while you are on this stretch \((.+)\)\.(.*)$/, '$1 : vents faibles pendant ce tronçon ($2).$3'],
@@ -1557,6 +1559,37 @@ function translateExceedanceClaim(claim) {
     .replace(/^(all (\d+)|(\d+) of (\d+)) forecast scenarios exceed your ([\d.]+) kt limit$/i, (_match, _count, all, exceed, total, limit) => all
       ? `les ${all} scénarios de prévision dépassent votre limite de ${limit} nd`
       : `${exceed} scénarios sur ${total} dépassent votre limite de ${limit} nd`);
+}
+
+const FR_CAUSAL_HAZARD = {
+  gusts: 'rafales', winds: 'vents', seas: 'mer', 'wind against the tide': 'vent contre la marée',
+  'squall risk': 'risque de grains', visibility: 'visibilité', conditions: 'conditions',
+};
+const FR_CAUSAL_RELATION = { over: 'au-dessus de', under: 'sous', below: 'sous', above: 'au-dessus de' };
+
+/** engine plainValueVsLimit / phraseExceedance claims, capitalised, as the causal note starts with them. */
+function translateCausalClaim(claim) {
+  const unit = (u) => (u ? ` ${FR_UNITS[u] ?? u}` : '');
+  const cap = (text) => text.charAt(0).toUpperCase() + text.slice(1);
+  const hazards = Object.keys(FR_CAUSAL_HAZARD).join('|');
+  let m = claim.match(new RegExp(`^(${hazards}) just over your ([\\d.]+)(?: (kt|m|nm))? limit$`, 'i'));
+  if (m) return cap(`${FR_CAUSAL_HAZARD[m[1].toLowerCase()]} juste au-dessus de votre limite de ${frNumber(m[2])}${unit(m[3])}`);
+  m = claim.match(new RegExp(`^(${hazards}) up to ([\\d.]+)(?: (kt|m|nm))?, (over|close to|under) your ([\\d.]+)(?: (kt|m|nm))? limit$`, 'i'));
+  if (m) {
+    const noun = FR_CAUSAL_HAZARD[m[1].toLowerCase()];
+    const close = noun.endsWith('s') ? 'proches de' : 'proche de';
+    return cap(`${noun} jusqu’à ${frNumber(m[2])}${unit(m[3])}, ${m[4] === 'close to' ? close : FR_CAUSAL_RELATION[m[4]]} votre limite de ${frNumber(m[5])}${unit(m[6])}`);
+  }
+  m = claim.match(/^Visibility down to ([\d.]+)(?: (kt|m|nm))?, (below|above) your ([\d.]+)(?: (kt|m|nm))? minimum$/);
+  if (m) return `Visibilité réduite à ${frNumber(m[1])}${unit(m[2])}, ${FR_CAUSAL_RELATION[m[3]]} votre minimum de ${frNumber(m[4])}${unit(m[5])}`;
+  m = claim.match(new RegExp(`^(All (\\d+)|None of the (\\d+)|(\\d+) of (\\d+)) forecast scenarios exceed your ([\\d.]+)(?: (kt|m|nm))? limit \\((${hazards})\\)$`));
+  if (m) {
+    const limit = `votre limite de ${frNumber(m[6])}${unit(m[7])} (${FR_CAUSAL_HAZARD[m[8]]})`;
+    if (m[2]) return `Les ${m[2]} scénarios de prévision dépassent ${limit}`;
+    if (m[3]) return `Aucun des ${m[3]} scénarios de prévision ne dépasse ${limit}`;
+    return `${m[4]} scénarios de prévision sur ${m[5]} dépassent ${limit}`;
+  }
+  return claim;
 }
 
 function translateCapabilityList(value) {
