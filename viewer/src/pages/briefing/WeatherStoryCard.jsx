@@ -97,7 +97,7 @@ export default function WeatherStoryCard({ findings, sections }) {
           type="button"
           onClick={() => setExpanded(!expanded)}
           aria-expanded={expanded}
-          className="w-full text-left border-t hairline pt-2.5 font-sans text-[13px] text-ink-soft hover:text-ink flex justify-between"
+          className="w-full text-left border-t hairline pt-2.5 min-h-11 font-sans text-[13px] text-ink-soft hover:text-ink flex justify-between"
         >
           Why this assessment
           <span aria-hidden>{expanded ? '▴' : '▾'}</span>

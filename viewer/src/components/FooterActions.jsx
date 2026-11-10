@@ -228,7 +228,7 @@ export function ShareAnalysisButton({ onNavigate, className }) {
         aria-describedby={ready && snapshotSource === 'local' ? 'local-sharing-note' : undefined}
         className={className}
       >
-        {copied ? 'Link copied' : 'Share this analysis'}
+        {copied ? 'Link copied' : 'Share this check'}
       </button>
       {ready && snapshotSource === 'local' && (
         <span id="local-sharing-note" className="font-instrument text-xs text-ink-soft">

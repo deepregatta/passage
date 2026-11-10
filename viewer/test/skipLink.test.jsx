@@ -17,7 +17,7 @@ it.each([
   const onNavigate = vi.fn();
   const user = userEvent.setup();
   render(<Shell page="briefing" onNavigate={onNavigate}><button>Content action</button></Shell>);
-  const skip = screen.getByRole('link', { name: 'Skip to briefing content' });
+  const skip = screen.getByRole('link', { name: 'Skip to passage content' });
 
   if (activation === 'keyboard') {
     await user.tab();

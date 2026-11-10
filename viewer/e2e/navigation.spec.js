@@ -39,8 +39,8 @@ test('Plan and About the data checkpoints keep URL deep links', async ({ page })
 
 test('example deep link survives reload and returns to passage planning', async ({ page }) => {
   await page.goto('/#example');
-  const example = page.getByRole('region', { name: 'Example briefing' });
-  await expect(example.getByText('Example briefing', { exact: true })).toBeVisible();
+  const example = page.getByRole('region', { name: 'Example passage' });
+  await expect(example.getByText('Example passage', { exact: true })).toBeVisible();
   await expect(example.getByText('Synthetic / emulated example. Not a live forecast or a safety decision.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Inspect example bulletin' })).toBeVisible();
   await page.reload();

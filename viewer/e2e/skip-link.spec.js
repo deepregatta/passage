@@ -8,7 +8,7 @@ for (const language of ['en', 'fr']) {
     const url = page.url();
     const historyLength = await page.evaluate(() => history.length);
     const skip = page.getByRole('link', {
-      name: language === 'fr' ? 'Aller au contenu du briefing' : 'Skip to briefing content',
+      name: language === 'fr' ? 'Aller au contenu de la traversée' : 'Skip to passage content',
     });
     await page.keyboard.press('Tab');
     await expect(skip).toBeFocused();

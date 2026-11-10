@@ -26,7 +26,7 @@ export default function Shell({ page, onNavigate, children }) {
         // The fragment belongs to the application router, not in-page navigation.
         event.preventDefault();
         mainRef.current?.focus();
-      }} className="sr-only focus:not-sr-only fixed left-3 top-3 z-[100] bg-paper border border-ink px-3 py-2">Skip to briefing content</a>
+      }} className="sr-only focus:not-sr-only fixed left-3 top-3 z-[100] bg-paper border border-ink px-3 py-2">Skip to passage content</a>
       <header className="on-dark md:sticky md:top-0 z-30 bg-ink-deep text-paper border-b border-paper/20">
         <div className="h-14 px-3 sm:px-5 flex items-center gap-4">
           <button type="button" onClick={() => onNavigate('planner')} className="min-h-11 min-w-11 flex items-center justify-center gap-2" aria-label="Passage home">

@@ -39,7 +39,7 @@ for (const french of [false, true]) {
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
     await openAuditedSnapshot(page);
     if (french) await page.getByRole('button', { name: 'Français' }).click();
-    await page.getByRole('button', { name: french ? 'Partager cette analyse' : 'Share this analysis' }).click();
+    await page.getByRole('button', { name: french ? 'Partager cette vérification' : 'Share this check' }).click();
     await expect(page.getByRole('button', { name: french ? 'Lien copié' : 'Link copied' })).toBeVisible();
     const url = await page.evaluate(() => navigator.clipboard.readText());
     expect(url).toBe(new URL(`/${french ? 'fr/' : ''}#passage?snapshot=${SNAPSHOT_ID}`, baseURL).href);
@@ -78,12 +78,12 @@ test('local briefings cannot be shared by link', async ({ page }) => {
   await page.reload();
   await page.locator('button[data-snapshot-id="local-analysis"]').click({ position: { x: 8, y: 8 } });
   await expect(page.getByTestId('decision-band')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Share this analysis' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Share this check' })).toBeDisabled();
   await expect(page.getByText('This briefing is stored only in this browser and cannot be shared by link.')).toBeVisible();
 });
 
 test('an unavailable shared analysis reports failure instead of an empty briefing', async ({ page }) => {
   await page.goto('/#passage?snapshot=missing-analysis');
   await expect(page.getByRole('alert')).toHaveText('This shared analysis is unavailable.');
-  await expect(page.getByRole('button', { name: 'Share this analysis' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Share this check' })).toHaveCount(0);
 });

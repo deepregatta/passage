@@ -19,7 +19,7 @@ it('copies a served identity and reopens it on a fresh app mount', async () => {
   const user = userEvent.setup();
   const view = render(<App />);
   await user.click((await screen.findAllByRole('button', { name: /cherbourg/i }))[0]);
-  await user.click(await screen.findByRole('button', { name: 'Share this analysis' }));
+  await user.click(await screen.findByRole('button', { name: 'Share this check' }));
   expect(await navigator.clipboard.readText()).toBe(`${location.origin}/${sharedHash}`);
   view.unmount();
   history.replaceState(null, '', sharedHash);
@@ -38,15 +38,15 @@ it('disables sharing for a local briefing even if its ID also exists on the serv
   const user = userEvent.setup();
   vi.spyOn(navigator.clipboard, 'writeText');
   render(<ShareAnalysisButton onNavigate={vi.fn()} />);
-  expect(screen.getByRole('button', { name: 'Share this analysis' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Share this check' })).toBeDisabled();
   expect(screen.getByText('This briefing is stored only in this browser and cannot be shared by link.')).toBeTruthy();
-  await user.click(screen.getByRole('button', { name: 'Share this analysis' }));
+  await user.click(screen.getByRole('button', { name: 'Share this check' }));
   expect(navigator.clipboard.writeText).not.toHaveBeenCalled();
 });
 
 it('does not offer analysis sharing without an open analysis', () => {
   render(<ShareAnalysisButton onNavigate={vi.fn()} />);
-  expect(screen.getByRole('button', { name: 'Share this analysis' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Share this check' })).toBeDisabled();
 });
 
 it('reads shared artifacts from the server even when a different local copy exists', async () => {
@@ -63,7 +63,7 @@ it.each(['missing-snapshot', '../private', '%'])('shows a load error for unavail
   useApp.setState({ page: initialPage() });
   render(<App />);
   expect(await screen.findByRole('alert')).toHaveTextContent('This shared analysis is unavailable.');
-  expect(screen.queryByRole('button', { name: 'Share this analysis' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Share this check' })).toBeNull();
 });
 
 it('preserves French links and recovers from a missing shared snapshot via hash navigation', async () => {
@@ -74,7 +74,7 @@ it('preserves French links and recovers from a missing shared snapshot via hash 
   await screen.findByRole('alert');
   await act(async () => { location.hash = sharedHash; });
   await waitFor(() => expect(useApp.getState().findings?.snapshot_id).toBe(id));
-  await user.click(await screen.findByRole('button', { name: 'Share this analysis' }));
+  await user.click(await screen.findByRole('button', { name: 'Share this check' }));
   expect(await navigator.clipboard.readText()).toBe(`${location.origin}/fr/${sharedHash}`);
 });
 
@@ -101,7 +101,7 @@ it('reports clipboard failure without claiming the link was copied', async () =>
   const user = userEvent.setup();
   vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(new Error('Permission denied'));
   render(<ShareAnalysisButton onNavigate={vi.fn()} />);
-  await user.click(screen.getByRole('button', { name: 'Share this analysis' }));
+  await user.click(screen.getByRole('button', { name: 'Share this check' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('Could not copy the link. Please try again.');
   expect(screen.queryByRole('button', { name: 'Link copied' })).toBeNull();
 });
