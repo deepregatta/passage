@@ -580,6 +580,9 @@
       "viewer/src/pages/About.jsx": [
         "variable"
       ],
+      "viewer/src/pages/Planner.jsx": [
+        "Route"
+      ],
       "viewer/src/pages/briefing/EvidenceSection.jsx": [
         "ensemble",
         "maximum"

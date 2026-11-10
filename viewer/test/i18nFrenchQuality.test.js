@@ -91,6 +91,22 @@ describe('French typography, wording and ages', () => {
   });
 
   it.each([
+    ['veer', 'rotation horaire'],
+    ['Story', 'Situation météo'],
+    ['The weather story', 'Situation météo'],
+    ['Route', 'Route'],
+    ['Compute a route', 'Calculer la route'],
+    ['Compute route', 'Calculer la route'],
+    ['2/2 endpoints', '2/2 extrémités placées'],
+    ['Text/table alternative for the plume', 'Version texte et tableau du panache'],
+    ['Next 1 day', 'Les 24 prochaines heures'],
+    ['Switch to Next 1 day', 'Passer aux 24 prochaines heures'],
+    ['evidence', 'Voir les éléments probants'],
+  ])('%s', (english, french) => {
+    expect(fr(english)).toBe(french);
+  });
+
+  it.each([
     ['2 d 3 h', '2 j 3 h'],
     ['age', 'âge'],
     ['3 d', '3 j'],
