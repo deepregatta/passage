@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { MapContainer, Marker, Rectangle, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -6,17 +6,19 @@ import { BASEMAP } from '../../lib/basemap.js';
 import { gribArea } from '../../lib/gribExport.js';
 import { palette } from '../../lib/palette.js';
 import MapTouchScroll from '../../components/MapTouchScroll.jsx';
+import { GRIB_CORNERS, nudgeGribCorner } from './gribBox.js';
 
 // a press that moves less than this is a click: the first corner of a two-click box
 const DRAG_THRESHOLD_PX = 6;
 
 const boxStyle = { color: palette.event, weight: 2, dashArray: '6 4', fillColor: palette.event, fillOpacity: 0.06 };
 
+// A 14 px square to see, inside a 44 px target to press, drag or focus.
 const cornerIcon = L.divIcon({
-  className: '',
-  html: `<div style="width:14px;height:14px;background:${palette.paper.DEFAULT};border:2px solid ${palette.event};cursor:nwse-resize"></div>`,
-  iconSize: [14, 14],
-  iconAnchor: [7, 7],
+  className: 'rounded-sm focus-visible:outline-2 focus-visible:outline-ink focus-visible:-outline-offset-8',
+  html: `<div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;cursor:nwse-resize"><div style="width:14px;height:14px;background:${palette.paper.DEFAULT};border:2px solid ${palette.event}"></div></div>`,
+  iconSize: [44, 44],
+  iconAnchor: [22, 22],
 });
 
 const toBounds = (area) => [[area.minLat, area.minLon], [area.maxLat, area.maxLon]];
@@ -111,35 +113,66 @@ function BoxDrawer({ drawing, onDrawn, onCancel, onPreview }) {
   return null;
 }
 
-/** Corner handles: drag one to resize the box; the opposite corner stays put. */
-function CornerHandles({ area, onChange, onPreview }) {
+/**
+ * Corner handles: drag one to resize the box; the opposite corner stays put.
+ * Each is also a focusable button: the arrow keys move it by 0.1°, Shift +
+ * arrow by 1°, through the same snapping as a drawn box.
+ */
+function CornerHandles({ area, onChange, onPreview, hintId }) {
   const { minLat, maxLat, minLon, maxLon } = area;
+  // the corner to focus again once the nudged box re-creates the handles
+  const refocus = useRef(null);
+  const current = useRef({ area, onChange });
+  current.current = { area, onChange };
   // One position array per box: react-leaflet moves a marker whenever its
   // position prop is a new array, so a fresh one on each drag re-render would
   // snap the handle back to where the drag started.
-  const corners = useMemo(() => [
-    [[maxLat, minLon], { lat: minLat, lon: maxLon }],
-    [[maxLat, maxLon], { lat: minLat, lon: minLon }],
-    [[minLat, maxLon], { lat: maxLat, lon: minLon }],
-    [[minLat, minLon], { lat: maxLat, lon: maxLon }],
-  ], [minLat, maxLat, minLon, maxLon]);
+  const corners = useMemo(() => {
+    const box = { minLat, maxLat, minLon, maxLon };
+    return GRIB_CORNERS.map((corner) => {
+      const at = corner.at(box);
+      return { ...corner, position: [at.lat, at.lon], fixed: corner.opposite(box) };
+    });
+  }, [minLat, maxLat, minLon, maxLon]);
   const moved = (event) => {
     const { lat, lng } = event.target.getLatLng();
     return { lat, lon: lng };
   };
-  return corners.map(([position, opposite], index) => (
+  const added = (corner) => (event) => {
+    const element = event.target.getElement();
+    if (!element) return;
+    element.setAttribute('tabindex', '0');
+    element.setAttribute('role', 'button');
+    element.setAttribute('aria-label', corner.label);
+    element.setAttribute('aria-describedby', hintId);
+    element.addEventListener('keydown', (key) => {
+      const next = nudgeGribCorner(current.current.area, corner.id, key.key, key.shiftKey);
+      if (!next) return;
+      // the arrows move this corner, not the chart or the page
+      key.preventDefault();
+      key.stopPropagation();
+      refocus.current = corner.id;
+      current.current.onChange(next);
+    });
+    if (refocus.current === corner.id) {
+      refocus.current = null;
+      element.focus();
+    }
+  };
+  return corners.map((corner) => (
     <Marker
       // re-keyed per area so a snapped box resets each handle onto its corner
-      key={`${index}:${minLat},${maxLat},${minLon},${maxLon}`}
-      position={position}
+      key={`${corner.id}:${minLat},${maxLat},${minLon},${maxLon}`}
+      position={corner.position}
       icon={cornerIcon}
       draggable
       keyboard={false}
       eventHandlers={{
-        drag: (event) => onPreview(rawBox(moved(event), opposite)),
+        add: added(corner),
+        drag: (event) => onPreview(rawBox(moved(event), corner.fixed)),
         dragend: (event) => {
           onPreview(null);
-          const next = gribArea(moved(event), opposite);
+          const next = gribArea(moved(event), corner.fixed);
           if (next) onChange(next);
         },
       }}
@@ -147,11 +180,14 @@ function CornerHandles({ area, onChange, onPreview }) {
   ));
 }
 
-export default function GribMap({ area, fitNonce, drawing, onDrawn, onCancelDraw, onStartDraw, onAreaChange, disabled }) {
+export default function GribMap({ area, fitNonce, drawing, onDrawn, onCancelDraw, onStartDraw, onClear, onAreaChange, disabled }) {
   const [preview, setPreview] = useState(null);
+  const hintId = useId();
   const shown = preview ?? area;
+  const button = 'pointer-events-auto min-h-11 font-sans font-medium text-sm rounded-sm px-4 py-2 shadow-panel disabled:opacity-40';
   return (
-    <div className="isolate lg:col-span-2 relative border border-ink/30 rounded-sm overflow-hidden" style={{ height: 480 }}>
+    // On wide screens the chart stays in view beside the tool panel (below the 56 px header).
+    <div className="isolate lg:col-span-2 lg:sticky lg:top-[4.5rem] lg:self-start relative border border-ink/30 rounded-sm overflow-hidden" style={{ height: 480 }}>
       <MapContainer
         center={[48.5, -3.5]}
         zoom={6}
@@ -173,22 +209,26 @@ export default function GribMap({ area, fitNonce, drawing, onDrawn, onCancelDraw
             pathOptions={boxStyle}
           />
         )}
-        {area && !drawing && !disabled && <CornerHandles area={area} onChange={onAreaChange} onPreview={setPreview} />}
+        {area && !drawing && !disabled && <CornerHandles area={area} onChange={onAreaChange} onPreview={setPreview} hintId={hintId} />}
       </MapContainer>
-      <div className="absolute top-3 inset-x-3 z-[1000] flex justify-center pointer-events-none">
+      <p id={hintId} className="sr-only">Arrow keys move the corner by 0.1°, Shift and an arrow key by 1°.</p>
+      <div className="absolute top-3 inset-x-3 z-[1000] flex flex-wrap justify-center gap-2 pointer-events-none">
         {drawing ? (
-          <p className="pointer-events-auto flex flex-wrap items-center gap-3 bg-ink text-paper font-sans text-sm rounded-sm px-3 py-2 shadow-panel">
-            <span>Drag across the chart to draw your area.</span>
-            <button type="button" onClick={onCancelDraw} className="underline">Cancel</button>
+          <p className="pointer-events-auto flex flex-wrap items-center gap-x-3 bg-ink text-paper font-sans text-sm rounded-sm px-3 py-1 shadow-panel">
+            <span>Tap two corners or drag across the chart to draw your area.</span>
+            <button type="button" onClick={onCancelDraw} className="min-h-11 underline">Cancel</button>
           </p>
-        ) : !area && (
-          // once there is a box, its corner handles adjust it
-          <button
-            type="button"
-            onClick={onStartDraw}
-            disabled={disabled}
-            className="pointer-events-auto bg-ink text-paper font-sans font-medium text-sm rounded-sm px-4 py-2 shadow-panel hover:bg-ink-deep disabled:opacity-40"
-          >
+        ) : area ? (
+          <>
+            <button type="button" onClick={onStartDraw} disabled={disabled} className={`${button} bg-ink text-paper hover:bg-ink-deep`}>
+              Draw a new box
+            </button>
+            <button type="button" onClick={onClear} disabled={disabled} className={`${button} bg-paper text-ink border border-ink/50 hover:bg-white`}>
+              Clear box
+            </button>
+          </>
+        ) : (
+          <button type="button" onClick={onStartDraw} disabled={disabled} className={`${button} bg-ink text-paper hover:bg-ink-deep`}>
             Draw a box
           </button>
         )}

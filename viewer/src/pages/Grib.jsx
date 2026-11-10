@@ -25,6 +25,7 @@ import {
   fmtGustWindows,
   fmtHorizonShort,
   fmtLatLon,
+  fmtLocalRange,
   fmtTooLarge,
   fmtUtc,
   fmtUtcRange,
@@ -53,6 +54,7 @@ import {
 } from '../lib/gribExport.js';
 import { isGribPath, locationRoute } from '../lib/routes.js';
 import { useGrib } from '../stores/gribStore.js';
+import GribAreaFields from './grib/GribAreaFields.jsx';
 import GribInfo from './grib/GribInfo.jsx';
 import GribMap from './grib/GribMap.jsx';
 
@@ -129,14 +131,15 @@ function derive({ manifests, area, period, step, nowMs }) {
   }
 }
 
-function Step({ number, title, children }) {
+function Step({ number, title, children, stepRef = null }) {
   return (
-    <div className="flex gap-3">
+    // scroll-mt: clear of the sticky header when the page brings this step into view
+    <div ref={stepRef} className="flex gap-3 scroll-mt-20">
       <span aria-hidden="true" className="shrink-0 inline-flex w-6 h-6 items-center justify-center rounded-full bg-ink text-paper font-mono text-xs">
         {number}
       </span>
       <div className="min-w-0 flex-1 space-y-1.5">
-        <h3 className="eyebrow">{title}</h3>
+        <h3 className="eyebrow text-[12px]!">{title}</h3>
         {children}
       </div>
     </div>
@@ -190,7 +193,7 @@ function FileDetails({ file, label = null }) {
   if (file.fnv64) rows.push(['Checksum (FNV-1a 64)', <code className="font-mono">{file.fnv64}</code>]);
   return (
     <details className="mt-1">
-      <summary className="cursor-pointer text-[12px] text-ink-soft">
+      <summary className="cursor-pointer min-h-11 md:min-h-0 flex md:block items-center text-[12px] text-ink-soft">
         <span>File details</span>{label && <>{' · '}<span>{label}</span></>}
       </summary>
       <dl className="mt-2 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 text-[12px]">
@@ -203,7 +206,7 @@ function FileDetails({ file, label = null }) {
         <dt className="text-ink-soft">Times (UTC)</dt>
         <dd className="font-mono max-h-24 overflow-y-auto">{file.times.map((time) => fmtTime(time)).join(', ')}</dd>
       </dl>
-      <p className="eyebrow mt-3 mb-1">Spot values</p>
+      <p className="eyebrow text-[12px]! mt-3 mb-1">Spot values</p>
       <SpotValues file={file} />
     </details>
   );
@@ -213,7 +216,7 @@ function FileDetails({ file, label = null }) {
 function ModelPicker({ kindId, options, selected, disabled, onChoose }) {
   return (
     <div role="radiogroup" aria-label={MODEL_SELECTS[kindId]} className="flex flex-wrap items-center gap-1.5 text-[12px]">
-      <span aria-hidden="true" className="eyebrow mr-0.5">Model</span>
+      <span aria-hidden="true" className="eyebrow text-[12px]! mr-0.5">Model</span>
       {options.map((option) => {
         const checked = option.id === selected;
         const usable = option.availability === 'ok';
@@ -226,7 +229,7 @@ function ModelPicker({ kindId, options, selected, disabled, onChoose }) {
             disabled={disabled || !usable}
             title={usable ? undefined : UNAVAILABLE[option.availability]}
             onClick={() => onChoose(option.id)}
-            className={`rounded-sm border px-2 py-1 ${checked ? 'border-ink bg-ink text-paper' : 'hairline bg-white/60 hover:bg-white hover:border-ink/50'} disabled:cursor-not-allowed ${!usable ? 'border-dashed text-ink-soft' : ''} ${disabled && !checked ? 'opacity-60' : ''}`}
+            className={`min-h-11 md:min-h-0 rounded-sm border px-2 py-1 ${checked ? 'border-ink bg-ink text-paper' : 'hairline bg-white/60 hover:bg-white hover:border-ink/50'} disabled:cursor-not-allowed ${!usable ? 'border-dashed text-ink-soft' : ''} ${disabled && !checked ? 'opacity-60' : ''}`}
           >
             <span className="font-medium">{option.name}</span>
             {option.spacing && <span className={`ml-1 font-mono ${checked ? 'opacity-80' : 'text-ink-soft'}`}>{option.spacing}</span>}
@@ -246,19 +249,19 @@ function DownloadControl({ label, running, progress, disabled, onDownload, onCan
           <button
             type="button"
             onClick={onCancel}
-            className="min-w-[11rem] border border-ink/50 rounded-sm px-4 py-2 hover:bg-white/50"
+            className="min-w-[11rem] min-h-11 border border-ink/50 rounded-sm px-4 py-2 hover:bg-white/50"
           >
             Cancel
           </button>
           <progress className="w-32" value={progress.done} max={Math.max(1, progress.total)} aria-label="GRIB file progress" />
-          <span className="text-[12px] text-ink-soft">{STAGE_LABELS[progress.stage]}</span>
+          <span aria-live="polite" className="text-[12px] text-ink-soft">{STAGE_LABELS[progress.stage]}</span>
         </>
       ) : (
         <button
           type="button"
           onClick={onDownload}
           disabled={disabled}
-          className="min-w-[11rem] bg-ink text-paper font-medium rounded-sm px-4 py-2 hover:bg-ink-deep disabled:opacity-40"
+          className="min-w-[11rem] min-h-11 bg-ink text-paper font-medium rounded-sm px-4 py-2 hover:bg-ink-deep disabled:opacity-40"
         >
           <span aria-hidden="true">⬇ </span>{label}
         </button>
@@ -275,14 +278,40 @@ function SavedFile({ file, children }) {
         <span className="font-medium">Saved</span>
         <code className="font-mono break-all">{file.name}</code>
         <span className="text-ink-soft">{fmtGribBytes(file.bytes)}</span>
-        <a href={file.url} download={file.name} className="underline">Save again</a>
+        <a href={file.url} download={file.name} className="inline-flex min-h-11 md:min-h-0 items-center underline">Save again</a>
       </p>
       {children}
     </div>
   );
 }
 
-function KindRow({ kindId, dataset, timeWindow, period, result, running, progress, busy, models, shorter, onChoose, onPeriod, onDownload, onCancel }) {
+/** An error after a download press, beside the file it was for. */
+function RowError({ message }) {
+  return message ? <p role="alert" className="text-verdict-exceeds text-[13px]">{message}</p> : null;
+}
+
+/**
+ * A file's times, in UTC and the browser's zone. A file runs from the model's
+ * own forecast steps: the one before the period's start and the one after its
+ * end when those fall between steps (docs/grib-export.md → Times), so it can
+ * start earlier and end later than the period line.
+ */
+function FileTimes({ info, timeWindow }) {
+  const local = fmtLocalRange(info.first, info.last);
+  const before = Date.parse(info.first) < Date.parse(timeWindow.startIso);
+  const after = Date.parse(info.last) > Date.parse(timeWindow.endIso);
+  return (
+    <p className="text-[12px]">
+      <span>File covers</span>{' '}<span className="font-mono">{fmtUtcRange(info.first, info.last)}</span>
+      {' · '}<span>{fmtGribSteps(info.steps)}</span>
+      {local && <span className="block font-mono">{local}</span>}
+      {before && <span className="block text-ink-soft">Starts at the model’s forecast step before your period.</span>}
+      {after && <span className="block text-ink-soft">Ends at the model’s forecast step after your period.</span>}
+    </p>
+  );
+}
+
+function KindRow({ kindId, dataset, timeWindow, period, result, running, progress, busy, models, shorter, error, onChoose, onPeriod, onDownload, onCancel }) {
   const info = describeGribDataset(dataset, timeWindow);
   const note = gribDataset(dataset.datasetId)?.note;
   const tooLarge = info.ok && dataset.estBytes > GRIB_MAX_EST_BYTES;
@@ -296,27 +325,23 @@ function KindRow({ kindId, dataset, timeWindow, period, result, running, progres
         onDownload={onDownload}
         onCancel={onCancel}
       />
+      <RowError message={error} />
       {models.length > 1 && (
         <ModelPicker kindId={kindId} options={models} selected={dataset.datasetId} disabled={busy} onChoose={onChoose} />
       )}
       {shorter && !running && (
         <p className="text-[12px] text-ink-soft">
           <span>Shorter forecast:</span>{' '}<span>{shorter.names.join(', ')}</span>{' · '}
-          <button type="button" className="underline disabled:no-underline" disabled={busy} onClick={() => onPeriod(shorter.period)}>
+          <button type="button" className="inline-flex min-h-11 md:min-h-0 items-center underline disabled:no-underline" disabled={busy} onClick={() => onPeriod(shorter.period)}>
             {SWITCH_LABELS[shorter.period]}
           </button>
         </p>
       )}
-      <p className="text-[12px]">
+      <p className="text-[13px]">
         <span className="font-medium">{dataset.label}</span>
-        {info.ok && (
-          <span className="block text-ink-soft">
-            <span className="font-mono">{fmtUtcRange(info.first, info.last)}</span>
-            {' · '}<span>{fmtGribSteps(info.steps)}</span>
-            {' · ≈ '}<span>{fmtGribBytes(dataset.estBytes)}</span>
-          </span>
-        )}
+        {info.ok && <>{' · ≈ '}<span className="font-medium">{fmtGribBytes(dataset.estBytes)}</span></>}
       </p>
+      {info.ok && <FileTimes info={info} timeWindow={timeWindow} />}
       {!info.ok && <p className="text-[12px] text-ink-soft">{UNAVAILABLE[dataset.availability]}</p>}
       {dataset.downloadBytesUpperBound > 0 && dataset.datasetId.startsWith('wind-') && !['wind-gfs', 'wind-ecmwf'].includes(dataset.datasetId) && (
         <p className="text-[12px] text-ink-soft"><span>Forecast tile transfer</span>{' · ≈ '}{fmtGribBytes(dataset.downloadBytesUpperBound)}</p>
@@ -343,7 +368,7 @@ function KindRow({ kindId, dataset, timeWindow, period, result, running, progres
  * The chosen wind and currents models in one file, for GRIB software that
  * opens one file at a time. The messages are the separate files' own.
  */
-function CombinedRow({ datasets, estBytes, result, running, progress, busy, onDownload, onCancel }) {
+function CombinedRow({ datasets, estBytes, result, running, progress, busy, error, onDownload, onCancel }) {
   return (
     <li className="space-y-1 border-t hairline pt-3">
       <DownloadControl
@@ -354,14 +379,15 @@ function CombinedRow({ datasets, estBytes, result, running, progress, busy, onDo
         onDownload={onDownload}
         onCancel={onCancel}
       />
+      <RowError message={error} />
       <p className="text-[12px] text-ink-soft">
         Wind and currents in one file, for GRIB software that opens one file at a time, such as XyGrib. Each keeps its own model, grid and forecast run.
       </p>
-      <p className="text-[12px]">
+      <p className="text-[13px]">
         {datasets.map((dataset, index) => (
           <span key={dataset.datasetId}>{index > 0 && ' · '}<span className="font-medium">{dataset.label}</span></span>
         ))}
-        {' · ≈ '}<span>{fmtGribBytes(estBytes)}</span>
+        {' · ≈ '}<span className="font-medium">{fmtGribBytes(estBytes)}</span>
       </p>
       {result && (result.file.url ? (
         <SavedFile file={result.file}>
@@ -389,7 +415,9 @@ export default function Grib() {
   const [drawing, setDrawing] = useState(false);
   const [progress, setProgress] = useState(null);
   const [results, setResults] = useState({});
+  // { kindId, message }: shown beside that file's button
   const [error, setError] = useState(null);
+  const nextStepRef = useRef(null);
   // the running file: { controller, key }
   const jobRef = useRef(null);
   const resultsRef = useRef({});
@@ -519,6 +547,7 @@ export default function Grib() {
   }, [liveKeysSignature]);
 
   const running = progress !== null;
+  const periodLocal = fmtLocalRange(timeWindow.startIso, timeWindow.endIso);
   const attributions = [...new Set(kinds.map(({ dataset }) => dataset.spec.attribution))];
 
   // One file: re-read latest.json first when it is over 10 minutes old; a
@@ -570,9 +599,9 @@ export default function Grib() {
       });
     } catch (e) {
       if (controller.signal.aborted) {
-        if (controller.signal.reason !== SETTINGS_CHANGED) setError('Cancelled. No file was saved.');
+        if (controller.signal.reason !== SETTINGS_CHANGED) setError({ kindId, message: 'Cancelled. No file was saved.' });
       } else if (e?.code === 'forecast-updated') throw e; // refreshed and retried once
-      else setError(friendlyForecastError(e).message);
+      else setError({ kindId, message: friendlyForecastError(e).message });
     } finally {
       if (jobRef.current === job) {
         jobRef.current = null;
@@ -582,7 +611,28 @@ export default function Grib() {
   };
 
   const download = (kindId) => withFreshForecast((fresh) => prepare(kindId, fresh))
-    .catch((e) => setError(e?.code === 'forecast-updated' ? FORECAST_UPDATED_MESSAGE : friendlyForecastError(e).message));
+    .catch((e) => setError({ kindId, message: e?.code === 'forecast-updated' ? FORECAST_UPDATED_MESSAGE : friendlyForecastError(e).message }));
+  const errorFor = (kindId) => (error?.kindId === kindId ? error.message : null);
+  // an error whose file row has gone (its kind no longer offered) still shows
+  const strayError = error && !kinds.some(({ kindId }) => kindId === error.kindId) && !(error.kindId === COMBINED && combined)
+    ? error.message : null;
+
+  /**
+   * On narrow screens the steps sit below the chart: bring the period into
+   * view, right after a box is drawn only when it is out of sight, or when the
+   * Next cue is pressed. Smooth unless the reader asks for reduced motion.
+   */
+  const revealNextStep = ({ onlyIfHidden }) => {
+    const target = nextStepRef.current;
+    if (!target) return;
+    if (onlyIfHidden) {
+      if (!window.matchMedia?.('(max-width: 1023px)').matches) return;
+      // 64 px fixed bottom navigation on phones
+      if (target.getBoundingClientRect().top < window.innerHeight - 64 - 48) return;
+    }
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    target.scrollIntoView?.({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+  };
 
   const savedAny = Object.values(results).some((result) => result.file.url);
   const replayRaces = savedAny ? gribReplayRaces(area) : [];
@@ -615,54 +665,72 @@ export default function Grib() {
           disabled={running}
           onStartDraw={() => setDrawing(true)}
           onCancelDraw={() => setDrawing(false)}
+          onClear={() => {
+            setDrawing(false);
+            patch({ area: null });
+          }}
           onDrawn={(drawn) => {
             setDrawing(false);
             patch({ area: drawn });
+            requestAnimationFrame(() => revealNextStep({ onlyIfHidden: true }));
           }}
           onAreaChange={(changed) => patch({ area: changed })}
         />
+        {area && !drawing && (
+          <button
+            type="button"
+            onClick={() => revealNextStep({ onlyIfHidden: false })}
+            className="lg:hidden justify-self-start min-h-11 font-sans text-sm underline underline-offset-4"
+          >
+            <span>Next: choose the period and download</span><span aria-hidden="true"> ↓</span>
+          </button>
+        )}
 
         <Panel title="Your GRIB files">
           <div className="space-y-5 font-sans text-sm" aria-label="GRIB download" role="region">
             <Step number={1} title="Area">
               {drawing ? (
-                <p>Drag across the chart to draw your area.</p>
+                <p>Tap two corners or drag across the chart to draw your area.</p>
               ) : area ? (
                 <>
-                  <p className="font-mono text-[13px]">{fmtGribBox(area)}</p>
+                  <p aria-live="polite" className="font-mono text-[13px]">{fmtGribBox(area)}</p>
                   <p className="text-[12px] text-ink-soft">Drag a corner of the box to adjust it.</p>
                 </>
               ) : (
                 <p>Move the chart to your sailing area, press Draw a box, then drag across the chart.</p>
               )}
-              {planError && <p className="text-verdict-exceeds text-[13px]">This area can’t be exported (it may cross the 180° meridian).</p>}
+              {planError && <p role="alert" className="text-verdict-exceeds text-[13px]">This area can’t be exported (it may cross the 180° meridian).</p>}
+              <GribAreaFields area={area} disabled={running || drawing} onArea={showArea} />
             </Step>
 
-            <Step number={2} title="Period">
+            <Step number={2} title="Period" stepRef={nextStepRef}>
               <select
                 value={period}
                 onChange={(e) => patch({ period: e.target.value })}
                 disabled={running}
                 aria-label="Period"
-                className="bg-white/60 border hairline rounded-sm px-2 py-1.5"
+                className="min-h-11 md:min-h-0 bg-white/60 border hairline rounded-sm px-2 py-1.5 text-base md:text-sm"
               >
                 {GRIB_PERIODS.map((value) => <option key={value} value={value}>{PERIOD_LABELS[value]}</option>)}
               </select>
               {period === 'full' ? (
                 <p className="text-[12px]">Each model runs from now to the end of its available forecast.</p>
               ) : (
-                <p className="font-mono text-[12px]">{fmtUtcRange(timeWindow.startIso, timeWindow.endIso)}</p>
+                <p className="text-[12px]">
+                  <span className="font-mono">{fmtUtcRange(timeWindow.startIso, timeWindow.endIso)}</span>
+                  {periodLocal && <span className="block font-mono">{periodLocal}</span>}
+                </p>
               )}
             </Step>
 
             <Step number={3} title="Download">
               <p className="text-[12px] text-ink-soft">One file for each, to open in your GRIB software.</p>
               {!area && <p className="text-ink-soft">Draw your area first.</p>}
-              {area && manifestState.status === 'loading' && <p className="text-ink-soft">Loading the forecast runs…</p>}
+              {area && manifestState.status === 'loading' && <p role="status" className="text-ink-soft">Loading the forecast runs…</p>}
               {area && manifestState.status === 'error' && (
-                <p className="text-ink-soft">
+                <p role="alert" className="text-ink-soft">
                   <span>The forecast runs are unavailable, so GRIB files can’t be prepared right now.</span>{' '}
-                  <button type="button" className="underline" onClick={() => setManifestState((s) => ({ ...s, status: 'loading', attempt: s.attempt + 1 }))}>
+                  <button type="button" className="inline-flex min-h-11 md:min-h-0 items-center underline" onClick={() => setManifestState((s) => ({ ...s, status: 'loading', attempt: s.attempt + 1 }))}>
                     Try again
                   </button>
                 </p>
@@ -682,6 +750,7 @@ export default function Grib() {
                       busy={running || drawing}
                       models={pickers[kindId]?.options ?? []}
                       shorter={pickers[kindId]?.shorter ?? null}
+                      error={errorFor(kindId)}
                       onChoose={(id) => patch({ models: { ...models, [kindId]: id } })}
                       onPeriod={(value) => patch({ period: value })}
                       onDownload={() => download(kindId)}
@@ -696,13 +765,14 @@ export default function Grib() {
                       running={progress?.kindId === COMBINED}
                       progress={progress}
                       busy={running || drawing}
+                      error={errorFor(COMBINED)}
                       onDownload={() => download(COMBINED)}
                       onCancel={() => jobRef.current?.controller.abort()}
                     />
                   )}
                 </ul>
               )}
-              {error && <p className="text-verdict-exceeds text-[13px]">{error}</p>}
+              {strayError && <p role="alert" className="text-verdict-exceeds text-[13px]">{strayError}</p>}
               {savedAny && (
                 <p className="text-[12px] text-ink-soft">
                   Your browser saves the files in its Downloads folder. Open them from there in your GRIB software.
@@ -728,15 +798,15 @@ export default function Grib() {
 
             {plan && (
               <details className="border-t hairline pt-3">
-                <summary className="cursor-pointer text-[13px]">More options</summary>
+                <summary className="cursor-pointer min-h-11 md:min-h-0 flex md:block items-center text-[13px]">More options</summary>
                 <div className="mt-3 space-y-3">
                   <label className="block">
-                    <span className="eyebrow block mb-1">Time step</span>
+                    <span className="eyebrow text-[12px]! block mb-1">Time step</span>
                     <select
                       value={String(step)}
                       onChange={(e) => patch({ step: e.target.value === 'all' ? 'all' : Number(e.target.value) })}
                       disabled={running}
-                      className="w-full bg-white/60 border hairline rounded-sm px-2 py-1.5"
+                      className="w-full min-h-11 md:min-h-0 bg-white/60 border hairline rounded-sm px-2 py-1.5 text-base md:text-sm"
                     >
                       {GRIB_STEPS.map((value) => <option key={value} value={String(value)}>{STEP_LABELS[value]}</option>)}
                     </select>

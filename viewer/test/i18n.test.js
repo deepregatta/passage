@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FORECAST_UPDATED_MESSAGE, GRIB_DATASETS, GRIB_EXPORT_NOTICE } from '@deepweather/engine';
 import { LocalizedDocument, getDefaultLanguage, getInitialLanguage, getLanguageFromPath, translateText } from '../src/i18n.js';
 import {
-  fmtGribArea, fmtGribBox, fmtGribBytes, fmtGribSteps, fmtGustWindows, fmtHorizonShort, fmtLatLon, fmtTooLarge, fmtUtc, fmtUtcRange,
+  fmtGribArea, fmtGribBox, fmtGribBytes, fmtGribSteps, fmtGustWindows, fmtHorizonShort, fmtLatLon, fmtLocalRange, fmtTooLarge, fmtUtc, fmtUtcRange,
 } from '../src/lib/gribExport.js';
 
 afterEach(() => {
@@ -279,6 +279,24 @@ describe('GRIB files page copy', () => {
     [fmtGribArea({ south: 48, north: 51, west: -6, east: 2 }), '48°N–51°N, 6°O–2°E'],
     [fmtGribBox({ minLat: 48.9, maxLat: 51, minLon: -4.7, maxLon: 1.2 }), '48.9°N–51°N, 4.7°O–1.2°E'],
   ])('translates the generated GRIB text %s', (english, french) => {
+    expect(translateText(english, 'fr')).toBe(french);
+    expect(translateText(english, 'en')).toBe(english);
+  });
+
+  it.each([
+    ['Tap two corners or drag across the chart to draw your area.', 'Touchez deux coins ou faites glisser sur la carte pour tracer votre zone.'],
+    ['Draw a new box', 'Tracer un nouveau cadre'],
+    ['Clear box', 'Effacer le cadre'],
+    ['Move north-west corner', 'Déplacer le coin nord-ouest'],
+    ['Move south-east corner', 'Déplacer le coin sud-est'],
+    ['West', 'Ouest'],
+    ['Enter a longitude from -180 to 180, such as -9.5 or 9.5W.', 'Saisissez une longitude entre -180 et 180, par exemple -9.5 ou 9.5O.'],
+    ['South must be below north.', 'Le sud doit être en dessous du nord.'],
+    ['Next: choose the period and download', 'Étape suivante : choisir la période et télécharger'],
+    ['File covers', 'Le fichier couvre'],
+    ['Starts at the model’s forecast step before your period.', 'Commence à l’échéance du modèle qui précède votre période.'],
+    [fmtLocalRange('2026-07-20T06:00:00Z', '2026-07-23T06:00:00Z', 'Europe/Paris'), 'lun. 20 juil. 08:00 → jeu. 23 juil. 08:00 CEST'],
+  ])('translates the GRIB box, cue and time copy %s', (english, french) => {
     expect(translateText(english, 'fr')).toBe(french);
     expect(translateText(english, 'en')).toBe(english);
   });

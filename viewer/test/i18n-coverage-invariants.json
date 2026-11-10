@@ -293,9 +293,12 @@
       ],
       "viewer/src/pages/Grib.jsx": [
         "#",
+        "(max-width: 1023px)",
+        "(prefers-reduced-motion: reduce)",
         "_blank",
         "all",
         "area=",
+        "auto",
         "d",
         "forecast-updated",
         "full",
@@ -311,9 +314,12 @@
         "outside-horizon",
         "plan",
         "planner",
+        "polite",
         "popstate",
         "ready",
         "settings-changed",
+        "smooth",
+        "start",
         "tiles",
         "too-large",
         "|"
@@ -402,20 +408,46 @@
         "wind_against_current",
         "wind_kt"
       ],
+      "viewer/src/pages/grib/GribAreaFields.jsx": [
+        "-error",
+        "Enter",
+        "east",
+        "lat",
+        "lon",
+        "maxLat",
+        "maxLon",
+        "minLat",
+        "minLon",
+        "north",
+        "south",
+        "true",
+        "west"
+      ],
+      "viewer/src/pages/grib/GribInfo.jsx": [
+        "h2"
+      ],
       "viewer/src/pages/grib/GribMap.jsx": [
+        "\"></div></div>",
         ".leaflet-control",
+        "0",
         ";border:2px solid",
-        ";cursor:nwse-resize\"></div>",
-        "<div style=\"width:14px;height:14px;background:",
+        "<div style=\"width:44px;height:44px;display:flex;align-items:center;justify-content:center;cursor:nwse-resize\"><div style=\"width:14px;height:14px;background:",
         "Escape",
+        "aria-describedby",
+        "aria-label",
+        "button",
         "crosshair",
         "https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png",
         "keydown",
         "mouse",
         "none",
+        "pointer-events-auto min-h-11 font-sans font-medium text-sm rounded-sm px-4 py-2 shadow-panel disabled:opacity-40",
         "pointerdown",
         "pointermove",
-        "pointerup"
+        "pointerup",
+        "role",
+        "rounded-sm focus-visible:outline-2 focus-visible:outline-ink focus-visible:-outline-offset-8",
+        "tabindex"
       ],
       "viewer/src/pages/planner/DepartureComparison.jsx": [
         "insufficient"
@@ -685,6 +717,7 @@
         "·",
         "· ≈",
         "–",
+        "↓",
         "⬇"
       ],
       "viewer/src/pages/Passages.jsx": [
@@ -744,6 +777,12 @@
       "viewer/src/pages/briefing/routeLabels.jsx": [
         ",",
         "→"
+      ],
+      "viewer/src/pages/grib/GribAreaFields.jsx": [
+        "-"
+      ],
+      "viewer/src/pages/grib/GribInfo.jsx": [
+        "▸"
       ],
       "viewer/src/pages/grib/GribMap.jsx": [
         "6 4"

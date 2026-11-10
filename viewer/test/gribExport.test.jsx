@@ -20,6 +20,7 @@ import {
   fmtGribBytes,
   fmtGribGrid,
   fmtLatLon,
+  fmtLocalRange,
   gribArea,
   gribAreaFromHash,
   gribAreaHash,
@@ -36,18 +37,42 @@ import {
   planAreaGrib,
   validGribArea,
 } from '../src/lib/gribExport.js';
+import { nudgeGribCorner, parseGribCoordinate } from '../src/pages/grib/gribBox.js';
 
 const store = vi.hoisted(() => ({ current: null }));
 const mapState = vi.hoisted(() => ({ rectangle: null, fits: [] }));
 
-vi.mock('react-leaflet', () => ({
+vi.mock('react-leaflet', async () => {
+  const { useEffect, useRef } = await vi.importActual('react');
+  // A marker is a plain element here; its `add` handler sees it as Leaflet's marker element.
+  function Marker({ eventHandlers }) {
+    const ref = useRef(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    useEffect(() => { eventHandlers?.add?.({ target: { getElement: () => ref.current } }); }, []);
+    return <div ref={ref} data-testid="marker" />;
+  }
+  return {
   MapContainer: ({ children }) => <div>{children}</div>, TileLayer: () => null,
-  Marker: () => null, Polyline: () => null,
+  Marker, Polyline: () => null,
   Rectangle: (props) => {
     mapState.rectangle = props;
     return <div data-testid="grib-box" />;
   },
-  useMap: () => ({ fitBounds: (bounds) => mapState.fits.push(bounds) }), useMapEvents: vi.fn(),
+  useMap: () => {
+    const handler = { enable: () => {}, disable: () => {} };
+    mapState.container ??= document.createElement('div');
+    return {
+      fitBounds: (bounds) => mapState.fits.push(bounds), getContainer: () => mapState.container,
+      dragging: handler, boxZoom: handler, doubleClickZoom: handler,
+    };
+  },
+  useMapEvents: vi.fn(),
+  };
+});
+// The browser's zone, fixed so the local times beside UTC do not depend on the test machine.
+vi.mock('../src/lib/format.js', async () => ({
+  ...(await vi.importActual('../src/lib/format.js')),
+  localTimeZoneName: () => 'Europe/Paris',
 }));
 vi.mock('../src/lib/browserAnalysis.js', () => ({ analyzeInBrowser: vi.fn(), saveRoute: vi.fn() }));
 vi.mock('../src/lib/analytics.js', () => ({ track: vi.fn(), withUtm: (href) => href }));
@@ -449,6 +474,13 @@ describe('GRIB files page', () => {
     expect(within(info).getByText(/^qtVlm.*Not yet tested\./)).toBeInTheDocument();
     expect(text).toContain('Not for navigation: this is forecast data for planning.');
     expect(within(info).getByRole('link', { name: 'Privacy policy' })).toHaveAttribute('href', '/privacy');
+    // one collapsible section per heading, the heading in its summary; contents and programs start open
+    const sections = info.querySelectorAll('details');
+    expect([...sections].map((details) => [details.querySelector('summary > h2')?.textContent, details.open])).toEqual([
+      ['Which models are used', false], ['How current the forecast is', false], ['What is in the files', true],
+      ['What is not in the files', false], ['Opening the files in your software', true], ['Limits', false], ['Data and privacy', false],
+    ]);
+    expect(text).toContain('You can switch with the model buttons below the download button.');
   });
 
   it('translates the information below the tool into French, with the French privacy link', () => {
@@ -465,8 +497,10 @@ describe('GRIB files page', () => {
   it('offers one download per kind with the local model, its times, size and notes', async () => {
     await openWith(CHANNEL);
     expect(mapState.rectangle.bounds).toEqual([[50.2, -9.9], [50.9, -9.1]]);
-    // corner handles adjust an existing box; there is no redraw button
-    expect(screen.queryByRole('button', { name: /Draw a box|Redraw/ })).not.toBeInTheDocument();
+    // corner handles adjust an existing box; a new box or none stays one click away
+    expect(screen.queryByRole('button', { name: 'Draw a box' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Draw a new box' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Clear box' })).toBeEnabled();
     expect(page().getByText('Drag a corner of the box to adjust it.')).toBeInTheDocument();
     expect(page().getByText('50.2°N–50.9°N, 9.9°W–9.1°W')).toBeInTheDocument();
     // the period, and ECMWF wind which covers all of it
@@ -732,7 +766,8 @@ describe('GRIB files page', () => {
     expect(page().getByRole('button', { name: 'Download currents' })).toBeDisabled();
     fireEvent.click(cancel);
     release();
-    expect(await page().findByText('Cancelled. No file was saved.')).toBeInTheDocument();
+    // announced, beside the file it was for
+    await waitFor(() => expect(kindItem('Download wind').getByRole('alert')).toHaveTextContent('Cancelled. No file was saved.'));
     expect(page().getByRole('button', { name: 'Download wind' })).toBeEnabled();
     expect(URL.createObjectURL).not.toHaveBeenCalled();
     expect(saves).toHaveLength(0);
@@ -810,6 +845,155 @@ describe('GRIB files page', () => {
     expect(item.getByText('Détails du fichier')).toBeInTheDocument();
     expect(within(region).getByRole('button', { name: 'Télécharger vent + courants' })).toBeInTheDocument();
     expect(within(region).getByText(/^Vent et courants dans un seul fichier/)).toBeInTheDocument();
+  });
+});
+
+describe('drawing, adjusting and clearing the box', () => {
+  const corner = (name) => screen.getByRole('button', { name: `Move ${name} corner` });
+
+  it('redraws over an existing box, and clears it with its files and address', async () => {
+    await openWith(CHANNEL);
+    fireEvent.click(page().getByRole('button', { name: 'Download wind' }));
+    await waitFor(() => expect(saves).toHaveLength(1));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Draw a new box' }));
+    expect(screen.getAllByText('Tap two corners or drag across the chart to draw your area.').length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(useGrib.getState().area).toEqual(CHANNEL);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear box' }));
+    expect(useGrib.getState().area).toBeNull();
+    expect(location.hash).toBe('#plan/grib');
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:grib-1');
+    expect(page().queryByRole('button', { name: /^Download/ })).not.toBeInTheDocument();
+    expect(page().getByText('Draw your area first.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Draw a box' })).toBeEnabled();
+    expect(screen.queryByTestId('grib-box')).not.toBeInTheDocument();
+  });
+
+  it('moves a focused corner with the arrow keys, through the same snapping, and keeps focus on it', async () => {
+    await openWith(CHANNEL);
+    for (const name of ['north-west', 'north-east', 'south-east', 'south-west']) {
+      expect(corner(name)).toHaveAttribute('tabindex', '0');
+    }
+    corner('north-west').focus();
+    fireEvent.keyDown(corner('north-west'), { key: 'ArrowUp' });
+    expect(useGrib.getState().area).toEqual({ ...CHANNEL, maxLat: 51 });
+    expect(document.activeElement).toBe(corner('north-west'));
+    // Shift moves 1°
+    fireEvent.keyDown(corner('north-west'), { key: 'ArrowLeft', shiftKey: true });
+    expect(useGrib.getState().area).toEqual({ ...CHANNEL, maxLat: 51, minLon: -10.9 });
+    fireEvent.keyDown(corner('south-east'), { key: 'ArrowRight' });
+    expect(useGrib.getState().area).toEqual({ ...CHANNEL, maxLat: 51, minLon: -10.9, maxLon: -9 });
+    // other keys are left to the page
+    fireEvent.keyDown(corner('south-east'), { key: 'Enter' });
+    expect(useGrib.getState().area).toEqual({ ...CHANNEL, maxLat: 51, minLon: -10.9, maxLon: -9 });
+  });
+
+  it('nudges a corner by 0.1°, or 1° with Shift, keeping the opposite corner and the snapping', () => {
+    expect(nudgeGribCorner(CHANNEL, 'nw', 'ArrowUp', false)).toEqual({ ...CHANNEL, maxLat: 51 });
+    expect(nudgeGribCorner(CHANNEL, 'se', 'ArrowDown', true)).toEqual({ ...CHANNEL, minLat: 49.2 });
+    expect(nudgeGribCorner(CHANNEL, 'sw', 'ArrowRight', false)).toEqual({ ...CHANNEL, minLon: -9.8 });
+    // clamped at the globe's edge
+    expect(nudgeGribCorner({ minLat: 89, maxLat: 90, minLon: 0, maxLon: 1 }, 'ne', 'ArrowUp', true))
+      .toEqual({ minLat: 89, maxLat: 90, minLon: 0, maxLon: 1 });
+    expect(nudgeGribCorner(CHANNEL, 'nw', 'Enter', false)).toBeNull();
+  });
+
+  it('reads typed edges as signed degrees or with a hemisphere letter', () => {
+    expect(parseGribCoordinate('50.5', 'lat')).toBe(50.5);
+    expect(parseGribCoordinate(' 12,5 S ', 'lat')).toBe(-12.5);
+    expect(parseGribCoordinate('9.5W', 'lon')).toBe(-9.5);
+    expect(parseGribCoordinate('9.5 O', 'lon')).toBe(-9.5);
+    expect(parseGribCoordinate('-9.5°', 'lon')).toBe(-9.5);
+    for (const [text, axis] of [['', 'lat'], ['abc', 'lat'], ['91', 'lat'], ['181', 'lon'], ['5E', 'lat'], ['5N', 'lon'], ['-5W', 'lon']]) {
+      expect(parseGribCoordinate(text, axis), `${axis} ${text}`).toBeNull();
+    }
+  });
+
+  it('sets the box from typed edges, with an error beside a field that cannot be used', async () => {
+    await openWith(CHANNEL);
+    const north = page().getByRole('textbox', { name: 'North' });
+    expect(north).toHaveValue('50.9');
+    fireEvent.change(north, { target: { value: '51.23' } });
+    fireEvent.keyDown(north, { key: 'Enter' });
+    // snapped outward to 0.1°, like a drawn box
+    expect(useGrib.getState().area).toEqual({ ...CHANNEL, maxLat: 51.3 });
+    expect(north).toHaveValue('51.3');
+
+    const west = page().getByRole('textbox', { name: 'West' });
+    fireEvent.change(west, { target: { value: '10W' } });
+    fireEvent.blur(west);
+    expect(useGrib.getState().area).toEqual({ ...CHANNEL, maxLat: 51.3, minLon: -10 });
+
+    fireEvent.change(west, { target: { value: 'far west' } });
+    fireEvent.blur(west);
+    expect(page().getByRole('alert')).toHaveTextContent('Enter a longitude from -180 to 180, such as -9.5 or 9.5W.');
+    expect(west).toHaveAttribute('aria-invalid', 'true');
+    expect(useGrib.getState().area).toEqual({ ...CHANNEL, maxLat: 51.3, minLon: -10 });
+
+    const south = page().getByRole('textbox', { name: 'South' });
+    fireEvent.change(south, { target: { value: '52' } });
+    fireEvent.blur(south);
+    expect(page().getAllByRole('alert').map((node) => node.textContent)).toContain('South must be below north.');
+    expect(useGrib.getState().area.minLat).toBe(50.2);
+  });
+
+  it('creates a box from four typed edges when there is none', async () => {
+    render(<Grib />);
+    const type = (name, value) => {
+      const field = page().getByRole('textbox', { name });
+      fireEvent.change(field, { target: { value } });
+      fireEvent.blur(field);
+    };
+    type('North', '50.9');
+    type('South', '50.2');
+    type('West', '9.9W');
+    expect(useGrib.getState().area).toBeNull();
+    expect(page().queryByRole('alert')).not.toBeInTheDocument();
+    type('East', '-9.1');
+    expect(useGrib.getState().area).toEqual(CHANNEL);
+    expect(mapState.fits.at(-1)).toEqual([[50.2, -9.9], [50.9, -9.1]]);
+  });
+
+  it('offers a visible next-step cue that brings the period into view on narrow screens', async () => {
+    await openWith(CHANNEL);
+    const scroll = vi.fn();
+    Element.prototype.scrollIntoView = scroll;
+    fireEvent.click(screen.getByRole('button', { name: /^Next: choose the period and download/ }));
+    expect(scroll).toHaveBeenCalledTimes(1);
+    delete Element.prototype.scrollIntoView;
+  });
+});
+
+describe('times in UTC and the browser’s time zone', () => {
+  it('formats a range in a named zone, with its abbreviation, and nothing for UTC', () => {
+    expect(fmtLocalRange('2026-07-20T06:00:00Z', '2026-07-23T06:00:00Z', 'Europe/Paris')).toBe('Mon 20 Jul 08:00 → Thu 23 Jul 08:00 CEST');
+    expect(fmtLocalRange('2026-07-20T02:00:00Z', '2026-07-21T02:00:00Z', 'America/New_York')).toBe('Sun 19 Jul 22:00 → Mon 20 Jul 22:00 GMT-4');
+    // across a clock change, each end names its own zone
+    expect(fmtLocalRange('2026-10-24T06:00:00Z', '2026-10-26T06:00:00Z', 'Europe/Paris')).toBe('Sat 24 Oct 08:00 CEST → Mon 26 Oct 07:00 CET');
+    expect(fmtLocalRange('2026-07-20T06:00:00Z', '2026-07-23T06:00:00Z', 'UTC')).toBeNull();
+    expect(fmtLocalRange('2026-01-20T06:00:00Z', '2026-01-23T06:00:00Z', 'Europe/London')).toBeNull();
+    expect(fmtLocalRange('2026-07-20T06:00:00Z', '2026-07-23T06:00:00Z', 'browser local time')).toBeNull();
+  });
+
+  it('shows the period and each file in local time beside UTC', async () => {
+    await openWith(CHANNEL);
+    expect(page().getAllByText('Mon 20 Jul 08:00 → Thu 23 Jul 08:00 CEST')).toHaveLength(2);
+  });
+
+  it('explains a file that starts and ends on the model’s own steps around the period', async () => {
+    // 07:30: the period starts at 07:00, between ECMWF's 3-hourly 06:00 and 09:00 steps
+    vi.setSystemTime(new Date('2026-07-20T07:30:00Z'));
+    await openWith(CHANNEL);
+    expect(page().getByText('Mon 20 Jul 07:00 → Thu 23 Jul 07:00 UTC')).toBeInTheDocument();
+    const wind = kindItem('Download wind');
+    expect(wind.getByText('Mon 20 Jul 06:00 → Thu 23 Jul 09:00 UTC')).toBeInTheDocument();
+    expect(wind.getByText('Starts at the model’s forecast step before your period.')).toBeInTheDocument();
+    expect(wind.getByText('Ends at the model’s forecast step after your period.')).toBeInTheDocument();
+    // GFS wind is hourly: it matches the period exactly
+    fireEvent.click(within(page().getByRole('radiogroup', { name: 'Wind model' })).getByRole('radio', { name: /^GFS/ }));
+    expect(kindItem('Download wind').queryByText(/forecast step (before|after) your period/)).not.toBeInTheDocument();
   });
 });
 

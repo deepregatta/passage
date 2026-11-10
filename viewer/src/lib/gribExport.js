@@ -17,7 +17,7 @@ import {
 } from '@deepweather/engine';
 import { FORECAST_BASE_URL } from './forecastConfig.js';
 import { refreshForecastIfStale } from './forecastFreshness.js';
-import { fmtTime } from './format.js';
+import { fmtTime, localTimeZoneName } from './format.js';
 
 /** Margin around a planner route when it opens the GRIB page. */
 export const GRIB_ROUTE_MARGIN_DEG = 1;
@@ -407,6 +407,37 @@ export function fmtUtc(iso) {
 
 export function fmtUtcRange(startIso, endIso) {
   return `${fmtTime(startIso)} → ${fmtTime(endIso)} UTC`;
+}
+
+/**
+ * The same instants as fmtUtcRange in a time zone (the browser's by default),
+ * each end with its zone abbreviation when they differ ("CEST", "GMT-4"):
+ * "Mon 20 Jul 08:00 → Thu 23 Jul 08:00 CEST". Null when the zone is UTC at
+ * both ends, or unknown, so the page shows UTC alone.
+ */
+export function fmtLocalRange(startIso, endIso, timeZone = localTimeZoneName()) {
+  let format;
+  try {
+    format = new Intl.DateTimeFormat('en-GB', {
+      timeZone, year: 'numeric', month: 'numeric', day: 'numeric',
+      hour: 'numeric', minute: 'numeric', hourCycle: 'h23', timeZoneName: 'short',
+    });
+  } catch {
+    return null;
+  }
+  const local = (iso) => {
+    const ms = Math.floor(Date.parse(iso) / 60_000) * 60_000;
+    const parts = Object.fromEntries(format.formatToParts(new Date(ms)).map((part) => [part.type, part.value]));
+    // the wall-clock time as if it were UTC, so fmtTime writes it with the app's day and month names
+    const wallMs = Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day), Number(parts.hour), Number(parts.minute));
+    return { text: fmtTime(new Date(wallMs).toISOString()), zone: parts.timeZoneName, offset: wallMs - ms };
+  };
+  const start = local(startIso);
+  const end = local(endIso);
+  if (start.offset === 0 && end.offset === 0) return null;
+  return start.zone === end.zone
+    ? `${start.text} → ${end.text} ${end.zone}`
+    : `${start.text} ${start.zone} → ${end.text} ${end.zone}`;
 }
 
 export function fmtGribSteps(count) {

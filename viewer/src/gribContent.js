@@ -18,7 +18,7 @@ export const GRIB_INFO_BLOCKS = [
   { type: 'p', text: 'Each file comes from one model run. After you build a file, File details names the run, for example “ECMWF 06Z”.' },
 
   { type: 'h3', text: 'Wind' },
-  { type: 'p', text: 'Passage chooses the wind model from your area, and falls back to the other global model when the first has no data there. You can switch with the model buttons next to the download button.' },
+  { type: 'p', text: 'Passage chooses the wind model from your area, and falls back to the other global model when the first has no data there. You can switch with the model buttons below the download button.' },
   { type: 'ul', items: [
     'ECMWF: the default when the centre of your box is in Europe (25–72°N, 35°W–45°E). Global, 0.25° grid (about 28 km), every 3 h to +144 h, then every 6 h to +240 h.',
     'GFS (NOAA): the default outside Europe. Global, 0.25° grid (about 28 km), every hour to +120 h, then every 3 h to +240 h.',
