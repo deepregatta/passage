@@ -77,6 +77,9 @@ function cleanId(id) {
 
 const isScenario = (id) => /^scenario([\s_-]|$)/i.test(String(id));
 
+/** True for the engine's emulated scenario ids ("scenario", "scenario ensemble", "scenario-74bece95"). */
+export const isScenarioId = (id) => id !== null && id !== undefined && isScenario(id);
+
 /**
  * One model, dataset or layer-model id to a name. Lists ("a,b" or "a/b", as
  * recorded for multi-model evidence) become "Name, Name".
@@ -111,16 +114,19 @@ export function layerName(layer) {
  * `scenario-<hash>` runs become "Emulated scenario run". Anything else is
  * cleaned up.
  * @param {string | null | undefined} runId
- * @param {{ layer?: string | null }} [context] layer to name the run's model when the id has no known prefix
+ * @param {{ layer?: string | null, model?: string | null }} [context] layer or model that names the run's model when the id has no known prefix
  */
 export function runLabel(runId, context = {}) {
   if (!runId) return 'n/a';
   const id = String(runId);
   if (isScenario(id)) return 'Emulated scenario run';
-  const match = /^(.*?)-?(\d{4})(\d{2})(\d{2})T(\d{2})Z$/.exec(id);
+  // Cycles recorded as ISO instants ("2026-10-01T06:00Z") carry no model in the id.
+  const iso = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):\d{2}(?::\d{2}(?:\.\d+)?)?Z?$/.exec(id);
+  const match = iso ? ['', '', iso[1], iso[2], iso[3], iso[4]] : /^(.*?)-?(\d{4})(\d{2})(\d{2})T(\d{2})Z$/.exec(id);
   if (!match) return cleanId(id);
   const [, prefix, , month, day, hour] = match;
-  const family = LAYER_RUN_FAMILY[prefix] ?? LAYER_RUN_FAMILY[context.layer ?? ''] ?? (prefix ? cleanId(prefix) : '');
+  const family = LAYER_RUN_FAMILY[prefix] ?? LAYER_RUN_FAMILY[context.layer ?? '']
+    ?? (prefix ? cleanId(prefix) : context.model ? modelName(context.model) : '');
   const when = `${Number(day)} ${MONTHS[Number(month) - 1] ?? month} ${hour}Z`;
   return family ? `${family} run ${when}` : `Run ${when}`;
 }

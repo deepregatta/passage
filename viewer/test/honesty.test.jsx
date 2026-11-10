@@ -80,8 +80,8 @@ it('reports missing legacy records without inventing models or coverage', () => 
   delete findings.inputs.forecast_tiles;
   delete findings.coverage;
   render(<Briefing />);
-  expect(screen.getByText('Model records unavailable for this briefing.')).toBeInTheDocument();
-  expect(screen.getByText('Coverage records unavailable for this briefing.')).toBeInTheDocument();
+  expect(screen.getByText('Model records unavailable for this check.')).toBeInTheDocument();
+  expect(screen.getByText('Coverage records unavailable for this check.')).toBeInTheDocument();
 });
 
 it('translates the new disclosure copy and recorded fields into French', () => {
@@ -92,8 +92,8 @@ it('translates the new disclosure copy and recorded fields into French', () => {
     'Models and coverage': 'Modèles et couverture',
     'Recorded models': 'Modèles enregistrés',
     'Recorded coverage': 'Couverture enregistrée',
-    'Model records unavailable for this briefing.': 'Les modèles utilisés ne sont pas enregistrés dans ce briefing.',
-    'Coverage records unavailable for this briefing.': 'La couverture évaluée n’est pas enregistrée dans ce briefing.',
+    'Model records unavailable for this check.': 'Les modèles utilisés ne sont pas enregistrés dans cette vérification.',
+    'Coverage records unavailable for this check.': 'La couverture évaluée n’est pas enregistrée dans cette vérification.',
     'Wind and gusts': 'Vent et rafales', 'Ensemble': 'Ensemble',
     'Additional weather model': 'Modèle météo complémentaire',
     'Surface currents': 'Courants de surface', 'Forecast tiles': 'Tuiles de prévision',

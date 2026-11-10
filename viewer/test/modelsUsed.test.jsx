@@ -36,8 +36,8 @@ describe('Models used: ECMWF runs', () => {
   it('lists both ECMWF runs and names the cycle per time range', () => {
     useApp.setState({ findings: findingsWith(COMBINED), nowMs: Date.parse('2026-10-01T14:00:00Z') });
     render(<ModelsUsed />);
-    expect(screen.getByText('weather-ecmwf-short-20261001T06Z')).toBeInTheDocument();
-    expect(screen.getByText('weather-ecmwf-20261001T00Z')).toBeInTheDocument();
+    expect(screen.getByText('ECMWF run 1 Oct 06Z')).toBeInTheDocument();
+    expect(screen.getByText('ECMWF run 1 Oct 00Z')).toBeInTheDocument();
     expect(screen.getAllByText('Additional weather model')).toHaveLength(2);
     expect(screen.getByText('Model comparison uses')).toBeInTheDocument();
     expect(screen.getByText('ECMWF 06Z to +144 h, then 00Z')).toBeInTheDocument();
@@ -57,6 +57,46 @@ describe('Models used: ECMWF runs', () => {
     render(<div id="root"><ModelsUsed /><LocalizedDocument language="fr" /></div>);
     await waitFor(() => expect(screen.getByText('ECMWF 06Z jusqu’à +144 h, puis 00Z')).toBeInTheDocument());
     expect(screen.getByText('La comparaison des modèles utilise')).toBeInTheDocument();
+    expect(screen.getByText('cycle ECMWF du 1 oct. 06Z')).toBeInTheDocument();
     expect(screen.getByText('weather-ecmwf-short-20261001T06Z')).toBeInTheDocument();
+  });
+});
+
+describe('Models used: human names, raw ids only under Provenance', () => {
+  const emulated = (layer, runId) => ({ ...tiles(layer, 'scenario', runId, 'scenario'), source: 'fixture', fetched_at: '2026-07-19T18:00:00Z' });
+
+  it('shows source names, run labels and ages in days, with raw ids inside a Provenance disclosure', () => {
+    const currents = { source: 'region-grid', layer: 'currents', model: 'cmems_mod_ibi_phy_anfc_0.027deg-3D_PT1H-m', run_id: 'prepared-20261001T00Z', fetched_at: '2026-10-01T09:00:00Z', mode: 'live' };
+    useApp.setState({
+      findings: { ...findingsWith([currents]), legs: [] },
+      nowMs: Date.parse('2026-10-01T14:00:00Z'),
+    });
+    const { container } = render(<ModelsUsed />);
+    expect(screen.getByText('GFS 0.25°')).toBeInTheDocument();
+    expect(screen.getByText('GFS run 1 Oct 06Z')).toBeInTheDocument();
+    expect(screen.getByText('Copernicus IBI ocean currents')).toBeInTheDocument();
+    const visible = (node) => [...node.querySelectorAll('li')].map((li) => {
+      const copy = li.cloneNode(true);
+      copy.querySelectorAll('details').forEach((d) => d.remove());
+      return copy.textContent;
+    }).join(' ');
+    expect(visible(container)).not.toMatch(/weather-2026|gfs_0p25|cmems_mod|_/);
+    const provenance = [...container.querySelectorAll('details details')];
+    expect(provenance).toHaveLength(2);
+    expect(provenance[0]).toHaveTextContent('gfs_0p25 · weather-20261001T06Z');
+    expect(provenance[1]).toHaveTextContent('cmems_mod_ibi_phy_anfc_0.027deg-3D_PT1H-m');
+  });
+
+  it('names emulated scenario sets, keeps the emulated badge and reads old runs in days', () => {
+    useApp.setState({
+      findings: { legs: [], coverage: [], inputs: { forecast_tiles: [emulated('weather', 'scenario-74bece95')] } },
+      nowMs: Date.parse('2026-11-10T00:00:00Z'),
+    });
+    const { container } = render(<ModelsUsed />);
+    expect(screen.getByText('Scenario set (emulated)')).toBeInTheDocument();
+    expect(container.querySelector('.stamp-emulated')).toHaveTextContent('Fixture data');
+    expect(container).toHaveTextContent('age 113 days');
+    expect(container).not.toHaveTextContent(/\d{4} h/);
+    expect(container.querySelector('details details')).toHaveTextContent('scenario · scenario-74bece95');
   });
 });

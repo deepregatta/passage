@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useApp } from '../stores/appStore.js';
-import { fmtTime } from '../lib/format.js';
+import { fmtAgeOld, fmtTextTime, fmtUtcClock } from '../lib/format.js';
 
 export function isEmulatedWarning(evidence, warnings) {
   return evidence?.source_kind === 'emulated' || warnings?.source?.mode === 'synthetic';
@@ -34,7 +34,7 @@ export default function BulletinPanel({ evidence, onClose }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  const ageHours = ref?.issued_at ? Math.max(0, (Date.now() - Date.parse(ref.issued_at)) / 3600_000) : null;
+  const ageMs = ref?.issued_at ? Math.max(0, Date.now() - Date.parse(ref.issued_at)) : null;
   return (
     <div className="fixed inset-0 z-[70] bg-ink-deep/40 flex justify-end" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <aside className="h-full w-[32rem] max-w-full bg-paper border-l border-ink/40 overflow-y-auto p-5" role="dialog" aria-modal="true" aria-labelledby="bulletin-title">
@@ -49,8 +49,8 @@ export default function BulletinPanel({ evidence, onClose }) {
         {emulated && <p className="mt-4 font-instrument text-sm">Emulated bulletin. Do not use for a real passage decision.</p>}
         {ref && (
           <dl className="grid grid-cols-[8rem_1fr] gap-y-2 py-4 font-instrument text-sm border-b hairline">
-            <dt className="eyebrow">Issued</dt><dd className="font-mono">{fmtTime(ref.issued_at)} UTC{ageHours != null ? ` · ${Math.round(ageHours)} h old` : ''}</dd>
-            <dt className="eyebrow">Valid</dt><dd className="font-mono">{fmtTime(ref.valid_from)} → {fmtTime(ref.valid_to)} UTC</dd>
+            <dt className="eyebrow">Issued</dt><dd className="font-mono">{fmtTextTime(ref.issued_at)} · {fmtUtcClock(ref.issued_at)}{ageMs != null ? ` · ${fmtAgeOld(ageMs)}` : ''}</dd>
+            <dt className="eyebrow">Valid</dt><dd className="font-mono">{fmtTextTime(ref.valid_from)} → {fmtTextTime(ref.valid_to)}<span className="block text-xs text-ink-soft">{fmtUtcClock(ref.valid_from)} → {fmtUtcClock(ref.valid_to)}</span></dd>
             <dt className="eyebrow">Zones</dt><dd>{ref.zone_ids.join(', ')}</dd>
           </dl>
         )}
@@ -64,7 +64,7 @@ export default function BulletinPanel({ evidence, onClose }) {
           </article>
         )) : (
           <div className="my-6 border border-dashed hairline p-5 font-instrument text-sm text-ink-soft">
-            Bulletin text not archived for this legacy snapshot. Use the source and validity details above to find the authority record.
+            Bulletin text not archived for this legacy check. Use the source and validity details above to find the authority record.
           </div>
         )}
       </aside>

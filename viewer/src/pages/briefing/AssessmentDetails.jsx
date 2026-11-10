@@ -25,7 +25,7 @@ function StorySection({ section, findings }) {
   const coverage = section.id === 'unsupported' ? deriveCoverage(findings) : null;
   const unassessed = coverage?.items.filter((item) => item.status === 'not_assessed') ?? [];
   const plain = coverage
-    ? `Not assessed: ${unassessed.map((item) => item.detail ?? item.capability.replaceAll('_', ' ')).join(', ')}. No flag does not mean no risk.${coverage.derived ? ' Coverage derived conservatively from evidence in this legacy snapshot.' : ''}`
+    ? `Not assessed: ${unassessed.map((item) => item.detail ?? item.capability.replaceAll('_', ' ')).join(', ')}. No flag does not mean no risk.${coverage.derived ? ' Coverage derived conservatively from evidence in this legacy check.' : ''}`
     : section.register_plain;
   const tone =
     section.id === 'warnings'

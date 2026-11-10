@@ -56,13 +56,13 @@ function recordedOrLegacyCoverage(findings) {
     items: [
       item('sustained_wind', 'assessed', 'derived from wind evidence'),
       item('gusts', 'assessed', 'derived from gust evidence'),
-      item('waves', evidence.some((e) => e.rule_id.startsWith('S-')) ? 'partially_assessed' : 'not_assessed', 'legacy snapshot'),
-      item('tidal_currents', unsupported.includes('tidal current') ? 'not_assessed' : 'partially_assessed', 'legacy snapshot'),
-      item('tidal_gates', unsupported.includes('tidal gate') ? 'not_assessed' : 'partially_assessed', 'legacy snapshot'),
+      item('waves', evidence.some((e) => e.rule_id.startsWith('S-')) ? 'partially_assessed' : 'not_assessed', 'legacy check'),
+      item('tidal_currents', unsupported.includes('tidal current') ? 'not_assessed' : 'partially_assessed', 'legacy check'),
+      item('tidal_gates', unsupported.includes('tidal gate') ? 'not_assessed' : 'partially_assessed', 'legacy check'),
       item('official_warnings', warningStatus, warningStatus === 'assessed_emulated' ? 'synthetic evidence; not authority' : 'derived from evidence source kind'),
-      item('synoptic_attribution', 'not_assessed', 'legacy snapshot has no causal coverage record'),
-      item('tropical_systems', 'not_assessed', 'legacy snapshot'),
-      item('ice', 'not_assessed', 'legacy snapshot'),
+      item('synoptic_attribution', 'not_assessed', 'legacy check has no causal coverage record'),
+      item('tropical_systems', 'not_assessed', 'legacy check'),
+      item('ice', 'not_assessed', 'legacy check'),
     ],
   };
 }

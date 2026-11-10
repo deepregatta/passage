@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { layerName, modelName, runLabel } from '../src/lib/sourceNames.js';
+import { isScenarioId, layerName, modelName, runLabel } from '../src/lib/sourceNames.js';
 
 describe('modelName', () => {
   it.each([
@@ -43,4 +43,19 @@ describe('runLabel', () => {
     ['reference-demo-20260719T18Z', undefined, 'Reference demo run 19 Jul 18Z'],
     ['some_odd-run', undefined, 'Some odd run'],
   ])('%s -> %s', (id, context, label) => expect(runLabel(id, context)).toBe(label));
+});
+
+describe('runLabel with ISO cycles and context', () => {
+  it('formats recorded ISO cycles and names the model from context', () => {
+    expect(runLabel('2026-10-01T06:00Z')).toBe('Run 1 Oct 06Z');
+    expect(runLabel('2026-10-01T06:00Z', { model: 'gfs_0p25' })).toBe('GFS 0.25° run 1 Oct 06Z');
+    expect(runLabel(null)).toBe('n/a');
+  });
+
+  it('recognises emulated scenario ids', () => {
+    expect(isScenarioId('scenario')).toBe(true);
+    expect(isScenarioId('scenario-74bece95')).toBe(true);
+    expect(isScenarioId('weather-20261110T12Z')).toBe(false);
+    expect(isScenarioId(null)).toBe(false);
+  });
 });

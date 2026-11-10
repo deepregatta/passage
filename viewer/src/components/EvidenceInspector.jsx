@@ -1,6 +1,9 @@
 import { useEffect, useRef } from 'react';
 import { useApp } from '../stores/appStore.js';
-import { fmtTime, runAge } from '../lib/format.js';
+import { fmtTextTime, fmtUtcClock, runAge } from '../lib/format.js';
+import { ruleLabel } from '../lib/ruleLabels.js';
+import { modelName, runLabel } from '../lib/sourceNames.js';
+import { legLabel } from '../pages/briefing/routeLabels.jsx';
 import { SourceKindChip } from './common.jsx';
 
 /**
@@ -37,7 +40,6 @@ export default function EvidenceInspector() {
 
   if (!open || !evidenceId || !evidence) return null;
 
-  const legName = findings?.legs.find((l) => l.leg_id === evidence.leg_id)?.name;
   const sourceMeta = findings?.inputs.forecast_tiles.find(
     (m) =>
       m.model === evidence.model ||
@@ -73,7 +75,7 @@ export default function EvidenceInspector() {
             <button
               type="button"
               onClick={close}
-              className="text-ink-soft hover:text-ink font-sans text-sm px-2"
+              className="text-ink-soft hover:text-ink font-sans text-sm min-h-11 min-w-11"
               aria-label="Close inspector"
             >
               ✕
@@ -81,32 +83,41 @@ export default function EvidenceInspector() {
           </div>
 
           <Row label="Rule">
-            <span className="font-mono">{evidence.rule_id}</span>
+            <span>{ruleLabel(evidence.rule_id)}</span>
           </Row>
           <Row label="Leg & window">
-            <div>
-              <span className="font-mono">{evidence.leg_id}</span>
-              {legName && <span className="text-ink-soft"> · {legName}</span>}
-            </div>
+            <div>{findings ? legLabel(findings, evidence.leg_id, { bare: true }) : evidence.leg_id}</div>
             {evidence.valid_time && (
-              <div className="font-mono text-sm">{fmtTime(evidence.valid_time)} UTC</div>
+              <div className="text-sm">
+                {fmtTextTime(evidence.valid_time)} <span className="text-ink-soft">· {fmtUtcClock(evidence.valid_time)}</span>
+              </div>
             )}
           </Row>
           <Row label="Data source">
-            <span className="font-mono">{evidence.model ?? 'n/a'}</span>
+            <span>{modelName(evidence.model)}</span>
             {sourceMeta?.attribution && <div className="mt-1 text-sm muted">{sourceMeta.attribution}</div>}
             <div className="mt-1">
               <SourceKindChip kind={evidence.source_kind} />
             </div>
           </Row>
           <Row label="Model run">
-            <span className="font-mono text-sm">{evidence.run ?? 'not applicable'}</span>
+            <span className="text-sm">{evidence.run ? runLabel(evidence.run, { model: evidence.model }) : 'not applicable'}</span>
           </Row>
           {age && (
             <Row label="Source age">
-              <span className="font-mono">{age}</span>
+              <span>{age}</span>
             </Row>
           )}
+          <details className="mt-2 text-sm">
+            <summary className="cursor-pointer text-ink-soft min-h-11 flex items-center">Provenance</summary>
+            <dl className="font-mono text-xs break-all space-y-1 pb-2">
+              <div><dt className="inline text-ink-soft">evidence </dt><dd className="inline">{evidence.evidence_id}</dd></div>
+              <div><dt className="inline text-ink-soft">rule </dt><dd className="inline">{evidence.rule_id}</dd></div>
+              <div><dt className="inline text-ink-soft">leg </dt><dd className="inline">{evidence.leg_id}</dd></div>
+              <div><dt className="inline text-ink-soft">model </dt><dd className="inline">{evidence.model ?? 'n/a'}</dd></div>
+              <div><dt className="inline text-ink-soft">run </dt><dd className="inline">{evidence.run ?? 'n/a'}</dd></div>
+            </dl>
+          </details>
 
           <div className="mt-4 pt-3 border-t hairline">
             <span className="eyebrow">Value vs declared limit</span>

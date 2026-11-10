@@ -198,10 +198,7 @@
       "viewer/src/components/ModelsUsed.jsx": [
         "action-inputs",
         "prepared-artifact",
-        "region-grid",
-        "weather-ecmwf",
-        "weather-ecmwf-short",
-        "weather-multimodel"
+        "region-grid"
       ],
       "viewer/src/components/RouteMap.jsx": [
         "\"\n        stroke=\"",
@@ -591,9 +588,7 @@
       "viewer/src/components/ModelComparison.jsx": [
         "divergence"
       ],
-      "viewer/src/components/ModelsUsed.jsx": [
-        "Ensemble"
-      ],
+      "viewer/src/components/ModelsUsed.jsx": [],
       "viewer/src/components/Shell.jsx": [
         "Choisir la langue"
       ],
@@ -636,7 +631,6 @@
       ],
       "viewer/src/components/BulletinPanel.jsx": [
         ",",
-        "UTC",
         "·",
         "→",
         "✕"
@@ -648,7 +642,6 @@
       "viewer/src/components/EvidenceInspector.jsx": [
         "\u0000",
         "/",
-        "UTC",
         "·",
         "✕"
       ],

@@ -3,14 +3,8 @@ import { deriveCoverage } from '../lib/evidenceSelectors.js';
 import { useApp } from '../stores/appStore.js';
 import { palette } from '../lib/palette.js';
 import { runAge } from '../lib/format.js';
+import { isScenarioId, layerName, modelName, runLabel } from '../lib/sourceNames.js';
 
-const LAYERS = {
-  weather: 'Wind and gusts', ensemble: 'Ensemble', waves: 'Waves',
-  'weather-ecmwf': 'Additional weather model', 'weather-ecmwf-short': 'Additional weather model',
-  'weather-multimodel': 'Additional weather model',
-  currents: 'Surface currents',
-  synoptic: 'Synoptic features', tides: 'Tide predictions', gates: 'Tidal gates', warnings: 'Official warnings',
-};
 const SOURCES = { tiles: 'Forecast tiles', fixture: 'Fixture data', synthetic: 'emulated', 'prepared-artifact': 'Prepared data', 'region-grid': 'Current grid' };
 
 /**
@@ -54,8 +48,8 @@ export default function ModelsUsed() {
             <h3 className="eyebrow mb-2">Recorded models</h3>
             {inputs.length ? <ul className="space-y-3">{inputs.map((input, i) => (
               <li key={`${input.layer}-${input.run_id}-${i}`}>
-                <p><span>{LAYERS[input.layer] ?? input.layer}</span> · <span className="font-mono break-all">{input.model}</span></p>
-                <p className="font-mono text-xs break-all">{input.run_id}</p>
+                <p><span>{layerName(input.layer)}</span> · <span>{modelName(input.model)}</span></p>
+                {!isScenarioId(input.run_id) && <p className="text-xs">{runLabel(input.run_id, { layer: input.layer, model: input.model })}</p>}
                 <p className="mt-1 flex flex-wrap gap-2 text-xs">
                   <span className={input.source === 'fixture' || input.source === 'synthetic' || input.source_kind === 'emulated' ? 'stamp-emulated' : 'text-ink-soft'}>
                     {input.source_kind === 'emulated' ? 'emulated' : SOURCES[input.source] ?? 'Source not recorded'}
@@ -66,8 +60,12 @@ export default function ModelsUsed() {
                     age {runAge(input.cycle && input.cycle !== 'scenario' ? input.cycle : input.fetched_at, nowMs) ?? 'n/a'}
                   </span>
                 </p>
+                <details className="mt-1 text-xs">
+                  <summary className="cursor-pointer text-ink-soft min-h-11 flex items-center">Provenance</summary>
+                  <p className="font-mono break-all"><span>{input.model ?? 'n/a'}</span> · <span>{input.run_id ?? 'n/a'}</span></p>
+                </details>
               </li>
-            ))}</ul> : <p>Model records unavailable for this briefing.</p>}
+            ))}</ul> : <p>Model records unavailable for this check.</p>}
             {ecmwfRuns && (
               <p className="mt-3 text-xs">
                 <span className="text-ink-soft">Model comparison uses</span>{' '}<span className="font-mono">{ecmwfRuns}</span>
@@ -82,7 +80,7 @@ export default function ModelsUsed() {
                 <span className={item.status === 'assessed_emulated' ? 'stamp-emulated' : 'text-ink-soft'}>{item.status.replaceAll('_', ' ')}</span>
                 {item.detail === CHANNEL_PREPARED_COVERAGE && <p className="basis-full text-ink-soft leading-relaxed">{item.detail}</p>}
               </li>
-            ))}</ul> : <p>Coverage records unavailable for this briefing.</p>}
+            ))}</ul> : <p>Coverage records unavailable for this check.</p>}
           </section>
         </div>
       </details>
