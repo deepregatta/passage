@@ -440,6 +440,8 @@ describe('GRIB files page', () => {
     expect(text).toContain('IBI (Copernicus Marine), the default wherever it covers your whole box');
     expect(text).toContain('No pressure or isobars, rain, temperature, cloud cover or visibility.');
     expect(text).toContain('Adrena: read the wind and currents files in our test on 2026-09-27');
+    // Gusts were never confirmed in Adrena (checklist item 6): the page must not imply any gust was.
+    expect(text).toContain('Not yet tested in Adrena: waves files, the wind + currents file, and gusts.');
     for (const program of ['OpenCPN', 'XyGrib']) {
       expect(within(info).getByText(new RegExp(`^${program}.*Not yet tested in the application`))).toBeInTheDocument();
     }
