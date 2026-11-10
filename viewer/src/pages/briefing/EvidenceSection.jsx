@@ -70,7 +70,7 @@ export default function EvidenceSection() {
             <div className="font-instrument text-xs text-ink-soft max-w-56">raw count, not a calibrated probability</div>
           </div>
         </div>
-        <p className="font-instrument text-sm mt-3">{legLabel(findings, evidence.leg_id, { bare: true })} · forecast hour {fmtTextTime(evidence.valid_time)} · limit {evidence.limit} {evidence.units} · <EvidenceLink evidenceId={evidence.evidence_id}>inspect claim</EvidenceLink></p>
+        <p className="font-instrument text-sm mt-3">{legLabel(findings, evidence.leg_id, { bare: true })} · forecast hour {fmtTextTime(evidence.valid_time)} · limit {evidence.limit} {evidence.units} · <EvidenceLink evidenceId={evidence.evidence_id} title={evidence.evidence_id} className="inline-flex items-center min-h-11 sm:min-h-0">inspect claim</EvidenceLink></p>
       </header>
 
       <div className="grid grid-cols-1 xl:grid-cols-[14rem_minmax(0,1fr)] 2xl:grid-cols-[14rem_minmax(0,1fr)_20rem] gap-4">

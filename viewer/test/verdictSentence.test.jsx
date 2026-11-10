@@ -97,8 +97,12 @@ it('example page: chip and sentence agree, and the top and Evidence headline quo
   expect(sentence.textContent).toBe(WARNING);
   expect(band.getByTestId('verdict-detail').textContent).toBe([LIMIT, COUNT].join(' '));
   expect(screen.getByTestId('decision-band').textContent).not.toMatch(/UTC/);
+  // reading-page text floor and phone tap targets for the inline evidence links
+  expect(screen.getByTestId('decision-band').closest('.min-text-12')).not.toBeNull();
+  expect(band.getByRole('button', { name: 'evidence' }).className).toMatch(/min-h-11/);
   const evidence = document.querySelector('[data-section="evidence"]');
   expect(within(evidence).getByRole('heading', { level: 2 })).toHaveTextContent('24 of 51 forecast scenarios exceed your wind limit');
+  expect(within(evidence).getByRole('button', { name: 'inspect claim' }).className).toMatch(/min-h-11/);
   // the story card quotes no "N of M … exceed" sentence of its own
   const story = document.querySelector('[data-section="story"]');
   expect(story.textContent).not.toMatch(/\b(?:All \d+|\d+ of \d+) forecast scenarios exceed/i);

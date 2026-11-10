@@ -119,7 +119,7 @@ export default function DecisionBand({ findings, warningEvidence, onOpenBulletin
             </button>
           )}
           {emulated && warningEvidence && (
-            <EvidenceLink evidenceId={warningEvidence.evidence_id}>evidence</EvidenceLink>
+            <EvidenceLink evidenceId={warningEvidence.evidence_id} title={warningEvidence.evidence_id} className="inline-flex items-center min-h-11 px-1 text-[14px]">evidence</EvidenceLink>
           )}
           <ShareAnalysisButton onNavigate={setPage} className="font-instrument text-sm text-event underline underline-offset-4 min-h-11 disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline" />
           {state !== 'insufficient' && (

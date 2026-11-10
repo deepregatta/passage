@@ -57,7 +57,8 @@ export default function Briefing() {
   );
 
   return (
-    <div>
+    // the result page is a reading page: shared small caps (eyebrow, EMULATED stamp) at 12 px or larger
+    <div className="min-text-12">
       <div data-print-hide className="px-4 sm:px-6 max-w-[1600px] mx-auto"><PassagesBackLink>My passages</PassagesBackLink></div>
       <div data-print-hide>
         <DecisionBand
