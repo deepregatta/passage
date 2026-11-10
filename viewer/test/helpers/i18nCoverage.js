@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import ts from 'typescript';
+import { localizeNotationFr } from '../../src/i18n.js';
 
 export function walkFiles(root, accept) {
   return readdirSync(root, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))
@@ -96,7 +97,9 @@ export function collectCoverage(repoRoot) {
 export function identityEntries(samples, translate) {
   const byFile = {};
   for (const { text, source } of samples) {
-    if (translate(text, 'fr') !== text) continue;
+    // Notation-only changes (decimal comma, "M") still leave the prose untranslated.
+    const translated = translate(text, 'fr');
+    if (translated !== text && translated !== localizeNotationFr(text)) continue;
     const file = source.split(/#|:\d/)[0];
     (byFile[file] ??= new Set()).add(text);
   }

@@ -126,7 +126,7 @@ describe('language selection', () => {
       '24-hour clock (HH:mm) · your local time · Europe/Paris': 'format 24 heures (HH:mm) · votre heure locale · Europe/Paris',
       'local time · Europe/Paris': 'heure locale · Europe/Paris',
       'Models disagree · reassess after the next run': 'Divergence des modèles · réévaluez après le prochain cycle',
-      'forecast updates ~Mon 13 Jul 16:30 UTC; check again before you cast off': 'mise à jour des prévisions vers lun. 13 juil. 16:30 UTC; vérifiez à nouveau avant d’appareiller',
+      'forecast updates ~Mon 13 Jul 16:30 UTC; check again before you cast off': 'mise à jour des prévisions vers lun. 13 juil. 16:30 UTC\u00A0; vérifiez à nouveau avant d’appareiller',
       'Wind opposes the current at waypoint 2 → waypoint 3, increasing the risk of short, steep seas.': 'Le vent s’oppose au courant au point de route 2 → point de route 3, ce qui augmente le risque de mer courte et abrupte.',
       'The forecast reaches 32 kt against your 28 kt limit near waypoint 8.': 'La prévision atteint 32 nd, pour une limite fixée à 28 nd, près du point de route 8.',
       'models diverge on 7 h of this passage': 'les modèles divergent pendant 7 h sur cette traversée',
@@ -150,7 +150,7 @@ describe('language selection', () => {
   it('translates multi-system captions and decision-band clauses', () => {
     const samples = {
       'T+0: high H5 (1022 hPa) over the Gulf of Genoa, building 1.7 hPa/24h, quasi-stationary; high H7 (1019 hPa) south of Iberia, steady, quasi-stationary. Tighter isobar spacing over the North Sea means stronger wind there.':
-        'T+0 : anticyclone H5 (1022 hPa) sur le golfe de Gênes, se renforçant de 1.7 hPa/24 h, quasi stationnaire ; anticyclone H7 (1019 hPa) au sud de la péninsule Ibérique, stable, quasi stationnaire. Le resserrement des isobares sur la mer du Nord y indique un vent plus fort.',
+        'T+0 : anticyclone H5 (1022 hPa) sur le golfe de Gênes, se renforçant de 1,7 hPa/24 h, quasi stationnaire ; anticyclone H7 (1019 hPa) au sud de la péninsule Ibérique, stable, quasi stationnaire. Le resserrement des isobares sur la mer du Nord y indique un vent plus fort.',
       'T+24: low L1 (996 hPa) west of Ireland, deepening 3 hPa/24h, moving NE 20 kt.':
         'T+24 : dépression L1 (996 hPa) à l’ouest de l’Irlande, se creusant de 3 hPa/24 h, se déplaçant vers le NE à 20 nd.',
       'T+48: no closed pressure centres in the window.':
@@ -268,16 +268,16 @@ describe('GRIB files page copy', () => {
     [fmtGribSteps(1), '1 échéance'],
     [fmtGribSteps(29), '29 échéances'],
     [fmtGribBytes(82_400), '82 ko'],
-    [`≈ ${fmtGribBytes(2_214_000)}`, '≈ 2.2 Mo'],
+    [`≈ ${fmtGribBytes(2_214_000)}`, '≈ 2,2 Mo'],
     [fmtUtcRange('2026-07-20T08:00:00Z', '2026-07-21T12:00:00Z'), 'lun. 20 juil. 08:00 → mar. 21 juil. 12:00 UTC'],
     [fmtUtc('2026-07-20T00:00:00Z'), 'lun. 20 juil. 00:00 UTC'],
     [fmtHorizonShort('2026-07-21T00:00:00Z'), 'Cette prévision s’arrête le mar. 21 juil. 00:00 UTC, avant la fin de votre période.'],
     [fmtTooLarge(240_000_000), 'Ce fichier ferait environ 240 Mo, au-delà de la limite de 200 Mo. Tracez un cadre plus petit ou choisissez une période plus courte.'],
     [fmtGustWindows([1, 3, 6]), 'Les rafales sont le maximum sur la période de 1, 3 ou 6 h précédant chaque échéance, et non des valeurs instantanées.'],
     [fmtGustWindows([1]), 'Les rafales sont le maximum sur la période de 1 h précédant chaque échéance, et non des valeurs instantanées.'],
-    [fmtLatLon(49.65, -1.62), '49.65°N 1.62°O'],
+    [fmtLatLon(49.65, -1.62), '49,65°N 1,62°O'],
     [fmtGribArea({ south: 48, north: 51, west: -6, east: 2 }), '48°N–51°N, 6°O–2°E'],
-    [fmtGribBox({ minLat: 48.9, maxLat: 51, minLon: -4.7, maxLon: 1.2 }), '48.9°N–51°N, 4.7°O–1.2°E'],
+    [fmtGribBox({ minLat: 48.9, maxLat: 51, minLon: -4.7, maxLon: 1.2 }), '48,9°N–51°N, 4,7°O–1,2°E'],
   ])('translates the generated GRIB text %s', (english, french) => {
     expect(translateText(english, 'fr')).toBe(french);
     expect(translateText(english, 'en')).toBe(english);
@@ -305,13 +305,14 @@ describe('GRIB files page copy', () => {
     for (const text of [
       'passage_wind-gfs_20260923T00Z_N48W006_N51E002.grb2',
       'passage_waves-gfs_20260923T00Z_N48W006_N51E002.grb2',
-      '33 × 13 points · 0.25°',
       '0…360°',
       // run labels (gribRunLabel)
       'ECMWF 06Z',
       'GFS-Wave 18Z',
       'IBI 00Z',
     ]) expect(translateText(text, 'fr')).toBe(text);
+    // Only the grid step's decimal takes French notation.
+    expect(translateText('33 × 13 points · 0.25°', 'fr')).toBe('33 × 13 points · 0,25°');
   });
 });
 

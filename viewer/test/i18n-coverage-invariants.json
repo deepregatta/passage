@@ -638,7 +638,6 @@
         "0–1",
         "H/L",
         "m",
-        "nm",
         "✕"
       ],
       "viewer/src/components/ModelsUsed.jsx": [
@@ -729,7 +728,6 @@
       ],
       "viewer/src/pages/Planner.jsx": [
         "h",
-        "nm",
         "·",
         "· ~",
         "…"

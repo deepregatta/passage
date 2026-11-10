@@ -1005,7 +1005,11 @@ const FR_PATTERNS = [
   [/^forecast scenarios exceed (.+); raw fraction \((.+)\), not a calibrated probability$/, 'scénarios de prévision dépassent $1; fraction brute ($2), pas une probabilité étalonnée'],
   [/^All (\d+) forecast scenarios exceed your (.+) limit (.+)\.$/, 'Les $1 scénarios de prévision dépassent votre limite de $2 $3.'],
   [/^(\d+) of (\d+) forecast scenarios exceed your (.+) limit (.+)\.$/, '$1 scénarios sur $2 dépassent votre limite de $3 $4.'],
-  [/^near (.+)$/, 'près de $1'],
+  [/^near (.+)$/, (match, place) => {
+    // "near X around …" (a split text node) keeps its tail after the place.
+    const localized = localizePlaces(match);
+    return localized !== match ? localized : frNear(place);
+  }],
   [/^at (.+)$/, 'à $1'],
   [/^waypoint (\d+)$/, 'point de route $1'],
   [/^T\+(\d+): low ([^(]+) \((\d+) hPa\) (.+), deepening ([^,]+), (.+)\.$/, 'T+$1 : dépression $2 ($3 hPa) $4, se creusant de $5, $6.'],
@@ -1062,12 +1066,71 @@ const FR_COMPASS8 = {
   'south': 'au sud', 'south-west': 'au sud-ouest', 'west': 'à l’ouest', 'north-west': 'au nord-ouest',
 };
 
-/** "de" + article-bearing place name, with the usual contractions. */
+/**
+ * French "de" + a place noun phrase: de + le → du, de + les → des, elision
+ * (d’) before a vowel or h, and a label that already carries a preposition
+ * ("au large de …", "à l’ouest de …") is returned unchanged.
+ */
 function frDe(placeFr) {
-  if (placeFr.startsWith('le ')) return `du ${placeFr.slice(3)}`;
-  if (placeFr.startsWith('les ')) return `des ${placeFr.slice(4)}`;
-  if (placeFr.startsWith('la ') || placeFr.startsWith('l’')) return `de ${placeFr}`;
-  return `de ${placeFr}`;
+  const place = placeFr.trim();
+  if (FR_LOCATIVE_START.test(place)) return place;
+  if (/^le\s/i.test(place)) return `du ${place.slice(3)}`;
+  if (/^les\s/i.test(place)) return `des ${place.slice(4)}`;
+  if (/^(?:la\s|l[’'])/i.test(place)) return `de ${place}`;
+  if (/^[aeiouyhàâäéèêëîïôöûüæœ]/i.test(place)) return `d’${place}`;
+  return `de ${place}`;
+}
+
+// Place-phrase grammar shared by every "near X" / "Off X" / "NW of X" label.
+// Waypoint names from the bundled routes map to French noun phrases that carry
+// their article, so frDe can contract them; unknown names pass through.
+const FR_LOCATIVE_START = /^(?:au|aux|à|en|près|sur|dans|le long)\s/i;
+const FR_WAYPOINT_NOUNS = {
+  'Plymouth breakwater': 'le brise-lames de Plymouth',
+  'Plymouth approach': 'l’approche de Plymouth',
+  'Mid-Channel': 'le milieu de la Manche',
+  'Casquets TSS crossing': 'la traversée du DST des Casquets',
+  'Cap de la Hague': 'le Cap de la Hague',
+  'western entrance': 'l’entrée ouest',
+  'Start': 'le départ',
+  'Finish': 'l’arrivée',
+};
+const FR_COMPASS_ABBR = {
+  N: 'north', NE: 'north-east', E: 'east', SE: 'south-east', S: 'south', SW: 'south-west', W: 'west', NW: 'north-west',
+};
+const EN_COMPASS = 'N|NE|E|SE|S|SW|W|NW|north|north-east|east|south-east|south|south-west|west|north-west';
+
+/** English place label → { locative } when it already locates, else { phrase }. */
+function frPlace(name) {
+  const place = name.trim();
+  const paren = place.match(/^(.+?) \(([^()]+)\)$/);
+  if (paren) {
+    const head = frPlace(paren[1]);
+    const note = ` (${frPlaceStandalone(paren[2])})`;
+    return head.locative ? { locative: head.locative + note } : { phrase: head.phrase + note };
+  }
+  const off = place.match(/^Off (.+)$/);
+  if (off) return { locative: `au large ${frDe(frPlace(off[1]).phrase ?? off[1])}` };
+  const compass = place.match(new RegExp(`^(${EN_COMPASS}) of (.+)$`));
+  if (compass) {
+    const direction = FR_COMPASS8[FR_COMPASS_ABBR[compass[1]] ?? compass[1]];
+    return { locative: `${direction} ${frDe(frPlace(compass[2]).phrase ?? compass[2])}` };
+  }
+  if (FR_LOCATIVE_START.test(place)) return { locative: place };
+  const waypoint = place.match(/^waypoint (\d+)$/i);
+  if (waypoint) return { phrase: `le point de route ${waypoint[1]}` };
+  return { phrase: FR_WAYPOINT_NOUNS[place] ?? FR_PLACES[place] ?? place };
+}
+
+/** "near <place>": "près de" + contraction, or the place's own locative. */
+function frNear(name) {
+  const place = frPlace(name);
+  return place.locative ?? `près ${frDe(place.phrase)}`;
+}
+
+function frPlaceStandalone(name) {
+  const place = frPlace(name);
+  return place.locative ?? place.phrase;
 }
 
 function translateCaptionPlace(place) {
@@ -1076,7 +1139,7 @@ function translateCaptionPlace(place) {
   match = place.match(/^(north|north-east|east|south-east|south|south-west|west|north-west) of (.+)$/);
   if (match) return `${FR_COMPASS8[match[1]]} ${frDe(FR_PLACES[match[2]] ?? match[2])}`;
   match = place.match(/^near (.+)$/);
-  if (match) return `près de ${match[1]}`;
+  if (match) return frNear(match[1]);
   return place;
 }
 
@@ -1121,8 +1184,7 @@ function translateChangePhrase(phrase) {
     }
   }
   return out
-    .replace(/ near waypoint (\d+)$/, ' près du point de route $1')
-    .replace(/ near (.+)$/, ' près de $1')
+    .replace(/ near (.+)$/, (_m, place) => ` ${frNear(place)}`)
     .replace(/ on leg (\S+)$/, ' sur le tronçon $1')
     .replace(/ for zone (.+)$/, ' pour la zone $1')
     .replace(/ for the route$/, ' pour la route');
@@ -1173,9 +1235,7 @@ function translateEventPrefix(prefix) {
 
 function translateDriverPlace(where) {
   const match = where.match(/^near (.+)$/i);
-  if (!match) return where;
-  const spot = match[1].match(/^waypoint (\d+)$/i);
-  return spot ? `près du point de route ${spot[1]}` : `près de ${match[1]}`;
+  return match ? frNear(match[1]) : where;
 }
 
 function translateDriverClause(prefix, hazard, value, units, where, relation, limit, limitUnits) {
@@ -1395,13 +1455,6 @@ const FR_FRAGMENTS = [
   [/\bwind near\b/gi, 'vent près de'],
   [/\bwind\b/gi, 'vent'],
   [/\baround\b/gi, 'vers'],
-  [/\bOff ([A-ZÀ-ÖØ-Ý][^→,.]*)/g, 'au large de $1'],
-  [/\bNW of\b/g, 'NO de'],
-  [/\bNE of\b/g, 'NE de'],
-  [/\bSW of\b/g, 'SO de'],
-  [/\bSE of\b/g, 'SE de'],
-  [/\bE of\b/g, 'E de'],
-  [/\bW of\b/g, 'O de'],
   [/\bPlymouth approach\b/gi, 'approche de Plymouth'],
   [/\bPlymouth breakwater\b/gi, 'brise-lames de Plymouth'],
   [/\bCasquets TSS crossing\b/gi, 'traversée du DST des Casquets'],
@@ -1453,6 +1506,7 @@ const FR_FRAGMENTS = [
   [/proches de votre (\d+(?:\.\d+)?) nd limite/gi, 'proches de votre limite de $1 nd'],
   [/au-dessus de votre (\d+(?:\.\d+)?) nd limite/gi, 'au-dessus de votre limite de $1 nd'],
   [/votre limite de (\d+(?:\.\d+)?) nd vent/gi, 'votre limite de vent de $1 nd'],
+  [/votre limite de (\d+(?:\.\d+)?) nd gust\b/gi, 'votre limite de rafales de $1 nd'],
   [/votre (\d+(?:\.\d+)?) nd vent limite/gi, 'votre limite de vent de $1 nd'],
   [/votre vent limite/gi, 'votre limite de vent'],
   [/\b(\d+) of (\d+)\b/g, '$1 sur $2'],
@@ -1475,6 +1529,65 @@ function localizeDateParts(text) {
   return text.replace(/\b(Sun|Mon|Tue|Wed|Thu|Fri|Sat|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b/g, (part) => FR_DATE_PARTS[part]);
 }
 
+// Place labels inside generated sentences: "near X", "Off X", "NW of X". A
+// label runs from its capital letter to the next clause boundary.
+const EN_PLACE = `(?:Off |(?:${EN_COMPASS}) of )?[A-ZÀ-ÖØ-Ý][^→,.;:()\\n]*?(?: \\((?!L\\d)[^()]*\\))?`;
+// French words appear when a sentence pattern has already translated the rest.
+const EN_PLACE_END = '(?=\\s*$|\\s+(?:around|at|from|between|until|on|UTC|vers|à|pendant|entre)(?![\\p{L}])|\\s+\\(L\\d|\\s*[,.;:→)])';
+const NEAR_PLACE = new RegExp(`\\bnear (${EN_PLACE})${EN_PLACE_END}`, 'gu');
+const LOCATIVE_PLACE = new RegExp(`(?<![\\p{L}\\p{N}_-])((?:Off|(?:N|NE|E|SE|S|SW|W|NW) of) ${EN_PLACE})${EN_PLACE_END}`, 'gu');
+
+function localizePlaces(text) {
+  return text
+    .replace(NEAR_PLACE, (_match, place) => frNear(place))
+    .replace(LOCATIVE_PLACE, (_match, place) => frPlaceStandalone(place));
+}
+
+// Ages: "2 d 3 h" (days) → "2 j 3 h"; "… old" → "il y a …".
+function localizeAges(text) {
+  return text
+    .replace(/^(· )?((?:\d+ d)(?: \d+ h)?) old$/, (_match, separator = '', age) => `${separator}il y a ${age}`)
+    .replace(/(?<![\p{L}\p{N}_])(\d+) d(?=$|\s+\d+\s*(?:h|min)\b|\s*[·,;)])/gu, '$1 j');
+}
+
+// French number notation for dynamic text: decimal comma; units "nm"/"NM" → "M".
+// Identifiers keep their dots: versions and IPs (several dot groups), file
+// names, timestamps, section numbers, words with digits, URLs, e-mail
+// addresses, and a name followed by a number without a unit ("First 36.7",
+// "CC BY 4.0").
+const EN_DECIMAL = /(?<![\p{L}\p{N}_.,:/\\§#]|[\p{L}\p{N}_]-)(\d+)\.(\d+)(?![\p{N}_]|\.\p{N})/gu;
+const NAME_BEFORE = /(?:^|\s)\p{Lu}[\p{L}\p{N}-]* $/u;
+const UNIT_AFTER = /^\s?(?:°|%|×|–|(?:m|M|nm|NM|nd|kt|kn|h|min|s|hPa|km|ko|Mo|kB|MB|m\/s|knots|nœuds)(?![\p{L}]))/u;
+
+function localizeNumbers(text) {
+  return text.replace(EN_DECIMAL, (match, whole, fraction, offset) => {
+    const tokenStart = text.lastIndexOf(' ', offset) + 1;
+    const tokenEnd = text.indexOf(' ', offset);
+    const token = text.slice(tokenStart, tokenEnd < 0 ? undefined : tokenEnd);
+    if (/:\/\/|^www\.|@/.test(token)) return match;
+    const after = text.slice(offset + match.length);
+    if (NAME_BEFORE.test(text.slice(0, offset)) && !UNIT_AFTER.test(after)) return match;
+    return `${whole},${fraction}`;
+  });
+}
+
+function localizeUnits(text) {
+  return text
+    .replace(/(\d) ?(?:nm|NM)\b/g, '$1 M')
+    .replace(/\((?:nm|NM)\)/g, '(M)')
+    .replace(/^(?:nm|NM)$/, 'M');
+}
+
+// French typography: a no-break space before a semicolon.
+function localizeTypography(text) {
+  return text.replace(/(?<=[^\s;]);(?=\s|$)/g, '\u00A0;');
+}
+
+/** French notation only (decimal comma, no-break space before ';'), no wording. */
+export function localizeNotationFr(text) {
+  return localizeTypography(localizeNumbers(text));
+}
+
 export function translateText(value, language) {
   if (language !== 'fr' || !value) return value;
   const leading = value.match(/^\s*/)?.[0] ?? '';
@@ -1493,8 +1606,10 @@ export function translateText(value, language) {
     }
   }
   translated ??= key;
+  translated = localizePlaces(translated);
   for (const [pattern, replacement] of FR_FRAGMENTS) translated = translated.replace(pattern, replacement);
   translated = localizeDateParts(translated);
+  translated = localizeNotationFr(localizeUnits(localizeAges(translated)));
   return `${leading}${translated}${trailing}`;
 }
 

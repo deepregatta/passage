@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { translateText } from '../src/i18n.js';
+import { localizeNotationFr, translateText } from '../src/i18n.js';
 import { briefingStrings, collectCoverage, identityEntries, jsxLiterals } from './helpers/i18nCoverage.js';
 
 const repoRoot = path.resolve(import.meta.dirname, '../..');
@@ -23,7 +23,7 @@ describe('French translation coverage', () => {
     const expected = identityEntries(classified, (text) => text);
     expect(Object.keys(invariants.categories).sort()).toEqual(['french', 'notation', 'technical']);
     expect(classified.length).toBe(Object.values(expected).flat().length);
-    const missing = coverage.samples.filter(({ text, source }) => translateText(text, 'fr') === text
+    const missing = coverage.samples.filter(({ text, source }) => [text, localizeNotationFr(text)].includes(translateText(text, 'fr'))
       && !expected[source.split(/#|:\d/)[0]]?.includes(text));
     expect(missing, 'New identity translations with exact source locations').toEqual([]);
     expect(actual, 'Translate new prose; review technical/French/notation identities explicitly and remove stale entries').toEqual(expected);
