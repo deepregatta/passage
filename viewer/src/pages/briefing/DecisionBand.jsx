@@ -80,14 +80,17 @@ export default function DecisionBand({ findings, warningEvidence, onOpenBulletin
           {/* an older check with nothing structured to quote: the chip label is the answer, no invented numbers */}
           {sentences.length === 0 && <h1 className="sr-only">{VERDICT[state]?.label}</h1>}
           {sentences.length > 0 && (
-            <h1
-              data-testid="verdict-sentence"
-              className={clsx('font-story text-[22px] sm:text-[28px] leading-snug max-w-[62ch]', warningActive && (emulated ? 'border-l-4 border-dashed border-ink/60 pl-3' : 'border-l-4 border-authority pl-3'))}
-            >
-              {sentences.map((sentence, i) => (
-                <span key={i}>{i > 0 && ' '}<span>{sentence}</span></span>
-              ))}
-            </h1>
+            <div className={clsx('min-w-0 max-w-[62ch]', warningActive && (emulated ? 'border-l-4 border-dashed border-ink/60 pl-3' : 'border-l-4 border-authority pl-3'))}>
+              {/* one sentence: the governing reason; its support directly below, still stated once */}
+              <h1 data-testid="verdict-sentence" className="font-story text-[22px] sm:text-[28px] leading-snug">{sentences[0]}</h1>
+              {sentences.length > 1 && (
+                <p data-testid="verdict-detail" className="font-story text-[16px] sm:text-[18px] leading-snug mt-1.5">
+                  {sentences.slice(1).map((sentence, i) => (
+                    <span key={i}>{i > 0 && ' '}<span>{sentence}</span></span>
+                  ))}
+                </p>
+              )}
+            </div>
           )}
         </div>
         <p className="font-sans text-[14px] text-ink-soft max-w-[72ch]">

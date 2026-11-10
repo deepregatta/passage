@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { governingReason, modelDisplayName } from '@deepweather/engine';
+import { modelDisplayName } from '@deepweather/engine';
+import { governingClaim, safeGoverningReason } from '../../lib/governing.js';
 import { translateText } from '../../i18n.js';
 import { fmtTextTime } from '../../lib/format.js';
 import { ruleLabel, ruleLabelTranslations } from '../../lib/ruleLabels.js';
@@ -20,27 +21,10 @@ import { legLabel } from './routeLabels.jsx';
 export function useGoverningReason(findings) {
   const limits = useApp((s) => s.limits);
   const defaults = useApp((s) => s.profileDefaults);
-  return useMemo(() => {
-    if (!findings) return null;
-    try {
-      return governingReason(findings, { profile: limits ?? defaults ?? undefined });
-    } catch {
-      return null;
-    }
-  }, [findings, limits, defaults]);
+  return useMemo(() => safeGoverningReason(findings, limits ?? defaults), [findings, limits, defaults]);
 }
 
-/** The ensemble claim the top sentence quotes (same leg, limit kind and hour), for the Evidence headline. */
-export function governingClaim(findings, reason) {
-  const result = reason?.result;
-  if (!findings || !result || !['wind', 'gust'].includes(result.limit.kind)) return null;
-  const family = result.limit.kind === 'gust' ? 'W-GUST' : 'W-SUST';
-  const claims = findings.evidence.filter((e) => e.source_kind === 'ensemble' && e.member_fraction
-    && e.leg_id === result.leg.leg_id && e.rule_id.startsWith(family));
-  return claims.find((e) => e.evidence_id === result.evidence_id)
-    ?? claims.find((e) => e.valid_time === result.scenarios?.valid_time)
-    ?? claims[0] ?? null;
-}
+export { governingClaim };
 
 const NOUN = { wind: 'wind', gust: 'gust', wave: 'wave height', steepness: 'wave steepness', visibility: 'visibility' };
 
@@ -74,7 +58,7 @@ const limitText = (limit) => (limit.unit === 'H/L' ? String(limit.value) : `${li
 export function limitSentences(findings, result) {
   if (!result) return [];
   const where = legLabel(findings, result.leg.leg_id);
-  const when = fmtTextTime(result.window.from);
+  const when = whenOnLeg(findings, result.leg.leg_id, result.window);
   const noun = NOUN[result.limit.kind] ?? result.limit.kind;
   const min = result.limit.bound === 'min';
   const word = min ? 'minimum' : 'limit';
@@ -82,18 +66,32 @@ export function limitSentences(findings, result) {
   const { statistic, scenarios } = result;
   const count = scenarios ? `${scenarios.exceeding} of ${scenarios.total} ${ensembleName(scenarios.model)} forecast scenarios` : null;
   if (result.status === 'scenarios') {
-    return [`${count ?? 'Some forecast scenarios'} exceed your ${L} ${noun} ${word} ${where} around ${when}.`];
+    return [`${count ?? 'Some forecast scenarios'} exceed your ${L} ${noun} ${word} ${where} ${when}.`];
   }
   const model = forecastName(statistic.model);
   const forecast = model ? `the ${model} forecast` : 'the forecast';
   const verb = min ? 'drops to' : 'reaches';
   const V = valueText(statistic.value, result.limit.value, statistic.unit);
   const out = [];
-  if (result.status === 'exceeded') out.push(`Your ${L} ${noun} ${word} is ${min ? 'not met' : 'exceeded'} ${where} around ${when}: ${forecast} ${verb} ${V}.`);
-  else if (result.status === 'approaching') out.push(`Close to your ${L} ${noun} ${word} ${where} around ${when}: ${forecast} ${verb} ${V}.`);
-  else out.push(`Closest to your limits: ${noun} ${where} around ${when}, where ${forecast} ${verb} ${V} against your ${L} ${word}.`);
+  if (result.status === 'exceeded') out.push(`Your ${L} ${noun} ${word} is ${min ? 'not met' : 'exceeded'} ${where} ${when}: ${forecast} ${verb} ${V}.`);
+  else if (result.status === 'approaching') out.push(`Close to your ${L} ${noun} ${word} ${where} ${when}: ${forecast} ${verb} ${V}.`);
+  else out.push(`Closest to your limits: ${noun} ${where} ${when}, where ${forecast} ${verb} ${V} against your ${L} ${word}.`);
   if (count && scenarios.exceeding > 0) out.push(`${count[0].toUpperCase()}${count.slice(1)} exceed that limit.`);
   return out;
+}
+
+/**
+ * When the boat meets a limit result. A window collapsed onto the leg's slow exit (or its entry)
+ * means the forecast hour behind it falls at the edge of the leg: say so instead of "around".
+ */
+export function whenOnLeg(findings, legId, window) {
+  const time = fmtTextTime(window.from);
+  if (window.from !== window.to) return `around ${time}`;
+  const leg = findings.legs.find((l) => l.leg_id === legId);
+  const at = Date.parse(window.from);
+  if (leg && at === Date.parse(leg.eta_range?.slow)) return `as you leave it, about ${time}`;
+  if (leg && at === Math.max(Date.parse(leg.enter_range?.fast), Date.parse(findings.departure_utc))) return `as you reach it, about ${time}`;
+  return `around ${time}`;
 }
 
 /** Plain name for a recorded bulletin kind ("BMS-large", "gale-warning", "nws-small-craft-advisory"). */
@@ -122,7 +120,9 @@ function modelRun(model) {
 
 /**
  * The verdict as 1–4 sentences (never invented numbers; empty when the saved
- * check has nothing structured to say, and the chip label stands alone).
+ * check has nothing structured to say, and the chip label stands alone). The first
+ * is the governing reason (warning, disagreement or limit result) and is the page's
+ * h1; the rest support it in a paragraph directly below.
  * @param {any} findings
  * @param {any} reason governingReason output
  * @param {{ emulatedWarning?: boolean }} [options]
@@ -137,7 +137,7 @@ export function verdictSentences(findings, reason, { emulatedWarning = false } =
     // say each thing once: the lead already marks a synthetic scenario, an issuer named "… BMS" the bulletin type
     const issuer = emulatedWarning ? String(w.issuer).replace(/\s*\((?:synthetic|emulated)\)$/i, '') : w.issuer;
     const kind = /\bBMS\b/.test(issuer) ? warningKindLabel(w.kind).replace(/ \(BMS\)$/, '') : warningKindLabel(w.kind);
-    out.push(`${lead} for ${w.area}: ${kind} from ${issuer}.`);
+    out.push(`${lead}: ${kind} for ${w.area} from ${issuer}.`);
   }
   if (reason.state === 'insufficient' && reason.disagreement) {
     const d = reason.disagreement;

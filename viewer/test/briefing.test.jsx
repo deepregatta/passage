@@ -101,7 +101,8 @@ it('shows the verdict state on the chip and the personal-limit result in the sen
   expect(band.getByText('Official warning active', { exact: true })).toBeVisible();
   expect(band.queryByText(/Exceeds your limits|Within your declared limits|Approaching your limits/)).toBeNull();
   const sentence = band.getByRole('heading', { level: 1 });
-  expect(sentence).toHaveTextContent(/^Synthetic warning scenario for Casquets: offshore marine bulletin from Météo-France BMS\. Your 18 kt wind limit is exceeded near Casquets TSS crossing \(leg 3\)/);
+  expect(sentence).toHaveTextContent(/^Synthetic warning scenario: offshore marine bulletin for Casquets from Météo-France BMS\.$/);
+  expect(band.getByTestId('verdict-detail')).toHaveTextContent(/^Your 18 kt wind limit is exceeded near Casquets TSS crossing \(leg 3\)/);
 });
 
 it('keeps the legacy chart fallback and route endpoints and distances', () => {

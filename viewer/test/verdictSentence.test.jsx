@@ -25,24 +25,28 @@ beforeEach(() => {
 
 /** the boat leaves leg 3 at its slow ETA: the governing window start, in the header zone */
 const L3_EXIT = fmtTextTime('2026-07-20T17:03:36Z');
-const LIMIT = `Your 18 kt wind limit is exceeded near Casquets TSS crossing (leg 3) around ${L3_EXIT}: the emulated scenario forecast reaches 18.3 kt.`;
+// the 18Z forecast hour falls after the boat's slowest exit from leg 3: the window collapses onto that exit
+const LIMIT = `Your 18 kt wind limit is exceeded near Casquets TSS crossing (leg 3) as you leave it, about ${L3_EXIT}: the emulated scenario forecast reaches 18.3 kt.`;
+const LIMIT_FR = `Votre limite de vent de 18 nd est dépassée près de traversée du DST des Casquets (tronçon 3) en le quittant, vers ${translateText(L3_EXIT, 'fr')} : la prévision du scénario simulé atteint 18,3 nd.`;
+const WARNING = 'Synthetic warning scenario: offshore marine bulletin for Casquets from Météo-France BMS.';
+const WARNING_FR = 'Scénario d’alerte synthétique : bulletin météo marine du large pour Casquets, émis par Météo-France BMS.';
 const COUNT = '24 of 51 emulated forecast scenarios exceed that limit.';
 
 it('warning_active (the example): the warning, then what the forecast shows against your limits', () => {
   expect(verdictSentences(findings, governingReason(findings), { emulatedWarning: true })).toEqual([
-    'Synthetic warning scenario for Casquets: offshore marine bulletin from Météo-France BMS.',
+    WARNING,
     LIMIT,
     COUNT,
   ]);
   const official = verdictSentences(findings, governingReason(findings));
-  expect(official[0]).toBe('Official warning for Casquets: offshore marine bulletin from Météo-France BMS (synthetic).');
+  expect(official[0]).toBe('Official warning: offshore marine bulletin for Casquets from Météo-France BMS (synthetic).');
 });
 
 it('exceeds: the earliest exceeded limit, the model that shows it and the scenario count, labelled', () => {
   findings.verdict = { ...findings.verdict, state: 'exceeds', warning_override: { active: false, bulletin_ref: null } };
   findings.evidence.find((e) => e.evidence_id === 'E3').model = 'gfs_0p25';
   expect(verdictSentences(findings, governingReason(findings))).toEqual([
-    `Your 18 kt wind limit is exceeded near Casquets TSS crossing (leg 3) around ${L3_EXIT}: the GFS forecast reaches 18.3 kt.`,
+    `Your 18 kt wind limit is exceeded near Casquets TSS crossing (leg 3) as you leave it, about ${L3_EXIT}: the GFS forecast reaches 18.3 kt.`,
     COUNT,
   ]);
 });
@@ -74,7 +78,7 @@ it('insufficient: which models and runs disagree, the run-age gap, and still the
   expect(sentences.map((s) => translateText(s, 'fr'))).toEqual([
     `Les modèles divergent sur le vent près de l’approche de Plymouth (E de Eddystone) (tronçon 5) vers ${translateText(fmtTextTime('2026-07-20T20:00:00Z'), 'fr')} : GFS (cycle 20 juil. 12Z) 24 nd contre ECMWF (cycle 20 juil. 06Z) 15 nd.`,
     'Ces cycles ont 6 h d’écart d’âge : une partie de la différence peut en venir.',
-    `Votre limite de vent de 18 nd est dépassée près de traversée du DST des Casquets (tronçon 3) vers ${translateText(L3_EXIT, 'fr')} : la prévision du scénario simulé atteint 18.3 nd.`,
+    LIMIT_FR,
     '24 scénarios de prévision simulés sur 51 dépassent cette limite.',
   ]);
 });
@@ -88,11 +92,11 @@ it('example page: chip and sentence agree, and the top and Evidence headline quo
   render(<Briefing />);
   const band = within(screen.getByTestId('decision-band'));
   expect(band.getByText('Official warning active', { exact: true })).toBeVisible();
+  // the h1 is ONE sentence, the governing reason; its support is the paragraph right below
   const sentence = band.getByRole('heading', { level: 1 });
-  expect(sentence.textContent).toBe([
-    'Synthetic warning scenario for Casquets: offshore marine bulletin from Météo-France BMS.', LIMIT, COUNT,
-  ].join(' '));
-  expect(sentence.textContent).not.toMatch(/UTC/);
+  expect(sentence.textContent).toBe(WARNING);
+  expect(band.getByTestId('verdict-detail').textContent).toBe([LIMIT, COUNT].join(' '));
+  expect(screen.getByTestId('decision-band').textContent).not.toMatch(/UTC/);
   const evidence = document.querySelector('[data-section="evidence"]');
   expect(within(evidence).getByRole('heading', { level: 2 })).toHaveTextContent('24 of 51 forecast scenarios exceed your wind limit');
   // the story card quotes no "N of M … exceed" sentence of its own
@@ -104,11 +108,9 @@ it('example page: chip and sentence agree, and the top and Evidence headline quo
 it('example page in French: one verdict sentence, no English left', async () => {
   const { container } = render(<div id="root"><Briefing /><LocalizedDocument language="fr" /></div>);
   const sentence = within(screen.getByTestId('decision-band')).getByRole('heading', { level: 1 });
-  await waitFor(() => expect(sentence.textContent).toMatch(/^Scénario d’alerte synthétique pour Casquets/));
-  expect(sentence.textContent).toBe([
-    'Scénario d’alerte synthétique pour Casquets : bulletin météo marine du large de Météo-France BMS.',
-    `Votre limite de vent de 18 nd est dépassée près de traversée du DST des Casquets (tronçon 3) vers ${translateText(L3_EXIT, 'fr')} : la prévision du scénario simulé atteint 18.3 nd.`,
-    '24 scénarios de prévision simulés sur 51 dépassent cette limite.',
+  await waitFor(() => expect(sentence.textContent).toBe(WARNING_FR));
+  expect(screen.getByTestId('verdict-detail').textContent).toBe([
+    LIMIT_FR, '24 scénarios de prévision simulés sur 51 dépassent cette limite.',
   ].join(' '));
   expect(container.querySelector('[data-testid="decision-band"]').textContent).not.toMatch(/\b(?:the|your|limit|forecast|scenarios)\b/i);
 });

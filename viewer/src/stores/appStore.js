@@ -6,6 +6,7 @@ import { preparedRun } from '../lib/preparedRun.js';
 import { getInitialLanguage, getLanguageFromPath, LANGUAGE_STORAGE_KEY } from '../i18n.js';
 import { usePlayback } from './playbackStore.js';
 import { recoverProfileDraft, saveProfileDraft } from '../lib/profileDraft.js';
+import { initialSelection } from '../lib/governing.js';
 
 // IndexedDB and shared prepared-run reads may finish after navigation. Only the
 // current open (including example manifest discovery) may publish its result.
@@ -200,9 +201,9 @@ export const useApp = create((set, get) => ({
         file('route.json').catch(() => null),
       ]);
       if (sequence !== openSequence) return;
-      const worstLeg =
-        findings.evidence.find((e) => e.evidence_id === findings.verdict.driver_evidence_id)
-          ?.leg_id ?? findings.legs[0]?.leg_id;
+      // start on the claim and leg the verdict sentence names, not the verdict driver
+      // (the driver ranks by ratio and can be another leg, hour and count)
+      const selection = initialSelection(findings, get().limits ?? get().profileDefaults);
       set({
         snapshotSource,
         findings,
@@ -214,9 +215,7 @@ export const useApp = create((set, get) => ({
         route,
         loading: false,
         page: targetPage,
-        selectedLegId: worstLeg ?? null,
-        selectedEvidenceId: findings.verdict.driver_evidence_id ??
-          findings.evidence.find((item) => item.member_fraction)?.evidence_id ?? null,
+        ...selection,
         nowMs: Date.now(),
       });
       if (typeof location !== 'undefined') {
