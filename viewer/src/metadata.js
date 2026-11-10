@@ -49,9 +49,28 @@ export const PRIVACY_COPY = {
 // Pages with their own crawlable URL and complete document title.
 const STANDALONE_COPY = { grib: GRIB_COPY, privacy: PRIVACY_COPY };
 export const pageCopy = (page) => STANDALONE_COPY[page] ?? COPY;
-export const documentTitle = (language, page) => {
-  const copy = pageCopy(page)[language === 'fr' ? 'fr' : 'en'];
-  return page in STANDALONE_COPY ? copy.title : `${copy.title} | DeepRegatta`;
+// In-app pages (same URL, hash-routed) each name themselves in the tab, after the
+// brand. The planner keeps the product title that index.html and the French
+// prerender ship, so crawlers and the hydrated page agree on the front door.
+const APP_TITLES = {
+  passages: { en: 'My passages', fr: 'Mes traversées' },
+  briefing: { en: 'Passage briefing', fr: 'Briefing de traversée' },
+  example: { en: 'Example passage', fr: 'Exemple de traversée' },
+  about: { en: 'About the data', fr: 'À propos des données' },
+};
+const TITLE_BRAND = { en: 'Passage by DeepRegatta', fr: 'Passage par DeepRegatta' };
+
+/** `detail` ({ route, departure }) names a loaded passage on the briefing page;
+ * both are display strings already localised by the caller. */
+export const documentTitle = (language, page, detail = null) => {
+  const code = language === 'fr' ? 'fr' : 'en';
+  if (page in STANDALONE_COPY) return pageCopy(page)[code].title;
+  const own = APP_TITLES[page];
+  if (!own) return `${COPY[code].title} | DeepRegatta`;
+  const name = page === 'briefing' && detail?.route
+    ? `${detail.route}${detail.departure ? (code === 'fr' ? `, départ le ${detail.departure}` : `, departing ${detail.departure}`) : ''}`
+    : own[code];
+  return `${name} · ${TITLE_BRAND[code]}`;
 };
 
 // Complete static fallback copy. English entries mirror index.html; the prerender
