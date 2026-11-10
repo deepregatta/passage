@@ -30,7 +30,7 @@ export default function Shell({ page, onNavigate, children }) {
         <div className="h-14 px-3 sm:px-5 flex items-center gap-4">
           <button type="button" onClick={() => onNavigate('planner')} className="min-h-11 flex items-center gap-2" aria-label="Passage home">
             <CompassMark />
-            <span className="hidden sm:inline font-instrument tracking-[0.08em]"><span className="font-semibold">Passage</span> <span className="text-paper/60 text-xs">by DeepRegatta</span></span>
+            <span className="hidden sm:inline whitespace-nowrap font-instrument tracking-[0.08em]"><span className="font-semibold">Passage</span> <span className="text-paper/60 text-xs">by DeepRegatta</span></span>
           </button>
           <nav aria-label="Main navigation" className="hidden md:flex self-stretch flex-1 justify-center">
             {PLACES.map((place) => <PlaceButton key={place.id} place={place} active={active?.id === place.id} onClick={() => onNavigate(place.target)} />)}
@@ -136,8 +136,8 @@ function SiteFooter({ onNavigate }) {
 }
 
 function PlaceButton({ place, active, onClick, mobile = false }) {
-  return <button type="button" onClick={onClick} aria-current={active ? 'page' : undefined} className={clsx('relative min-h-11 font-instrument uppercase tracking-[0.12em] transition-colors', mobile ? 'flex flex-col items-center justify-center text-[11px]' : 'px-8 text-xs', active ? 'text-white' : 'text-paper/60 hover:text-paper')}>
-    {place.label}{active && <span className={clsx('absolute bg-event', mobile ? 'top-0 inset-x-3 h-0.5' : 'bottom-0 inset-x-5 h-0.5')} />}
+  return <button type="button" onClick={onClick} aria-current={active ? 'page' : undefined} className={clsx('relative min-h-11 font-instrument uppercase tracking-[0.12em] transition-colors', mobile ? 'flex flex-col items-center justify-center text-[11px]' : 'px-4 lg:px-8 text-xs whitespace-nowrap', active ? 'text-white' : 'text-paper/60 hover:text-paper')}>
+    {place.label}{active && <span className={clsx('absolute bg-event', mobile ? 'top-0 inset-x-3 h-0.5' : 'bottom-0 inset-x-3 lg:inset-x-5 h-0.5')} />}
   </button>;
 }
 
