@@ -88,6 +88,8 @@ test('draws a GRIB box by dragging, resizes it from a corner, and keeps it in th
   // drag the north-west corner up and to the left: the box grows and stays grown
   const handles = page.locator('.leaflet-marker-icon');
   await expect(handles).toHaveCount(4);
+  // on phones the page has scrolled on to the period step: bring the handle back before dragging it
+  await handles.first().scrollIntoViewIfNeeded();
   const corner = await handles.first().boundingBox();
   const start = [corner.x + corner.width / 2, corner.y + corner.height / 2];
   await page.mouse.move(...start);

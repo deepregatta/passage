@@ -18,7 +18,8 @@ test('evidence checkpoint', async ({ page }) => {
 test('headline, chart, limit, and inspector use one evidence claim', async ({ page }) => {
   await openAuditedSnapshot(page);
   await openSection(page, 'Evidence');
-  await page.getByRole('button', { name: /L4 · gust.*23\/51/i }).click();
+  // claims are labelled by place and measure; the count lives in the heading
+  await page.getByRole('button', { name: 'Mid-Channel (leg 4) gust', exact: true }).click();
   await expect(page.getByText(/YOUR LIMIT/)).toBeVisible();
   await expect(page.getByRole('heading', { name: /23 of 51 forecast scenarios/i })).toBeVisible();
 });

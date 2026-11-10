@@ -74,7 +74,8 @@ for (const invalid of ['outside', 'expired', 'empty']) {
     }, { engineUrl, tileGrid: grid('tile-empty', { u_kt: Array(18).fill(null) }), departure: DEPARTURE });
     await page.locator(testInfo.project.name === 'mobile' ? 'nav.md\\:hidden' : 'header').getByRole('button', { name: /^Edit my limits/ }).click();
     await page.getByLabel('Max gusts').fill('31');
-    await expect(page.getByRole('status')).toContainText('could not be saved');
+    // phones also show the map's touch hint as a status region
+    await expect(page.getByRole('status').filter({ hasText: 'could not be saved' })).toBeVisible();
     await page.getByRole('button', { name: 'Done', exact: true }).click();
     await settleMap(page);
     const check = () => page.getByRole('button', { name: 'Check this passage', exact: true });

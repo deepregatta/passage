@@ -59,8 +59,8 @@ test('playback scrub synchronizes the story phase and evidence focus', async ({ 
 test('example decision band prioritizes bulletin inspection before charts', async ({ page }) => {
   await openAuditedSnapshot(page);
   const band = page.getByTestId('decision-band');
-  // the chip names the verdict state; the h1 beside it is the one verdict sentence
-  await expect(band.getByText('Official warning active', { exact: true })).toBeVisible();
+  // the chip names the verdict state (its glyph shares the element, so no exact match); the h1 beside it is the one verdict sentence
+  await expect(band.getByText('Official warning active')).toBeVisible();
   await expect(band.getByRole('heading', { level: 1 })).toHaveText('Synthetic warning scenario: offshore marine bulletin for Casquets from Météo-France BMS.');
   await expect(band.getByTestId('verdict-detail')).toContainText('24 of 51 emulated forecast scenarios exceed that limit.');
   await expect(band.getByText('EMULATED WARNING SCENARIO')).toBeVisible();
