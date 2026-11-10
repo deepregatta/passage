@@ -43,12 +43,15 @@ test('responsive shell uses one navigation bar without overflow', async ({ page 
 
 test('playback scrub synchronizes the story phase and evidence focus', async ({ page }) => {
   await openAuditedSnapshot(page);
+  // the story follows the causal event on the leg the verdict sentence names (leg 3, on the
+  // route from 08:38 to 18:03 UTC); the example departs 06:00 UTC
+  await expect(page.getByText('what sets this up', { exact: true })).toBeVisible();
   const ruler = page.getByRole('slider', { name: 'Passage time' });
   await ruler.evaluate((element) => {
     // React tracks the value property: plain `element.value = …` updates the
     // tracker too and the dispatched event is ignored — use the native setter
     const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
-    setter.call(element, '1');
+    setter.call(element, '5');
     element.dispatchEvent(new Event('input', { bubbles: true }));
     element.dispatchEvent(new Event('change', { bubbles: true }));
   });
