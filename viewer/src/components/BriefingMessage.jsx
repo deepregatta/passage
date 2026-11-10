@@ -2,9 +2,9 @@ import { useApp } from '../stores/appStore.js';
 import { messageStatusLabel, renderBriefingField } from '../lib/briefingMessages.js';
 
 /** Owns text and language changes, including literal fallback and parameter text. */
-export default function BriefingMessage({ section, field, version = 1, omitScenarioCount = false }) {
+export default function BriefingMessage({ section, field, version = 1, omitScenarioCount = false, describeDriver }) {
   const language = useApp(s => s.language);
-  const result = renderBriefingField(version, section, field, language, undefined, { omitScenarioCount });
+  const result = renderBriefingField(version, section, field, language, undefined, { omitScenarioCount, describeDriver });
   const problem = ['fallback', 'unavailable', 'unsupported'].includes(result.status);
   return (
     <span data-i18n-owned="message" data-message-field={field} data-message-status={result.status}>

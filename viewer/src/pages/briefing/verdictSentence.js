@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 import { governingReason, modelDisplayName } from '@deepweather/engine';
+import { translateText } from '../../i18n.js';
 import { fmtTextTime } from '../../lib/format.js';
+import { ruleLabel, ruleLabelTranslations } from '../../lib/ruleLabels.js';
 import { isScenarioId } from '../../lib/sourceNames.js';
 import { useApp } from '../../stores/appStore.js';
 import { legLabel } from './routeLabels.jsx';
@@ -156,4 +158,36 @@ export function verdictSentences(findings, reason, { emulatedWarning = false } =
     else out.push(`The tidal gate ${where} only partly fits this departure (around ${when}).`);
   }
   return out;
+}
+
+/**
+ * The professional register's verdict driver in page labels, for BriefingMessage `describeDriver`.
+ * The engine's verdict ranks claims by value/limit ratio, so its driver can be another leg, hour and
+ * count than the governing reason at the top (earliest exceedance). It is named as the strongest
+ * single signal, never as the answer. Returns null for parameters it cannot read (the stored
+ * sentence then stays as it was).
+ * @param {any} findings
+ * @param {any} p decision message parameters: rule_id, leg_id, valid_time, limit, units, and exceed/total or value
+ * @param {'en' | 'fr'} language
+ */
+export function driverSignalText(findings, p, language) {
+  const num = (x) => typeof x === 'number' && Number.isFinite(x);
+  if (!findings || typeof p?.rule_id !== 'string' || typeof p.leg_id !== 'string' || !Number.isFinite(Date.parse(p.valid_time ?? '')) || !num(p.limit)) return null;
+  const ensemble = num(p.exceed) && num(p.total);
+  if (!ensemble && !num(p.value)) return null;
+  const rule = ruleLabel(p.rule_id);
+  const where = legLabel(findings, p.leg_id);
+  const when = fmtTextTime(p.valid_time);
+  const units = typeof p.units === 'string' ? p.units : '';
+  if (language === 'fr') {
+    const u = units === 'kt' ? 'nd' : units;
+    const head = `Signal individuel le plus fort : ${ruleLabelTranslations[rule] ?? rule} ${translateText(where, 'fr')} vers ${translateText(when, 'fr')}`;
+    return ensemble
+      ? `${head}, ${p.exceed} membres d’ensemble sur ${p.total} au-dessus de ${p.limit} ${u}.`
+      : `${head}, ${p.value} ${u} pour une limite déclarée de ${p.limit} ${u}.`;
+  }
+  const head = `Strongest single signal: ${rule} ${where} around ${when}`;
+  return ensemble
+    ? `${head}, ${p.exceed} of ${p.total} ensemble members above ${p.limit} ${units}.`
+    : `${head}, ${p.value} ${units} against your declared ${p.limit} ${units}.`;
 }

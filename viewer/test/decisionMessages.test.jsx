@@ -6,6 +6,7 @@ import { FR_DECISION_MESSAGES, renderBriefingField } from '../src/lib/briefingMe
 import { LocalizedDocument, translateText } from '../src/i18n.js';
 import BriefingMessage from '../src/components/BriefingMessage.jsx';
 import AssessmentDetails from '../src/pages/briefing/AssessmentDetails.jsx';
+import { driverSignalText } from '../src/pages/briefing/verdictSentence.js';
 import { useApp } from '../src/stores/appStore.js';
 
 const read = path => JSON.parse(readFileSync(new URL(path, import.meta.url), 'utf8'));
@@ -141,7 +142,11 @@ it('connects actual assessment titles and both registers while other sections re
   // once as the section heading, once in the single professional-register disclosure
   expect(titles).toHaveLength(2);
   for (const title of titles) expect(title).toHaveAttribute('data-message-status', 'translated');
-  expect(document.querySelector('[data-message-field="pro"]')).toHaveTextContent('Facteur déterminant');
+  // the verdict driver in page labels, named as the strongest single signal, never with raw codes
+  const pro = document.querySelector('[data-message-field="pro"]');
+  expect(pro).toHaveAttribute('data-message-status', 'translated');
+  expect(pro).toHaveTextContent(/Signal individuel le plus fort : .+ \(tronçon \d+\) vers /);
+  expect(pro.textContent).not.toMatch(/Facteur déterminant|\b[WSTCAV]-[A-Z]+-\d\d\b|\bL\d+\b|\d{4}-\d\d-\d\dT/);
   expect(document.querySelectorAll('[data-message-field]')).toHaveLength(4);
 });
 
@@ -172,4 +177,25 @@ it('the plain "why" drops the scenario-count signal for new and old checks, and 
   });
   expect(renderBriefingField(1, example, 'plain', 'fr', undefined, opts).text)
     .toBe('Une alerte marine officielle couvre une partie de votre route. Elle prévaut sur tout ce qui suit.');
+});
+
+it('restates the professional verdict driver with page labels for new and old checks, or leaves it alone', () => {
+  const example = read('./fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/briefing.json').sections.find(s => s.id === 'decision');
+  const exampleFindings = read('./fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/findings.json');
+  const describeDriver = (params, language) => driverSignalText(exampleFindings, params, language);
+  const en = renderBriefingField(1, example, 'pro', 'en', undefined, { describeDriver });
+  expect(en.status).toBe('legacy');
+  expect(en.text).toMatch(/^Authority override active: an official bulletin covers route zones during the passage window\. Strongest single signal: wind scenarios over your limit near .+ \(leg 4\) around \w{3} \d+ \w{3} \d\d:\d\d, 51 of 51 ensemble members above 18 kt\.$/);
+  const fr = renderBriefingField(1, example, 'pro', 'fr', undefined, { describeDriver });
+  expect(fr.text).toMatch(/^Priorité active à l’autorité : .+\. Signal individuel le plus fort : scénarios de vent au-dessus de votre limite près de .+ \(tronçon 4\) vers .+, 51 membres d’ensemble sur 51 au-dessus de 18 nd\.$/);
+  for (const { text } of [en, fr]) expect(text).not.toMatch(/Driver|Facteur|W-SUST|\bL4\b|2026-07-20T/);
+  // new checks: the driver message ref is restated, the rest stays catalogue text
+  const numericFindings = { legs: [{ leg_id: numeric.messages.pro[1].params.leg_id, name: 'A → Off Dover, UK' }] };
+  const restated = renderBriefingField(1, numeric, 'pro', 'en', undefined, { describeDriver: (p, l) => driverSignalText(numericFindings, p, l) });
+  expect(restated.status).toBe('translated');
+  expect(restated.text).toMatch(/Strongest single signal: .+ near Off Dover \(leg \d+\) around .+ against your declared [\d.]+ \w+\.$/);
+  // without a describer, or when it cannot read the parameters, the stored sentence is unchanged
+  expect(renderBriefingField(1, example, 'pro', 'en').text).toBe(example.register_pro);
+  expect(renderBriefingField(1, example, 'pro', 'en', undefined, { describeDriver: () => null }).text).toBe(example.register_pro);
+  expect(renderBriefingField(1, numeric, 'pro', 'en', undefined, { describeDriver: () => null }).text).toBe(numeric.register_pro);
 });

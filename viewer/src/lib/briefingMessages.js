@@ -1,5 +1,5 @@
 // @ts-check
-import { formatMessageTime, renderDecisionMessage, renderDecisionRegister } from '@deepweather/engine';
+import { formatMessageTime, isDecisionMessageRef, renderDecisionMessage, renderDecisionRegister } from '@deepweather/engine';
 import { translateText } from '../i18n.js';
 
 const unit = (/** @type {string} */ u) => u === 'kt' ? 'nd' : u;
@@ -45,6 +45,22 @@ export const FR_DECISION_MESSAGES = {
 const SCENARIO_SIGNAL_ID = 'briefing.decision.ensemble.plain.v1';
 const SCENARIO_SIGNAL_TEXT = / The main signal: (?:all \d+|none of the \d+|\d+ of \d+) forecast scenarios? exceed .+? around [^.]+ UTC\./;
 
+/** The professional "Driver: W-SUST-03 on L4 at <ISO>; 51/51 members > 18 kt." sentence names the
+ * verdict driver (ranked by value/limit ratio) with raw codes. A caller may restate it in plain labels
+ * (`describeDriver`); new checks carry it as a message ref, older ones in this exact English shape. */
+const DRIVER_PRO_IDS = ['briefing.decision.ensemble.pro.v1', 'briefing.decision.numeric.pro.v1'];
+const DRIVER_PRO_TEXT = / Driver: (\S+) on (\S+) at (\S+); (?:(\d+)\/(\d+) members > ([\d.]+) (\S+)|(-?[\d.]+) (\S+) vs declared ([\d.]+) (\S+))\./;
+
+/** @param {string} text */
+function legacyDriverParams(text) {
+  const m = DRIVER_PRO_TEXT.exec(text);
+  if (!m) return null;
+  const head = { rule_id: m[1], leg_id: m[2], valid_time: m[3] };
+  return m[4] !== undefined
+    ? { ...head, exceed: Number(m[4]), total: Number(m[5]), limit: Number(m[6]), units: m[7] }
+    : { ...head, value: Number(m[8]), units: m[9], limit: Number(m[10]) };
+}
+
 /** Read adapter: no inference of IDs, persistence rewrite, or recomputation.
  * A damaged sentence falls back to the entire stored field, including caveats
  * (only the scenario-count signal is dropped when `omitScenarioCount` is set).
@@ -53,12 +69,25 @@ const SCENARIO_SIGNAL_TEXT = / The main signal: (?:all \d+|none of the \d+|\d+ o
  * @param {'title' | 'plain' | 'pro'} field
  * @param {'en' | 'fr'} language
  * @param {import('@deepweather/engine').DecisionMessageCatalogue} [french]
- * @param {{ omitScenarioCount?: boolean }} [options]
+ * @param {{ omitScenarioCount?: boolean, describeDriver?: (params: any, language: 'en' | 'fr') => string | null }} [options]
  */
-export function renderBriefingField(version, section, field, language, french = FR_DECISION_MESSAGES, { omitScenarioCount = false } = {}) {
+export function renderBriefingField(version, section, field, language, french = FR_DECISION_MESSAGES, { omitScenarioCount = false, describeDriver } = {}) {
   const omit = omitScenarioCount && field === 'plain';
   const stored = field === 'title' ? section.title : section[`register_${field}`];
-  const saved = omit && typeof stored === 'string' ? stored.replace(SCENARIO_SIGNAL_TEXT, '') : stored;
+  let saved = omit && typeof stored === 'string' ? stored.replace(SCENARIO_SIGNAL_TEXT, '') : stored;
+  /** @param {any} params @param {'en' | 'fr'} [lang] */
+  const describe = (params, lang = language) => {
+    if (!describeDriver || field !== 'pro' || !params) return null;
+    try {
+      const text = describeDriver(params, lang);
+      return typeof text === 'string' && text.length > 0 ? text : null;
+    } catch { return null; }
+  };
+  const legacyParams = typeof saved === 'string' ? legacyDriverParams(saved) : null;
+  const legacyDriver = describe(legacyParams);
+  if (legacyDriver) saved = /** @type {string} */ (saved).replace(DRIVER_PRO_TEXT, '');
+  /** @param {string} text @param {string | null} driver */
+  const withDriver = (text, driver) => (driver ? `${text} ${driver}` : text);
   const unavailable = language === 'fr' ? 'Contenu de décision indisponible.' : 'Decision content unavailable.';
   if (version !== 1) return { text: language === 'fr' ? 'Version du briefing non prise en charge.' : 'Unsupported briefing version.', status: 'unsupported' };
   const messages = section.messages;
@@ -68,18 +97,23 @@ export function renderBriefingField(version, section, field, language, french = 
     && Object.hasOwn(messages, 'title')
     && Object.hasOwn(messages, 'plain') === Object.hasOwn(messages, 'pro');
   const allRefs = messages?.[field];
-  const refs = omit && Array.isArray(allRefs) && allRefs.length > 1
+  let refs = omit && Array.isArray(allRefs) && allRefs.length > 1
     ? allRefs.filter((ref) => ref?.message_id !== SCENARIO_SIGNAL_ID)
     : allRefs;
+  const driverRef = field === 'pro' && Array.isArray(refs) && refs.length > 1
+    ? refs.find((ref) => DRIVER_PRO_IDS.includes(ref?.message_id) && isDecisionMessageRef(ref))
+    : undefined;
+  const refDriver = driverRef ? describe(driverRef.params) : null;
+  if (refDriver) refs = refs.filter((ref) => ref !== driverRef);
   if (!hasMetadata || validContainer && refs === undefined && field !== 'title') {
     return typeof saved === 'string' && saved.length > 0
-      ? { text: translateText(saved, language), status: 'legacy' }
+      ? { text: withDriver(translateText(saved, language), legacyDriver), status: 'legacy' }
       : { text: unavailable, status: 'unavailable' };
   }
   const catalogue = language === 'fr' ? french : undefined;
   const text = !validContainer ? null : field === 'title' ? renderDecisionMessage(refs, catalogue) : renderDecisionRegister(refs, catalogue);
-  if (text !== null) return { text, status: 'translated' };
-  return typeof saved === 'string' && saved.length > 0 ? { text: saved, status: 'fallback' } : { text: unavailable, status: 'unavailable' };
+  if (text !== null) return { text: withDriver(text, refDriver), status: 'translated' };
+  return typeof saved === 'string' && saved.length > 0 ? { text: withDriver(saved, legacyDriver && describe(legacyParams, 'en')), status: 'fallback' } : { text: unavailable, status: 'unavailable' };
 }
 
 /** @param {string} status @param {'en' | 'fr'} language */

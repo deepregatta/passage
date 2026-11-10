@@ -2,6 +2,7 @@ import BriefingMessage from '../../components/BriefingMessage.jsx';
 import { useApp } from '../../stores/appStore.js';
 import { EvidenceLink } from '../../components/common.jsx';
 import { deriveCoverage } from '../../lib/evidenceSelectors.js';
+import { driverSignalText } from './verdictSentence.js';
 
 /** Why the assessment reads as it does: the reasoning, once. Per-leg numbers live in the timeline
  * and leg table, counts in the Evidence section, capability coverage under "Models and coverage". */
@@ -15,7 +16,7 @@ export default function AssessmentDetails({ sections, findings }) {
       {reasoning.map((section) => (
         <StorySection key={section.id} section={section} findings={findings} />
       ))}
-      <ProfessionalRegister sections={sections} />
+      <ProfessionalRegister sections={sections} findings={findings} />
     </div>
   );
 }
@@ -43,9 +44,12 @@ function StorySection({ section, findings }) {
   );
 }
 
-/** One disclosure for the whole block: the engine's professional wording of every section above. */
-function ProfessionalRegister({ sections }) {
+/** One disclosure for the whole block: the engine's professional wording of every section above.
+ * The verdict driver is restated with page labels as the strongest single signal (it can differ
+ * from the governing reason at the top). */
+function ProfessionalRegister({ sections, findings }) {
   const version = useApp(s => s.briefing?.schema_version ?? 1);
+  const describeDriver = (params, language) => driverSignalText(findings, params, language);
   return (
     <details className="border-t hairline pt-1">
       <summary className="font-sans text-xs text-ink-soft cursor-pointer min-h-11 flex items-center">
@@ -58,7 +62,7 @@ function ProfessionalRegister({ sections }) {
             <div key={section.id}>
               <h4 className="font-sans text-xs font-medium">{decision ? <BriefingMessage section={section} field="title" version={version} /> : section.title}</h4>
               <p className="font-sans text-xs leading-relaxed text-ink-soft mt-0.5">
-                {decision ? <BriefingMessage section={section} field="pro" version={version} /> : section.register_pro}
+                {decision ? <BriefingMessage section={section} field="pro" version={version} describeDriver={describeDriver} /> : section.register_pro}
               </p>
               {section.evidence_ids.length > 0 && (
                 <p className="mt-1 font-mono text-xs text-ink-soft">
