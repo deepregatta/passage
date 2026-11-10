@@ -5,6 +5,8 @@ import { useApp } from '../stores/appStore.js';
 import { STATUS_HEX, hourStatus, fmtHour, fmtLocalTime } from '../lib/format.js';
 import { usePlayback } from '../stores/playbackStore.js';
 import useViewport from '../hooks/useViewport.js';
+import { edgeShift, fmtLocalClock, rulerTicks } from '../lib/ruler.js';
+import { createAxisLabelFormatter } from '../lib/chartTime.js';
 
 /**
  * Passage timeline and the page's one time control. Default = one glanceable
@@ -54,7 +56,7 @@ export default function RouteTimeline() {
       {detailed && option && (
         <>
           <ReactECharts onChartReady={setChart} option={option} style={{ height: 330 }} notMerge lazyUpdate opts={{ renderer: 'svg' }} />
-          <div className="flex gap-5 justify-end font-sans text-[11px] text-ink-soft pr-2 -mt-1">
+          <div className="flex flex-wrap gap-x-5 gap-y-1 justify-end font-sans text-xs text-ink-soft pr-2 -mt-1">
             <span className="flex items-center gap-1.5">
               <span className="w-3.5 h-2.5 inline-block rounded-[2px]" style={{ background: rgba(palette.verdict.approaching, '0.35') }} />
               close to your limits
@@ -94,7 +96,7 @@ function PassageClock({ findings }) {
   const time = new Date(Date.parse(findings.departure_utc) + cursor * 3600_000).toISOString();
   return (
     <div className="flex items-center justify-end gap-3 -mt-1">
-      <output className="font-mono text-[12px] text-right">
+      <output className="font-mono text-xs text-right">
         {fmtLocalTime(time)} <span className="text-ink-soft">· +{Math.round(cursor)} h</span>
       </output>
       <button type="button" onClick={() => playing ? pause() : play(stripHours(findings))} className="w-11 h-11 border border-ink/40 bg-paper hover:bg-white/60" aria-label={playing ? 'Pause passage playback' : 'Play passage playback'}>{playing ? 'Ⅱ' : '▶'}</button>
@@ -108,6 +110,7 @@ function ConditionStrip({ findings }) {
   const rows = collectRows(findings);
   const cursor = usePlayback((state) => state.cursorHours);
   const setCursor = usePlayback((state) => state.setCursor);
+  const mobile = useViewport();
   if (!rows.length) return null;
   const maxHours = stripHours(findings);
   const t0 = Date.parse(findings.departure_utc);
@@ -133,26 +136,32 @@ function ConditionStrip({ findings }) {
     flags.push({ label, at: Date.parse(ev.window.from) });
   }
 
-  const ticks = [];
-  for (let t = Math.ceil(t0 / (6 * 3600_000)) * 6 * 3600_000; t < t1; t += 6 * 3600_000) ticks.push(t);
-  const summary = merged
-    .map((m) => `${fmtHour(new Date(m.from).toISOString())}–${fmtHour(new Date(m.to).toISOString())} ${STRIP_LABEL[m.status]}`)
-    .join('; ');
+  // browser-local wall-clock ticks: the zone the page header states ("times in …")
+  const ticks = rulerTicks(t0, t1, mobile ? 6 : 12);
+  const hasDay = ticks.some((tick) => tick.day);
+  const summary = merged.map((m) => `${fmtLocalClock(m.from)}–${fmtLocalClock(m.to)} ${STRIP_LABEL[m.status]}`).join('; ');
+  const twoRows = flags.length > 1;
 
   return (
     <div className="mt-3" data-testid="condition-strip">
-      <div className={flags.length ? 'relative h-6' : 'hidden'}>
+      <div className={flags.length ? `relative ${twoRows ? 'h-11' : 'h-6'}` : 'hidden'}>
         {flags.map((f, i) => (
           <span
             key={f.label}
-            className="absolute -translate-x-1/2 font-sans text-[10px] text-paper px-1.5 py-0.5 rounded-sm whitespace-nowrap"
-            style={{ left: `${Math.min(94, Math.max(4, pct(f.at)))}%`, backgroundColor: palette.verdict.approaching, top: i % 2 ? 2 : 0 }}
+            className="absolute font-sans text-xs text-paper px-1.5 py-0.5 rounded-sm whitespace-nowrap"
+            style={{
+              left: `${pct(f.at)}%`,
+              transform: `translateX(${edgeShift(pct(f.at), 14)})`,
+              backgroundColor: palette.verdict.approaching,
+              top: i % 2 ? 22 : 0,
+            }}
           >
             {f.label}
           </span>
         ))}
       </div>
-      <div className="relative h-9 rounded-sm overflow-hidden border hairline bg-white/40">
+      {/* the slider's hit area is 44px tall; the visible track stays slim */}
+      <div className="relative h-11 py-1">
         <input
           type="range"
           aria-label="Passage time"
@@ -165,29 +174,36 @@ function ConditionStrip({ findings }) {
           className="peer absolute inset-0 z-10 w-full h-full opacity-0 cursor-ew-resize m-0"
         />
         <span id="condition-summary" className="sr-only">{`Conditions along your route: ${summary}`}</span>
-        <span className="pointer-events-none absolute inset-0 z-20 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:-outline-offset-2 peer-focus-visible:outline-ink" aria-hidden />
-        {merged.map((m) => (
-          <div
-            key={m.from}
-            className="absolute top-0 bottom-0"
-            style={{
-              left: `${pct(m.from)}%`,
-              width: `${pct(m.to) - pct(m.from)}%`,
-              backgroundColor: STATUS_HEX[m.status],
-              opacity: m.status === 'ok' ? 0.45 : 0.8,
-            }}
-          />
-        ))}
-        <StripCursor departure={t0} t0={t0} t1={t1} />
+        <span className="pointer-events-none absolute inset-0 z-20 rounded-sm peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:-outline-offset-2 peer-focus-visible:outline-ink" aria-hidden />
+        <div className="relative h-9 rounded-sm overflow-hidden border hairline bg-white/40">
+          {merged.map((m) => (
+            <div
+              key={m.from}
+              className="absolute top-0 bottom-0"
+              style={{
+                left: `${pct(m.from)}%`,
+                width: `${pct(m.to) - pct(m.from)}%`,
+                backgroundColor: STATUS_HEX[m.status],
+                opacity: m.status === 'ok' ? 0.45 : 0.8,
+              }}
+            />
+          ))}
+          <StripCursor departure={t0} t0={t0} t1={t1} />
+        </div>
       </div>
-      <div className="relative h-4" aria-hidden>
-        {ticks.map((t) => (
-          <span key={t} className="absolute -translate-x-1/2 font-mono text-[10px] text-ink-soft" style={{ left: `${pct(t)}%` }}>
-            {fmtHour(new Date(t).toISOString())}
+      <div className={`relative ${hasDay ? 'h-9' : 'h-5'}`} aria-hidden>
+        {ticks.map((tick) => (
+          <span
+            key={tick.t}
+            className={`absolute text-center font-mono text-xs leading-4 ${tick.day ? 'text-ink' : 'text-ink-soft'}`}
+            style={{ left: `${pct(tick.t)}%`, transform: `translateX(${edgeShift(pct(tick.t), 9)})` }}
+          >
+            {tick.label}
+            {tick.day && <span className="block font-semibold">{tick.day}</span>}
           </span>
         ))}
       </div>
-      <div className="flex gap-5 justify-end font-sans text-[11px] text-ink-soft pr-2">
+      <div className="flex flex-wrap gap-x-5 gap-y-1 justify-end font-sans text-xs text-ink-soft pr-2">
         {['ok', 'approaching', 'exceeded'].map((s) => (
           <span key={s} className="flex items-center gap-1.5">
             <span
@@ -210,12 +226,13 @@ function StripCursor({ departure, t0, t1 }) {
 }
 
 function nowLine(time) {
-  return { xAxis: time, label: { formatter: 'NOW', color: palette.event }, lineStyle: { color: palette.event, type: 'solid', width: 1 } };
+  // the NOW text is not a link: ink colour, the teal stays on the line itself
+  return { xAxis: time, label: { formatter: 'NOW', color: palette.ink.DEFAULT, fontSize: 12 }, lineStyle: { color: palette.event, type: 'solid', width: 1 } };
 }
 
 function TimelineTable({ findings }) {
   const rows = findings.legs.flatMap((leg) => leg.hours.filter((_, index) => index % 3 === 0).map((hour) => ({ leg: leg.leg_id, ...hour })));
-  return <details className="mt-3 border-t hairline pt-2"><summary className="font-instrument text-xs cursor-pointer">Table alternative for route timeline</summary><div className="overflow-x-auto max-h-64 mt-2"><table className="w-full font-mono text-[10px]"><thead><tr className="text-left"><th>UTC</th><th>leg</th><th>wind kt</th><th>gust kt</th><th>waves m</th><th>status</th></tr></thead><tbody>{rows.map((row) => <tr key={`${row.leg}-${row.valid_time}`} className="border-t hairline"><td className="py-1">{fmtHour(row.valid_time)}</td><td>{row.leg}</td><td>{row.wind_kt ?? 'n/a'}</td><td>{row.gust_kt ?? 'n/a'}</td><td>{row.waves?.hs_m ?? 'not assessed'}</td><td>{hourStatus(row)}</td></tr>)}</tbody></table></div></details>;
+  return <details className="mt-3 border-t hairline pt-2"><summary className="font-instrument text-xs cursor-pointer">Table alternative for route timeline</summary><div className="overflow-x-auto max-h-64 mt-2"><table className="w-full font-mono text-xs"><thead><tr className="text-left"><th>UTC</th><th>leg</th><th>wind kt</th><th>gust kt</th><th>waves m</th><th>status</th></tr></thead><tbody>{rows.map((row) => <tr key={`${row.leg}-${row.valid_time}`} className="border-t hairline"><td className="py-1">{fmtHour(row.valid_time)}</td><td>{row.leg}</td><td>{row.wind_kt ?? 'n/a'}</td><td>{row.gust_kt ?? 'n/a'}</td><td>{row.waves?.hs_m ?? 'not assessed'}</td><td>{hourStatus(row)}</td></tr>)}</tbody></table></div></details>;
 }
 
 const EVENT_LABEL = {
@@ -297,7 +314,7 @@ function buildOption(findings, mobile = false) {
         padding: [2, 5],
         borderRadius: 2,
         fontFamily: 'system-ui',
-        fontSize: 10,
+        fontSize: 12,
       },
       itemStyle: { color: palette.verdict.approaching },
     });
@@ -308,7 +325,7 @@ function buildOption(findings, mobile = false) {
   const axisBase = {
     axisLine: { lineStyle: { color: rgba(palette.ink.DEFAULT, '0.25') } },
     axisTick: { show: false },
-    axisLabel: { color: soft, fontFamily: 'ui-monospace, monospace', fontSize: 10 },
+    axisLabel: { color: soft, fontFamily: 'ui-monospace, monospace', fontSize: 12 },
     splitLine: { lineStyle: { color: rgba(palette.ink.DEFAULT, '0.07') } },
   };
   const rowName = (name, sub) => ({
@@ -317,7 +334,7 @@ function buildOption(findings, mobile = false) {
     nameTextStyle: {
       color: ink,
       fontFamily: 'system-ui',
-      fontSize: 11,
+      fontSize: 12,
       fontWeight: 600,
       align: 'right',
       padding: [0, 6, 0, 0],
@@ -335,7 +352,7 @@ function buildOption(findings, mobile = false) {
       trigger: 'axis',
       backgroundColor: palette.paper.DEFAULT,
       borderColor: ink,
-      textStyle: { color: ink, fontFamily: 'ui-monospace, monospace', fontSize: 11 },
+      textStyle: { color: ink, fontFamily: 'ui-monospace, monospace', fontSize: 12 },
       valueFormatter: (v) => (v == null ? 'n/a' : String(v)),
     },
     grid: [
@@ -349,7 +366,7 @@ function buildOption(findings, mobile = false) {
       ...axisBase,
       axisLabel:
         i === 2
-          ? { ...axisBase.axisLabel, formatter: (v) => fmtHour(new Date(v).toISOString()) }
+          ? { ...axisBase.axisLabel, formatter: createAxisLabelFormatter({ skipOdd: mobile }), hideOverlap: true }
           : { show: false },
     })),
     yAxis: [
@@ -389,8 +406,8 @@ function buildOption(findings, mobile = false) {
                 position: 'end',
                 color: palette.verdict.approaching,
                 fontFamily: 'ui-monospace, monospace',
-                fontSize: 10,
-                lineHeight: 13,
+                fontSize: 12,
+                lineHeight: 14,
               },
             }
           : undefined,
