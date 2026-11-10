@@ -19,7 +19,7 @@ export default function Example() {
       {error ? <div role="alert" className="p-6">
         <p>The example could not be loaded. Try again or return to the planner.</p>
         <button type="button" onClick={() => void loadExample()} className="min-h-11 underline">Try again</button>
-      </div> : loading || !findings ? <p role="status" className="p-6">Loading example briefing…</p> : <Briefing />}
+      </div> : loading || !findings ? <p role="status" className="p-6">Loading example passage…</p> : <Briefing />}
     </div>
   );
 }

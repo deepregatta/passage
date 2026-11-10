@@ -183,7 +183,7 @@ const FR = {
   "Plan my own passage": "Planifier ma propre traversée",
   "The example could not be loaded. Try again or return to the planner.": "Impossible de charger l’exemple. Réessayez ou revenez au planificateur.",
   "Try again": "Réessayer",
-  "Loading example briefing…": "Chargement de l’exemple de briefing…",
+  "Loading example passage…": "Chargement de l’exemple de traversée…",
 
   'Loading your passage…': 'Chargement de votre traversée…',
   'Previous check order is unavailable.': 'L’ordre des analyses précédentes est indisponible.',
