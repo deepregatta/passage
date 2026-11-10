@@ -19,6 +19,11 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   transient tile retrieval timestamps/cache counts and mosaic construction clocks do not distinguish an exact retry.
   Full 64-bit content fingerprints replace truncated identifiers; archival
   equality is also checked before reopening an existing result.
+- Engine semantics `passage-audit-3` (previously `-2`): grid-hour event windows
+  are clamped to the leg occupancy interval, divergence evidence carries
+  per-model `run`/`model_runs`, and duplicate forecast_tiles inputs are
+  collapsed. Snapshots computed earlier keep their IDs and are not reopened by
+  an exact retry; the committed demo snapshots are unchanged.
 - Successful exact retries reopen the complete original snapshot. Partial,
   legacy or conflicting existing artifacts are never overwritten or accepted
   as a retry. The manifest remains the completion marker; frozen decision
