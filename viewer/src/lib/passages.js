@@ -9,6 +9,15 @@ export function routeName(routeId) {
   return capitalize(words.join(' ')) || routeId;
 }
 
+/** The title the sailor gave a drawn or computed passage, or null when the
+ * briefing should name it from its legs (fixed routes, and computed routes
+ * saved before names were carried, which hold the engine's own label). */
+export function userRouteName(route) {
+  const name = typeof route?.name === 'string' ? route.name.trim() : '';
+  if (!name || route.mode === 'fixed' || /\(computed\)$/.test(name)) return null;
+  return name;
+}
+
 const created = (snapshot) => Date.parse(snapshot.created_at);
 const source = (snapshot) => snapshot.local ? 'local' : 'served';
 const groupKey = (snapshot) => snapshot.identity_version === 2 && snapshot.passage_id

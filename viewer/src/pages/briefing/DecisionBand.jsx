@@ -7,6 +7,7 @@ import { useApp } from '../../stores/appStore.js';
 import { newPassageId } from '../../lib/passageIdentity.js';
 import { usePlanner } from '../../stores/plannerStore.js';
 import { routeTitle } from './routeLabels.jsx';
+import { userRouteName } from '../../lib/passages.js';
 
 /** the plain-language layer: what each verdict state means for what you DO next (labels stay exact) */
 const NEXT_STEP = {
@@ -62,7 +63,7 @@ export default function DecisionBand({ findings, warningEvidence, onOpenBulletin
       <div className="px-4 sm:px-6 py-5 max-w-[1600px] mx-auto flex flex-col gap-3">
         <div className="flex items-start justify-between gap-x-6 gap-y-3 flex-wrap">
           <div className="min-w-0">
-            <h1 className="font-chart text-[30px] sm:text-[40px] leading-tight">{routeTitle(findings)}</h1>
+            <h1 className="font-chart text-[30px] sm:text-[40px] leading-tight">{userRouteName(route) ?? routeTitle(findings)}</h1>
             <p className="font-mono text-[12px] text-ink-soft mt-1">
               <span>dep</span> {fmtLocalTime(findings.departure_utc)} · <span>times in</span> {localTimeZoneName()}
             </p>

@@ -458,10 +458,6 @@
         "w-full min-h-11 bg-white/60 border hairline rounded-sm px-2 py-2 text-base sm:text-sm font-mono aria-[invalid=true]:border-verdict-exceeds"
       ],
       "viewer/src/pages/planner/PlannerMap.jsx": [
-        "\"></div>",
-        ";border:2px solid",
-        ";box-shadow:0 0 0 1px",
-        "<div style=\"width:14px;height:14px;border-radius:50%;background:",
         "compute",
         "draw",
         "https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png"

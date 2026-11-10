@@ -15,6 +15,9 @@ import {
   changedRoutingInputs, draftSignature, routingInputKey, scanBasis, scanIsCurrent, staleRouteMessage,
 } from './plannerInputs.js';
 
+/** How long Clear can be undone. */
+export const CLEAR_UNDO_MS = 8000;
+
 export const validSpeed = (value) => Number.isFinite(value) && value > 0;
 
 const routeForDeparture = (inputs, departureUtc) =>
@@ -79,6 +82,7 @@ export default function usePlannerController() {
     if (value === 'draw' && waypoints.length === 0 && endpoints.length === 2) {
       next.waypoints = [...endpoints];
     }
+    setSeededFromCompute(Boolean(next.waypoints));
     patch(next);
     if (next.endpoints || next.waypoints) setFitNonce((n) => n + 1);
   };
@@ -97,6 +101,10 @@ export default function usePlannerController() {
   const [activeAction, setActiveAction] = useState(null);
   const [failureState, setFailureState] = useState(null);
   const [noticeState, setNoticeState] = useState(null);
+  // Draw mode started from the Compute endpoints: say so, because new points are added after them.
+  const [seededFromCompute, setSeededFromCompute] = useState(false);
+  // What Clear removed, offered back for a few seconds ({before, signature}).
+  const [cleared, setCleared] = useState(null);
   const [fitNonce, setFitNonce] = useState(0);
   const fileRef = useRef(null);
 
@@ -126,15 +134,18 @@ export default function usePlannerController() {
     if (language === 'en' && name === 'Ma traversée') patch({ name: 'My passage' });
   }, [language, name, patch]);
 
+  // The sailor's title for the passage, in both modes; it labels the saved check and
+  // is never part of the routing inputs, so renaming keeps a computed route.
+  const passageName = name.trim() || (language === 'fr' ? 'Ma traversée' : 'My passage');
   const route = useMemo(() => {
-    if (mode === 'compute') return computed?.route ? { ...computed.route, passage_id: passageId } : null;
+    if (mode === 'compute') return computed?.route ? { ...computed.route, passage_id: passageId, name: passageName } : null;
     if (waypoints.length < 2) return null;
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'route';
     return {
       schema_version: 1,
       passage_id: passageId,
       route_id: `${slug}-${waypoints.length}wp`,
-      name,
+      name: passageName,
       mode: 'user',
       waypoints: waypoints.map((wp, i) => ({
         id: `wp${i + 1}`,
@@ -144,7 +155,7 @@ export default function usePlannerController() {
       speeds_kt: { ...speeds },
       timing: { basis: 'through_water' },
     };
-  }, [mode, computed, waypoints, name, speeds, passageId]);
+  }, [mode, computed, waypoints, name, passageName, speeds, passageId]);
 
   const distance = useMemo(() => {
     if (!route) return null;
@@ -259,7 +270,7 @@ export default function usePlannerController() {
             inputKey: routingInputKey({ endpoints, polarId, departureLocal: toLocalDateTimeValue(departureUtc) }),
           };
           routes[departureUtc] = result;
-          return { ...result.route, passage_id: draft.route.passage_id };
+          return { ...result.route, passage_id: draft.route.passage_id, name: draft.route.name };
         };
       }
       // one shared assessment window covering every candidate: all candidates read
@@ -306,7 +317,7 @@ export default function usePlannerController() {
    * and departure it just chose are passed in — React state has not flushed yet. */
   const run = async (overrides = {}) => {
     const selectedRoute = overrides.route ?? route;
-    const checkRoute = selectedRoute ? { ...selectedRoute, passage_id: passageId } : null;
+    const checkRoute = selectedRoute ? { ...selectedRoute, passage_id: passageId, name: passageName } : null;
     const checkDepartureUtc = overrides.departureUtc ?? departureUtc;
     if (!checkRoute || !speedsValid || (departureIssue && !overrides.departureUtc)) return;
     beginAction(ACTION.check, overrides.source);
@@ -353,17 +364,33 @@ export default function usePlannerController() {
     else fileRef.current?.click();
   };
   const clearDraft = () => {
+    const before = { waypoints, endpoints, computed: storedComputed };
+    const empty = waypoints.length === 0 && endpoints.length === 0 && !storedComputed;
     setWaypoints([]);
     setEndpoints([]);
     setComputed(null);
     setDiscardedKey(null);
+    setSeededFromCompute(false);
+    // Offered back only while nothing has been edited since.
+    setCleared(empty ? null : { before, signature: draftSignature(usePlanner.getState()) });
   };
+  const undoClear = () => {
+    if (cleared) patch(cleared.before);
+    setCleared(null);
+  };
+  useEffect(() => {
+    if (!cleared) return undefined;
+    const timer = setTimeout(() => setCleared(null), CLEAR_UNDO_MS);
+    return () => clearTimeout(timer);
+  }, [cleared]);
 
   return {
     mode, waypoints, computed, endpoints, polarId, polarLabel, name, speeds,
     departureLocal, scan, patch, setMode, setWaypoints, setEndpoints, setComputed,
     setName, setSpeeds, setDepartureLocal, busy, activeAction, failure, notice, staleRoute,
-    departureIssue, blocked, retryAction, clearDraft, fitNonce, fileRef,
+    departureIssue, blocked, retryAction, clearDraft, undoClear, fitNonce, fileRef, passageName,
+    seededFromCompute: mode === 'draw' && seededFromCompute && waypoints.length > 0,
+    clearedNotice: cleared?.signature === signature,
     route, distance, speedsValid, passageHours, departureUtc, addWaypoint,
     runRouting, onGpx, runScan, run
   };

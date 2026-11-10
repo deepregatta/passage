@@ -83,3 +83,38 @@ export function blockReason(action, { mode, endpoints, polarId, route, speedsVal
   if (!speedsValid) return 'Enter a speed above zero for slow, usual and fast.';
   return departureIssue?.message ?? null;
 }
+
+/**
+ * One line over the map saying where the sailor is in setting up the route.
+ * @returns {string}
+ */
+export function mapHint({ mode, endpoints, waypoints, computed, distance }) {
+  if (mode === 'compute') {
+    if (computed) return `Route computed · ${computed.distance_nm} nm · ${computed.duration_h} h`;
+    if (endpoints.length === 0) return 'Mark your start on the chart';
+    if (endpoints.length === 1) return 'Start set — now mark the finish';
+    return 'Start and finish set — compute the route';
+  }
+  if (waypoints.length === 0) return 'Add your start on the chart';
+  if (waypoints.length === 1) return 'Start set — add the next point';
+  return `${waypoints.length} waypoints${distance === null ? '' : ` · ${distance} nm`}`;
+}
+
+/** The short status in the phone action bar: what stops the action, what it is doing, or what is ready. */
+export function barStatus({ failure, busy, blocked, mode, computed, waypoints, distance }) {
+  // The reason is written out under the button that failed; this is only the pointer to it.
+  if (failure) return 'That did not finish — try again, or see the message in the form';
+  if (busy) return progressLabel(busy);
+  if (blocked) return blocked;
+  if (mode === 'compute' && computed) return `Route ready: ${computed.distance_nm} nm · ${computed.duration_h} h`;
+  if (mode === 'draw' && distance !== null) return `${waypoints.length} waypoints · ${distance} nm`;
+  return null;
+}
+
+/** Bring a result into view and move focus to it; no animation when the sailor asks for less motion. */
+export function revealElement(element) {
+  if (!element) return;
+  const reduce = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+  element.scrollIntoView?.({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+  element.focus({ preventScroll: true });
+}

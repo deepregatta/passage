@@ -205,7 +205,7 @@ it('selects a rerouted scan candidate with its matching summary and checks that 
   expect(summary()).toBeInTheDocument();
   expect(usePlanner.getState().departureLocal).toBe(toLocalDateTimeValue(departure));
   expect(analyzeInBrowser.mock.calls[0][0].departureUtc).toBe(departure);
-  expect(saveRoute).toHaveBeenCalledWith({ ...usePlanner.getState().computed.route, passage_id: usePlanner.getState().passageId });
+  expect(saveRoute).toHaveBeenCalledWith({ ...usePlanner.getState().computed.route, passage_id: usePlanner.getState().passageId, name: 'My passage' });
   expect(localDateTimeToIso(usePlanner.getState().departureLocal)).toBe(new Date(departure).toISOString());
 });
 

@@ -5,14 +5,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { BASEMAP } from '../../lib/basemap.js';
 import MapTouchScroll from '../../components/MapTouchScroll.jsx';
-
-// ink-navy waypoint dots instead of Leaflet's default blue pin
-const waypointIcon = L.divIcon({
-  className: '',
-  html: `<div style="width:14px;height:14px;border-radius:50%;background:${palette.ink.DEFAULT};border:2px solid ${palette.paper.DEFAULT};box-shadow:0 0 0 1px ${palette.ink.DEFAULT}"></div>`,
-  iconSize: [14, 14],
-  iconAnchor: [7, 7],
-});
+import { labelMarker, markerIcon, markerSpecs } from './plannerMarkers.js';
 
 /** The map frame stretches to the Passage panel beside it; tell Leaflet whenever
  * that height changes so tiles fill the new area. */
@@ -53,7 +46,7 @@ function FitRoute({ positions, fitKey, chartArea }) {
 export default function PlannerMap({ mode, waypoints, computed, endpoints, fitNonce, chartArea, addWaypoint, setWaypoints, children }) {
   const frameRef = useRef(null);
   return (
-    <div ref={frameRef} className="isolate relative h-[55vh] min-h-[360px] lg:h-auto lg:min-h-[calc(100vh-8rem)] border border-ink/30 rounded-sm overflow-hidden">
+    <div ref={frameRef} className="isolate relative h-[40vh] min-h-[240px] lg:h-auto lg:min-h-[calc(100vh-8rem)] border border-ink/30 rounded-sm overflow-hidden">
       <MapContainer
         center={[49.9, -3.0]}
         zoom={8}
@@ -81,13 +74,15 @@ export default function PlannerMap({ mode, waypoints, computed, endpoints, fitNo
         {chartArea && <Rectangle bounds={[[chartArea.minLat, chartArea.minLon], [chartArea.maxLat, chartArea.maxLon]]}
           pathOptions={{ color: palette.ink.DEFAULT, weight: 1, dashArray: '6 4', fill: false }} />}
         {mode === 'draw' &&
-          waypoints.map((wp, i) => (
+          markerSpecs(waypoints.length).map((spec, i) => (
             <Marker
-              key={i}
-              position={wp}
-              icon={waypointIcon}
+              key={`${i}:${spec.ariaLabel}`}
+              position={waypoints[i]}
+              icon={markerIcon(spec)}
+              title={spec.ariaLabel}
               draggable
               eventHandlers={{
+                ...labelMarker(spec),
                 dragend: (e) => {
                   const next = [...waypoints];
                   next[i] = e.target.getLatLng();
@@ -100,7 +95,15 @@ export default function PlannerMap({ mode, waypoints, computed, endpoints, fitNo
           <Polyline positions={waypoints} pathOptions={{ color: palette.ink.DEFAULT, weight: 2.5, dashArray: '6 4' }} />
         )}
         {mode === 'compute' &&
-          endpoints.map((p, i) => <Marker key={`ep${i}`} position={p} icon={waypointIcon} />)}
+          markerSpecs(endpoints.length).map((spec, i) => (
+            <Marker
+              key={`ep${i}:${spec.ariaLabel}`}
+              position={endpoints[i]}
+              icon={markerIcon(spec)}
+              title={spec.ariaLabel}
+              eventHandlers={labelMarker(spec)}
+            />
+          ))}
         {mode === 'compute' && computed && (
           <Polyline
             positions={computed.route.waypoints.map((wp) => [wp.lat, wp.lon])}

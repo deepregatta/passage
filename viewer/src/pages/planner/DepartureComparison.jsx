@@ -42,11 +42,11 @@ function SkippedDepartures({ scan }) {
  * (same verdict colors as everywhere else). Click a cell to adopt that
  * departure; in compute mode the cell also carries its own weather-routed track.
  */
-export default function DepartureComparison({ scan, departureLocal, busy, disabled, onPick, children }) {
+export default function DepartureComparison({ scan, departureLocal, busy, disabled, onPick, headingRef, children }) {
   if (scan.candidates.length === 0) {
     return (
       <section className="mt-6 border-t border-ink/40 pt-3" aria-label="Departure comparison">
-        <h2 className="font-instrument font-semibold uppercase tracking-wider">Departure comparison</h2>
+        <h2 ref={headingRef} tabIndex={-1} className="font-instrument font-semibold uppercase tracking-wider">Departure comparison</h2>
         <p className="font-sans text-sm text-ink-soft mt-2 max-w-[70ch]">
           None of the candidate departures could be assessed.
         </p>
@@ -69,7 +69,7 @@ export default function DepartureComparison({ scan, departureLocal, busy, disabl
   return (
     <section className="mt-6 border-t border-ink/40 pt-3" aria-label="Departure comparison">
       <div className="flex justify-between items-baseline flex-wrap gap-2">
-        <h2 className="font-instrument font-semibold uppercase tracking-wider">
+        <h2 ref={headingRef} tabIndex={-1} className="font-instrument font-semibold uppercase tracking-wider">
           Departure comparison · next 5 days
         </h2>
         <span className="eyebrow">
