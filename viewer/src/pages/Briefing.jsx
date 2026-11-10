@@ -7,6 +7,7 @@ import DecisionBand from './briefing/DecisionBand.jsx';
 import WeatherStoryCard from './briefing/WeatherStoryCard.jsx';
 import LegProgressBar from './briefing/LegProgressBar.jsx';
 import PassageChart from './briefing/PassageChart.jsx';
+import { PassagesBackLink } from '../components/BackLink.jsx';
 import SectionNav, { scrollToSection } from './briefing/SectionNav.jsx';
 import EvidenceSection from './briefing/EvidenceSection.jsx';
 import ChangesSection from './briefing/ChangesSection.jsx';
@@ -57,6 +58,7 @@ export default function Briefing() {
 
   return (
     <div>
+      <div data-print-hide className="px-4 sm:px-6 max-w-[1600px] mx-auto"><PassagesBackLink>My passages</PassagesBackLink></div>
       <div data-print-hide>
         <DecisionBand
           findings={findings}

@@ -51,6 +51,10 @@
         "popstate",
         "served"
       ],
+      "viewer/src/components/BackLink.jsx": [
+        "passages",
+        "planner"
+      ],
       "viewer/src/components/BoatPicker.jsx": [
         "/api/polars",
         "Enter",
@@ -620,6 +624,9 @@
     "notation": {
       "viewer/src/App.jsx": [
         "#"
+      ],
+      "viewer/src/components/BackLink.jsx": [
+        "←"
       ],
       "viewer/src/components/BoatPicker.jsx": [
         "m",

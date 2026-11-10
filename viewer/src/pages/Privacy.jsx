@@ -1,4 +1,5 @@
 import { useApp } from '../stores/appStore.js';
+import { PlanBackLink } from '../components/BackLink.jsx';
 import { CONTACT_EMAIL, PRIVACY_BLOCKS, fullPolicyUrl } from '../privacyContent.js';
 
 // Renderers by block type (privacyContent.js). The text of every block is a key in
@@ -26,6 +27,7 @@ export default function Privacy() {
   const language = useApp((state) => state.language);
   return (
     <article className="px-4 sm:px-6 py-5 max-w-3xl space-y-3 font-sans text-sm text-ink">
+      <PlanBackLink>Back to Plan</PlanBackLink>
       {PRIVACY_BLOCKS.map((block, index) => {
         const Block = BLOCKS[block.type];
         return <Block key={index} {...block} language={language} />;

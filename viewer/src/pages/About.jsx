@@ -3,6 +3,7 @@ import { useApp } from '../stores/appStore.js';
 import { Panel, EmulatedStamp } from '../components/common.jsx';
 import { GLOSSARY } from '../lib/glossary.jsx';
 import { loadJson } from '../lib/verification.js';
+import { PlanBackLink } from '../components/BackLink.jsx';
 
 /** Where the data comes from and how well it has held up: the fleet-wide track
  * record, provider modes and the glossary. Each passage shows its own outcome. */
@@ -29,6 +30,7 @@ export default function About() {
 
   return (
     <div className="px-4 sm:px-6 py-5 max-w-5xl space-y-4">
+      <PlanBackLink>Back to Plan</PlanBackLink>
       <header>
         <h1 className="font-chart text-3xl">About the data</h1>
         <p className="font-sans text-sm text-ink-soft mt-1 max-w-2xl">

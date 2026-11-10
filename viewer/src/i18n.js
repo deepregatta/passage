@@ -311,6 +311,7 @@ const FR = {
   'Runs in your browser with live forecasts. Each check is saved to My passages.': 'S’exécute dans votre navigateur avec des prévisions en direct. Chaque vérification est enregistrée dans Mes traversées.',
   'It is close to your limits. Read the weather story below before deciding.': 'Les conditions sont proches de vos limites. Lisez la situation météo ci-dessous avant de décider.',
   'Plan': 'Planifier',
+  'Back to Plan': 'Retour à Planifier',
   'Brief': 'Briefing',
   'Watch': 'Suivre',
   'Verify': 'Vérifier',

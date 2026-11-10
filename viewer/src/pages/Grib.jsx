@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { GRIB_EXPORT_NOTICE, FORECAST_UPDATED_MESSAGE, gribDataset } from '@deepweather/engine';
 import { EmulatedStamp, Panel } from '../components/common.jsx';
+import { PlanBackLink } from '../components/BackLink.jsx';
 import { track, withUtm } from '../lib/analytics.js';
 import { gribReplayRaces, gribReplayUrl } from '../lib/gribNextSteps.js';
 import { useApp } from '../stores/appStore.js';
@@ -645,6 +646,7 @@ export default function Grib() {
 
   return (
     <div className="px-6 py-5 max-w-[1600px]">
+      <PlanBackLink>Plan</PlanBackLink>
       <h1 className="font-chart text-3xl mb-1">Download GRIB files</h1>
       <p className="font-sans text-sm text-ink-soft mb-4 max-w-[90ch]">
         Forecast files for Adrena, OpenCPN, qtVlm, XyGrib or any GRIB software. Draw a box around your
