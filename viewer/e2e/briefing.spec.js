@@ -59,7 +59,10 @@ test('playback scrub synchronizes the story phase and evidence focus', async ({ 
 test('example decision band prioritizes bulletin inspection before charts', async ({ page }) => {
   await openAuditedSnapshot(page);
   const band = page.getByTestId('decision-band');
-  await expect(band.getByRole('heading', { name: /official warning active/i })).toBeVisible();
+  // the chip names the verdict state; the h1 beside it is the one verdict sentence
+  await expect(band.getByText('Official warning active', { exact: true })).toBeVisible();
+  await expect(band.getByRole('heading', { level: 1 })).toContainText('Synthetic warning scenario for Casquets');
+  await expect(band.getByRole('heading', { level: 1 })).toContainText('24 of 51 emulated forecast scenarios exceed that limit.');
   await expect(band.getByText('EMULATED WARNING SCENARIO')).toBeVisible();
   await expect(band.getByRole('button', { name: /find a departure that fits/i })).toHaveCount(0);
   const inspectBulletin = band.getByRole('button', { name: 'Inspect example bulletin', exact: true });
