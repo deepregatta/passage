@@ -104,7 +104,7 @@ export function renderBriefingField(version, section, field, language, french = 
     ? refs.find((ref) => DRIVER_PRO_IDS.includes(ref?.message_id) && isDecisionMessageRef(ref))
     : undefined;
   const refDriver = driverRef ? describe(driverRef.params) : null;
-  if (refDriver) refs = refs.filter((ref) => ref !== driverRef);
+  if (refDriver) refs = refs.filter((/** @type {any} */ ref) => ref !== driverRef);
   if (!hasMetadata || validContainer && refs === undefined && field !== 'title') {
     return typeof saved === 'string' && saved.length > 0
       ? { text: withDriver(translateText(saved, language), legacyDriver), status: 'legacy' }

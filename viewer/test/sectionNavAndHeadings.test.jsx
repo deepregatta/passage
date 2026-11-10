@@ -108,7 +108,7 @@ describe('Example page headings', () => {
     const headings = [...container.querySelectorAll('h1,h2,h3,h4,h5,h6')];
     expect(headings[0].tagName).toBe('H1');
     expect(headings.filter((h) => !h.textContent.trim())).toEqual([]);
-    expect(screen.getByLabelText('Example briefing')).toHaveTextContent('Synthetic / emulated example');
+    expect(screen.getByLabelText('Example passage')).toHaveTextContent('Synthetic / emulated example');
   });
 });
 

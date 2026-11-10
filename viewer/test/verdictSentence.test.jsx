@@ -27,7 +27,7 @@ beforeEach(() => {
 const L3_EXIT = fmtTextTime('2026-07-20T17:03:36Z');
 // the 18Z forecast hour falls after the boat's slowest exit from leg 3: the window collapses onto that exit
 const LIMIT = `Your 18 kt wind limit is exceeded near Casquets TSS crossing (leg 3) as you leave it, about ${L3_EXIT}: the emulated scenario forecast reaches 18.3 kt.`;
-const LIMIT_FR = `Votre limite de vent de 18 nd est dépassée près de traversée du DST des Casquets (tronçon 3) en le quittant, vers ${translateText(L3_EXIT, 'fr')} : la prévision du scénario simulé atteint 18,3 nd.`;
+const LIMIT_FR = `Votre limite de vent de 18 nd est dépassée près de la traversée du DST des Casquets (tronçon 3) en le quittant, vers ${translateText(L3_EXIT, 'fr')} : la prévision du scénario simulé atteint 18,3 nd.`;
 const WARNING = 'Synthetic warning scenario: offshore marine bulletin for Casquets from Météo-France BMS.';
 const WARNING_FR = 'Scénario d’alerte synthétique : bulletin météo marine du large pour Casquets, émis par Météo-France BMS.';
 const COUNT = '24 of 51 emulated forecast scenarios exceed that limit.';
@@ -76,7 +76,7 @@ it('insufficient: which models and runs disagree, the run-age gap, and still the
     COUNT,
   ]);
   expect(sentences.map((s) => translateText(s, 'fr'))).toEqual([
-    `Les modèles divergent sur le vent près de l’approche de Plymouth (E de Eddystone) (tronçon 5) vers ${translateText(fmtTextTime('2026-07-20T20:00:00Z'), 'fr')} : GFS (cycle 20 juil. 12Z) 24 nd contre ECMWF (cycle 20 juil. 06Z) 15 nd.`,
+    `Les modèles divergent sur le vent près de l’approche de Plymouth (à l’est d’Eddystone) (tronçon 5) vers ${translateText(fmtTextTime('2026-07-20T20:00:00Z'), 'fr')} : GFS (cycle 20 juil. 12Z) 24 nd contre ECMWF (cycle 20 juil. 06Z) 15 nd.`,
     'Ces cycles ont 6 h d’écart d’âge : une partie de la différence peut en venir.',
     LIMIT_FR,
     '24 scénarios de prévision simulés sur 51 dépassent cette limite.',
@@ -118,6 +118,6 @@ it('example page in French: one verdict sentence, no English left', async () => 
   ].join(' '));
   // the governing-leg causal note under the story heading is translated whole
   expect(screen.getByTestId('leg-note').textContent)
-    .toBe('Vents juste au-dessus de votre limite de 18 nd pendant que la dépression traverse NO de Cap de la Hague → traversée du DST des Casquets.');
+    .toBe('Vents juste au-dessus de votre limite de 18 nd pendant que la dépression traverse au nord-ouest du Cap de la Hague → traversée du DST des Casquets.');
   expect(container.querySelector('[data-testid="decision-band"]').textContent).not.toMatch(/\b(?:the|your|limit|forecast|scenarios)\b/i);
 });
