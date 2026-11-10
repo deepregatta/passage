@@ -132,7 +132,10 @@ export function verdictSentences(findings, reason, { emulatedWarning = false } =
   if (reason.state === 'warning_active' && reason.warning) {
     const w = reason.warning;
     const lead = emulatedWarning ? 'Synthetic warning scenario' : 'Official warning';
-    out.push(`${lead} for ${w.area}: ${warningKindLabel(w.kind)} from ${w.issuer}.`);
+    // say each thing once: the lead already marks a synthetic scenario, an issuer named "… BMS" the bulletin type
+    const issuer = emulatedWarning ? String(w.issuer).replace(/\s*\((?:synthetic|emulated)\)$/i, '') : w.issuer;
+    const kind = /\bBMS\b/.test(issuer) ? warningKindLabel(w.kind).replace(/ \(BMS\)$/, '') : warningKindLabel(w.kind);
+    out.push(`${lead} for ${w.area}: ${kind} from ${issuer}.`);
   }
   if (reason.state === 'insufficient' && reason.disagreement) {
     const d = reason.disagreement;

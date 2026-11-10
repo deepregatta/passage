@@ -30,12 +30,12 @@ const COUNT = '24 of 51 emulated forecast scenarios exceed that limit.';
 
 it('warning_active (the example): the warning, then what the forecast shows against your limits', () => {
   expect(verdictSentences(findings, governingReason(findings), { emulatedWarning: true })).toEqual([
-    'Synthetic warning scenario for Casquets: offshore marine bulletin (BMS) from Météo-France BMS (synthetic).',
+    'Synthetic warning scenario for Casquets: offshore marine bulletin from Météo-France BMS.',
     LIMIT,
     COUNT,
   ]);
   const official = verdictSentences(findings, governingReason(findings));
-  expect(official[0]).toBe('Official warning for Casquets: offshore marine bulletin (BMS) from Météo-France BMS (synthetic).');
+  expect(official[0]).toBe('Official warning for Casquets: offshore marine bulletin from Météo-France BMS (synthetic).');
 });
 
 it('exceeds: the earliest exceeded limit, the model that shows it and the scenario count, labelled', () => {
@@ -90,7 +90,7 @@ it('example page: chip and sentence agree, and the top and Evidence headline quo
   expect(band.getByText('Official warning active', { exact: true })).toBeVisible();
   const sentence = band.getByRole('heading', { level: 1 });
   expect(sentence.textContent).toBe([
-    'Synthetic warning scenario for Casquets: offshore marine bulletin (BMS) from Météo-France BMS (synthetic).', LIMIT, COUNT,
+    'Synthetic warning scenario for Casquets: offshore marine bulletin from Météo-France BMS.', LIMIT, COUNT,
   ].join(' '));
   expect(sentence.textContent).not.toMatch(/UTC/);
   const evidence = document.querySelector('[data-section="evidence"]');
@@ -106,7 +106,7 @@ it('example page in French: one verdict sentence, no English left', async () => 
   const sentence = within(screen.getByTestId('decision-band')).getByRole('heading', { level: 1 });
   await waitFor(() => expect(sentence.textContent).toMatch(/^Scénario d’alerte synthétique pour Casquets/));
   expect(sentence.textContent).toBe([
-    'Scénario d’alerte synthétique pour Casquets : bulletin météo marine du large (BMS) de Météo-France BMS (synthétique).',
+    'Scénario d’alerte synthétique pour Casquets : bulletin météo marine du large de Météo-France BMS.',
     `Votre limite de vent de 18 nd est dépassée près de traversée du DST des Casquets (tronçon 3) vers ${translateText(L3_EXIT, 'fr')} : la prévision du scénario simulé atteint 18.3 nd.`,
     '24 scénarios de prévision simulés sur 51 dépassent cette limite.',
   ].join(' '));

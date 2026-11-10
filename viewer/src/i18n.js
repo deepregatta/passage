@@ -1386,6 +1386,9 @@ const FR_WARNING_KIND = {
   'offshore marine bulletin (BMS)': 'bulletin météo marine du large (BMS)',
   'coastal marine bulletin (BMS)': 'bulletin météo marine côtier (BMS)',
   'marine bulletin (BMS)': 'bulletin météo marine (BMS)',
+  'offshore marine bulletin': 'bulletin météo marine du large',
+  'coastal marine bulletin': 'bulletin météo marine côtier',
+  'marine bulletin': 'bulletin météo marine',
   'gale warning': 'avis de coup de vent',
   'marine warning': 'alerte marine',
 };
