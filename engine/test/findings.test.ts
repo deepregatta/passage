@@ -46,7 +46,8 @@ describe('findings assembly compatibility', () => {
     expect(findings.evidence.map(e => e.evidence_id)).toEqual(findings.evidence.map((_, i) => `E${i + 1}`));
     expect(findings.evidence.every(e => e.valid_time === times[0])).toBe(true);
     expect(findings.events.find(e => e.kind === 'limit_exceeded')).toEqual({
-      kind: 'limit_exceeded', leg_id: 'L1', window: { from: times[0], to: times[2] },
+      // The 08:00 ceiling hour is sampled, but the window ends at the slow exit (07:12).
+      kind: 'limit_exceeded', leg_id: 'L1', window: { from: times[0], to: findings.legs[0]!.eta_range.slow },
       refs: findings.evidence.map(e => e.evidence_id),
     });
   });

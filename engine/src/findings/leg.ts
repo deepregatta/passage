@@ -4,7 +4,7 @@ import { interpolatePosition } from '../geo.js';
 import type { GridSampler } from '../grids.js';
 import { CAPE_HIGH_JKG, CAPE_ELEVATED_JKG } from '../hazards/convective.js';
 import { CROSS_SEA_ANGLE_DEG } from '../hazards/waves.js';
-import type { LegSchedule } from '../eta.js';
+import { parseUtc, toIso, type LegSchedule } from '../eta.js';
 import type { Evidence, FindingsEvent, Leg, LegFinding, SamplePoint } from '../types.js';
 import type { AssembleOptions } from './options.js';
 import { createEvidenceCollector } from './evidence.js';
@@ -61,6 +61,7 @@ export function assembleLeg({
   let insufficientConfidence = false;
   const { evidence, nextEvidence } = createEvidenceCollector(evidenceOffset);
   const events: FindingsEvent[] = [];
+  const legWindow = occupancyWindowClamp(schedule, options.departureUtc);
   const verdictCandidates: Array<{ evidence: Evidence; ratio: number }> = [];
 
   if (worstSustained) {
@@ -144,7 +145,7 @@ export function assembleLeg({
     events.push({
       kind: 'wind_against_current',
       leg_id: leg.leg_id,
-      window: { from: worstWac.hour.valid_time, to: worstWac.hour.valid_time },
+      window: legWindow(worstWac.hour.valid_time, worstWac.hour.valid_time),
       refs: [e.evidence_id],
     });
     anyApproaching = true; // steep breaking seas deserve at least a look
@@ -194,7 +195,7 @@ export function assembleLeg({
     events.push({
       kind: 'cross_sea',
       leg_id: leg.leg_id,
-      window: { from: crossSeaHour.valid_time, to: crossSeaHour.valid_time },
+      window: legWindow(crossSeaHour.valid_time, crossSeaHour.valid_time),
       refs: [e.evidence_id],
     });
   }
@@ -213,7 +214,7 @@ export function assembleLeg({
     events.push({
       kind: 'wind_against_swell',
       leg_id: leg.leg_id,
-      window: { from: windAgainstSwellHour.valid_time, to: windAgainstSwellHour.valid_time },
+      window: legWindow(windAgainstSwellHour.valid_time, windAgainstSwellHour.valid_time),
       refs: [e.evidence_id],
     });
   }
@@ -232,7 +233,7 @@ export function assembleLeg({
     events.push({
       kind: 'squall_potential',
       leg_id: leg.leg_id,
-      window: { from: maxCape.hour.valid_time, to: maxCape.hour.valid_time },
+      window: legWindow(maxCape.hour.valid_time, maxCape.hour.valid_time),
       refs: [e.evidence_id],
     });
   }
@@ -273,10 +274,10 @@ export function assembleLeg({
       events.push({
         kind: 'model_divergence',
         leg_id: leg.leg_id,
-        window: {
-          from: result.divergent_hours[0]!.valid_time,
-          to: result.divergent_hours[result.divergent_hours.length - 1]!.valid_time,
-        },
+        window: legWindow(
+          result.divergent_hours[0]!.valid_time,
+          result.divergent_hours[result.divergent_hours.length - 1]!.valid_time,
+        ),
         refs: [e.evidence_id],
       });
     }
@@ -287,10 +288,7 @@ export function assembleLeg({
     events.push({
       kind: 'limit_exceeded',
       leg_id: leg.leg_id,
-      window: {
-        from: exceededWindows[0]!,
-        to: exceededWindows[exceededWindows.length - 1]!,
-      },
+      window: legWindow(exceededWindows[0]!, exceededWindows[exceededWindows.length - 1]!),
       refs: evidence.filter((e) => e.leg_id === leg.leg_id).map((e) => e.evidence_id),
     });
   }
@@ -311,4 +309,18 @@ export function assembleLeg({
     finding, evidence, events, verdictCandidates,
     anyExceeded, anyApproaching, scenarioFractionAboveFloor, insufficientConfidence,
   };
+}
+
+/**
+ * Occupancy hours are whole UTC hours (floor(enter.fast) .. ceil(exit.slow)), so a
+ * grid hour can precede the leg (or the departure) by up to 59 minutes, or follow
+ * its slow exit. Event windows describe when the boat meets the condition, so
+ * they are clamped to [max(enter.fast, departure), exit.slow]. Evidence keeps the
+ * forecast sample time it was read from (`valid_time`).
+ */
+export function occupancyWindowClamp(schedule: LegSchedule, departureUtc: string) {
+  const start = Math.max(parseUtc(schedule.enter.fast), parseUtc(departureUtc));
+  const end = Math.max(start, parseUtc(schedule.exit.slow));
+  const clamp = (iso: string) => toIso(Math.min(end, Math.max(start, parseUtc(iso))));
+  return (from: string, to: string) => ({ from: clamp(from), to: clamp(to) });
 }
