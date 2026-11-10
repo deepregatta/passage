@@ -4,6 +4,8 @@ import EvidenceSection from '../src/pages/briefing/EvidenceSection.jsx';
 import { fmtTextTime, fmtUtcClock } from '../src/lib/format.js';
 import { LocalizedDocument } from '../src/i18n.js';
 import { useApp } from '../src/stores/appStore.js';
+import { governingReason } from '@deepweather/engine';
+import { governingClaim } from '../src/pages/briefing/verdictSentence.js';
 import savedFindings from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/findings.json';
 import savedPlume from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/plume.json';
 
@@ -42,7 +44,8 @@ it('shows friendly labels, never claim codes or raw L-ids', () => {
 
 it('uses the header zone for claim times, with a marked UTC secondary only in the side panel', () => {
   const { container } = render(<EvidenceSection />);
-  const claim = findings.evidence.find((item) => item.source_kind === 'ensemble' && item.member_fraction.exceed === item.member_fraction.total);
+  // the default claim is the one the verdict sentence at the top quotes
+  const claim = governingClaim(findings, governingReason(findings));
   const subline = [...container.querySelectorAll('p')].find((p) => p.textContent.includes('inspect claim'));
   expect(subline.textContent).toContain(fmtTextTime(claim.valid_time));
   const panel = screen.getByLabelText('Selected evidence summary');

@@ -72,8 +72,10 @@ it('expands the ordered reasoning once, with one professional-register disclosur
 });
 
 it('keeps the story expanded and evidence selected as playback crosses every phase boundary', () => {
-  findings.causal_events[0].route_intersection.window_start = '2026-07-20T08:00:00Z';
-  findings.causal_events[0].route_intersection.window_end = '2026-07-20T10:00:00Z';
+  // the story follows the causal event on the leg the verdict sentence names (L3 here)
+  const event = findings.causal_events.find((e) => e.route_intersection?.leg_id === 'L3');
+  event.route_intersection.window_start = '2026-07-20T08:00:00Z';
+  event.route_intersection.window_end = '2026-07-20T10:00:00Z';
   render(<Briefing />);
   const why = screen.getByRole('button', { name: 'Why this assessment' });
   fireEvent.click(why);
@@ -89,16 +91,14 @@ it('keeps the story expanded and evidence selected as playback crosses every pha
   }
 });
 
-it.each([
-  ['ok', 'Within your declared limits'],
-  ['approaching', 'Approaching your limits'],
-  ['exceeded', 'Exceeds your limits'],
-])('shows personal %s limits alongside the separate warning decision', (status, label) => {
-  for (const leg of findings.legs) for (const hour of leg.hours) hour.limit_status = { wind: 'ok' };
-  findings.legs.at(-1).hours.at(-1).limit_status = { wind: status };
+it('shows the verdict state on the chip and the personal-limit result in the sentence beside it', () => {
   render(<Briefing />);
-  expect(screen.getByText(label, { exact: true })).toBeVisible();
-  expect(within(screen.getByTestId('decision-band')).getByRole('heading', { name: 'Official warning active' })).toBeVisible();
+  const band = within(screen.getByTestId('decision-band'));
+  // chip and sentence describe the same state: the warning
+  expect(band.getByText('Official warning active', { exact: true })).toBeVisible();
+  expect(band.queryByText(/Exceeds your limits|Within your declared limits|Approaching your limits/)).toBeNull();
+  const sentence = band.getByRole('heading', { level: 1 });
+  expect(sentence).toHaveTextContent(/^Synthetic warning scenario for Casquets: offshore marine bulletin \(BMS\) from Météo-France BMS \(synthetic\)\. Your 18 kt wind limit is exceeded near Casquets TSS crossing \(leg 3\)/);
 });
 
 it('keeps the legacy chart fallback and route endpoints and distances', () => {

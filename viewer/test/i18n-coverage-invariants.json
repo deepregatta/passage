@@ -421,7 +421,6 @@
       "viewer/src/pages/briefing/WeatherStoryCard.jsx": [
         "conflict",
         "gate",
-        "number",
         "ok",
         "synoptic_story",
         "wind_against_current"
@@ -778,10 +777,6 @@
         "·"
       ],
       "viewer/src/pages/briefing/WeatherStoryCard.jsx": [
-        "(",
-        ")",
-        ".",
-        "m",
         "…",
         "▴",
         "▸",

@@ -8,6 +8,7 @@ import { evidenceById, evidenceVariable, worstEnsembleEvidence } from '../../lib
 import { fmtHour, fmtTextTime, fmtUtcClock } from '../../lib/format.js';
 import { ruleLabel } from '../../lib/ruleLabels.js';
 import { legLabel } from './routeLabels.jsx';
+import { governingClaim, useGoverningReason } from './verdictSentence.js';
 import clsx from 'clsx';
 
 /** Claim-level evidence: the ensemble behind each limit claim, then the models
@@ -30,8 +31,12 @@ export default function EvidenceSection() {
     if (selected?.source_kind === 'ensemble' && selected.member_fraction) setClaimId(selected.evidence_id);
   }, [findings, selectedId]);
 
+  // by default, the claim the verdict sentence at the top quotes, so both cite the same count
+  const reason = useGoverningReason(findings);
   const chosen = evidenceById(findings, claimId);
-  const evidence = chosen?.source_kind === 'ensemble' && chosen.member_fraction ? chosen : worstEnsembleEvidence(findings);
+  const evidence = chosen?.source_kind === 'ensemble' && chosen.member_fraction
+    ? chosen
+    : governingClaim(findings, reason) ?? worstEnsembleEvidence(findings);
   if (!findings) return null;
   if (!evidence) {
     return (

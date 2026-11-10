@@ -31,7 +31,9 @@ it('keeps each story bullet as two flex children: the marker and one inline sent
   const strongest = items.find((item) => item.textContent.includes('Strongest'));
   const sentence = strongest.children[1];
   // text, leg and the glossary button all live in the one sentence element
-  expect(visibleText(sentence)).toMatch(/^Strongest near Plymouth breakwater .*: wind 29 kt, gusts 39 kt, waves 2\.8 m\.$/);
+  // hours while the boat is on leg 6 only (22:00-05:00 UTC); the 06:00 sample after the 05:37 slow exit is left out
+  expect(visibleText(sentence)).toBe('Strongest near Plymouth breakwater (leg 6): wind 28 kt, gusts 38 kt, waves 2.6 m, hourly maximum of the emulated scenario forecast while you are on this leg.');
+  expect(sentence.querySelectorAll('[class*="text-[11px]"], [class*="text-[10px]"]')).toHaveLength(0);
   expect(sentence.querySelector('button')).toHaveTextContent('gusts');
 });
 
@@ -49,4 +51,16 @@ it('states wind-over-tide time in the header zone, without a UTC suffix', () => 
   const line = [...bulletList(container).children].find((item) => item.textContent.includes('Wind over tide'));
   expect(visibleText(line)).toContain(`around ${fmtTextTime('2026-07-20T19:38:00Z')}.`);
   expect(visibleText(line)).not.toMatch(/UTC/);
+});
+
+it('shows the note for the leg the verdict names, not the first leg in route order', () => {
+  const { container } = render(<WeatherStoryCard findings={findings} sections={savedBriefing.sections} />);
+  const note = container.querySelector('[data-testid="leg-note"]');
+  // the verdict sentence governs on leg 3; leg 1's "Gusts up to 22 kt" event is not shown as the fact
+  expect(note.textContent).toBe('Winds just over your 18 kt limit while the low crosses NW of Cap de la Hague → Casquets TSS crossing.');
+  expect(container.textContent).not.toMatch(/Gusts up to 22 kt/);
+  // the system is a section subheading, not a competing headline
+  const heading = container.querySelector('h2');
+  expect(heading.textContent).toBe('A low-pressure system crosses your passage window');
+  expect(heading.className).not.toMatch(/text-\[(2\d|3\d)px\]/);
 });

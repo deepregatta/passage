@@ -153,7 +153,7 @@ const FR = {
   "tracked positions": "positions suivies",
   "Synoptic": "Synoptique",
   "h old": "h écoulées",
-  "Causal attribution unavailable for this legacy snapshot.": "Attribution causale indisponible pour ce briefing ancien.",
+  "Causal attribution unavailable for this older check.": "Attribution causale indisponible pour cette vérification ancienne.",
   "close to": "proche de",
   "crosses your passage window": "traverse votre fenêtre de passage",
   "Selected evidence summary": "Résumé des éléments probants sélectionnés",
@@ -512,7 +512,7 @@ const FR = {
   'This forecast crosses your limits. Compare departure times before changing the route.': 'Cette prévision dépasse vos limites. Comparez les heures de départ avant de modifier la route.',
   'Wait for the next run before deciding.': 'Attendez le prochain cycle avant de décider.',
   'No estimate for the next run. Check the published forecast before departure.': 'Aucune estimation pour le prochain cycle. Consultez la prévision publiée avant le départ.',
-  'An official marine warning covers part of your route. Read the bulletin before anything else.': 'Une alerte marine officielle couvre une partie de votre route. Lisez le bulletin en premier.',
+  'Read the official bulletin before anything else.': 'Lisez le bulletin officiel en premier.',
   'A synthetic warning scenario covers part of your route. It tests the workflow and must not inform a real passage decision.': 'Un scénario d’alerte synthétique couvre une partie de votre route. Il sert à tester le fonctionnement et ne doit jamais guider une décision réelle.',
   'Along your route · conditions vs your limits': 'Le long de votre route · conditions et limites',
   'same time cursor': 'même curseur temporel',
@@ -612,7 +612,6 @@ const FR = {
   'A high-pressure ridge crosses your passage window': 'Une dorsale anticyclonique traverse votre fenêtre de passage',
   'A weather front crosses your passage window': 'Un front traverse votre fenêtre de passage',
   'Why this assessment': 'Pourquoi cette évaluation',
-  'Strongest': 'Conditions les plus fortes',
   'around': 'vers',
   'Professional register': 'Registre professionnel',
   'fine': 'dans les limites',
@@ -1025,6 +1024,18 @@ const FR_PATTERNS = [
   [/^T\+(\d+): (.+?)\.( Tighter isobar spacing over (.+) means stronger wind there\.)?$/, (_match, step, body, tail, region) => translateSynopticCaption(step, body, tail ? region : null)],
   [/^((?:A|An) [a-z-]+(?:[a-z -]*?) crosses your route\. )?(winds|gusts|seas|wind against the tide|squall risk|visibility|conditions) reach ([\d.]+) (kt|m|nm) (.+?), (close to|over) your ([\d.]+) (kt|m|nm) limit\.$/i, (_match, prefix, hazard, value, units, where, relation, limit, limitUnits) => translateDriverClause(prefix, hazard, value, units, where, relation, limit, limitUnits)],
   [/^((?:A|An) [a-z-]+(?:[a-z -]*?) crosses your route\. )?(every forecast scenario shows|most forecast scenarios show|\d+ of \d+ forecast scenarios show) (winds|gusts|seas|wind against the tide|squall risk|visibility|conditions) over your ([\d.]+) kt limit (.+?)\.$/i, (_match, prefix, share, hazard, limit, where) => translateScenarioClause(prefix, share, hazard, limit, where)],
+  // Verdict sentence (pages/briefing/verdictSentence.js); one pattern per sentence shape
+  [/^Your (\S+(?: (?:kt|m|nm))?) (wind|gust|wave height|wave steepness|visibility) (limit|minimum) is (exceeded|not met) (.+) around (.+?): (the .+? forecast|the forecast) (reaches|drops to) (.+)\.$/, (_m, limit, noun, word, _verb, where, when, forecast, verb, value) => `${word === 'minimum' ? `Votre minimum de ${FR_LIMIT_NOUN[noun]} de ${limit} n’est pas respecté` : `Votre limite de ${FR_LIMIT_NOUN[noun]} de ${limit} est dépassée`} ${translateLegLabel(where)} vers ${when} : ${translateForecastName(forecast)} ${verb === 'reaches' ? 'atteint' : 'descend à'} ${value}.`],
+  [/^Close to your (\S+(?: (?:kt|m|nm))?) (wind|gust|wave height|wave steepness|visibility) (limit|minimum) (.+) around (.+?): (the .+? forecast|the forecast) (reaches|drops to) (.+)\.$/, (_m, limit, noun, word, where, when, forecast, verb, value) => `Proche de votre ${word === 'minimum' ? 'minimum' : 'limite'} de ${FR_LIMIT_NOUN[noun]} de ${limit} ${translateLegLabel(where)} vers ${when} : ${translateForecastName(forecast)} ${verb === 'reaches' ? 'atteint' : 'descend à'} ${value}.`],
+  [/^Closest to your limits: (wind|gust|wave height|wave steepness|visibility) (.+) around (.+), where (the .+? forecast|the forecast) (reaches|drops to) (.+) against your (\S+(?: (?:kt|m|nm))?) (limit|minimum)\.$/, (_m, noun, where, when, forecast, verb, value, limit, word) => `Au plus près de vos limites : ${FR_LIMIT_NOUN[noun]} ${translateLegLabel(where)} vers ${when}, où ${translateForecastName(forecast)} ${verb === 'reaches' ? 'atteint' : 'descend à'} ${value} pour ${word === 'minimum' ? 'un minimum' : 'une limite'} de ${limit}.`],
+  [/^(\d+ of \d+ .+? forecast scenarios|Some forecast scenarios) exceed your (\S+(?: (?:kt|m|nm))?) (wind|gust|wave height|wave steepness|visibility) (limit|minimum) (.+) around (.+)\.$/, (_m, count, limit, noun, _word, where, when) => `${translateScenarioCount(count)} dépassent votre limite de ${FR_LIMIT_NOUN[noun]} de ${limit} ${translateLegLabel(where)} vers ${when}.`],
+  [/^(\d+ of \d+ .+? forecast scenarios) exceed that limit\.$/, (_m, count) => `${translateScenarioCount(count)} dépassent cette limite.`],
+  [/^(Official warning|Synthetic warning scenario) for (.+?): (.+) from (.+)\.$/, (_m, lead, area, kind, issuer) => `${lead === 'Official warning' ? 'Alerte officielle' : 'Scénario d’alerte synthétique'} pour ${area} : ${FR_WARNING_KIND[kind] ?? kind} de ${issuer.replace(/\(synthetic\)/, '(synthétique)')}.`],
+  [/^The models disagree about the wind (.+) around (.+?): (.+)\.$/, (_m, where, when, values) => `Les modèles divergent sur le vent ${translateLegLabel(where)} vers ${when} : ${values.replace(/ \((\d+ \w+ \d{2}Z) run\)/g, ' (cycle $1)').replaceAll(' vs ', ' contre ').replaceAll('emulated scenario', 'scénario simulé')}.`],
+  [/^These runs are ([\d.]+) h apart in age, so part of the difference may come from that\.$/, 'Ces cycles ont $1 h d’écart d’âge : une partie de la différence peut en venir.'],
+  [/^Wind against the current (.+) around (.+) brings this passage close to your limits\.$/, (_m, where, when) => `Le vent contre le courant ${translateLegLabel(where)} vers ${when} rapproche cette traversée de vos limites.`],
+  [/^The tidal gate (.+) does not fit this departure \(around (.+)\)\.$/, (_m, where, when) => `La porte de marée ${translateLegLabel(where)} ne convient pas à ce départ (vers ${when}).`],
+  [/^The tidal gate (.+) only partly fits this departure \(around (.+)\)\.$/, (_m, where, when) => `La porte de marée ${translateLegLabel(where)} ne convient qu’en partie à ce départ (vers ${when}).`],
   // DecisionBand next-run line (pages/briefing/nextRunText.js)
   [/^Next (.+?) run(?: \((\d{2}Z)\))? expected about (.+)\.$/, (_match, model, cycle, time) => `Prochain cycle ${model}${cycle ? ` (${cycle})` : ''} attendu vers ${time}.`],
   [/^Next (.+?) run(?: \((\d{2}Z)\))? is due now\.$/, (_match, model, cycle) => `Prochain cycle ${model}${cycle ? ` (${cycle})` : ''} attendu maintenant.`],
@@ -1097,7 +1108,8 @@ const FR_PATTERNS = [
   [/^The next model run is expected around (.+) UTC\. Check again then, especially if conditions are close to your limits\.$/, 'Le prochain cycle du modèle est attendu vers $1 UTC. Vérifiez à nouveau à ce moment-là, surtout si les conditions approchent vos limites.'],
   [/^A weather system crosses your passage window$/, 'Un système météo traverse votre fenêtre de passage'],
   [/^The forecast reaches ([\d.]+) (\w+) against your ([\d.]+) (\w+) limit (.+)\.$/, 'La prévision atteint $1 $2, pour une limite fixée à $3 $4, $5.'],
-  [/^Strongest (.+)$/, 'Conditions les plus fortes $1'],
+  [/^Strongest (.+): wind (\d+) kt,$/, (_m, where, wind) => `Conditions les plus fortes ${translateLegLabel(where)} : vent ${wind} nd,`],
+  [/^(\d+) kt(?:, waves ([\d.]+) m)?, hourly maximum of the (.+) forecast while you are on this leg\.$/, (_m, gust, waves, model) => `${gust} nd${waves ? `, vagues ${waves} m` : ''}, maximum horaire de ${translateForecastName(`the ${model} forecast`)} pendant ce tronçon.`],
   [/^Wind over tide (.+) around (.+) UTC; expect short, steep seas\.$/, 'Vent contre courant $1 vers $2 UTC; attendez-vous à une mer courte et abrupte.'],
   [/^Wind opposes the current at (.+), increasing the risk of short, steep seas\.$/, 'Le vent s’oppose au courant au $1, ce qui augmente le risque de mer courte et abrupte.'],
   [/^Wind opposes the current (.+), increasing the risk of short, steep seas\.$/, 'Le vent s’oppose au courant $1, ce qui augmente le risque de mer courte et abrupte.'],
@@ -1366,6 +1378,38 @@ function translateDriverPlace(where) {
   return match ? frNear(match[1]) : where;
 }
 
+// Verdict sentence pieces (pages/briefing/verdictSentence.js).
+const FR_LIMIT_NOUN = { wind: 'vent', gust: 'rafales', 'wave height': 'hauteur de vagues', 'wave steepness': 'cambrure des vagues', visibility: 'visibilité' };
+
+const FR_WARNING_KIND = {
+  'offshore marine bulletin (BMS)': 'bulletin météo marine du large (BMS)',
+  'coastal marine bulletin (BMS)': 'bulletin météo marine côtier (BMS)',
+  'marine bulletin (BMS)': 'bulletin météo marine (BMS)',
+  'gale warning': 'avis de coup de vent',
+  'marine warning': 'alerte marine',
+};
+
+/** routeLabels legLabel: "near X (leg 3)" -> "près de X (tronçon 3)"; place names stay for FR_FRAGMENTS. */
+function translateLegLabel(label) {
+  const match = label.match(/^(.*?)(?: \(leg (\d+)\))?$/);
+  const leg = match[1].match(/^leg (\d+)$/);
+  const place = leg ? `tronçon ${leg[1]}` : translateDriverPlace(match[1]);
+  return match[2] ? `${place} (tronçon ${match[2]})` : place;
+}
+
+function translateForecastName(forecast) {
+  const name = forecast.match(/^the (.+) forecast$/)?.[1];
+  if (!name) return 'la prévision';
+  return name === 'emulated scenario' ? 'la prévision du scénario simulé' : `la prévision ${name}`;
+}
+
+function translateScenarioCount(count) {
+  const match = count.match(/^(\d+) of (\d+) (.+?) forecast scenarios$/);
+  if (!match) return 'Certains scénarios de prévision';
+  const source = match[3] === 'emulated' ? 'simulés' : match[3];
+  return `${match[1]} scénarios de prévision ${source} sur ${match[2]}`;
+}
+
 function translateDriverClause(prefix, hazard, value, units, where, relation, limit, limitUnits) {
   const subject = FR_HAZARD_REACH[hazard.toLowerCase()] ?? `${hazard} atteint`;
   const plural = hazard.toLowerCase() === 'gusts' || hazard.toLowerCase() === 'conditions';
@@ -1600,7 +1644,6 @@ const FR_FRAGMENTS = [
   [/\bwhat sets this up\b/gi, 'ce qui met en place cette situation'],
   [/\bWind opposes the current\b/g, 'Le vent s’oppose au courant'],
   [/\bincreasing the risk of short, steep seas\b/g, 'ce qui augmente le risque de mer courte et abrupte'],
-  [/\bStrongest near\b/g, 'Conditions les plus fortes près de'],
   [/\bnear waypoint\b/g, 'près du point de route'],
   [/\bwaypoint\s+(\d+)\b/gi, 'point de route $1'],
   [/\bwp(\d+)\b/gi, 'point de route $1'],
