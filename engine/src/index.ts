@@ -20,6 +20,10 @@ export { renderBriefing, nextForecastRuns } from './briefing.js';
 export type { Briefing, BriefingSection, NextForecastRun } from './briefing.js';
 export { describeNextRun, modelDisplayName, NEXT_RUN_DUE_MINUTES, NEXT_RUN_GRACE_MINUTES } from './nextRun.js';
 export type { NextRunDescription } from './nextRun.js';
+export { governingReason } from './governingReason.js';
+export type {
+  GoverningReason, GoverningLeg, GoverningWarning, GoverningDisagreement, GoverningOther, LimitResult, LimitKind,
+} from './governingReason.js';
 export { buildPlume, writeSnapshot } from './snapshot.js';
 export type { Plume, SnapshotStore } from './snapshot.js';
 export { routeBbox, passageMaxHours } from './fetch/liveGrids.js';
@@ -49,11 +53,12 @@ export {
   ECMWF_LAYERS,
   cycleHourLabel,
   describeEcmwfRuns,
+  modelRunAt,
   newestRunAt,
   newestRunCovering,
   runSpan,
 } from './forecast/modelRuns.js';
-export type { RunSpan, ServedRange } from './forecast/modelRuns.js';
+export type { ModelRunRef, RunSpan, ServedRange } from './forecast/modelRuns.js';
 export { HttpTileTransport, gunzip } from './forecast/httpTransport.js';
 export { ScenarioBundleStore } from './forecast/scenarioStore.js';
 export { MemoryTileCache, ForecastRunGoneError, forecastRunGone } from './forecast/store.js';
