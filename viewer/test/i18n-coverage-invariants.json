@@ -398,9 +398,6 @@
         "planner",
         "warning_active"
       ],
-      "viewer/src/pages/briefing/EvidenceSection.jsx": [
-        "GUST"
-      ],
       "viewer/src/pages/briefing/LegProgressBar.jsx": [
         "ok"
       ],

@@ -5,7 +5,9 @@ import ModelComparison from '../../components/ModelComparison.jsx';
 import ModelsUsed from '../../components/ModelsUsed.jsx';
 import { EvidenceLink } from '../../components/common.jsx';
 import { evidenceById, evidenceVariable, worstEnsembleEvidence } from '../../lib/evidenceSelectors.js';
-import { fmtTime } from '../../lib/format.js';
+import { fmtHour, fmtTextTime, fmtUtcClock } from '../../lib/format.js';
+import { ruleLabel } from '../../lib/ruleLabels.js';
+import { legLabel } from './routeLabels.jsx';
 import clsx from 'clsx';
 
 /** Claim-level evidence: the ensemble behind each limit claim, then the models
@@ -34,14 +36,13 @@ export default function EvidenceSection() {
   if (!evidence) {
     return (
       <>
-        <p className="font-instrument text-ink-soft">No ensemble limit claim is available for this briefing.</p>
+        <p className="font-instrument text-ink-soft">No ensemble limit claim is available for this check.</p>
         <ModelsUsed />
       </>
     );
   }
   const pct = Math.round((evidence.member_fraction.exceed / evidence.member_fraction.total) * 100);
   const variable = evidenceVariable(evidence);
-  const leg = findings.legs.find((item) => item.leg_id === evidence.leg_id);
   const plumeLeg = plume?.legs.find((item) => item.leg_id === evidence.leg_id);
 
   const choose = (claim) => {
@@ -53,7 +54,7 @@ export default function EvidenceSection() {
   return (
     <div>
       <header className="border-b border-ink/40 pb-4 mb-4">
-        <p className="eyebrow">Claim-level evidence · {evidence.rule_id}</p>
+        <p className="eyebrow">Claim-level evidence · {ruleLabel(evidence.rule_id)}</p>
         <div className="grid lg:grid-cols-[1fr_auto] gap-4 items-end">
           <h2 className="font-story text-3xl sm:text-4xl leading-[1.02] sm:leading-10 max-w-4xl">
             <span className="text-verdict-exceeds">{evidence.member_fraction.exceed} of {evidence.member_fraction.total}</span>{' '}
@@ -64,17 +65,17 @@ export default function EvidenceSection() {
             <div className="font-instrument text-xs text-ink-soft max-w-56">raw count, not a calibrated probability</div>
           </div>
         </div>
-        <p className="font-instrument text-sm mt-3">{evidence.leg_id} · {leg?.name} · limit {evidence.limit} {evidence.units} · <EvidenceLink evidenceId={evidence.evidence_id}>inspect claim</EvidenceLink></p>
+        <p className="font-instrument text-sm mt-3">{legLabel(findings, evidence.leg_id, { bare: true })} · {fmtTextTime(evidence.valid_time)} · limit {evidence.limit} {evidence.units} · <EvidenceLink evidenceId={evidence.evidence_id}>inspect claim</EvidenceLink></p>
       </header>
 
       <div className="grid grid-cols-1 xl:grid-cols-[14rem_minmax(0,1fr)] 2xl:grid-cols-[14rem_minmax(0,1fr)_20rem] gap-4">
         <aside className="border-t border-ink/40 xl:border-r xl:border-t-0 xl:pr-3" aria-label="Evidence claims">
           <p className="eyebrow py-2">Choose a claim</p>
-          <div className="flex xl:flex-col gap-1 overflow-x-auto pb-2">
+          <div className="flex flex-wrap xl:flex-col gap-1 pb-2">
             {claims.map((claim) => (
-              <button key={claim.evidence_id} type="button" onClick={() => choose(claim)} aria-pressed={claim.evidence_id === evidence.evidence_id} className={clsx('text-left min-w-40 px-3 py-2 border hairline font-instrument text-xs', claim.evidence_id === evidence.evidence_id ? 'bg-ink text-paper border-ink' : 'bg-white/30 hover:border-ink-soft')}>
-                <span className="font-mono block">{claim.leg_id} · {claim.rule_id.includes('GUST') ? 'gust' : 'wind'}</span>
-                {claim.member_fraction.exceed}/{claim.member_fraction.total} over · {fmtTime(claim.valid_time)}
+              <button key={claim.evidence_id} type="button" onClick={() => choose(claim)} aria-pressed={claim.evidence_id === evidence.evidence_id} className={clsx('text-left min-w-40 min-h-11 px-3 py-2 border hairline font-instrument text-xs', claim.evidence_id === evidence.evidence_id ? 'bg-ink text-paper border-ink' : 'bg-white/30 hover:border-ink-soft')}>
+                <span className="block">{legLabel(findings, claim.leg_id, { bare: true })}</span>
+                <span className="block opacity-80">{evidenceVariable(claim)}</span>
               </button>
             ))}
           </div>
@@ -91,15 +92,16 @@ export default function EvidenceSection() {
           </section>
           <ModelsUsed />
         </div>
-        <ClaimPanel evidence={evidence} leg={leg} />
+        <ClaimPanel evidence={evidence} />
       </div>
     </div>
   );
 }
 
-function ClaimPanel({ evidence, leg }) {
-  const pct = Math.round((evidence.member_fraction.exceed / evidence.member_fraction.total) * 100);
-  return <aside className="hidden 2xl:block border-l border-ink/40 pl-4 sticky top-28 self-start" aria-label="Selected evidence summary"><p className="eyebrow">Selected claim</p><dl className="mt-2 divide-y-legacy hairline text-sm"><div className="py-2"><dt className="eyebrow">Rule</dt><dd className="font-mono">{evidence.rule_id}</dd></div><div className="py-2"><dt className="eyebrow">Route window</dt><dd>{evidence.leg_id} · {leg?.name}</dd><dd className="font-mono text-xs">{fmtTime(evidence.valid_time)} UTC</dd></div><div className="py-2"><dt className="eyebrow">Raw fraction</dt><dd className="font-story text-3xl">{evidence.member_fraction.exceed}/{evidence.member_fraction.total}</dd><dd>{pct}% · not calibrated</dd></div><div className="py-2"><dt className="eyebrow">Limit</dt><dd className="font-mono">{evidence.limit} {evidence.units}</dd></div></dl><p className="mt-4 p-3 bg-shoal/50 border hairline text-xs">Agreement is not proof. This panel stays tied to the claim selected at left.</p></aside>;
+/** Side summary (2xl only). The count, place and limit are in the headline above; this adds the
+ * claim's rule and its time with a marked UTC secondary for cross-reference to the chart axis. */
+function ClaimPanel({ evidence }) {
+  return <aside className="hidden 2xl:block border-l border-ink/40 pl-4 sticky top-28 self-start" aria-label="Selected evidence summary"><p className="eyebrow">Selected claim</p><dl className="mt-2 divide-y-legacy hairline text-sm"><div className="py-2"><dt className="eyebrow">Rule</dt><dd>{ruleLabel(evidence.rule_id)}</dd></div><div className="py-2"><dt className="eyebrow">Route window</dt><dd>{fmtTextTime(evidence.valid_time)}</dd><dd className="font-mono text-xs text-ink-soft">{fmtUtcClock(evidence.valid_time)}</dd></div></dl><p className="mt-4 p-3 bg-shoal/50 border hairline text-xs">Agreement is not proof. This panel stays tied to the claim selected at left.</p></aside>;
 }
 
 function EvidenceTable({ leg, evidence, variable }) {
@@ -109,14 +111,15 @@ function EvidenceTable({ leg, evidence, variable }) {
     <details className="mt-3 border-y hairline py-2">
       <summary className="font-instrument text-sm cursor-pointer">Text/table alternative for the plume</summary>
       <div className="overflow-x-auto mt-2">
-        <table className="w-full font-mono text-[11px]">
-          <thead><tr className="text-left"><th className="py-1">UTC</th><th>median</th><th>maximum</th><th>your limit</th><th>members over</th></tr></thead>
+        <table className="w-full font-mono text-xs">
+          <caption className="text-left text-ink-soft pb-1">limit {evidence.limit} {evidence.units}</caption>
+          <thead><tr className="text-left"><th className="py-1">local time</th><th>UTC</th><th>median</th><th>maximum</th><th>members over</th></tr></thead>
           <tbody>{leg.times.filter((_, index) => index % 3 === 0).map((time) => {
             const i = leg.times.indexOf(time);
             const values = members.map((series) => series[i]).filter(Number.isFinite).sort((a, b) => a - b);
             const median = values[Math.floor(values.length / 2)];
             const over = values.filter((value) => value > evidence.limit).length;
-            return <tr key={time} className="border-t hairline"><td className="py-1">{fmtTime(time)}</td><td>{median ?? 'n/a'}</td><td>{values.at(-1) ?? 'n/a'}</td><td>{evidence.limit} {evidence.units}</td><td>{over}/{values.length}</td></tr>;
+            return <tr key={time} className="border-t hairline"><td className="py-1">{fmtTextTime(time)}</td><td>{fmtHour(time)}</td><td>{median ?? 'n/a'}</td><td>{values.at(-1) ?? 'n/a'}</td><td>{over}/{values.length}</td></tr>;
           })}</tbody>
         </table>
       </div>
