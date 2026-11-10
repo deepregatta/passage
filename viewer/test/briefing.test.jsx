@@ -53,7 +53,13 @@ it('expands the ordered reasoning once, with one professional-register disclosur
   // the per-leg route-impact list repeats the timeline and leg table: it is not rendered here
   // nor the next-run time frozen at analysis time: the decision band states it, read at display time
   const shown = orderedTitles.filter((title) => !['Route impact, leg by leg', 'What could change'].includes(title));
-  expect(within(details).getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent)).toEqual(shown);
+  // one name for a result: "check", for saved checks too
+  const asCheck = { 'Not assessed by this analysis': 'Not assessed by this check', 'Emulated data in this analysis': 'Emulated data in this check' };
+  expect(within(details).getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent)).toEqual(shown.map((t) => asCheck[t] ?? t));
+  expect(details).toHaveTextContent('Some values in this check come from EMULATED');
+  expect(details.textContent).not.toMatch(/this (briefing|analysis)/);
+  // the route-impact method line (a heading over one generic sentence) is not in the register either
+  expect(within(details).queryByText('Route impact, leg by leg')).toBeNull();
   expect(details.querySelector('li')).toBeNull();
   expect(details.className).not.toMatch(/overflow|max-h/);
   // one disclosure for the whole block, not one per section

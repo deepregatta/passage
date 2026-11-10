@@ -3,6 +3,7 @@ import { useApp } from '../../stores/appStore.js';
 import { EvidenceLink } from '../../components/common.jsx';
 import { deriveCoverage } from '../../lib/evidenceSelectors.js';
 import { driverSignalText } from './verdictSentence.js';
+import { checkWording, sectionTitle } from './checkWording.js';
 
 /** Why the assessment reads as it does: the reasoning, once. Per-leg numbers live in the timeline
  * and leg table, counts in the Evidence section, capability coverage under "Models and coverage". */
@@ -28,7 +29,7 @@ function StorySection({ section, findings }) {
   const unassessed = coverage?.items.filter((item) => item.status === 'not_assessed') ?? [];
   const plain = coverage
     ? `Not assessed: ${unassessed.map((item) => item.detail ?? item.capability.replaceAll('_', ' ')).join(', ')}. No flag does not mean no risk.${coverage.derived ? ' Coverage derived conservatively from evidence in this legacy check.' : ''}`
-    : section.register_plain;
+    : checkWording(section.register_plain);
   const tone =
     section.id === 'warnings'
       ? 'border-l-4 border-authority pl-3'
@@ -38,7 +39,7 @@ function StorySection({ section, findings }) {
 
   return (
     <div className={tone}>
-      <h3 className="eyebrow mb-1">{decision ? <BriefingMessage section={section} field="title" version={version} /> : section.title}</h3>
+      <h3 className="eyebrow mb-1">{decision ? <BriefingMessage section={section} field="title" version={version} /> : sectionTitle(section)}</h3>
       <p className="font-sans text-[13px] leading-relaxed">{decision ? <BriefingMessage section={section} field="plain" version={version} omitScenarioCount /> : plain}</p>
     </div>
   );
@@ -56,11 +57,12 @@ function ProfessionalRegister({ sections, findings }) {
         Professional register
       </summary>
       <div className="space-y-3 pb-1">
-        {sections.map((section) => {
+        {/* the route-impact method line is a heading over one generic sentence: left out */}
+        {sections.filter((section) => !section.per_leg).map((section) => {
           const decision = section.id === 'decision';
           return (
             <div key={section.id}>
-              <h4 className="font-sans text-xs font-medium">{decision ? <BriefingMessage section={section} field="title" version={version} /> : section.title}</h4>
+              <h4 className="font-sans text-xs font-medium">{decision ? <BriefingMessage section={section} field="title" version={version} /> : sectionTitle(section)}</h4>
               <p className="font-sans text-xs leading-relaxed text-ink-soft mt-0.5">
                 {decision ? <BriefingMessage section={section} field="pro" version={version} describeDriver={describeDriver} /> : section.register_pro}
               </p>
