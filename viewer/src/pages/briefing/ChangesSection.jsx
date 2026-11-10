@@ -4,7 +4,7 @@ import { diffFindings } from '@deepweather/engine';
 import { useApp } from '../../stores/appStore.js';
 import { EvidenceLink, VerdictChip } from '../../components/common.jsx';
 import SynopticCompare from '../../components/SynopticCompare.jsx';
-import { deriveChangeStory, kindLabels, ruleLabels } from '../../lib/changeStory.js';
+import { deriveChangeStory, kindLabels, ledgerText, ruleLabels } from '../../lib/changeStory.js';
 import { fmtTextTime } from '../../lib/format.js';
 import { fetchSnapshotJson } from '../../lib/localSnapshots.js';
 
@@ -60,10 +60,18 @@ export default function ChangesSection() {
     <section className="py-5"><SynopticCompare previous={state.previousSynoptic} latest={latestSynoptic} previousId={state.previousId} latestId={findings.snapshot_id}/></section>
     <OnsetShift previous={state.previous} latest={findings} />
     <section className="grid lg:grid-cols-3 border-y border-ink/40 divide-y-legacy lg:divide-y-legacy-0 lg:divide-x-legacy divide-ink/30">
-      {story.material.length ? story.material.map((item, index) => { const entry = state.changes.entries[item.change_ref]; return <article key={item.change_ref} className="p-4"><p className="eyebrow">material change {index + 1} · {ruleLabels[entry?.rule_id] ?? kindLabels[entry?.kind] ?? 'change'}</p><p className="font-story text-xl mt-2">{entry?.description}</p><p className="font-instrument text-sm text-ink-soft mt-3">{item.why_it_matters}</p>{item.evidence_ids.length > 0 && <p className="font-mono text-xs mt-2">{item.evidence_ids.map((id) => <EvidenceLink key={id} evidenceId={id}>{id} </EvidenceLink>)}</p>}</article>; }) : <p className="p-5 text-ink-soft">No material change. The forecast held steady.</p>}
+      {story.material.length ? story.material.map((item, index) => { const entry = state.changes.entries[item.change_ref]; return <article key={item.change_ref} className="p-4"><p className="eyebrow">material change {index + 1} · {ruleLabels[entry?.rule_id] ?? kindLabels[entry?.kind] ?? 'change'}</p><p className="font-story text-xl mt-2">{ledgerText(entry?.description, findings.departure_utc)}</p>{item.why_it_matters !== entry?.description && <p className="font-instrument text-sm text-ink-soft mt-3">{ledgerText(item.why_it_matters, findings.departure_utc)}</p>}<LatestEvidence ids={item.evidence_ids} /></article>; }) : <p className="p-5 text-ink-soft">No material change. The forecast held steady.</p>}
     </section>
-    <details className="py-4 border-b border-ink/40"><summary className="font-instrument cursor-pointer py-2.5">Full change ledger · {state.changes.entries.length} entries</summary><ul className="mt-3 max-w-3xl divide-y-legacy hairline">{state.changes.entries.map((entry, index) => <li key={index} className="py-2 font-instrument text-sm">{entry.description}</li>)}</ul></details>
+    <details className="py-4 border-b border-ink/40"><summary className="font-instrument cursor-pointer py-2.5">Full change ledger · {state.changes.entries.length} entries</summary><ul className="mt-3 max-w-3xl divide-y-legacy hairline">{state.changes.entries.map((entry, index) => <li key={index} className="py-2 font-instrument text-sm">{ledgerText(entry.description, findings.departure_utc)}</li>)}</ul></details>
   </div>;
+}
+
+/** The evidence a change rests on in THIS check (the last id of a previous/latest pair: the
+ * previous check's ids would open another claim here). Raw id only as a tooltip. */
+function LatestEvidence({ ids }) {
+  const id = ids.at(-1);
+  if (!id) return null;
+  return <p className="mt-2"><EvidenceLink evidenceId={id} title={id} className="inline-flex items-center min-h-11 sm:min-h-0 font-instrument text-[12px]">evidence</EvidenceLink></p>;
 }
 
 /** Authority magenta is reserved for real authority; an emulated warning gets the test-pattern stamp. */

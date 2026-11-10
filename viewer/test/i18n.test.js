@@ -170,6 +170,10 @@ describe('language selection', () => {
       'Next ECMWF run (12Z) expected about Sun 19 Jul 20:37.':
         'Prochain cycle ECMWF (12Z) attendu vers dim. 19 juil. 20:37.',
       'Next GFS run (18Z) is due now.': 'Prochain cycle GFS (18Z) attendu maintenant.',
+      'The low (L1 on the chart) is the same system as in the previous check. It now reaches the route 3 h earlier.':
+        'La dépression (L1 sur la carte) est le même système que lors de la vérification précédente. Elle atteint désormais la route 3 h plus tôt.',
+      'New signal: wind scenarios over your limit near Mid-Channel around Tue 21 Jul 01:00.':
+        'Nouveau signal : scénarios de vent au-dessus de votre limite près de milieu de la Manche vers mar. 21 juil. 01:00.',
       'Gusts up to 30 kt, over your 28 kt limit while the low crosses Casquets TSS crossing → Mid-Channel.':
         'Rafales jusqu’à 30 nd, au-dessus de votre limite de 28 nd pendant que la dépression traverse traversée du DST des Casquets → milieu de la Manche.',
       'All 51 forecast scenarios exceed your 18 kt limit (winds) while the high crosses waypoint 2 → Finish.':

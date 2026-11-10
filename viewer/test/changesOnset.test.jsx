@@ -24,3 +24,22 @@ it('states the event-onset shift in the header zone and keeps the two times on s
   expect(section.querySelectorAll('.absolute')).toHaveLength(0);
   expect(section.querySelector('dl').className).toMatch(/text-xs/);
 });
+
+it('words the ledger in the header zone, names the low without the leg-like id, and labels evidence chips', async () => {
+  const { container } = render(<ChangesSection />);
+  await screen.findByText('Event onset at the route');
+  const ledger = container.querySelector('details ul');
+  expect(ledger.textContent).not.toMatch(/UTC/);
+  expect(ledger).toHaveTextContent(`New signal: sustained wind vs your limit near Mid-Channel around ${fmtTextTime('2026-07-20T23:00:00Z')}.`);
+  expect(ledger).toHaveTextContent(`gusts vs your limit near Off Omonville-la-Rogue: ${fmtTextTime('2026-07-20T06:00:00Z')} → ${fmtTextTime('2026-07-20T08:00:00Z')} (2 h later).`);
+  expect(ledger).toHaveTextContent('The low (L1 on the chart) is the same system as in the previous check. It now reaches the route 3 h earlier.');
+  expect(ledger.textContent).not.toMatch(/Low L1|previous briefing/);
+  const chips = [...container.querySelectorAll('article .evidence-link')];
+  expect(chips.length).toBeGreaterThan(0);
+  for (const chip of chips) {
+    expect(chip.textContent).toBe('evidence');
+    expect(chip.getAttribute('title')).toMatch(/^E\d+$/);
+    expect(chip.className).toMatch(/min-h-11/);
+    expect(chip.className).toMatch(/text-\[12px\]/);
+  }
+});

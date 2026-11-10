@@ -1057,11 +1057,13 @@ const FR_PATTERNS = [
   [/^(\d+) of (\d+) departure times fall beyond the (live forecast|forecast) horizon and are not shown\. A missing cell does not mean safe conditions\.$/, (_match, hidden, total, kind) => `${hidden} sur ${total} heures de départ sont au-delà de l’horizon de ${kind === 'live forecast' ? 'la prévision en direct' : 'prévision'} et ne sont pas affichées. Une case manquante ne signifie pas des conditions sûres.`],
   // Change-ledger entries (engine diff.ts descriptions and headlines).
   [/^Assessment changed: (.+) → (.+)\.$/, (_match, from, to) => `Évaluation modifiée : ${translateVerdictLabel(from)} → ${translateVerdictLabel(to)}.`],
-  [/^New signal: (.+?)( around (.+) UTC)?\.$/, (_match, phrase, _tail, time) => `Nouveau signal : ${translateChangePhrase(phrase)}${time ? ` vers ${time} UTC` : ''}.`],
-  [/^(.+): (\w{3} \d+ \w{3} \d{2}:\d{2}) → (\w{3} \d+ \w{3} \d{2}:\d{2}) UTC \((\d+) h (later|earlier)\)\.$/, (_match, phrase, prev, next, hours, direction) => `${translateChangePhrase(phrase)} : ${prev} → ${next} UTC (${hours} h ${direction === 'later' ? 'plus tard' : 'plus tôt'}).`],
+  // ChangesSection renders these times in the header zone (lib/changeStory.js ledgerText); saved UTC prose still reads
+  [/^New signal: (.+?)( around (.+?)( UTC)?)?\.$/, (_match, phrase, _tail, time, utc = '') => `Nouveau signal : ${translateChangePhrase(phrase)}${time ? ` vers ${time}${utc}` : ''}.`],
+  [/^(.+): (\w{3} \d+ \w{3} \d{2}:\d{2}) → (\w{3} \d+ \w{3} \d{2}:\d{2})( UTC)? \((\d+) h (later|earlier)\)\.$/, (_match, phrase, prev, next, utc = '', hours, direction) => `${translateChangePhrase(phrase)} : ${prev} → ${next}${utc} (${hours} h ${direction === 'later' ? 'plus tard' : 'plus tôt'}).`],
   [/^(.+): (-?\d+) → (-?\d+) ?(\S*) \((up|down) (\d+)\)\.$/, (_match, phrase, prev, next, units, direction, delta) => `${translateChangePhrase(phrase)} : ${prev} → ${next}${units ? ` ${units === 'kt' ? 'nd' : units}` : ''} (${direction === 'up' ? 'en hausse' : 'en baisse'} de ${delta}).`],
   [/^(.+): (\d+) of (\d+) → (\d+) of (\d+) scenarios exceed\.$/, (_match, phrase, a, b, c, d) => `${translateChangePhrase(phrase)} : ${a} sur ${b} → ${c} sur ${d} scénarios en dépassement.`],
   [/^(.+) no longer flagged\.$/, (_match, phrase) => `${translateChangePhrase(phrase)} n’est plus signalé.`],
+  [/^The (low|high) \((\S+) on the chart\) is the same system as in the previous check\. It now reaches the route (\d+) h (earlier|later)\.$/, (_match, kind, id, hours, direction) => `${kind === 'low' ? 'La dépression' : 'L’anticyclone'} (${id} sur la carte) est le même système que lors de la vérification précédente. ${kind === 'low' ? 'Elle' : 'Il'} atteint désormais la route ${hours} h ${direction === 'earlier' ? 'plus tôt' : 'plus tard'}.`],
   [/^(.+) is the same system as in the previous briefing\. It now reaches the route (\d+) h (earlier|later)\.$/, (_match, name, hours, direction) => {
     // "Low L1" becomes the feminine "la dépression L1"; other names keep "Il".
     const low = name.match(/^Low (L\d+)$/);

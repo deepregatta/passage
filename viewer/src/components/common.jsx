@@ -3,10 +3,10 @@ import { useApp } from '../stores/appStore.js';
 import { VERDICT } from '../lib/format.js';
 
 /** Inline provenance link; the evidence chain. Dotted underline = has evidence. */
-export function EvidenceLink({ evidenceId, children }) {
+export function EvidenceLink({ evidenceId, children, className, title }) {
   const openEvidence = useApp((s) => s.openEvidence);
   return (
-    <button type="button" className="evidence-link" onClick={() => openEvidence(evidenceId)}>
+    <button type="button" className={clsx('evidence-link', className)} title={title} onClick={() => openEvidence(evidenceId)}>
       {children}
     </button>
   );
