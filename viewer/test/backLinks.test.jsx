@@ -81,7 +81,7 @@ describe('back links', () => {
   it('GRIB returns to Plan and keeps Plan marked as the current place', async () => {
     const user = userEvent.setup();
     show('grib', 'en', '/#plan/grib');
-    const link = await backLink('Plan');
+    const link = await backLink('Back to Plan');
     // the Plan place stays current on the GRIB page, in both navigations
     const plan = screen.getAllByRole('button', { name: 'Plan' });
     expect(plan.length).toBe(2);
