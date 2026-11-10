@@ -452,11 +452,20 @@ The page is three numbered steps next to the chart:
    across the chart, or click two opposite corners. Panning pauses while
    drawing; Escape or **Cancel** leaves. The box snaps outward to 0.1°, is at
    least 0.25° on each side, and is clamped (never wrapped) to ±90° / ±180°,
-   so it cannot cross the 180° meridian. Once a box exists the **Draw a box**
-   button goes away and the four corner handles resize it (drag one; the
-   opposite corner stays put). The handles' positions are memoised per box:
-   react-leaflet moves a marker whenever its `position` prop is a new array,
-   so re-rendering during a drag would snap the handle back.
+   so it cannot cross the 180° meridian. Once a box exists the chart offers
+   **Draw a new box** and **Clear box** (which empties the area, its files and
+   the address), and the four corner handles resize it (drag one; the
+   opposite corner stays put). Each handle is a 44 px focusable button
+   ("Move north-west corner"): the arrow keys move it 0.1°, Shift + arrow 1°,
+   through the same snapping (`pages/grib/gribBox.js`). The handles' positions
+   are memoised per box: react-leaflet moves a marker whenever its `position`
+   prop is a new array, so re-rendering during a drag would snap the handle
+   back. North/South/West/East fields in the Area step set the box too
+   (decimal degrees, or a hemisphere letter such as `9.5W`), applied on blur
+   or Enter, with an error beside the field. On narrow screens a **Next:
+   choose the period and download** cue sits under the chart, and a freshly
+   drawn box scrolls the Period step into view when it is out of sight. On
+   wide screens the chart is sticky beside the tool panel.
 2. **Period.** Next 1, 2, 3 (default), 5 or 7 days, or **Full forecast**, from
    now floored to the hour. Full uses `extent: 'full'` in the export request:
    each file runs to its own model's last available forecast step, including
@@ -466,7 +475,12 @@ The page is three numbered steps next to the chart:
    before; GFS wind +240 h, GFS-Wave +384 h).
    Fixed-day periods retain the regional wind models' whole-window coverage
    requirement. The page shows each file's actual start/end times and, for
-   Full forecast, explains that the end depends on the selected model.
+   Full forecast, explains that the end depends on the selected model. A file
+   runs from the model's own steps ([Times](#times)): when the period starts
+   or ends between two steps (ECMWF's 3-hourly steps with a period starting
+   at 19:00, say), the file starts at the step before (18:00) or ends at the
+   step after (21:00), and its row says so. The period and each file also
+   show the browser's local time with its zone abbreviation, beside UTC.
 3. **Download.** One button per kind (**Download wind**, **Download
    currents**, **Download waves**). One click builds that file and starts
    the browser download. Files stay separate, one per kind, so any GRIB
