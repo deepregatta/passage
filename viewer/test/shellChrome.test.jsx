@@ -71,6 +71,8 @@ describe('phone header', () => {
     expect(rule).toContain('.on-dark button[aria-pressed]:focus-visible');
     expect(rule).toMatch(/outline:\s*2px solid theme\('colors\.paper\.DEFAULT'\) !important/);
     expect(rule).toMatch(/outline-offset:\s*2px !important/);
+    // outline-color must not fade in from currentColor (ink on the active language button)
+    expect(rule).toMatch(/transition-property:\s*color, background-color, border-color;/);
     renderShell();
     const active = screen.getAllByRole('button', { pressed: true }).find((b) => b.getAttribute('lang'));
     expect(active.closest('.on-dark')).not.toBeNull();

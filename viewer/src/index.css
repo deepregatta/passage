@@ -121,12 +121,16 @@ select:focus-visible {
   @apply outline-2 outline-offset-2 outline-ink;
 }
 
-/* The header and bottom navigation are dark: the ink ring would vanish there. */
+/* The header and bottom navigation are dark: the ink ring would vanish there.
+   Tailwind's transition-colors also animates outline-color, so the ring would
+   fade in from currentColor (ink on the active language button) over 150 ms;
+   keep outline-color out of the focused state's transition so it is cream at once. */
 .on-dark button:focus-visible,
 .on-dark button[aria-pressed]:focus-visible,
 .on-dark a:focus-visible {
   outline: 2px solid theme('colors.paper.DEFAULT') !important;
   outline-offset: 2px !important;
+  transition-property: color, background-color, border-color;
 }
 
 @media (prefers-reduced-motion: reduce) {
