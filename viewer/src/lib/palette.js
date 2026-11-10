@@ -6,7 +6,7 @@ export const themeColors = {
   ink: { DEFAULT: '#16283E', deep: '#0C1A2C', soft: '#4C5D73' },
   verdict: {
     within: '#2F6E4F',
-    approaching: '#A87718',
+    approaching: '#8A5F0E', // white 5.6:1, paper 4.9:1 (was #A87718, 3.4:1)
     exceeds: '#A63B2A',
     insufficient: '#5A6B82',
   },

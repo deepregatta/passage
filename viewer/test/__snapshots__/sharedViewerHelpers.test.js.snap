@@ -97,7 +97,7 @@ exports[`preserves the complete rule vocabulary in English and French 2`] = `
 exports[`preserves theme colors and verdict/status metadata 1`] = `
 {
   "STATUS_HEX": {
-    "approaching": "#A87718",
+    "approaching": "#8A5F0E",
     "exceeded": "#A63B2A",
     "ok": "#2F6E4F",
     "unknown": "#9AA6B5",
@@ -105,7 +105,7 @@ exports[`preserves theme colors and verdict/status metadata 1`] = `
   "VERDICT": {
     "approaching": {
       "glyph": "⚠",
-      "hex": "#A87718",
+      "hex": "#8A5F0E",
       "label": "Approaching your limits",
       "tw": "verdict-approaching",
     },
@@ -149,7 +149,7 @@ exports[`preserves theme colors and verdict/status metadata 1`] = `
     },
     "shoal": "#DCE5E6",
     "verdict": {
-      "approaching": "#A87718",
+      "approaching": "#8A5F0E",
       "exceeds": "#A63B2A",
       "insufficient": "#5A6B82",
       "within": "#2F6E4F",

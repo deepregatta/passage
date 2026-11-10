@@ -75,7 +75,7 @@ export default function WeatherStoryCard({ findings, sections }) {
         <StoryPhase findings={findings} event={event} />
       )}
       <h2 className="font-story text-[30px] leading-tight mt-2">{headline}</h2>
-      {event && <p className="font-story text-[18px] leading-snug mt-2 text-event">{placeLabel(event.consequence.register_plain)}</p>}
+      {event && <p className="font-story text-[18px] leading-snug mt-2 text-ink border-l-2 border-event pl-3">{placeLabel(event.consequence.register_plain)}</p>}
       {keyFact && (
         <p className="font-chart text-[19px] leading-snug mt-1.5" style={{ color: verdictHex }}>
           {driver ? <EvidenceLink evidenceId={driver.evidence_id}>{keyFact}</EvidenceLink> : keyFact}
@@ -119,7 +119,7 @@ function StoryPhase({ findings, event }) {
     const time = departure + state.cursorHours * 3600_000;
     return time < start ? 'cause' : time <= end ? 'interception' : time <= end + 6 * 3600_000 ? 'consequence' : 'easing';
   });
-  return <span className="font-mono text-[10px] text-event mt-2 uppercase">{PHASE_PLAIN[phase]}</span>;
+  return <span className="font-mono text-[10px] text-ink-soft mt-2 uppercase">{PHASE_PLAIN[phase]}</span>;
 }
 
 /** plain phase words for the story eyebrow; the pro phase names stay in the hero chart focus line */

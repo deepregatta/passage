@@ -131,7 +131,7 @@ function PassageRow({ passage, publishedCases }) {
               <span>dep</span> {fmtLocalTime(passage.departure_utc)} · <span>last checked</span> {fmtLocalTime(latest.created_at)}
             </span>
             {previous && (
-              <span className="font-sans text-[13px] text-event flex flex-wrap items-center gap-1.5 mt-1.5">
+              <span className="font-sans text-[13px] text-ink flex flex-wrap items-center gap-1.5 mt-1.5 before:content-[''] before:w-1.5 before:h-1.5 before:rounded-full before:bg-event before:shrink-0">
                 {previous.verdict_state && latest.verdict_state && previous.verdict_state !== latest.verdict_state ? (
                   <>
                     <span>Changed since last check:</span>
@@ -200,7 +200,7 @@ function Station({ filled, current, last, children }) {
         />
         {!last && <span className="flex-1 border-t border-ink/40 ml-1" />}
       </span>
-      <span className={clsx('block mt-1', current && 'text-event font-medium')}>{children}</span>
+      <span className={clsx('block mt-1', current && 'text-ink font-semibold')}>{children}</span>
     </li>
   );
 }
