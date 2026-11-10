@@ -1,3 +1,5 @@
+import Ajv2020 from 'ajv/dist/2020.js';
+import addFormats from 'ajv-formats';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { parseUtc } from '../src/eta.js';
@@ -247,6 +249,28 @@ describe('analysis with ECMWF 06Z/18Z runs', () => {
     expect(ecmwfInputs[0]!.served).toEqual([{ from: '2026-07-20T00:00:00Z', to: '2026-07-20T05:00:00Z' }]);
     expect(describeEcmwfRuns(findings.inputs.forecast_tiles)).toBe('ECMWF 06Z');
     expect(findings.snapshot_id).not.toBe(agreeing.findings.snapshot_id);
+  });
+
+  it('records each compared model\'s own run on the divergence evidence', async () => {
+    const { findings } = await analyse([
+      gfsSpec('2026-07-20T00:00Z', 10), ecmwfSpec('weather-ecmwf', '2026-07-20T00:00Z', FULL_AXIS, 11),
+      ecmwfSpec('weather-ecmwf-short', '2026-07-20T06:00Z', SHORT_AXIS, 30),
+    ]);
+    const divergence = findings.evidence.filter((e) => e.rule_id === 'D-DIVERGE-01');
+    expect(divergence.length).toBeGreaterThan(0);
+    for (const e of divergence) {
+      expect(e.model).toBe('gfs_0p25,ecmwf_ifs_0p25');
+      // not the GFS cycle for both: GFS 00Z against the ECMWF 06Z run that served the hour
+      expect(e.run).toBe('2026-07-20T00:00Z,2026-07-20T06:00Z');
+      expect(e.model_runs).toEqual([
+        { model: 'gfs_0p25', layer: 'weather', run_id: 'weather-20260720T00Z', cycle: '2026-07-20T00:00Z' },
+        { model: 'ecmwf_ifs_0p25', layer: 'weather-ecmwf-short', run_id: 'weather-ecmwf-short-20260720T06Z', cycle: '2026-07-20T06:00Z' },
+      ]);
+    }
+    const ajv = new Ajv2020({ strict: false });
+    addFormats(ajv);
+    const validate = ajv.compile(read('../../contracts/findings.schema.json'));
+    expect(validate(findings), JSON.stringify(validate.errors)).toBe(true);
   });
 
   it('records the GFS run once, though the point and hazard reads both use it', async () => {

@@ -69,6 +69,38 @@ export interface ServedRange {
   to: string;
 }
 
+/** The run of one model behind a value at one valid time. */
+export interface ModelRunRef {
+  model: string;
+  layer: string | null;
+  run_id: string | null;
+  /** exact provider cycle as recorded by the store, e.g. "2026-07-20T06:00Z" */
+  cycle: string | null;
+}
+
+/**
+ * Which recorded run of `model` supplied its value at `validTime`: the run whose
+ * `served` ranges contain it (ECMWF's combined layers), else that model's single
+ * run. Reads TileRequestMeta records or findings.inputs.forecast_tiles; all
+ * fields are null when the model's run was not recorded (scenario bundles).
+ */
+export function modelRunAt(
+  inputs: ReadonlyArray<object>, model: string, validTime: string,
+): ModelRunRef {
+  const t = parseUtc(validTime);
+  const records = inputs as ReadonlyArray<Record<string, unknown>>;
+  const candidates = records.filter((input) => input.model === model && typeof input.run_id === 'string');
+  const serves = (input: Record<string, unknown>) => Array.isArray(input.served) &&
+    (input.served as ServedRange[]).some((range) => parseUtc(range.from) <= t && t <= parseUtc(range.to));
+  const run = candidates.find(serves) ?? candidates.find((input) => !Array.isArray(input.served)) ?? candidates[0];
+  return {
+    model,
+    layer: typeof run?.layer === 'string' ? run.layer : null,
+    run_id: typeof run?.run_id === 'string' ? run.run_id : null,
+    cycle: typeof run?.cycle === 'string' ? run.cycle : null,
+  };
+}
+
 /** "06Z" for a cycle. */
 export function cycleHourLabel(cycle: string): string {
   return `${String(new Date(parseUtc(cycle)).getUTCHours()).padStart(2, '0')}Z`;

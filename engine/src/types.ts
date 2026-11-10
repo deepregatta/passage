@@ -185,6 +185,12 @@ export interface Evidence {
   units: string | null;
   source_kind: SourceKind;
   member_fraction?: { exceed: number; total: number };
+  /**
+   * D-DIVERGE-01: each compared model's own run at `valid_time`, in `model` order
+   * (then `run` lists their cycles in the same order). Absent when no model's
+   * run was recorded (scenario bundles) and in findings before 2026-11-10.
+   */
+  model_runs?: Array<{ model: string; layer: string | null; run_id: string | null; cycle: string | null }>;
   bulletin_ref?: {
     source: string;
     issued_at: string;

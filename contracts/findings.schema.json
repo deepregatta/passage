@@ -105,6 +105,20 @@
               "total": { "type": "integer", "minimum": 1 }
             }
           },
+          "model_runs": {
+            "type": "array",
+            "description": "D-DIVERGE-01: each compared model's own run at valid_time, in model order.",
+            "items": {
+              "type": "object",
+              "required": ["model", "layer", "run_id", "cycle"],
+              "properties": {
+                "model": { "type": "string" },
+                "layer": { "type": ["string", "null"] },
+                "run_id": { "type": ["string", "null"] },
+                "cycle": { "type": ["string", "null"] }
+              }
+            }
+          },
           "bulletin_ref": {
             "type": "object",
             "required": ["source", "issued_at", "valid_from", "valid_to", "zone_ids"],

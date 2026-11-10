@@ -1,4 +1,5 @@
 import { assessDisagreement } from '../disagreement.js';
+import { modelRunAt } from '../forecast/modelRuns.js';
 import { fraction } from '../exceedance.js';
 import { interpolatePosition } from '../geo.js';
 import type { GridSampler } from '../grids.js';
@@ -260,16 +261,21 @@ export function assembleLeg({
       const worstDivergence = result.divergent_hours.reduce((a, b) =>
         b.spread_kt > a.spread_kt ? b : a,
       );
+      // Each model's own run at that hour, not the primary GFS cycle for all of them.
+      const compared = Object.keys(worstDivergence.values);
+      const modelRuns = compared.map((m) => modelRunAt(options.multiModel?.meta ?? [], m, worstDivergence.valid_time));
+      const recordedRuns = modelRuns.some((r) => r.run_id !== null);
       const e = nextEvidence({
         rule_id: RULES.DIVERGENCE,
-        model: Object.keys(worstDivergence.values).join(','),
-        run,
+        model: compared.join(','),
+        run: recordedRuns && modelRuns.every((r) => r.cycle !== null) ? modelRuns.map((r) => r.cycle).join(',') : run,
         leg_id: leg.leg_id,
         valid_time: worstDivergence.valid_time,
         value: worstDivergence.values,
         limit: null,
         units: 'kt spread',
         source_kind: 'deterministic',
+        ...(recordedRuns ? { model_runs: modelRuns } : {}),
       });
       events.push({
         kind: 'model_divergence',
