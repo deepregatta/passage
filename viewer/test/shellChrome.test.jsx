@@ -66,8 +66,15 @@ describe('phone header', () => {
 
   it('gives the dark header and bottom navigation a light focus ring', () => {
     const css = readFileSync(resolve(process.cwd(), 'src/index.css'), 'utf8');
-    expect(css).toMatch(/\.on-dark button:focus-visible,\s*\.on-dark a:focus-visible\s*\{\s*@apply outline-paper;/);
+    const rule = css.match(/\.on-dark button:focus-visible,[^{]*\{[^}]*\}/)?.[0] ?? '';
+    // covers the cream-filled active language button explicitly and wins over any dark ring
+    expect(rule).toContain('.on-dark button[aria-pressed]:focus-visible');
+    expect(rule).toMatch(/outline:\s*2px solid theme\('colors\.paper\.DEFAULT'\) !important/);
+    expect(rule).toMatch(/outline-offset:\s*2px !important/);
     renderShell();
+    const active = screen.getAllByRole('button', { pressed: true }).find((b) => b.getAttribute('lang'));
+    expect(active.closest('.on-dark')).not.toBeNull();
+    expect(active.className).not.toMatch(/outline-/);
     expect(screen.getByRole('banner')).toHaveClass('on-dark');
     const bottom = screen.getAllByRole('navigation', { name: 'Main navigation' }).find((el) => el.classList.contains('md:hidden'));
     expect(bottom).toHaveClass('on-dark');

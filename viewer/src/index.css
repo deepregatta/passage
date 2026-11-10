@@ -123,8 +123,10 @@ select:focus-visible {
 
 /* The header and bottom navigation are dark: the ink ring would vanish there. */
 .on-dark button:focus-visible,
+.on-dark button[aria-pressed]:focus-visible,
 .on-dark a:focus-visible {
-  @apply outline-paper;
+  outline: 2px solid theme('colors.paper.DEFAULT') !important;
+  outline-offset: 2px !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
