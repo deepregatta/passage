@@ -12,7 +12,7 @@ import type { DecodedTile } from '../forecast/tileCodec.js';
 import { windFromDeg } from '../vectors.js';
 import { encodeGrib2Message, gribRound, type LonConvention } from './grib2.js';
 import { MS_TO_KT, type GribDatasetKind, type GribVariableSpec } from './gribDatasets.js';
-import { latticeBounds, type GribDatasetPlan, type GribExportPlan } from './exportPlan.js';
+import { gribCombinedFileName, latticeBounds, type GribDatasetPlan, type GribExportPlan } from './exportPlan.js';
 
 export interface GribExportSource {
   /** decoded tile, or null when the run does not publish it */
@@ -307,6 +307,39 @@ async function encodeFile(
       }),
     ),
     checkpoints: (plan.request.checkpoints ?? []).map((point) => checkpoint(point, dataset, cubes)),
+  };
+}
+
+/** Several exported files written as one (docs/grib-export.md → One file for wind and currents). */
+export interface GribCombinedFile {
+  name: string;
+  /** every message of every included file, in order */
+  parts: Uint8Array[];
+  bytes: number;
+  fnv64: string;
+  messages: number;
+  /** the included files, without their bytes */
+  files: Array<Omit<GribExportFile, 'parts'>>;
+}
+
+/**
+ * One file holding the messages of several exported files, in the order
+ * given (wind, then currents), for GRIB software that opens one file at a
+ * time. Nothing is resampled or re-encoded: each message keeps its own grid,
+ * run and reference time, as in the separate files. Files without messages
+ * are left out; null when none has any.
+ */
+export function combineGribFiles(files: readonly GribExportFile[], options: { fixture: boolean }): GribCombinedFile | null {
+  const included = files.filter((file) => file.messages > 0);
+  if (!included.length) return null;
+  const parts = included.flatMap((file) => file.parts);
+  return {
+    name: gribCombinedFileName(included, options.fixture),
+    parts,
+    bytes: included.reduce((sum, file) => sum + file.bytes, 0),
+    fnv64: fnv1a64HexParts(parts),
+    messages: included.reduce((sum, file) => sum + file.messages, 0),
+    files: included.map(({ parts: _parts, ...file }) => file),
   };
 }
 

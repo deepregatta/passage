@@ -346,15 +346,44 @@ function selectSteps(
 
 /** passage_<dataset>_<YYYYMMDDTHHZ>_<SW>_<NE>.grb2 with whole-degree corners. */
 export function gribFileName(datasetId: string, cycle: string, lattice: GribLattice, fixture: boolean): string {
-  const bounds = latticeBounds(lattice);
+  const { sw, ne } = gribCornerLabels(latticeBounds(lattice));
+  return `${fixture ? 'passage-fixture' : 'passage'}_${datasetId}_${gribCycleLabel(cycle)}_${sw}_${ne}.grb2`;
+}
+
+/**
+ * Name of a file holding several datasets (wind + currents): each dataset id
+ * with its own cycle, then the whole-degree corners around all of them.
+ */
+export function gribCombinedFileName(
+  parts: ReadonlyArray<{ datasetId: string; cycle: string; grid: { south: number; north: number; west: number; east: number } }>,
+  fixture: boolean,
+): string {
+  const { sw, ne } = gribCornerLabels({
+    south: Math.min(...parts.map((part) => part.grid.south)),
+    north: Math.max(...parts.map((part) => part.grid.north)),
+    west: Math.min(...parts.map((part) => part.grid.west)),
+    east: Math.max(...parts.map((part) => part.grid.east)),
+  });
+  const ids = parts.map((part) => `${part.datasetId}_${gribCycleLabel(part.cycle)}`).join('_');
+  return `${fixture ? 'passage-fixture' : 'passage'}_${ids}_${sw}_${ne}.grb2`;
+}
+
+const pad = (v: number, width: number) => String(v).padStart(width, '0');
+
+/** A cycle as YYYYMMDDTHHZ. */
+function gribCycleLabel(cycle: string): string {
   const d = new Date(parseUtc(cycle));
-  const pad = (v: number, width: number) => String(v).padStart(width, '0');
-  const cycleCompact = `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1, 2)}${pad(d.getUTCDate(), 2)}T${pad(d.getUTCHours(), 2)}Z`;
+  return `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1, 2)}${pad(d.getUTCDate(), 2)}T${pad(d.getUTCHours(), 2)}Z`;
+}
+
+/** Whole-degree corners: floor of the south-west, ceil of the north-east. */
+function gribCornerLabels(bounds: { south: number; north: number; west: number; east: number }): { sw: string; ne: string } {
   const lat = (v: number) => `${v < 0 ? 'S' : 'N'}${pad(Math.abs(v), 2)}`;
   const lon = (v: number) => `${v < 0 ? 'W' : 'E'}${pad(Math.abs(v), 3)}`;
-  const sw = `${lat(Math.floor(bounds.south))}${lon(Math.floor(bounds.west))}`;
-  const ne = `${lat(Math.ceil(bounds.north))}${lon(Math.ceil(bounds.east))}`;
-  return `${fixture ? 'passage-fixture' : 'passage'}_${datasetId}_${cycleCompact}_${sw}_${ne}.grb2`;
+  return {
+    sw: `${lat(Math.floor(bounds.south))}${lon(Math.floor(bounds.west))}`,
+    ne: `${lat(Math.ceil(bounds.north))}${lon(Math.ceil(bounds.east))}`,
+  };
 }
 
 function validateRequest(request: GribExportRequest): void {

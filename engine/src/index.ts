@@ -92,7 +92,7 @@ export type {
   GribDatasetSpec,
   GribVariableSpec,
 } from './export/gribDatasets.js';
-export { planGribExport, gribLattice, gribFileName, gribRunFor, latticeBounds } from './export/exportPlan.js';
+export { planGribExport, gribLattice, gribFileName, gribCombinedFileName, gribRunFor, latticeBounds } from './export/exportPlan.js';
 export type {
   GribAvailability,
   GribCheckpointRequest,
@@ -106,6 +106,7 @@ export type {
 } from './export/exportPlan.js';
 export {
   runGribExport,
+  combineGribFiles,
   gribExportSourceFromStore,
   GribExportError,
   FORECAST_UPDATED_MESSAGE,
@@ -113,6 +114,7 @@ export {
 export type {
   GribCheckpoint,
   GribCheckpointStep,
+  GribCombinedFile,
   GribExportErrorCode,
   GribExportFile,
   GribExportOptions,

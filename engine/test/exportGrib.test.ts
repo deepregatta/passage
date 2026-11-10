@@ -5,11 +5,13 @@ import { gribRound } from '../src/export/grib2.js';
 import { MS_TO_KT } from '../src/export/gribDatasets.js';
 import { planGribExport, type GribExportRequest } from '../src/export/exportPlan.js';
 import {
+  combineGribFiles,
   GribExportError,
   gribExportSourceFromStore,
   runGribExport,
   type GribExportSource,
 } from '../src/export/exportGrib.js';
+import { fnv1a64HexParts } from '../src/hash.js';
 import { buildFixtureRun, type FixtureLayerSpec, type FixtureTileGrid } from './helpers/fixtureRun.js';
 import { readGrib2 } from './helpers/grib2Reader.js';
 import { buildGribFixtures, concat, GRIB_FIXTURES, readCommittedFixture, type GribFixture } from './helpers/gribFixtures.js';
@@ -462,6 +464,59 @@ describe('runGribExport', () => {
     await expect(runGribExport(other, plan)).rejects.toBeInstanceOf(GribExportError);
     const offline: GribExportSource = { tile: async () => { throw new Error('offline'); } };
     await expect(runGribExport(offline, plan)).rejects.toThrow('offline');
+  });
+});
+
+describe('combineGribFiles', () => {
+  it('writes wind and currents into one file, each message keeping its own grid, run and values', async () => {
+    // Wind on the 0.25° lattice, currents on the 1/12° one from a different cycle.
+    const currents: FixtureLayerSpec = {
+      layer: 'currents', model: 'cmems_glo12', cycle: '2026-07-19T00:00Z', resolution_deg: 1 / 12,
+      time_axes: { steps: { base: '2026-07-19T00:00Z', offsets_h: [24, 30, 36] } },
+      variables: [geoVar('cur_u_kt', 0.01, 'steps', (t, lat) => 0.5 + t + lat / 100), geoVar('cur_v_kt', 0.01, 'steps', () => -0.3)],
+      tiles: [[40, -10], [40, 0]],
+    };
+    const { files } = await exportOne([weatherSpec(), currents], request({
+      datasetIds: ['wind-gfs', 'currents-global'], bbox: { minLat: 49, maxLat: 49.5, minLon: -0.5, maxLon: 0.5 },
+    }));
+    const [wind, current] = files as [typeof files[0], typeof files[0]];
+    const combined = combineGribFiles([wind, current], { fixture: false })!;
+
+    expect(combined.name).toBe('passage_wind-gfs_20260720T00Z_currents-global_20260719T00Z_N49W001_N50E001.grb2');
+    expect(combined.messages).toBe(wind.messages + current.messages);
+    expect(combined.bytes).toBe(wind.bytes + current.bytes);
+    // The separate files' bytes, unchanged and in order: nothing is resampled.
+    const bytes = concat(combined.parts);
+    expect(bytes).toEqual(concat([...wind.parts, ...current.parts]));
+    expect(combined.fnv64).toBe(fnv1a64HexParts([bytes]));
+    expect(combined.files.map((file) => [file.datasetId, file.run_id])).toEqual([
+      ['wind-gfs', 'weather-20260720T00Z'], ['currents-global', 'currents-20260719T00Z'],
+    ]);
+    expect(combined.files.every((file) => !('parts' in file))).toBe(true);
+
+    const messages = readGrib2(bytes);
+    const windMessages = readGrib2(concat(wind.parts));
+    const currentMessages = readGrib2(concat(current.parts));
+    expect(messages).toHaveLength(windMessages.length + currentMessages.length);
+    messages.forEach((message, m) => {
+      const own = m < windMessages.length ? windMessages[m]! : currentMessages[m - windMessages.length]!;
+      expect(message.discipline).toBe(own.discipline);
+      expect(message.refTime).toBe(own.refTime);
+      expect(message.grid).toEqual(own.grid);
+      expect(Array.from(message.values)).toEqual(Array.from(own.values));
+    });
+    // Two grids and two reference times in one file.
+    expect(new Set(messages.map((message) => `${message.grid.ni}x${message.grid.nj}@${message.grid.di}`)).size).toBe(2);
+    expect(new Set(messages.map((message) => message.refTime)).size).toBe(2);
+  });
+
+  it('leaves out a file without messages and returns null when none has any', async () => {
+    const { files } = await exportOne([weatherSpec()], request());
+    const empty = { ...files[0]!, parts: [], bytes: 0, messages: 0, skippedMessages: 15 };
+    const combined = combineGribFiles([files[0]!, empty], { fixture: true })!;
+    expect(combined.name).toBe('passage-fixture_wind-gfs_20260720T00Z_N49W001_N51E001.grb2');
+    expect(combined.files).toHaveLength(1);
+    expect(combineGribFiles([empty], { fixture: true })).toBeNull();
   });
 });
 
