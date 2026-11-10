@@ -2,9 +2,11 @@ import clsx from 'clsx';
 import BoatPicker from '../components/BoatPicker.jsx';
 import { fmtLocalTime, toLocalDateTimeValue } from '../lib/format.js';
 import DepartureComparison from './planner/DepartureComparison.jsx';
+import ActionStatus from './planner/ActionStatus.jsx';
 import DepartureField from './planner/DepartureField.jsx';
 import PlannerMap from './planner/PlannerMap.jsx';
 import usePlannerController, { validSpeed } from './planner/usePlannerController.jsx';
+import { ACTION, BUSY_BUTTON_LABEL, SOURCE } from './planner/plannerFeedback.js';
 import { gribRouteArea, gribRoutePoints } from '../lib/gribExport.js';
 import { useApp } from '../stores/appStore.js';
 import { useGrib } from '../stores/gribStore.js';
@@ -19,10 +21,16 @@ export default function Planner() {
   const {
     mode, waypoints, computed, endpoints, polarId, polarLabel, name, speeds,
     departureLocal, scan, patch, setMode, setWaypoints, setEndpoints, setComputed,
-    setName, setSpeeds, setDepartureLocal, busy, error, fitNonce, fileRef,
-    route, distance, speedsValid, passageHours, departureUtc, addWaypoint,
+    setName, setSpeeds, setDepartureLocal, busy, activeAction, failure, notice, staleRoute,
+    departureIssue, blocked, retryAction, clearDraft, fitNonce, fileRef,
+    route, distance, speedsValid, passageHours, addWaypoint,
     runRouting, onGpx, runScan, run
   } = usePlannerController();
+  // Every status below takes the same inputs; each one picks out its own action.
+  const status = { activeAction, busy, failure, notice, onRetry: () => retryAction(failure?.kind), onSwitchToDraw: () => setMode('draw') };
+  const running = (kind) => activeAction?.kind === kind && !activeAction.source;
+  const computeBlocked = blocked(ACTION.compute);
+  const checkBlocked = blocked(ACTION.check);
   const setPage = useApp((state) => state.setPage);
   const chartArea = useApp((state) => state.plannerArea);
   const openGrib = () => {
@@ -31,13 +39,8 @@ export default function Planner() {
     if (points) useGrib.getState().showArea(gribRouteArea(points));
     setPage('grib');
   };
-  const canCheck = Boolean(route && departureUtc && speedsValid && busy === null);
+  const canCheck = checkBlocked === null && busy === null;
   const undo = () => (mode === 'draw' ? setWaypoints((w) => w.slice(0, -1)) : setEndpoints((e) => e.slice(0, -1)));
-  const clear = () => {
-    setWaypoints([]);
-    setEndpoints([]);
-    setComputed(null);
-  };
 
   return (
     <div className="px-3 sm:px-5 py-4 max-w-[1600px]">
@@ -94,7 +97,7 @@ export default function Planner() {
                   <input
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="min-w-0 flex-1 bg-white/60 border hairline rounded-sm px-2 py-1.5"
+                    className="min-w-0 flex-1 min-h-11 bg-white/60 border hairline rounded-sm px-2 py-2 text-base sm:text-sm"
                   />
                 </label>
               </>
@@ -114,40 +117,46 @@ export default function Planner() {
               <span className="flex gap-3 text-ink-soft">
                 {mode === 'draw' && (
                   <>
-                    <button type="button" onClick={() => fileRef.current?.click()} className="underline hover:text-ink min-h-9">
+                    <button type="button" onClick={() => fileRef.current?.click()} className="underline hover:text-ink min-h-11">
                       Import GPX…
                     </button>
                     <input ref={fileRef} type="file" accept=".gpx" onChange={onGpx} className="hidden" />
                   </>
                 )}
-                <button type="button" onClick={undo} className="underline hover:text-ink min-h-9">undo</button>
-                <button type="button" onClick={clear} className="underline hover:text-ink min-h-9">clear</button>
+                <button type="button" onClick={undo} className="underline hover:text-ink min-h-11">undo</button>
+                <button type="button" onClick={clearDraft} className="underline hover:text-ink min-h-11">clear</button>
               </span>
             </div>
+            {mode === 'draw' && <ActionStatus kind={ACTION.gpx} {...status} />}
 
             {mode === 'compute' && (
               <>
                 <button
                   type="button"
                   onClick={runRouting}
-                  disabled={endpoints.length !== 2 || !polarId || !departureUtc || busy !== null}
+                  disabled={computeBlocked !== null || busy !== null}
                   className="w-full min-h-11 border border-ink/50 rounded-sm px-3 py-2 hover:bg-white/50 disabled:opacity-40"
                 >
-                  Compute route
+                  {running(ACTION.compute) ? BUSY_BUTTON_LABEL.compute : 'Compute route'}
                 </button>
+                <ActionStatus kind={ACTION.compute} {...status} />
+                <div aria-live="polite" className="space-y-1 empty:hidden">
+                  {busy === null && computeBlocked && <p className="text-[13px] text-ink-soft">{computeBlocked}</p>}
+                  {staleRoute && <p className="text-[13px] border-l-2 border-ink/50 pl-2">{staleRoute}</p>}
+                </div>
                 {computed && (
                   <p className="text-[13px]">
                     <span className="font-mono">{computed.distance_nm} nm</span> ·{' '}
                     <span className="font-mono">{computed.duration_h} h</span> · arrives{' '}
                     <span className="font-mono">{fmtLocalTime(computed.arrival_utc)}</span> local time · avg{' '}
                     <span className="font-mono">{computed.avg_sog_kt} kt</span>
-                    <span className="block text-[11px] text-ink-soft mt-0.5">
+                    <span className="block text-[12px] text-ink-soft mt-0.5">
                       Weather-routed · includes polar uncertainty · ready to check
                     </span>
                   </p>
                 )}
                 {computed?.notes?.length > 0 && (
-                  <p className="text-[11px] text-ink-soft">{computed.notes.join(' ')}</p>
+                  <p className="text-[12px] text-ink-soft">{computed.notes.join(' ')}</p>
                 )}
               </>
             )}
@@ -172,7 +181,7 @@ export default function Planner() {
                       value={speeds[k]}
                       onChange={(e) => setSpeeds({ ...speeds, [k]: e.target.value === '' ? '' : Number(e.target.value) })}
                       aria-invalid={!validSpeed(speeds[k])}
-                      className="w-full bg-white/60 border hairline rounded-sm px-2 py-1.5 font-mono aria-[invalid=true]:border-verdict-exceeds"
+                      className="w-full min-h-11 bg-white/60 border hairline rounded-sm px-2 py-2 text-base sm:text-sm font-mono aria-[invalid=true]:border-verdict-exceeds"
                       aria-label={`${k} speed`}
                     />
                   ))}
@@ -182,20 +191,23 @@ export default function Planner() {
           </Step>
 
           <Step n={3} title="Departure">
-            <DepartureField value={departureLocal} onChange={setDepartureLocal} />
+            <DepartureField value={departureLocal} onChange={setDepartureLocal} issue={departureIssue} />
             <button
               type="button"
               onClick={runScan}
-              disabled={!route || !departureUtc || !speedsValid || busy !== null}
-              className="text-left text-event underline underline-offset-4 min-h-9 disabled:opacity-40 disabled:no-underline"
+              disabled={checkBlocked !== null || busy !== null}
+              className="text-left text-event underline underline-offset-4 min-h-11 disabled:opacity-40 disabled:no-underline"
             >
-              Compare departure times (next 5 days)
+              {running(ACTION.scan) ? BUSY_BUTTON_LABEL.scan : 'Compare departure times (next 5 days)'}
             </button>
-            {scan && scan.candidates.length > 0 && (
-              <p className="text-[12px] text-ink-soft">Departure comparison ready. Choose a time below the chart.</p>
-            )}
+            <ActionStatus kind={ACTION.scan} {...status} />
+            <div aria-live="polite" className="empty:hidden">
+              {scan && scan.candidates.length > 0 && (
+                <p className="text-[12px] text-ink-soft">Departure comparison ready. Choose a time below the chart.</p>
+              )}
+            </div>
             {scan?.notes?.length > 0 && (
-              <p className="text-[11px] text-ink-soft">{scan.notes.join(' ')}</p>
+              <p className="text-[12px] text-ink-soft">{scan.notes.join(' ')}</p>
             )}
           </Step>
 
@@ -206,15 +218,12 @@ export default function Planner() {
               disabled={!canCheck}
               className="w-full min-h-12 bg-ink text-paper font-medium text-[15px] rounded-sm px-3 py-2.5 hover:bg-ink-deep disabled:opacity-40"
             >
-              {busy ? `${busy}…` : 'Check this passage'}
+              {running(ACTION.check) ? BUSY_BUTTON_LABEL.check : 'Check this passage'}
             </button>
-            {error && <p className="text-verdict-exceeds text-[13px]">{error}</p>}
-            {!route && busy === null && mode === 'draw' && (
-              <p className="text-[13px] text-ink-soft">Mark at least two points on the chart: your start and destination.</p>
-            )}
-            {!route && busy === null && mode === 'compute' && endpoints.length === 2 && (
-              <p className="text-[13px] text-ink-soft">Compute the route first.</p>
-            )}
+            <ActionStatus kind={ACTION.check} {...status} />
+            <div aria-live="polite" className="empty:hidden">
+              {busy === null && checkBlocked && <p className="text-[13px] text-ink-soft">{checkBlocked}</p>}
+            </div>
             <p className="text-[12px] text-ink-soft">Runs in your browser with live forecasts. Each check is saved to My passages.</p>
           </div>
         </section>
@@ -232,9 +241,11 @@ export default function Planner() {
             const rerouted = scan.routes?.[candidate.departure_utc];
             if (rerouted) setComputed(rerouted);
             // go straight to the briefing for the time just picked
-            run({ departureUtc: candidate.departure_utc, route: rerouted?.route ?? route });
+            run({ departureUtc: candidate.departure_utc, route: rerouted?.route ?? route, source: SOURCE.comparison });
           }}
-        />
+        >
+          <ActionStatus kind={ACTION.check} source={SOURCE.comparison} {...status} />
+        </DepartureComparison>
       )}
     </div>
   );

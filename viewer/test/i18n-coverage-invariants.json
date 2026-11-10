@@ -340,6 +340,7 @@
         "fast",
         "grib",
         "nominal",
+        "polite",
         "slow",
         "speed",
         "waypoints"
@@ -557,6 +558,9 @@
         "unavailable",
         "unsupported",
         "message"
+      ],
+      "viewer/src/pages/planner/ActionStatus.jsx": [
+        "polite"
       ]
     },
     "french": {
@@ -732,8 +736,7 @@
       "viewer/src/pages/Planner.jsx": [
         "h",
         "·",
-        "· ~",
-        "…"
+        "· ~"
       ],
       "viewer/src/pages/briefing/AssessmentDetails.jsx": [
         ",",

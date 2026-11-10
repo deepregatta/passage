@@ -30,10 +30,14 @@ const checkButton = () => screen.getByRole('button', { name: 'Check this passage
 const scanButton = () => screen.getByRole('button', { name: 'Compare departure times (next 5 days)' });
 
 beforeEach(() => {
+  // A departure in the past or beyond the forecast is refused, so pin the clock just before it.
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-09-08T12:00:00Z'));
   vi.clearAllMocks();
   localStorage.clear();
   usePlanner.getState().reset();
   usePlanner.setState({
+    polarId: 'sun-fast-3200', polarLabel: 'SUN FAST 3200',
     mode: 'draw',
     waypoints: [{ lat: 50.5, lng: -1.5 }, { lat: 50.6, lng: -1.4 }],
     departureLocal: toLocalDateTimeValue(departure),
@@ -52,7 +56,7 @@ beforeEach(() => {
   analyzeInBrowser.mockResolvedValue({ snapshotId: 'checked-passage' });
   scanDepartures.mockResolvedValue({ candidates: [], best_index: null });
 });
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
 
 it.each(['seconds', 'milliseconds', 'offset'])('outlines the selected instant with %s candidate timestamps', (format) => {
   const scan = usePlanner.getState().scan;

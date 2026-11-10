@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { computeRoute, scanDepartures } from '@deepweather/engine';
 import Planner from '../src/pages/Planner.jsx';
 import LimitsDrawer from '../src/components/LimitsDrawer.jsx';
@@ -34,11 +34,11 @@ vi.mock('@deepweather/engine', async (original) => ({
   ...await original(), computeRoute: vi.fn(), scanDepartures: vi.fn(),
 }));
 
-const computeButton = () => screen.getByRole('button', { name: 'Compute route', exact: true });
-const checkButton = () => screen.getByRole('button', { name: /^(Check this passage|computing route…)$/ });
+const computeButton = () => screen.getByRole('button', { name: /^(Compute route|Computing route…)$/ });
+const checkButton = () => screen.getByRole('button', { name: /^(Check this passage|Checking this passage…)$/ });
 const scanButton = () => screen.getByRole('button', { name: 'Compare departure times (next 5 days)' });
 const summary = () => screen.queryByText('12.3 nm');
-const changeDate = (value = '2030-09-15') => fireEvent.change(screen.getByLabelText('Departure date'), { target: { value } });
+const changeDate = (value = '2026-09-16') => fireEvent.change(screen.getByLabelText('Departure date'), { target: { value } });
 const noSummary = () => {
   expect(summary()).not.toBeInTheDocument();
   expect(screen.queryByTestId('route-line')).not.toBeInTheDocument();
@@ -57,10 +57,13 @@ async function compute() {
   await waitFor(() => expect(summary()).toBeInTheDocument());
 }
 beforeEach(() => {
+  // A departure in the past or beyond the forecast is refused, so pin the clock just before it.
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-09-10T09:00:00Z'));
   vi.resetAllMocks();
   localStorage.clear();
   usePlanner.getState().reset();
-  usePlanner.setState({ mode: 'compute', departureLocal: '2026-09-15T08:00',
+  usePlanner.setState({ mode: 'compute', polarId: 'sun-fast-3200', polarLabel: 'SUN FAST 3200', departureLocal: '2026-09-15T08:00',
     endpoints: [{ lat: 50.5, lng: -1.5 }, { lat: 50.6, lng: -1.4 }] });
   useApp.setState({ manifest: { snapshots: [] }, profileDefaults: limits, limits: null, language: 'en',
     loadConfig: vi.fn(), openSnapshot: vi.fn() });
@@ -70,7 +73,10 @@ beforeEach(() => {
   prepareAnalysisInputs.mockImplementation(async draft => ({ ...draft, store: {}, tileRuns: {}, inputRecords: [] }));
 });
 
+afterEach(() => vi.useRealTimers());
+
 it.each([2, -2, 0])('carries real routed timing through Compute, Check, Scan and candidate Check with %s kt current', async (along) => {
+  vi.setSystemTime(new Date('2026-07-19T12:00:00Z'));
   const engine = await vi.importActual('@deepweather/engine');
   const inputs = routingInputs(along);
   const store = auditStore(engine, inputs.currentGrid);
@@ -105,6 +111,7 @@ it.each([2, -2, 0])('carries real routed timing through Compute, Check, Scan and
 });
 
 it('disables Check and Scan when real routing cannot arrive within the horizon', async () => {
+  vi.setSystemTime(new Date('2026-07-19T12:00:00Z'));
   const engine = await vi.importActual('@deepweather/engine');
   usePlanner.setState({ departureLocal: toLocalDateTimeValue(DEPARTURE) });
   loadRoutingInputs.mockResolvedValue(routingInputs(0, 0.1));
@@ -173,7 +180,7 @@ it('preserves matching results on remount and rejects restored results with chan
   view = render(<Planner />);
   expect(summary()).toBeInTheDocument();
   view.unmount();
-  usePlanner.setState({ departureLocal: '2030-09-15T08:00' });
+  usePlanner.setState({ departureLocal: '2026-09-16T08:00' });
   view = render(<Planner />);
   noSummary();
   view.unmount();
@@ -277,14 +284,14 @@ it('imports GPX into the draft and fits the imported route without running an au
   expect(analyzeInBrowser).not.toHaveBeenCalled();
 });
 
-it('keeps partial departure times local to the field and restores the valid time on blur', () => {
+it('keeps partial departure times local to the field until they can be read', () => {
   render(<Planner />);
   const input = screen.getByLabelText('Departure time, 24-hour clock');
   fireEvent.change(input, { target: { value: '2' } });
-  expect(input).toHaveAttribute('aria-invalid', 'true');
   expect(usePlanner.getState().departureLocal).toBe('2026-09-15T08:00');
   fireEvent.blur(input);
-  expect(input).toHaveValue('08:00');
+  expect(input).toHaveValue('02:00');
+  expect(usePlanner.getState().departureLocal).toBe('2026-09-15T02:00');
   fireEvent.change(input, { target: { value: '23:45' } });
   expect(usePlanner.getState().departureLocal).toBe('2026-09-15T23:45');
   changeDate('2026-09-16');

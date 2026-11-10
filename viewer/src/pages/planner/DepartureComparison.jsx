@@ -42,7 +42,7 @@ function SkippedDepartures({ scan }) {
  * (same verdict colors as everywhere else). Click a cell to adopt that
  * departure; in compute mode the cell also carries its own weather-routed track.
  */
-export default function DepartureComparison({ scan, departureLocal, busy, disabled, onPick }) {
+export default function DepartureComparison({ scan, departureLocal, busy, disabled, onPick, children }) {
   if (scan.candidates.length === 0) {
     return (
       <section className="mt-6 border-t border-ink/40 pt-3" aria-label="Departure comparison">
@@ -81,7 +81,7 @@ export default function DepartureComparison({ scan, departureLocal, busy, disabl
       <div className="flex flex-wrap gap-x-5 gap-y-3 mt-3">
         {days.map((d) => (
           <div key={d.day}>
-            <p className="font-instrument text-[11px] uppercase tracking-wider text-ink-soft mb-1">{d.day}</p>
+            <p className="font-instrument text-[12px] uppercase tracking-wider text-ink-soft mb-1">{d.day}</p>
             <div className="flex gap-1.5">
               {d.cells.map((c) => {
                 const v = VERDICT[c.verdict] ?? VERDICT.insufficient;
@@ -106,7 +106,7 @@ export default function DepartureComparison({ scan, departureLocal, busy, disabl
                     style={{ backgroundColor: v.hex }}
                   >
                     <span className="font-mono text-[12px] font-semibold">{c.hhmm}</span>
-                    <span className="text-[11px]" aria-hidden>{c.index === scan.best_index ? '◎' : v.glyph}</span>
+                    <span className="text-[12px]" aria-hidden>{c.index === scan.best_index ? '◎' : v.glyph}</span>
                   </button>
                 );
               })}
@@ -115,6 +115,7 @@ export default function DepartureComparison({ scan, departureLocal, busy, disabl
         ))}
       </div>
 
+      {children && <div className="mt-3 space-y-2">{children}</div>}
       <SkippedDepartures scan={scan} />
       <div className="flex flex-wrap items-baseline justify-between gap-2 mt-3">
         <p className="font-sans text-[13px] max-w-[80ch]">
@@ -130,7 +131,7 @@ export default function DepartureComparison({ scan, departureLocal, busy, disabl
             where they diverge and when the next update is due.</>
           )}
         </p>
-        <span className="flex gap-4 font-sans text-[11px] text-ink-soft">
+        <span className="flex gap-4 font-sans text-[12px] text-ink-soft">
           {['within', 'approaching', 'exceeds', 'insufficient'].map((s) => (
             <span key={s} className="flex items-center gap-1.5">
               <span className="w-3.5 h-2.5 inline-block rounded-[2px]" style={{ backgroundColor: VERDICT[s].hex }} />

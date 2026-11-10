@@ -9,11 +9,11 @@ import { analyzeInBrowser, saveRoute, prepareAnalysisInputs } from '../../lib/br
 import { FORECAST_HOURS, loadRoutingInputs as loadLiveRoutingInputs } from '../../lib/routingInputs.js';
 import { forecastStore } from '../../lib/forecastStore.js';
 import { withFreshForecast } from '../../lib/forecastFreshness.js';
-
-// Persist the routing inputs with each result so restored drafts can be checked too.
-const routingInputKey = ({ endpoints, polarId, departureLocal }) => JSON.stringify([
-  endpoints.map(({ lat, lng }) => [lat, lng]), polarId, localDateTimeToIso(departureLocal),
-]);
+import { validateDeparture } from './departureInput.js';
+import { ACTION, blockReason, friendlyError } from './plannerFeedback.js';
+import {
+  changedRoutingInputs, draftSignature, routingInputKey, scanBasis, scanIsCurrent, staleRouteMessage,
+} from './plannerInputs.js';
 
 export const validSpeed = (value) => Number.isFinite(value) && value > 0;
 
@@ -48,14 +48,25 @@ export default function usePlannerController() {
   const name = usePlanner((s) => s.name);
   const speeds = usePlanner((s) => s.speeds);
   const departureLocal = usePlanner((s) => s.departureLocal);
-  const scan = usePlanner((s) => s.scan);
+  const storedScan = usePlanner((s) => s.scan);
   const patch = usePlanner((s) => s.patch);
   const inputKey = routingInputKey({ endpoints, polarId, departureLocal });
   const computed = storedComputed?.inputKey === inputKey ? storedComputed : null;
+  // A comparison belongs to the boat, route points and departures it was run for.
+  const scan = storedScan && scanIsCurrent(storedScan, { mode, endpoints, waypoints, polarId, speeds, departureLocal })
+    ? storedScan : null;
+  // The key of the last computed route that was thrown away, so the page can say why.
+  const [discardedKey, setDiscardedKey] = useState(null);
   useEffect(() => {
     // Discard legacy/unmatched results; never render or audit them as current.
-    if (storedComputed && !computed) patch({ computed: null });
+    if (storedComputed && !computed) {
+      patch({ computed: null });
+      if (storedComputed.inputKey) setDiscardedKey(storedComputed.inputKey);
+    }
   }, [storedComputed, computed, patch]);
+  useEffect(() => {
+    if (storedScan && !scan) patch({ scan: null });
+  }, [storedScan, scan, patch]);
   /** Switching tabs carries the route across: a drawn route hands its first and
    * last waypoint to the router as start/finish, and endpoints hand themselves
    * back — so "Compute route" is ready to run straight after a switch. */
@@ -79,10 +90,30 @@ export default function usePlannerController() {
   const setDepartureLocal = (value) => patch({ departureLocal: value });
   const setScan = useCallback((value) => patch({ scan: value }), [patch]);
 
+  // `busy` is the running step's raw progress text; `activeAction` says which
+  // control started it ({kind: 'compute' | 'scan' | 'check', source}), so the
+  // progress, result and failure show next to that control and no other.
   const [busy, setBusy] = useState(null);
-  const [error, setError] = useState(null);
+  const [activeAction, setActiveAction] = useState(null);
+  const [failureState, setFailureState] = useState(null);
+  const [noticeState, setNoticeState] = useState(null);
   const [fitNonce, setFitNonce] = useState(0);
   const fileRef = useRef(null);
+
+  const beginAction = useCallback((kind, source = null) => {
+    setActiveAction({ kind, source });
+    setFailureState(null);
+    setNoticeState(null);
+  }, []);
+  const endAction = useCallback(() => {
+    setBusy(null);
+    setActiveAction(null);
+  }, []);
+  // Stamped with the draft as it is now (not as the closure saw it): the message
+  // stops being shown as soon as any input it was about changes.
+  const failAction = useCallback((kind, error, source = null) => {
+    setFailureState({ kind, source, raw: error?.message ?? String(error), signature: draftSignature(usePlanner.getState()) });
+  }, []);
 
   useEffect(() => {
     loadConfig();
@@ -122,17 +153,20 @@ export default function usePlannerController() {
   const speedsValid = mode === 'compute' || ['slow', 'nominal', 'fast'].every(k => validSpeed(speeds[k]));
   const passageHours = distance && validSpeed(speeds.nominal) ? Math.round(distance / speeds.nominal) : null;
   const departureUtc = localDateTimeToIso(departureLocal);
+  // Past, beyond the forecast or unreadable: Compute, Scan and Check stop with this reason.
+  const departureIssue = validateDeparture(departureLocal);
 
   const addWaypoint = useCallback(
     (latlng) => {
       if (mode === 'compute') {
+        if (computed) setDiscardedKey(computed.inputKey);
         setComputed(null);
         setEndpoints((eps) => (eps.length >= 2 ? [latlng] : [...eps, latlng]));
       } else {
         setWaypoints((wps) => [...wps, latlng]);
       }
     },
-    [mode, setComputed, setEndpoints, setWaypoints],
+    [mode, computed, setComputed, setEndpoints, setWaypoints],
   );
 
   // shared by Compute route and the per-departure scan routing
@@ -148,25 +182,32 @@ export default function usePlannerController() {
     }), [endpoints, polarId, departureUtc]);
 
   const runRouting = async () => {
-    if (endpoints.length !== 2 || !polarId || !departureUtc) return;
+    if (endpoints.length !== 2 || !polarId || !departureUtc || departureIssue) return;
+    const hadRoute = Boolean(computed);
+    beginAction(ACTION.compute);
+    setDiscardedKey(null);
     setComputed(null);
     setBusy('computing route');
-    setError(null);
     try {
       const inputs = await withFreshForecast(() => loadRoutingInputs());
       if (routingInputKey(usePlanner.getState()) !== inputKey) return;
       setBusy('computing route');
       setComputed({ ...routeForDeparture(inputs, departureUtc), notes: inputs.notes, inputKey });
+      setNoticeState({
+        kind: ACTION.compute, text: hadRoute ? 'Route updated' : 'Route computed',
+        signature: draftSignature(usePlanner.getState()),
+      });
     } catch (e) {
-      if (routingInputKey(usePlanner.getState()) === inputKey) setError(e.message);
+      if (routingInputKey(usePlanner.getState()) === inputKey) failAction(ACTION.compute, e);
     } finally {
-      setBusy(null);
+      endAction();
     }
   };
 
   const onGpx = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
+    beginAction(ACTION.gpx);
     try {
       const parsed = parseGpx(await file.text(), {
         route_id: 'gpx-import',
@@ -175,24 +216,27 @@ export default function usePlannerController() {
       setName(parsed.name);
       setWaypoints(parsed.waypoints.map((wp) => ({ lat: wp.lat, lng: wp.lon })));
       setFitNonce((n) => n + 1);
-      setError(null);
     } catch (e) {
-      setError(e.message);
+      failAction(ACTION.gpx, e);
     } finally {
+      endAction();
       if (fileRef.current) fileRef.current.value = '';
     }
   };
 
   const runScan = useCallback(async () => {
-    if (!route || !departureUtc || !speedsValid) return;
+    if (!route || !departureUtc || !speedsValid || departureIssue) return;
+    beginAction(ACTION.scan);
     setBusy('scanning departures');
-    setError(null);
     setScan(null);
+    // What this comparison is for, captured at the click: if any of it changes
+    // while it runs or afterwards, the result is dropped instead of shown.
+    const basis = scanBasis({ mode, endpoints, waypoints, polarId, speeds });
     let draft;
     try {
       if (!useApp.getState().limits) await useApp.getState().ensureLimits();
       draft = captureActionDraft({ route, profile: useApp.getState().limits, departureUtc });
-    } catch (e) { setBusy(null); setError(e.message); return; }
+    } catch (e) { endAction(); failAction(ACTION.scan, e); return; }
     // A deleted run retries discovery; the user draft remains the one at the click.
     const scanOnce = async () => {
       const action = await prepareAnalysisInputs(draft, setBusy);
@@ -234,16 +278,20 @@ export default function usePlannerController() {
         partial.push(c);
         setBusy(`scanning departures ${partial.length}/${departures.length}`);
       });
-      setScan({ ...result, routes, rerouted: Boolean(routeFor), requested: departures.length, notes: routeFor ? Object.values(routes)[0]?.notes ?? [] : [] });
-      setBusy(null);
+      setScan({
+        ...result, routes, rerouted: Boolean(routeFor), requested: departures.length,
+        notes: routeFor ? Object.values(routes)[0]?.notes ?? [] : [],
+        basis, anchorMs: Date.parse(departureUtc),
+      });
+      endAction();
     };
     try {
       await withFreshForecast(scanOnce);
     } catch (e) {
-      setBusy(null);
-      setError(e.message);
+      endAction();
+      failAction(ACTION.scan, e);
     }
-  }, [route, departureUtc, speedsValid, setScan, passageHours, mode, endpoints, polarId, loadRoutingInputs]);
+  }, [route, departureUtc, departureIssue, speedsValid, setScan, passageHours, mode, endpoints, waypoints, polarId, speeds, loadRoutingInputs, beginAction, endAction, failAction]);
 
   // arriving from a briefing's "Find a departure that fits": run the scan once, then clear the flag
   const autoScan = usePlanner((s) => s.autoScan);
@@ -260,9 +308,9 @@ export default function usePlannerController() {
     const selectedRoute = overrides.route ?? route;
     const checkRoute = selectedRoute ? { ...selectedRoute, passage_id: passageId } : null;
     const checkDepartureUtc = overrides.departureUtc ?? departureUtc;
-    if (!checkRoute || !speedsValid) return;
+    if (!checkRoute || !speedsValid || (departureIssue && !overrides.departureUtc)) return;
+    beginAction(ACTION.check, overrides.source);
     setBusy('starting');
-    setError(null);
     try {
       if (!useApp.getState().limits) await useApp.getState().ensureLimits();
       const draft = captureActionDraft({ route: checkRoute, profile: useApp.getState().limits, departureUtc: checkDepartureUtc });
@@ -277,20 +325,45 @@ export default function usePlannerController() {
         const action = await prepareAnalysisInputs(draft, setBusy);
         return analyzeInBrowser({ ...action, onProgress: setBusy });
       });
-      setBusy(null);
+      endAction();
       // Include the newly completed check before its comparison section opens.
       await loadManifest();
       await openSnapshot(snapshotId, measurementAttempt);
     } catch (e) {
-      setBusy(null);
-      setError(e.message);
+      endAction();
+      failAction(ACTION.check, e, overrides.source);
     }
+  };
+
+  // Messages about an action stop showing once any input they were about changes.
+  const signature = draftSignature({ mode, endpoints, waypoints, polarId, departureLocal, speeds });
+  const failure = failureState?.signature === signature ? { ...failureState, ...friendlyError(failureState.raw) } : null;
+  const notice = noticeState?.signature === signature ? noticeState : null;
+  // Why the computed route is gone, when it was thrown away because an input changed.
+  const staleRoute = mode === 'compute' && !computed && discardedKey
+    ? staleRouteMessage(changedRoutingInputs(discardedKey, { endpoints, polarId, departureLocal }))
+    : null;
+  const blocked = (action) => blockReason(action, { mode, endpoints, polarId, route, speedsValid, departureIssue });
+
+  /** Run again whatever just failed. A failed GPX import has nothing to re-run: it asks for another file. */
+  const retryAction = (kind) => {
+    if (kind === ACTION.compute) runRouting();
+    else if (kind === ACTION.scan) runScan();
+    else if (kind === ACTION.check) run();
+    else fileRef.current?.click();
+  };
+  const clearDraft = () => {
+    setWaypoints([]);
+    setEndpoints([]);
+    setComputed(null);
+    setDiscardedKey(null);
   };
 
   return {
     mode, waypoints, computed, endpoints, polarId, polarLabel, name, speeds,
     departureLocal, scan, patch, setMode, setWaypoints, setEndpoints, setComputed,
-    setName, setSpeeds, setDepartureLocal, busy, error, fitNonce, fileRef,
+    setName, setSpeeds, setDepartureLocal, busy, activeAction, failure, notice, staleRoute,
+    departureIssue, blocked, retryAction, clearDraft, fitNonce, fileRef,
     route, distance, speedsValid, passageHours, departureUtc, addWaypoint,
     runRouting, onGpx, runScan, run
   };
