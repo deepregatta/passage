@@ -4,7 +4,9 @@ import { palette, rgba } from '../lib/palette.js';
 export const SECTION_IDS = ['story', 'route', 'evidence', 'changes', 'outcome'];
 
 export const FADE_PX = 32;
-const SPY_LINE = 140; // sections land at 112 px (scroll-mt-28) under ~102 px of sticky bars
+// Sections land at 112 px (scroll-mt-28) under the ~56 px header plus ~45 px tab bar from md up;
+// below md the header scrolls away, so they land at 56 px (scroll-mt-14) under the tab bar alone.
+const spyLine = () => (typeof matchMedia === 'function' && !matchMedia('(min-width: 768px)').matches ? 84 : 140);
 const PIN_EVENT = 'passage-section-pin';
 
 const prefersReducedMotion = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -57,7 +59,7 @@ export function useSectionNav() {
       let current = SECTION_IDS[0];
       for (const id of SECTION_IDS) {
         const top = document.querySelector(`[data-section="${id}"]`)?.getBoundingClientRect().top;
-        if (top !== undefined && (top <= SPY_LINE || bottom)) current = id;
+        if (top !== undefined && (top <= spyLine() || bottom)) current = id;
       }
       setActive(current);
     };

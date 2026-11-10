@@ -15,7 +15,7 @@ export const SECTIONS = [
 export default function SectionNav() {
   const { active, edges, barRef, tabRefs } = useSectionNav();
   return (
-    <nav aria-label="Passage sections" data-print-hide className="sticky top-14 z-20 bg-paper border-b hairline">
+    <nav aria-label="Passage sections" data-print-hide className="sticky top-0 md:top-14 z-20 bg-paper border-b hairline">
       <div className="relative max-w-[1600px] mx-auto">
         <div ref={barRef} data-testid="section-tabs" className="relative px-3 sm:px-5 flex gap-1 overflow-x-auto">
           {SECTIONS.map(([id, label]) => (

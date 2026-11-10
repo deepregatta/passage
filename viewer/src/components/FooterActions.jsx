@@ -251,7 +251,7 @@ export default function FooterActions({ onNavigate }) {
       <button
         type="button"
         onClick={() => setFeedbackOpen(true)}
-        className="font-instrument text-sm text-event underline-offset-4 hover:underline"
+        className="inline-flex min-h-11 items-center font-instrument text-sm text-event underline-offset-4 hover:underline md:min-h-8"
       >
         Send feedback / report a data issue
       </button>

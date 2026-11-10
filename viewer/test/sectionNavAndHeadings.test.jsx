@@ -41,6 +41,8 @@ describe('SectionNav', () => {
     const nav = container.querySelector('nav');
     expect(nav.className).toMatch(/\bbg-paper\b/);
     expect(nav.className).not.toMatch(/bg-paper\//);
+    // the header is only sticky from md up, so the bar pins at the top on phones and under the header from md
+    expect(nav.className).toMatch(/\bsticky\b.*\btop-0\b.*\bmd:top-14\b/);
     const bar = screen.getByTestId('section-tabs');
     Object.defineProperty(bar, 'clientWidth', { configurable: true, value: 300 });
     Object.defineProperty(bar, 'scrollWidth', { configurable: true, value: 560 });
@@ -56,8 +58,13 @@ describe('SectionNav', () => {
     fireEvent.scroll(bar);
     expect(screen.getByTestId('tabs-fade-start')).toBeInTheDocument();
   });
-  it('keeps the clicked tab highlighted while the page scrolls past other sections', () => {
+  it.each([
+    ['md and up (sticky header)', true, 112],
+    ['phones (header scrolls away)', false, 56],
+  ])('keeps the clicked tab highlighted while the page scrolls past other sections, %s', (_name, wide, landing) => {
     vi.useFakeTimers();
+    const savedMatchMedia = window.matchMedia;
+    window.matchMedia = (query) => ({ matches: query.includes('min-width: 768px') ? wide : false, media: query, addEventListener() {}, removeEventListener() {} });
     try {
       const tops = { story: 0, route: 400, evidence: 800, changes: 1200, outcome: 1600 };
       for (const id of Object.keys(tops)) {
@@ -76,15 +83,16 @@ describe('SectionNav', () => {
       scrollY = 300; // mid-flight: only the first sections have passed under the bars
       act(() => { window.dispatchEvent(new Event('scroll')); vi.advanceTimersByTime(20); });
       expect(screen.getByRole('button', { name: 'Evidence' })).toHaveAttribute('aria-current', 'location');
-      scrollY = 800 - 112; // landed where scroll-mt-28 puts it
+      scrollY = 800 - landing; // landed where scroll-mt puts it
       act(() => { window.dispatchEvent(new Event('scroll')); vi.advanceTimersByTime(400); });
       expect(screen.getByRole('button', { name: 'Evidence' })).toHaveAttribute('aria-current', 'location');
       // later, reading on: the highlight follows the section whose top passed the bars
-      scrollY = 1200 - 120;
+      scrollY = 1200 - landing - 8;
       act(() => { window.dispatchEvent(new Event('scroll')); vi.advanceTimersByTime(400); });
       expect(screen.getByRole('button', { name: 'What changed' })).toHaveAttribute('aria-current', 'location');
     } finally {
       vi.useRealTimers();
+      window.matchMedia = savedMatchMedia;
       delete window.scrollY;
     }
   });

@@ -106,7 +106,7 @@ export default function Briefing() {
 
 function Section({ id, label, children }) {
   return (
-    <section data-section={id} aria-label={label} className="scroll-mt-28 py-6 border-t border-ink/40 first:border-t-0 first:pt-4">
+    <section data-section={id} aria-label={label} className="scroll-mt-14 md:scroll-mt-28 py-6 border-t border-ink/40 first:border-t-0 first:pt-4">
       {children}
     </section>
   );
