@@ -2,8 +2,8 @@ import { palette, rgba } from '../lib/palette.js';
 import ReactECharts from './lazy/EChartsLazy.jsx';
 import { useMemo } from 'react';
 import { useApp } from '../stores/appStore.js';
-import { fmtHour } from '../lib/format.js';
 import useViewport from '../hooks/useViewport.js';
+import { createAxisLabelFormatter, plumeAriaLabel, timeZoneAxisProps } from '../lib/chartTime.js';
 
 /**
  * Ensemble plume (mockup 2): 51 thin member lines, median + P10/P90 envelope,
@@ -27,7 +27,9 @@ export default function EnsemblePlume({ evidence, variable = 'gust', height = 43
 
   if (!option) return <p className="text-sm text-ink-soft">No ensemble data for this leg.</p>;
   return (
-    <ReactECharts option={option} style={{ height }} notMerge lazyUpdate opts={{ renderer: 'svg' }} />
+    <div role="img" aria-label={option.ariaLabel}>
+      <ReactECharts option={option.chart} style={{ height }} notMerge lazyUpdate opts={{ renderer: 'svg' }} />
+    </div>
   );
 }
 
@@ -94,32 +96,34 @@ function buildOption(leg, legFindings, evidence, variable, mobile = false) {
   const ink = palette.ink.DEFAULT;
   const soft = palette.ink.soft;
 
-  return {
+  const chart = {
     backgroundColor: 'transparent',
     animation: false,
     tooltip: {
       trigger: 'axis',
       backgroundColor: palette.paper.DEFAULT,
       borderColor: ink,
-      textStyle: { color: ink, fontFamily: 'ui-monospace, monospace', fontSize: 11 },
+      textStyle: { color: ink, fontFamily: 'ui-monospace, monospace', fontSize: 12 },
     },
-    grid: { left: mobile ? 34 : 48, right: mobile ? 8 : 18, top: 30, bottom: mobile ? 52 : 40 },
+    grid: { left: mobile ? 34 : 48, right: mobile ? 8 : 18, top: 30, bottom: 74 },
     xAxis: {
       type: 'time',
+      ...timeZoneAxisProps(soft),
       axisLine: { lineStyle: { color: soft } },
       axisLabel: {
         color: soft,
         fontFamily: 'ui-monospace, monospace',
-        fontSize: 10,
-        formatter: (v, index) => mobile && index % 2 ? '' : fmtHour(new Date(v).toISOString()),
+        fontSize: 12,
+        hideOverlap: true,
+        formatter: createAxisLabelFormatter({ skipOdd: mobile }),
       },
       splitLine: { show: false },
     },
     yAxis: {
       type: 'value',
       name: units,
-      nameTextStyle: { color: soft },
-      axisLabel: { color: soft, fontFamily: 'ui-monospace, monospace', fontSize: 10 },
+      nameTextStyle: { color: soft, fontSize: 12 },
+      axisLabel: { color: soft, fontFamily: 'ui-monospace, monospace', fontSize: 12 },
       splitLine: { lineStyle: { color: rgba(palette.ink.DEFAULT, '0.08') } },
       min: 0,
       max: Math.ceil(Math.max(dataMax, limit ?? 0) * 1.12),
@@ -156,7 +160,7 @@ function buildOption(leg, legFindings, evidence, variable, mobile = false) {
             position: 'insideStartTop',
             color: palette.verdict.approaching,
             fontFamily: 'ui-monospace, monospace',
-            fontSize: 10,
+            fontSize: 12,
             fontWeight: 'bold',
           },
         },
@@ -169,7 +173,7 @@ function buildOption(leg, legFindings, evidence, variable, mobile = false) {
                 formatter: 'exceedance window',
                 color: palette.verdict.exceeds,
                 fontFamily: 'ui-monospace, monospace',
-                fontSize: 10,
+                fontSize: 12,
                 position: 'insideTop',
               },
               data: windows,
@@ -178,4 +182,6 @@ function buildOption(leg, legFindings, evidence, variable, mobile = false) {
       },
     ],
   };
+  const ariaLabel = plumeAriaLabel({ members: members.length, variable, startMs: times[0], endMs: times.at(-1), limit, units });
+  return { chart, ariaLabel };
 }
