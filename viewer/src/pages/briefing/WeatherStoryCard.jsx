@@ -88,7 +88,7 @@ export default function WeatherStoryCard({ findings, sections }) {
             <span className="text-ink-soft" aria-hidden>
               ▸
             </span>
-            {b}
+            <span className="min-w-0">{b}</span>
           </li>
         ))}
       </ul>
