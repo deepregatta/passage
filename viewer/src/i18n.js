@@ -467,6 +467,7 @@ const FR = {
   'spread': 'dispersion',
   'coverage': 'couverture',
   'Source bulletin': 'Bulletin source',
+  'Original text (in English)': 'Texte original (en anglais)',
   'Emulated bulletin': 'Bulletin simulé',
   'Emulated bulletin. Do not use for a real passage decision.': 'Bulletin simulé. Ne l’utilisez pas pour prendre une décision de traversée réelle.',
   'Inspect emulated bulletin': 'Examiner le bulletin simulé',

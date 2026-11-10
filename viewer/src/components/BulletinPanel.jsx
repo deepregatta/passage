@@ -6,8 +6,20 @@ export function isEmulatedWarning(evidence, warnings) {
   return evidence?.source_kind === 'emulated' || warnings?.source?.mode === 'synthetic';
 }
 
+// Bulletins are shown verbatim. UK sources (and the synthetic example) are in
+// English, Météo-France in French; the feed carries no language field.
+const ENGLISH_WORDS = /\b(?:the|and|or|of|for|in|later|expected|becoming|occasionally|veering|backing|gale|warning|wind|rough|moderate|good|poor|rain|showers|never|use)\b/gi;
+const FRENCH_WORDS = /(?<![\p{L}])(?:le|la|les|et|ou|du|des|en|vent|mer|avis|coup|grand|frais|houle|agitée|forte|fraîchissant|fin|période|ouest)(?![\p{L}])/giu;
+
+export function isEnglishBulletin(text) {
+  const english = text?.match(ENGLISH_WORDS)?.length ?? 0;
+  const french = text?.match(FRENCH_WORDS)?.length ?? 0;
+  return english > french;
+}
+
 export default function BulletinPanel({ evidence, onClose }) {
   const warnings = useApp((state) => state.warnings);
+  const language = useApp((state) => state.language);
   const emulated = isEmulatedWarning(evidence, warnings);
   const closeRef = useRef(null);
   const ref = evidence?.bulletin_ref;
@@ -45,6 +57,9 @@ export default function BulletinPanel({ evidence, onClose }) {
         {bulletins.length ? bulletins.map((bulletin) => (
           <article key={`${bulletin.zone_id}-${bulletin.valid_from}`} className="py-5 border-b hairline last:border-0">
             <p className="eyebrow">{bulletin.zone_name ?? bulletin.zone_id} · {bulletin.kind}</p>
+            {language === 'fr' && isEnglishBulletin(bulletin.raw_text) && (
+              <p className="mt-2 font-instrument text-[12px] text-ink-soft">Original text (in English)</p>
+            )}
             <pre className="mt-3 whitespace-pre-wrap font-mono text-[12px] leading-relaxed bg-white/40 border hairline p-4">{bulletin.raw_text}</pre>
           </article>
         )) : (
