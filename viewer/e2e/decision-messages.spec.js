@@ -34,6 +34,8 @@ for (const language of ['en', 'fr']) {
     const plain = page.locator('[data-message-field="plain"]');
     await expect(plain).toHaveAttribute('data-message-status', 'legacy');
     const oldVerdict = await plain.textContent();
+    // the why, not the number: the saved 'all 51 ... exceed' signal is not repeated here
+    expect(oldVerdict).not.toMatch(language === 'fr' ? /scénarios de prévision|Signal principal/ : /forecast scenarios|main signal/);
     briefing = current;
     servedFindings = synthetic;
     await page.reload();

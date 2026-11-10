@@ -51,7 +51,8 @@ it('expands the ordered reasoning once, with one professional-register disclosur
   expect(why).toHaveAttribute('aria-expanded', 'true');
   const details = why.nextElementSibling;
   // the per-leg route-impact list repeats the timeline and leg table: it is not rendered here
-  const shown = orderedTitles.filter((title) => title !== 'Route impact, leg by leg');
+  // nor the next-run time frozen at analysis time: the decision band states it, read at display time
+  const shown = orderedTitles.filter((title) => !['Route impact, leg by leg', 'What could change'].includes(title));
   expect(within(details).getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent)).toEqual(shown);
   expect(details.querySelector('li')).toBeNull();
   expect(details.className).not.toMatch(/overflow|max-h/);
@@ -61,6 +62,8 @@ it('expands the ordered reasoning once, with one professional-register disclosur
   // coverage is stated once, under Models and coverage
   expect(within(details).queryByRole('region', { name: 'Capability coverage' })).toBeNull();
   expect(details).toHaveTextContent('No flag does not mean no risk.');
+  // the why, not the number: the scenario count is stated at the top and in Evidence only
+  expect(details.querySelector('[data-message-field="plain"]').textContent).not.toMatch(/forecast scenarios|main signal/);
   const register = details.querySelector('details');
   expect(register).toHaveTextContent('Authority override: bulletin');
   fireEvent.click(within(register).getAllByRole('button', { name: 'E23' })[0]);

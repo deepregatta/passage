@@ -144,3 +144,32 @@ it('connects actual assessment titles and both registers while other sections re
   expect(document.querySelector('[data-message-field="pro"]')).toHaveTextContent('Facteur déterminant');
   expect(document.querySelectorAll('[data-message-field]')).toHaveLength(4);
 });
+
+it('the plain "why" drops the scenario-count signal for new and old checks, and keeps everything else', () => {
+  const opts = { omitScenarioCount: true };
+  for (const name of ['ensemble-0-10', 'ensemble-1-1', 'ensemble-3-10']) {
+    const section = cases.find(c => c.name === name).briefing.sections[0];
+    const { messages: _messages, ...legacy } = section;
+    for (const language of ['en', 'fr']) {
+      const current = renderBriefingField(1, section, 'plain', language, undefined, opts);
+      const old = renderBriefingField(1, legacy, 'plain', language, undefined, opts);
+      expect(current.status).toBe('translated');
+      expect(old.status).toBe('legacy');
+      for (const { text } of [current, old]) {
+        expect(text).not.toMatch(/main signal|Signal principal|forecast scenarios|scénarios/i);
+        expect(text).toMatch(language === 'fr' ? /^Les conditions prévues dépassent/ : /^Forecast conditions go beyond the limits/);
+      }
+    }
+    // the professional register keeps its driver line
+    expect(renderBriefingField(1, section, 'pro', 'en', undefined, opts).text).toMatch(/Driver:/);
+  }
+  // a numeric signal carries no count: kept
+  expect(renderBriefingField(1, numeric, 'plain', 'en', undefined, opts).text).toBe(numeric.register_plain);
+  // the bundled example (saved before message IDs) loses only its "all 51 ... exceed" sentence
+  const example = read('./fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/briefing.json').sections.find(s => s.id === 'decision');
+  expect(renderBriefingField(1, example, 'plain', 'en', undefined, opts)).toEqual({
+    text: 'An official marine warning covers part of your route. That takes precedence over everything below.', status: 'legacy',
+  });
+  expect(renderBriefingField(1, example, 'plain', 'fr', undefined, opts).text)
+    .toBe('Une alerte marine officielle couvre une partie de votre route. Elle prévaut sur tout ce qui suit.');
+});

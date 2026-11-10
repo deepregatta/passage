@@ -7,8 +7,9 @@ import { deriveCoverage } from '../../lib/evidenceSelectors.js';
  * and leg table, counts in the Evidence section, capability coverage under "Models and coverage". */
 export default function AssessmentDetails({ sections, findings }) {
   // The route-impact section only lists legs, which the timeline already shows; its method note
-  // stays in the professional register below.
-  const reasoning = sections.filter((section) => !section.per_leg);
+  // stays in the professional register below. "What could change" froze the next-run time at
+  // analysis time (UTC); the decision band states it once, read at display time.
+  const reasoning = sections.filter((section) => !section.per_leg && section.id !== 'what_could_change');
   return (
     <div className="mt-3 space-y-4">
       {reasoning.map((section) => (
@@ -37,7 +38,7 @@ function StorySection({ section, findings }) {
   return (
     <div className={tone}>
       <h3 className="eyebrow mb-1">{decision ? <BriefingMessage section={section} field="title" version={version} /> : section.title}</h3>
-      <p className="font-sans text-[13px] leading-relaxed">{decision ? <BriefingMessage section={section} field="plain" version={version} /> : plain}</p>
+      <p className="font-sans text-[13px] leading-relaxed">{decision ? <BriefingMessage section={section} field="plain" version={version} omitScenarioCount /> : plain}</p>
     </div>
   );
 }

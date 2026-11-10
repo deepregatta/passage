@@ -374,7 +374,8 @@
         "decision",
         "title",
         "plain",
-        "pro"
+        "pro",
+        "what_could_change"
       ],
       "viewer/src/pages/briefing/ChangesSection.jsx": [
         "unavailable",

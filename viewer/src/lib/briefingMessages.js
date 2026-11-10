@@ -39,16 +39,26 @@ export const FR_DECISION_MESSAGES = {
   'briefing.decision.ensemble.pro.v1': (p) => `Facteur déterminant : ${p.rule_id} sur ${p.leg_id} à ${p.valid_time}; ${p.exceed} membres sur ${p.total} > ${p.limit} ${unit(p.units)}.`,
 };
 
+/** The ensemble "main signal" sentence carries a scenario count for the verdict driver, which can
+ * name another leg and hour than the page's governing reason. The plain "why" omits it (new checks
+ * by message ID, older ones by its exact English shape); the count is stated at the top and in Evidence. */
+const SCENARIO_SIGNAL_ID = 'briefing.decision.ensemble.plain.v1';
+const SCENARIO_SIGNAL_TEXT = / The main signal: (?:all \d+|none of the \d+|\d+ of \d+) forecast scenarios? exceed .+? around [^.]+ UTC\./;
+
 /** Read adapter: no inference of IDs, persistence rewrite, or recomputation.
- * A damaged sentence falls back to the entire stored field, including caveats.
+ * A damaged sentence falls back to the entire stored field, including caveats
+ * (only the scenario-count signal is dropped when `omitScenarioCount` is set).
  * @param {number} version
  * @param {{id?: string, title?: string, register_plain?: string, register_pro?: string, messages?: any}} section
  * @param {'title' | 'plain' | 'pro'} field
  * @param {'en' | 'fr'} language
  * @param {import('@deepweather/engine').DecisionMessageCatalogue} [french]
+ * @param {{ omitScenarioCount?: boolean }} [options]
  */
-export function renderBriefingField(version, section, field, language, french = FR_DECISION_MESSAGES) {
-  const saved = field === 'title' ? section.title : section[`register_${field}`];
+export function renderBriefingField(version, section, field, language, french = FR_DECISION_MESSAGES, { omitScenarioCount = false } = {}) {
+  const omit = omitScenarioCount && field === 'plain';
+  const stored = field === 'title' ? section.title : section[`register_${field}`];
+  const saved = omit && typeof stored === 'string' ? stored.replace(SCENARIO_SIGNAL_TEXT, '') : stored;
   const unavailable = language === 'fr' ? 'Contenu de décision indisponible.' : 'Decision content unavailable.';
   if (version !== 1) return { text: language === 'fr' ? 'Version du briefing non prise en charge.' : 'Unsupported briefing version.', status: 'unsupported' };
   const messages = section.messages;
@@ -57,7 +67,10 @@ export function renderBriefingField(version, section, field, language, french = 
     && Object.keys(messages).every(key => ['title', 'plain', 'pro'].includes(key))
     && Object.hasOwn(messages, 'title')
     && Object.hasOwn(messages, 'plain') === Object.hasOwn(messages, 'pro');
-  const refs = messages?.[field];
+  const allRefs = messages?.[field];
+  const refs = omit && Array.isArray(allRefs) && allRefs.length > 1
+    ? allRefs.filter((ref) => ref?.message_id !== SCENARIO_SIGNAL_ID)
+    : allRefs;
   if (!hasMetadata || validContainer && refs === undefined && field !== 'title') {
     return typeof saved === 'string' && saved.length > 0
       ? { text: translateText(saved, language), status: 'legacy' }
