@@ -1,12 +1,12 @@
 import { palette } from '../../lib/palette.js';
 import { useState } from 'react';
 import { EvidenceLink } from '../../components/common.jsx';
-import { capitalize, fmtTime, hazardNoun, placeLabel, plainEventNoun, VERDICT } from '../../lib/format.js';
+import { capitalize, fmtTextTime, hazardNoun, placeLabel, plainEventNoun, VERDICT } from '../../lib/format.js';
 import { Term } from '../../lib/glossary.jsx';
 import { useApp } from '../../stores/appStore.js';
 import { usePlayback } from '../../stores/playbackStore.js';
 import AssessmentDetails from './AssessmentDetails.jsx';
-import { legPlace } from './routeLabels.jsx';
+import { legLabel, legPlace } from './routeLabels.jsx';
 
 /** the story as a headline card: one look = the message; prose lives behind "why".
  * When to recheck is stated once, in the decision band above. */
@@ -63,8 +63,8 @@ export default function WeatherStoryCard({ findings, sections }) {
   if (wac && bullets.length < 3)
     bullets.push(
       <>
-        <Term term="wind over tide">Wind over tide</Term> {legPlace(findings, wac.leg_id)} around{' '}
-        {fmtTime(wac.window?.from).slice(-5)} UTC. Expect short, steep seas.
+        <Term term="wind over tide">Wind over tide</Term> {legLabel(findings, wac.leg_id)} around{' '}
+        {fmtTextTime(wac.window?.from)}. Expect short, steep seas.
       </>,
     );
 
@@ -119,7 +119,7 @@ function StoryPhase({ findings, event }) {
     const time = departure + state.cursorHours * 3600_000;
     return time < start ? 'cause' : time <= end ? 'interception' : time <= end + 6 * 3600_000 ? 'consequence' : 'easing';
   });
-  return <span className="font-mono text-[10px] text-ink-soft mt-2 uppercase">{PHASE_PLAIN[phase]}</span>;
+  return <span className="font-mono text-xs text-ink-soft mt-2 uppercase">{PHASE_PLAIN[phase]}</span>;
 }
 
 /** plain phase words for the story eyebrow; the pro phase names stay in the hero chart focus line */
