@@ -105,8 +105,19 @@ test('close Start and Finish markers: the nearer one takes the pointer, and each
       label: document.elementFromPoint(x, y)?.closest('.passage-marker')?.getAttribute('aria-label') ?? null,
     };
   }, t);
-  // The map fits the two points first; wait for it to settle.
-  await expect.poll(async () => (await pick(0.25)).gap).toBeLessThan(30);
+  // The map fits the two points first, then each zoom animates: wait until the gap stops changing.
+  const settled = async () => {
+    let last = -1;
+    for (let stable = 0; stable < 3;) {
+      await page.waitForTimeout(150);
+      const { gap } = await pick(0);
+      stable = Math.abs(gap - last) < 0.01 ? stable + 1 : 0;
+      last = gap;
+    }
+    return last;
+  };
+  await settled();
+  expect((await pick(0.25)).gap).toBeLessThan(30);
   await expect.poll(async () => (await pick(0.25)).label).toBe('Start');
   expect((await pick(0.75)).label).toBe('Finish');
   expect((await pick(-0.4)).label).toBe('Start');
@@ -114,11 +125,11 @@ test('close Start and Finish markers: the nearer one takes the pointer, and each
 
   // Zoomed in until the boxes no longer overlap, nothing is cut away.
   const zoomIn = page.getByRole('button', { name: 'Zoom in' });
-  let gap = (await pick(0)).gap;
+  let gap = await settled();
   for (let zoom = 0; zoom < 3; zoom += 1) {
-    await zoomIn.click();
     const before = gap;
-    await expect.poll(async () => (gap = (await pick(0)).gap)).toBeGreaterThan(before * 1.9);
+    await zoomIn.click();
+    await expect.poll(async () => (gap = await settled())).toBeGreaterThan(before * 1.9);
   }
   expect(gap).toBeGreaterThan(44);
   await expect.poll(() => page.evaluate(() => [...document.querySelectorAll('[data-marker-hit]')].map((hit) => getComputedStyle(hit).clipPath)))
