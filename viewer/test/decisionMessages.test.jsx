@@ -244,3 +244,11 @@ it('renders the main signal in the header zone and by place in the page, not in 
   expect(container.textContent).toMatch(/ vers lun\. 20 juil\. 23:00\.$/);
   expect(container.textContent).not.toMatch(/UTC|\bL4\b/);
 });
+
+it('keeps the whole original field when a message cannot be read, and legs without a place in their name as recorded', () => {
+  const localize = { departure: '2026-07-20T06:00:00Z', leg: () => 'near SOMEWHERE (leg 1)', time: () => 'LOCAL' };
+  const section = structuredClone(numeric);
+  section.messages.plain.push({ message_id: 'future.message.v9', params: {} });
+  // the fallback is the stored field, UTC and all, never a restated one
+  expect(renderBriefingField(1, section, 'plain', 'en', undefined, { localize })).toEqual({ text: numeric.register_plain, status: 'fallback' });
+});

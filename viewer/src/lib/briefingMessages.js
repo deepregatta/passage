@@ -115,7 +115,6 @@ export function renderBriefingField(version, section, field, language, french = 
   const omit = omitScenarioCount && field === 'plain';
   const stored = field === 'title' ? section.title : section[`register_${field}`];
   let saved = omit && typeof stored === 'string' ? stored.replace(SCENARIO_SIGNAL_TEXT, '') : stored;
-  if (localize && field === 'plain' && typeof saved === 'string') saved = restateLegacy(saved, localize);
   /** @param {any} params @param {'en' | 'fr'} [lang] */
   const describe = (params, lang = language) => {
     if (!describeDriver || field !== 'pro' || !params) return null;
@@ -148,7 +147,7 @@ export function renderBriefingField(version, section, field, language, french = 
   if (refDriver) refs = refs.filter((/** @type {any} */ ref) => ref !== driverRef);
   if (!hasMetadata || validContainer && refs === undefined && field !== 'title') {
     return typeof saved === 'string' && saved.length > 0
-      ? { text: withDriver(translateText(saved, language), legacyDriver), status: 'legacy' }
+      ? { text: withDriver(translateText(localize && field === 'plain' ? restateLegacy(saved, localize) : saved, language), legacyDriver), status: 'legacy' }
       : { text: unavailable, status: 'unavailable' };
   }
   const catalogue = language === 'fr' ? french : undefined;

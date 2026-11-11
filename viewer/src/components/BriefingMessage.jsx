@@ -10,7 +10,8 @@ function localizeFor(findings) {
   return {
     departure: findings.departure_utc,
     leg: (name, language) => {
-      const leg = findings.legs.find((item) => item.name === name);
+      // only a leg named "A → B" has a place to show; any other name stays as recorded
+      const leg = name.includes('→') ? findings.legs.find((item) => item.name === name) : undefined;
       return leg ? translateText(legLabel(findings, leg.leg_id), language) : null;
     },
     time: (iso, language) => translateText(fmtTextTime(iso), language),
