@@ -16,11 +16,10 @@ import { toIso } from '../eta.js';
 import { fnv1a64Hex } from '../hash.js';
 import { gunzip } from './httpTransport.js';
 import { decodeTile, type DecodedTile } from './tileCodec.js';
-import { ECMWF_LAYERS, newestRunAt, runSpan, type ServedRange } from './modelRuns.js';
+import { ECMWF_LAYERS, ecmwfRunChoice, type ServedRange } from './modelRuns.js';
 import {
   axisTimesMs,
   edgeNeighbourProbes,
-  hourlyTimesMs,
   nearestGridIndex,
   normalizeLon,
   resampleToHourly,
@@ -28,6 +27,9 @@ import {
   type Bbox,
   type GridIndex,
 } from './tileMath.js';
+import {
+  CURRENTS_LAYER, ENSEMBLE_LAYER, MOSAIC_TARGET_POINTS, WAVES_LAYER, WEATHER_LAYER, mosaicLattice, mosaicPoints, tileCacheKey, tilePath,
+} from './storeGeometry.js';
 import type {
   ForecastStore,
   LatestDoc,
@@ -144,7 +146,7 @@ export class TileForecastStore implements ForecastStore {
       if (!result) continue;
       this.layers.set(result.layer, this.newState(result.manifest, result.entry));
     }
-    if (!this.layers.has('weather')) {
+    if (!this.layers.has(WEATHER_LAYER)) {
       throw new Error('Forecast tiles unavailable: no readable weather run');
     }
     this.checkedAtMs = readAtMs;
@@ -288,6 +290,33 @@ export class TileForecastStore implements ForecastStore {
     return this.layers.get(layer)?.manifest ?? null;
   }
 
+  /** The layers the catalogue (latest.json, plus the allowed regional models) names, loaded or not. */
+  listedLayers(): string[] {
+    return Object.keys(this.latest?.layers ?? {});
+  }
+
+  /** The regional models this store was allowed to read, in its order. */
+  regionalLayerIds(): readonly string[] {
+    return this.regionalLayers;
+  }
+
+  /**
+   * Whether a tile of the pinned run is already on this device, so reading it
+   * would fetch nothing: retained decoded in memory, or held by the cache.
+   * Probes without side effects and never fetches; a cache without `has`, or a
+   * failing one, reports false.
+   */
+  async hasTile(layer: string, tileId: string): Promise<boolean> {
+    const state = this.layers.get(layer);
+    if (!state) return false;
+    if (state.decoded.has(tileId)) return true;
+    try {
+      return (await this.cache.has?.(tileCacheKey(state.manifest, tileId))) === true;
+    } catch {
+      return false;
+    }
+  }
+
   /**
    * One decoded tile of the pinned run, through the same checksum, cache and
    * shared in-flight path as the analysis. Null when the manifest does not
@@ -419,8 +448,8 @@ export class TileForecastStore implements ForecastStore {
   }
 
   private async loadTile(manifest: RunManifest, tileId: string): Promise<{ tile: DecodedTile; cached: boolean }> {
-    const path = manifest.tiling.path_template.replace('{tile_id}', tileId);
-    const key = `${manifest.run_id}/${path}`;
+    const path = tilePath(manifest, tileId);
+    const key = tileCacheKey(manifest, tileId);
     const expected = manifest.tiles[tileId]!;
     const validate = async (bytes: Uint8Array): Promise<DecodedTile> => {
       if (bytes.byteLength !== expected.bytes || fnv1a64Hex(bytes) !== expected.fnv64) {
@@ -554,7 +583,7 @@ export class TileForecastStore implements ForecastStore {
   ): Promise<{ forecasts: PointForecast[]; meta: TileRequestMeta }> {
     await this.init();
     // one run for the whole call, even if refresh() swaps the layer meanwhile
-    const state = this.layers.get('weather')!;
+    const state = this.layers.get(WEATHER_LAYER)!;
     const stats = this.newStats();
     const forecasts: PointForecast[] = [];
     for (const p of points) {
@@ -588,7 +617,7 @@ export class TileForecastStore implements ForecastStore {
     endMs: number,
   ): Promise<{ forecasts: EnsemblePointForecast[]; meta: TileRequestMeta } | null> {
     await this.init();
-    const state = this.layers.get('ensemble');
+    const state = this.layers.get(ENSEMBLE_LAYER);
     if (!state) return null;
     const stats = this.newStats();
     const forecasts: EnsemblePointForecast[] = [];
@@ -623,7 +652,7 @@ export class TileForecastStore implements ForecastStore {
     endMs: number,
   ): Promise<{ forecasts: WavePointForecast[]; meta: TileRequestMeta } | null> {
     await this.init();
-    const state = this.layers.get('waves');
+    const state = this.layers.get(WAVES_LAYER);
     if (!state) return null;
     const stats = this.newStats();
     const scalarVars = [
@@ -689,7 +718,7 @@ export class TileForecastStore implements ForecastStore {
     await this.init();
     const byModel: Record<string, HazardPointForecast[]> = {};
     const meta: TileRequestMeta[] = [];
-    for (const layers of [['weather'], ECMWF_LAYERS]) {
+    for (const layers of [[WEATHER_LAYER], ECMWF_LAYERS]) {
       // one run per layer for the whole call, even if refresh() swaps one meanwhile
       const states = layers.flatMap((layer) => this.layers.get(layer) ?? []);
       if (!states.length) continue;
@@ -699,9 +728,7 @@ export class TileForecastStore implements ForecastStore {
         meta.push(read.meta);
         continue;
       }
-      const spans = states.map((state) => runSpan(state.manifest, 'wind_u_kt'));
-      const hours = hourlyTimesMs(startMs, endMs);
-      const choice = hours.map((t) => newestRunAt(spans, t));
+      const { hours, choice } = ecmwfRunChoice(states.map((state) => state.manifest), startMs, endMs);
       const reads = await Promise.all(states.map((state, i) =>
         choice.includes(i) ? this.hazardRead(state, points, startMs, endMs) : null));
       byModel[states[0]!.manifest.model] = points.map((p, j) =>
@@ -777,7 +804,7 @@ export class TileForecastStore implements ForecastStore {
 
   async getWindGrid(bbox: Bbox, startIso: string, hours: number): Promise<RegionGrid> {
     await this.init();
-    const grid = await this.mosaicGrid('weather', ['wind_u_kt', 'wind_v_kt'], 'wind10m', bbox, startIso, hours);
+    const grid = await this.mosaicGrid(WEATHER_LAYER, ['wind_u_kt', 'wind_v_kt'], 'wind10m', bbox, startIso, hours);
     if (!grid) throw new Error('Forecast tiles unavailable for this area');
     return grid;
   }
@@ -807,9 +834,9 @@ export class TileForecastStore implements ForecastStore {
 
   async getCurrentGrid(bbox: Bbox, startIso: string, hours: number): Promise<RegionGrid | null> {
     await this.init();
-    if (!this.layers.has('currents')) return null;
+    if (!this.layers.has(CURRENTS_LAYER)) return null;
     try {
-      return await this.mosaicGrid('currents', ['cur_u_kt', 'cur_v_kt'], 'surface_current', bbox, startIso, hours);
+      return await this.mosaicGrid(CURRENTS_LAYER, ['cur_u_kt', 'cur_v_kt'], 'surface_current', bbox, startIso, hours);
     } catch (error) {
       // A deleted run is not a currents outage: the caller refreshes and retries.
       if (error instanceof ForecastRunGoneError) throw error;
@@ -829,28 +856,15 @@ export class TileForecastStore implements ForecastStore {
     bbox: Bbox,
     startIso: string,
     hours: number,
-    targetPoints = 4000,
+    targetPoints = MOSAIC_TARGET_POINTS,
   ): Promise<RegionGrid | null> {
     const state = this.layers.get(layer);
     if (!state) return null;
     const manifest = state.manifest;
-    const res = manifest.resolution_deg;
 
     // native-resolution lattice covering the bbox, snapped to the tile grid
-    const native = manifest.served_grid;
-    const snap = (x: number, origin = 0) => origin + Math.round((x - origin) / res) * res;
-    let stride = 1;
-    const rawNlat = Math.floor((bbox.maxLat - bbox.minLat) / res) + 1;
-    const rawNlon = Math.floor((bbox.maxLon - bbox.minLon) / res) + 1;
-    while ((Math.ceil(rawNlat / stride) + 1) * (Math.ceil(rawNlon / stride) + 1) > targetPoints) {
-      stride += 1;
-    }
-    const dlat = res * stride;
-    const dlon = res * stride;
-    const lat0 = snap(bbox.minLat, native?.lat0);
-    const lon0 = snap(bbox.minLon, native?.lon0);
-    const nlat = Math.max(2, Math.floor((bbox.maxLat - lat0) / dlat) + 1);
-    const nlon = Math.max(2, Math.floor((bbox.maxLon - lon0) / dlon) + 1);
+    const lattice = mosaicLattice(manifest, bbox, targetPoints);
+    const { lat0, lon0, dlat, dlon, nlat, nlon, stride } = lattice;
 
     // time axis: the layer's primary (u-variable) axis clipped to the window
     const uVar = manifest.variables.find((v) => v.name === uName);
@@ -882,30 +896,26 @@ export class TileForecastStore implements ForecastStore {
     // Do not keep evicted tiles alive for the duration of a large mosaic.
     const timeIndices = new WeakMap<DecodedTile, Array<number | undefined>>();
     let anyData = false;
-    for (let i = 0; i < nlat; i++) {
-      for (let j = 0; j < nlon; j++) {
-        const lat = lat0 + i * dlat;
-        const lon = lon0 + j * dlon;
-        const hit = await this.locate(state, lat, lon, stats);
-        if (!hit) continue;
-        const uS = this.seriesAt(hit, uName);
-        const vS = this.seriesAt(hit, vName);
-        if (!uS || !vS) continue;
-        let indices = timeIndices.get(hit.tile);
-        if (!indices) {
-          const index = new Map(uS.timesMs.map((t, k) => [t, k]));
-          indices = timeAxisMs.map((t) => index.get(t));
-          timeIndices.set(hit.tile, indices);
-        }
-        for (let t = 0; t < timeAxisMs.length; t++) {
-          const k = indices[t];
-          if (k === undefined) continue;
-          const uVal = uS.values[k] ?? null;
-          const vVal = vS.values[k] ?? null;
-          u[(t * nlat + i) * nlon + j] = uVal;
-          v[(t * nlat + i) * nlon + j] = vVal;
-          if (uVal !== null) anyData = true;
-        }
+    for (const { i, j, lat, lon } of mosaicPoints(lattice)) {
+      const hit = await this.locate(state, lat, lon, stats);
+      if (!hit) continue;
+      const uS = this.seriesAt(hit, uName);
+      const vS = this.seriesAt(hit, vName);
+      if (!uS || !vS) continue;
+      let indices = timeIndices.get(hit.tile);
+      if (!indices) {
+        const index = new Map(uS.timesMs.map((t, k) => [t, k]));
+        indices = timeAxisMs.map((t) => index.get(t));
+        timeIndices.set(hit.tile, indices);
+      }
+      for (let t = 0; t < timeAxisMs.length; t++) {
+        const k = indices[t];
+        if (k === undefined) continue;
+        const uVal = uS.values[k] ?? null;
+        const vVal = vS.values[k] ?? null;
+        u[(t * nlat + i) * nlon + j] = uVal;
+        v[(t * nlat + i) * nlon + j] = vVal;
+        if (uVal !== null) anyData = true;
       }
     }
     if (!anyData) {

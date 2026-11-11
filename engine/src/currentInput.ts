@@ -1,5 +1,5 @@
 import { computeRouteSchedules, parseUtc } from './eta.js';
-import { passageMaxHours, routeBbox } from './fetch/liveGrids.js';
+import { passageMaxHours, routeBbox, type RouteBbox } from './fetch/liveGrids.js';
 import { GridSampler, type RegionGrid } from './grids.js';
 import { contentHash } from './hash.js';
 import { forecastRunGone, type ForecastStore } from './forecast/store.js';
@@ -30,6 +30,15 @@ export function currentGridCovers(grid: RegionGrid, candidate: Candidate): boole
   } catch { return false; }
 }
 
+/** The box of the current tiles an audit reads when no prepared grid covers its routes. */
+export function currentGridBbox(routes: Route[]): RouteBbox {
+  const points = routes.flatMap(route => route.waypoints);
+  return routeBbox(
+    { lat: Math.min(...points.map(p => p.lat)), lon: Math.min(...points.map(p => p.lon)) },
+    { lat: Math.max(...points.map(p => p.lat)), lon: Math.max(...points.map(p => p.lon)) },
+  );
+}
+
 /** One source for the entire action, including all successful scan routes. No blending. */
 export async function resolveCurrentInput(
   candidates: Candidate[], store: ForecastStore, prepared?: RegionGrid,
@@ -41,11 +50,7 @@ export async function resolveCurrentInput(
       ...preparedProvenance, current_source: 'prepared', content_digest: contentHash(prepared), digest_algorithm: 'fnv1a64',
     } };
   }
-  const points = candidates.flatMap(candidate => candidate.route.waypoints);
-  const bbox = routeBbox(
-    { lat: Math.min(...points.map(p => p.lat)), lon: Math.min(...points.map(p => p.lon)) },
-    { lat: Math.max(...points.map(p => p.lat)), lon: Math.max(...points.map(p => p.lon)) },
-  );
+  const bbox = currentGridBbox(candidates.map(candidate => candidate.route));
   const startMs = Math.min(...candidates.map(c => parseUtc(c.departureUtc)));
   const endMs = Math.max(...candidates.map(c => {
     const schedules = computeRouteSchedules(c.route, c.departureUtc);

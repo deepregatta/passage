@@ -9,6 +9,7 @@
 
 import { parseUtc } from '../eta.js';
 import type { RunManifest } from './store.js';
+import { hourlyTimesMs } from './tileMath.js';
 
 /** ECMWF's layers, the full-horizon one first. */
 export const ECMWF_LAYERS = ['weather-ecmwf', 'weather-ecmwf-short'] as const;
@@ -61,6 +62,29 @@ export function newestRunAt(spans: ReadonlyArray<RunSpan | null>, timeMs: number
 /** Index of the newest run whose axis covers the whole period, or −1 when none does. */
 export function newestRunCovering(spans: ReadonlyArray<RunSpan | null>, startMs: number, endMs: number): number {
   return newestOf(spans, (span) => span.startMs <= startMs && endMs <= span.endMs);
+}
+
+/**
+ * For every whole hour of [startMs, endMs], the index (into `manifests`) of the
+ * newest ECMWF run covering it, or −1. The store reads hazard series with this
+ * choice, and the download quote asks the same question.
+ */
+export function ecmwfRunChoice(
+  manifests: ReadonlyArray<RunManifest>, startMs: number, endMs: number,
+): { hours: number[]; choice: number[] } {
+  const spans = manifests.map((manifest) => runSpan(manifest, 'wind_u_kt'));
+  const hours = hourlyTimesMs(startMs, endMs);
+  return { hours, choice: hours.map((t) => newestRunAt(spans, t)) };
+}
+
+/**
+ * The ECMWF layers a hazard read of [startMs, endMs] opens: a lone run is read
+ * whatever the window, several only where `ecmwfRunChoice` picks them.
+ */
+export function ecmwfLayersRead(manifests: ReadonlyArray<RunManifest>, startMs: number, endMs: number): string[] {
+  if (manifests.length <= 1) return manifests.map((manifest) => manifest.layer);
+  const { choice } = ecmwfRunChoice(manifests, startMs, endMs);
+  return manifests.filter((_, i) => choice.includes(i)).map((manifest) => manifest.layer);
 }
 
 /** A run's share of a combined series: the valid times it served, as hourly ranges. */

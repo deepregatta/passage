@@ -58,6 +58,40 @@ function snapToAuditCell(value: number): number {
   return Math.round(value / AUDIT_CELL_DEG) * AUDIT_CELL_DEG;
 }
 
+export interface AuditSamplePlan {
+  /** the leg sample points, snapped to the audit cell */
+  points: Array<{ lat: number; lon: number }>;
+  /** the forecast window every layer is read for */
+  startMs: number;
+  endMs: number;
+}
+
+/**
+ * Where and when `runAnalysis` samples a route: the snapped leg midpoints and
+ * the window from 00Z on the departure day to a day past the slowest arrival,
+ * widened by `dateWindow`. The download quote asks the same question.
+ */
+export function auditSamplePlan(
+  route: Route,
+  departureUtc: string,
+  dateWindow?: { startDate: string; endDate: string },
+): AuditSamplePlan {
+  const midpoints = legMidpoints(deriveLegs(route));
+  const schedules = computeRouteSchedules(route, departureUtc);
+  const derivedStart = toIso(parseUtc(departureUtc)).slice(0, 10);
+  const derivedEnd = toIso(
+    parseUtc(schedules[schedules.length - 1]!.exit.slow) + 24 * 3600_000,
+  ).slice(0, 10);
+  // ISO dates compare lexicographically; the override may only widen the window
+  const startDate = dateWindow && dateWindow.startDate < derivedStart ? dateWindow.startDate : derivedStart;
+  const endDate = dateWindow && dateWindow.endDate > derivedEnd ? dateWindow.endDate : derivedEnd;
+  return {
+    points: midpoints.map((p) => ({ lat: snapToAuditCell(p.lat), lon: snapToAuditCell(p.lon) })),
+    startMs: parseUtc(`${startDate}T00:00Z`),
+    endMs: parseUtc(`${endDate}T00:00Z`) + 24 * 3600_000,
+  };
+}
+
 export interface AnalyzeResult {
   findings: Findings;
   briefing: Briefing;
@@ -75,28 +109,7 @@ export async function runAnalysis(options: AnalyzeOptions): Promise<AnalyzeResul
   if (!route.speeds_kt) throw new Error('Route needs speeds_kt (polar ETAs land with routing)');
   const progress = options.onProgress ?? (() => {});
 
-  const legs = deriveLegs(route);
-  const midpoints = legMidpoints(legs);
-  const schedules = computeRouteSchedules(route, departureUtc);
-  const derivedStart = toIso(parseUtc(departureUtc)).slice(0, 10);
-  const derivedEnd = toIso(
-    parseUtc(schedules[schedules.length - 1]!.exit.slow) + 24 * 3600_000,
-  ).slice(0, 10);
-  // ISO dates compare lexicographically; the override may only widen the window
-  const startDate =
-    options.dateWindow && options.dateWindow.startDate < derivedStart
-      ? options.dateWindow.startDate
-      : derivedStart;
-  const endDate =
-    options.dateWindow && options.dateWindow.endDate > derivedEnd
-      ? options.dateWindow.endDate
-      : derivedEnd;
-  const startMs = parseUtc(`${startDate}T00:00Z`);
-  const endMs = parseUtc(`${endDate}T00:00Z`) + 24 * 3600_000;
-  const points = midpoints.map((p) => ({
-    lat: snapToAuditCell(p.lat),
-    lon: snapToAuditCell(p.lon),
-  }));
+  const { points, startMs, endMs } = auditSamplePlan(route, departureUtc, options.dateWindow);
 
   progress('reading forecast run manifest');
   await store.init();

@@ -6,10 +6,12 @@ import { localDateTimeToIso, toLocalDateTimeValue } from '../../lib/format.js';
 import { useApp } from '../../stores/appStore.js';
 import { usePlanner } from '../../stores/plannerStore.js';
 import { analyzeInBrowser, saveRoute, prepareAnalysisInputs } from '../../lib/browserAnalysis.js';
-import { FORECAST_HOURS, loadRoutingInputs as loadLiveRoutingInputs } from '../../lib/routingInputs.js';
+import { loadRoutingInputs as loadLiveRoutingInputs } from '../../lib/routingInputs.js';
+import { scanDateWindow } from '../../lib/scanWindow.js';
 import { forecastStore } from '../../lib/forecastStore.js';
 import { withFreshForecast } from '../../lib/forecastFreshness.js';
 import { validateDeparture } from './departureInput.js';
+import useDownloadQuotes from './useDownloadQuotes.js';
 import { loadPorts, loadedPorts, portNameAt } from '../../lib/ports.js';
 import { GENERIC_NAME, defaultPassageName, placedPoint } from './passageName.js';
 import { ACTION, blockReason, friendlyError } from './plannerFeedback.js';
@@ -321,14 +323,7 @@ export default function usePlannerController() {
       }
       // one shared assessment window covering every candidate: all candidates read
       // the same immutable tile run and share the tile cache
-      const scanEndMs = Math.min(
-        Date.parse(departures[departures.length - 1]) + (scanPassageHours + 24) * 3600_000,
-        Date.now() + FORECAST_HOURS * 3600_000,
-      );
-      const dateWindow = {
-        startDate: departures[0].slice(0, 10),
-        endDate: new Date(Math.max(scanEndMs, Date.parse(departures[0]))).toISOString().slice(0, 10),
-      };
+      const dateWindow = scanDateWindow(departures, scanPassageHours);
       const partial = [];
       const scanInputs = freezeActionInputs({ ...action, currentInput });
       const result = await scanDepartures({ ...scanInputs, routeFor, dateWindow }, departures, (c) => {
@@ -401,6 +396,12 @@ export default function usePlannerController() {
     ? staleRouteMessage(changedRoutingInputs(discardedKey, { endpoints, polarId, departureLocal, polarPercent }))
     : null;
   const blocked = (action) => blockReason(action, { mode, endpoints, polarId, route, speedsValid, departureIssue, polarPercentValid });
+  // Scan is held by the same reasons as Check. The line under a button is for an action that can run.
+  const canCheck = blocked(ACTION.check) === null;
+  const downloadLines = useDownloadQuotes({
+    want: { compute: mode === 'compute' && blocked(ACTION.compute) === null, scan: canCheck, check: canCheck },
+    busy, mode, endpoints, polarId, route, departureUtc, passageHours,
+  });
 
   /** Run again whatever just failed. A failed GPX import has nothing to re-run: it asks for another file. */
   const retryAction = (kind) => {
@@ -438,6 +439,6 @@ export default function usePlannerController() {
     seededFromCompute: mode === 'draw' && seededFromCompute && waypoints.length > 0,
     clearedNotice: cleared?.signature === signature,
     route, distance, speedsValid, passageHours, departureUtc, addWaypoint, moveWaypoint,
-    runRouting, onGpx, runScan, run
+    runRouting, onGpx, runScan, run, downloadLines
   };
 }

@@ -891,6 +891,8 @@ const FR = {
   'Wind – ECMWF': 'Vent – ECMWF',
   'Choose a smaller area for this regional model.': 'Choisissez une zone plus petite pour ce modèle régional.',
   'Forecast tile transfer': 'Transfert des tuiles de prévision',
+  // Planner: the line under Compute, Scan and Check (downloadQuote.js)
+  'Forecast tiles already on this device': 'Tuiles de prévision déjà présentes sur cet appareil',
   'Wind – AROME': 'Vent – AROME',
   'Wind – ICON-EU': 'Vent – ICON-EU',
   'Wind – UKV': 'Vent – UKV',
@@ -1218,6 +1220,7 @@ const FR_PATTERNS = [
   [/^1 step$/, '1 échéance'],
   [/^(\d+) steps$/, '$1 échéances'],
   [/^(≈ )?(\d+(?:\.\d+)?) (kB|MB)$/, (_match, approx = '', value, unit) => `${approx}${value} ${unit === 'kB' ? 'ko' : 'Mo'}`],
+  [/^Downloads (up to|at least) (\d+(?:\.\d+)?) (kB|MB) of forecast tiles$/, (_match, bound, value, unit) => `Téléchargement : ${bound === 'up to' ? 'jusqu’à' : 'au moins'} ${value} ${unit === 'kB' ? 'ko' : 'Mo'} de tuiles de prévision`],
   [/^This forecast ends (.+) UTC, before the end of your period\.$/, 'Cette prévision s’arrête le $1 UTC, avant la fin de votre période.'],
   [/^Gusts are the maximum over the ((?:\d+, )*\d+(?: or \d+)?) h before each time, rather than instantaneous values\.$/, (_match, list) => `Les rafales sont le maximum sur la période de ${list.replace(' or ', ' ou ')} h précédant chaque échéance, et non des valeurs instantanées.`],
   [/^This file would be about (\d+(?:\.\d+)?) (kB|MB), over the 200 MB limit\. Draw a smaller box or choose a shorter period\.$/, (_match, value, unit) => `Ce fichier ferait environ ${value} ${unit === 'kB' ? 'ko' : 'Mo'}, au-delà de la limite de 200 Mo. Tracez un cadre plus petit ou choisissez une période plus courte.`],

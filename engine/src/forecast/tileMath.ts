@@ -143,6 +143,29 @@ export function edgeNeighbourProbes(
   return probes;
 }
 
+/**
+ * The published tiles a read at (lat, lon) can open: the tile containing the
+ * point and, since there is no tile header to say which side the nearest grid
+ * point lies on, every edge neighbour within one cell (`locate` in the store
+ * opens one of them only when the point's nearest grid point is not in the
+ * home tile). An upper bound, never an under-count.
+ */
+export function pointTileIds(
+  manifest: { tiles: Record<string, unknown>; tiling: { tile_deg: number }; resolution_deg: number },
+  lat: number,
+  lon: number,
+): string[] {
+  const x = normalizeLon(lon);
+  const deg = manifest.tiling.tile_deg;
+  const ids: string[] = [];
+  const home = tileIdFor(lat, x, deg);
+  if (manifest.tiles[home]) ids.push(home);
+  for (const probe of edgeNeighbourProbes(null, lat, x, manifest.resolution_deg, deg)) {
+    if (manifest.tiles[probe.tileId]) ids.push(probe.tileId);
+  }
+  return ids;
+}
+
 /** The whole hours resampleToHourly reports for a window: start floored, end ceiled. */
 export function hourlyTimesMs(startMs: number, endMs: number): number[] {
   const HOUR = 3_600_000;

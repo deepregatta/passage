@@ -114,5 +114,10 @@
   "Latest run": "Dernière analyse",
   "contributors, seamarks © OpenSeaMap": "contributeurs, balisage © OpenSeaMap",
   "Forecast above observation": "Prévision supérieure à l’observation",
-  "Forecast below observation": "Prévision inférieure à l’observation"
+  "Forecast below observation": "Prévision inférieure à l’observation",
+  "Downloads up to 12 MB of forecast tiles": "Téléchargement : jusqu’à 12 Mo de tuiles de prévision",
+  "Downloads up to 2.5 MB of forecast tiles": "Téléchargement : jusqu’à 2,5 Mo de tuiles de prévision",
+  "Downloads up to 800 kB of forecast tiles": "Téléchargement : jusqu’à 800 ko de tuiles de prévision",
+  "Downloads at least 12 MB of forecast tiles": "Téléchargement : au moins 12 Mo de tuiles de prévision",
+  "Forecast tiles already on this device": "Tuiles de prévision déjà présentes sur cet appareil"
 }

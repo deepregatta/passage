@@ -106,6 +106,12 @@ export interface TileTransport {
 
 export interface TileCache {
   get(key: string): Promise<Uint8Array | null>;
+  /**
+   * Whether the key is stored, with no side effect: unlike `get` it must not
+   * update recency or read the bytes. Optional; a cache without it reports
+   * nothing as present (the download quote then subtracts no tiles).
+   */
+  has?(key: string): Promise<boolean>;
   put(key: string, bytes: Uint8Array, runId: string): Promise<void>;
   /** Remove one corrupt entry without evicting healthy tiles in the same run. */
   delete(key: string): Promise<void>;
@@ -117,6 +123,9 @@ export class MemoryTileCache implements TileCache {
   private store = new Map<string, { bytes: Uint8Array; runId: string }>();
   async get(key: string): Promise<Uint8Array | null> {
     return this.store.get(key)?.bytes ?? null;
+  }
+  async has(key: string): Promise<boolean> {
+    return this.store.has(key);
   }
   async put(key: string, bytes: Uint8Array, runId: string): Promise<void> {
     this.store.set(key, { bytes, runId });

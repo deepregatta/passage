@@ -29,7 +29,7 @@ export default function Planner() {
     setName, setSpeeds, setDepartureLocal, setPolarPercent, busy, activeAction, failure, notice, staleRoute,
     departureIssue, blocked, retryAction, clearDraft, undoClear, clearedNotice, seededFromCompute, fitNonce, fileRef,
     route, distance, speedsValid, passageHours, addWaypoint, moveWaypoint,
-    runRouting, onGpx, runScan, run
+    runRouting, onGpx, runScan, run, downloadLines
   } = usePlannerController();
   // Every status below takes the same inputs; each one picks out its own action.
   const status = { activeAction, busy, failure, notice, onRetry: () => retryAction(failure?.kind), onSwitchToDraw: () => setMode('draw') };
@@ -200,10 +200,12 @@ export default function Planner() {
                   type="button"
                   onClick={runRouting}
                   disabled={computeBlocked !== null || busy !== null}
+                  aria-describedby={downloadLines.compute ? 'download-compute' : undefined}
                   className="w-full min-h-11 border border-ink/50 rounded-sm px-3 py-2 hover:bg-white/50 disabled:opacity-40"
                 >
                   {running(ACTION.compute) ? BUSY_BUTTON_LABEL.compute : 'Compute route'}
                 </button>
+                {downloadLines.compute && <p id="download-compute" className="text-[12px] text-ink-soft">{downloadLines.compute}</p>}
                 <ActionStatus kind={ACTION.compute} {...status} />
                 <div aria-live="polite" className="space-y-1 empty:hidden">
                   {busy === null && computeBlocked && <p className="text-[13px] text-ink-soft">{computeBlocked}</p>}
@@ -296,10 +298,12 @@ export default function Planner() {
               type="button"
               onClick={runScan}
               disabled={checkBlocked !== null || busy !== null}
+              aria-describedby={downloadLines.scan ? 'download-scan' : undefined}
               className="text-left text-event underline underline-offset-4 min-h-11 disabled:opacity-40 disabled:no-underline"
             >
               {running(ACTION.scan) ? BUSY_BUTTON_LABEL.scan : 'Compare departure times (next 5 days)'}
             </button>
+            {downloadLines.scan && <p id="download-scan" className="text-[12px] text-ink-soft">{downloadLines.scan}</p>}
             <ActionStatus kind={ACTION.scan} {...status} />
             <div aria-live="polite" className="empty:hidden">
               {busy === null && scanBlocked && <p className="text-[13px] text-ink-soft">{scanBlocked}</p>}
@@ -320,10 +324,12 @@ export default function Planner() {
               type="button"
               onClick={() => run()}
               disabled={!canCheck}
+              aria-describedby={downloadLines.check ? 'download-check' : undefined}
               className="w-full min-h-12 bg-ink text-paper font-medium text-[15px] rounded-sm px-3 py-2.5 hover:bg-ink-deep disabled:opacity-40"
             >
               {running(ACTION.check) ? BUSY_BUTTON_LABEL.check : 'Check this passage'}
             </button>
+            {downloadLines.check && <p id="download-check" className="text-[12px] text-ink-soft">{downloadLines.check}</p>}
             <ActionStatus kind={ACTION.check} {...status} />
             <div aria-live="polite" className="empty:hidden">
               {busy === null && checkBlocked && <p className="text-[13px] text-ink-soft">{checkBlocked}</p>}

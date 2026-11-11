@@ -151,4 +151,64 @@ describe('IndexedDbTileCache', () => {
     expect(await records(db, 'metadata')).toEqual([{ key: 'r/a', run_id: 'r', size: 10, used_at: expect.any(Number) }]);
     expect(Object.keys((await records(db, 'tiles'))[0]).sort()).toEqual(['bytes', 'key']);
   });
+
+  describe('has', () => {
+    it('is true after put, false before it and after delete', async () => {
+      const cache = makeCache();
+      expect(await cache.has('r/a')).toBe(false);
+      await cache.put('r/a', new Uint8Array(10), 'r');
+      expect(await cache.has('r/a')).toBe(true);
+      expect(await cache.has('r/other')).toBe(false);
+      await cache.delete('r/a');
+      expect(await cache.has('r/a')).toBe(false);
+    });
+
+    it('is false after run eviction and after budget eviction', async () => {
+      const cache = makeCache();
+      await cache.put('old/a', new Uint8Array(10), 'old');
+      await cache.put('keep/b', new Uint8Array(10), 'keep');
+      await cache.evictExcept(['keep']);
+      expect(await cache.has('old/a')).toBe(false);
+      expect(await cache.has('keep/b')).toBe(true);
+
+      const now = vi.spyOn(Date, 'now').mockReturnValue(1);
+      await cache.put('r/a', new Uint8Array(40), 'keep');
+      now.mockReturnValue(2);
+      await cache.put('r/b', new Uint8Array(40), 'keep');
+      now.mockReturnValue(3);
+      await cache.put('r/c', new Uint8Array(40), 'keep'); // over the 100-byte budget: the oldest goes
+      expect(await cache.has('r/a')).toBe(false);
+      expect(await cache.has('r/b')).toBe(true);
+      expect(await cache.has('r/c')).toBe(true);
+    });
+
+    it('leaves recency, metadata and tile bytes alone, unlike get', async () => {
+      const cache = makeCache();
+      const now = vi.spyOn(Date, 'now').mockReturnValue(1);
+      await cache.put('r/a', new Uint8Array(40), 'r');
+      now.mockReturnValue(2);
+      await cache.put('r/b', new Uint8Array(40), 'r');
+      const before = await records(await cache.db(), 'metadata');
+
+      now.mockReturnValue(3);
+      const writes = vi.spyOn(IDBObjectStore.prototype, 'put');
+      const reads = vi.spyOn(IDBObjectStore.prototype, 'get');
+      for (let i = 0; i < 3; i++) expect(await cache.has('r/a')).toBe(true);
+      expect(writes).not.toHaveBeenCalled();
+      expect(reads).not.toHaveBeenCalled(); // no tile bytes materialised
+      expect(cache.touched.size).toBe(0);
+      expect(await records(await cache.db(), 'metadata')).toEqual(before);
+
+      // r/a is still the least recently used, so it is the one a new tile evicts
+      now.mockReturnValue(4);
+      await cache.put('r/c', new Uint8Array(40), 'r');
+      expect(await cache.has('r/a')).toBe(false);
+      expect(await cache.has('r/b')).toBe(true);
+    });
+
+    it('answers false rather than throwing when storage is unavailable', async () => {
+      vi.stubGlobal('indexedDB', undefined);
+      await expect(makeCache().has('r/a')).resolves.toBe(false);
+    });
+  });
 });

@@ -11,6 +11,7 @@ import { parseUtc, toIso } from '../eta.js';
 import { newestRunCovering, runSpan } from '../forecast/modelRuns.js';
 import type { RunManifest } from '../forecast/store.js';
 import { tileIdFromOrigin, type Bbox } from '../forecast/tileMath.js';
+import { publishedTileBytes } from '../forecast/storeGeometry.js';
 import { GRIB_STATISTIC_EXTRA_BYTES, type GribLattice, type LonConvention } from './grib2.js';
 import { GRIB_DATASETS, type GribDatasetSpec, type GribVariableSpec } from './gribDatasets.js';
 
@@ -307,7 +308,7 @@ function planTiles(manifest: RunManifest, lattice: GribLattice): GribPlannedTile
   const present = Object.keys(manifest.tiles).filter((id) => wanted.has(id));
   const absent = [...wanted].filter((id) => !manifest.tiles[id]).sort();
   return [
-    ...present.map((id) => ({ id, present: true, bytes: manifest.tiles[id]!.bytes })),
+    ...present.map((id) => ({ id, present: true, bytes: publishedTileBytes(manifest, id)! })),
     ...absent.map((id) => ({ id, present: false, bytes: 0 })),
   ];
 }

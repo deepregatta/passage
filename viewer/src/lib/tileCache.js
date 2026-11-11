@@ -92,6 +92,20 @@ export class IndexedDbTileCache {
     }
   }
 
+  /**
+   * Whether the tile is stored, for the download quote. Reads only the small
+   * metadata record: no tile bytes, no recency update, nothing added to
+   * `touched`. Any storage failure answers false (the quote then subtracts nothing).
+   */
+  async has(key) {
+    try {
+      const db = await this.db();
+      return (await tx(db, [METADATA], 'readonly', t => t.objectStore(METADATA).getKey(key))) !== undefined;
+    } catch {
+      return false;
+    }
+  }
+
   async put(key, bytes, runId) {
     try {
       const db = await this.db();

@@ -11,8 +11,8 @@ export { preparedSynopticCoverage, CHANNEL_PREPARED_COVERAGE } from './synopticC
 export { ENGINE_VERSION } from './version.js';
 export { contentHash } from './hash.js';
 
-export { runAnalysis, persistSnapshot } from './analyze.js';
-export type { AnalyzeOptions, AnalyzeResult } from './analyze.js';
+export { runAnalysis, persistSnapshot, auditSamplePlan } from './analyze.js';
+export type { AnalyzeOptions, AnalyzeResult, AuditSamplePlan } from './analyze.js';
 export { deriveLegs, legMidpoints, totalDistanceNm } from './route.js';
 export { computeSchedules, computeRouteSchedules, parseUtc, toIso } from './eta.js';
 export { parseGpx } from './gpx.js';
@@ -30,6 +30,7 @@ export { quantile } from './quantile.js';
 export { scenarioSpread, SCENARIO_SPREAD_MIN_MEMBERS } from './scenarioSpread.js';
 export type { ScenarioSpread, ScenarioSpreadValues } from './scenarioSpread.js';
 export { routeBbox, passageMaxHours } from './fetch/liveGrids.js';
+export { currentGridBbox } from './currentInput.js';
 export type { RouteBbox } from './fetch/liveGrids.js';
 export { GridSampler, alongCourseKt, currentSetDeg, currentSpeedKt } from './grids.js';
 export type { RegionGrid, GridSample } from './grids.js';
@@ -91,6 +92,8 @@ export {
   resampleToHourly,
 } from './forecast/tileMath.js';
 export type { Bbox, TileOrigin } from './forecast/tileMath.js';
+export { quoteTileDownload, routingTileRequests, auditTileRequests } from './forecast/tileRequests.js';
+export type { TileRequest, TileQuote } from './forecast/tileRequests.js';
 export * from './types.js';
 export { eventKeyForSystem, assignEventKeys, matchSystems } from './events.js';
 export { encodeGrib2Message, gribRound, latticeCornersMicro } from './export/grib2.js';
