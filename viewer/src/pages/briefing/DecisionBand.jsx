@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import clsx from 'clsx';
 import { EvidenceLink, VerdictChip } from '../../components/common.jsx';
 import { isEmulatedWarning } from '../../components/BulletinPanel.jsx';
@@ -7,7 +8,8 @@ import { useApp } from '../../stores/appStore.js';
 import { newPassageId } from '../../lib/passageIdentity.js';
 import { usePlanner } from '../../stores/plannerStore.js';
 import { routeTitle } from './routeLabels.jsx';
-import { userRouteName } from '../../lib/passages.js';
+import { OWNED, passageKeyOf, userRouteName } from '../../lib/passages.js';
+import { passageLabels } from '../../lib/passageLabels.js';
 import { nextRunText } from './nextRunText.js';
 import { useGoverningReason, verdictSentences } from './verdictSentence.js';
 import useNowMs from '../../hooks/useNowMs.js';
@@ -34,6 +36,10 @@ export default function DecisionBand({ findings, warningEvidence, onOpenBulletin
   const setPage = useApp((s) => s.setPage);
   const route = useApp((s) => s.route);
   const warnings = useApp((s) => s.warnings);
+  // a name the sailor gave on My passages is a display label for the whole passage: it leads here too
+  const snapshots = useApp((s) => s.manifest?.snapshots);
+  const snapshotId = useApp((s) => s.snapshotId);
+  const label = useMemo(() => passageLabels.all()[passageKeyOf(snapshots, snapshotId)] ?? null, [snapshots, snapshotId]);
   const warningActive = findings.verdict.warning_override?.active;
   const emulated = warningActive && isEmulatedWarning(warningEvidence, warnings);
   const state = warningActive ? 'warning_active' : findings.verdict.state;
@@ -67,7 +73,7 @@ export default function DecisionBand({ findings, warningEvidence, onOpenBulletin
     <section aria-label="Decision" data-testid="decision-band" className="bg-shoal/70 border-b border-ink/30">
       <div className="px-4 sm:px-6 py-5 max-w-[1600px] mx-auto flex flex-col gap-3">
         <div className="min-w-0">
-          <p className="font-chart text-[20px] sm:text-[24px] leading-tight">{userRouteName(route) ?? routeTitle(findings)}</p>
+          <p className="font-chart text-[20px] sm:text-[24px] leading-tight" {...(label ? OWNED : {})}>{label ?? userRouteName(route) ?? routeTitle(findings)}</p>
           <p className="font-mono text-[12px] text-ink-soft mt-1">
             <span>dep</span> {fmtLocalTime(findings.departure_utc)} · <span>times in</span> {localTimeZoneName()}
           </p>

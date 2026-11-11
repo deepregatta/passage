@@ -27,6 +27,12 @@ const groupKey = (snapshot) => snapshot.identity_version === 2 && snapshot.passa
     ? `served|reference|${snapshot.legacy_history_id}`
     : `${source(snapshot)}|snapshot|${snapshot.snapshot_id}`;
 
+/** The grouping key of a saved check: the key its passage's rename (lib/passageLabels.js) is stored under. */
+export function passageKeyOf(snapshots, snapshotId) {
+  const snapshot = (snapshots ?? []).find((item) => item.snapshot_id === snapshotId);
+  return snapshot ? groupKey(snapshot) : null;
+}
+
 /** One deterministic order for progress stations and chronological comparisons. */
 export function compareChecks(a, b) {
   const time = (created(a) || 0) - (created(b) || 0);

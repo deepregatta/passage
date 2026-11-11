@@ -5,6 +5,7 @@ import { useApp } from '../src/stores/appStore.js';
 import { usePlanner } from '../src/stores/plannerStore.js';
 import { usePlayback } from '../src/stores/playbackStore.js';
 import { localDateTimeToIso } from '../src/lib/format.js';
+import { PASSAGE_LABELS_KEY, passageLabels } from '../src/lib/passageLabels.js';
 import savedFindings from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/findings.json';
 import savedBriefing from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/briefing.json';
 import savedSynoptic from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/synoptic.json';
@@ -118,6 +119,28 @@ it('names one event and one phase on the first screen: the hero chart follows th
   expect(useApp.getState().selectedEvidenceId).toBe('E5');
   // the engine's system and leg ids stay out of the default reading register
   expect(screen.getByText(/· boat near /)).not.toHaveTextContent(/\b(L\d|CE\d|E\d+)\b/);
+});
+
+it('leads the page header with the name given on My passages, and the route name without one', () => {
+  const check = { snapshot_id: 'snap-renamed', created_at: '2026-07-19T18:00:00Z', route_id: 'cherbourg-plymouth-v1', departure_utc: findings.departure_utc, identity_version: 2, passage_id: 'intent-1', local: true };
+  useApp.setState({ manifest: { snapshots: [check] }, snapshotId: check.snapshot_id });
+  const header = () => within(screen.getByTestId('decision-band')).getByText(/Cherbourg → Plymouth|Casquets run/);
+  try {
+    localStorage.clear();
+    passageLabels.forgetMemory();
+    const { unmount } = render(<Briefing />);
+    expect(header()).toHaveTextContent('Cherbourg → Plymouth breakwater');
+    unmount();
+    // the label is stored under the passage's grouping key, as My passages does
+    localStorage.setItem(PASSAGE_LABELS_KEY, JSON.stringify({ 'local|passage|intent-1': 'Casquets run' }));
+    passageLabels.forgetMemory();
+    render(<Briefing />);
+    expect(header()).toHaveTextContent('Casquets run');
+    expect(screen.queryByText('Cherbourg → Plymouth breakwater')).toBeNull();
+  } finally {
+    localStorage.clear();
+    passageLabels.forgetMemory();
+  }
 });
 
 it('shows the verdict state on the chip and the personal-limit result in the sentence beside it', () => {
