@@ -110,6 +110,11 @@ body {
 
 button { touch-action: manipulation; }
 
+/* Plan markers: only the 44 px hit square inside takes the pointer, so that
+   two close points divide the overlap between them (plannerMarkers.js). */
+.passage-marker { pointer-events: none !important; }
+.passage-marker [data-marker-hit] { pointer-events: auto; }
+
 /* Phone maps let one finger scroll the page (lib/mapTouchScroll.js); a
    draggable waypoint or box corner still takes its own one-finger drag. */
 .map-touch-scroll .leaflet-marker-draggable { touch-action: none; }

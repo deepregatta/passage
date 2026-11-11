@@ -63,6 +63,7 @@ vi.mock('react-leaflet', async () => {
     mapState.container ??= document.createElement('div');
     return {
       fitBounds: (bounds) => mapState.fits.push(bounds), getContainer: () => mapState.container,
+      eachLayer: () => {}, on: () => {}, off: () => {},
       dragging: handler, boxZoom: handler, doubleClickZoom: handler,
     };
   },

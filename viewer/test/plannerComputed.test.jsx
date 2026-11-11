@@ -11,7 +11,7 @@ import { localDateTimeToIso, toLocalDateTimeValue } from '../src/lib/format.js';
 import limits from '../../config/profiles/default-limits.json';
 import { auditStore, DEPARTURE, routingInputs } from './fixtures/routingTiming.js';
 
-const mapEvents = vi.hoisted(() => ({ click: null, fitBounds: vi.fn() }));
+const mapEvents = vi.hoisted(() => ({ click: null, fitBounds: vi.fn(), eachLayer: () => {}, on: () => {}, off: () => {} }));
 
 vi.mock('react-leaflet', () => ({
   MapContainer: ({ children }) => <div>{children}</div>, TileLayer: () => null,

@@ -5,7 +5,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { BASEMAP } from '../../lib/basemap.js';
 import MapTouchScroll from '../../components/MapTouchScroll.jsx';
-import { labelMarker, markerIcon, markerSpecs } from './plannerMarkers.js';
+import { labelMarker, markerIcon, markerSpecs, separateMarkerTargets } from './plannerMarkers.js';
 
 /** The map frame stretches to the Passage panel beside it; tell Leaflet whenever
  * that height changes so tiles fill the new area. */
@@ -16,6 +16,15 @@ function TrackFrameSize({ frameRef }) {
     observer.observe(frameRef.current);
     return () => observer.disconnect();
   }, [map, frameRef]);
+  return null;
+}
+
+/** Where two points are closer than a marker's 44 px box, each keeps the part of
+ * the overlap nearest to it, so the point the finger is nearest to is the one
+ * picked. Recomputed when the points change and when the zoom moves them apart. */
+function SeparateMarkerTargets({ points }) {
+  const map = useMap();
+  useEffect(() => separateMarkerTargets(map), [map, points]);
   return null;
 }
 
@@ -77,6 +86,7 @@ export default function PlannerMap({ mode, waypoints, computed, endpoints, fitNo
           markerSpecs(waypoints.length).map((spec, i) => (
             <Marker
               key={`${i}:${spec.ariaLabel}`}
+              pointIndex={i}
               position={waypoints[i]}
               icon={markerIcon(spec)}
               title={spec.ariaLabel}
@@ -98,12 +108,14 @@ export default function PlannerMap({ mode, waypoints, computed, endpoints, fitNo
           markerSpecs(endpoints.length).map((spec, i) => (
             <Marker
               key={`ep${i}:${spec.ariaLabel}`}
+              pointIndex={i}
               position={endpoints[i]}
               icon={markerIcon(spec)}
               title={spec.ariaLabel}
               eventHandlers={labelMarker(spec)}
             />
           ))}
+        <SeparateMarkerTargets points={mode === 'draw' ? waypoints : endpoints} />
         {mode === 'compute' && computed && (
           <Polyline
             positions={computed.route.waypoints.map((wp) => [wp.lat, wp.lon])}

@@ -12,7 +12,7 @@ import limits from '../../config/profiles/default-limits.json';
 vi.mock('react-leaflet', () => ({
   MapContainer: ({ children }) => <div>{children}</div>, TileLayer: () => null,
   Marker: () => null, Polyline: () => null, Rectangle: () => null,
-  useMap: () => ({ fitBounds: vi.fn() }), useMapEvents: vi.fn(),
+  useMap: () => ({ fitBounds: vi.fn(), eachLayer: vi.fn(), on: vi.fn(), off: vi.fn() }), useMapEvents: vi.fn(),
 }));
 vi.mock('../src/components/BoatPicker.jsx', () => ({ default: () => null }));
 vi.mock('../src/lib/routingInputs.js', async (original) => ({ ...await original(), loadRoutingInputs: vi.fn() }));

@@ -8,7 +8,7 @@ import { loadRoutingInputs } from '../src/lib/routingInputs.js';
 import { analyzeInBrowser, prepareAnalysisInputs } from '../src/lib/browserAnalysis.js';
 import limits from '../../config/profiles/default-limits.json';
 
-const mapEvents = vi.hoisted(() => ({ click: null, fitBounds: vi.fn() }));
+const mapEvents = vi.hoisted(() => ({ click: null, fitBounds: vi.fn(), eachLayer: () => {}, on: () => {}, off: () => {} }));
 
 vi.mock('react-leaflet', () => ({
   MapContainer: ({ children }) => <div>{children}</div>, TileLayer: () => null,

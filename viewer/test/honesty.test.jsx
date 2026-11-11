@@ -15,7 +15,7 @@ import { renderBriefing } from '@deepweather/engine';
 vi.mock('react-leaflet', () => ({
   MapContainer: ({ children }) => <div>{children}</div>, TileLayer: () => null,
   Marker: () => null, Polyline: () => null,
-  useMap: () => ({ fitBounds: vi.fn() }), useMapEvents: vi.fn(),
+  useMap: () => ({ fitBounds: vi.fn(), eachLayer: vi.fn(), on: vi.fn(), off: vi.fn() }), useMapEvents: vi.fn(),
 }));
 vi.mock('../src/components/lazy/EChartsLazy.jsx', () => ({ default: () => null }));
 vi.mock('../src/components/lazy/LeafletLazy.jsx', () => ({ default: () => null }));

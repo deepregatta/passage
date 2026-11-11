@@ -8,7 +8,7 @@ import { useApp } from '../src/stores/appStore.js';
 vi.mock('react-leaflet', () => ({
   MapContainer: ({ children }) => <div>{children}</div>, TileLayer: () => null,
   Marker: () => null, Polyline: () => null, Rectangle: () => null,
-  useMap: () => ({ fitBounds: () => {} }), useMapEvents: vi.fn(),
+  useMap: () => ({ fitBounds: () => {}, eachLayer: () => {}, on: () => {}, off: () => {} }), useMapEvents: vi.fn(),
 }));
 vi.mock('../src/components/lazy/EChartsLazy.jsx', () => ({ default: () => null }));
 vi.mock('../src/components/lazy/LeafletLazy.jsx', () => ({ default: () => <div data-testid="passage-map" /> }));
