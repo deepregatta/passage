@@ -234,8 +234,8 @@ export default function usePlannerController() {
       // first <name> it finds (often the first point's) or to the route id.
       const named = parsed.name !== 'gpx-import' && parsed.name !== parsed.waypoints[0]?.name;
       setWaypoints(points);
+      // Without one the passage keeps its name: the default follows the named ends, a typed name stays.
       if (named) setName(parsed.name);
-      else patch({ nameAuto: true });
       setFitNonce((n) => n + 1);
     } catch (e) {
       failAction(ACTION.gpx, e);

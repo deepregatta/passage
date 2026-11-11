@@ -112,3 +112,15 @@ it('migrates a saved draft: the two default names stay automatic, any other name
   expect(migrate({ name: 'Channel dash' }, 2).nameAuto).toBe(false);
   expect(migrate({ name: 'Channel dash', nameAuto: true }, 3).nameAuto).toBe(true);
 });
+
+it('importing a GPX file without a route name never overwrites a typed name', async () => {
+  usePlanner.setState({ mode: 'draw' });
+  const { container } = render(<Planner />);
+  fireEvent.change(nameInput(), { target: { value: 'Channel dash' } });
+  const gpx = `<gpx><rte><rtept lat="49.65" lon="-1.62"><name>Cherbourg</name></rtept>`
+    + `<rtept lat="50.36" lon="-4.14"><name>Plymouth</name></rtept></rte></gpx>`;
+  const file = new File([gpx], 'crossing.gpx', { type: 'application/gpx+xml' });
+  fireEvent.change(container.querySelector('input[type="file"]'), { target: { files: [file] } });
+  await waitFor(() => expect(usePlanner.getState().waypoints).toHaveLength(2));
+  expect(nameInput()).toHaveValue('Channel dash');
+});

@@ -55,6 +55,20 @@ for (const [width, bar] of [[375, true], [768, true], [800, true], [1000, true],
   });
 }
 
+test('an imported GPX route with named ends names the passage, and a typed name is kept', async ({ page }) => {
+  await page.goto('/#plan');
+  await page.getByRole('tab', { name: 'Draw my route' }).click();
+  const gpx = '<gpx><rte><rtept lat="49.65" lon="-1.62"><name>Cherbourg</name></rtept><rtept lat="50" lon="-3"/>'
+    + '<rtept lat="50.36" lon="-4.14"><name>Plymouth</name></rtept></rte></gpx>';
+  await page.locator('input[type="file"]').setInputFiles({ name: 'crossing.gpx', mimeType: 'application/gpx+xml', buffer: Buffer.from(gpx) });
+  const name = page.getByRole('textbox', { name: 'Name' });
+  await expect(name).toHaveValue('Cherbourg → Plymouth');
+  await name.fill('Channel dash');
+  await page.locator('input[type="file"]').setInputFiles({ name: 'again.gpx', mimeType: 'application/gpx+xml', buffer: Buffer.from(gpx) });
+  await expect(page.getByText('3 waypoints').first()).toBeVisible();
+  await expect(name).toHaveValue('Channel dash');
+});
+
 test('the knots unit stays lower case in the speed label, in English and in French', async ({ page }) => {
   await page.goto('/#plan');
   await page.getByRole('tab', { name: 'Draw my route' }).click();
