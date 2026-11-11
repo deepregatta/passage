@@ -7,6 +7,7 @@ import { usePlayback } from '../src/stores/playbackStore.js';
 import { localDateTimeToIso } from '../src/lib/format.js';
 import savedFindings from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/findings.json';
 import savedBriefing from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/briefing.json';
+import savedSynoptic from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/synoptic.json';
 import savedRoute from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/route.json';
 
 vi.mock('../src/components/lazy/EChartsLazy.jsx', () => ({ default: () => null }));
@@ -98,6 +99,25 @@ it('keeps the story expanded and evidence selected as playback crosses every pha
     expect(why).toHaveAttribute('aria-expanded', 'true');
     expect(useApp.getState().selectedEvidenceId).toBe(findings.verdict.driver_evidence_id);
   }
+});
+
+it('names one event and one phase on the first screen: the hero chart follows the story card', () => {
+  useApp.setState({ synoptic: structuredClone(savedSynoptic) });
+  render(<Briefing />);
+  const story = screen.getByTestId('story-phase');
+  const hero = screen.getByTestId('hero-phase');
+  // the story names the event on the governing leg (L3, on the route 08:38 to 18:03 UTC; the check departs 06:00 UTC)
+  expect(story).toHaveTextContent('what sets this up');
+  expect(hero.textContent).toBe('what sets this up · low-pressure system');
+  for (const [hours, phase] of [[4, 'while you are out there'], [13, 'right after your passage'], [20, 'easing off'], [0, 'what sets this up']]) {
+    act(() => usePlayback.getState().setCursor(hours));
+    expect(story).toHaveTextContent(phase);
+    expect(hero.textContent).toBe(`${phase} · low-pressure system`);
+  }
+  // evidence focus follows the same event and agrees with the claim the verdict sentence quotes (E5)
+  expect(useApp.getState().selectedEvidenceId).toBe('E5');
+  // the engine's system and leg ids stay out of the default reading register
+  expect(screen.getByText(/· boat near /)).not.toHaveTextContent(/\b(L\d|CE\d|E\d+)\b/);
 });
 
 it('shows the verdict state on the chip and the personal-limit result in the sentence beside it', () => {

@@ -45,7 +45,9 @@ test('playback scrub synchronizes the story phase and evidence focus', async ({ 
   await openAuditedSnapshot(page);
   // the story follows the causal event on the leg the verdict sentence names (leg 3, on the
   // route from 08:38 to 18:03 UTC); the example departs 06:00 UTC
-  await expect(page.getByText('what sets this up', { exact: true })).toBeVisible();
+  await expect(page.getByTestId('story-phase')).toHaveText('what sets this up');
+  // the hero chart follows the same event: one phase on the first screen
+  await expect(page.getByTestId('hero-phase')).toHaveText('what sets this up · low-pressure system');
   const ruler = page.getByRole('slider', { name: 'Passage time' });
   await ruler.evaluate((element) => {
     // React tracks the value property: plain `element.value = …` updates the
@@ -55,8 +57,10 @@ test('playback scrub synchronizes the story phase and evidence focus', async ({ 
     element.dispatchEvent(new Event('input', { bubbles: true }));
     element.dispatchEvent(new Event('change', { bubbles: true }));
   });
-  await expect(page.getByText(/while you are out there/i)).toBeVisible();
-  await expect(page.getByText(/system L1 · boat L/i)).toBeVisible();
+  await expect(page.getByTestId('story-phase')).toHaveText('while you are out there');
+  await expect(page.getByTestId('hero-phase')).toHaveText('while you are out there · low-pressure system');
+  // named by place and leg number, never the engine's ids
+  await expect(page.getByText('low-pressure system · boat near Casquets TSS crossing (leg 3)')).toBeVisible();
 });
 
 test('example decision band prioritizes bulletin inspection before charts', async ({ page }) => {

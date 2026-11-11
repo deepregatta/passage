@@ -131,7 +131,10 @@ describe('language selection', () => {
       'The forecast reaches 32 kt against your 28 kt limit near waypoint 8.': 'La prévision atteint 32 nd, pour une limite fixée à 28 nd, près du point de route 8.',
       'models diverge on 7 h of this passage': 'les modèles divergent pendant 7 h sur cette traversée',
       'run 2026-07-13T00:00Z · age 18 h 15 min': 'cycle 2026-07-13T00:00Z · âge 18 h 15 min',
-      'system undefined · boat L1': 'aucun système attribué · bateau L1',
+      'no attributed system · boat near Off Omonville-la-Rogue (leg 1)': 'aucun système attribué · bateau au large d’Omonville-la-Rogue (tronçon 1)',
+      'low-pressure system · boat near Casquets TSS crossing (leg 3)': 'dépression · bateau près de la traversée du DST des Casquets (tronçon 3)',
+      'while you are out there · deepening low': 'pendant votre traversée · dépression qui se creuse',
+      'what sets this up · low-pressure system': 'ce qui met en place cette situation · dépression',
       '8 NM': '8 M',
       'evidence:': 'éléments probants :',
     };

@@ -40,3 +40,20 @@ export function initialSelection(findings, profile) {
     ?? findings.evidence.find((item) => item.member_fraction)?.evidence_id ?? null;
   return { selectedLegId: legId, selectedEvidenceId: evidenceId };
 }
+
+/** The leg the verdict sentence names: its limit result, else the model disagreement, else the other signal. */
+export function governingLegId(reason) {
+  return reason?.result?.leg.leg_id ?? reason?.disagreement?.leg.leg_id ?? reason?.other?.leg.leg_id ?? null;
+}
+
+/**
+ * The causal event the weather story and the hero chart both follow, so the first screen names one
+ * event and one phase: the event crossing the governing leg, else the first event on the route,
+ * else the first event.
+ */
+export function governingCausalEvent(findings, reason) {
+  const events = findings?.causal_events ?? [];
+  const onRoute = events.filter((e) => e.route_intersection);
+  const legId = governingLegId(reason);
+  return (legId ? onRoute.find((e) => e.route_intersection.leg_id === legId) : null) ?? onRoute[0] ?? events[0] ?? null;
+}

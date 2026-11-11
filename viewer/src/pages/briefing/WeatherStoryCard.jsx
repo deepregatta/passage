@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { capitalize, fmtTextTime, placeLabel, plainEventNoun } from '../../lib/format.js';
 import { Term } from '../../lib/glossary.jsx';
+import { governingCausalEvent, governingLegId } from '../../lib/governing.js';
+import { PHASE_PLAIN, phaseAt } from '../../lib/synopticView.js';
 import { useApp } from '../../stores/appStore.js';
 import { usePlayback } from '../../stores/playbackStore.js';
 import AssessmentDetails from './AssessmentDetails.jsx';
@@ -16,13 +18,13 @@ export default function WeatherStoryCard({ findings, sections }) {
   const [expanded, setExpanded] = useState(false);
   const synoptic = useApp((state) => state.synoptic);
   const reason = useGoverningReason(findings);
-  const governingLeg = reason?.result?.leg.leg_id ?? reason?.disagreement?.leg.leg_id ?? reason?.other?.leg.leg_id ?? null;
+  const governingLeg = governingLegId(reason);
 
   const synopticSection = sections.find((s) => s.id === 'synoptic_story');
-  const systemEvents = (findings.causal_events ?? []).filter((e) => e.route_intersection);
   // the note under the heading belongs to the leg the verdict sentence names, never just the first leg
-  const legEvent = governingLeg ? systemEvents.find((e) => e.route_intersection.leg_id === governingLeg) : null;
-  const event = legEvent ?? systemEvents[0] ?? findings.causal_events?.[0];
+  const legEvent = governingLeg ? (findings.causal_events ?? []).find((e) => e.route_intersection?.leg_id === governingLeg) : null;
+  // the hero chart follows the same event (governingCausalEvent), so both name one phase
+  const event = governingCausalEvent(findings, reason);
   const heading = event
     ? `${capitalize(plainEventNoun(event, synoptic))} crosses your passage window`
     : synopticSection
@@ -102,24 +104,9 @@ export default function WeatherStoryCard({ findings, sections }) {
 
 /** Subscribe to the displayed phase, which changes only at event boundaries. */
 function StoryPhase({ findings, event }) {
-  const start = Date.parse(event.route_intersection?.window_start ?? findings.departure_utc);
-  const end = Date.parse(event.route_intersection?.window_end ?? findings.departure_utc);
-  const departure = Date.parse(findings.departure_utc);
-  const phase = usePlayback((state) => {
-    const time = departure + state.cursorHours * 3600_000;
-    return time < start ? 'cause' : time <= end ? 'interception' : time <= end + 6 * 3600_000 ? 'consequence' : 'easing';
-  });
-  return <span className="font-mono text-xs text-ink-soft mt-2 uppercase">{PHASE_PLAIN[phase]}</span>;
+  const phase = usePlayback((state) => phaseAt(findings, event, state.cursorHours));
+  return <span data-testid="story-phase" className="font-mono text-xs text-ink-soft mt-2 uppercase">{PHASE_PLAIN[phase]}</span>;
 }
-
-/** plain phase words for the story eyebrow; the pro phase names stay in the hero chart focus line */
-const PHASE_PLAIN = {
-  cause: 'what sets this up',
-  interception: 'while you are out there',
-  consequence: 'right after your passage',
-  easing: 'easing off',
-  unavailable: '',
-};
 
 const firstSentence = (text) => {
   const s = text.split(/(?<=\.)\s/)[0] ?? text;

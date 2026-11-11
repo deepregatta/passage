@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { phaseAt } from '../lib/synopticView.js';
 
 const HOUR = 3600_000;
 
@@ -23,14 +24,13 @@ export function frameForCursor(findings, synoptic, route, cursorHours, eventId) 
   const from = route?.waypoints?.[legIndex];
   const to = route?.waypoints?.[legIndex + 1];
   const boatPosition = from && to ? { lat: from.lat + (to.lat - from.lat) * progress, lon: from.lon + (to.lon - from.lon) * progress, leg_id: leg?.leg_id } : leg?.sample_point;
-  const intersection = event?.route_intersection;
-  const start = Date.parse(intersection?.window_start ?? findings.departure_utc);
-  const end = Date.parse(intersection?.window_end ?? findings.departure_utc);
-  const phase = !event ? 'unavailable' : cursorMs < start ? 'cause' : cursorMs <= end ? 'interception' : cursorMs <= end + 6 * HOUR ? 'consequence' : 'easing';
+  const phase = phaseAt(findings, event, cursorHours);
   const evidence = (event?.consequence.evidence_ids ?? [])
     .map((id) => findings.evidence.find((item) => item.evidence_id === id))
     .filter((item) => item?.valid_time)
-    .sort((a, b) => Math.abs(Date.parse(a.valid_time) - cursorMs) - Math.abs(Date.parse(b.valid_time) - cursorMs))[0] ?? null;
+    // nearest claim in time; at equal distance the ensemble claim the Evidence section shows wins
+    .sort((a, b) => Math.abs(Date.parse(a.valid_time) - cursorMs) - Math.abs(Date.parse(b.valid_time) - cursorMs)
+      || Number(Boolean(b.member_fraction)) - Number(Boolean(a.member_fraction)))[0] ?? null;
   return {
     cursorTime: new Date(cursorMs).toISOString().replace('.000Z', 'Z'),
     phase,

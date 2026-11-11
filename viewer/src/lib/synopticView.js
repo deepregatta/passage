@@ -19,6 +19,25 @@ export function phaseCaption(phase) {
   return PHASE_CAPTION[phase] ?? PHASE_CAPTION.unavailable;
 }
 
+/** Plain phase words: the weather story's eyebrow and the hero chart's banner use the same ones. */
+export const PHASE_PLAIN = {
+  cause: 'what sets this up',
+  interception: 'while you are out there',
+  consequence: 'right after your passage',
+  easing: 'easing off',
+  unavailable: '',
+};
+
+/** The phase of a causal event at a playback time: before, during, within 6 h after, or later than its route window. */
+export function phaseAt(findings, event, cursorHours) {
+  if (!event) return 'unavailable';
+  const departure = Date.parse(findings.departure_utc);
+  const time = departure + cursorHours * HOUR;
+  const start = Date.parse(event.route_intersection?.window_start ?? findings.departure_utc);
+  const end = Date.parse(event.route_intersection?.window_end ?? findings.departure_utc);
+  return time < start ? 'cause' : time <= end ? 'interception' : time <= end + 6 * HOUR ? 'consequence' : 'easing';
+}
+
 /** Passage span in ms: departure to the last leg's nominal arrival. */
 export function passageWindowMs(findings) {
   const start = Date.parse(findings?.departure_utc);

@@ -976,6 +976,15 @@ const FR = {
   'About the GRIB files': 'À propos des fichiers GRIB',
 };
 
+const FR_SYSTEM_NOUN = {
+  'low-pressure system': 'dépression',
+  'deepening low': 'dépression qui se creuse',
+  'high-pressure ridge': 'dorsale anticyclonique',
+  'weather front': 'front',
+  'weather system': 'système météo',
+  'no attributed system': 'aucun système attribué',
+};
+
 const FR_PATTERNS = [
   // Header limits chip and phone Limits button (Shell.jsx).
   [/^Wind ([\d.]+) · Gusts ([\d.]+) kt$/, 'Vent $1 · Rafales $2 kt'],
@@ -1125,8 +1134,9 @@ const FR_PATTERNS = [
   [/^run (.+) · age (.+)$/, 'cycle $1 · âge $2'],
   [/^(.+) run (\d{1,2} [A-Z][a-z]{2} \d{2}Z)$/, 'cycle $1 du $2'],
   [/^Run (\d{1,2} [A-Z][a-z]{2} \d{2}Z)$/, 'Cycle du $1'],
-  [/^system undefined · boat (.+)$/, 'aucun système attribué · bateau $1'],
-  [/^system (.+) · boat (.+)$/, 'système $1 · bateau $2'],
+  // hero chart banner and status line (components/SynopticHero.jsx): story phase and system in plain words
+  [/^(what sets this up|while you are out there|right after your passage|easing off) · (low-pressure system|deepening low|high-pressure ridge|weather front|weather system)$/, (_match, phase, noun) => `${FR[phase]} · ${FR_SYSTEM_NOUN[noun]}`],
+  [/^(low-pressure system|deepening low|high-pressure ridge|weather front|weather system|no attributed system) · boat (.+)$/, (_match, noun, where) => `${FR_SYSTEM_NOUN[noun]} · bateau ${where.replace(/\(leg (\d+)\)$/, '(tronçon $1)')}`],
   [/^leg (\d+): approaching$/, 'tronçon $1 : proche des limites'],
   [/^leg (\d+): exceeded$/, 'tronçon $1 : limite dépassée'],
   [/^leg (\d+): ok$/, 'tronçon $1 : dans les limites'],

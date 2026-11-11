@@ -3,9 +3,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../stores/appStore.js';
 import { frameForCursor, playbackHours, usePlayback } from '../stores/playbackStore.js';
 import { chartUrl, chartProjector, nearestCaption } from '../lib/synopticCharts.js';
-import { chartFocusPoints, chartStageStyle, passageWindowMs, phaseCaption } from '../lib/synopticView.js';
+import { chartFocusPoints, chartStageStyle, PHASE_PLAIN, passageWindowMs, phaseCaption } from '../lib/synopticView.js';
+import { governingCausalEvent } from '../lib/governing.js';
 import { useElementSize } from '../lib/useElementSize.js';
-import { placeLabel } from '../lib/format.js';
+import { placeLabel, plainEventNoun } from '../lib/format.js';
+import { legLabel } from '../pages/briefing/routeLabels.jsx';
+import { useGoverningReason } from '../pages/briefing/verdictSentence.js';
 import TimeRuler from './TimeRuler.jsx';
 import FullscreenChart from './FullscreenChart.jsx';
 
@@ -17,7 +20,10 @@ export default function SynopticHero() {
   const route = useApp((state) => state.route);
   const selectEvidence = useApp((state) => state.selectEvidence);
   const cursor = usePlayback((state) => state.cursorHours);
-  const eventId = usePlayback((state) => state.focusedEventId);
+  const focusedEventId = usePlayback((state) => state.focusedEventId);
+  // the weather story card follows the same event (the one crossing the governing leg), so the first screen names one phase
+  const reason = useGoverningReason(findings);
+  const eventId = focusedEventId ?? governingCausalEvent(findings, reason)?.event_id ?? null;
   const [fullscreen, setFullscreen] = useState(false);
   const maxHours = playbackHours(findings);
   const frame = useMemo(() => frameForCursor(findings, synoptic, route, cursor, eventId), [findings, synoptic, route, cursor, eventId]);
@@ -50,7 +56,7 @@ function HeroCanvas({ findings, synoptic, route, frame, cursor, maxHours, standa
     {projector && url
       ? <ChartCanvas url={url} projector={projector} route={route} system={system} frame={frame} event={event} passageWindow={passageWindowMs(findings)} framed={framed} standalone={standalone} onBroken={() => setChartBroken(true)} caption={chart?.caption} />
       : <SchematicCanvas route={route} system={system} frame={frame} event={event} standalone={standalone} />}
-    <Banner frame={frame} event={event} />
+    <Banner frame={frame} event={event} synoptic={synoptic} />
     <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 pt-2 font-instrument text-xs">
       <span>
         {!event
@@ -58,7 +64,7 @@ function HeroCanvas({ findings, synoptic, route, frame, cursor, maxHours, standa
           : standalone ? placeLabel(event.consequence.register_plain) : null}
       </span>
       <span className="flex flex-wrap items-center gap-2 sm:justify-end">
-        <StatusChip frame={frame} event={event} />
+        <StatusChip findings={findings} synoptic={synoptic} frame={frame} event={event} />
         {projector && url && (
           <button type="button" onClick={() => setFramed(!framed)} className="min-h-11 px-3 border border-ink/40 whitespace-nowrap" aria-pressed={framed}>
             {framed ? 'Full chart' : 'Zoom to route'}
@@ -129,12 +135,16 @@ function SchematicCanvas({ route, system, frame, event, standalone }) {
   </div>;
 }
 
+/** The system named in plain words ("low-pressure system", "deepening low"); the engine's ids stay out of the page. */
+const systemNoun = (event, synoptic) => plainEventNoun(event, synoptic).replace(/^an? /, '');
+
 /** Static block under the chart, never over it: it cannot cover the chart's own
- * caption, and on a phone it takes no chart area. */
-function Banner({ frame, event }) {
-  return <div className="mt-2 bg-paper/90 border-l-4 border-event px-3 py-2"><p className="font-instrument text-xs uppercase tracking-[0.18em] text-ink-soft">{event ? `${frame.phase} · ${event.name}` : 'synoptic situation'}</p><p className="font-story text-lg leading-tight">{phaseCaption(frame.phase)}</p></div>;
+ * caption, and on a phone it takes no chart area. The phase words are the weather story's. */
+function Banner({ frame, event, synoptic }) {
+  return <div className="mt-2 bg-paper/90 border-l-4 border-event px-3 py-2"><p data-testid="hero-phase" className="font-instrument text-xs uppercase tracking-[0.18em] text-ink-soft">{event ? `${PHASE_PLAIN[frame.phase]} · ${systemNoun(event, synoptic)}` : 'synoptic situation'}</p><p className="font-story text-lg leading-tight">{phaseCaption(frame.phase)}</p></div>;
 }
 
-function StatusChip({ frame, event }) {
-  return <span className="font-mono text-xs">{event?.system_id ? `system ${event.system_id}` : 'no attributed system'} · boat {frame.activeLegId}</span>;
+function StatusChip({ findings, synoptic, frame, event }) {
+  const where = frame.activeLegId ? ` · boat ${legLabel(findings, frame.activeLegId)}` : '';
+  return <span className="font-mono text-xs">{`${event?.system_id ? systemNoun(event, synoptic) : 'no attributed system'}${where}`}</span>;
 }

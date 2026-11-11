@@ -605,9 +605,6 @@
       "viewer/src/pages/briefing/OutcomeSection.jsx": [
         "variable"
       ],
-      "viewer/src/pages/briefing/WeatherStoryCard.jsx": [
-        "cause"
-      ],
       "viewer/test/fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/briefing.json": [
         "ensemble"
       ],

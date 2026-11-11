@@ -11,7 +11,7 @@ afterEach(() => { cleanup(); useApp.setState({ findings: null, synoptic: null, r
 it('puts the interception banner below the chart, not over it, and fills the viewport in full screen', () => {
   useApp.setState({ findings, synoptic, route });
   render(<SynopticHero />);
-  const banner = screen.getByText(/^(cause|interception|consequence|easing) · /);
+  const banner = screen.getByText(/^(what sets this up|while you are out there|right after your passage|easing off) · /);
   const panel = banner.parentElement;
   expect(panel.className).not.toMatch(/\babsolute\b/);
   const chart = screen.getByRole('img', { name: /track and route occupancy/ }).closest('.overflow-hidden');
