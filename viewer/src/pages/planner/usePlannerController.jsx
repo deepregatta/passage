@@ -136,7 +136,7 @@ export default function usePlannerController() {
   // ends are named, else the generic name in the page language.
   const derivedName = defaultPassageName({ mode, endpoints, waypoints }, language);
   useEffect(() => {
-    if (nameAuto && name !== derivedName) patch({ name: derivedName });
+    if (nameAuto && name !== derivedName) patch({ name: derivedName, nameAuto: true });
   }, [nameAuto, name, derivedName, patch]);
 
   // The sailor's title for the passage, in both modes; it labels the saved check and

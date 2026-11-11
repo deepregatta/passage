@@ -39,7 +39,8 @@ export const usePlanner = create(
   persist(
     (set) => ({
       ...initial(),
-      patch: (partial) => set(partial),
+      // Writing a name from outside the page's own default (a restored draft, a test) makes it a chosen name.
+      patch: (partial) => set('name' in partial && !('nameAuto' in partial) ? { ...partial, nameAuto: false } : partial),
       reset: () => set(initial()),
     }),
     {

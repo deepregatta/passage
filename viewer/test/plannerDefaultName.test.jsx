@@ -124,3 +124,11 @@ it('importing a GPX file without a route name never overwrites a typed name', as
   await waitFor(() => expect(usePlanner.getState().waypoints).toHaveLength(2));
   expect(nameInput()).toHaveValue('Channel dash');
 });
+
+it('a name written through the store is a chosen name: the page keeps it', async () => {
+  render(<Planner />);
+  act(() => usePlanner.getState().patch({ name: 'Restored passage' }));
+  act(() => usePlanner.getState().patch({ endpoints: [CHERBOURG, PLYMOUTH] }));
+  expect(nameInput()).toHaveValue('Restored passage');
+  expect(usePlanner.getState().nameAuto).toBe(false);
+});
