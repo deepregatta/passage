@@ -5,7 +5,7 @@ import tseslint from 'typescript-eslint';
 import reactHooks from 'eslint-plugin-react-hooks';
 
 export default defineConfig([
-  globalIgnores(['**/dist/**', '**/node_modules/**', 'analysis/**', 'data/**', 'output/**', 'trashbin/**', '.playwright-cli/**']),
+  globalIgnores(['**/dist/**', '**/node_modules/**', 'analysis/**', 'data/**', 'output/**', 'trashbin/**', '.playwright-cli/**', '.claude/worktrees/**']),
   {
     files: ['**/*.{js,jsx,mjs,cjs,ts,tsx}'],
     extends: [js.configs.recommended],
