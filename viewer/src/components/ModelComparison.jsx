@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { useApp } from '../stores/appStore.js';
 import useViewport from '../hooks/useViewport.js';
 import {
-  createAxisLabelFormatter, labelledBandIndex, mergeDivergenceBands, modelComparisonAriaLabel, sampleStepMs, timeZoneAxisProps,
+  createAxisLabelFormatter, createTimeTooltipFormatter, labelledBandIndex, mergeDivergenceBands, modelComparisonAriaLabel, sampleStepMs, timeZoneAxisProps,
 } from '../lib/chartTime.js';
 import { dashArray, modelStyle } from '../lib/modelStyles.js';
 
@@ -43,6 +43,7 @@ export default function ModelComparison() {
         backgroundColor: palette.paper.DEFAULT,
         borderColor: palette.ink.DEFAULT,
         textStyle: { color: palette.ink.DEFAULT, fontFamily: 'ui-monospace, monospace', fontSize: 12 },
+        formatter: createTimeTooltipFormatter(),
       },
       // The key is the HTML list above the chart (names, colour and dash, readable by
       // assistive tech); the built-in legend would be a second, 3 px-tall tap target.

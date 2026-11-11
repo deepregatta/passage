@@ -3,7 +3,7 @@ import ReactECharts from './lazy/EChartsLazy.jsx';
 import { useMemo } from 'react';
 import { useApp } from '../stores/appStore.js';
 import useViewport from '../hooks/useViewport.js';
-import { createAxisLabelFormatter, plumeAriaLabel, timeZoneAxisProps } from '../lib/chartTime.js';
+import { createAxisLabelFormatter, createTimeTooltipFormatter, plumeAriaLabel, timeZoneAxisProps } from '../lib/chartTime.js';
 
 /**
  * Ensemble plume (mockup 2): 51 thin member lines, median + P10/P90 envelope,
@@ -104,6 +104,7 @@ function buildOption(leg, legFindings, evidence, variable, mobile = false) {
       backgroundColor: palette.paper.DEFAULT,
       borderColor: ink,
       textStyle: { color: ink, fontFamily: 'ui-monospace, monospace', fontSize: 12 },
+      formatter: createTimeTooltipFormatter(),
     },
     grid: { left: mobile ? 34 : 48, right: mobile ? 8 : 18, top: 30, bottom: 74 },
     xAxis: {

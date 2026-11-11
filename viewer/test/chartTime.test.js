@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  axisTickLabel, createAxisLabelFormatter, describeTimeSpan, labelledBandIndex, mergeDivergenceBands,
+  axisTickLabel, createAxisLabelFormatter, createTimeTooltipFormatter, describeTimeSpan, labelledBandIndex, mergeDivergenceBands,
   modelComparisonAriaLabel, plumeAriaLabel, sampleStepMs, timeZoneAxisName,
 } from '../src/lib/chartTime.js';
 import { localTimeZoneName } from '../src/lib/format.js';
@@ -143,5 +143,25 @@ describe('chart accessible text', () => {
 
   it('translates the grey-band legend entry', () => {
     expect(translateText('grey band: models diverge', 'fr')).toBe('bande grise : divergence des modèles');
+  });
+});
+
+describe('createTimeTooltipFormatter', () => {
+  const marker = '<span class="dot"></span>';
+  it('heads the tooltip with the page time format, not ECharts\' ISO-like timestamp, then one line per series', () => {
+    const html = createTimeTooltipFormatter()([
+      { value: [at(13, 6), 21.5], seriesName: 'wind', marker },
+      { value: [at(13, 6), null], seriesName: 'gusts', marker },
+    ]);
+    expect(html).toContain('<div>Mon 13 Jul 06:00</div>');
+    expect(html).not.toMatch(/\d{4}-\d\d-\d\d/);
+    expect(html).toContain(`${marker}wind</span><b>21.5</b>`);
+    expect(html).toContain('gusts</span><b>n/a</b>');
+    // the page translator turns the header into French dates
+    expect(translateText('Mon 13 Jul 06:00', 'fr')).toBe('lun. 13 juil. 06:00');
+  });
+  it('escapes series names, accepts a single item and says nothing without a time series', () => {
+    expect(createTimeTooltipFormatter((v) => `${v} kt`)({ value: [at(13, 6), 3], seriesName: '<b>x</b>', marker })).toContain('&lt;b&gt;x&lt;/b&gt;</span><b>3 kt</b>');
+    expect(createTimeTooltipFormatter()([{ value: 4, seriesName: 'x', marker }])).toBe('');
   });
 });

@@ -6,7 +6,7 @@ import { STATUS_HEX, hourStatus, fmtHour, fmtLocalTime } from '../lib/format.js'
 import { usePlayback } from '../stores/playbackStore.js';
 import useViewport from '../hooks/useViewport.js';
 import { edgeShift, fmtLocalClock, rulerTicks } from '../lib/ruler.js';
-import { createAxisLabelFormatter } from '../lib/chartTime.js';
+import { createAxisLabelFormatter, createTimeTooltipFormatter } from '../lib/chartTime.js';
 import { legLabel } from '../pages/briefing/routeLabels.jsx';
 
 /**
@@ -28,12 +28,13 @@ export default function RouteTimeline() {
     if (!chart || !detailed || !option) return;
     const gust = option.series.find((series) => series.id === 'gusts');
     if (!gust.markLine) return;
+    const span = chartSpan(findings);
     const update = () => {
       if (chart.isDisposed()) return;
       const cursorTime = Date.parse(findings.departure_utc) + usePlayback.getState().cursorHours * 3600_000;
       // Merge only mark-line data by series id; retain all weather data and bands.
       chart.setOption({ series: [{ id: 'gusts', markLine: {
-        data: [gust.markLine.data[0], nowLine(cursorTime)],
+        data: [gust.markLine.data[0], nowLine(cursorTime, span)],
       } }] });
     };
     update();
@@ -56,7 +57,7 @@ export default function RouteTimeline() {
       </button>
       {detailed && option && (
         <>
-          <ReactECharts onChartReady={setChart} option={option} style={{ height: 330 }} notMerge lazyUpdate opts={{ renderer: 'svg' }} />
+          <ReactECharts onChartReady={setChart} option={option} style={{ height: 372 }} notMerge lazyUpdate opts={{ renderer: 'svg' }} />
           <div className="flex flex-wrap gap-x-5 gap-y-1 justify-end font-sans text-xs text-ink-soft pr-2 -mt-1">
             <span className="flex items-center gap-1.5">
               <span className="w-3.5 h-2.5 inline-block rounded-[2px]" style={{ background: rgba(palette.verdict.approaching, '0.35') }} />
@@ -226,9 +227,17 @@ function StripCursor({ departure, t0, t1 }) {
   return <div className="pointer-events-none absolute -top-px -bottom-px w-[3px] -translate-x-1/2" style={{ left: `${((time - t0) / (t1 - t0)) * 100}%`, backgroundColor: palette.event }} aria-hidden />;
 }
 
-function nowLine(time) {
-  // the NOW text is not a link: ink colour, the teal stays on the line itself
-  return { xAxis: time, label: { formatter: 'NOW', color: palette.ink.DEFAULT, fontSize: 12 }, lineStyle: { color: palette.event, type: 'solid', width: 1 } };
+/** First and last hour drawn on the charts. */
+function chartSpan(findings) {
+  const rows = collectRows(findings);
+  return rows.length ? { from: rows[0].t, to: rows[rows.length - 1].t } : null;
+}
+
+function nowLine(time, span) {
+  // the NOW text is not a link: ink colour, the teal stays on the line itself. It reads away from the
+  // row names at the left edge and stays inside the plot at the right edge.
+  const late = span && span.to > span.from && (time - span.from) / (span.to - span.from) > 0.5;
+  return { xAxis: time, label: { formatter: 'NOW', position: 'end', color: palette.ink.DEFAULT, fontSize: 12, align: late ? 'right' : 'left' }, lineStyle: { color: palette.event, type: 'solid', width: 1 } };
 }
 
 /** Table alternative: header-zone time first with the chart's UTC hour as a marked secondary column
@@ -292,6 +301,7 @@ function buildOption(findings, mobile = false) {
     (e) => e.rule_id === 'W-GUST-01' || e.rule_id === 'W-GUST-03',
   )?.limit;
   const cursorTime = Date.parse(findings.departure_utc) + usePlayback.getState().cursorHours * 3600_000;
+  const span = chartSpan(findings);
 
   const wind = rows.map((r) => [r.t, r.hour.wind_kt]);
   const gust = rows.map((r) => [r.t, r.hour.gust_kt]);
@@ -368,7 +378,8 @@ function buildOption(findings, mobile = false) {
     },
   });
 
-  const GRID_L = mobile ? 44 : 88;
+  // wide enough for the longest row name ("Rafales" in French) beside the tick numbers
+  const GRID_L = mobile ? 58 : 88;
   const GRID_R = mobile ? 34 : 96;
 
   return {
@@ -379,12 +390,13 @@ function buildOption(findings, mobile = false) {
       backgroundColor: palette.paper.DEFAULT,
       borderColor: ink,
       textStyle: { color: ink, fontFamily: 'ui-monospace, monospace', fontSize: 12 },
-      valueFormatter: (v) => (v == null ? 'n/a' : String(v)),
+      formatter: createTimeTooltipFormatter(),
     },
     grid: [
-      { left: GRID_L, right: GRID_R, top: 18, height: 78 },
-      { left: GRID_L, right: GRID_R, top: 112, height: 78 },
-      { left: GRID_L, right: GRID_R, top: 206, height: 58 },
+      // a row's name (two lines) sits above its plot: 44 px between plots keeps it clear of the row above
+      { left: GRID_L, right: GRID_R, top: 32, height: 64 },
+      { left: GRID_L, right: GRID_R, top: 140, height: 64 },
+      { left: GRID_L, right: GRID_R, top: 248, height: 50 },
     ],
     xAxis: [0, 1, 2].map((i) => ({
       type: 'time',
@@ -396,9 +408,9 @@ function buildOption(findings, mobile = false) {
           : { show: false },
     })),
     yAxis: [
-      { type: 'value', gridIndex: 0, ...axisBase, ...rowName('Wind', mobile ? 'kt' : 'knots') },
-      { type: 'value', gridIndex: 1, ...axisBase, ...rowName('Gusts', mobile ? 'kt' : 'knots') },
-      { type: 'value', gridIndex: 2, ...axisBase, ...rowName('Waves', mobile ? 'm' : 'metres') },
+      { type: 'value', gridIndex: 0, splitNumber: 3, ...axisBase, ...rowName('Wind', mobile ? 'kt' : 'knots') },
+      { type: 'value', gridIndex: 1, splitNumber: 3, ...axisBase, ...rowName('Gusts', mobile ? 'kt' : 'knots') },
+      { type: 'value', gridIndex: 2, splitNumber: 3, ...axisBase, ...rowName('Waves', mobile ? 'm' : 'metres') },
     ],
     series: [
       {
@@ -425,11 +437,12 @@ function buildOption(findings, mobile = false) {
           ? {
               silent: true,
               symbol: 'none',
-              data: [{ yAxis: gustLimit }, nowLine(cursorTime)],
+              data: [{ yAxis: gustLimit }, nowLine(cursorTime, span)],
               lineStyle: { color: palette.verdict.approaching, type: 'dashed', width: 1.6 },
               label: {
                 formatter: `${gustLimit} kt\nyour limit`,
-                position: 'end',
+                // inside the plot on a phone, where there is no margin to the right of it
+                position: mobile ? 'insideEndTop' : 'end',
                 color: palette.verdict.approaching,
                 fontFamily: 'ui-monospace, monospace',
                 fontSize: 12,

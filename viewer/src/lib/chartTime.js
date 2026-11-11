@@ -43,6 +43,23 @@ export function createAxisLabelFormatter({ skipOdd = false } = {}) {
   };
 }
 
+const escapeHtml = (text) => String(text).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
+/**
+ * ECharts axis-tooltip formatter for the time charts: the header reads like the page's other times
+ * ("Mon 13 Jul 06:00", translated by the page) instead of ECharts' "2026-07-13 06:00:00", then one
+ * marked line per series. `format` turns a series value into text.
+ */
+export function createTimeTooltipFormatter(format = (value) => (value == null ? 'n/a' : String(value))) {
+  return (params) => {
+    const items = (Array.isArray(params) ? params : [params]).filter((item) => Array.isArray(item.value));
+    if (!items.length) return '';
+    const head = fmtLocalTime(new Date(items[0].value[0]).toISOString());
+    const rows = items.map((item) => `<div style="display:flex;justify-content:space-between;gap:16px"><span>${item.marker}${escapeHtml(item.seriesName)}</span><b>${escapeHtml(format(item.value[1]))}</b></div>`);
+    return `<div>${escapeHtml(head)}</div>${rows.join('')}`;
+  };
+}
+
 /** The axis caption naming the zone; reuses the "local time · zone" wording (and its French pattern). */
 export function timeZoneAxisName() {
   return `local time · ${localTimeZoneName()}`;

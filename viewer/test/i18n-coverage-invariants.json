@@ -247,6 +247,8 @@
         "axis",
         "dashed",
         "end",
+        "insideEndTop",
+        "left",
         "line",
         "none",
         "ok",

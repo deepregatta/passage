@@ -53,3 +53,29 @@ for (const language of ['en', 'fr']) {
     expect(report.boxes).toEqual([]);
   });
 }
+
+for (const language of ['en', 'fr']) {
+  test(`the detailed timeline charts keep every label inside their drawing (${language})`, async ({ page }) => {
+    await openAuditedSnapshot(page);
+    if (language === 'fr') await page.getByRole('button', { name: 'Français' }).click();
+    await page.locator('[data-section="route"] button[aria-expanded="false"]').first().click();
+    await page.locator('[data-section="route"] svg text').first().waitFor();
+    // scrub to the end so the NOW label has to move inside the plot
+    await page.getByRole('slider').first().evaluate((element) => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+      setter.call(element, element.max);
+      element.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    const clipped = await page.evaluate(() => {
+      const out = [];
+      for (const text of document.querySelectorAll('[data-section="route"] svg text')) {
+        if (!text.textContent.trim()) continue;
+        const box = text.getBoundingClientRect();
+        const bounds = text.closest('svg').getBoundingClientRect();
+        if (box.width && (box.left < bounds.left - 1 || box.right > bounds.right + 1)) out.push(text.textContent.trim());
+      }
+      return out;
+    });
+    expect(clipped).toEqual([]);
+  });
+}
