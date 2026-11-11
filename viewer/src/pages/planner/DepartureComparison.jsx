@@ -1,4 +1,7 @@
 import clsx from 'clsx';
+import { useMemo } from 'react';
+import { rankCandidates } from '@deepweather/engine';
+import { RANK_CAUTIOUS, RANK_TYPICAL, usePlanner } from '../../stores/plannerStore.js';
 import { fmtLocalTime, localDateTimeToIso, localTimeZoneName, VERDICT } from '../../lib/format.js';
 
 /** compact verdict labels for the scan rows; the full wording lives in the briefing */
@@ -9,6 +12,51 @@ const SCAN_VERDICT = {
   insufficient: 'models disagree',
   warning_active: 'official warning',
 };
+
+/** A candidate has ensemble evidence when the scan says so, or it carries a scenario fraction (an older scan). */
+const hasEnsemble = (c) => c.ensemble_covered === true || c.max_fraction != null;
+
+const RANK_MODES = [[RANK_TYPICAL, 'Typical'], [RANK_CAUTIOUS, 'Cautious']];
+
+/**
+ * Typical / Cautious: a view of the scan already held, never a new scan. Cautious is
+ * disabled, with the reason in view, when no time has forecast-scenario evidence.
+ */
+function RankToggle({ mode, cautiousAvailable, onChange }) {
+  return (
+    <div className="mt-2">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span className="eyebrow text-xs!" id="rank-mode-label">Rank by</span>
+        <div role="group" aria-labelledby="rank-mode-label" className="inline-flex border border-ink/40 rounded-sm font-instrument text-xs">
+          {RANK_MODES.map(([id, label]) => {
+            const unavailable = id === RANK_CAUTIOUS && !cautiousAvailable;
+            return (
+              <button
+                key={id}
+                type="button"
+                aria-pressed={mode === id}
+                disabled={unavailable}
+                aria-describedby={unavailable ? 'rank-mode-reason' : undefined}
+                onClick={() => onChange(id)}
+                className={clsx('min-h-11 min-w-11 px-4', mode === id ? 'bg-ink text-paper' : 'text-ink-soft hover:text-ink', unavailable && 'cursor-not-allowed opacity-50')}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <p className="font-sans text-[12px] text-ink-soft mt-1 max-w-[80ch]">
+        Typical: ranked on the main forecast against your limits. Cautious: ranked first on how many forecast scenarios exceed your limits.
+      </p>
+      {!cautiousAvailable && (
+        <p id="rank-mode-reason" className="font-sans text-[12px] text-ink-soft mt-1 max-w-[80ch]">
+          Cautious is unavailable: no forecast scenarios cover these departure times.
+        </p>
+      )}
+    </div>
+  );
+}
 
 function SkippedDepartures({ scan }) {
   const skipped = scan.skipped ?? [];
@@ -43,6 +91,13 @@ function SkippedDepartures({ scan }) {
  * departure; in compute mode the cell also carries its own weather-routed track.
  */
 export default function DepartureComparison({ scan, departureLocal, busy, disabled, onPick, headingRef, children }) {
+  const storedMode = usePlanner((state) => state.rankMode);
+  const patch = usePlanner((state) => state.patch);
+  const cautiousAvailable = scan.candidates.some(hasEnsemble);
+  // The stored choice is a preference and is never rewritten: without ensemble evidence the
+  // view falls back to typical, and the preference applies again for a scan that has it.
+  const mode = storedMode === RANK_CAUTIOUS && cautiousAvailable ? RANK_CAUTIOUS : RANK_TYPICAL;
+  const ranking = useMemo(() => rankCandidates(scan.candidates, { mode }), [scan.candidates, mode]);
   if (scan.candidates.length === 0) {
     return (
       <section className="mt-6 border-t border-ink/40 pt-3" aria-label="Departure comparison">
@@ -62,7 +117,9 @@ export default function DepartureComparison({ scan, departureLocal, busy, disabl
     if (days.at(-1)?.day !== day) days.push({ day, cells: [] });
     days.at(-1).cells.push({ ...c, index: i, hhmm: stamp.slice(-5) });
   }
-  const best = scan.best_index !== null ? scan.candidates[scan.best_index] : null;
+  const bestIndex = ranking.best_index;
+  const tiedIndices = new Set(ranking.tied_indices);
+  const best = bestIndex !== null ? scan.candidates[bestIndex] : null;
   const allInsufficient = scan.candidates.every((c) => c.verdict === 'insufficient');
   const selectedDepartureMs = Date.parse(localDateTimeToIso(departureLocal));
 
@@ -78,6 +135,8 @@ export default function DepartureComparison({ scan, departureLocal, busy, disabl
         </span>
       </div>
 
+      <RankToggle mode={mode} cautiousAvailable={cautiousAvailable} onChange={(next) => patch({ rankMode: next })} />
+
       <div className="flex flex-wrap gap-x-5 gap-y-3 mt-3">
         {days.map((d) => (
           <div key={d.day}>
@@ -87,6 +146,8 @@ export default function DepartureComparison({ scan, departureLocal, busy, disabl
                 const v = VERDICT[c.verdict] ?? VERDICT.insufficient;
                 const parts = [SCAN_VERDICT[c.verdict] ?? c.verdict];
                 if (c.passage_h) parts.push(`≈${Math.round(c.passage_h)} h passage`);
+                if (c.max_members) parts.push(`${c.max_members.exceed} of ${c.max_members.total} forecast scenarios exceed a limit`);
+                if (tiedIndices.has(c.index)) parts.push('effectively tied with the least-exposure time');
                 if (c.delta && c.index > 0) {
                   parts.push(`gusts ${c.delta.peak_gust_kt > 0 ? '+' : ''}${Math.round(c.delta.peak_gust_kt)} kt vs first option`);
                   parts.push(`${c.delta.hours_over_limit > 0 ? '+' : ''}${c.delta.hours_over_limit} h over your limit`);
@@ -106,7 +167,10 @@ export default function DepartureComparison({ scan, departureLocal, busy, disabl
                     style={{ backgroundColor: v.hex }}
                   >
                     <span className="font-mono text-[12px] font-semibold">{c.hhmm}</span>
-                    <span className="text-[12px]" aria-hidden>{c.index === scan.best_index ? '◎' : v.glyph}</span>
+                    <span className="text-[12px]" aria-hidden>
+                      {c.index === bestIndex ? '◎' : v.glyph}
+                      {tiedIndices.has(c.index) && ' ≈'}
+                    </span>
                   </button>
                 );
               })}
@@ -123,6 +187,13 @@ export default function DepartureComparison({ scan, departureLocal, busy, disabl
             <>
               <span className="font-medium">◎ Least exposure this window: {fmtLocalTime(best.departure_utc)} local time</span>
               {'. '}
+              {tiedIndices.size > 0 && (
+                <>
+                  <span className="font-medium">≈ Effectively tied:</span>{' '}
+                  {[...tiedIndices].map((i) => fmtLocalTime(scan.candidates[i].departure_utc)).join(' · ')}
+                  {' local time'}{'. '}
+                </>
+              )}
             </>
           )}
           Click a time to check that departure against your limits{scan.rerouted ? ' (it sails its own computed route)' : ''} — the full briefing opens straight away.
@@ -138,6 +209,12 @@ export default function DepartureComparison({ scan, departureLocal, busy, disabl
               {SCAN_VERDICT[s]}
             </span>
           ))}
+          {tiedIndices.size > 0 && (
+            <span className="flex items-center gap-1.5">
+              <span aria-hidden>≈</span>
+              effectively tied with the least exposure
+            </span>
+          )}
         </span>
       </div>
     </section>

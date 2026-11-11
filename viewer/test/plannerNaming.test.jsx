@@ -90,7 +90,7 @@ it('falls back to the default name when the field is emptied, and still names a 
   fireEvent.click(screen.getByRole('button', { name: 'Compare departure times (next 5 days)' }));
   const region = await screen.findByRole('region', { name: 'Departure comparison' });
   saveRoute.mockClear();
-  fireEvent.click(region.querySelector('button'));
+  fireEvent.click(region.querySelector('button[title]'));
   await waitFor(() => expect(saveRoute).toHaveBeenCalled());
   expect(saveRoute.mock.lastCall[0].name).toBe('Picked');
 });

@@ -465,3 +465,21 @@ describe('source names, run labels, ages and leg labels', () => {
     expect(translateText(english, 'fr')).toBe(french);
   });
 });
+
+describe('departure ranking copy', () => {
+  it.each([
+    ['Typical', 'Habituel'],
+    ['Cautious', 'Prudent'],
+    ['Rank by', 'Classer selon'],
+    ['≈ Effectively tied:', '≈ À égalité effective :'],
+    ['Cautious is unavailable: no forecast scenarios cover these departure times.', 'Le mode Prudent est indisponible : aucun scénario de prévision ne couvre ces heures de départ.'],
+    ['effectively tied with the least exposure', 'à égalité effective avec l’exposition minimale'],
+    ['0 of 31 forecast scenarios exceed a limit · effectively tied with the least-exposure time',
+      '0 scénario sur 31 dépasse une limite · à égalité effective avec l’heure la moins exposée'],
+    ['1 of 31 forecast scenarios exceed a limit', '1 scénario sur 31 dépasse une limite'],
+    ['6 of 31 forecast scenarios exceed a limit', '6 scénarios sur 31 dépassent une limite'],
+  ])('translates %s', (english, french) => {
+    expect(translateText(english, 'fr')).toBe(french);
+    expect(translateText(english, 'en')).toBe(english);
+  });
+});

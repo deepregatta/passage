@@ -15,6 +15,10 @@ function defaultDeparture() {
   return nextQuarterHour();
 }
 
+/** The two ways the departure comparison can rank its times (engine `rankCandidates` modes). */
+export const RANK_TYPICAL = 'typical';
+export const RANK_CAUTIOUS = 'cautious';
+
 const initial = () => ({
   passageId: newPassageId(),
   mode: 'compute', // compute | draw — computing from the forecast is the primary way in
@@ -35,16 +39,22 @@ const initial = () => ({
   // before this field existed takes the default through the persist merge (no migration).
   polarPercent: 100,
   scan: null,
+  // How the departure comparison ranks its times: 'typical' (main forecast) or 'cautious'
+  // (forecast scenarios first). A view preference over a scan already held: it is not an
+  // input of any result, so it stays out of every stale-input key. A draft saved before this
+  // field existed takes the default through the persist merge (no migration).
+  rankMode: RANK_TYPICAL,
   autoScan: false, // set by the briefing's "Find a departure that fits" — Planner runs one scan and clears it
 });
 
 export const usePlanner = create(
   persist(
-    (set) => ({
+    (set, get) => ({
       ...initial(),
       // Writing a name from outside the page's own default (a restored draft, a test) makes it a chosen name.
       patch: (partial) => set('name' in partial && !('nameAuto' in partial) ? { ...partial, nameAuto: false } : partial),
-      reset: () => set(initial()),
+      // A new passage starts clean, but the sailor's choice of how to read comparisons carries over.
+      reset: () => set({ ...initial(), rankMode: get().rankMode }),
     }),
     {
       name: 'deepweather.planner-draft',

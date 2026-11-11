@@ -86,7 +86,7 @@ for (const along of [2, -2, 0]) {
     expect(scan.candidates.length).toBeGreaterThan(1);
     for (const candidate of scan.candidates) expect(candidate.passage_h).toBe(scan.routes[candidate.departure_utc].duration_h);
     await settleMap(page);
-    await comparison.getByRole('button').first().click();
+    await comparison.locator('button[title]').first().click();
     await expect(page.getByTestId('decision-band')).toBeVisible();
     expect(await arrival()).toBe((await computed(page)).arrival_utc);
     const snapshotId = await page.evaluate(async () => (await import('/src/stores/appStore.js')).useApp.getState().snapshotId);

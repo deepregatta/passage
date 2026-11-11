@@ -216,7 +216,7 @@ it('keeps the comparison when a time from it is picked, even if the Check then f
   fireEvent.click(scanButton());
   const region = await screen.findByRole('region', { name: 'Departure comparison' });
   analyzeInBrowser.mockRejectedValueOnce(new Error('Snapshot write failed: HTTP 500'));
-  fireEvent.click(within(region).getAllByRole('button')[0]);
+  fireEvent.click(within(region).getAllByTitle(/ local time \(/)[0]);
   await waitFor(() => expect(analyzeInBrowser).toHaveBeenCalled());
   const alert = await screen.findByRole('alert');
   expect(screen.getByRole('region', { name: 'Departure comparison' })).toContainElement(alert);

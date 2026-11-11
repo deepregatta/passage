@@ -104,7 +104,7 @@ it.each([2, -2, 0])('carries real routed timing through Compute, Check, Scan and
   const scan = usePlanner.getState().scan;
   expect(scan.skipped).toEqual([]);
   expect(scan.candidates.map(c => c.passage_h)).toEqual(scan.candidates.map(c => scan.routes[c.departure_utc].duration_h));
-  fireEvent.click(within(region).getAllByRole('button')[0]);
+  fireEvent.click(within(region).getAllByTitle(/ local time \(/)[0]);
   await waitFor(() => expect(audits).toHaveLength(2));
   expect(audits[1].legs.at(-1).eta_range.nominal).toBe(usePlanner.getState().computed.arrival_utc);
   expect(saveRoute.mock.lastCall[0].timing).toEqual(usePlanner.getState().computed.route.timing);
@@ -200,7 +200,7 @@ it('selects a rerouted scan candidate with its matching summary and checks that 
   });
   fireEvent.click(scanButton());
   const region = await screen.findByRole('region', { name: 'Departure comparison' });
-  fireEvent.click(within(region).getAllByRole('button')[0]);
+  fireEvent.click(within(region).getAllByTitle(/ local time \(/)[0]);
   await waitFor(() => expect(analyzeInBrowser).toHaveBeenCalled());
   expect(summary()).toBeInTheDocument();
   expect(usePlanner.getState().departureLocal).toBe(toLocalDateTimeValue(departure));
@@ -435,7 +435,7 @@ it('routes every scan candidate with the percentage and keeps the picked time\'s
   expect(computeRoute.mock.calls.map(([request]) => [request.departureUtc, request.polarScaling]))
     .toEqual(departures.map((departure) => [departure, 0.9]));
   // The scan survives the percentage it was run for and is dropped when it changes.
-  fireEvent.click(within(region).getAllByRole('button')[1]);
+  fireEvent.click(within(region).getAllByTitle(/ local time \(/)[1]);
   await waitFor(() => expect(analyzeInBrowser).toHaveBeenCalled());
   expect(usePlanner.getState().departureLocal).toBe(toLocalDateTimeValue(departures[1]));
   expect(usePlanner.getState().computed).not.toBeNull();

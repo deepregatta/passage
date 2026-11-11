@@ -16,8 +16,16 @@ export interface WindowCandidate {
   verdict: VerdictState;
   /** Worst deterministic limit ratio (limit/value for minimum visibility). Zero visibility gives Infinity. */
   worst_ratio: number | null;
-  /** worst ensemble exceedance fraction across the passage */
+  /** worst ensemble exceedance fraction across the passage; null when no scenario exceeds a limit or there is no ensemble */
   max_fraction: number | null;
+  /**
+   * True when any audited hour has an ensemble count for the gust or sustained limit.
+   * `hour.exceedance` alone does not count: it is set even when both counts are null.
+   * Separates "no ensemble" from "no scenario exceeds", which `max_fraction` cannot.
+   */
+  ensemble_covered: boolean;
+  /** The counts behind the worst ensemble fraction ("6 of 31"); `exceed: 0` when covered and none exceeds; null when not covered. */
+  max_members: { exceed: number; total: number } | null;
   driver_summary: string | null;
   /** nominal passage duration for this candidate's route */
   passage_h: number | null;
@@ -51,6 +59,89 @@ const SEVERITY: Record<VerdictState, number> = {
   exceeds: 3,
   warning_active: 4,
 };
+
+export type RankMode = 'typical' | 'cautious';
+
+/**
+ * Two times closer than this are effectively tied: 5 % of the limit for the
+ * deterministic ratio, and one forecast scenario of 31 for the ensemble fraction
+ * (one member is 0.03 once rounded, two are 0.06).
+ */
+export const RANK_TIE_TOLERANCE = 0.05;
+// Candidate values are rounded to two decimals, so a gap of exactly the tolerance
+// can come out a hair above it in floating point (1.05 - 1 > 0.05).
+const TIE_EPSILON = 1e-9;
+
+type Rankable = Pick<WindowCandidate, 'verdict' | 'worst_ratio' | 'max_fraction'> & { ensemble_covered?: boolean };
+
+/** Absolute gap that never subtracts two infinities: equal infinities are 0 apart, one infinite value is infinitely far. */
+function distance(a: number, b: number): number {
+  if (a === b) return 0;
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return Infinity;
+  return Math.abs(a - b);
+}
+
+const ratioOf = (c: Rankable): number => c.worst_ratio ?? 0;
+// Ensemble evidence exists for this candidate. A candidate saved without the flag counts as covered when it has a fraction.
+const coveredOf = (c: Rankable): boolean => c.ensemble_covered === true || c.max_fraction != null;
+const fractionOf = (c: Rankable): number => c.max_fraction ?? 0;
+
+/** Negative when `a` ranks ahead of `b`; zero when every key of the mode is equal. */
+function compareCandidates(a: Rankable, b: Rankable, mode: RankMode): number {
+  const severity = SEVERITY[a.verdict] - SEVERITY[b.verdict];
+  if (severity !== 0) return severity;
+  if (mode === 'cautious') {
+    // No ensemble is "unknown", not "no scenario exceeds": it never beats a covered time.
+    const covered = Number(coveredOf(b)) - Number(coveredOf(a));
+    if (covered !== 0) return covered;
+    if (coveredOf(a)) {
+      const byFraction = fractionOf(a) - fractionOf(b);
+      if (byFraction !== 0) return byFraction;
+    }
+  }
+  const ratioA = ratioOf(a), ratioB = ratioOf(b);
+  if (ratioA === ratioB) return 0;
+  return ratioA < ratioB ? -1 : 1;
+}
+
+/** True when every key the mode ranks on is within the tolerance of the best candidate's. */
+function tiedWith(best: Rankable, c: Rankable, mode: RankMode, limit: number): boolean {
+  if (SEVERITY[c.verdict] !== SEVERITY[best.verdict]) return false;
+  if (mode === 'cautious') {
+    if (coveredOf(c) !== coveredOf(best)) return false;
+    if (coveredOf(best) && distance(fractionOf(best), fractionOf(c)) > limit) return false;
+  }
+  return distance(ratioOf(best), ratioOf(c)) <= limit;
+}
+
+/**
+ * Rank candidates without ever saying GO. The best candidate is exact: the lowest
+ * under the mode's order, the first one when equal. The tolerance only labels the
+ * others that are effectively tied with it (same verdict severity, and every value
+ * the mode ranks on within the tolerance), so it never moves the mark.
+ * - typical: verdict severity, then worst deterministic ratio.
+ * - cautious: verdict severity, then worst ensemble fraction (a covered candidate with
+ *   no exceeding scenario counts as 0; a candidate with no ensemble ranks after covered
+ *   ones), then the ratio.
+ * `tied_indices` excludes the best one.
+ */
+export function rankCandidates(
+  candidates: readonly Rankable[],
+  { mode = 'typical', tolerance = RANK_TIE_TOLERANCE }: { mode?: RankMode; tolerance?: number } = {},
+): { best_index: number | null; tied_indices: number[] } {
+  if (candidates.length === 0) return { best_index: null, tied_indices: [] };
+  let bestIndex = 0;
+  for (let i = 1; i < candidates.length; i++) {
+    if (compareCandidates(candidates[i]!, candidates[bestIndex]!, mode) < 0) bestIndex = i;
+  }
+  const best = candidates[bestIndex]!;
+  const limit = tolerance + TIE_EPSILON;
+  const tied: number[] = [];
+  for (let i = 0; i < candidates.length; i++) {
+    if (i !== bestIndex && tiedWith(best, candidates[i]!, mode, limit)) tied.push(i);
+  }
+  return { best_index: bestIndex, tied_indices: tied };
+}
 
 export async function scanDepartures(
   base: ScanOptions,
@@ -95,15 +186,21 @@ export async function scanDepartures(
     inputRecords ??= findings.inputs.forecast_tiles;
     let worstRatio: number | null = null;
     let maxFraction: number | null = null;
+    let maxMembers: { exceed: number; total: number } | null = null;
     for (const e of findings.evidence) {
       const ratio = evidenceLimitRatio(e);
       if (ratio !== null && !e.member_fraction) {
         worstRatio = Math.max(worstRatio ?? 0, ratio);
       }
       if (e.member_fraction) {
-        maxFraction = Math.max(maxFraction ?? 0, e.member_fraction.exceed / e.member_fraction.total);
+        const fraction = e.member_fraction.exceed / e.member_fraction.total;
+        maxFraction = Math.max(maxFraction ?? 0, fraction);
+        if (!maxMembers || fraction > maxMembers.exceed / maxMembers.total) maxMembers = { ...e.member_fraction };
       }
     }
+    const coverage = ensembleCoverage(findings);
+    // Covered but nothing exceeds: no evidence carries a count, so report none of the largest ensemble.
+    if (coverage.covered && !maxMembers) maxMembers = { exceed: 0, total: coverage.total };
     const driver = findings.evidence.find(
       (e) => e.evidence_id === findings.verdict.driver_evidence_id,
     );
@@ -113,6 +210,8 @@ export async function scanDepartures(
       verdict: findings.verdict.state,
       worst_ratio: worstRatio !== null ? Math.round(worstRatio * 100) / 100 : null,
       max_fraction: maxFraction !== null ? Math.round(maxFraction * 100) / 100 : null,
+      ensemble_covered: coverage.covered,
+      max_members: coverage.covered ? maxMembers : null,
       driver_summary: driver
         ? `${driver.rule_id} on ${driver.leg_id} at ${driver.valid_time}`
         : null,
@@ -126,17 +225,7 @@ export async function scanDepartures(
     onCandidate?.(candidate);
   }
 
-  let bestIndex: number | null = null;
-  candidates.forEach((c, i) => {
-    if (bestIndex === null) {
-      bestIndex = i;
-      return;
-    }
-    const best = candidates[bestIndex]!;
-    const severityDelta = SEVERITY[c.verdict] - SEVERITY[best.verdict];
-    if (severityDelta < 0) bestIndex = i;
-    else if (severityDelta === 0 && (c.worst_ratio ?? 0) < (best.worst_ratio ?? 0)) bestIndex = i;
-  });
+  const { best_index: bestIndex } = rankCandidates(candidates, { mode: 'typical' });
 
   const baseline = candidates[0];
   if (baseline?.delta) {
@@ -155,6 +244,19 @@ export async function scanDepartures(
 
   skipped.sort((a, b) => departures.indexOf(a.departure_utc) - departures.indexOf(b.departure_utc));
   return { candidates, best_index: bestIndex, skipped, ...(inputRecords ? { input_records: inputRecords } : {}) };
+}
+
+/** Whether any audited hour carries an ensemble count, and the largest scenario total among them. */
+function ensembleCoverage(findings: AnalyzeResult['findings']): { covered: boolean; total: number } {
+  let total = 0;
+  for (const leg of findings.legs) {
+    for (const hour of leg.hours) {
+      for (const count of [hour.exceedance?.gust, hour.exceedance?.sustained]) {
+        if (count) total = Math.max(total, count.total);
+      }
+    }
+  }
+  return { covered: total > 0, total };
 }
 
 function passageMetrics(findings: AnalyzeResult['findings']) {
