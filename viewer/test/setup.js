@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, vi } from 'vitest';
-import { cleanup } from '@testing-library/react';
+import { cleanup, configure } from '@testing-library/react';
 import { linkReferenceHistory } from '../src/lib/passageIdentity.js';
 import referenceIndex from './fixtures/demo/index.json';
 import manifest from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/snapshot.json';
@@ -12,6 +12,10 @@ import warnings from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea97
 import synoptic from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/synoptic.json';
 import previousManifest from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_7b2600cd/snapshot.json';
 import previousFindings from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_7b2600cd/findings.json';
+
+// Pages load lazily and the demo fetches are mocked, so a wait only runs out when the
+// machine is busy (a loaded laptop or a shared CI runner): give it room, not the default 1 s.
+configure({ asyncUtilTimeout: 8_000 });
 
 const snapshotId = manifest.snapshot_id;
 const fixtureRoutes = new Map([

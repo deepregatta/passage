@@ -17,6 +17,8 @@ export default defineConfig({
     include: ['./test/**/*.test.{js,jsx}'],
     exclude: ['./e2e/**', './node_modules/**', './dist/**'],
     css: false,
+    // CPU-bound jsdom renders can outlast the default 5 s on a busy machine; a real hang still fails.
+    testTimeout: 15_000,
     restoreMocks: true,
   },
 });
