@@ -55,6 +55,15 @@ for (const [width, bar] of [[375, true], [768, true], [800, true], [1000, true],
   });
 }
 
+test('the knots unit stays lower case in the speed label, in English and in French', async ({ page }) => {
+  await page.goto('/#plan');
+  await page.getByRole('tab', { name: 'Draw my route' }).click();
+  const label = page.locator('.eyebrow', { hasText: /^Speed/ });
+  await expect(label).toContainText('(kt)');
+  await page.getByRole('button', { name: 'Français' }).click();
+  await expect(page.locator('.eyebrow', { hasText: /^Vitesse/ })).toContainText('(nd)');
+});
+
 // Start (north) and Finish (south) a few pixels apart: their 44 px boxes overlap almost entirely,
 // and Finish is drawn on top. Whichever the pointer is nearer to is the one it picks.
 const closeEndpoints = {

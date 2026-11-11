@@ -235,7 +235,12 @@ export default function Planner() {
               />
             ) : (
               <div>
-                <span className="eyebrow text-xs! block mb-1">Speed (kt) · slow / usual / fast</span>
+                <span className="eyebrow text-xs! block mb-1">
+                  <span>Speed</span>{' '}
+                  {/* The small caps of the label would turn the unit into "KT" (or "ND"). */}
+                  <span className="normal-case">(kt)</span>{' '}
+                  <span>· slow / usual / fast</span>
+                </span>
                 <div className="flex gap-2">
                   {['slow', 'nominal', 'fast'].map((k) => (
                     <label key={k} className="block flex-1 min-w-0">

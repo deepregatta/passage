@@ -344,7 +344,8 @@ const FR = {
   'Draw my route': 'Tracer ma route',
   'Compute a route': 'Calculer la route',
   'Name': 'Nom',
-  'Speed (kt) · slow / usual / fast': 'Vitesse (nd) · lente / habituelle / rapide',
+  'Speed': 'Vitesse',
+  '· slow / usual / fast': '· lente / habituelle / rapide',
   'slow speed': 'vitesse lente',
   'nominal speed': 'vitesse habituelle',
   'fast speed': 'vitesse rapide',
@@ -1484,10 +1485,11 @@ function translateDetectedSystems(systems) {
     .replace(/; highs /, ' ; anticyclones ')
     .replace(/\bnone\b/g, 'aucun')
     .replace(/\bnear\b/g, 'près de')
+    .replace(/(\d)°W\b/g, '$1°O')
     .replace(/, deepening ([\d.]+) hPa\/24h/g, ', se creusant de $1 hPa/24 h')
     .replace(/, filling ([\d.]+) hPa\/24h/g, ', se comblant de $1 hPa/24 h')
     .replace(/, steady/g, ', stable')
-    .replace(/, moving ([A-Z]+) ([\d.]+) kt/g, ', se déplaçant vers l’$1 à $2 nd');
+    .replace(/, moving ([A-Z]+) ([\d.]+) kt/g, (_m, dir, speed) => `, se déplaçant vers l’${dir.replace(/W/g, 'O')} à ${speed} nd`);
 }
 
 function translateRouteName(name) {
@@ -1717,7 +1719,9 @@ const FR_FRAGMENTS = [
   [/\brun (\d{4}-\d{2}-\d{2}T[^ ]+) · age\b/g, 'cycle $1 · âge'],
   [/\bsystem undefined\b/gi, 'aucun système attribué'],
   [/\bsystem\b/gi, 'système'],
-  [/\bboat\b/gi, 'bateau'],
+  // Not inside an identifier (boat-a, polars/boat-b.json, boat:boat-a): ids pass through untouched.
+  [/(?<![\w/-]|\w[:.])boat(?![\w/-]|[:.]\w)/gi, 'bateau'],
+  [/\bPasse de l'Ouest\b/g, 'Passe de l’Ouest'],
   [/\bcause · Wind against current\b/gi, 'cause · Vent contre courant'],
   [/\blimits\b/gi, 'limites'],
   // ASCII \b treats accented letters as boundaries, corrupting French « limitée ».

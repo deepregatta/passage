@@ -82,6 +82,57 @@ describe('French numbers and units', () => {
   it('does not break words that contain nm', () => {
     expect(fr('environment')).toBe('environment');
   });
+
+  // The pressure-system summary of the pro register: coordinates and bearings use French ouest.
+  it.each([
+    ['lows L1 (1002 hPa near 49°N 7°W), deepening 18 hPa/24h, moving WSW 31 kt; highs none',
+      'dépressions L1 (1002 hPa près de 49°N 7°O), se creusant de 18 hPa/24 h, se déplaçant vers l’OSO à 31 nd ; aucun anticyclone'],
+    ['lows L2 (1011 hPa near 48°S 12°E), steady, moving ENE 9 kt; highs none',
+      'dépressions L2 (1011 hPa près de 48°S 12°E), stable, se déplaçant vers l’ENE à 9 nd ; aucun anticyclone'],
+  ])('writes ouest as O in detected systems: %s', (systems, french) => {
+    expect(fr(`Detected systems (run-1): ${systems}.`)).toBe(`Systèmes détectés (run-1) : ${french}.`);
+  });
+});
+
+describe('French labels that carry a unit', () => {
+  it('keeps the knots unit apart from the small caps of its label', () => {
+    // The label is three text nodes so the unit can stay lower case: "(ND)" is not a unit.
+    expect(fr('Speed')).toBe('Vitesse');
+    expect(fr('(kt)')).toBe('(nd)');
+    expect(fr('· slow / usual / fast')).toBe('· lente / habituelle / rapide');
+  });
+});
+
+describe('French identifiers and proper names', () => {
+  it.each([
+    'boat-a',
+    'my-boat-5wp',
+    'boat_1',
+    'orc-2025/boat-b',
+    'polars/boat-a.json',
+    'boat:boat-a',
+  ])('leaves an identifier containing "boat" untouched: %s', (id) => {
+    expect(fr(id)).toBe(id);
+    expect(fr(`Polar ${id} loaded`)).toContain(id);
+  });
+
+  it('still translates the word boat in prose', () => {
+    expect(fr('Pick the boat.')).toContain('bateau.');
+    expect(fr('boat, kt')).toContain('bateau,');
+    expect(fr('(boat)')).toBe('(bateau)');
+    expect(fr('Your boat: Oceanis')).toContain('bateau: Oceanis');
+  });
+
+  it('uses the typographic apostrophe in the Cherbourg approach name', () => {
+    expect(fr('Cherbourg, Passe de l\'Ouest')).toBe('Cherbourg, Passe de l’Ouest');
+    expect(fr('Cherbourg, Passe de l\'Ouest → Off Omonville-la-Rogue')).toBe('Cherbourg, Passe de l’Ouest → au large d’Omonville-la-Rogue');
+    expect(fr('Cherbourg, Passe de l’Ouest')).toBe('Cherbourg, Passe de l’Ouest');
+    expect(translateText('Cherbourg, Passe de l\'Ouest', 'en')).toBe('Cherbourg, Passe de l\'Ouest');
+  });
+
+  it('never rewrites the apostrophe of a name the sailor typed', () => {
+    expect(fr('Dad\'s l\'Ouest trip')).toBe('Dad\'s l\'Ouest trip');
+  });
 });
 
 describe('French typography, wording and ages', () => {
