@@ -22,7 +22,8 @@ it.each([0, 1])('migrates draft v%s without linking any legacy history or losing
   expect(state.waypoints).toEqual([{ lat: 50, lng: -1 }]);
   expect(state.name).toBe('Legacy');
   const saved = JSON.parse(localStorage.getItem('deepweather.planner-draft'));
-  expect(saved.version).toBe(2);
+  expect(saved.version).toBe(3);
+  expect(saved.state.nameAuto).toBe(false);
   expect(saved.state.passageId).toBe(state.passageId);
 });
 

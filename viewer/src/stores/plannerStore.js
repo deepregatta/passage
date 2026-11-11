@@ -22,6 +22,9 @@ const initial = () => ({
   endpoints: [],
   computed: null, // RoutingResult
   name: 'My passage',
+  // True until the sailor types a name: the page then keeps the name it derives
+  // (generic, or "Start → Finish" when both ends are named) and never overwrites a typed one.
+  nameAuto: true,
   speeds: { slow: 4.5, nominal: 5.5, fast: 6.5 },
   departureLocal: defaultDeparture(),
   // No boat until the sailor chooses one: a preselected polar would route a boat they never picked.
@@ -47,9 +50,11 @@ export const usePlanner = create(
         setItem: (key, value) => { try { localStorage.setItem(key, value); } catch { /* keep the in-memory draft */ } },
         removeItem: (key) => { try { localStorage.removeItem(key); } catch { /* optional persistence */ } },
       })),
-      version: 2,
+      version: 3,
       migrate: (persisted, version) => {
         persisted = { ...persisted, passageId: persisted?.passageId || newPassageId() };
+        // Before version 3 nothing recorded who chose the name: only the two default names are the page's own.
+        if (version < 3) persisted.nameAuto = !persisted.name || persisted.name === 'My passage' || persisted.name === 'Ma traversée';
         if (version === 0 && persisted?.departureLocal) {
           return {
             ...persisted,

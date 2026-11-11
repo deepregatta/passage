@@ -10,6 +10,7 @@ import { FORECAST_HOURS, loadRoutingInputs as loadLiveRoutingInputs } from '../.
 import { forecastStore } from '../../lib/forecastStore.js';
 import { withFreshForecast } from '../../lib/forecastFreshness.js';
 import { validateDeparture } from './departureInput.js';
+import { GENERIC_NAME, defaultPassageName } from './passageName.js';
 import { ACTION, blockReason, friendlyError } from './plannerFeedback.js';
 import {
   changedRoutingInputs, draftSignature, routingInputKey, scanBasis, scanIsCurrent, staleRouteMessage,
@@ -49,6 +50,7 @@ export default function usePlannerController() {
   const polarId = usePlanner((s) => s.polarId);
   const polarLabel = usePlanner((s) => s.polarLabel);
   const name = usePlanner((s) => s.name);
+  const nameAuto = usePlanner((s) => s.nameAuto);
   const speeds = usePlanner((s) => s.speeds);
   const departureLocal = usePlanner((s) => s.departureLocal);
   const storedScan = usePlanner((s) => s.scan);
@@ -89,7 +91,8 @@ export default function usePlannerController() {
   const setWaypoints = useCallback((value) => patch({ waypoints: typeof value === 'function' ? value(usePlanner.getState().waypoints) : value }), [patch]);
   const setEndpoints = useCallback((value) => patch({ endpoints: typeof value === 'function' ? value(usePlanner.getState().endpoints) : value }), [patch]);
   const setComputed = useCallback((value) => patch({ computed: value }), [patch]);
-  const setName = (value) => patch({ name: value });
+  // Typing is the sailor's choice of name: from then on the page leaves it alone.
+  const setName = (value) => patch({ name: value, nameAuto: false });
   const setSpeeds = (value) => patch({ speeds: typeof value === 'function' ? value(usePlanner.getState().speeds) : value });
   const setDepartureLocal = (value) => patch({ departureLocal: value });
   const setScan = useCallback((value) => patch({ scan: value }), [patch]);
@@ -129,14 +132,16 @@ export default function usePlannerController() {
   useEffect(() => {
     if (!manifest) loadManifest();
   }, [manifest, loadManifest]);
+  // Until the sailor types a name it is the page's: "Start → Finish" when both
+  // ends are named, else the generic name in the page language.
+  const derivedName = defaultPassageName({ mode, endpoints, waypoints }, language);
   useEffect(() => {
-    if (language === 'fr' && name === 'My passage') patch({ name: 'Ma traversée' });
-    if (language === 'en' && name === 'Ma traversée') patch({ name: 'My passage' });
-  }, [language, name, patch]);
+    if (nameAuto && name !== derivedName) patch({ name: derivedName });
+  }, [nameAuto, name, derivedName, patch]);
 
   // The sailor's title for the passage, in both modes; it labels the saved check and
   // is never part of the routing inputs, so renaming keeps a computed route.
-  const passageName = name.trim() || (language === 'fr' ? 'Ma traversée' : 'My passage');
+  const passageName = name.trim() || (GENERIC_NAME[language] ?? GENERIC_NAME.en);
   const route = useMemo(() => {
     if (mode === 'compute') return computed?.route ? { ...computed.route, passage_id: passageId, name: passageName } : null;
     if (waypoints.length < 2) return null;
@@ -224,8 +229,13 @@ export default function usePlannerController() {
         route_id: 'gpx-import',
         speeds_kt: { ...speeds },
       });
-      setName(parsed.name);
-      setWaypoints(parsed.waypoints.map((wp) => ({ lat: wp.lat, lng: wp.lon })));
+      const points = parsed.waypoints.map((wp) => ({ lat: wp.lat, lng: wp.lon, ...(wp.name ? { name: wp.name } : {}) }));
+      // A file that names its route keeps that name. parseGpx falls back to the
+      // first <name> it finds (often the first point's) or to the route id.
+      const named = parsed.name !== 'gpx-import' && parsed.name !== parsed.waypoints[0]?.name;
+      setWaypoints(points);
+      if (named) setName(parsed.name);
+      else patch({ nameAuto: true });
       setFitNonce((n) => n + 1);
     } catch (e) {
       failAction(ACTION.gpx, e);

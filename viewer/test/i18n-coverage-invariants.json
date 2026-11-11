@@ -483,9 +483,7 @@
       "viewer/src/pages/planner/usePlannerController.jsx": [
         "compute",
         "draw",
-        "en",
         "fast",
-        "fr",
         "function",
         "gpx-import",
         "nominal",
@@ -609,9 +607,6 @@
       ],
       "viewer/src/pages/briefing/WeatherStoryCard.jsx": [
         "cause"
-      ],
-      "viewer/src/pages/planner/usePlannerController.jsx": [
-        "Ma traversée"
       ],
       "viewer/test/fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/briefing.json": [
         "ensemble"
