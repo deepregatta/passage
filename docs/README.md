@@ -6,6 +6,7 @@ This directory contains the maintained documentation for Passage.
 |---|---|
 | [Product brief](product-brief.md) | Current audience, value proposition, scope, safety principles, and product status |
 | [Capability and verification map](capabilities.md) | Source owners, dated production evidence, gated/local/deferred surfaces and existing checks |
+| [Port names](port-names.md) | Bundled World Port Index list that names tapped start/finish points: source, licence, lookup rule, identity safeguards, regeneration |
 | [Saved identities](saved-identities.md) | Versioned passage, route revision and snapshot rules, retry semantics and legacy preservation |
 | [Verification evidence](verification.md) | Replaceable case contributions, explicit lead semantics, legacy preservation and unavailable browser-local verification |
 | [GitHub Actions maintenance](github-actions.md) | Verified action pins, workflow lint/update procedure and approval-gated main protection |

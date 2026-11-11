@@ -10,7 +10,8 @@ import { FORECAST_HOURS, loadRoutingInputs as loadLiveRoutingInputs } from '../.
 import { forecastStore } from '../../lib/forecastStore.js';
 import { withFreshForecast } from '../../lib/forecastFreshness.js';
 import { validateDeparture } from './departureInput.js';
-import { GENERIC_NAME, defaultPassageName } from './passageName.js';
+import { loadPorts, loadedPorts, portNameAt } from '../../lib/ports.js';
+import { GENERIC_NAME, defaultPassageName, placedPoint } from './passageName.js';
 import { ACTION, blockReason, friendlyError } from './plannerFeedback.js';
 import {
   changedRoutingInputs, draftSignature, routingInputKey, scanBasis, scanIsCurrent, staleRouteMessage,
@@ -172,17 +173,48 @@ export default function usePlannerController() {
   // Past, beyond the forecast or unreadable: Compute, Scan and Check stop with this reason.
   const departureIssue = validateDeparture(departureLocal);
 
+  // The list of ports loads once, in the background; a failure leaves every point unnamed.
+  useEffect(() => { loadPorts(); }, []);
+  const busyRef = useRef(null);
+  busyRef.current = busy;
+  /** A point placed before the list arrived is named when it does, but only
+   * while it is still the same point and nothing has been computed or checked
+   * from it: a late file must not rename a route that already has results. */
+  const nameWhenPortsLoad = useCallback((point) => {
+    if (loadedPorts()) return;
+    loadPorts().then((list) => {
+      if (!list) return;
+      const state = usePlanner.getState();
+      if (state.computed || busyRef.current) return;
+      const isEndpoint = state.endpoints.includes(point);
+      if (!isEndpoint && !state.waypoints.includes(point)) return;
+      const named = placedPoint(point, point, portNameAt);
+      if (!named.name) return;
+      const swap = (points) => points.map((p) => (p === point ? named : p));
+      patch(isEndpoint ? { endpoints: swap(state.endpoints) } : { waypoints: swap(state.waypoints) });
+    });
+  }, [patch]);
+  const placePoint = useCallback((previous, latlng) => {
+    const point = placedPoint(previous, latlng, portNameAt);
+    nameWhenPortsLoad(point);
+    return point;
+  }, [nameWhenPortsLoad]);
+  /** Dragging a drawn point gives it the name of the port it now sits at, or none. */
+  const moveWaypoint = useCallback((index, latlng) => {
+    setWaypoints((wps) => wps.map((wp, i) => (i === index ? placePoint(wp, latlng) : wp)));
+  }, [setWaypoints, placePoint]);
+
   const addWaypoint = useCallback(
     (latlng) => {
       if (mode === 'compute') {
         if (computed) setDiscardedKey(computed.inputKey);
         setComputed(null);
-        setEndpoints((eps) => (eps.length >= 2 ? [latlng] : [...eps, latlng]));
+        setEndpoints((eps) => (eps.length >= 2 ? [placePoint(null, latlng)] : [...eps, placePoint(null, latlng)]));
       } else {
-        setWaypoints((wps) => [...wps, latlng]);
+        setWaypoints((wps) => [...wps, placePoint(null, latlng)]);
       }
     },
-    [mode, computed, setComputed, setEndpoints, setWaypoints],
+    [mode, computed, setComputed, setEndpoints, setWaypoints, placePoint],
   );
 
   // shared by Compute route and the per-departure scan routing
@@ -401,7 +433,7 @@ export default function usePlannerController() {
     departureIssue, blocked, retryAction, clearDraft, undoClear, fitNonce, fileRef, passageName,
     seededFromCompute: mode === 'draw' && seededFromCompute && waypoints.length > 0,
     clearedNotice: cleared?.signature === signature,
-    route, distance, speedsValid, passageHours, departureUtc, addWaypoint,
+    route, distance, speedsValid, passageHours, departureUtc, addWaypoint, moveWaypoint,
     runRouting, onGpx, runScan, run
   };
 }

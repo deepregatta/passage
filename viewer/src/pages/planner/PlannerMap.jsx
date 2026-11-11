@@ -52,7 +52,7 @@ function FitRoute({ positions, fitKey, chartArea }) {
   return null;
 }
 
-export default function PlannerMap({ mode, waypoints, computed, endpoints, fitNonce, chartArea, addWaypoint, setWaypoints, children }) {
+export default function PlannerMap({ mode, waypoints, computed, endpoints, fitNonce, chartArea, addWaypoint, moveWaypoint, children }) {
   const frameRef = useRef(null);
   return (
     <div ref={frameRef} className="isolate relative h-[40vh] min-h-[240px] lg:h-auto lg:min-h-[calc(100vh-8rem)] border border-ink/30 rounded-sm overflow-hidden">
@@ -93,11 +93,7 @@ export default function PlannerMap({ mode, waypoints, computed, endpoints, fitNo
               draggable
               eventHandlers={{
                 ...labelMarker(spec),
-                dragend: (e) => {
-                  const next = [...waypoints];
-                  next[i] = e.target.getLatLng();
-                  setWaypoints(next);
-                },
+                dragend: (e) => moveWaypoint(i, e.target.getLatLng()),
               }}
             />
           ))}

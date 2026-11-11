@@ -19,7 +19,7 @@ export const fullPolicyUrl = (language) => FULL_POLICY_URL[language === 'fr' ? '
 export const PRIVACY_BLOCKS = [
   { type: 'h1', text: 'Privacy policy' },
   { type: 'p', text: 'This page describes what Passage (passage.deepregatta.com) does with personal data. It is read together with the full DeepRegatta privacy policy, which covers all our products.' },
-  { type: 'p', text: 'Last updated: 10 November 2026' },
+  { type: 'p', text: 'Last updated: 11 November 2026' },
 
   { type: 'h2', text: 'In short' },
   { type: 'ul', items: [
@@ -40,6 +40,7 @@ export const PRIVACY_BLOCKS = [
     'Map tiles: the base map comes from OpenStreetMap’s tile servers (tile.openstreetmap.org) and the sea marks from OpenSeaMap (tiles.openseamap.org). These independent services receive your IP address, browser information and the tiles you view, with the Passage site address as the referrer. We do not control their logs.',
     'Boat polars: when you open the boat search or compute a route, your browser asks Passage’s own server function (/api/polars) for the boat list or one boat’s data, so your IP address and the boat you chose reach that function. To prevent bulk copying, it counts requests per IP address (per /64 network for IPv6) over a sliding minute in a short-lived counter that is deleted after a quiet minute. Passage’s code does not write your address to its logs.',
     'Fonts and scripts load from passage.deepregatta.com itself; no font or script provider is contacted.',
+    'Port names: the start and finish you tap on the chart are named from a list of ports that is part of the Passage site and is searched in your browser. The positions you tap are not sent anywhere to find a name.',
   ] },
 
   { type: 'h2', text: 'Usage measurement' },

@@ -27,7 +27,7 @@ export default function Planner() {
     departureLocal, scan, patch, setMode, setWaypoints, setEndpoints, setComputed,
     setName, setSpeeds, setDepartureLocal, busy, activeAction, failure, notice, staleRoute,
     departureIssue, blocked, retryAction, clearDraft, undoClear, clearedNotice, seededFromCompute, fitNonce, fileRef,
-    route, distance, speedsValid, passageHours, addWaypoint,
+    route, distance, speedsValid, passageHours, addWaypoint, moveWaypoint,
     runRouting, onGpx, runScan, run
   } = usePlannerController();
   // Every status below takes the same inputs; each one picks out its own action.
@@ -94,7 +94,7 @@ export default function Planner() {
           fitNonce={fitNonce}
           chartArea={chartArea}
           addWaypoint={addWaypoint}
-          setWaypoints={setWaypoints}
+          moveWaypoint={moveWaypoint}
         >
           <button
             type="button"

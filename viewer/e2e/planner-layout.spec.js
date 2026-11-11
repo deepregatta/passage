@@ -69,6 +69,65 @@ test('an imported GPX route with named ends names the passage, and a typed name 
   await expect(name).toHaveValue('Channel dash');
 });
 
+/** Where a latitude/longitude falls in a Leaflet map at an integer zoom, relative to `centre`:
+ * Web Mercator with 256 px tiles, as the page's base map uses. */
+const mercatorOffset = ([lat, lng], [centreLat, centreLng], zoom) => {
+  const world = 256 * 2 ** zoom;
+  const project = (la, ln) => ({
+    x: ((ln + 180) / 360) * world,
+    y: (0.5 - Math.log(Math.tan(Math.PI / 4 + (la * Math.PI) / 360)) / (2 * Math.PI)) * world,
+  });
+  const at = project(lat, lng);
+  const from = project(centreLat, centreLng);
+  return { x: at.x - from.x, y: at.y - from.y };
+};
+
+/** Taps the planner map at a latitude/longitude, one zoom out from the page's opening view (zoom 7, centred on 49.9 N 3.0 W). */
+async function tapAt(page, position) {
+  const box = await page.locator('.leaflet-container').boundingBox();
+  const offset = mercatorOffset(position, [49.9, -3.0], 7);
+  await page.mouse.click(box.x + box.width / 2 + offset.x, box.y + box.height / 2 + offset.y);
+}
+
+async function zoomOutOnce(page) {
+  await page.getByRole('button', { name: 'Zoom out' }).click();
+  await expect.poll(() => page.locator('.leaflet-zoom-anim').count()).toBe(0);
+  await page.waitForTimeout(400);
+}
+
+test('tapping start and finish next to two ports names the passage, and a typed name is kept', async ({ page }) => {
+  await page.goto('/#plan');
+  await page.locator('.leaflet-container').waitFor();
+  await zoomOutOnce(page);
+  const name = page.getByRole('textbox', { name: 'Name' });
+  await expect(name).toHaveValue('My passage');
+  // a little off the harbour mouths: Cherbourg, then Plymouth
+  await tapAt(page, [49.66, -1.61]);
+  await tapAt(page, [50.35, -4.13]);
+  await expect(page.getByText('2/2 endpoints')).toBeVisible();
+  await expect(name).toHaveValue('Cherbourg → Plymouth');
+  await page.getByRole('button', { name: 'Français' }).click();
+  await expect(page.getByRole('textbox', { name: 'Nom' })).toHaveValue('Cherbourg → Plymouth');
+  await page.getByRole('button', { name: 'English' }).click();
+
+  // the sailor's own name is never replaced: a new pair of taps leaves it
+  await name.fill('Channel dash');
+  await tapAt(page, [50.35, -4.13]);
+  await tapAt(page, [49.66, -1.61]);
+  await expect(page.getByText('2/2 endpoints')).toBeVisible();
+  await expect(name).toHaveValue('Channel dash');
+});
+
+test('a tap far from any port keeps the generic name', async ({ page }) => {
+  await page.goto('/#plan');
+  await page.locator('.leaflet-container').waitFor();
+  await zoomOutOnce(page);
+  await tapAt(page, [49.66, -1.61]);
+  await tapAt(page, [50.0, -3.0]); // open water mid-Channel
+  await expect(page.getByText('2/2 endpoints')).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Name' })).toHaveValue('My passage');
+});
+
 test('the knots unit stays lower case in the speed label, in English and in French', async ({ page }) => {
   await page.goto('/#plan');
   await page.getByRole('tab', { name: 'Draw my route' }).click();
