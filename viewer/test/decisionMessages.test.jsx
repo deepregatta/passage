@@ -199,3 +199,48 @@ it('restates the professional verdict driver with page labels for new and old ch
   expect(renderBriefingField(1, example, 'pro', 'en', undefined, { describeDriver: () => null }).text).toBe(example.register_pro);
   expect(renderBriefingField(1, numeric, 'pro', 'en', undefined, { describeDriver: () => null }).text).toBe(numeric.register_pro);
 });
+
+it('the plain "why" names the main signal by place and header-zone time, for new and old checks', () => {
+  const demo = read('./fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/findings.json');
+  const localize = {
+    departure: demo.departure_utc,
+    leg: (name, language) => (name === 'Casquets TSS crossing → Mid-Channel' ? (language === 'fr' ? 'près de Mid-Channel (tronçon 4)' : 'near Mid-Channel (leg 4)') : null),
+    time: (iso, language) => `${language}@${iso.slice(11, 16)}`,
+  };
+  const signal = { message_id: 'briefing.decision.numeric.plain.v1', params: { leg_name: 'Casquets TSS crossing → Mid-Channel', valid_time: '2026-07-20T21:00:00Z', value: 22, limit: 18, units: 'kt', hazard: 'winds', relation: 'over', style: 'up_to' } };
+  const section = structuredClone(numeric);
+  section.messages.plain = [section.messages.plain[0], signal];
+  section.register_plain = renderBriefingField(1, section, 'plain', 'en').text;
+  expect(section.register_plain).toMatch(/ on Casquets TSS crossing → Mid-Channel around Mon 20 Jul 21:00 UTC\.$/);
+  // new checks: the catalogue sentence, with its leg and time restated
+  expect(renderBriefingField(1, section, 'plain', 'en', undefined, { localize }).text)
+    .toMatch(/The main signal: winds up to 22 kt, over your 18 kt limit near Mid-Channel \(leg 4\) around en@21:00\.$/);
+  expect(renderBriefingField(1, section, 'plain', 'fr', undefined, { localize }).text)
+    .toMatch(/ près de Mid-Channel \(tronçon 4\) vers fr@21:00\.$/);
+  // a leg the page cannot name keeps its name, with the time still in the header zone
+  const unknown = renderBriefingField(1, numeric, 'plain', 'en', undefined, { localize });
+  expect(unknown.text).toMatch(/ on Wind limit <img src=x onerror=alert\(1\)> Jul around en@18:00\.$/);
+  // old checks (no message IDs): the saved sentence, the year read from the weekday
+  const { messages: _messages, ...legacy } = section;
+  expect(renderBriefingField(1, legacy, 'plain', 'en', undefined, { localize }))
+    .toEqual({ text: expect.stringMatching(/ near Mid-Channel \(leg 4\) around en@21:00\.$/), status: 'legacy' });
+  // without `localize` nothing changes
+  expect(renderBriefingField(1, section, 'plain', 'en')).toEqual({ text: section.register_plain, status: 'translated' });
+  expect(renderBriefingField(1, legacy, 'plain', 'en').text).toBe(section.register_plain);
+});
+
+it('renders the main signal in the header zone and by place in the page, not in UTC', () => {
+  const demo = read('./fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/findings.json');
+  const section = structuredClone(numeric);
+  section.messages.plain = [section.messages.plain[0], { message_id: 'briefing.decision.numeric.plain.v1', params: { leg_name: 'Casquets TSS crossing → Mid-Channel', valid_time: '2026-07-20T21:00:00Z', value: 22, limit: 18, units: 'kt', hazard: 'winds', relation: 'over', style: 'up_to' } }];
+  section.register_plain = renderBriefingField(1, section, 'plain', 'en').text;
+  useApp.setState({ language: 'en', findings: demo });
+  const { container, rerender } = render(<BriefingMessage section={section} field="plain" />);
+  // unit tests run in Europe/Paris: 21:00 UTC is 23:00, as the verdict sentence reads it
+  expect(container).toHaveTextContent(/over your 18 kt limit near Mid-Channel \(leg 4\) around Mon 20 Jul 23:00\.$/);
+  expect(container.textContent).not.toMatch(/UTC|\bL4\b/);
+  act(() => useApp.setState({ language: 'fr' }));
+  rerender(<BriefingMessage section={section} field="plain" />);
+  expect(container.textContent).toMatch(/ vers lun\. 20 juil\. 23:00\.$/);
+  expect(container.textContent).not.toMatch(/UTC|\bL4\b/);
+});

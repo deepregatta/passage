@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '../../stores/appStore.js';
 import { EmulatedStamp } from '../../components/common.jsx';
-import { fmtTime } from '../../lib/format.js';
+import { fmtTextTime, fmtUtcClock } from '../../lib/format.js';
+import { legLabel } from './routeLabels.jsx';
 import { loadJson, readVerificationCase } from '../../lib/verification.js';
 
 const CLASS_LABEL = {
@@ -10,6 +11,16 @@ const CLASS_LABEL = {
   reanalysis_referenced: 'reanalysis-referenced',
   not_independently_observed: 'not independently observed',
   emulated: 'emulated observations',
+};
+
+/** The matched variables in words; an unknown one keeps its recorded name. */
+const VARIABLE_LABEL = {
+  wind_kt: 'wind (kt)',
+  gust_kt: 'gusts (kt)',
+  wind_dir_deg: 'wind direction (°)',
+  pressure_hpa: 'pressure (hPa)',
+  hs_m: 'wave height (m)',
+  wave_height_m: 'wave height (m)',
 };
 
 /** Print only this report: the rest of the passage page stays on screen. */
@@ -94,13 +105,15 @@ export default function OutcomeSection() {
         <h3 className="font-instrument uppercase tracking-wider font-semibold">Error decomposition</h3>
         <div className="verification-table-scroll mt-3" role="region" aria-label="Error decomposition" tabIndex={0}>
           <table className="verification-table w-full text-sm">
-            <thead><tr className="border-b border-ink text-left"><th className="py-2">leg · valid UTC</th><th>variable</th><th>frozen forecast</th><th>later observation</th><th>error</th><th>interpretation</th></tr></thead>
-            <tbody>{doc.pairs.map((pair, index) => <tr key={index} className="border-b hairline"><td className="py-2 font-mono text-xs">{pair.leg_id} · {fmtTime(pair.valid_time)}
+            <thead><tr className="border-b border-ink text-left"><th className="py-2">leg · valid time</th><th>variable</th><th>frozen forecast</th><th>later observation</th><th>error</th><th>interpretation</th></tr></thead>
+            <tbody>{doc.pairs.map((pair, index) => <tr key={index} className="border-b hairline"><td className="py-2 font-mono text-xs">
+              <div>{findings.legs?.some((leg) => leg.leg_id === pair.leg_id) ? legLabel(findings, pair.leg_id, { bare: true }) : pair.leg_id}</div>
+              <div>{fmtTextTime(pair.valid_time)} <span className="text-ink-soft">· {fmtUtcClock(pair.valid_time)}</span></div>
               {doc.schema_version === 2 && <div className="mt-1 space-y-1">
                 <div><span>Since check</span>: {pair.check_lead_h ?? 'n/a'} h</div>
                 <div><span>Model lead</span>: {pair.model_lead_h ?? 'n/a'} h</div>
               </div>}
-            </td><td>{pair.variable}</td><td className="font-mono">{pair.forecast}</td><td className="font-mono">{pair.observed}</td><td className="font-mono">{pair.error > 0 ? '+' : ''}{pair.error}</td><td>{pair.error > 0 ? 'Forecast above observation' : pair.error < 0 ? 'Forecast below observation' : 'Equal at displayed precision'}</td></tr>)}</tbody>
+            </td><td>{VARIABLE_LABEL[pair.variable] ?? pair.variable}</td><td className="font-mono">{pair.forecast}</td><td className="font-mono">{pair.observed}</td><td className="font-mono">{pair.error > 0 ? '+' : ''}{pair.error}</td><td>{pair.error > 0 ? 'Forecast above observation' : pair.error < 0 ? 'Forecast below observation' : 'Equal at displayed precision'}</td></tr>)}</tbody>
           </table>
         </div>
       </section>

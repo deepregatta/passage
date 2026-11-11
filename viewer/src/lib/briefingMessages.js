@@ -61,6 +61,46 @@ function legacyDriverParams(text) {
     : { ...head, value: Number(m[8]), units: m[9], limit: Number(m[10]) };
 }
 
+/**
+ * The plain "why" ends with the main signal on "<leg name> around <UTC time> UTC". The saved text and
+ * the engine's message catalogue are UTC-only and name the leg by its full "A → B" name; the page names
+ * a leg by place and number and states times in the header zone, as the verdict sentence does. A caller
+ * that can do that passes `localize`; without it the text stays as the engine wrote it.
+ * @typedef {{ leg: (legName: string, language: 'en' | 'fr') => string | null, time: (iso: string, language: 'en' | 'fr') => string, departure: string }} Localize
+ */
+const SIGNAL_IDS = ['briefing.decision.numeric.plain.v1', 'briefing.decision.ensemble.plain.v1'];
+const LEGACY_SIGNAL = / on (.+?) around ([A-Z][a-z]{2}) (\d{1,2}) ([A-Z][a-z]{2}) (\d{2}):(\d{2}) UTC\./g;
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+/** One message's sentence in page labels, or the sentence itself when it is not a main-signal message
+ * of the shape the engine writes. @param {any} ref @param {string} sentence @param {'en' | 'fr'} language @param {Localize} localize */
+function restateMessage(ref, sentence, language, localize) {
+  const params = ref.params;
+  const tail = language === 'fr'
+    ? ` sur ${params.leg_name} vers ${formatMessageTime(params.valid_time, 'fr')} UTC.`
+    : ` on ${params.leg_name} around ${formatMessageTime(params.valid_time)} UTC.`;
+  if (!sentence.endsWith(tail)) return sentence;
+  const where = localize.leg(params.leg_name, language);
+  const when = localize.time(params.valid_time, language);
+  const restated = language === 'fr' ? ` ${where ?? `sur ${params.leg_name}`} vers ${when}.` : ` ${where ?? `on ${params.leg_name}`} around ${when}.`;
+  return `${sentence.slice(0, -tail.length)}${restated}`;
+}
+
+/** Saved English prose from before message IDs: the same restatement, the year read from the weekday. @param {string} text @param {Localize} localize */
+function restateLegacy(text, localize) {
+  const departure = Date.parse(localize.departure);
+  if (!Number.isFinite(departure)) return text;
+  return text.replace(LEGACY_SIGNAL, (/** @type {string} */ whole, /** @type {string} */ legName, /** @type {string} */ weekday, /** @type {string} */ day, /** @type {string} */ month, /** @type {string} */ hour, /** @type {string} */ minute) => {
+    const year = new Date(departure).getUTCFullYear();
+    const at = [year - 1, year, year + 1]
+      .map((y) => Date.UTC(y, MONTHS.indexOf(month), Number(day), Number(hour), Number(minute)))
+      .find((t) => WEEKDAYS[new Date(t).getUTCDay()] === weekday && Math.abs(t - departure) < 90 * 86_400_000);
+    if (at === undefined || MONTHS.indexOf(month) < 0) return whole;
+    return ` ${localize.leg(legName, 'en') ?? `on ${legName}`} around ${localize.time(new Date(at).toISOString(), 'en')}.`;
+  });
+}
+
 /** Read adapter: no inference of IDs, persistence rewrite, or recomputation.
  * A damaged sentence falls back to the entire stored field, including caveats
  * (only the scenario-count signal is dropped when `omitScenarioCount` is set).
@@ -69,12 +109,13 @@ function legacyDriverParams(text) {
  * @param {'title' | 'plain' | 'pro'} field
  * @param {'en' | 'fr'} language
  * @param {import('@deepweather/engine').DecisionMessageCatalogue} [french]
- * @param {{ omitScenarioCount?: boolean, describeDriver?: (params: any, language: 'en' | 'fr') => string | null }} [options]
+ * @param {{ omitScenarioCount?: boolean, describeDriver?: (params: any, language: 'en' | 'fr') => string | null, localize?: Localize }} [options]
  */
-export function renderBriefingField(version, section, field, language, french = FR_DECISION_MESSAGES, { omitScenarioCount = false, describeDriver } = {}) {
+export function renderBriefingField(version, section, field, language, french = FR_DECISION_MESSAGES, { omitScenarioCount = false, describeDriver, localize } = {}) {
   const omit = omitScenarioCount && field === 'plain';
   const stored = field === 'title' ? section.title : section[`register_${field}`];
   let saved = omit && typeof stored === 'string' ? stored.replace(SCENARIO_SIGNAL_TEXT, '') : stored;
+  if (localize && field === 'plain' && typeof saved === 'string') saved = restateLegacy(saved, localize);
   /** @param {any} params @param {'en' | 'fr'} [lang] */
   const describe = (params, lang = language) => {
     if (!describeDriver || field !== 'pro' || !params) return null;
@@ -111,9 +152,21 @@ export function renderBriefingField(version, section, field, language, french = 
       : { text: unavailable, status: 'unavailable' };
   }
   const catalogue = language === 'fr' ? french : undefined;
-  const text = !validContainer ? null : field === 'title' ? renderDecisionMessage(refs, catalogue) : renderDecisionRegister(refs, catalogue);
+  const text = !validContainer ? null : field === 'title' ? renderDecisionMessage(refs, catalogue)
+    : localize && field === 'plain' && Array.isArray(refs) && refs.length > 0 && refs.length <= 16 ? renderPlainRegister(refs, catalogue, language, localize)
+      : renderDecisionRegister(refs, catalogue);
   if (text !== null) return { text: withDriver(text, refDriver), status: 'translated' };
   return typeof saved === 'string' && saved.length > 0 ? { text: withDriver(saved, legacyDriver && describe(legacyParams, 'en')), status: 'fallback' } : { text: unavailable, status: 'unavailable' };
+}
+
+/** The plain register with its main-signal sentence restated in page labels; null when any message is unusable.
+ * @param {any[]} refs @param {import('@deepweather/engine').DecisionMessageCatalogue | undefined} catalogue @param {'en' | 'fr'} language @param {Localize} localize */
+function renderPlainRegister(refs, catalogue, language, localize) {
+  const sentences = refs.map((ref) => {
+    const sentence = renderDecisionMessage(ref, catalogue);
+    return sentence !== null && SIGNAL_IDS.includes(ref?.message_id) ? restateMessage(ref, sentence, language, localize) : sentence;
+  });
+  return sentences.every((sentence) => typeof sentence === 'string' && sentence.length > 0) ? sentences.join(' ') : null;
 }
 
 /** @param {string} status @param {'en' | 'fr'} language */

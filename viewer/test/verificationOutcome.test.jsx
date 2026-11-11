@@ -70,3 +70,18 @@ it.each([false, true])('an indexed case is not an unconditional Verified claim (
   expect(screen.queryByText('Verified')).not.toBeInTheDocument();
   expect(screen.queryByText('Verify')).not.toBeInTheDocument();
 });
+
+it('names the matched leg by place and the valid time in the header zone, UTC marked second', async () => {
+  const demo = (await import('./fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/findings.json')).default;
+  useApp.setState({ findings: { ...demo, snapshot_id: pythonCase.snapshot_id }, snapshotSource: 'served' });
+  vi.stubGlobal('fetch', vi.fn(async (url) => ({ ok: true, json: async () => String(url).endsWith('index.json')
+    ? { cases: [{ snapshot_id: pythonCase.snapshot_id }] } : pythonCase })));
+  render(<OutcomeSection />);
+  const cells = (await screen.findAllByRole('cell')).map((cell) => cell.textContent);
+  // 12:00 UTC is 14:00 in Europe/Paris, where the unit tests run
+  expect(cells[0]).toContain('Off Omonville-la-Rogue (leg 1)');
+  expect(cells[0]).toContain('Sun 12 Jul 14:00 · 12:00 UTC');
+  expect(cells[0]).not.toMatch(/\bL1\b/);
+  expect(cells[1]).toBe('wind (kt)');
+  expect(screen.getByRole('columnheader', { name: 'leg · valid time' })).toBeVisible();
+});
