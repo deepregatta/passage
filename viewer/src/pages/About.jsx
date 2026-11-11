@@ -5,6 +5,8 @@ import { Panel, EmulatedStamp } from '../components/common.jsx';
 import { GLOSSARY } from '../lib/glossary.jsx';
 import { loadJson } from '../lib/verification.js';
 import { PlanBackLink } from '../components/BackLink.jsx';
+import { SourceGroup } from '../components/SourceTerms.jsx';
+import { FORECAST_SOURCES, OTHER_SOURCES } from '../lib/dataSources.js';
 
 // Human names for the feeds in config/providers.json. An id not listed here is
 // still shown readably (see providerName), so a new feed never prints raw.
@@ -115,6 +117,15 @@ export default function About() {
               </li>
             ))}
         </ul>
+
+        <section aria-labelledby="source-terms" className="mt-5 space-y-3">
+          <h3 id="source-terms" className="font-instrument font-semibold">Terms for each source</h3>
+          <p className="font-sans text-sm text-ink-soft">
+            What the files behind Passage record about each source. A licence shown here is a record, not a check of the provider’s current terms. Where redistribution is not yet confirmed, do not assume the data may be reused or passed on.
+          </p>
+          <SourceGroup title="Forecast model data" sources={FORECAST_SOURCES} />
+          <SourceGroup title="Other feeds and map layers" sources={OTHER_SOURCES} />
+        </section>
       </Panel>
 
       <Panel title="Glossary">

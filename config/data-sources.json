@@ -1,0 +1,322 @@
+{
+  "schema_version": 1,
+  "sources": [
+    {
+      "id": "forecast-tiles-service",
+      "name": "Forecast tiles",
+      "provider": "forecast-tiles",
+      "licence": null,
+      "licence_url": null,
+      "attribution": null,
+      "share_alike": null,
+      "redistribute": "unconfirmed",
+      "verified_on": null,
+      "verified_from": null,
+      "used_by": [
+        "forecast_tiles"
+      ],
+      "recorded_in": [],
+      "notes": "The tile service combines several upstream models; each one's terms are in the vendored forecast-tiles register (contracts/forecast-tiles-data-sources.json). Nothing is recorded for the service as a whole. Terms not yet confirmed."
+    },
+    {
+      "id": "ecmwf-open-data-charts",
+      "name": "ECMWF open data for synoptic charts",
+      "provider": "ECMWF",
+      "licence": "CC-BY-4.0, source: ECMWF open data",
+      "licence_url": null,
+      "attribution": null,
+      "share_alike": null,
+      "redistribute": "unconfirmed",
+      "verified_on": null,
+      "verified_from": null,
+      "used_by": [
+        "ecmwf_open_data"
+      ],
+      "recorded_in": [
+        "analysis/src/deepweather_analysis/ecmwf_open_data.py"
+      ],
+      "notes": "Licence copied from LICENCE in analysis/src/deepweather_analysis/ecmwf_open_data.py. The synoptic chart image credit and the GRIB page line say \"CC-BY-4.0\" and \"CC BY 4.0\" (analysis/src/deepweather_analysis/synoptic/render.py, engine/src/export/gribDatasets.ts); neither is recorded here as the attribution. Redistribution is not stated. Terms not yet confirmed."
+    },
+    {
+      "id": "copernicus-marine-currents",
+      "name": "Copernicus Marine currents",
+      "provider": "Copernicus Marine Service",
+      "licence": null,
+      "licence_url": null,
+      "attribution": null,
+      "share_alike": null,
+      "redistribute": "unconfirmed",
+      "verified_on": null,
+      "verified_from": null,
+      "used_by": [
+        "cmems_currents"
+      ],
+      "recorded_in": [],
+      "notes": "No licence or attribution for this feed is recorded in this repository outside the GRIB page's per-dataset line, which is left as it is. Terms not yet confirmed."
+    },
+    {
+      "id": "era5-reanalysis",
+      "name": "ERA5 reanalysis",
+      "provider": "Copernicus",
+      "licence": null,
+      "licence_url": null,
+      "attribution": null,
+      "share_alike": null,
+      "redistribute": "unconfirmed",
+      "verified_on": null,
+      "verified_from": null,
+      "used_by": [
+        "era5"
+      ],
+      "recorded_in": [],
+      "notes": "No licence, attribution or redistribution statement for ERA5 is recorded in this repository. Terms not yet confirmed."
+    },
+    {
+      "id": "meteofrance-marine-bulletins",
+      "name": "Météo-France marine bulletins",
+      "provider": "Météo-France",
+      "licence": null,
+      "licence_url": null,
+      "attribution": null,
+      "share_alike": null,
+      "redistribute": "unconfirmed",
+      "verified_on": null,
+      "verified_from": null,
+      "used_by": [
+        "warnings_fr"
+      ],
+      "recorded_in": [],
+      "notes": "config/providers.json describes the feed as the official data.gouv BMS mirror, synced daily. No licence, attribution or redistribution statement is recorded. Terms not yet confirmed."
+    },
+    {
+      "id": "metoffice-shipping-forecast",
+      "name": "Met Office shipping forecast print page",
+      "provider": "Met Office",
+      "licence": null,
+      "licence_url": null,
+      "attribution": null,
+      "share_alike": null,
+      "redistribute": "unconfirmed",
+      "verified_on": null,
+      "verified_from": null,
+      "used_by": [
+        "warnings_uk"
+      ],
+      "recorded_in": [],
+      "notes": "config/providers.json describes the feed as the shipping-forecast print page, with no API. No licence, attribution or redistribution statement is recorded. Terms not yet confirmed."
+    },
+    {
+      "id": "nws-marine-alerts",
+      "name": "NWS marine alerts (api.weather.gov)",
+      "provider": "NWS",
+      "licence": null,
+      "licence_url": null,
+      "attribution": null,
+      "share_alike": null,
+      "redistribute": "unconfirmed",
+      "verified_on": null,
+      "verified_from": null,
+      "used_by": [
+        "warnings_us"
+      ],
+      "recorded_in": [],
+      "notes": "config/providers.json describes the feed as the active-alerts API per marine zone. No licence, attribution or redistribution statement is recorded. Terms not yet confirmed."
+    },
+    {
+      "id": "meteoalarm-warnings",
+      "name": "Meteoalarm warnings",
+      "provider": "Meteoalarm",
+      "licence": null,
+      "licence_url": null,
+      "attribution": null,
+      "share_alike": null,
+      "redistribute": "unconfirmed",
+      "verified_on": null,
+      "verified_from": null,
+      "used_by": [
+        "warnings_meteoalarm"
+      ],
+      "recorded_in": [],
+      "notes": "config/providers.json describes the feed as the Meteoalarm CAP JSON per country. No licence, attribution or redistribution statement is recorded. Terms not yet confirmed."
+    },
+    {
+      "id": "bom-marine-warnings",
+      "name": "BOM marine wind warnings",
+      "provider": "BOM",
+      "licence": null,
+      "licence_url": null,
+      "attribution": null,
+      "share_alike": null,
+      "redistribute": "unconfirmed",
+      "verified_on": null,
+      "verified_from": null,
+      "used_by": [
+        "warnings_au"
+      ],
+      "recorded_in": [],
+      "notes": "config/providers.json describes the feed as the marine wind warning summary XML per state over anonymous FTP. No licence, attribution or redistribution statement is recorded. Terms not yet confirmed."
+    },
+    {
+      "id": "noaa-coops-tides",
+      "name": "NOAA CO-OPS tide predictions",
+      "provider": "NOAA CO-OPS",
+      "licence": null,
+      "licence_url": null,
+      "attribution": null,
+      "share_alike": null,
+      "redistribute": "unconfirmed",
+      "verified_on": null,
+      "verified_from": null,
+      "used_by": [
+        "tides"
+      ],
+      "recorded_in": [],
+      "notes": "Named in analysis/src/deepweather_analysis/tides.py as the official harmonic predictions for US routes. No licence, attribution or redistribution statement is recorded. Terms not yet confirmed."
+    },
+    {
+      "id": "msq-queensland-tides",
+      "name": "Maritime Safety Queensland tide predictions",
+      "provider": "Maritime Safety Queensland",
+      "licence": null,
+      "licence_url": null,
+      "attribution": null,
+      "share_alike": null,
+      "redistribute": "unconfirmed",
+      "verified_on": null,
+      "verified_from": null,
+      "used_by": [
+        "tides"
+      ],
+      "recorded_in": [],
+      "notes": "Named in analysis/src/deepweather_analysis/tides.py as official predictions on data.qld.gov.au (\"open data\" there is a description of the source, not a recorded licence). No licence, attribution or redistribution statement is recorded. Terms not yet confirmed."
+    },
+    {
+      "id": "copernicus-marine-ssh-tides",
+      "name": "Copernicus Marine sea surface height (tides)",
+      "provider": "Copernicus Marine Service",
+      "licence": null,
+      "licence_url": null,
+      "attribution": null,
+      "share_alike": null,
+      "redistribute": "unconfirmed",
+      "verified_on": null,
+      "verified_from": null,
+      "used_by": [
+        "tides"
+      ],
+      "recorded_in": [],
+      "notes": "Named in config/providers.json and analysis/src/deepweather_analysis/tides.py as the 15-minute model sea surface height used for tides on some routes. No licence, attribution or redistribution statement is recorded. Terms not yet confirmed."
+    },
+    {
+      "id": "ndbc-observations",
+      "name": "NDBC realtime observations",
+      "provider": "NDBC",
+      "licence": null,
+      "licence_url": null,
+      "attribution": null,
+      "share_alike": null,
+      "redistribute": "unconfirmed",
+      "verified_on": null,
+      "verified_from": null,
+      "used_by": [
+        "observations"
+      ],
+      "recorded_in": [],
+      "notes": "Named in config/providers.json (realtime2, GTS and C-MAN). No licence, attribution or redistribution statement is recorded. Terms not yet confirmed."
+    },
+    {
+      "id": "copernicus-insitu-observations",
+      "name": "Copernicus In Situ TAC moorings",
+      "provider": "Copernicus Marine Service",
+      "licence": null,
+      "licence_url": null,
+      "attribution": null,
+      "share_alike": null,
+      "redistribute": "unconfirmed",
+      "verified_on": null,
+      "verified_from": null,
+      "used_by": [
+        "observations"
+      ],
+      "recorded_in": [],
+      "notes": "Named in config/providers.json (near-real-time moorings, Mediterranean). No licence, attribution or redistribution statement is recorded. Terms not yet confirmed."
+    },
+    {
+      "id": "queensland-wave-buoys",
+      "name": "Queensland Coastal Data System wave buoys",
+      "provider": "Queensland Coastal Data System",
+      "licence": null,
+      "licence_url": null,
+      "attribution": null,
+      "share_alike": null,
+      "redistribute": "unconfirmed",
+      "verified_on": null,
+      "verified_from": null,
+      "used_by": [
+        "observations"
+      ],
+      "recorded_in": [],
+      "notes": "Named in config/providers.json (waves only). No licence, attribution or redistribution statement is recorded. Terms not yet confirmed."
+    },
+    {
+      "id": "world-port-index",
+      "name": "World Port Index (Publication 150)",
+      "provider": "NGA",
+      "licence": "public domain",
+      "licence_url": null,
+      "attribution": null,
+      "share_alike": null,
+      "redistribute": "unconfirmed",
+      "verified_on": null,
+      "verified_from": null,
+      "used_by": [
+        "port_index"
+      ],
+      "recorded_in": [
+        "viewer/src/data/PROVENANCE.md",
+        "docs/port-names.md"
+      ],
+      "notes": "viewer/src/data/PROVENANCE.md records the licence as public domain (the service item's licence text, \"released into Public Domain\") and says public domain needs no attribution, so attribution stays null. The copy was obtained on 2026-11-11 from the Esri service, not from NGA; no date is recorded for reading the terms, so verified_on stays null. The file also says Passage does not claim NGA endorsement, and a refresh from NGA is planned. Redistribution is not stated. Terms not yet confirmed."
+    },
+    {
+      "id": "openstreetmap-base-map",
+      "name": "OpenStreetMap base map tiles",
+      "provider": "OpenStreetMap contributors",
+      "licence": null,
+      "licence_url": null,
+      "attribution": "© OpenStreetMap contributors",
+      "share_alike": null,
+      "redistribute": "unconfirmed",
+      "verified_on": null,
+      "verified_from": null,
+      "used_by": [
+        "basemap_osm"
+      ],
+      "recorded_in": [
+        "viewer/src/lib/basemap.js"
+      ],
+      "notes": "Credit line as rendered, from the attribution in viewer/src/lib/basemap.js (its markup links the OpenStreetMap copyright page). No licence is recorded here. Terms not yet confirmed."
+    },
+    {
+      "id": "openseamap-seamarks",
+      "name": "OpenSeaMap seamark tiles",
+      "provider": "OpenSeaMap",
+      "licence": null,
+      "licence_url": null,
+      "attribution": "seamarks © OpenSeaMap",
+      "share_alike": null,
+      "redistribute": "unconfirmed",
+      "verified_on": null,
+      "verified_from": null,
+      "used_by": [
+        "seamarks_openseamap"
+      ],
+      "recorded_in": [
+        "viewer/src/components/RouteMap.jsx",
+        "viewer/src/pages/planner/PlannerMap.jsx",
+        "viewer/src/pages/grib/GribMap.jsx"
+      ],
+      "notes": "Credit line from the seamark layer attribution in viewer/src/components/RouteMap.jsx, viewer/src/pages/planner/PlannerMap.jsx and viewer/src/pages/grib/GribMap.jsx. No licence is recorded here. Terms not yet confirmed."
+    }
+  ]
+}

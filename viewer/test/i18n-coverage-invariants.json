@@ -594,6 +594,11 @@
       "viewer/src/components/Shell.jsx": [
         "Choisir la langue"
       ],
+      "viewer/src/components/SourceTerms.jsx": [
+        "Attribution",
+        "Licence",
+        "Redistribution"
+      ],
       "viewer/src/pages/About.jsx": [
         "variable"
       ],

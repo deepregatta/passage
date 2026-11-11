@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Check committed shared-contract pins offline; never refresh pins implicitly."""
 
-# Vendored from forecast-tiles/scripts/check_shared_contracts.py, 2026-10-04.
+# Vendored from forecast-tiles/scripts/check_shared_contracts.py, 2026-11-11.
 # Repository inventory and lock location are intentionally local.
 import argparse
 import gzip
@@ -14,6 +14,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY = "passage"
 LOCK = "contracts/shared-contracts.lock.json"
+# Who may consume each contract family. A family missing here is refused, so a
+# new contract cannot silently default to a consumer list.
+CONSUMERS = {
+    "PFT1": ["passage", "tactician"],
+    "TLI1": ["tactician"],
+    "TCP1": ["tactician"],
+    "data-sources": ["passage"],
+}
 # Deliberate inventory changes require review alongside the pins, not deletion
 # of a lock entry to silently stop checking a schema or consumer fixture.
 EXPECTED = {
@@ -65,6 +73,18 @@ EXPECTED = {
         "PFT1/schema-1",
         "exact",
     ),
+    "contracts/data-sources.schema.json": (
+        "forecast-tiles",
+        "contracts/data-sources.schema.json",
+        "data-sources/schema-1",
+        "exact",
+    ),
+    "contracts/forecast-tiles-data-sources.json": (
+        "forecast-tiles",
+        "contracts/data-sources.json",
+        "data-sources/schema-1",
+        "exact",
+    ),
 }
 
 
@@ -102,9 +122,10 @@ def check(root):
                 )
                 if identity != (owner, canonical, contract, representation):
                     raise ValueError("canonical identity/representation does not match inventory")
-                consumers = (
-                    ["passage", "tactician"] if contract.startswith("PFT1") else ["tactician"]
-                )
+                family = contract.split("/")[0]
+                if family not in CONSUMERS:
+                    raise ValueError(f"unknown contract family {family!r}")
+                consumers = CONSUMERS[family]
                 if row["producer"] != "forecast-tiles" or row["consumers"] != consumers:
                     raise ValueError("producer/consumer ownership does not match inventory")
                 data = (root / path).read_bytes()

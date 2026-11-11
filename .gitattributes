@@ -9,3 +9,5 @@ engine/test/fixtures/tiles/golden-N40W010-ensemble.bin.gz -text
 engine/test/fixtures/tiles/golden-N40W010-ensemble.expected.json text eol=lf
 engine/test/fixtures/tiles/golden-N40W010-weather.bin.gz -text
 engine/test/fixtures/tiles/golden-N40W010-weather.expected.json text eol=lf
+contracts/data-sources.schema.json text eol=lf
+contracts/forecast-tiles-data-sources.json text eol=lf

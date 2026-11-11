@@ -95,6 +95,38 @@ const FR = {
   "within": "dans les limites",
   "reach": "atteignent",
 
+  // About: terms for each data source (names, licences and credit lines are register data, not translated).
+  "Terms for each source": "Conditions de chaque source",
+  "What the files behind Passage record about each source. A licence shown here is a record, not a check of the provider’s current terms. Where redistribution is not yet confirmed, do not assume the data may be reused or passed on.": "Ce que consignent les fichiers de Passage sur chaque source. Une licence affichée ici est une mention consignée, pas une vérification des conditions actuelles du fournisseur. Lorsque la redistribution n’est pas encore confirmée, ne supposez pas que les données peuvent être réutilisées ou transmises.",
+  "Forecast model data": "Données des modèles de prévision",
+  "Other feeds and map layers": "Autres flux et fonds de carte",
+  "Share-alike": "Partage dans les mêmes conditions",
+  "Verified on": "Vérifié le",
+  "Not yet confirmed": "Pas encore confirmé",
+  "Not yet verified": "Pas encore vérifié",
+  "Yes, under the licence": "Oui, selon la licence",
+  "Yes, adapted data keep the same licence": "Oui, les données adaptées gardent la même licence",
+  "No": "Non",
+  // About: source names and providers from the registers (proper names and product codes pass through unchanged).
+  "ECMWF open data IFS 0.25°": "Données ouvertes ECMWF IFS 0,25°",
+  "ECMWF open data for synoptic charts": "Données ouvertes ECMWF pour les cartes synoptiques",
+  "Copernicus Marine currents": "Courants Copernicus Marine",
+  "ERA5 reanalysis": "Réanalyse ERA5",
+  "Météo-France marine bulletins": "Bulletins marins de Météo-France",
+  "Met Office shipping forecast print page": "Page imprimable des prévisions maritimes du Met Office",
+  "NWS marine alerts (api.weather.gov)": "Alertes marines du NWS (api.weather.gov)",
+  "Meteoalarm warnings": "Alertes Meteoalarm",
+  "BOM marine wind warnings": "Avis de vent marin du BOM",
+  "NOAA CO-OPS tide predictions": "Prédictions de marée NOAA CO-OPS",
+  "Maritime Safety Queensland tide predictions": "Prédictions de marée de Maritime Safety Queensland",
+  "Copernicus Marine sea surface height (tides)": "Hauteur de la surface de la mer Copernicus Marine (marées)",
+  "NDBC realtime observations": "Observations en temps réel du NDBC",
+  "Copernicus In Situ TAC moorings": "Mouillages Copernicus In Situ TAC",
+  "Queensland Coastal Data System wave buoys": "Bouées de houle du Queensland Coastal Data System",
+  "OpenStreetMap base map tiles": "Tuiles du fond de carte OpenStreetMap",
+  "OpenSeaMap seamark tiles": "Tuiles de balisage OpenSeaMap",
+  "OpenStreetMap contributors": "contributeurs d’OpenStreetMap",
+
   // Production errors, progress, and independently rendered narrative fragments.
   "No forecast tiles cover this area yet": "Aucune tuile de prévision ne couvre encore cette zone",
   "Couldn't load the forecast tiles. Check your connection and try again.": "Impossible de charger les tuiles de prévision. Vérifiez votre connexion et réessayez.",
@@ -1010,6 +1042,16 @@ const FR_SYSTEM_NOUN = {
 
 const FR_PATTERNS = [
   // Header limits chip and phone Limits button (Shell.jsx).
+  // About: source group summaries, composed by groupSummary() in lib/dataSources.js.
+  [/^(.+) · (\d+) sources? · (none confirmed yet|all confirmed|not yet confirmed|confirmed|(\d+) not yet confirmed)$/, (_match, group, count, status, pendingCount) => {
+    const french = {
+      'none confirmed yet': 'aucune confirmée pour l’instant',
+      'all confirmed': 'toutes confirmées',
+      'not yet confirmed': 'pas encore confirmée',
+      confirmed: 'confirmée',
+    }[status] ?? `${pendingCount} pas encore confirmée${Number(pendingCount) > 1 ? 's' : ''}`;
+    return `${FR[group] ?? group} · ${count} source${Number(count) > 1 ? 's' : ''} · ${french}`;
+  }, true],
   [/^Wind ([\d.]+) · Gusts ([\d.]+) kt$/, 'Vent $1 · Rafales $2 kt'],
   [/^· Waves ([\d.]+) m$/, '· Vagues $1 m'],
   [/^Edit my limits: wind ([\d.]+) kt, gusts ([\d.]+) kt, waves ([\d.]+) m$/, 'Modifier mes limites : vent $1 kt, rafales $2 kt, vagues $3 m'],
@@ -1888,6 +1930,7 @@ const originalText = new WeakMap();
 const originalAttrs = new WeakMap();
 const ATTRIBUTES = ['aria-label', 'title', 'placeholder', 'alt'];
 
+// [data-i18n-owned="message"] is also the opt-out for verbatim register data (SourceTerms.jsx), not only BriefingMessage text.
 function localizeText(node, language) {
   if (node.parentElement?.closest('script, style, pre, code, [data-i18n-owned="message"]')) return;
   let original = originalText.get(node);

@@ -89,7 +89,8 @@ export function ambiguousCheckOrder(snapshots, entry) {
 }
 
 /** Marks text the document localiser must leave alone: it was already composed
- * in the right language, and may contain a name the sailor typed. */
+ * in the right language, and may contain a name the sailor typed. Also used for
+ * verbatim register data (licences and credit lines on the About page). */
 export const OWNED = { 'data-i18n-owned': 'message' };
 
 // Phrases with a sailor-typed or generated value in them. The value is put in

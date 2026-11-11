@@ -1,6 +1,6 @@
 """Exercise actual committed pins and mismatched copies without siblings/network."""
 
-# Vendored from forecast-tiles/scripts/test_shared_contracts.py, 2026-10-04.
+# Vendored from forecast-tiles/scripts/test_shared_contracts.py, 2026-11-11.
 # The local lock and script paths are adapted for this repository.
 import hashlib
 import json
@@ -113,6 +113,48 @@ class ContractDriftTests(unittest.TestCase):
         result = self.run_check()
         self.assert_drift(result, row)
         self.assertIn("gunzip representation", result.stderr)
+
+    def row_for(self, suffix):
+        return next(r for r in self.lock["artifacts"] if r["path"].endswith(suffix))
+
+    def test_consumer_lists_are_fixed_per_contract_family(self):
+        cases = [
+            # Passage consumes the register; Tactician must not be listed for it.
+            ("data-sources.json", ["tactician"]),
+            ("contracts/data-sources.schema.json", ["passage", "tactician"]),
+            # The PFT1 family keeps its list: no widening, no narrowing.
+            ("contracts/forecast-latest.schema.json", ["passage"]),
+            ("contracts/forecast-latest.schema.json", ["tactician"]),
+        ]
+        for suffix, consumers in cases:
+            with self.subTest(path=suffix, consumers=consumers):
+                row = self.row_for(suffix)
+                original = row["consumers"]
+                row["consumers"] = consumers
+                self.write_lock()
+                result = self.run_check()
+                self.assert_drift(result, row)
+                self.assertIn("ownership", result.stderr)
+                row["consumers"] = original
+        self.write_lock()
+
+    def test_a_register_row_cannot_borrow_another_contract_family(self):
+        row = self.row_for("data-sources.json")
+        row["contract"] = "PFT1/schema-1"
+        row["consumers"] = ["passage", "tactician"]
+        self.write_lock()
+        result = self.run_check()
+        self.assert_drift(result, row)
+        self.assertIn("identity", result.stderr)
+
+    def test_an_unlisted_contract_family_is_refused(self):
+        text = self.script.read_text()
+        self.assertIn('    "data-sources": ["passage"],\n', text)
+        self.script.write_text(text.replace('    "data-sources": ["passage"],\n', ""))
+        row = self.row_for("data-sources.json")
+        result = self.run_check()
+        self.assert_drift(result, row)
+        self.assertIn("unknown contract family", result.stderr)
 
     def test_missing_artifact_fails_with_owners_and_remedy(self):
         row = self.lock["artifacts"][0]
