@@ -1,4 +1,6 @@
+import { useEffect, useRef } from 'react';
 import clsx from 'clsx';
+import { reserveBarSpace } from './reserveBarSpace.js';
 
 /**
  * The phone's primary action, pinned above the bottom navigation so Compute and
@@ -8,10 +10,17 @@ import clsx from 'clsx';
  * a second live region here would announce every message twice).
  * It sticks to the bottom of the viewport inside the page and scrolls away with
  * it, which leaves the footer reachable.
+ * It is shown wherever the form is one column under the map (below 1024 px).
+ * While it is on the page the document keeps scroll padding for the space it
+ * (and, on a phone, the bottom navigation) takes, so a control reached by
+ * keyboard or focus is scrolled clear of it instead of ending up underneath.
  */
 export default function ActionBar({ label, status, failed, disabled, onClick }) {
+  const bar = useRef(null);
+  useEffect(() => reserveBarSpace(bar.current), []);
   return (
     <div
+      ref={bar}
       aria-hidden="true"
       data-testid="planner-action-bar"
       className="lg:hidden sticky bottom-16 md:bottom-0 z-30 -mx-3 sm:-mx-5 mt-4 bg-paper/95 border-t border-ink/30 shadow-panel md:pb-[env(safe-area-inset-bottom)]"
