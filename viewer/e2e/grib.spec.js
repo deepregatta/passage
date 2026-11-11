@@ -133,3 +133,29 @@ test('the planner map opens the GRIB page, and Plan leads back', async ({ page }
   await expect(page).toHaveURL(/#plan$/);
   await expect(page.getByRole('heading', { name: 'Plan a passage' })).toBeVisible();
 });
+
+for (const language of ['en', 'fr']) {
+  test(`no visible text on the GRIB page is under 12 px (${language})`, async ({ page }) => {
+    const { at } = await openGribPage(page);
+    if (language === 'fr') await page.getByRole('button', { name: 'Français' }).click();
+    // A drawn area opens every panel, including the ones that only show with a box.
+    await page.getByRole('button', { name: language === 'fr' ? /Tracer un cadre/ : 'Draw a box' }).click();
+    await page.mouse.move(...at(0.3, 0.3));
+    await page.mouse.down();
+    await page.mouse.move(...at(0.6, 0.7), { steps: 5 });
+    await page.mouse.up();
+    await expect(page.locator('.leaflet-marker-icon')).toHaveCount(4);
+    const small = await page.evaluate(() => {
+      const found = [];
+      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        const element = node.parentElement;
+        if (!node.textContent.trim() || !element.checkVisibility() || element.closest('script, style, noscript')) continue;
+        const size = parseFloat(getComputedStyle(element).fontSize);
+        if (size < 12) found.push(`${size}px: ${node.textContent.trim().slice(0, 40)}`);
+      }
+      return found;
+    });
+    expect(small).toEqual([]);
+  });
+}

@@ -645,7 +645,7 @@ export default function Grib() {
   };
 
   return (
-    <div className="px-6 py-5 max-w-[1600px]">
+    <div className="min-text-12 px-6 py-5 max-w-[1600px]">
       <PlanBackLink>Back to Plan</PlanBackLink>
       <h1 className="font-chart text-3xl mb-1">Download GRIB files</h1>
       <p className="font-sans text-sm text-ink-soft mb-4 max-w-[90ch]">
