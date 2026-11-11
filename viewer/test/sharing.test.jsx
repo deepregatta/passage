@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, configure, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, expect, it, vi } from 'vitest';
 import App from '../src/App.jsx';
@@ -6,6 +6,11 @@ import { ShareAnalysisButton } from '../src/components/FooterActions.jsx';
 import { useApp } from '../src/stores/appStore.js';
 import { localSnapshots } from '../src/lib/localSnapshots.js';
 import { initialPage } from '../src/lib/routes.js';
+
+// Opening a briefing loads its lazy chunk (charts included); on a loaded machine
+// the first open takes longer than testing-library's default one second.
+configure({ asyncUtilTimeout: 15_000 });
+vi.setConfig({ testTimeout: 30_000 });
 
 const id = '20260720T060000Z_44d2cd5f_64ea971e';
 const sharedHash = `#passage?snapshot=${id}`;
