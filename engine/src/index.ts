@@ -26,6 +26,9 @@ export type {
 } from './governingReason.js';
 export { buildPlume, writeSnapshot } from './snapshot.js';
 export type { Plume, SnapshotStore } from './snapshot.js';
+export { quantile } from './quantile.js';
+export { scenarioSpread, SCENARIO_SPREAD_MIN_MEMBERS } from './scenarioSpread.js';
+export type { ScenarioSpread, ScenarioSpreadValues } from './scenarioSpread.js';
 export { routeBbox, passageMaxHours } from './fetch/liveGrids.js';
 export type { RouteBbox } from './fetch/liveGrids.js';
 export { GridSampler, alongCourseKt, currentSetDeg, currentSpeedKt } from './grids.js';

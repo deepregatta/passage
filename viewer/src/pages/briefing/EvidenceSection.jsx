@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { scenarioSpread } from '@deepweather/engine';
 import { useApp } from '../../stores/appStore.js';
 import EnsemblePlume from '../../components/EnsemblePlume.jsx';
 import ModelComparison from '../../components/ModelComparison.jsx';
@@ -6,8 +7,10 @@ import ModelsUsed from '../../components/ModelsUsed.jsx';
 import { EvidenceLink } from '../../components/common.jsx';
 import { evidenceById, evidenceVariable, worstEnsembleEvidence } from '../../lib/evidenceSelectors.js';
 import { fmtHour, fmtTextTime, fmtUtcClock } from '../../lib/format.js';
+import { isScenarioId } from '../../lib/sourceNames.js';
 import { ruleLabel } from '../../lib/ruleLabels.js';
 import { legLabel } from './routeLabels.jsx';
+import { scenarioSpreadSentences } from '../../lib/scenarioSpreadSentence.js';
 import { governingClaim, useGoverningReason } from './verdictSentence.js';
 import clsx from 'clsx';
 
@@ -23,6 +26,10 @@ export default function EvidenceSection() {
     () => (findings?.evidence ?? []).filter((item) => item.source_kind === 'ensemble' && item.member_fraction),
     [findings],
   );
+  // From the saved findings and plume only, so a passage saved before this existed gets it too.
+  const spread = useMemo(() => (findings ? scenarioSpread(findings, plume) : null), [findings, plume]);
+  // Emulated scenarios are named as such, by the verdict sentence's rule: an unnamed ensemble counts as emulated.
+  const emulated = !plume?.model || isScenarioId(plume.model);
   // Follow an ensemble claim chosen anywhere on the page, but never overwrite
   // the page's selection: the inspector may be showing a non-ensemble claim.
   const [claimId, setClaimId] = useState(null);
@@ -41,7 +48,17 @@ export default function EvidenceSection() {
   if (!evidence) {
     return (
       <>
-        <p className="font-instrument text-ink-soft">No ensemble limit claim is available for this check.</p>
+        {/* Names only the limits the scenarios were counted against: a plume can carry wind without gusts. */}
+        {spread?.wind && spread?.gust ? (
+          <p className="font-instrument text-ink-soft">No forecast scenario exceeds your wind or gust limit at the points checked, so there is no ensemble limit claim to show.</p>
+        ) : spread?.wind ? (
+          <p className="font-instrument text-ink-soft">No forecast scenario exceeds your wind limit at the points checked, so there is no ensemble limit claim to show.</p>
+        ) : spread?.gust ? (
+          <p className="font-instrument text-ink-soft">No forecast scenario exceeds your gust limit at the points checked, so there is no ensemble limit claim to show.</p>
+        ) : (
+          <p className="font-instrument text-ink-soft">No ensemble limit claim is available for this check.</p>
+        )}
+        <ScenarioSpread spread={spread} emulated={emulated} className="mt-3" />
         <ModelsUsed />
       </>
     );
@@ -73,6 +90,8 @@ export default function EvidenceSection() {
         <p className="font-instrument text-sm mt-3">{legLabel(findings, evidence.leg_id, { bare: true })} · forecast hour {fmtTextTime(evidence.valid_time)} · limit {evidence.limit} {evidence.units} · <EvidenceLink evidenceId={evidence.evidence_id} title={evidence.evidence_id} className="inline-flex items-center min-h-11 sm:min-h-0">inspect claim</EvidenceLink></p>
       </header>
 
+      <ScenarioSpread spread={spread} emulated={emulated} className="mb-4" />
+
       <div className="grid grid-cols-1 xl:grid-cols-[14rem_minmax(0,1fr)] 2xl:grid-cols-[14rem_minmax(0,1fr)_20rem] gap-4">
         <aside className="border-t border-ink/40 xl:border-r xl:border-t-0 xl:pr-3" aria-label="Evidence claims">
           <p className="eyebrow py-2">Choose a claim</p>
@@ -99,6 +118,18 @@ export default function EvidenceSection() {
         </div>
         <ClaimPanel evidence={evidence} />
       </div>
+    </div>
+  );
+}
+
+/** How the forecast scenarios spread over the whole passage: a count of scenarios, never a probability.
+ * Shown with or without a limit claim; renders nothing when the saved plume cannot support it. */
+function ScenarioSpread({ spread, emulated, className }) {
+  const sentences = scenarioSpreadSentences(spread, { emulated });
+  if (!sentences.length) return null;
+  return (
+    <div className={clsx('font-instrument text-sm space-y-1', className)} data-testid="scenario-spread">
+      {sentences.map(({ variable, text }) => <p key={variable}>{text}</p>)}
     </div>
   );
 }

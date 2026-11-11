@@ -222,6 +222,9 @@ const FR = {
   'No briefing open.': 'Aucun briefing ouvert.',
   'Choose a passage': 'Choisir une traversée',
   'No ensemble limit claim is available for this check.': 'Aucune affirmation de limite issue de l’ensemble n’est disponible pour cette vérification.',
+  'No forecast scenario exceeds your wind or gust limit at the points checked, so there is no ensemble limit claim to show.': 'Aucun scénario de prévision ne dépasse votre limite de vent ou de rafales aux points vérifiés : il n’y a donc pas d’affirmation de limite issue de l’ensemble à présenter.',
+  'No forecast scenario exceeds your wind limit at the points checked, so there is no ensemble limit claim to show.': 'Aucun scénario de prévision ne dépasse votre limite de vent aux points vérifiés : il n’y a donc pas d’affirmation de limite issue de l’ensemble à présenter.',
+  'No forecast scenario exceeds your gust limit at the points checked, so there is no ensemble limit claim to show.': 'Aucun scénario de prévision ne dépasse votre limite de rafales aux points vérifiés : il n’y a donc pas d’affirmation de limite issue de l’ensemble à présenter.',
   'Models': 'Modèles',
   "Automatic verification is unavailable for briefings saved only in this browser.": "La vérification automatique est indisponible pour les briefings enregistrés uniquement dans ce navigateur.",
   "Your route stays private. A future opt-in comparison could use shared observations in your browser, or an explicit export and import. This is not available yet.": "Votre route reste privée. Une comparaison future, sur votre demande, pourrait utiliser des observations partagées dans votre navigateur, ou un export et un import explicites. Cette fonction n’est pas encore disponible.",
@@ -1027,6 +1030,8 @@ const FR_PATTERNS = [
   [/^Waypoint (\d+) of (\d+)$/, 'Point de route $1 sur $2'],
   [/^Route (computed|ready)(?::| ·) ([\d.]+) nm · ([\d.]+) h$/, (_match, state, distance, hours) => `${state === 'ready' ? 'Route prête' : 'Route calculée'} : ${distance} M · ${hours} h`],
   [/^(\d+) waypoints · ([\d.]+) nm$/, '$1 points de route · $2 M'],
+  // Scenario spread over the passage (EvidenceSection): a count of scenarios, never a probability.
+  [/^In half of the (\d+) (emulated )?forecast scenarios the strongest (wind|gust) at the points checked along your route stays at or under (\d+) kt; in nine out of ten, at or under (\d+) kt\.$/, (_match, count, emulated, variable, median, p90) => `Dans la moitié des ${count} scénarios de prévision${emulated ? ' simulés' : ''}, ${variable === 'gust' ? 'la rafale la plus forte' : 'le vent le plus fort'} aux points vérifiés le long de votre route reste à ${median} nd ou moins\u00A0; dans neuf scénarios sur dix, à ${p90} nd ou moins.`],
   [/^(\d+) waypoints$/, '$1 points de route'],
   [/^Routed at (\d+)% of the boat polar speeds$/, 'Routé à $1 % des vitesses de la polaire du bateau'],
   [/^Comparing departure times (\d+\/\d+)…$/, 'Comparaison des heures de départ $1…'],

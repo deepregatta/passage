@@ -1,6 +1,7 @@
 import { palette, rgba } from '../lib/palette.js';
 import ReactECharts from './lazy/EChartsLazy.jsx';
 import { useMemo } from 'react';
+import { quantile } from '@deepweather/engine';
 import { useApp } from '../stores/appStore.js';
 import useViewport from '../hooks/useViewport.js';
 import { createAxisLabelFormatter, createTimeTooltipFormatter, plumeAriaLabel, timeZoneAxisProps } from '../lib/chartTime.js';
@@ -31,14 +32,6 @@ export default function EnsemblePlume({ evidence, variable = 'gust', height = 43
       <ReactECharts option={option.chart} style={{ height }} notMerge lazyUpdate opts={{ renderer: 'svg' }} />
     </div>
   );
-}
-
-function quantile(sortedValues, q) {
-  if (!sortedValues.length) return null;
-  const pos = (sortedValues.length - 1) * q;
-  const lo = Math.floor(pos);
-  const hi = Math.ceil(pos);
-  return sortedValues[lo] + (sortedValues[hi] - sortedValues[lo]) * (pos - lo);
 }
 
 function buildOption(leg, legFindings, evidence, variable, mobile = false) {
