@@ -65,7 +65,7 @@ export default function EvidenceInspector() {
       <aside
         ref={dialogRef}
         tabIndex={-1}
-        className="fixed right-0 top-0 h-full w-[24rem] max-w-full bg-paper z-50 border-l border-ink/40 overflow-y-auto"
+        className="min-text-12 fixed right-0 top-0 h-full w-[24rem] max-w-full bg-paper z-50 border-l border-ink/40 overflow-y-auto"
         role="dialog"
         aria-label="Evidence inspector"
       >

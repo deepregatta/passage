@@ -65,7 +65,9 @@ body {
 /* Evidence chain: every provenance-bearing value is a dotted-underline mono link.
    The signature device of the UI — if it has a dotted underline, it has evidence. */
 .evidence-link {
-  @apply font-mono text-[0.92em] cursor-pointer;
+  @apply font-mono cursor-pointer;
+  /* a link inside 12 px text stays at 12 px, never 0.92 of it */
+  font-size: max(0.92em, 12px);
   text-decoration: underline dotted theme('colors.ink.DEFAULT / 0.55');
   text-underline-offset: 3px;
 }

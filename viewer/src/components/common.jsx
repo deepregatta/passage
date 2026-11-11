@@ -18,7 +18,7 @@ export function VerdictChip({ state, small, large }) {
     <span
       className={clsx(
         'inline-flex items-center gap-1.5 font-sans font-medium rounded-sm text-white',
-        small ? 'text-[11px] px-2 py-0.5' : large ? 'text-base px-4 py-2 shrink-0' : 'text-sm px-3 py-1',
+        small ? 'text-xs px-2 py-0.5' : large ? 'text-base px-4 py-2 shrink-0' : 'text-sm px-3 py-1',
       )}
       style={{ backgroundColor: v.hex }}
     >
@@ -35,7 +35,7 @@ export function EmulatedStamp() {
 export function SourceKindChip({ kind }) {
   if (kind === 'emulated') return <EmulatedStamp />;
   return (
-    <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink-soft border border-line px-1.5 py-0.5 rounded-sm">
+    <span className="font-mono text-xs uppercase tracking-[0.14em] text-ink-soft border border-line px-1.5 py-0.5 rounded-sm">
       {kind}
     </span>
   );
