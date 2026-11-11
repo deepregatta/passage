@@ -31,6 +31,9 @@ const initial = () => ({
   // (A draft saved before this change keeps whatever boat it holds.)
   polarId: null,
   polarLabel: null,
+  // Percent of the boat's polar speeds the router assumes (compute mode). A draft saved
+  // before this field existed takes the default through the persist merge (no migration).
+  polarPercent: 100,
   scan: null,
   autoScan: false, // set by the briefing's "Find a departure that fits" — Planner runs one scan and clears it
 });

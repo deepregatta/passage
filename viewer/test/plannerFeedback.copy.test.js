@@ -4,7 +4,8 @@ import {
   ACTION, BUSY_BUTTON_LABEL, FORECAST_LOAD_FAILED, blockReason, friendlyError, progressLabel,
 } from '../src/pages/planner/plannerFeedback.js';
 import {
-  changedRoutingInputs, draftSignature, routingInputKey, scanBasis, scanIsCurrent, staleRouteMessage,
+  changedRoutingInputs, draftSignature, polarPercentNote, routingInputKey, scanBasis, scanIsCurrent, staleRouteMessage,
+  validPolarPercent,
 } from '../src/pages/planner/plannerInputs.js';
 import { horizonText, validateDeparture } from '../src/pages/planner/departureInput.js';
 
@@ -63,12 +64,14 @@ it('has a French translation for every status, button and block reason it can sh
   const texts = [
     FORECAST_LOAD_FAILED, 'Something went wrong. Please try again.', horizonText(),
     ...Object.values(BUSY_BUTTON_LABEL),
-    staleRouteMessage(['boat']), staleRouteMessage(['departure']), staleRouteMessage(['points']), staleRouteMessage(['boat', 'points']),
+    staleRouteMessage(['boat']), staleRouteMessage(['speed']), staleRouteMessage(['departure']), staleRouteMessage(['points']), staleRouteMessage(['boat', 'points']),
     issue.message, validateDeparture('', Date.now()).message,
     validateDeparture('2999-01-01T08:00', Date.now()).message,
     blockReason(ACTION.compute, draft),
     blockReason(ACTION.compute, { ...draft, endpoints: [1, 2] }),
     blockReason(ACTION.compute, { ...draft, endpoints: [1, 2], polarId: 'x' }),
+    blockReason(ACTION.compute, { ...draft, endpoints: [1, 2], polarId: 'x', polarPercentValid: false }),
+    polarPercentNote({ provenance: { routing_request: { polar_scaling: 0.9 } } }),
     blockReason(ACTION.check, { ...draft, mode: 'draw' }),
     blockReason(ACTION.check, draft),
     blockReason(ACTION.check, { ...draft, endpoints: [1, 2] }),
@@ -149,4 +152,43 @@ it('changes the message signature with every input a status can be about', () =>
     expect(draftSignature(draft(change))).not.toBe(base);
   }
   expect(draftSignature(draft({ name: 'unrelated' }))).toBe(base);
+});
+
+it('keys the boat speed into every routing input, and keeps a three-element key equal to 100 %', () => {
+  const at100 = routingInputKey(draft());
+  expect(JSON.parse(at100)).toHaveLength(3);
+  expect(routingInputKey(draft({ polarPercent: 100 }))).toBe(at100);
+  // A key stored before the percentage existed.
+  const stored = JSON.stringify([[[50, -1], [51, -2]], 'a', '2026-09-12T07:00:00Z']);
+  expect(changedRoutingInputs(stored, draft({ departureLocal: '2026-09-12T08:00' }))).not.toContain('speed');
+  const at90 = routingInputKey(draft({ polarPercent: 90 }));
+  expect(JSON.parse(at90)).toHaveLength(4);
+  expect(at90).not.toBe(at100);
+  expect(changedRoutingInputs(at100, draft({ polarPercent: 90 }))).toEqual(['speed']);
+  expect(changedRoutingInputs(at90, draft())).toEqual(['speed']);
+  expect(changedRoutingInputs(at90, draft({ polarPercent: 90 }))).toEqual([]);
+  expect(changedRoutingInputs(at90, draft({ polarPercent: 95, polarId: 'b' }))).toEqual(['boat', 'speed']);
+  // An unreadable percentage never matches a key made at 100.
+  for (const bad of ['', Number.NaN, 49, 121]) {
+    expect(routingInputKey(draft({ polarPercent: bad }))).not.toBe(at100);
+    expect(changedRoutingInputs(at100, draft({ polarPercent: bad }))).toEqual(['speed']);
+  }
+  expect(staleRouteMessage(['speed'])).toBe('Boat speed changed — recompute the route');
+  expect(scanBasis(draft({ polarPercent: 90 }))).not.toBe(scanBasis(draft()));
+  expect(scanBasis(draft({ mode: 'draw', polarPercent: 90 }))).toBe(scanBasis(draft({ mode: 'draw' })));
+  expect(draftSignature(draft({ polarPercent: 90 }))).not.toBe(draftSignature(draft()));
+});
+
+it('accepts a whole percent from 50 to 120 only, and notes a non-100 route in words', () => {
+  for (const ok of [50, 100, 120]) expect(validPolarPercent(ok)).toBe(true);
+  for (const bad of ['', 49, 121, 90.5, Number.NaN, '90', null, undefined]) expect(validPolarPercent(bad)).toBe(false);
+  expect(blockReason(ACTION.compute, { mode: 'compute', endpoints: [1, 2], polarId: 'x', polarPercentValid: false, departureIssue: null }))
+    .toBe('Enter a percent of polar from 50 to 120.');
+  const note = (polar_scaling) => polarPercentNote({ provenance: { routing_request: { polar_scaling } } });
+  expect(note(0.9)).toBe('Routed at 90% of the boat polar speeds');
+  expect(note(1.2)).toBe('Routed at 120% of the boat polar speeds');
+  expect(note(1)).toBeNull();
+  expect(polarPercentNote({})).toBeNull();
+  expect(polarPercentNote(null)).toBeNull();
+  expect(translateText(note(0.9), 'fr')).toBe('Routé à 90 % des vitesses de la polaire du bateau');
 });

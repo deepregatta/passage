@@ -42,6 +42,10 @@ Missing configuration fails closed with `503`: no token, no limiter binding, or
 a limiter or GitHub error. Logs carry a status, a reason and a path, never a
 body.
 
+The Plan page's "Percent of polar" (a whole percent, 50 to 120, default 100) is a
+user setting kept in the planner draft and passed to the router as `polarScaling`;
+it is not polar data, and the route records it in its provenance.
+
 The engine's [`polarFromRelease`](../engine/src/routing/deepPolars.ts) converts
 the entry to the router's `speeds_kt[tws][twa]` shape. Passage keeps its
 interpolation: fixed angle rows only (best-VMG rows unused), rows and columns

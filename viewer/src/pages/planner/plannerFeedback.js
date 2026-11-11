@@ -70,10 +70,11 @@ export function friendlyError(raw) {
  * first missing thing is the one to do next.
  * @param {'compute' | 'scan' | 'check'} action
  */
-export function blockReason(action, { mode, endpoints, polarId, route, speedsValid, departureIssue }) {
+export function blockReason(action, { mode, endpoints, polarId, route, speedsValid, departureIssue, polarPercentValid = true }) {
   if (action === ACTION.compute) {
     if (endpoints.length !== 2) return 'Mark a start and finish on the chart.';
     if (!polarId) return 'Choose your boat first';
+    if (!polarPercentValid) return 'Enter a percent of polar from 50 to 120.';
     return departureIssue?.message ?? null;
   }
   if (!route) {

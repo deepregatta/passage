@@ -343,3 +343,107 @@ it.each(['audit', 'scan'])('pins the visible profile while %s discovery is runni
   expect(operation.mock.calls[0][0].profile.max_gust_kt).toBe(28);
   expect(useApp.getState().limits.max_gust_kt).toBe(19);
 });
+
+// Percent of polar: a user setting that routes Compute and Scan and invalidates a result when it changes.
+const percentInput = () => screen.getByRole('spinbutton', { name: 'Percent of polar' });
+const setPercent = (value) => fireEvent.change(percentInput(), { target: { value } });
+const scaledResult = ({ departureUtc, polarScaling }) => {
+  const base = result(departureUtc);
+  return { ...base, route: { ...base.route, provenance: { routing_request: { polar_scaling: polarScaling } } } };
+};
+
+it('shows the percentage beside the boat, 100 by default, and routes Compute with it', async () => {
+  computeRoute.mockImplementation(scaledResult);
+  render(<Planner />);
+  expect(percentInput()).toHaveValue(100);
+  expect(percentInput()).toHaveAttribute('aria-invalid', 'false');
+  await compute();
+  expect(computeRoute.mock.lastCall[0].polarScaling).toBe(1);
+  expect(screen.queryByText(/^Routed at/)).not.toBeInTheDocument();
+  setPercent('90');
+  noSummary();
+  expect(screen.getByText('Boat speed changed — recompute the route')).toBeInTheDocument();
+  await compute();
+  expect(computeRoute.mock.lastCall[0].polarScaling).toBe(0.9);
+  expect(screen.getByText('Routed at 90% of the boat polar speeds')).toBeInTheDocument();
+  expect(JSON.parse(usePlanner.getState().computed.inputKey)).toHaveLength(4);
+});
+
+it.each(['', '49', '121', '0', '-10', '90.5'])('does not route with the percentage "%s"', async (value) => {
+  render(<Planner />);
+  setPercent(value);
+  expect(percentInput()).toHaveAttribute('aria-invalid', 'true');
+  expect(computeButton()).toBeDisabled();
+  expect(screen.getAllByText('Enter a percent of polar from 50 to 120.').length).toBeGreaterThan(0);
+  fireEvent.click(computeButton());
+  expect(loadRoutingInputs).not.toHaveBeenCalled();
+  expect(computeRoute).not.toHaveBeenCalled();
+  setPercent('75');
+  expect(percentInput()).toHaveAttribute('aria-invalid', 'false');
+  expect(computeButton()).toBeEnabled();
+});
+
+it('rejects a restored result computed at another percentage, and still restores a stored three-element key at 100', async () => {
+  let view = render(<Planner />);
+  await compute();
+  const saved = usePlanner.getState().computed;
+  view.unmount();
+  // The key stored by a version that had no percentage: exactly three elements.
+  const legacyKey = JSON.stringify([[[50.5, -1.5], [50.6, -1.4]], 'sun-fast-3200', localDateTimeToIso('2026-09-15T08:00')]);
+  expect(saved.inputKey).toBe(legacyKey);
+  usePlanner.setState({ computed: { ...saved, inputKey: legacyKey } });
+  view = render(<Planner />);
+  expect(summary()).toBeInTheDocument();
+  view.unmount();
+  usePlanner.setState({ computed: saved, polarPercent: 90 });
+  view = render(<Planner />);
+  noSummary();
+  expect(screen.getByText('Boat speed changed — recompute the route')).toBeInTheDocument();
+  view.unmount();
+  // A result computed at 90 % is not current at 100 %, and is current again at 90 %.
+  usePlanner.setState({ computed: { ...saved, inputKey: legacyKey.replace(/\]$/, ',90]') }, polarPercent: 100 });
+  view = render(<Planner />);
+  noSummary();
+  view.unmount();
+  usePlanner.setState({ computed: { ...saved, inputKey: legacyKey.replace(/\]$/, ',90]') }, polarPercent: 90 });
+  render(<Planner />);
+  expect(summary()).toBeInTheDocument();
+});
+
+it('takes the default percentage from a stored draft that has none', async () => {
+  localStorage.setItem('deepweather.planner-draft', JSON.stringify({ version: 3, state: { passageId: 'saved', name: 'Old', nameAuto: false, polarId: 'old-boat' } }));
+  await usePlanner.persist.rehydrate();
+  expect(usePlanner.getState().polarPercent).toBe(100);
+  localStorage.setItem('deepweather.planner-draft', JSON.stringify({ version: 3, state: { passageId: 'saved', polarPercent: 85 } }));
+  await usePlanner.persist.rehydrate();
+  expect(usePlanner.getState().polarPercent).toBe(85);
+});
+
+it('routes every scan candidate with the percentage and keeps the picked time\'s route', async () => {
+  computeRoute.mockImplementation(scaledResult);
+  usePlanner.setState({ polarPercent: 90 });
+  render(<Planner />);
+  await compute();
+  const departures = ['2026-09-15T12:00:00Z', '2026-09-15T18:00:00Z', '2026-09-16T00:00:00Z'];
+  computeRoute.mockClear();
+  scanDepartures.mockImplementation(async ({ routeFor }) => {
+    for (const departure of departures) routeFor(departure);
+    return { candidates: departures.map((departure_utc) => ({ departure_utc, verdict: 'within', passage_h: 2 })), best_index: 0 };
+  });
+  fireEvent.click(scanButton());
+  const region = await screen.findByRole('region', { name: 'Departure comparison' });
+  expect(computeRoute.mock.calls.map(([request]) => [request.departureUtc, request.polarScaling]))
+    .toEqual(departures.map((departure) => [departure, 0.9]));
+  // The scan survives the percentage it was run for and is dropped when it changes.
+  fireEvent.click(within(region).getAllByRole('button')[1]);
+  await waitFor(() => expect(analyzeInBrowser).toHaveBeenCalled());
+  expect(usePlanner.getState().departureLocal).toBe(toLocalDateTimeValue(departures[1]));
+  expect(usePlanner.getState().computed).not.toBeNull();
+  expect(usePlanner.getState().computed.route.provenance.routing_request.polar_scaling).toBe(0.9);
+  expect(summary()).toBeInTheDocument();
+  expect(saveRoute).toHaveBeenCalledWith(expect.objectContaining({ route_id: 'computed', provenance: { routing_request: { polar_scaling: 0.9 } } }));
+  expect(analyzeInBrowser.mock.calls[0][0].departureUtc).toBe(departures[1]);
+  expect(usePlanner.getState().scan).not.toBeNull();
+  setPercent('95');
+  expect(usePlanner.getState().scan).toBeNull();
+});

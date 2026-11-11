@@ -8,6 +8,7 @@ import ActionStatus from './planner/ActionStatus.jsx';
 import DepartureField from './planner/DepartureField.jsx';
 import PlannerMap from './planner/PlannerMap.jsx';
 import usePlannerController, { validSpeed } from './planner/usePlannerController.jsx';
+import { POLAR_PERCENT_MAX, POLAR_PERCENT_MIN, polarPercentNote } from './planner/plannerInputs.js';
 import { ACTION, BUSY_BUTTON_LABEL, SOURCE, barStatus, mapHint, revealElement } from './planner/plannerFeedback.js';
 import { gribRouteArea, gribRoutePoints } from '../lib/gribExport.js';
 import { useApp } from '../stores/appStore.js';
@@ -23,9 +24,9 @@ const SPEED_LABEL = { slow: 'Slow', nominal: 'Usual', fast: 'Fast' };
 
 export default function Planner() {
   const {
-    mode, waypoints, computed, endpoints, polarId, polarLabel, name, speeds,
+    mode, waypoints, computed, endpoints, polarId, polarLabel, polarPercent, polarPercentValid, name, speeds,
     departureLocal, scan, patch, setMode, setWaypoints, setEndpoints, setComputed,
-    setName, setSpeeds, setDepartureLocal, busy, activeAction, failure, notice, staleRoute,
+    setName, setSpeeds, setDepartureLocal, setPolarPercent, busy, activeAction, failure, notice, staleRoute,
     departureIssue, blocked, retryAction, clearDraft, undoClear, clearedNotice, seededFromCompute, fitNonce, fileRef,
     route, distance, speedsValid, passageHours, addWaypoint, moveWaypoint,
     runRouting, onGpx, runScan, run
@@ -217,6 +218,9 @@ export default function Planner() {
                     <span className="block text-[12px] text-ink-soft mt-0.5">
                       Weather-routed · includes polar uncertainty · ready to check
                     </span>
+                    {polarPercentNote(computed.route) && (
+                      <span className="block text-[12px] text-ink-soft mt-0.5">{polarPercentNote(computed.route)}</span>
+                    )}
                   </p>
                 )}
                 {computed?.notes?.length > 0 && (
@@ -228,11 +232,33 @@ export default function Planner() {
 
           <Step n={2} title="Boat">
             {mode === 'compute' ? (
-              <BoatPicker
-                polarId={polarId}
-                polarLabel={polarLabel}
-                onSelect={(entry) => patch({ polarId: entry.polar_id, polarLabel: entry.label })}
-              />
+              <>
+                <BoatPicker
+                  polarId={polarId}
+                  polarLabel={polarLabel}
+                  onSelect={(entry) => patch({ polarId: entry.polar_id, polarLabel: entry.label })}
+                />
+                <div>
+                  <label className="block">
+                    <span className="eyebrow text-xs! block mb-1">Percent of polar</span>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min={POLAR_PERCENT_MIN}
+                      max={POLAR_PERCENT_MAX}
+                      step="1"
+                      value={polarPercent}
+                      onChange={(e) => setPolarPercent(e.target.value === '' ? '' : Number(e.target.value))}
+                      aria-invalid={!polarPercentValid}
+                      aria-describedby="polar-percent-hint"
+                      className="w-28 min-h-11 bg-white/60 border hairline rounded-sm px-2 py-2 text-base sm:text-sm font-mono aria-[invalid=true]:border-verdict-exceeds"
+                    />
+                  </label>
+                  <p id="polar-percent-hint" className="mt-1 text-[12px] text-ink-soft">
+                    100 sails the polar speeds as they are. Use less if your boat is usually slower, more if faster. From 50 to 120.
+                  </p>
+                </div>
+              </>
             ) : (
               <div>
                 <span className="eyebrow text-xs! block mb-1">

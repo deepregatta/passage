@@ -63,6 +63,7 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
   const scaling = request.polarScaling ?? 1;
   const maxMs = (request.maxHours ?? 48) * 3600_000;
   if (!Number.isFinite(maxMs) || maxMs < 0) throw new Error('Routing horizon must be finite and nonnegative');
+  if (!Number.isFinite(scaling) || scaling <= 0) throw new Error('Polar scaling must be finite and positive');
   const deadlineMs = departureMs + maxMs;
   const noRoute = () => new Error(
     `No route found within ${request.maxHours ?? 48} h (wind coverage, land, or no-go conditions)`,

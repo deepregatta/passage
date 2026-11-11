@@ -125,6 +125,25 @@ describe('isochrone router', () => {
     },
   );
 
+  it.each([0, -1, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY])(
+    'rejects polar scaling %s before searching', (polarScaling) => {
+      expect(() => computeRoute({
+        start, finish, departureUtc: '2026-07-20T00:00:00Z', polar: POLAR, windGrid: windGrid(180, 12), polarScaling,
+      })).toThrow('Polar scaling must be finite and positive');
+    },
+  );
+
+  it('records the polar scaling in the route provenance, 1 when none is given, and routes slower at a lower one', () => {
+    const request = {
+      start, finish, departureUtc: '2026-07-20T00:00:00Z', polar: POLAR, windGrid: windGrid(180, 12), resolutionDeg: 0.1,
+    };
+    const plain = computeRoute(request);
+    const slower = computeRoute({ ...request, polarScaling: 0.8 });
+    expect(plain.route.provenance?.routing_request).toMatchObject({ polar_scaling: 1 });
+    expect(slower.route.provenance?.routing_request).toMatchObject({ polar_scaling: 0.8 });
+    expect(slower.duration_h).toBeGreaterThan(plain.duration_h);
+  });
+
   it('open water, fair reaching breeze: near-direct route, plausible arrival', () => {
     const result = computeRoute({
       start,

@@ -14,7 +14,7 @@ import { loadPorts, loadedPorts, portNameAt } from '../../lib/ports.js';
 import { GENERIC_NAME, defaultPassageName, placedPoint } from './passageName.js';
 import { ACTION, blockReason, friendlyError } from './plannerFeedback.js';
 import {
-  changedRoutingInputs, draftSignature, routingInputKey, scanBasis, scanIsCurrent, staleRouteMessage,
+  changedRoutingInputs, draftSignature, routingInputKey, scanBasis, scanIsCurrent, staleRouteMessage, validPolarPercent,
 } from './plannerInputs.js';
 
 /** How long Clear can be undone. */
@@ -22,12 +22,13 @@ export const CLEAR_UNDO_MS = 8000;
 
 export const validSpeed = (value) => Number.isFinite(value) && value > 0;
 
-const routeForDeparture = (inputs, departureUtc) =>
+const routeForDeparture = (inputs, departureUtc, polarPercent) =>
   computeRoute({
     start: inputs.start,
     finish: inputs.finish,
     departureUtc,
     polar: inputs.polar,
+    polarScaling: polarPercent / 100,
     windGrid: inputs.windGrid,
     currentGrid: inputs.currentGrid ?? undefined,
     landMask: inputs.landMask,
@@ -50,16 +51,17 @@ export default function usePlannerController() {
   const endpoints = usePlanner((s) => s.endpoints);
   const polarId = usePlanner((s) => s.polarId);
   const polarLabel = usePlanner((s) => s.polarLabel);
+  const polarPercent = usePlanner((s) => s.polarPercent);
   const name = usePlanner((s) => s.name);
   const nameAuto = usePlanner((s) => s.nameAuto);
   const speeds = usePlanner((s) => s.speeds);
   const departureLocal = usePlanner((s) => s.departureLocal);
   const storedScan = usePlanner((s) => s.scan);
   const patch = usePlanner((s) => s.patch);
-  const inputKey = routingInputKey({ endpoints, polarId, departureLocal });
+  const inputKey = routingInputKey({ endpoints, polarId, departureLocal, polarPercent });
   const computed = storedComputed?.inputKey === inputKey ? storedComputed : null;
   // A comparison belongs to the boat, route points and departures it was run for.
-  const scan = storedScan && scanIsCurrent(storedScan, { mode, endpoints, waypoints, polarId, speeds, departureLocal })
+  const scan = storedScan && scanIsCurrent(storedScan, { mode, endpoints, waypoints, polarId, speeds, departureLocal, polarPercent })
     ? storedScan : null;
   // The key of the last computed route that was thrown away, so the page can say why.
   const [discardedKey, setDiscardedKey] = useState(null);
@@ -96,6 +98,7 @@ export default function usePlannerController() {
   const setName = (value) => patch({ name: value, nameAuto: false });
   const setSpeeds = (value) => patch({ speeds: typeof value === 'function' ? value(usePlanner.getState().speeds) : value });
   const setDepartureLocal = (value) => patch({ departureLocal: value });
+  const setPolarPercent = (value) => patch({ polarPercent: value });
   const setScan = useCallback((value) => patch({ scan: value }), [patch]);
 
   // `busy` is the running step's raw progress text; `activeAction` says which
@@ -167,6 +170,7 @@ export default function usePlannerController() {
     if (!route) return null;
     return Math.round(totalDistanceNm(deriveLegs(route)) * 10) / 10;
   }, [route]);
+  const polarPercentValid = validPolarPercent(polarPercent);
   const speedsValid = mode === 'compute' || ['slow', 'nominal', 'fast'].every(k => validSpeed(speeds[k]));
   const passageHours = distance && validSpeed(speeds.nominal) ? Math.round(distance / speeds.nominal) : null;
   const departureUtc = localDateTimeToIso(departureLocal);
@@ -230,7 +234,7 @@ export default function usePlannerController() {
     }), [endpoints, polarId, departureUtc]);
 
   const runRouting = async () => {
-    if (endpoints.length !== 2 || !polarId || !departureUtc || departureIssue) return;
+    if (endpoints.length !== 2 || !polarId || !polarPercentValid || !departureUtc || departureIssue) return;
     const hadRoute = Boolean(computed);
     beginAction(ACTION.compute);
     setDiscardedKey(null);
@@ -240,7 +244,7 @@ export default function usePlannerController() {
       const inputs = await withFreshForecast(() => loadRoutingInputs());
       if (routingInputKey(usePlanner.getState()) !== inputKey) return;
       setBusy('computing route');
-      setComputed({ ...routeForDeparture(inputs, departureUtc), notes: inputs.notes, inputKey });
+      setComputed({ ...routeForDeparture(inputs, departureUtc, polarPercent), notes: inputs.notes, inputKey });
       setNoticeState({
         kind: ACTION.compute, text: hadRoute ? 'Route updated' : 'Route computed',
         signature: draftSignature(usePlanner.getState()),
@@ -284,7 +288,7 @@ export default function usePlannerController() {
     setScan(null);
     // What this comparison is for, captured at the click: if any of it changes
     // while it runs or afterwards, the result is dropped instead of shown.
-    const basis = scanBasis({ mode, endpoints, waypoints, polarId, speeds });
+    const basis = scanBasis({ mode, endpoints, waypoints, polarId, speeds, polarPercent });
     let draft;
     try {
       if (!useApp.getState().limits) await useApp.getState().ensureLimits();
@@ -308,8 +312,8 @@ export default function usePlannerController() {
         scanPassageHours = inputs.maxHours;
         routeFor = (departureUtc) => {
           const result = {
-            ...routeForDeparture(inputs, departureUtc), notes: inputs.notes,
-            inputKey: routingInputKey({ endpoints, polarId, departureLocal: toLocalDateTimeValue(departureUtc) }),
+            ...routeForDeparture(inputs, departureUtc, polarPercent), notes: inputs.notes,
+            inputKey: routingInputKey({ endpoints, polarId, departureLocal: toLocalDateTimeValue(departureUtc), polarPercent }),
           };
           routes[departureUtc] = result;
           return { ...result.route, passage_id: draft.route.passage_id, name: draft.route.name };
@@ -344,7 +348,7 @@ export default function usePlannerController() {
       endAction();
       failAction(ACTION.scan, e);
     }
-  }, [route, departureUtc, departureIssue, speedsValid, setScan, passageHours, mode, endpoints, waypoints, polarId, speeds, loadRoutingInputs, beginAction, endAction, failAction]);
+  }, [route, departureUtc, departureIssue, speedsValid, setScan, passageHours, mode, endpoints, waypoints, polarId, polarPercent, speeds, loadRoutingInputs, beginAction, endAction, failAction]);
 
   // arriving from a briefing's "Find a departure that fits": run the scan once, then clear the flag
   const autoScan = usePlanner((s) => s.autoScan);
@@ -389,14 +393,14 @@ export default function usePlannerController() {
   };
 
   // Messages about an action stop showing once any input they were about changes.
-  const signature = draftSignature({ mode, endpoints, waypoints, polarId, departureLocal, speeds });
+  const signature = draftSignature({ mode, endpoints, waypoints, polarId, departureLocal, speeds, polarPercent });
   const failure = failureState?.signature === signature ? { ...failureState, ...friendlyError(failureState.raw) } : null;
   const notice = noticeState?.signature === signature ? noticeState : null;
   // Why the computed route is gone, when it was thrown away because an input changed.
   const staleRoute = mode === 'compute' && !computed && discardedKey
-    ? staleRouteMessage(changedRoutingInputs(discardedKey, { endpoints, polarId, departureLocal }))
+    ? staleRouteMessage(changedRoutingInputs(discardedKey, { endpoints, polarId, departureLocal, polarPercent }))
     : null;
-  const blocked = (action) => blockReason(action, { mode, endpoints, polarId, route, speedsValid, departureIssue });
+  const blocked = (action) => blockReason(action, { mode, endpoints, polarId, route, speedsValid, departureIssue, polarPercentValid });
 
   /** Run again whatever just failed. A failed GPX import has nothing to re-run: it asks for another file. */
   const retryAction = (kind) => {
@@ -427,9 +431,9 @@ export default function usePlannerController() {
   }, [cleared]);
 
   return {
-    mode, waypoints, computed, endpoints, polarId, polarLabel, name, speeds,
+    mode, waypoints, computed, endpoints, polarId, polarLabel, polarPercent, polarPercentValid, name, speeds,
     departureLocal, scan, patch, setMode, setWaypoints, setEndpoints, setComputed,
-    setName, setSpeeds, setDepartureLocal, busy, activeAction, failure, notice, staleRoute,
+    setName, setSpeeds, setDepartureLocal, setPolarPercent, busy, activeAction, failure, notice, staleRoute,
     departureIssue, blocked, retryAction, clearDraft, undoClear, fitNonce, fileRef, passageName,
     seededFromCompute: mode === 'draw' && seededFromCompute && waypoints.length > 0,
     clearedNotice: cleared?.signature === signature,
