@@ -7,6 +7,7 @@ import { usePlayback } from '../stores/playbackStore.js';
 import useViewport from '../hooks/useViewport.js';
 import { edgeShift, fmtLocalClock, rulerTicks } from '../lib/ruler.js';
 import { createAxisLabelFormatter } from '../lib/chartTime.js';
+import { legLabel } from '../pages/briefing/routeLabels.jsx';
 
 /**
  * Passage timeline and the page's one time control. Default = one glanceable
@@ -230,9 +231,34 @@ function nowLine(time) {
   return { xAxis: time, label: { formatter: 'NOW', color: palette.ink.DEFAULT, fontSize: 12 }, lineStyle: { color: palette.event, type: 'solid', width: 1 } };
 }
 
+/** Table alternative: header-zone time first with the chart's UTC hour as a marked secondary column
+ * (as the plume table does), legs by place and number ("Mid-Channel (leg 4)", never the raw "L4");
+ * the disclosure grows with its rows, it is not a scroll box of its own. */
 function TimelineTable({ findings }) {
   const rows = findings.legs.flatMap((leg) => leg.hours.filter((_, index) => index % 3 === 0).map((hour) => ({ leg: leg.leg_id, ...hour })));
-  return <details className="mt-3 border-t hairline pt-2"><summary className="font-instrument text-xs cursor-pointer">Table alternative for route timeline</summary><div className="overflow-x-auto max-h-64 mt-2"><table className="w-full font-mono text-xs"><thead><tr className="text-left"><th>UTC</th><th>leg</th><th>wind kt</th><th>gust kt</th><th>waves m</th><th>status</th></tr></thead><tbody>{rows.map((row) => <tr key={`${row.leg}-${row.valid_time}`} className="border-t hairline"><td className="py-1">{fmtHour(row.valid_time)}</td><td>{row.leg}</td><td>{row.wind_kt ?? 'n/a'}</td><td>{row.gust_kt ?? 'n/a'}</td><td>{row.waves?.hs_m ?? 'not assessed'}</td><td>{hourStatus(row)}</td></tr>)}</tbody></table></div></details>;
+  return (
+    <details className="mt-3 border-t hairline pt-2">
+      <summary className="font-instrument text-xs cursor-pointer min-h-11 flex items-center">Table alternative for route timeline</summary>
+      <div className="overflow-x-auto mt-2">
+        <table className="w-full font-mono text-xs">
+          <thead><tr className="text-left"><th className="py-1 pr-3">local time</th><th className="pr-3">UTC</th><th className="pr-3">leg</th><th className="pr-3">wind kt</th><th className="pr-3">gust kt</th><th className="pr-3">waves m</th><th>status</th></tr></thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={`${row.leg}-${row.valid_time}`} className="border-t hairline align-top">
+                <td className="py-1 pr-3 whitespace-nowrap">{fmtLocalTime(row.valid_time)}</td>
+                <td className="pr-3">{fmtHour(row.valid_time)}</td>
+                <td className="pr-3">{legLabel(findings, row.leg, { bare: true })}</td>
+                <td className="pr-3">{row.wind_kt ?? 'n/a'}</td>
+                <td className="pr-3">{row.gust_kt ?? 'n/a'}</td>
+                <td className="pr-3">{row.waves?.hs_m ?? 'not assessed'}</td>
+                <td>{hourStatus(row)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </details>
+  );
 }
 
 const EVENT_LABEL = {
