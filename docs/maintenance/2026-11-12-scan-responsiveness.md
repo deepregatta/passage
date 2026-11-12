@@ -2,7 +2,7 @@
 
 _12 November 2026. A measurement record, not current product guidance. It answers task D1 of the [Isomar implementation plan](2026-11-11-isomar-implementation-plan.md): how long do Compute and the computed departure scan block the page, and is a cancellable Web Worker needed before D2 (refinement pass) and D3 (limits in the router) add work to that path._
 
-**No physical device was measured.** The numbers below come from a desktop CPU, a Node process and desktop Chromium with CPU throttling. Local measurements, the throttled-desktop stand-in for a phone, and the conclusion are kept in separate sections. The harness, the commands to repeat it and the steps for a real phone are at the end.
+**No physical device was measured.** The numbers below come from a desktop CPU, a Node process and desktop Chromium with CPU throttling. Local measurements, the throttled-desktop stand-in for a phone, and the conclusion are kept in separate sections. The harness, the commands to repeat it and the steps for a real phone are at the end. _Added later the same day: one mid-range phone was then measured; see [Measured on a real phone](#measured-on-a-real-phone). A low-end phone was not._
 
 ## Answer in short
 
@@ -10,6 +10,7 @@ _12 November 2026. A measurement record, not current product guidance. It answer
 - **The scan** blocks the page in one piece, with no repaint and no response to a tap, for 2.2 s (a 20 nm hop) to 8.4 s (a 321 nm leg) on the unthrottled desktop, and for 13 to 51 s at 6× throttling. Its "n/21" progress counter is never painted. The scan exceeds every threshold at every level, including unthrottled.
 - **Most of the scan is the audit, not the routing.** The 21 audits take 80 to 95 % of the time in Node; routing takes 5 to 20 %.
 - **Recommendation:** put the scan in a cancellable Worker before D2 and D3. D2 would add 4 to 16 candidates (19 to 76 % more work). Details and what would change this are in [Conclusion](#conclusion-and-recommendation).
+- **On a real phone** (Galaxy A53, mid-range, unthrottled), a scan blocked the page for 4.1 s (20 nm), 6.0 s (Channel) and 21 s (Biscay) before the hashing change and 2.0, 2.3 and 6.7 s after it (−52 to −68 %), still with no repaint and no response to a tap. The phone behaves like about 2× desktop throttling, so the 4× and 6× rows overstate it. A low-end phone was not measured. See [Measured on a real phone](#measured-on-a-real-phone).
 - **Later the same day** a scan stopped hashing its candidates' saved identity: its block fell by 65 to 69 % (Channel 6.6 s and Biscay 15.6 s at 6×), and it still freezes the page. See [After the hashing change](#after-the-hashing-change).
 
 ## What runs on the main thread
@@ -62,7 +63,7 @@ Network time is local and excluded in effect: the tile files come from a local s
 
 **Machine and browser.** AMD Ryzen 7 7735HS (16 threads), Linux 7.0.0-43, Node v24.22.3, Chromium 149.0.7827.55 (Playwright 1.61.1, headless). Throttle factors are relative to this CPU.
 
-**Which factor is the "low-end phone".** I take **6×** as the low-end phone and 4× as a mid-range one. Chrome DevTools labels 4× "mid-tier mobile" and 6× "low-tier mobile", and Lighthouse's mobile preset uses 4×. This is a convention, not a measurement of any phone. A recent flagship is probably faster than 4×; a budget phone with a three-year-old CPU may be slower than 6×.
+**Which factor is the "low-end phone".** I take **6×** as the low-end phone and 4× as a mid-range one. Chrome DevTools labels 4× "mid-tier mobile" and 6× "low-tier mobile", and Lighthouse's mobile preset uses 4×. This is a convention, not a measurement of any phone (the later phone measurement found a mid-range phone closer to 2×: see [Measured on a real phone](#measured-on-a-real-phone)). A recent flagship is probably faster than 4×; a budget phone with a three-year-old CPU may be slower than 6×.
 
 **Thresholds** (common web-performance guidance, quoted from memory and not re-checked online):
 
@@ -144,7 +145,7 @@ The first progress text (a "Finding the best route…" or "Loading…" line) is 
 
 ## What this does not measure
 
-- **No device.** A throttled desktop CPU is a stand-in. It does not reproduce a phone's memory limits and garbage collection, thermal throttling over repeated scans, the mobile browser's scheduler, background tab limits, battery saver, or the difference in cache, memory bandwidth and JIT between an ARM phone core and a slowed Ryzen core. 6× is a convention. **No device was measured and none is claimed.**
+- **No device.** A throttled desktop CPU is a stand-in. It does not reproduce a phone's memory limits and garbage collection, thermal throttling over repeated scans, the mobile browser's scheduler, background tab limits, battery saver, or the difference in cache, memory bandwidth and JIT between an ARM phone core and a slowed Ryzen core. 6× is a convention. **No device was measured and none is claimed.** _(Written before the phone measurement: one mid-range phone was measured afterwards, see [Measured on a real phone](#measured-on-a-real-phone); a low-end phone still was not.)_
 - **Real tiles and network.** The tiles are synthetic and small (10 tiles, 3.8 MB compressed): their decode work follows the real dimensions, but their size on the wire and the time to fetch them do not. Everything is served from localhost. A cold real visit adds network time that is not on the main thread.
 - **Real inputs missing from the audit.** No tides, gates, synoptic features, warnings or route-zone files were served (they 404, as in a deployment without them). A real audit has a little more to do.
 - **Cold device caches.** Each run starts with an empty IndexedDB tile cache; a warm cache changes the preparatory 20 to 30 %, not the block.
@@ -259,6 +260,99 @@ The block shrinks by 65 to 69 %. One of the two "before" Channel 6× runs overla
 - **A Check still hashes its decision inputs twice:** once for its identity and once in `writeSnapshot`, which checks that the inputs it is about to archive match that identity. That second hash is a deliberate guard, left alone.
 - **Each scan candidate still renders a briefing and a plume** that the scan throws away. Not measured separately.
 
+## Measured on a real phone
+
+_12 November 2026, evening. A device measurement, kept apart from the desktop sections above: it measures one mid-range phone, not the low-end phone the 6× rows stand in for._
+
+**Device and setup.** Samsung Galaxy A53 5G (SM-A536B; Chrome reports 8 cores and 4 GB of device memory), Android 16, Chrome 157.0.8103.50, charging over USB throughout, no CPU throttling (it is a real device). The browser runs in French, so the page was shown in French; the work is the same. The production build of the viewer was served from the desktop over USB (`adb reverse`) to `http://localhost:…/#plan` and the same synthetic forecast files as the desktop runs, on the real clock (`--live`), the same set for every run below. Three fresh-load runs per passage and build: our origin's storage (including the IndexedDB tile cache) was cleared before each run. All 21 runs finished with the page visible and never hidden, and 21 candidates shown; none was discarded. An earlier attempt the same day failed because the phone's screen had locked (nothing loaded, nothing was measured).
+
+**Method.** A script on the desktop drove one Chrome tab over remote debugging (the DevTools protocol), found by its URL, and read nothing else on the phone. Per run: clear our origin's storage, load the page, install the same probe (`viewer/e2e/perf/probe.js`) and seed the planner draft, load again, then touch the **Compute route** button, wait for the route, touch **Compare departure times**, wait for the comparison. During each action it touched the probe's corner pad every 250 ms to measure input delay. Definitions are the desktop record's: click to painted result, longest long task, sum of long tasks, first progress paint (the status line under the button), frames, longest gap between frames, largest tap delay. "Before" is the code of commit fa31563, "after" the working tree with the scan identity change (commit 69eb2a4; the page was built before a final comment, test and docs follow-up, which changes no code path). Both were served from saved builds, in one session, with the Channel scan repeated on the "before" build as a drift control.
+
+### Before (fa31563), medians of 3 (range), milliseconds
+
+| Passage | | Click to result | Longest block | Sum of long tasks | First progress paint | Largest tap delay | Longest frame gap |
+|---|---|---|---|---|---|---|---|
+| coastal 20.7 nm | Compute | 498 (471 to 721) | 56 (53 to 76) | 56 | 25 | 16 | 50 |
+| | Scan | 4,868 (4,831 to 4,934) | 4,137 (4,105 to 4,232) | 4,482 | 454 | 4,197 | 4,183 |
+| channel 62.7 nm | Compute | 638 (548 to 657) | 116 (110 to 119) | 173 | 31 | 86 | 117 |
+| | Scan | 7,879 (7,868 to 8,017) | 5,977 (5,935 to 6,086) | 7,429 | 1,533 | 5,806 | 5,983 |
+| Biscay 321 nm | Compute | 862 (703 to 878) | 338 (319 to 392) | 401 | 30 | 332 | 342 |
+| | Scan | 27,023 (24,388 to 31,515) | 21,263 (19,305 to 24,812) | 26,676 | 5,234 | 21,117 | 21,269 |
+
+### After (69eb2a4), medians of 3 (range), milliseconds
+
+| Passage | | Click to result | Longest block | Sum of long tasks | First progress paint | Largest tap delay | Longest frame gap |
+|---|---|---|---|---|---|---|---|
+| coastal 20.7 nm | Compute | 467 (459 to 611) | 52 (0 to 84) | 52 | 35 | 18 | 50 |
+| | Scan | 2,673 (2,626 to 2,760) | 1,985 (1,955 to 2,030) | 2,306 | 453 | 1,976 | 1,978 |
+| channel 62.7 nm | Compute | 601 (535 to 706) | 113 (108 to 117) | 170 | 3 | 55 | 108 |
+| | Scan | 4,208 (4,159 to 4,223) | 2,279 (2,258 to 2,335) | 3,759 | 1,497 | 2,073 (1,265 to 2,081) | 2,270 |
+| Biscay 321 nm | Compute | 658 (642 to 751) | 276 (267 to 280) | 317 | 29 | 113 | 267 |
+| | Scan | 11,370 (11,140 to 11,551) | 6,714 (6,419 to 6,740) | 11,036 | 4,332 | 6,580 | 6,718 |
+
+### Before against after, with the drift control
+
+| Passage | Scan longest block | Scan click to result |
+|---|---|---|
+| coastal | 4,137 to 1,985 ms, **−52 %** | 4,868 to 2,673 ms, **−45 %** |
+| channel | 5,977 to 2,279 ms, **−62 %** | 7,879 to 4,208 ms, **−47 %** |
+| Biscay | 21,263 to 6,714 ms, **−68 %**; against the coolest "before" run (19,305 ms) **−65 %** | 27,023 to 11,370 ms, **−58 %**; against that run (24,388 ms) **−53 %** |
+
+- **Drift control (Channel).** After the "after" runs the "before" build was served again and the Channel scan repeated three times, with the phone as cool as in the "after" runs: block 5,942 ms (5,848 to 6,064) against 5,977 ms in the first session, click to result 7,790 ms against 7,879 ms, Compute block 116 ms against 116 ms. **The baseline Channel numbers did not move** (within 1 %), although the phone was about 3 °C cooler, so the Channel comparison is not an artefact of heat. Against the control the change is −62 % in block and −46 % in click to result.
+- **Compute did not change** apart from noise (block 56 to 52 ms, 116 to 113 ms, 338 to 276 ms; the Biscay Compute total went 862 to 658 ms, probably the warmer first session, not the change, which does not touch Compute). The change touches the scan only.
+- The desktop record measured a 65 to 69 % shorter block under throttling; on the phone the block is 52 to 68 % shorter, less for the short passages, where the work that remains (see below) is a larger share.
+
+### Temperatures and the Biscay caveat
+
+Battery temperature (the phone's sensor, `dumpsys battery`): 26.2 to 26.8 °C when first connected, before any load; **31.0 to 31.9 °C during the "before" session**; 28.4 to 28.5 °C during the "after" runs and 28.3 to 28.4 °C during the control (28.3 °C at the end). I did not heat the phone to match; the "after" session started 2.5 °C cooler than the "before" one.
+
+Biscay's three consecutive "before" scans took 19.3, 21.3 and 24.8 s as the temperature rose from 31.4 to 31.9 °C: the phone slowed run by run, consistent with thermal throttling (not proven). The "after" runs did not drift (6.7, 6.7, 6.4 s). Biscay was not re-run on the "before" build in the cool state, so its "before" median includes the slowdown; the conservative comparison is against the first, coolest "before" run: **−65 % block, −53 % click to result**. The Channel control, whose numbers did not move with temperature, suggests the shorter scans are not heat-sensitive in this range; Biscay's ~20 s scans are.
+
+### What the phone shows (measured)
+
+- **About 2× desktop throttling, not 4× or 6×.** The "before" scan block is 1.9× the desktop's unthrottled block on coastal (4.14 against 2.17 s) and Channel (5.98 against 3.10 s) and 2.3 to 2.5× on Biscay (19.3 to 21.3 against 8.38 s); Compute blocks are 2.0× (Channel, 116 against 57 ms) to 2.4× (Biscay, 338 against 143 ms) the desktop's. After the change the phone is 2.3× (Channel, 2.28 against 1.01 s) and 2.5× (Biscay, 6.71 against 2.64 s) the desktop's. **This Galaxy A53 behaves like about 2× throttling on this machine. The 4× row that this record called a mid-range phone, and the 6× row for a low-end one, overstate it.** A genuinely low-end phone has still not been measured; this record says nothing measured about one.
+- **A second long task before the main block, on the phone only.** About 120 to 140 ms after the tap a long task starts that lasts **0.34 s (coastal), 1.4 s (Channel) and 4.1 to 6.1 s (Biscay)**, before the main block. It was not part of the identity change (4.7 to 6.1 s before and 4.1 s after on Biscay) and is now a large share of what is left. Its cause was not investigated. The preparation before the audits (tile reads and decodes, prepared data) was made of short tasks on the desktop, with at most one 0.44 s task at 6× on Biscay; on this phone it contains a task ten times longer. It **delays the first progress paint**: the status line shows nothing until it ends, at 0.45 s (coastal), 1.5 s (Channel) and 4.3 to 5.2 s (Biscay), and only then paints "Comparing departure times…" once. The sum of long tasks is 86 % (coastal), 89 % (Channel) and 97 % (Biscay) of the click-to-result time after the change, and 92 to 99 % before it.
+- **What did not change.** There is still **no frame painted during the scan block** (the longest frame gap equals the block within 1 %), **a tap waits for the whole block** (largest tap delay within 3 % of it; one Channel tap landed 1.3 s into the block), and the **"n/21" counter is never painted**: the status line changed once per scan, never during the block, in all 18 scans.
+- **Thresholds.** After the change the phone's scan blocks 2.0 s (20 nm), 2.3 s (Channel) and 6.7 s (Biscay), beyond the 50 ms, 100 ms and 1 s thresholds of this record. Compute blocks 52 ms, 113 ms and 276 ms (before: 56, 116, 338 ms): over 100 ms for the Channel and Biscay, never over 1 s.
+
+### What this means for the conclusion
+
+- **Measured:** a real mid-range phone freezes for 2 to 7 s on a scan after the identity change (4 to 21 s before it), with no repaint and no response to a tap. It confirms, on a device, that the scan blocks beyond every threshold, which was the desktop finding.
+- **The Worker recommendation stands on a real device.** Inferred, not measured: D2's 4 to 16 extra candidates would cost this phone about 0.4 to 1.5 s (coastal), 0.4 to 1.7 s (Channel) and 1.3 to 5.1 s (Biscay) more block, at the after-change per-candidate cost of the block divided by 21 (95, 109 and 320 ms); every case is past the 100 ms threshold and the Biscay case past 1 s. The pre-block long task, not touched by the identity change, would still freeze the page for up to 4 s before any progress shows.
+- **What is still open:** a low-end phone (slower than this one); a warm tile cache and a real network; what the pre-block long task contains; whether the shorter scans keep their numbers over repeated runs in a hot phone.
+
+### Commands of this run
+
+The "Measuring on a real phone" steps below are the supported way to repeat a phone measurement. This run used scratch scripts that are not in the repository (a copy of `viewer/e2e/perf/serve.js` that can serve a saved build, and a Node driver); what they did differently from those steps:
+
+- The driver ran from the desktop over the DevTools protocol instead of by hand in the DevTools console: it cleared our origin's storage (`Storage.clearDataForOrigin`), loaded the page, installed the probe by `fetch('/probe.js')` and an indirect `eval`, seeded the draft, reloaded, armed the probe, sent real touch events (`Input.dispatchTouchEvent`) to the button centre, and every 250 ms to the corner pad, polled `window.__perf.resultAt.<action>.paint`, and read `__perfSummary`. It read only the one target whose URL began with our address, and filtered the target list before using it.
+- It used **the action button, not the mode tab**: the page has a tab and a button both named "Compute route" (the first is `role=tab`); taps and the console step 5 must go to the button.
+- The phone's Chrome was in French, so the driver looked for the French labels and the French result texts (`Calculer la route`, `Comparer les heures de départ (5 prochains jours)`, results `Route météo`, `Comparaison des départs prête`) instead of the English ones in console steps 5 and 6.
+- Builds were saved (`cp -r output/perf/viewer-dist <dir>`) and served from there, so that "before" and "after" could be alternated in one session.
+
+```bash
+# builds: one saved copy per revision (perf:prepare overwrites output/perf/viewer-dist)
+# check out the revision to measure in a clean working tree first
+npm run perf:prepare && cp -r output/perf/viewer-dist <saved-build-dir>
+npm run perf:fixtures -w engine -- --live              # output/perf/fixtures-live: one set for every build compared; regenerate on the day
+
+# serve (a saved build needs a server that can point at it: copy viewer/e2e/perf/serve.js and set its dist, port and fixtures)
+PASSAGE_PERF_FIXTURES=fixtures-live node viewer/e2e/perf/serve.js
+
+# phone (unlocked, screen on, charging or not: note which), one Chrome tab
+adb reverse tcp:<port> tcp:<port>
+adb forward tcp:<host-port> localabstract:chrome_devtools_remote
+adb shell am start -a android.intent.action.VIEW -d "http://localhost:<port>/#plan" -p com.android.chrome
+curl -s http://127.0.0.1:<host-port>/json/version                  # Chrome version
+adb shell dumpsys battery | grep -E "^  (level|temperature):"      # before and after each passage (temperature is in tenths of °C)
+
+# afterwards: close only our tab, remove the rules
+curl -s http://127.0.0.1:<host-port>/json/close/<our-tab-id>
+adb reverse --remove tcp:<port>; adb forward --remove tcp:<host-port>
+```
+
+The "before/after" order of this run: after build (coastal, Channel, Biscay, 3 runs each), then the "before" build again for 3 Channel scans (drift control); the "before" build had been measured in an earlier session on the same fixtures. Run builds alternately in one session when comparing, start the phone at a similar temperature, and report temperature with the results.
+
 ## Repeat it
 
 All commands run from the repository root. The harness lives in `engine/scripts/` and `viewer/e2e/perf/`, writes only to `output/perf/` (git-ignored), needs no network and no polar service, and is not run by `npm test` or `npm run test:e2e`. Never run it at the same time as vitest or the e2e suite; Playwright uses port 5194 (`PASSAGE_PERF_PORT` or `PASSAGE_E2E_PORT` to change it) and starts no other server.
@@ -276,7 +370,7 @@ Run the Node and the browser measurements one after the other, not together: the
 
 ## Measuring on a real phone
 
-Not done. No phone was available and none was measured. These steps need no product change and no public deployment; the page is served from the desktop to the phone over USB. I verified the console steps (4 to 6) on desktop Chromium; the USB steps (1 to 3) follow Chrome's documented remote-debugging feature and were not tried.
+_Written before the phone measurement; the run that followed is in [Measured on a real phone](#measured-on-a-real-phone), with the differences between its scripts and these steps._ Not done. No phone was available and none was measured. These steps need no product change and no public deployment; the page is served from the desktop to the phone over USB. I verified the console steps (4 to 6) on desktop Chromium; the USB steps (1 to 3) follow Chrome's documented remote-debugging feature and were not tried.
 
 1. **Prepare on the desktop, on the real clock** (a phone's clock cannot be fixed): `npm run perf:prepare`, then `npm run perf:fixtures -w engine -- --live` (writes `output/perf/fixtures-live`, a forecast cycle dated today). Regenerate it on the day of each measurement.
 2. **Serve**: `PASSAGE_PERF_FIXTURES=fixtures-live npm run perf:serve` (listens on 127.0.0.1:5194 only).

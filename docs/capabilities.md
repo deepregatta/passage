@@ -81,7 +81,11 @@ no additional runner is needed. [Testing](testing.md) details fixture guarantees
    a computed scan blocks the page in one piece (2.2 to 8.4 s unthrottled, 13 to
    51 s at 6× CPU throttling), mostly in the audits, with no repaint; Compute blocks
    up to 0.9 s at 6×. The record recommends a cancelable Worker for the scan before
-   D2/D3. No physical device was measured; that stays open, with steps in the record.
+   D2/D3. One mid-range phone (Galaxy A53, 2026-11-12) was then measured, unthrottled:
+   a scan blocked the page for 4.1 s (20 nm), 6.0 s (Channel) and 21 s (Biscay) before
+   the change below and 2.0, 2.3 and 6.7 s after it, with no repaint and no response
+   to a tap; the phone behaves like about 2× desktop throttling. A low-end phone was
+   not measured; that stays open, with steps in the record.
    Since then a scan no longer hashes its candidates' saved identity, which it never
    shows or saves (a picked time is checked afresh): the block is 65 to 69 % shorter
    (1.0 to 2.6 s unthrottled, 6.6 to 15.6 s at 6× for Channel and Biscay), with

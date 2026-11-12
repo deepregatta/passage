@@ -143,7 +143,7 @@ No absolute figure exists to reuse: `passageMetrics` counts gust-exceeded hours 
 
 Already remaining work 2 in `docs/capabilities.md`. A scan routes every candidate before auditing any, synchronously on the main thread, with no cancel. D2 and D3 add work to that path, so a measurement on a low-end phone decides first whether a cancellable Worker is needed. Device measurement, reported separately from tests.
 
-**Status 2026-11-12: local measurement done, device measurement open.** [Record](2026-11-12-scan-responsiveness.md): the scan blocks the page for 2.2 to 8.4 s unthrottled and 13 to 51 s at 6× CPU throttling (audits are 80 to 95 % of it), Compute for up to 0.9 s at 6×; D2 would add 4 to 16 candidates. Recommendation: a cancelable Worker for the scan before D2 and D3. No phone was measured; the record gives the steps.
+**Status 2026-11-12: local measurement and one mid-range phone measured; a low-end phone not.** [Record](2026-11-12-scan-responsiveness.md): the scan blocks the page for 2.2 to 8.4 s unthrottled and 13 to 51 s at 6× CPU throttling (audits are 80 to 95 % of it), Compute for up to 0.9 s at 6×; D2 would add 4 to 16 candidates. Recommendation: a cancelable Worker for the scan before D2 and D3. A Galaxy A53 (mid-range, unthrottled) blocked for 4.1, 6.0 and 21 s on a 20, 63 and 321 nm scan, and for 2.0, 2.3 and 6.7 s after the scan stopped hashing its candidates' identity (commit 69eb2a4); it behaves like about 2× desktop throttling. A low-end phone was not measured; the record gives the steps.
 
 ### D2. Refinement pass (review step 7)
 
