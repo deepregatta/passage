@@ -401,9 +401,11 @@ no bundled text file), closing gap 1 of the
 [credit audit](maintenance/2026-11-12-credit-audit.md). The engine can write
 it, in GRIB2 Section 2 (Local Use), but **no file the page or the CLI makes
 carries it yet**: `GribExportRequest.creditSection` is off by default and
-nothing sets it. It waits for the files to be opened in real sailing readers
-(Adrena first, which the owner confirmed reads today's files), because some
-readers are known to drop records that have a Section 2 (below).
+nothing sets it. Later the same day, shown the reader risk (some readers are
+known to drop records that have a Section 2, below) and the size cost (365 to
+579 bytes per message), the owner decided to **leave it off**. Reopening it
+needs the files opened in real sailing readers (Adrena first, which the owner
+confirmed reads today's files) and a decision on the size cost.
 
 **Layout.** With `creditSection: true`, every message gets a Section 2
 between sections 1 and 3 (`engine/src/export/gribCredit.ts`,
