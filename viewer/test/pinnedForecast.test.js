@@ -9,11 +9,12 @@ const manifest = (layer, runId, extra = {}) => ({
 });
 
 /** A page store over an in-memory catalogue; `unreadable` run ids fail like a half-published manifest. */
-function pageStore({ unreadable = [] } = {}) {
+function pageStore({ unreadable = [], regionalLayers = [] } = {}) {
   const manifests = {
     'weather-new': manifest('weather', 'weather-new'),
     'weather-old': manifest('weather', 'weather-old'),
     'ensemble-1': manifest('ensemble', 'ensemble-1', { member_count: 31 }),
+    'ukv-1': manifest('weather-ukv', 'ukv-1', { attribution: 'Invented regional model' }),
   };
   const transport = {
     fetchLatest: vi.fn(async () => ({ schema_version: 1, updated_at: 'x', layers: {
@@ -24,9 +25,12 @@ function pageStore({ unreadable = [] } = {}) {
       if (unreadable.includes(runId) || !manifests[runId]) throw new Error('HTTP 404');
       return manifests[runId];
     }),
+    fetchRegionalLatest: vi.fn(async () => ({ schema_version: 1, updated_at: 'x', layers: {
+      'weather-ukv': { run_id: 'ukv-1', cycle: 'c', published_at: 'p', cadence_hours: 1 },
+    } })),
     fetchTile: vi.fn(),
   };
-  return new TileForecastStore({ transport, now: () => 0 });
+  return new TileForecastStore({ transport, now: () => 0, regionalLayers });
 }
 
 const fakeCache = () => ({
@@ -49,6 +53,16 @@ describe('pinned forecast for the scan Worker', () => {
     expect(cache.evictExcept).not.toHaveBeenCalled();
     // it can never re-read the catalogue: refreshing finds the same runs
     expect(await pinned.refresh()).toEqual([]);
+  });
+
+  it('pins an allowed regional model as the page store has it', async () => {
+    const page = pageStore({ regionalLayers: ['weather-ukv'] });
+    await page.init();
+    expect(page.describe()['weather-ukv']).toMatchObject({ regional: true, attribution: 'Invented regional model', cadence_hours: 1 });
+    const pinned = await pinForecastStore(structuredClone(pinnedCatalogue(page)), { tiles: { fetchTile: vi.fn() }, cache: fakeCache() });
+    expect(pinned.describe()).toEqual(page.describe());
+    expect(Object.keys(pinned.describe())).toEqual(['weather', 'ensemble', 'weather-ukv']);
+    expect(pinned.regionalLayerIds()).toEqual(['weather-ukv']);
   });
 
   it('fails as an updated forecast when the runs it loads are not the page\'s', async () => {

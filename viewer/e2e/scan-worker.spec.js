@@ -9,10 +9,13 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
 const repo = path.resolve(import.meta.dirname, '../..');
-const fixtures = path.join(repo, 'output/e2e-scan-worker-fixtures');
+let fixtures;
 let meta;
 
-test.beforeAll(() => {
+// eslint-disable-next-line no-empty-pattern -- Playwright hooks take their fixtures as a destructured first argument
+test.beforeAll(({}, testInfo) => {
+  // one folder per project, so that two projects never write the same files
+  fixtures = path.join(repo, `output/e2e-scan-worker-fixtures-${testInfo.project.name}`);
   execFileSync('npx', ['tsx', 'scripts/perf/prepare-fixtures.ts', fixtures], { cwd: path.join(repo, 'engine'), stdio: 'pipe' });
   meta = JSON.parse(readFileSync(path.join(fixtures, 'meta.json'), 'utf8'));
 });

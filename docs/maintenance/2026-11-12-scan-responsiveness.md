@@ -434,6 +434,7 @@ The commands were `npm run perf:prepare`, then `PERF_PASSAGES=coastal-20nm,chann
 - **CPU throttling does not slow the Worker.** `Emulation.setCPUThrottlingRate` throttles the page's thread, not a dedicated Worker's: after the change the 2× and 6× totals are within 0.4 s of the 1× ones.
   - **So the throttled "after" totals are not a phone estimate.** On a phone the Worker runs at the phone's speed, so expect the scan to take about as long as before. The page stays usable meanwhile.
   - The main-thread columns, which are what the Worker is for, remain valid under throttling.
+- **Production build.** The `build:pages` output was served with `static-dist` and one drawn 34 nm scan was run on the live forecast tiles, unthrottled. The Worker script loaded and the count painted ("Comparing departure times n/20…"). The comparison completed with no alert, and the page's longest timer lag was 60 ms. That local server does not apply `_headers`, so the deployed CSP (`worker-src 'self' blob:`) was read, not exercised.
 - **Compute is unchanged.** Its longest block was 0 to 0.16 s at 1×, 0.05 to 0.34 s at 2× and 0.16 to 1.24 s at 6×, before and after alike (Biscay at 6×: 1.24 before, 1.00 after).
 
 ### Against the thresholds
@@ -454,7 +455,8 @@ The commands were `npm run perf:prepare`, then `PERF_PASSAGES=coastal-20nm,chann
 5. **The dev server serves the coastline `.bin.gz` with `Content-Encoding: gzip`**, so the browser decompresses it before the app's own `DecompressionStream` does. A Compute on the real coastline therefore fails in development with "Couldn't load the coastline data needed for safe routing". Production and the perf server are unaffected. The browser specs stub the coastline or serve it themselves.
 6. **The tile current record's `content_digest` includes the grid's read time.** `resolveCurrentInput` and `selectRoutingCurrent` hash the tile current grid with its `generated_at` and `source.fetched_at` (`engine/src/currentInput.ts`), so two scans or Checks on the same run record different digests a second apart. The saved identity strips these clocks (`engine/src/identity.ts`); this provenance digest does not.
 7. **Compute could use the same Worker.** It is a single route and its block is at most 0.28 s on the phone and 1.2 s at 6×, so it was left on the page. A prepared grid's digest is its largest part.
-8. **The French `fixture-persistence` browser test** (`e2e/fixture-persistence.spec.js:49`, "Execution context was destroyed") failed in 3 of 3 runs on the unchanged ad3aae5 tree and in 2 of 4 runs with this change. It is the known intermittent failure and is not caused by the Worker.
+8. **Limits can now change during a scan.** The page stays usable for seconds, so the Limits drawer can be opened and changed while a comparison runs. The comparison is still ranked on the limits captured at the click, because the scan basis does not include the profile. This was already true during the scan's preparation, but it is now easy to do. Whether a limits change should also stop a scan is the owner's decision.
+9. **The French `fixture-persistence` browser test** (`e2e/fixture-persistence.spec.js:49`, "Execution context was destroyed") failed in 3 of 3 runs on the unchanged ad3aae5 tree and in 2 of 4 runs with this change. It is the known intermittent failure and is not caused by the Worker.
 
 ## Repeat it
 
