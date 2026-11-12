@@ -67,10 +67,8 @@ for (const language of ['en', 'fr']) {
       } else await route.continue();
     });
     await page.goto(language === 'fr' ? '/fr/#plan' : '/#plan');
-    // Let the planner's lazy chunk and first data requests settle: an evaluate sent while
-    // they are still arriving failed with 'Execution context was destroyed' on the phone
-    // project in French (13 of 16 runs locally, intermittently on the hosted runner).
-    await page.waitForLoadState('networkidle');
+    // The planner is a lazy chunk: wait until it has rendered before the evaluate touches its stores.
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     await page.evaluate(async ({ engineUrl, departure }) => {
       const engine = await import(engineUrl);
       const fixture = (await import('/test/fixtures/routingTiming.js')).auditStore(engine, undefined);
@@ -82,7 +80,17 @@ for (const language of ['en', 'fr']) {
       const { toLocalDateTimeValue } = await import('/src/lib/format.js');
       planner.patch({ mode: 'draw', waypoints: [{ lat: 49.5, lng: -3.5 }, { lat: 49.5, lng: -3.2 }],
         name: 'Scratch fixture protection', departureLocal: toLocalDateTimeValue(departure), speeds: { slow: 4, nominal: 5, fast: 6 } });
+      // Do not return in the turn that rendered the drawn route. On /fr/ LocalizedDocument's
+      // MutationObserver re-translates the new map DOM in that same turn, and Chromium then
+      // answers the pending evaluate with 'Promise was collected', which Playwright reports as
+      // 'Execution context was destroyed, most likely because of a navigation'. No navigation
+      // happens: the URL, document and context all survive, and the same evaluate on /fr/ passes
+      // when the observer is disabled or when it resolves in a later frame (it failed on nearly
+      // every French run, on both projects, before; English has no observer). The expect after
+      // the evaluate waits for the route the patch drew.
+      await new Promise(resolve => requestAnimationFrame(() => resolve()));
     }, { engineUrl, departure });
+    await expect(page.locator('.passage-marker')).toHaveCount(2);
     const mobile = testInfo.project.name === 'mobile';
     await page.locator(mobile ? 'nav.md\\:hidden' : 'header').getByRole('button', { name: language === 'fr' ? /^Modifier mes limites/ : /^Edit my limits/ }).click();
     const dialog = page.getByRole('dialog');
