@@ -216,6 +216,21 @@ source. `viewer/e2e/action-inputs.spec.js` and
 mobile, using synthetic transport, fresh storage, blocked telemetry and
 intercepted POSTs. Demo fixture files must stay untouched.
 
+Departure ranking: `engine/test/window.test.ts` covers the hour figures on
+hand-built findings (each arrival-range hour counted once across overlapping
+legs and several limits, over before missing data before approaching, missing
+values for each limit, steepness with a known wave height, a layer missing from
+every candidate of a scan, an undeclared limit, the expected-timing count apart)
+and `rankCandidates` in both modes: key order, ranking on the arrival range
+rather than the expected timing, the 5 % and one-hour tie edges, ties measured
+against the marked time only (a chain of one-hour steps does not tie its far
+end), `Infinity` and `null` ratios, the first candidate kept on equal values, and
+the known limitation that missing data does not change the severity key.
+`viewer/test/departureComparison.test.jsx` covers the toggle, the tie mark and
+summary, the tooltip hours and gust difference in English and French, and hours
+over a limit that fall outside the expected timing. A scan is never saved, so
+neither suite touches a fixture, a schema or a saved identity.
+
 ## Saved identity and history regressions
 
 `engine/test/snapshotIdentity.test.ts` covers changed authority/tide/gate/prepared,

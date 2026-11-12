@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { candidateDepartures, scanDepartures } from '@deepweather/engine';
 import Planner from '../src/pages/Planner.jsx';
 import { useApp } from '../src/stores/appStore.js';
@@ -7,6 +7,7 @@ import { usePlanner } from '../src/stores/plannerStore.js';
 import { analyzeInBrowser, saveRoute } from '../src/lib/browserAnalysis.js';
 import limits from '../../config/profiles/default-limits.json';
 import { fmtLocalTime, toLocalDateTimeValue } from '../src/lib/format.js';
+import { LocalizedDocument } from '../src/i18n.js';
 
 vi.mock('react-leaflet', () => ({
   MapContainer: ({ children }) => <div>{children}</div>, TileLayer: () => null,
@@ -331,4 +332,81 @@ it('persists the ranking mode, defaults it for a draft saved without one, and ke
   localStorage.setItem('deepweather.planner-draft', JSON.stringify({ version: 3, state: { passageId: 'saved', rankMode: 'cautious' } }));
   await usePlanner.persist.rehydrate();
   expect(usePlanner.getState().rankMode).toBe('cautious');
+});
+
+// ---- Hours over and approaching a limit (C4) ------------------------------------------------
+const limitHours = (over, approaching = 0, extra = {}) => ({
+  arrival_hours_over_limit: over, arrival_hours_approaching: approaching, arrival_hours_no_data: 0, expected_hours_over_limit: over, ...extra,
+});
+
+it('shows the arrival-range hours in the cell tooltip, with the expected timing only when it differs', () => {
+  usePlanner.setState({ scan: rankedScan([
+    limitHours(5, 2, { arrival_hours_no_data: 1, expected_hours_over_limit: 3 }),
+    limitHours(0, 0, { verdict: 'approaching' }),
+    limitHours(0, 4),
+    {},
+  ]) });
+  render(<Planner />);
+  const times = usePlanner.getState().scan.candidates.map(c => c.departure_utc);
+  const title = cellFor(times[0]).title;
+  expect(title).toContain('5 h over a limit in your arrival range · of which 3 h on the expected timing');
+  expect(title).toContain('2 h approaching a limit in your arrival range');
+  expect(title).toContain('a forecast value needed for your limits is missing for 1 h of your arrival range');
+  // a zero is never printed, even on an approaching cell whose reason is not a limit
+  expect(cellFor(times[1]).title).not.toMatch(/\b0 h\b/);
+  expect(cellFor(times[1]).title).not.toContain('a limit in your arrival range');
+  expect(cellFor(times[2]).title).toContain('4 h approaching a limit in your arrival range');
+  expect(cellFor(times[2]).title).not.toContain('over a limit');
+  // a scan without the figures shows none
+  expect(cellFor(times[3]).title).not.toContain('arrival range');
+});
+
+it('leaves out the expected timing when it matches, and says none when the hours fall outside it', () => {
+  usePlanner.setState({ scan: rankedScan([limitHours(2), limitHours(4, 0, { verdict: 'exceeds', expected_hours_over_limit: 0 })]) });
+  render(<Planner />);
+  const times = usePlanner.getState().scan.candidates.map(c => c.departure_utc);
+  expect(cellFor(times[0]).title).toContain('2 h over a limit in your arrival range');
+  expect(cellFor(times[0]).title).not.toContain('expected timing');
+  const exceeded = cellFor(times[1]).title;
+  expect(exceeded).toContain('4 h over a limit in your arrival range · none on the expected timing');
+  expect(exceeded).not.toMatch(/\b0 h\b/);
+});
+
+it('no longer adds the old gust-only hour difference to the tooltip', () => {
+  usePlanner.setState({ scan: rankedScan([{}, { delta: { peak_gust_kt: 3, hours_over_limit: 5 } }]) });
+  render(<Planner />);
+  const title = cellFor(usePlanner.getState().scan.candidates[1].departure_utc).title;
+  expect(title).toContain('gusts +3 kt vs first option');
+  expect(title).not.toContain('over your limit');
+});
+
+it('translates the hour tooltip and the gust difference into French', () => {
+  usePlanner.setState({ scan: rankedScan([
+    limitHours(5, 1, { arrival_hours_no_data: 1, expected_hours_over_limit: 3 }),
+    limitHours(4, 0, { verdict: 'exceeds', expected_hours_over_limit: 0, delta: { peak_gust_kt: 3, hours_over_limit: 0 } }),
+  ]) });
+  const { container } = render(<div id="root"><Planner /><LocalizedDocument language="fr" /></div>);
+  const titles = [...container.querySelectorAll('button[title]')].map(button => button.getAttribute('title'));
+  expect(titles[0]).toContain('5 h au-dessus d’une limite dans votre fenêtre d’arrivée estimée · dont 3 h selon l’horaire prévu · 1 h à l’approche d’une limite dans votre fenêtre d’arrivée estimée · il manque une valeur de prévision nécessaire à vos limites pendant 1 h de votre fenêtre d’arrivée estimée');
+  expect(titles[1]).toContain('4 h au-dessus d’une limite dans votre fenêtre d’arrivée estimée · aucune selon l’horaire prévu');
+  expect(titles[1]).toContain('rafales +3 nd par rapport à la première option');
+  expect(titles.join(' ')).not.toMatch(/expected timing|over a limit|approaching a limit|arrival range|first option|proches/);
+});
+
+it('moves the mark to fewer hours over a limit before the ratio, in both modes', () => {
+  // the main forecast's ratio prefers the first time, but it has 4 h over a limit against 1 h
+  usePlanner.setState({ scan: rankedScan([limitHours(4), limitHours(1), limitHours(2), limitHours(3)]) });
+  render(<Planner />);
+  const times = usePlanner.getState().scan.candidates.map(c => c.departure_utc);
+  expect(glyphOf(times[1])).toBe('◎');
+  expect(glyphOf(times[0])).not.toContain('◎');
+  expect(summary()).toHaveTextContent(fmtLocalTime(times[1]));
+  // 2 h is within an hour of 1 h, but its ratio (0.22 against 0.6) is not within 5 % of the limit: no tie note
+  expect(summary()).not.toHaveTextContent('Effectively tied');
+  fireEvent.click(toggle('Cautious'));
+  // the scenario share still comes first in Cautious: 0 for the second time
+  expect(glyphOf(times[1])).toBe('◎');
+  // with equal shares, the hours decide before the ratio
+  act(() => usePlanner.setState({ scan: rankedScan([limitHours(4, 0, { max_fraction: 0 }), limitHours(1, 0, { max_fraction: 0, worst_ratio: 0.95 })]) }));
+  expect(glyphOf(usePlanner.getState().scan.candidates[1].departure_utc)).toBe('◎');
 });

@@ -9,7 +9,8 @@ import { evidenceLimitRatio } from './findings.js';
 import { forecastRunGone } from './forecast/store.js';
 import { resolveCurrentInput } from './currentInput.js';
 import { computeRouteSchedules } from './eta.js';
-import type { Route, VerdictState } from './types.js';
+import { nominalPassageHours } from './routeSummary.js';
+import type { Findings, LegHour, Route, VerdictState } from './types.js';
 
 export interface WindowCandidate {
   departure_utc: string;
@@ -29,6 +30,22 @@ export interface WindowCandidate {
   driver_summary: string | null;
   /** nominal passage duration for this candidate's route */
   passage_h: number | null;
+  /**
+   * Distinct valid times anywhere in the arrival range (fastest entry to slowest
+   * exit, every leg), where the verdict also looks, in which any declared limit is
+   * exceeded on any leg. Each valid time counts once, whatever the number of legs
+   * or limits over at it. Ranked (see passageLimitHours).
+   */
+  arrival_hours_over_limit: number;
+  /** Valid times of the arrival range over no limit, with every needed value, and approaching one. Ranked. */
+  arrival_hours_approaching: number;
+  /** Valid times of the arrival range over no limit but missing a value one of the skipper's limits needs. Ranked as possibly over. */
+  arrival_hours_no_data: number;
+  /**
+   * Whole hours of the expected (nominal) timing over any limit, each hour once by
+   * the route summary's assignment. Shown, never ranked: at most the arrival figure.
+   */
+  expected_hours_over_limit: number;
   avoids_event_key?: string;
   delta?: { peak_gust_kt: number; hours_over_limit: number };
 }
@@ -68,11 +85,22 @@ export type RankMode = 'typical' | 'cautious';
  * (one member is 0.03 once rounded, two are 0.06).
  */
 export const RANK_TIE_TOLERANCE = 0.05;
+/**
+ * Two times whose hours over a limit (or approaching one) differ by one hour or
+ * less are effectively tied on that figure: the expected timing is itself only
+ * known to about an hour.
+ */
+export const RANK_HOUR_TIE_TOLERANCE = 1;
 // Candidate values are rounded to two decimals, so a gap of exactly the tolerance
 // can come out a hair above it in floating point (1.05 - 1 > 0.05).
 const TIE_EPSILON = 1e-9;
 
-type Rankable = Pick<WindowCandidate, 'verdict' | 'worst_ratio' | 'max_fraction'> & { ensemble_covered?: boolean };
+type Rankable = Pick<WindowCandidate, 'verdict' | 'worst_ratio' | 'max_fraction'> & {
+  ensemble_covered?: boolean;
+  arrival_hours_over_limit?: number | null;
+  arrival_hours_approaching?: number | null;
+  arrival_hours_no_data?: number | null;
+};
 
 /** Absolute gap that never subtracts two infinities: equal infinities are 0 apart, one infinite value is infinitely far. */
 function distance(a: number, b: number): number {
@@ -85,6 +113,20 @@ const ratioOf = (c: Rankable): number => c.worst_ratio ?? 0;
 // Ensemble evidence exists for this candidate. A candidate saved without the flag counts as covered when it has a fraction.
 const coveredOf = (c: Rankable): boolean => c.ensemble_covered === true || c.max_fraction != null;
 const fractionOf = (c: Rankable): number => c.max_fraction ?? 0;
+
+const finiteCount = (value: number | null | undefined): value is number => typeof value === 'number' && Number.isFinite(value);
+// The hour figures exist for this candidate. A candidate built without them (an older scan) ranks after one with them.
+const hoursKnown = (c: Rankable): boolean => finiteCount(c.arrival_hours_over_limit) && finiteCount(c.arrival_hours_approaching);
+// An hour missing a needed value may have been over a limit: for ranking it counts as one.
+const possiblyOverOf = (c: Rankable): number => c.arrival_hours_over_limit! + (finiteCount(c.arrival_hours_no_data) ? c.arrival_hours_no_data : 0);
+const approachingOf = (c: Rankable): number => c.arrival_hours_approaching!;
+
+/** Negative when `a` ranks ahead of `b` on the hour figures; missing figures rank last. */
+function compareHours(a: Rankable, b: Rankable): number {
+  const known = Number(hoursKnown(b)) - Number(hoursKnown(a));
+  if (known !== 0 || !hoursKnown(a)) return known;
+  return (possiblyOverOf(a) - possiblyOverOf(b)) || (approachingOf(a) - approachingOf(b));
+}
 
 /** Negative when `a` ranks ahead of `b`; zero when every key of the mode is equal. */
 function compareCandidates(a: Rankable, b: Rankable, mode: RankMode): number {
@@ -99,35 +141,53 @@ function compareCandidates(a: Rankable, b: Rankable, mode: RankMode): number {
       if (byFraction !== 0) return byFraction;
     }
   }
+  const byHours = compareHours(a, b);
+  if (byHours !== 0) return byHours;
   const ratioA = ratioOf(a), ratioB = ratioOf(b);
   if (ratioA === ratioB) return 0;
   return ratioA < ratioB ? -1 : 1;
 }
 
-/** True when every key the mode ranks on is within the tolerance of the best candidate's. */
-function tiedWith(best: Rankable, c: Rankable, mode: RankMode, limit: number): boolean {
+/** True when every key the mode ranks on is within its tolerance of the best candidate's. */
+function tiedWith(best: Rankable, c: Rankable, mode: RankMode, limit: number, hourLimit: number): boolean {
   if (SEVERITY[c.verdict] !== SEVERITY[best.verdict]) return false;
   if (mode === 'cautious') {
     if (coveredOf(c) !== coveredOf(best)) return false;
     if (coveredOf(best) && distance(fractionOf(best), fractionOf(c)) > limit) return false;
+  }
+  if (hoursKnown(c) !== hoursKnown(best)) return false;
+  if (hoursKnown(best)) {
+    if (distance(possiblyOverOf(best), possiblyOverOf(c)) > hourLimit) return false;
+    if (distance(approachingOf(best), approachingOf(c)) > hourLimit) return false;
   }
   return distance(ratioOf(best), ratioOf(c)) <= limit;
 }
 
 /**
  * Rank candidates without ever saying GO. The best candidate is exact: the lowest
- * under the mode's order, the first one when equal. The tolerance only labels the
+ * under the mode's order, the first one when equal. The tolerances only label the
  * others that are effectively tied with it (same verdict severity, and every value
- * the mode ranks on within the tolerance), so it never moves the mark.
- * - typical: verdict severity, then worst deterministic ratio.
+ * the mode ranks on within its tolerance of the best's), so they never move the mark.
+ * Ties are measured against the best only: a time one hour worse than a tied time
+ * but two hours worse than the best is not tied.
+ * - typical: verdict severity, then hours over a limit, then hours approaching one,
+ *   then worst deterministic ratio.
  * - cautious: verdict severity, then worst ensemble fraction (a covered candidate with
  *   no exceeding scenario counts as 0; a candidate with no ensemble ranks after covered
- *   ones), then the ratio.
+ *   ones), then the two hour figures, then the ratio.
+ * The hours are distinct valid times of the whole arrival range, where the verdict
+ * looks (passageLimitHours). For ranking, an hour missing a value one of the
+ * skipper's limits needs counts as over a limit, so within the same verdict severity
+ * missing data never ranks better than known data. Across severities it can: a
+ * missing value does not raise the verdict, so a "within" time with unknown hours
+ * still ranks ahead of a fully known "approaching" one (a known limitation).
+ * A candidate without the hour figures ranks after those with them.
  * `tied_indices` excludes the best one.
  */
 export function rankCandidates(
   candidates: readonly Rankable[],
-  { mode = 'typical', tolerance = RANK_TIE_TOLERANCE }: { mode?: RankMode; tolerance?: number } = {},
+  { mode = 'typical', tolerance = RANK_TIE_TOLERANCE, hourTolerance = RANK_HOUR_TIE_TOLERANCE }:
+  { mode?: RankMode; tolerance?: number; hourTolerance?: number } = {},
 ): { best_index: number | null; tied_indices: number[] } {
   if (candidates.length === 0) return { best_index: null, tied_indices: [] };
   let bestIndex = 0;
@@ -136,9 +196,10 @@ export function rankCandidates(
   }
   const best = candidates[bestIndex]!;
   const limit = tolerance + TIE_EPSILON;
+  const hourLimit = hourTolerance + TIE_EPSILON;
   const tied: number[] = [];
   for (let i = 0; i < candidates.length; i++) {
-    if (i !== bestIndex && tiedWith(best, candidates[i]!, mode, limit)) tied.push(i);
+    if (i !== bestIndex && tiedWith(best, candidates[i]!, mode, limit, hourLimit)) tied.push(i);
   }
   return { best_index: bestIndex, tied_indices: tied };
 }
@@ -154,6 +215,7 @@ export async function scanDepartures(
   const candidates: WindowCandidate[] = [];
   const skipped: WindowScan['skipped'] = [];
   const eventKeys: string[][] = [];
+  const candidateFindings: Findings[] = [];
   let inputRecords: WindowScan['input_records'];
   const planned: Array<{ route: Route; departureUtc: string }> = [];
   // Route once before selecting current coverage across the entire scan.
@@ -218,13 +280,19 @@ export async function scanDepartures(
       passage_h: lastLeg
         ? Math.round(((Date.parse(lastLeg.eta_range.nominal) - Date.parse(departureUtc)) / 3600_000) * 10) / 10
         : null,
+      // Counted after the loop, once every candidate's findings say which layers are present.
+      ...NO_HOURS,
       delta: passageMetrics(findings),
     };
     candidates.push(candidate);
+    candidateFindings.push(findings);
     eventKeys.push((findings.causal_events ?? []).map((event) => event.event_key).filter((key): key is string => Boolean(key)));
+    // Progress only: the hour figures are still zero here and filled in once every candidate is audited.
     onCandidate?.(candidate);
   }
 
+  const limits = presentLimits(base.profile, candidateFindings);
+  candidates.forEach((candidate, i) => Object.assign(candidate, passageLimitHours(candidateFindings[i], { limits })));
   const { best_index: bestIndex } = rankCandidates(candidates, { mode: 'typical' });
 
   const baseline = candidates[0];
@@ -257,6 +325,95 @@ function ensembleCoverage(findings: AnalyzeResult['findings']): { covered: boole
     }
   }
   return { covered: total > 0, total };
+}
+
+export type LimitKey = keyof LegHour['limit_status'];
+const LIMIT_KEYS: LimitKey[] = ['sustained', 'gust', 'wave', 'steepness', 'visibility'];
+type HourFigures = Pick<WindowCandidate, 'arrival_hours_over_limit' | 'arrival_hours_approaching' | 'arrival_hours_no_data' | 'expected_hours_over_limit'>;
+const NO_HOURS: HourFigures = { arrival_hours_over_limit: 0, arrival_hours_approaching: 0, arrival_hours_no_data: 0, expected_hours_over_limit: 0 };
+
+const statuses = (hour: LegHour) => Object.values(hour.limit_status ?? {});
+const overLimit = (hour: LegHour): boolean => statuses(hour).includes('exceeded');
+const knownStatus = (status: string | undefined): boolean => status === 'ok' || status === 'approaching' || status === 'exceeded';
+
+/**
+ * Whether this hour lacks a value one of `limits` needs: its status is "unknown" or
+ * absent. Steepness is derived from the wave height and period, and its status is
+ * absent whenever the period is: with a wave height known, the sea-state limits are
+ * answered and a missing steepness is not counted.
+ */
+function missingData(hour: LegHour, limits: ReadonlySet<LimitKey>): boolean {
+  for (const key of limits) {
+    if (knownStatus(hour.limit_status?.[key])) continue;
+    if (key === 'steepness' && hour.waves?.hs_m != null) continue;
+    return true;
+  }
+  return false;
+}
+
+/**
+ * The limits whose missing values count as missing data across a scan: those the
+ * profile declares (sustained and gust always; waves, steepness and visibility when
+ * set) that have a known status in at least one hour of at least one candidate. A
+ * layer missing from every candidate is left out for everyone, so it never turns
+ * into passage length.
+ */
+export function presentLimits(profile: { max_wave_height_m?: number; max_steepness?: number; min_visibility_nm?: number | null } | null | undefined,
+  findingsList: ReadonlyArray<Findings | null | undefined>): Set<LimitKey> {
+  const declared = new Set<LimitKey>(['sustained', 'gust']);
+  if (profile?.max_wave_height_m !== undefined) declared.add('wave');
+  if (profile?.max_steepness !== undefined) declared.add('steepness');
+  if (profile?.min_visibility_nm !== undefined && profile?.min_visibility_nm !== null) declared.add('visibility');
+  const present = new Set<LimitKey>();
+  for (const findings of findingsList) {
+    for (const leg of findings?.legs ?? []) {
+      for (const hour of leg.hours ?? []) {
+        for (const key of declared) if (knownStatus(hour.limit_status?.[key])) present.add(key);
+      }
+    }
+  }
+  return present;
+}
+
+/**
+ * Hours over a declared limit and approaching one, from the audit's own per-hour
+ * `limit_status` (sustained wind by point of sail, gust, wave height, steepness,
+ * visibility): "exceeded" is above the limit (below it for visibility),
+ * "approaching" is at or above the profile's approaching ratio of it (within
+ * 1.5 times the minimum for visibility). Nothing is re-thresholded here.
+ *
+ * The three ranked figures count distinct valid times across every leg's whole
+ * arrival range (fastest entry to slowest exit), where the verdict looks. Each
+ * valid time lands in exactly one of: over (any leg's hour at that time exceeds
+ * any limit), no data (else, any leg's hour at that time misses a value one of
+ * `limits` needs), approaching (else, any leg's hour approaches any limit), or
+ * neither. `limits` defaults to the declared-looking limits with a known status
+ * somewhere in these findings; a scan passes the set present across all its
+ * candidates (presentLimits).
+ *
+ * `expected_hours_over_limit` is the hours over any limit on the expected (nominal)
+ * timing, each whole hour once by the route summary's assignment (nominalPassageHours).
+ */
+export function passageLimitHours(findings: Findings | null | undefined,
+  { limits }: { limits?: ReadonlySet<LimitKey> } = {}): HourFigures {
+  const counted = limits ?? new Set(LIMIT_KEYS.filter((key) => (findings?.legs ?? [])
+    .some((leg) => (leg.hours ?? []).some((hour) => knownStatus(hour.limit_status?.[key])))));
+  const byTime = new Map<string, LegHour[]>();
+  for (const leg of findings?.legs ?? []) {
+    for (const hour of leg.hours ?? []) {
+      const list = byTime.get(hour.valid_time);
+      if (list) list.push(hour);
+      else byTime.set(hour.valid_time, [hour]);
+    }
+  }
+  let over = 0, approaching = 0, noData = 0;
+  for (const hours of byTime.values()) {
+    if (hours.some(overLimit)) over += 1;
+    else if (hours.some((hour) => missingData(hour, counted))) noData += 1;
+    else if (hours.some((hour) => statuses(hour).includes('approaching'))) approaching += 1;
+  }
+  const expected = nominalPassageHours(findings).filter(({ hour }) => overLimit(hour)).length;
+  return { arrival_hours_over_limit: over, arrival_hours_approaching: approaching, arrival_hours_no_data: noData, expected_hours_over_limit: expected };
 }
 
 function passageMetrics(findings: AnalyzeResult['findings']) {

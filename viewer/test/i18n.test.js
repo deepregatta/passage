@@ -478,6 +478,14 @@ describe('departure ranking copy', () => {
       '0 scénario sur 31 dépasse une limite · à égalité effective avec l’heure la moins exposée'],
     ['1 of 31 forecast scenarios exceed a limit', '1 scénario sur 31 dépasse une limite'],
     ['6 of 31 forecast scenarios exceed a limit', '6 scénarios sur 31 dépassent une limite'],
+    ['5 h over a limit in your arrival range · of which 3 h on the expected timing · 1 h approaching a limit in your arrival range · a forecast value needed for your limits is missing for 2 h of your arrival range',
+      '5 h au-dessus d’une limite dans votre fenêtre d’arrivée estimée · dont 3 h selon l’horaire prévu · 1 h à l’approche d’une limite dans votre fenêtre d’arrivée estimée · il manque une valeur de prévision nécessaire à vos limites pendant 2 h de votre fenêtre d’arrivée estimée'],
+    ['4 h over a limit in your arrival range · none on the expected timing',
+      '4 h au-dessus d’une limite dans votre fenêtre d’arrivée estimée · aucune selon l’horaire prévu'],
+    ['gusts +3 kt vs first option', 'rafales +3 nd par rapport à la première option'],
+    ['gusts -2 kt vs first option', 'rafales -2 nd par rapport à la première option'],
+    ['Typical: ranked on the main forecast against your limits, including how many hours of your arrival range are over or approaching a limit. Cautious: ranked first on how many forecast scenarios exceed your limits, then on those hours.',
+      'Habituel : classé d’après la prévision principale, face à vos limites, y compris le nombre d’heures de votre fenêtre d’arrivée estimée au-dessus d’une limite ou à l’approche d’une limite. Prudent : classé d’abord selon le nombre de scénarios de prévision qui dépassent vos limites, puis selon ces heures.'],
   ])('translates %s', (english, french) => {
     expect(translateText(english, 'fr')).toBe(french);
     expect(translateText(english, 'en')).toBe(english);

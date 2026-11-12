@@ -18,6 +18,33 @@ const hasEnsemble = (c) => c.ensemble_covered === true || c.max_fraction != null
 
 const RANK_MODES = [[RANK_TYPICAL, 'Typical'], [RANK_CAUTIOUS, 'Cautious']];
 
+const isCount = (value) => Number.isFinite(value);
+
+/**
+ * The tooltip's hour figures, each its own part so the French catalogue matches it
+ * with one pattern. The ranked figures are distinct hours of the whole arrival
+ * range, where the verdict looks (passageLimitHours); the expected-timing count
+ * follows as a secondary part only when it differs, so a smaller number never
+ * stands alone. Zeros are left out: an approaching cell can come from a reason
+ * that is not a limit, so "0 h" would contradict it.
+ */
+function limitHourParts(c) {
+  if (!isCount(c.arrival_hours_over_limit) || !isCount(c.arrival_hours_approaching)) return [];
+  const parts = [];
+  if (c.arrival_hours_over_limit > 0) {
+    parts.push(`${c.arrival_hours_over_limit} h over a limit in your arrival range`);
+    const expected = c.expected_hours_over_limit;
+    if (isCount(expected) && expected !== c.arrival_hours_over_limit) {
+      parts.push(expected > 0 ? `of which ${expected} h on the expected timing` : 'none on the expected timing');
+    }
+  }
+  if (c.arrival_hours_approaching > 0) parts.push(`${c.arrival_hours_approaching} h approaching a limit in your arrival range`);
+  if (isCount(c.arrival_hours_no_data) && c.arrival_hours_no_data > 0) {
+    parts.push(`a forecast value needed for your limits is missing for ${c.arrival_hours_no_data} h of your arrival range`);
+  }
+  return parts;
+}
+
 /**
  * Typical / Cautious: a view of the scan already held, never a new scan. Cautious is
  * disabled, with the reason in view, when no time has forecast-scenario evidence.
@@ -47,7 +74,7 @@ function RankToggle({ mode, cautiousAvailable, onChange }) {
         </div>
       </div>
       <p className="font-sans text-[12px] text-ink-soft mt-1 max-w-[80ch]">
-        Typical: ranked on the main forecast against your limits. Cautious: ranked first on how many forecast scenarios exceed your limits.
+        Typical: ranked on the main forecast against your limits, including how many hours of your arrival range are over or approaching a limit. Cautious: ranked first on how many forecast scenarios exceed your limits, then on those hours.
       </p>
       {!cautiousAvailable && (
         <p id="rank-mode-reason" className="font-sans text-[12px] text-ink-soft mt-1 max-w-[80ch]">
@@ -146,12 +173,11 @@ export default function DepartureComparison({ scan, departureLocal, busy, disabl
                 const v = VERDICT[c.verdict] ?? VERDICT.insufficient;
                 const parts = [SCAN_VERDICT[c.verdict] ?? c.verdict];
                 if (c.passage_h) parts.push(`≈${Math.round(c.passage_h)} h passage`);
+                parts.push(...limitHourParts(c));
                 if (c.max_members) parts.push(`${c.max_members.exceed} of ${c.max_members.total} forecast scenarios exceed a limit`);
                 if (tiedIndices.has(c.index)) parts.push('effectively tied with the least-exposure time');
-                if (c.delta && c.index > 0) {
-                  parts.push(`gusts ${c.delta.peak_gust_kt > 0 ? '+' : ''}${Math.round(c.delta.peak_gust_kt)} kt vs first option`);
-                  parts.push(`${c.delta.hours_over_limit > 0 ? '+' : ''}${c.delta.hours_over_limit} h over your limit`);
-                }
+                // The hours are given above; the delta's hour difference counted gusts only, twice where legs overlap.
+                if (c.delta && c.index > 0) parts.push(`gusts ${c.delta.peak_gust_kt > 0 ? '+' : ''}${Math.round(c.delta.peak_gust_kt)} kt vs first option`);
                 return (
                   <button
                     key={c.departure_utc}
