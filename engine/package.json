@@ -15,7 +15,9 @@
     "cli": "tsx src/cli.ts",
     "make:grib-fixtures": "tsx scripts/make-grib-fixtures.ts",
     "generate:messages": "tsx scripts/generate-message-schemas.ts",
-    "check:messages": "tsx scripts/generate-message-schemas.ts --check"
+    "check:messages": "tsx scripts/generate-message-schemas.ts --check",
+    "bench:routing": "tsx scripts/bench-routing-scan.ts",
+    "perf:fixtures": "tsx scripts/perf/prepare-fixtures.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

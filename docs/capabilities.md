@@ -77,6 +77,11 @@ no additional runner is needed. [Testing](testing.md) details fixture guarantees
 2. Measure low-end Compute/Scan responsiveness before choosing a cancelable
    Worker. Routing is synchronous and scans repeat it; decoder timings alone do
    not prove a routing bottleneck. No speculative performance rewrite.
+   Local part done 2026-11-12 ([record](maintenance/2026-11-12-scan-responsiveness.md)):
+   a computed scan blocks the page in one piece (2.2 to 8.4 s unthrottled, 13 to
+   51 s at 6× CPU throttling), mostly in the audits, with no repaint; Compute blocks
+   up to 0.9 s at 6×. The record recommends a cancelable Worker for the scan before
+   D2/D3. No physical device was measured; that stays open, with steps in the record.
 3. Resolve prepared background-wind coherence separately: `RouteMap` still
    selects current prepared wind for non-example saved briefings while leg arrows
    use frozen findings. Keep its display responsibility; never substitute latest

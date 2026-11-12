@@ -216,6 +216,12 @@ source. `viewer/e2e/action-inputs.spec.js` and
 mobile, using synthetic transport, fresh storage, blocked telemetry and
 intercepted POSTs. Demo fixture files must stay untouched.
 
+Responsiveness measurement (not a test, never run by `npm test` or `npm run test:e2e`):
+`npm run perf:node`, `perf:prepare`, `perf:browser` and `perf:serve` time Compute and the
+departure scan on synthetic inputs of real size; see
+[the record](maintenance/2026-11-12-scan-responsiveness.md) for method, results and
+how to repeat it on a phone. Output goes to the git-ignored `output/perf/`.
+
 Departure ranking: `engine/test/window.test.ts` covers the hour figures on
 hand-built findings (each arrival-range hour counted once across overlapping
 legs and several limits, over before missing data before approaching, missing

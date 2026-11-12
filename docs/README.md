@@ -21,6 +21,7 @@ This directory contains the maintained documentation for Passage.
 | [Prepared publication spending control](paid-work.md) | Paid-work admission, its limits, pause and recovery rules |
 | [Prepared capacity and retention](storage-admission.md) | Vendored F01 physical-byte reservations, immutable pointer history, protected references and gated rollout |
 | [Briefing message-ID design](maintenance/briefing-message-ids.md) | Implemented decision slice, deferred wider migration and saved prose compatibility |
+| [Compute and Scan responsiveness](maintenance/2026-11-12-scan-responsiveness.md) | Dated measurement record for task D1: main-thread blocking of Compute and the departure scan (Node, throttled desktop browser; no device), the Worker recommendation and the phone procedure |
 | [Engine API retirement](maintenance/engine-api-retirement.md) | PASSAGE-06 reference/export audit and deliberate 0.2.0 package boundary |
 | [GRIB2 export](grib-export.md) | Canonical specification of the route-area GRIB2 files: encoding, lattice, datasets, CLI and contract tests |
 | [GRIB export plan](grib-export-plan.md) | In-progress phased plan for downloading route-area GRIB2 files from the planner |
