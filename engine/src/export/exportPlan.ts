@@ -14,6 +14,7 @@ import { tileIdFromOrigin, type Bbox } from '../forecast/tileMath.js';
 import { publishedTileBytes } from '../forecast/storeGeometry.js';
 import { GRIB_STATISTIC_EXTRA_BYTES, type GribLattice, type LonConvention } from './grib2.js';
 import { GRIB_DATASETS, type GribDatasetSpec, type GribVariableSpec } from './gribDatasets.js';
+import { gribCreditSectionBytes } from './gribCredit.js';
 
 export type GribStep = 'all' | 3 | 6;
 
@@ -36,6 +37,13 @@ export interface GribExportRequest {
   checkpoints?: readonly GribCheckpointRequest[];
   /** tiles are a dev or CLI fixture, not the live runs: files get a passage-fixture_ prefix */
   fixture?: boolean;
+  /**
+   * Write the dataset's credit, licence and modification text in Section 2 of
+   * every message (gribCredit.ts). Off by default: readers of the zyGrib
+   * lineage discarded every record with a local section, and no sailing
+   * reader has opened such a file yet (docs/grib-export.md → Credits inside the file).
+   */
+  creditSection?: boolean;
 }
 
 export type GribAvailability = 'ok' | 'no-layer' | 'no-tiles' | 'outside-horizon' | 'too-large';
@@ -94,7 +102,8 @@ export type GribManifests =
   | ((layer: string) => RunManifest | null | undefined);
 
 const HOUR_MS = 3_600_000;
-// Sections 0, 1, 3, 4, 5, the bitmap-less section 6, the section-7 header and 8.
+// Sections 0, 1, 3, 4, 5, the bitmap-less section 6, the section-7 header and 8;
+// with request.creditSection, the dataset's Section 2 is added per message on top.
 const MESSAGE_OVERHEAD_BYTES = 16 + 21 + 72 + 34 + 21 + 6 + 5 + 4;
 // Lattice indices snap to integers within this tolerance before floor/ceil.
 const K_EPSILON = 1e-9;
@@ -256,8 +265,9 @@ function planDataset(
   const selected = steps!;
   const points = lattice.ni * lattice.nj;
   const bitmapBytes = spec.hasLand ? Math.ceil(points / 8) : 0;
+  const creditBytes = request.creditSection ? gribCreditSectionBytes(spec) : 0;
   const bytesPerStep = variables.reduce(
-    (sum, v) => sum + MESSAGE_OVERHEAD_BYTES + (v.statistic ? GRIB_STATISTIC_EXTRA_BYTES : 0) +
+    (sum, v) => sum + MESSAGE_OVERHEAD_BYTES + creditBytes + (v.statistic ? GRIB_STATISTIC_EXTRA_BYTES : 0) +
       bitmapBytes + Math.ceil((points * v.estBits) / 8),
     0,
   );

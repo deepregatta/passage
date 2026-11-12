@@ -1,6 +1,7 @@
 /**
  * Minimal GRIB2 encoder for route-area forecast exports (docs/grib-export.md):
- * one field per message on a regular lat/lon grid (template 3.0), a forecast
+ * one field per message, with an optional Section 2 (local use, the credit text
+ * of gribCredit.ts), on a regular lat/lon grid (template 3.0), a forecast
  * at a horizontal level (4.0), or a statistic over the hours before it (4.8),
  * and simple packing (5.0) with a section-6 bitmap when any point is missing. Integers are big-endian; latitudes, signed
  * longitudes and the section-5 scale factors are sign-magnitude, not two's
@@ -69,6 +70,13 @@ export interface Grib2Field {
   lonConvention?: LonConvention;
   /** ni·nj values in output units, rows north→south, i (longitude) fastest; NaN = missing */
   values: ArrayLike<number>;
+  /**
+   * Section 2 content after its 5-byte header; absent: no Section 2. It must
+   * start with local section number 0 (two zero bytes): ecCodes reads those
+   * bytes as the originating centre's local definition number and cannot
+   * decode ECMWF (98) or Météo-France (85) messages for any other value.
+   */
+  localUse?: Uint8Array;
 }
 
 const SECTION_BYTES = { s0: 16, s1: 21, s3: 72, s4: 34, s5: 21, s8: 4 } as const;
@@ -132,6 +140,10 @@ export function encodeGrib2Message(field: Grib2Field): Uint8Array | null {
   if (!Number.isInteger(field.decimalScale) || Math.abs(field.decimalScale) > 0x7fff) {
     throw new Error(`GRIB decimal scale out of range: ${field.decimalScale}`);
   }
+  const { localUse } = field;
+  if (localUse && (localUse.byteLength < 2 || localUse[0] !== 0 || localUse[1] !== 0)) {
+    throw new Error('GRIB Section 2 must start with local section number 0');
+  }
 
   // Simple packing with E = 0: integers relative to their minimum.
   const s = 10 ** field.decimalScale;
@@ -162,7 +174,8 @@ export function encodeGrib2Message(field: Grib2Field): Uint8Array | null {
   const s4 = SECTION_BYTES.s4 + (statistic ? GRIB_STATISTIC_EXTRA_BYTES : 0);
   const s6 = 6 + (bitmap ? Math.ceil(count / 8) : 0);
   const s7 = 5 + Math.ceil((present * nbits) / 8);
-  const total = SECTION_BYTES.s0 + SECTION_BYTES.s1 + SECTION_BYTES.s3 + s4 +
+  const s2 = localUse ? 5 + localUse.byteLength : 0;
+  const total = SECTION_BYTES.s0 + SECTION_BYTES.s1 + s2 + SECTION_BYTES.s3 + s4 +
     SECTION_BYTES.s5 + s6 + s7 + SECTION_BYTES.s8;
   const out = new Uint8Array(total);
   const view = new DataView(out.buffer);
@@ -198,6 +211,14 @@ export function encodeGrib2Message(field: Grib2Field): Uint8Array | null {
   u8(ref.getUTCSeconds());
   u8(0); // production status: operational
   u8(1); // type of processed data: forecast
+
+  // Section 2: local use (Passage's credit text), only when given
+  if (localUse) {
+    u32(s2);
+    u8(2);
+    out.set(localUse, at);
+    at += localUse.byteLength;
+  }
 
   // Section 3: grid definition, template 3.0 (regular lat/lon)
   const corners = latticeCornersMicro(lattice, field.lonConvention);

@@ -1,5 +1,6 @@
 /**
- * Test-only GRIB2 reader for the subset the exporter writes (template 3.0,
+ * Test-only GRIB2 reader for the subset the exporter writes (optional Section 2
+ * returned as raw bytes, template 3.0,
  * 4.0 or 4.8 with one time range, 5.0 simple packing, optional bitmap). Independent of the encoder so
  * engine tests can round-trip files; ecCodes is the external check
  * (analysis/tests/test_grib_export_contract.py).
@@ -52,6 +53,8 @@ export interface ParsedGribMessage {
   };
   packing: { count: number; reference: number; binaryScale: number; decimalScale: number; nbits: number };
   bitmapIndicator: number;
+  /** Section 2 (Local Use) content after its 5-byte header, when the message has one */
+  localUse?: Uint8Array;
   /** decoded values in scan order, NaN = missing */
   values: Float64Array;
 }
@@ -141,6 +144,8 @@ export function readGrib2(bytes: Uint8Array): ParsedGribMessage[] {
       nbits: view.getUint8(s5 + 19),
     };
     const bitmapIndicator = view.getUint8(s6 + 5);
+    const s2 = body[2];
+    const localUse = s2 === undefined ? undefined : bytes.slice(s2 + 5, s2 + view.getUint32(s2));
     const values = new Float64Array(grid.points).fill(NaN);
     let bit = 0;
     const readBits = (n: number) => {
@@ -165,8 +170,29 @@ export function readGrib2(bytes: Uint8Array): ParsedGribMessage[] {
       centre: view.getUint16(s1 + 5),
       subCentre: view.getUint16(s1 + 7),
       refTime, grid, product, packing, bitmapIndicator, values,
+      ...(localUse ? { localUse } : {}),
     });
     start += length;
   }
   return messages;
+}
+
+/**
+ * The same messages with any Section 2 removed and each Section 0 total length
+ * reduced to match: what the exporter wrote before it added the credit section.
+ */
+export function withoutSection2(bytes: Uint8Array): Uint8Array {
+  const out: number[] = [];
+  for (const message of readGrib2(bytes)) {
+    const chunk = bytes.subarray(message.offset, message.offset + message.length);
+    const s2 = message.sections.find((section) => section.number === 2);
+    const kept = s2
+      ? new Uint8Array([...chunk.subarray(0, s2.offset), ...chunk.subarray(s2.offset + s2.length)])
+      : new Uint8Array(chunk);
+    const view = new DataView(kept.buffer);
+    view.setUint32(8, Math.floor(kept.byteLength / 2 ** 32));
+    view.setUint32(12, kept.byteLength >>> 0);
+    for (const byte of kept) out.push(byte);
+  }
+  return new Uint8Array(out);
 }

@@ -289,19 +289,21 @@ export const GRIB_FIXTURES: readonly GribFixtureDefinition[] = [
 
 export async function exportFixture(
   definition: GribFixtureDefinition,
+  options: Pick<GribExportRequest, 'creditSection'> = {},
 ): Promise<{ file: GribExportFile; dataset: GribDatasetPlan; store: TileForecastStore }> {
   const store = new TileForecastStore({ transport: definition.transport() });
   await store.init();
-  const plan = planGribExport((layer) => store.manifestFor(layer), definition.request);
+  const plan = planGribExport((layer) => store.manifestFor(layer), { ...definition.request, ...options });
   const [file] = await runGribExport(gribExportSourceFromStore(store), plan);
   if (!file) throw new Error(`fixture ${definition.name} produced no file`);
   return { file, dataset: plan.datasets[0]!, store };
 }
 
-export async function buildGribFixtures(): Promise<GribFixture[]> {
+/** The committed goldens are the default export; `creditSection` builds the same exports with Section 2. */
+export async function buildGribFixtures(options: Pick<GribExportRequest, 'creditSection'> = {}): Promise<GribFixture[]> {
   const out: GribFixture[] = [];
   for (const definition of GRIB_FIXTURES) {
-    const { file, dataset, store } = await exportFixture(definition);
+    const { file, dataset, store } = await exportFixture(definition, options);
     const bytes = concat(file.parts);
     out.push({
       name: definition.name,

@@ -76,6 +76,7 @@ top bit is the sign, not two's complement.
 |---|---|---|
 | 0 Indicator | 16 | `"GRIB"`, 2 reserved zero bytes, discipline (0 meteorological / 10 oceanographic), edition 2, total length (u64) |
 | 1 Identification | 21 | length, 1, centre (u16), subCentre (u16) 0, masterTablesVersion 2, localTablesVersion 0, significanceOfRefTime 1, year (u16), month, day, hour, minute, second = the **layer's model cycle**, productionStatus 0, typeOfProcessedData 1 |
+| 2 Local use | none | not written by default; see [Credits inside the file](#credits-inside-the-file-section-2-off-by-default) |
 | 3 Grid (template 3.0) | 72 | length, 3, source 0, numberOfDataPoints Ni·Nj (u32), 0, 0, template 0 (u16); shapeOfTheEarth 6, then 3× (scale factor 0xFF, value 0xFFFFFFFF); Ni, Nj (u32); basicAngle 0; subdivisions 0xFFFFFFFF; La1 (s32 µ°); Lo1 (µ°); resolutionAndComponentFlags 0x30; La2; Lo2; Di (u32 µ°); Dj (u32 µ°); scanningMode 0x00 |
 | 4 Product (template 4.0) | 34 | length, 4, NV 0 (u16), template 0 (u16), category, number, typeOfGeneratingProcess 2, backgroundProcess 0, generatingProcessIdentifier, hoursAfterCutoff 0 (u16), minutesAfterCutoff 0, unitOfTimeRange 1, forecastTime (u32 hours from the cycle), typeOfFirstFixedSurface, scaleFactorOfFirst 0, scaledValueOfFirst (u32), typeOfSecond 255, scaleFactorOfSecond 0xFF, scaledValueOfSecond 0xFFFFFFFF |
 | 4 Product (template 4.8, a statistic) | 58 | as 4.0 with template 8 and forecastTime = the **start** of the window, then: end of the overall time interval (year u16, month, day, hour, minute, second = cycle + step), numberOfTimeRanges 1, numberOfMissing 0 (u32), typeOfStatisticalProcessing (2 = maximum), typeOfTimeIncrement 2, unitForTimeRange 1 (hour), lengthOfTimeRange (u32 hours), unitForTimeIncrement 255, timeIncrement 0 (u32) |
@@ -392,6 +393,95 @@ qtVlm themselves.
   takes 4.8; the 2013 open-source qtVlm accepted 4.0 only and skipped other
   messages. The current qtVlm is closed source and untested.
 
+## Credits inside the file (Section 2, off by default)
+
+The owner decided on 12 November 2026 that a downloaded file should carry its
+data credit, licence and modification statement inside it (one plain `.grb2`,
+no bundled text file), closing gap 1 of the
+[credit audit](maintenance/2026-11-12-credit-audit.md). The engine can write
+it, in GRIB2 Section 2 (Local Use), but **no file the page or the CLI makes
+carries it yet**: `GribExportRequest.creditSection` is off by default and
+nothing sets it. It waits for the files to be opened in real sailing readers
+(Adrena first, which the owner confirmed reads today's files), because some
+readers are known to drop records that have a Section 2 (below).
+
+**Layout.** With `creditSection: true`, every message gets a Section 2
+between sections 1 and 3 (`engine/src/export/gribCredit.ts`,
+`encodeGrib2Message({ localUse })`):
+
+| Bytes (in section) | Content |
+|---|---|
+| 1–4 | section length (u32) = 5 + 2 + text bytes |
+| 5 | 2 |
+| 6–7 | 0 (u16): local section number 0, "Empty local section" in ECMWF's and Météo-France's tables |
+| 8– | UTF-8 text, four lines each ending in LF, no NUL |
+
+The four lines: a header naming Passage by DeepRegatta and saying the text is
+UTF-8 and added by Passage, not by the originating centre; `Data sources: `
+and the dataset's `attribution` exactly as in `gribDatasets.ts` (for UKV the
+Crown copyright, "CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/)"
+and its modification clause); "This GRIB message was produced by Passage by
+DeepRegatta from that data and modified; it is not an official product of the
+data provider."; and `GRIB_EXPORT_NOTICE`. The text depends on the dataset
+only, so the same export gives the same bytes. Section 0's total length and
+the planner's `estBytes` count the section; every other byte of a message is
+what the default export writes.
+
+- **Why every message.** Files are split, filtered and concatenated by
+  message (`grib_copy`, `wgrib2 -match`, the wind + currents file), so a
+  once-per-file block would be lost from all but one part.
+- **Why the two zero bytes.** ecCodes reads them as the centre's local
+  definition number. With text there instead, ecCodes 2.47.3 stops decoding
+  centre 98 (ECMWF) and 85 (Météo-France) messages ("Unable to find template
+  localSection from grib2/local.98.25957.def", then "No final 7777 in
+  message!"). With 0 it skips the rest as padding for every centre. The
+  encoder refuses a payload that does not start with 0.
+- **Why UTF-8.** "Météo-France" and the en dash in the Crown copyright
+  "2023–2025" are provider or source names, and the copyright part is the
+  provider's own wording, so the text keeps them rather than folding them to
+  ASCII. Only those two characters are non-ASCII; everything else reads in any
+  byte viewer. No GRIB reader checked shows Section 2 as text (`grib_dump`
+  prints it as hex bytes), so the text is for someone inspecting the file.
+- **Size.** Section 2 adds 365 bytes per message for NOAA files, 478 for
+  Copernicus, 489 for AROME, 499 for ICON-EU, 537 for UKV and 579 for ECMWF.
+  That is about +5 % on AROME and IBI messages of a 2°×3° Channel box (from
+  the message sizes measured on 2026-11-10, above), +38 % on
+  ECMWF over a 7°×9° Biscay box, and +100–180 % on GFS or ECMWF over a small
+  2°×3° box at 0.25° (≈ 330 bytes of data a message).
+- **Originating centre.** Section 2's content is defined by the originating
+  centre in Section 1, which still names the provider (7, 98, 74, 85, 78) with
+  "operational" status, or 255 for currents (gap 5 of the audit, an open owner
+  decision). Under 98 and 85, number 0 means an empty local section, so the
+  text sits where those centres' own definitions expect nothing; ecCodes reads
+  it as padding. A Passage centre or subcentre, if the owner chooses one, would
+  make the block Passage's own by definition.
+
+**Checked on 12 November 2026** with ecCodes 2.47.3 (the analysis
+environment's `eccodeslib` wheel, its Python binding, `grib_compare`,
+`grib_dump`, `grib_ls`) and cfgrib 0.9.15.1: every dataset (centres 7, 98, 74,
+85, 78 and 255; template 4.8 gusts; land bitmaps) and the five goldens, each
+with and without Section 2. Same message count; every ecCodes key and every
+value and bitmap identical except the Section 2 bookkeeping keys
+(`section2Length`, `section2Padding`, `grib2LocalSectionNumber`,
+`totalLength`, `lengthOfHeaders`, `md5Headers`, the section lists); no error or
+warning printed while decoding; `grib_compare` excluding only those keys exits
+0; cfgrib datasets identical; the ecCodes contract test passes on the goldens
+rebuilt with Section 2 (in a scratch directory). Evaluating the diagnostic key
+`isMessageValid` prints "If type=1, scaleFactor/scaledValue keys must be set
+to missing" for surface-level messages (GFS gust, waves, currents) with and
+without Section 2 alike: an existing Section 4 detail, not this change.
+
+**Not checked: sailing readers.** No reader has opened such a file. From
+their source, read on 12 November 2026 through a summarising fetch, not a
+checkout: OpenCPN `grib_pi` steps over each section by its length and ignores
+Section 2. XyGrib's `Grib2Record.cpp` has the check that rejected any record
+with local content ("Unsupported local content") commented out, "to allow
+ICON gribs"; when that changed was not established. zyGrib, which XyGrib
+forked, and older XyGrib builds may therefore drop every message, and so may
+any reader that took its GRIB code from them (qtVlm's is reported to; not
+checked). qtVlm today, Expedition and Adrena are closed source. wgrib2 and g2clib were not available
+to run.
+
 ## Runner (bounded memory)
 
 ```
@@ -601,6 +691,7 @@ and at most 33 MB of tiles to fetch (IBI 20 MB of it).
 | Drawing the box on the real map (drag, two clicks, Escape), remembered area, entry points | `viewer/e2e/grib.spec.js` |
 | French copy for the page, the registry labels and the generated text | `viewer/test/i18n.test.js`, `viewer/test/i18nCoverage.test.js` |
 | Golden files re-encode byte-for-byte | `engine/test/exportGrib.test.ts` against `engine/test/fixtures/grib/` |
+| Credit section (off by default): text per dataset, local section number 0, every message of every dataset, other sections and values unchanged, goldens unchanged outside Section 2, estimate | `engine/test/gribCredits.test.ts`, `engine/test/grib2.test.ts` (Section 2), `engine/test/exportGrib.test.ts` (estimates) |
 | ecCodes decodes every golden file: keys, geometry, values, missing points; the ECMWF gust reads as `10fg` / `10fg3`, `max`, valid at the window end | `analysis/tests/test_grib_export_contract.py` |
 | Manual inspection | `cd analysis && uv run python scripts/inspect_grib.py <file> [--point lat,lon]` |
 

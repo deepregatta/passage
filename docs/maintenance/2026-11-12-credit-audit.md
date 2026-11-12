@@ -286,9 +286,11 @@ _Added after the audit; the findings above are unchanged and describe the code a
 
 **Wording looked for and not found.** On 12 November 2026 the page the ECMWF register entry cites, <https://www.ecmwf.int/en/forecasts/datasets/open-data>, was read again through a fetch tool that summarises the page. It states "subject to appropriate attribution" and points to ECMWF's Terms of Use, but carries neither the service sentence nor a disclaimer, so the disclaimer is still not shown anywhere. The CDS page for ERA5 (<https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels>) gave only the DOI line under "Citation and attribution", not a citation text, so the ERA5 credit gives the dataset name, DOI and licence and no author citation. Nothing was recorded in `DATA-LICENSES.md` because nothing new was read.
 
+**Gap 1, GRIB files (built, not switched on).** The owner chose text inside the file. The engine can now write, in GRIB2 Section 2 of every message, the dataset's credit line as on the GRIB page (for UKV with the Crown copyright, the CC BY-SA 4.0 label and link and its modification clause), a line saying Passage by DeepRegatta produced and modified the data and that it is not an official product of the provider, and the planning-not-navigation notice ([GRIB export → Credits inside the file](../grib-export.md#credits-inside-the-file-section-2-off-by-default)). ecCodes and cfgrib read files with it exactly as without it for every originating centre the exporter writes. It is **off by default**, so downloaded files still carry no credit: current XyGrib source has a commented-out check that discarded every record with a local section ("to allow ICON gribs"), so zyGrib and older XyGrib builds may drop such files, and no sailing reader (Adrena, qtVlm, OpenCPN, XyGrib, Expedition) has opened such a file. Switching it on waits for that check, Adrena first.
+
 **Remains open:**
 
-- Gap 1 (credit and licence text travelling with downloaded GRIB files), gap 5 (GRIB originating-centre metadata) and the notice object in the public bucket.
+- Gap 1 for files users download (the credit section is built but off, see above), gap 5 (GRIB originating-centre metadata, which also decides whose definition the Section 2 text sits under) and the notice object in the public bucket.
 - Gaps 6, 7 and 8 (EMODnet, Shom, OpenStreetMap in the chart archives).
 - ECMWF's disclaimer and the full ERA5 citation: owner to supply, or a page that carries them.
 - The NOAA credit, how a source that needs no credit should read, and the Open-Meteo link.

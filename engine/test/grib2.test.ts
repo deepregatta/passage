@@ -167,6 +167,48 @@ describe('encodeGrib2Message', () => {
     expect(encodeGrib2Message(field({ values: new Array(6).fill(NaN) }))).toBeNull();
   });
 
+  describe('Section 2 (local use)', () => {
+    const payload = new Uint8Array([0, 0, ...new TextEncoder().encode('Passage test line\n')]);
+    const cases: Array<[string, Partial<Grib2Field>]> = [
+      ['instantaneous, no bitmap', {}],
+      ['template 4.8 statistic', { centre: 98, number: 22, statistic: { processing: 2, windowHours: 3 } }],
+      ['bitmap', { values: [NaN, 2.26, -3.5, NaN, 12.34, 7] }],
+      ['constant field', { centre: 255, values: [4, 4, 4, 4, 4, 4] }],
+    ];
+
+    it.each(cases)('sits between sections 1 and 3 and leaves every other section unchanged (%s)', (_name, overrides) => {
+      const plain = encodeGrib2Message(field(overrides))!;
+      const bytes = encodeGrib2Message(field({ ...overrides, localUse: payload }))!;
+      const message = only(bytes);
+      const s2Length = 5 + payload.byteLength;
+      expect(message.sections.map((s) => s.number)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+      expect(message.sections[1]).toEqual({ number: 2, offset: 16 + 21, length: s2Length });
+      expect(bytes.byteLength).toBe(plain.byteLength + s2Length);
+      // Section 0 total length counts the new bytes; everything else is unchanged.
+      expect(message.length).toBe(bytes.byteLength);
+      const view = new DataView(bytes.buffer, bytes.byteOffset);
+      expect(view.getUint32(8) * 2 ** 32 + view.getUint32(12)).toBe(plain.byteLength + s2Length);
+      expect([...bytes.subarray(0, 8)]).toEqual([...plain.subarray(0, 8)]);
+      expect([...bytes.subarray(16, 37)]).toEqual([...plain.subarray(16, 37)]);
+      expect([...bytes.subarray(37 + s2Length)]).toEqual([...plain.subarray(37)]);
+      expect([...message.localUse!]).toEqual([...payload]);
+      const before = only(plain);
+      expect(before.localUse).toBeUndefined();
+      expect(Array.from(message.values)).toEqual(Array.from(before.values));
+      expect({ ...message, offset: 0, length: 0, sections: [], localUse: undefined, values: [] })
+        .toEqual({ ...before, offset: 0, length: 0, sections: [], localUse: undefined, values: [] });
+    });
+
+    it('refuses a payload that does not start with local section number 0', () => {
+      // ecCodes reads these two bytes as the centre's local definition number and
+      // cannot decode ECMWF (98) or Météo-France (85) messages for other values.
+      for (const bad of [new Uint8Array([0x50, 0x61, 0x73]), new Uint8Array([0, 1]), new Uint8Array([0])]) {
+        expect(() => encodeGrib2Message(field({ centre: 98, localUse: bad }))).toThrow('local section number 0');
+      }
+      expect(() => encodeGrib2Message(field({ localUse: new Uint8Array([0, 0]) }))).not.toThrow();
+    });
+  });
+
   it('rejects inconsistent grids, out-of-range keys and unpackable values', () => {
     expect(() => encodeGrib2Message(field({ values: [1, 2, 3] }))).toThrow('3×2 grid');
     expect(() => encodeGrib2Message(field({ lattice: { ...lattice3x2, ni: 4 } }))).toThrow('inconsistent');

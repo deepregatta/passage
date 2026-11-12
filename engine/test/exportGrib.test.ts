@@ -14,9 +14,16 @@ import {
 import { fnv1a64HexParts } from '../src/hash.js';
 import { buildFixtureRun, type FixtureLayerSpec, type FixtureTileGrid } from './helpers/fixtureRun.js';
 import { readGrib2 } from './helpers/grib2Reader.js';
+import { expectedCreditSectionBytes } from './helpers/gribCreditText.js';
 import { buildGribFixtures, concat, GRIB_FIXTURES, readCommittedFixture, type GribFixture } from './helpers/gribFixtures.js';
 
 const CYCLE = '2026-07-20T00:00Z';
+// Section 2 bytes per message with creditSection (docs/grib-export.md → Credits inside the file).
+const NOAA_CREDIT = expectedCreditSectionBytes('NOAA/NCEP');
+const ECMWF_CREDIT = expectedCreditSectionBytes(
+  'This service is based on data and products of the European Centre for Medium-Range Weather Forecasts (ECMWF); ' +
+  'ECMWF open data; CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/); modified: converted and quantized data',
+);
 const HOURLY = [0, 1, 2, 3, 6, 9, 12];
 
 /** Tile value after PFT1 quantization, as the store decodes it. */
@@ -139,6 +146,9 @@ describe('planGribExport', () => {
     expect(plan.messages).toBe(5 * 3);
     // 179 bytes of sections per message, no bitmap for wind, 10 bits per value.
     expect(plan.estBytes).toBe(15 * (179 + Math.ceil((81 * 10) / 8)));
+    // With the credit section, each message also carries Section 2.
+    expect(planGribExport(manifests, request({ creditSection: true })).datasets[0]!.estBytes)
+      .toBe(15 * (179 + NOAA_CREDIT + Math.ceil((81 * 10) / 8)));
     expect(plan.fileName).toBe('passage_wind-gfs_20260720T00Z_N49W001_N51E001.grb2');
     expect(planGribExport(manifests, request({ fixture: true, bbox: { minLat: 49.3, maxLat: 50.6, minLon: -0.6, maxLon: 0.2 } }))
       .datasets[0]!.fileName).toBe('passage-fixture_wind-gfs_20260720T00Z_N49W001_N51E001.grb2');
@@ -174,6 +184,9 @@ describe('planGribExport', () => {
     expect(plan.windowsH).toEqual([null, null, [1, 1, 3, 3, 3]]);
     // Template 4.8 adds 24 bytes to each gust message.
     expect(plan.estBytes).toBe(15 * (179 + Math.ceil((81 * 10) / 8)) + 5 * 24);
+    const { manifests: withGust } = await storeFor([weatherSpec(), ecmwf('max')]);
+    expect(planGribExport(withGust, request({ datasetIds: ['wind-ecmwf'], creditSection: true })).datasets[0]!.estBytes)
+      .toBe(15 * (179 + ECMWF_CREDIT + Math.ceil((81 * 10) / 8)) + 5 * 24);
 
     // And the reverse: GFS gust is instantaneous, so a run declaring a statistic drops it.
     const gfsMax = weatherSpec({

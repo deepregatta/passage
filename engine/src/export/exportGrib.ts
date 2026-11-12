@@ -2,7 +2,8 @@
  * GRIB export runner (docs/grib-export.md): executes a plan one dataset (file)
  * and one tile at a time, so at most one decoded tile is alive; crops each
  * tile onto the export lattice, then encodes one GRIB2 message per step and
- * variable. Runs on the main thread in the browser, yielding between tiles
+ * variable (with request.creditSection, each carrying the dataset's credit
+ * text in Section 2). Runs on the main thread in the browser, yielding between tiles
  * and while encoding, with abort and progress hooks.
  */
 
@@ -11,6 +12,7 @@ import { axisTimesMs } from '../forecast/tileMath.js';
 import type { DecodedTile } from '../forecast/tileCodec.js';
 import { windFromDeg } from '../vectors.js';
 import { encodeGrib2Message, gribRound, type LonConvention } from './grib2.js';
+import { gribCreditPayload } from './gribCredit.js';
 import { MS_TO_KT, type GribDatasetKind, type GribVariableSpec } from './gribDatasets.js';
 import { gribCombinedFileName, latticeBounds, type GribDatasetPlan, type GribExportPlan } from './exportPlan.js';
 
@@ -227,6 +229,8 @@ async function encodeFile(
   const { spec } = dataset;
   const lonConvention = plan.request.lonConvention;
   const field = new Float64Array(plane);
+  // Every message carries the credit, when asked: files get split, filtered and merged by message.
+  const localUse = plan.request.creditSection ? gribCreditPayload(spec) : undefined;
   const parts: Uint8Array[] = [];
   let skipped = 0;
   let presentValues = 0;
@@ -264,6 +268,7 @@ async function encodeFile(
         lattice,
         lonConvention,
         values: field,
+        ...(localUse ? { localUse } : {}),
       });
       if (message) parts.push(message);
       else skipped += 1;
