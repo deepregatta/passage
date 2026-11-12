@@ -530,6 +530,8 @@ const FR = {
   'status': 'état',
   'not assessed': 'non évalué',
   'Wind': 'Vent',
+  'Hours by point of sail and wind': 'Heures par allure et par vent',
+  'Hours of your passage at the forecast wind, on the expected timing.': 'Heures de votre traversée au vent prévu, selon l’horaire prévu.',
   'Gusts': 'Rafales',
   'Waves': 'Vagues',
   'knots': 'nœuds',
@@ -1081,6 +1083,18 @@ const FR_PATTERNS = [
   [/^(\d+) waypoints · ([\d.]+) nm$/, '$1 points de route · $2 M'],
   // Scenario spread over the passage (EvidenceSection): a count of scenarios, never a probability.
   [/^In half of the (\d+) (emulated )?forecast scenarios the strongest (wind|gust) at the points checked along your route stays at or under (\d+) kt; in nine out of ten, at or under (\d+) kt\.$/, (_match, count, emulated, variable, median, p90) => `Dans la moitié des ${count} scénarios de prévision${emulated ? ' simulés' : ''}, ${variable === 'gust' ? 'la rafale la plus forte' : 'le vent le plus fort'} aux points vérifiés le long de votre route reste à ${median} nd ou moins\u00A0; dans neuf scénarios sur dix, à ${p90} nd ou moins.`],
+  // Route summary (RouteSummary.jsx, lib/routeSummaryLines.js): hours by point of sail and by wind band.
+  [/^(Point of sail|Wind): (.+)$/, (_match, kind, list) => {
+    const labels = {
+      'Upwind': 'Au près', 'Reaching': 'Au travers', 'Downwind': 'Au portant', 'Not available': 'Non disponible',
+      'Under 10 kt': 'Moins de 10 nd', '10–15 kt': '10–15 nd', '15–20 kt': '15–20 nd', '20–25 kt': '20–25 nd', '25 kt and over': '25 nd et plus',
+    };
+    const items = list.split(' · ').map((item) => {
+      const [, label, hours] = /^(.+) (\d+) h$/.exec(item) ?? [];
+      return label && labels[label] ? `${labels[label]} ${hours} h` : item;
+    });
+    return `${kind === 'Wind' ? 'Vent' : 'Allure'}\u00A0: ${items.join(' · ')}`;
+  }],
   [/^(\d+) waypoints$/, '$1 points de route'],
   [/^Routed at (\d+)% of the boat polar speeds$/, 'Routé à $1 % des vitesses de la polaire du bateau'],
   [/^Comparing departure times (\d+\/\d+)…$/, 'Comparaison des heures de départ $1…'],

@@ -6,6 +6,7 @@ import BulletinPanel from '../components/BulletinPanel.jsx';
 import DecisionBand from './briefing/DecisionBand.jsx';
 import WeatherStoryCard from './briefing/WeatherStoryCard.jsx';
 import LegProgressBar from './briefing/LegProgressBar.jsx';
+import RouteSummary from './briefing/RouteSummary.jsx';
 import PassageChart from './briefing/PassageChart.jsx';
 import { PassagesBackLink } from '../components/BackLink.jsx';
 import SectionNav, { scrollToSection } from './briefing/SectionNav.jsx';
@@ -86,6 +87,7 @@ export default function Briefing() {
           <h2 className="font-instrument font-semibold uppercase tracking-wider">Along your route · conditions vs your limits</h2>
           <RouteTimeline />
           <LegProgressBar findings={findings} />
+          <RouteSummary findings={findings} />
         </Section>
 
         <Section id="evidence" label="Evidence">

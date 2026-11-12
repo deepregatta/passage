@@ -29,6 +29,8 @@ export type { Plume, SnapshotStore } from './snapshot.js';
 export { quantile } from './quantile.js';
 export { scenarioSpread, SCENARIO_SPREAD_MIN_MEMBERS } from './scenarioSpread.js';
 export type { ScenarioSpread, ScenarioSpreadValues } from './scenarioSpread.js';
+export { routeSummary, WIND_BANDS } from './routeSummary.js';
+export type { RouteSummary, WindBandId } from './routeSummary.js';
 export { routeBbox, passageMaxHours } from './fetch/liveGrids.js';
 export { currentGridBbox, selectRoutingCurrent } from './currentInput.js';
 export type { RoutingCurrentSelection, RoutingOutcome } from './currentInput.js';

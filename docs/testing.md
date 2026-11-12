@@ -103,6 +103,15 @@ tests. `validDecisionMessageFields` also checks bounds relating two parameters
 and English fallback parity. The old briefing golden compares its unchanged
 projection without new metadata, and no archival fixture is regenerated.
 
+Route summary regressions: `engine/test/routeSummary.test.ts` pins the wind
+band edges, that no hour is counted twice where legs overlap, that the total is
+within one hour of the nominal passage time (demo snapshot, the
+Cherbourg-Plymouth golden and 30 short legs), offset ISO times, the
+not-available buckets and the empty case.
+`viewer/test/routeSummary.test.jsx` checks the block, its EMULATED stamp (decided by the wind
+forecast's recorded provenance: tile layer, legacy `inputs.openmeteo`, wind-rule
+evidence; a synthetic warning alone never stamps it) and its French text against an independent reading of the demo findings.
+
 `viewer/test/decisionMessages.test.jsx` checks typed EN/FR, legacy decoding,
 copy independence, whole-field fallback, literal interpolation, unit formatting,
 zero/one/many scenario grammar and DOM ownership across language switches and
