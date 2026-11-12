@@ -142,7 +142,8 @@ it.each([
   expect(routed.notes).toEqual([]); // never the prepared grid's English factory note
   // The corridor is tried on the prepared grid, meets a gap and is routed once more on tiles.
   expect(computeRoute).toHaveBeenCalledTimes(source === 'prepared' ? 1 : 2);
-  expect(screen.getByTestId('route-currents')).toHaveTextContent(`Currents · ${source === 'prepared' ? 'Synthetic current' : 'Copernicus global ocean currents'}`);
+  // neither test grid identifies a model ('Synthetic current', or no dataset id): nothing is guessed
+  expect(screen.getByTestId('route-currents')).toHaveTextContent('Currents · Model not recorded');
   fireEvent.click(checkButton());
   await waitFor(() => expect(audits).toHaveLength(1));
   expect(currents(audits[0].inputs.forecast_tiles)).toMatchObject({ current_source: source, run_id: source === 'prepared' ? 'prepared' : inputs.currentGrid.run_id });

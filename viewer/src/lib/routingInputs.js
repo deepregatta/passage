@@ -3,6 +3,7 @@ import { landMaskForBbox } from './landMask.js';
 import { forecastStore, friendlyForecastError } from './forecastStore.js';
 import { preparedRun } from './preparedRun.js';
 import { loadPreparedCurrent } from './preparedCurrent.js';
+import { tileModelId } from './sourceNames.js';
 
 /** deterministic tile horizon (GFS 240 h); scans beyond it fail with a clear message */
 export const FORECAST_HOURS = 240;
@@ -37,17 +38,14 @@ export function selectedRoutingNotes(inputs, currentInput) {
     ? routingNotes(inputs.windGrid, null, 'prepared') : inputs.notes;
 }
 
-/** The tile currents layer carries Copernicus GLO12 (briefing.ts publication schedule). */
-const TILE_CURRENTS_MODEL = 'cmems_glo12';
-
 /**
  * What a computed route records about the current grid it was routed on, for
  * the line under the route result: the model id (named with `modelName`, as
  * in the briefing's Models and coverage panel), an emulated flag, and which
  * fixed caveat a prepared grid's resolution note calls for. Null when the
- * route was computed without currents.
+ * route was computed without currents. `model` is null when no record names it.
  * @param {{ grid?: any, provenance?: Record<string, any> }} currentInput
- * @returns {{ source: string, model: string, emulated: boolean, caveat: 'subsampled' | 'coarse' | null } | null}
+ * @returns {{ source: string, model: string | null, emulated: boolean, caveat: 'subsampled' | 'coarse' | null } | null}
  */
 export function routingCurrentSummary(currentInput) {
   const grid = currentInput?.grid;
@@ -55,9 +53,10 @@ export function routingCurrentSummary(currentInput) {
   const record = currentInput.provenance ?? {};
   const source = record.current_source === 'prepared' ? 'prepared' : 'tiles';
   const dataset = grid.source?.dataset_id;
+  // null when nothing names the model: the note then says it was not recorded, never a guessed name
   const model = source === 'prepared'
-    ? record.model ?? dataset ?? 'currents'
-    : /^(\S+) tiles \(/.exec(dataset ?? '')?.[1] ?? TILE_CURRENTS_MODEL;
+    ? record.model ?? dataset ?? null
+    : tileModelId(dataset);
   const note = source === 'prepared' ? grid.under_resolved_note : null;
   return {
     source, model,

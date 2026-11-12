@@ -21,6 +21,8 @@ const cases = {
   emulated: { currents: routingCurrentSummary(prepared(grid({ mode: 'synthetic', dataset_id: 'cmems_mod_glo_phy_anfc_merged-uv_PT1H-i' },
     { under_resolved_note: 'native resolution 0.0833 deg is coarser than the 0.05 deg target; native grid kept' }), { source_kind: 'emulated' })), notes: [] },
   none: { currents: routingCurrentSummary(tiles(undefined)), notes: [UNAVAILABLE] },
+  // a grid with no dataset id names no model: never a guessed one, and still stamped when synthetic
+  unrecorded: { currents: routingCurrentSummary(tiles(grid({ mode: 'synthetic' }))), notes: [] },
 };
 
 const expected = {
@@ -29,12 +31,14 @@ const expected = {
     tiles: ['Currents · Copernicus global ocean currents'],
     emulated: ['Currents · Copernicus global ocean currents', 'emulated', 'The grid of this currents model is coarser than Passage aims for.'],
     none: [UNAVAILABLE],
+    unrecorded: ['Currents · Model not recorded', 'emulated'],
   },
   fr: {
     prepared: ['Courants · Courants océaniques Copernicus IBI', 'Cette grille de courants est plus grossière que la résolution native du modèle.'],
     tiles: ['Courants · Courants océaniques mondiaux Copernicus'],
     emulated: ['Courants · Courants océaniques mondiaux Copernicus', 'simulé', 'La grille de ce modèle de courants est plus grossière que celle visée par Passage.'],
     none: ['Courants indisponibles pour le moment. Cette route utilise uniquement le vent.'],
+    unrecorded: ['Courants · Modèle non enregistré', 'simulé'],
   },
 };
 
@@ -46,7 +50,7 @@ describe.each(['en', 'fr'])('computed route current source in %s', (language) =>
     for (const part of expected[language][kind]) expect(view.container.textContent.replace(/\s+/g, ' ')).toContain(part);
     const line = view.queryByTestId('route-currents');
     expect(Boolean(line)).toBe(kind !== 'none');
-    expect(view.container.querySelectorAll('.stamp-emulated')).toHaveLength(kind === 'emulated' ? 1 : 0);
+    expect(view.container.querySelectorAll('.stamp-emulated')).toHaveLength(kind === 'emulated' || kind === 'unrecorded' ? 1 : 0);
     expect(text).not.toMatch(/tidal stream|stride-subsampled|native grid kept/i);
   });
 });

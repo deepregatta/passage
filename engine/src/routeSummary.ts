@@ -17,7 +17,7 @@
  */
 
 import { parseUtc } from './eta.js';
-import type { Findings, LegHour, PointOfSail } from './types.js';
+import type { Findings, LegFinding, LegHour, PointOfSail } from './types.js';
 
 export type WindBandId = 'under_10' | 'from_10_to_15' | 'from_15_to_20' | 'from_20_to_25' | 'from_25_up';
 
@@ -61,23 +61,17 @@ function sailOf(hour: LegHour): PointOfSail | 'unknown' {
 }
 
 /**
- * The passage's hours by point of sail and by wind band, one hour counted once.
- * A leg's hour counts when its start lies in [enter_range.nominal,
- * eta_range.nominal) of that leg; an hour start already taken by an earlier
- * leg is not counted again. A leg whose window cannot be read contributes
- * nothing.
- *
- * Returns null when no hour qualifies (no legs, no hours, unreadable times).
+ * The whole hours of the passage on its nominal timing, each once, with the
+ * leg it belongs to. A leg's hour counts when its start lies in
+ * [enter_range.nominal, eta_range.nominal) of that leg; an hour start already
+ * taken by an earlier leg is not counted again. A leg whose window cannot be
+ * read contributes nothing. Shared by every summary that counts hours, so
+ * their totals agree.
  */
-export function routeSummary(findings: Findings | null | undefined): RouteSummary | null {
-  if (!findings?.legs?.length) return null;
+export function nominalPassageHours(findings: Findings | null | undefined): Array<{ leg: LegFinding; hour: LegHour }> {
+  const out: Array<{ leg: LegFinding; hour: LegHour }> = [];
   const taken = new Set<number>();
-  const by_point_of_sail: RouteSummary['by_point_of_sail'] = { upwind: 0, reach: 0, downwind: 0, unknown: 0 };
-  const by_wind_band: RouteSummary['by_wind_band'] = {
-    under_10: 0, from_10_to_15: 0, from_15_to_20: 0, from_20_to_25: 0, from_25_up: 0, unknown: 0,
-  };
-  let total = 0;
-  for (const leg of findings.legs) {
+  for (const leg of findings?.legs ?? []) {
     const from = utcMs(leg.enter_range?.nominal);
     const to = utcMs(leg.eta_range?.nominal);
     if (!Number.isFinite(from) || !Number.isFinite(to)) continue;
@@ -85,10 +79,28 @@ export function routeSummary(findings: Findings | null | undefined): RouteSummar
       const start = utcMs(hour.valid_time);
       if (!Number.isFinite(start) || start < from || start >= to || taken.has(start)) continue;
       taken.add(start);
-      total += 1;
-      by_point_of_sail[sailOf(hour)] += 1;
-      by_wind_band[bandOf(hour.wind_kt)] += 1;
+      out.push({ leg, hour });
     }
   }
-  return total > 0 ? { total_hours: total, by_point_of_sail, by_wind_band } : null;
+  return out;
+}
+
+/**
+ * The passage's hours by point of sail and by wind band, one hour counted once
+ * (see nominalPassageHours).
+ *
+ * Returns null when no hour qualifies (no legs, no hours, unreadable times).
+ */
+export function routeSummary(findings: Findings | null | undefined): RouteSummary | null {
+  const hours = nominalPassageHours(findings);
+  if (!hours.length) return null;
+  const by_point_of_sail: RouteSummary['by_point_of_sail'] = { upwind: 0, reach: 0, downwind: 0, unknown: 0 };
+  const by_wind_band: RouteSummary['by_wind_band'] = {
+    under_10: 0, from_10_to_15: 0, from_15_to_20: 0, from_20_to_25: 0, from_25_up: 0, unknown: 0,
+  };
+  for (const { hour } of hours) {
+    by_point_of_sail[sailOf(hour)] += 1;
+    by_wind_band[bandOf(hour.wind_kt)] += 1;
+  }
+  return { total_hours: hours.length, by_point_of_sail, by_wind_band };
 }

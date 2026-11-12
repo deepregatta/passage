@@ -187,10 +187,11 @@ describe('live routing inputs', () => {
     expect(() => routedOutcome(results, 'c')).toThrow('This departure could not be routed.');
   });
 
-  it('names the tile currents model even when the grid does not record it', () => {
+  it('names the tile currents model from its id, and guesses none when the grid does not record it', () => {
     const tiles = (dataset) => ({ grid: { source: { mode: 'live', ...(dataset ? { dataset_id: dataset } : {}) } }, provenance: { current_source: 'tiles' } });
     expect(routingCurrentSummary(tiles('cmems_glo12 tiles (currents-20260720T00Z)'))).toEqual({ source: 'tiles', model: 'cmems_glo12', emulated: false, caveat: null });
-    expect(routingCurrentSummary(tiles()).model).toBe('cmems_glo12');
+    expect(routingCurrentSummary(tiles()).model).toBeNull();
+    expect(routingCurrentSummary({ grid: { source: { mode: 'synthetic' } }, provenance: { current_source: 'prepared' } }).model).toBeNull();
     expect(routingCurrentSummary({ grid: undefined, provenance: { current_source: 'tiles' } })).toBeNull();
   });
 });

@@ -532,6 +532,22 @@ const FR = {
   'Wind': 'Vent',
   'Hours by point of sail and wind': 'Heures par allure et par vent',
   'Hours of your passage at the forecast wind, on the expected timing.': 'Heures de votre traversée au vent prévu, selon l’horaire prévu.',
+  // Current block (CurrentSummary.jsx, lib/currentSummaryLines.js)
+  'Current along your route': 'Courant le long de votre route',
+  'The model current at the points checked along your passage, on the expected timing.': 'Le courant du modèle aux points vérifiés le long de votre traversée, selon l’horaire prévu.',
+  'Model not recorded': 'Modèle non enregistré',
+  'From the computed route’s own timing: speed over ground minus speed through the water, leg by leg.': 'D’après l’horaire de la route calculée elle-même\u00A0: vitesse sur le fond moins vitesse surface, tronçon par tronçon.',
+  'An estimate from one current value per leg, at its midpoint, over the leg’s expected time.': 'Estimation à partir d’une valeur de courant par tronçon, prise en son milieu, sur la durée prévue du tronçon.',
+  '6-hourly ocean-model currents. Tides are not resolved.': 'Courants d’un modèle océanique, toutes les 6 h. La marée n’est pas résolue.',
+  'Regional model currents including tide.': 'Courants d’un modèle régional, marée incluse.',
+  'Ocean-model currents. Tides are not resolved.': 'Courants d’un modèle océanique. La marée n’est pas résolue.',
+  'Whether this model includes tide is not recorded.': 'L’inclusion de la marée dans ce modèle n’est pas enregistrée.',
+  // the closing sentence of the IBI GRIB note's existing French, verbatim
+  'Not an official tidal-stream prediction.': 'Ce n’est pas une prédiction officielle des courants de marée.',
+  'Copernicus North West Shelf ocean currents': 'Courants océaniques Copernicus (plateau nord-ouest européen)',
+  'Copernicus Mediterranean ocean currents': 'Courants océaniques Copernicus (Méditerranée)',
+  'Copernicus Baltic ocean currents': 'Courants océaniques Copernicus (Baltique)',
+  'NOAA RTOFS ocean currents': 'Courants océaniques NOAA RTOFS',
   'Gusts': 'Rafales',
   'Waves': 'Vagues',
   'knots': 'nœuds',
@@ -1095,6 +1111,18 @@ const FR_PATTERNS = [
     });
     return `${kind === 'Wind' ? 'Vent' : 'Allure'}\u00A0: ${items.join(' · ')}`;
   }],
+  // Current block (CurrentSummary.jsx, lib/currentSummaryLines.js).
+  [/^Distance (gained from|lost to|gained or lost to) the current: (.+)$/, (_match, kind, value) => {
+    const head = { 'gained from': 'Distance gagnée grâce au courant', 'lost to': 'Distance perdue à cause du courant', 'gained or lost to': 'Distance gagnée ou perdue avec le courant' }[kind];
+    const amount = value === 'not available' ? 'non disponible'
+      : value === 'under 0.1 nm' ? 'moins de 0,1 M'
+        : value.replace(/^([\d.]+) nm$/, '$1 M');
+    return `${head}\u00A0: ${amount}`;
+  }],
+  [/^Strongest current at the points checked, anywhere in your arrival range: ([\d.]+) kt at the midpoint of leg (\d+) around (.+)\.$/, 'Courant le plus fort aux points vérifiés, sur toute votre fenêtre d’arrivée estimée\u00A0: $1 nd au milieu du tronçon $2 vers $3.'],
+  [/^Wind against current on the expected timing: (\d+) h$/, 'Vent contre courant selon l’horaire prévu\u00A0: $1 h'],
+  [/^Wind against current: none on the expected timing, but it occurs at other times in your arrival range( \(\d+ h\))?\.$/, (_match, count = '') => `Vent contre courant\u00A0: aucun selon l’horaire prévu, mais il se produit à d’autres moments de votre fenêtre d’arrivée estimée${count}.`],
+  [/^No current value for (\d+) h of the passage\.$/, 'Aucune valeur de courant pour $1 h de la traversée.'],
   [/^(\d+) waypoints$/, '$1 points de route'],
   [/^Routed at (\d+)% of the boat polar speeds$/, 'Routé à $1 % des vitesses de la polaire du bateau'],
   [/^Comparing departure times (\d+\/\d+)…$/, 'Comparaison des heures de départ $1…'],

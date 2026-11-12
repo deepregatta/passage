@@ -1,5 +1,5 @@
 import { EmulatedStamp } from '../../components/common.jsx';
-import { modelName } from '../../lib/sourceNames.js';
+import { currentModelFamily } from '../../lib/sourceNames.js';
 
 // Fixed sentences for a prepared grid's resolution note, which is English free
 // text from the factory and is never shown as it is.
@@ -10,7 +10,8 @@ const CAVEATS = {
 
 /**
  * Under a computed route: the current model the route was computed on, named
- * as the briefing's Models and coverage panel names it, then the routing notes
+ * by its family as the passage page's current block names it ("Model not
+ * recorded" when no record identifies one), then the routing notes
  * (including "Currents unavailable…" when the route used wind alone).
  */
 export default function RouteSourceNotes({ computed }) {
@@ -20,7 +21,7 @@ export default function RouteSourceNotes({ computed }) {
     <>
       {currents && (
         <p className="text-[12px] text-ink-soft" data-testid="route-currents">
-          <span>Currents</span> · <span>{modelName(currents.model)}</span>
+          <span>Currents</span> · <span>{currentModelFamily(currents.model)?.name ?? 'Model not recorded'}</span>
           {currents.emulated && <> <EmulatedStamp /></>}
           {currents.caveat && CAVEATS[currents.caveat] && <span className="block">{CAVEATS[currents.caveat]}</span>}
         </p>

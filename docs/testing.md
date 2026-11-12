@@ -112,6 +112,36 @@ not-available buckets and the empty case.
 forecast's recorded provenance: tile layer, legacy `inputs.openmeteo`, wind-rule
 evidence; a synthetic warning alone never stamps it) and its French text against an independent reading of the demo findings.
 
+Current block regressions: `engine/test/currentSummary.test.ts` pins following,
+opposing, cross and zero currents, hours without a value (counted as not
+available, and then no passage distance), time weighting inside a leg that
+starts and ends between hours, the strongest current over every audited hour of
+the arrival range, wind-against-current hours on the expected timing (counted
+once) and as distinct flagged instants anywhere in the arrival range, the same
+hour total as the route summary, and the absence of hours with and against the
+current. A real check on a drawn route whose 3.1 kt current arrives only in the
+slow arrival range raises T-WAC-01: the strongest current is at least that
+evidence's value, at its hour, and the expected-timing count is zero. On the
+saved `routed-current.json` route (2 kt following current) the distance equals a
+hand calculation of 2 kt over the routed time; the route's figures are refused
+for an edited route, another current run, a route computed without currents and,
+for a route stamped as routed on a prepared grid, a different recorded digest
+(the same digest uses them). The `current_run` guard stays: a test shows a tile
+record and a route both without a run would otherwise match.
+`viewer/test/currentSummary.test.jsx` renders the block from the demo findings
+with injected current values, in English and French, against a minute-by-minute
+reading; checks the null case on the committed saved checks, a strongest current
+never below the page's T-WAC-01 evidence, every wind-against-current wording
+(expected timing, other times only, hazard alone, none), the model name and
+caveat for each current family and source (GLO12 tiles, prepared global, IBI,
+North West Shelf, Mediterranean, Baltic, RTOFS, ids that identify no model, no
+record), the disclaimer after every caveat, current datasets the Models panel
+named as sea level, and the stamps: the heading follows the current record only
+(another emulated feed never stamps it), the wind-against-current line follows
+the current or the wind. `viewer/test/routeSourceNotes.test.jsx`,
+`routingInputs.test.js` and `plannerComputed.test.jsx` pin that a computed
+route's note names no model ("Model not recorded") when its grid records none.
+
 `viewer/test/decisionMessages.test.jsx` checks typed EN/FR, legacy decoding,
 copy independence, whole-field fallback, literal interpolation, unit formatting,
 zero/one/many scenario grammar and DOM ownership across language switches and
@@ -168,8 +198,9 @@ axis routes every candidate on tiles, while a single Compute at the anchor may
 still use the prepared grid. Compute now also downloads `latest.json` and the
 prepared current grid; neither is in the planner's tile download figure, which
 still counts current tiles for Compute because they are read before the choice
-and serve as its fallback. The route result names the current model it used
-("Currents · Copernicus IBI ocean currents"), an emulated badge for synthetic
+and serve as its fallback. The route result names the current model it used by its family
+("Currents · Copernicus IBI ocean currents"; "Model not recorded" when the grid
+records no model, never a guessed one), an emulated badge for synthetic
 data, and a fixed sentence when a prepared grid carries a resolution note. The
 coverage selector also downgrades older presence-based claims using saved
 samples alone, without changing snapshot bytes or substituting latest data.

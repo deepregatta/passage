@@ -22,8 +22,11 @@ const MODEL_NAMES = {
   cmems_ibi: 'Copernicus IBI ocean currents',
 };
 
-/** Copernicus dataset ids carry grid and cadence; match on the family. */
+/** Copernicus dataset ids carry grid and cadence; match on the family. A current
+ * dataset (`-cur`) is matched before the sea-level pattern of its region. */
 const DATASET_NAMES = [
+  [/^cmems_mod_med_phy-cur/i, 'Copernicus Mediterranean ocean currents'],
+  [/^cmems_mod_nws_phy-cur/i, 'Copernicus North West Shelf ocean currents'],
   [/^cmems_mod_ibi_phy_anfc_[\d.]+deg-2D/i, 'Copernicus IBI sea level'],
   [/^cmems_mod_ibi_phy_anfc/i, 'Copernicus IBI ocean currents'],
   [/^cmems_mod_glo_phy/i, 'Copernicus global ocean currents'],
@@ -76,6 +79,45 @@ function cleanId(id) {
 }
 
 const isScenario = (id) => /^scenario([\s_-]|$)/i.test(String(id));
+
+/**
+ * Current model families, for the lines that name the current model a check or
+ * a computed route used. `tide` is what the family is known to do: true
+ * includes tide (IBI), false has none (Copernicus global, GLO12), null not
+ * recorded here. Ids are the tile models forecast-tiles publishes (`currents`
+ * carries cmems_glo12, `currents-ibi` cmems_ibi), the factory's prepared
+ * Copernicus dataset ids (REGION_PRIORITY IBI, NWS, MED, BAL, GLO) and RTOFS,
+ * which older pipeline notes name as a historical fallback.
+ */
+const CURRENT_FAMILIES = [
+  { pattern: /^(cmems_glo12$|cmems_mod_glo_phy)/i, name: 'Copernicus global ocean currents', tide: false },
+  { pattern: /^(cmems_ibi$|cmems_mod_ibi_phy)/i, name: 'Copernicus IBI ocean currents', tide: true },
+  { pattern: /^cmems_mod_nws_phy/i, name: 'Copernicus North West Shelf ocean currents', tide: null },
+  { pattern: /^cmems_mod_med_phy/i, name: 'Copernicus Mediterranean ocean currents', tide: null },
+  { pattern: /^cmems_mod_bal_phy/i, name: 'Copernicus Baltic ocean currents', tide: null },
+  { pattern: /^rtofs/i, name: 'NOAA RTOFS ocean currents', tide: null },
+];
+
+/**
+ * The family of a current model id, or null for an id that identifies no model
+ * ("cmems", "currents", a test label, nothing): the caller then says the model
+ * was not recorded rather than showing the id.
+ * @param {unknown} id
+ * @returns {{ name: string, tide: boolean | null } | null}
+ */
+export function currentModelFamily(id) {
+  const text = typeof id === 'string' ? id.trim() : '';
+  const family = text ? CURRENT_FAMILIES.find(({ pattern }) => pattern.test(text)) : null;
+  return family ? { name: family.name, tide: family.tide } : null;
+}
+
+/**
+ * The model id inside a current grid built from tiles, whose dataset id (and
+ * so its recorded `model`) reads "<model> tiles (<run>)"; null for any other id.
+ * @param {unknown} datasetId
+ * @returns {string | null}
+ */
+export const tileModelId = (datasetId) => /^(\S+) tiles \(/.exec(typeof datasetId === 'string' ? datasetId : '')?.[1] ?? null;
 
 /** True for the engine's emulated scenario ids ("scenario", "scenario ensemble", "scenario-74bece95"). */
 export const isScenarioId = (id) => id !== null && id !== undefined && isScenario(id);
