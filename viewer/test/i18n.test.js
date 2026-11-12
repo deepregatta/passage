@@ -488,6 +488,11 @@ describe('departure ranking copy', () => {
       'Habituel : classé d’après la prévision principale, face à vos limites, y compris le nombre d’heures de votre fenêtre d’arrivée estimée au-dessus d’une limite ou à l’approche d’une limite. Prudent : classé d’abord selon le nombre de scénarios de prévision qui dépassent vos limites, puis selon ces heures. Une heure de départ à laquelle il manque des valeurs de prévision est classée après toute heure entièrement connue qui ne dépasse aucune limite et n’a pas d’alerte officielle.'],
     ['The marked time is missing forecast values for 3 h of its arrival range.', 'Il manque des valeurs de prévision à l’heure marquée pendant 3 h de sa fenêtre d’arrivée estimée.'],
     ['The marked time is missing forecast values for 1 h of its arrival range.', 'Il manque des valeurs de prévision à l’heure marquée pendant 1 h de sa fenêtre d’arrivée estimée.'],
+    ['forecast values missing for part of the arrival range', 'valeurs de prévision manquantes sur une partie de la fenêtre d’arrivée estimée'],
+    ['A forecast value one of your limits needs is missing for 4 h of your arrival range: this check cannot say whether those hours stay inside your limits.',
+      'Il manque une valeur de prévision nécessaire à l’une de vos limites pendant 4 h de votre fenêtre d’arrivée estimée\u00A0: cette vérification ne peut pas dire si ces heures restent dans vos limites.'],
+    ['Where the forecast has values, it stays inside the limits you set. Check the latest run once more before you leave.',
+      'Là où la prévision a des valeurs, elle reste dans les limites fixées. Vérifiez une dernière fois le cycle le plus récent avant de partir.'],
   ])('translates %s', (english, french) => {
     expect(translateText(english, 'fr')).toBe(french);
     expect(translateText(english, 'en')).toBe(english);

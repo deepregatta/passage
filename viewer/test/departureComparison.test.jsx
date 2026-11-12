@@ -458,3 +458,33 @@ it('tells under the toggle that a time with missing forecast values ranks behind
   render(<Planner />);
   expect(comparison().getByText(/A time with missing forecast values is ranked behind every fully known time that is not over a limit and has no official warning\./)).toBeInTheDocument();
 });
+
+it('marks on the cell face, not only in its tooltip, a time with missing forecast values, and explains the mark', () => {
+  usePlanner.setState({ scan: rankedScan([
+    limitHours(0, 0, { arrival_hours_no_data: 3, worst_ratio: 0.2 }),
+    limitHours(0, 2, { verdict: 'approaching', worst_ratio: 0.8 }),
+    {},
+    limitHours(0, 0, { arrival_hours_no_data: 0 }),
+  ]) });
+  render(<Planner />);
+  const times = usePlanner.getState().scan.candidates.map(c => c.departure_utc);
+  const marker = (utc) => cellFor(utc).querySelector('[data-testid="missing-values-mark"]');
+  expect(marker(times[0])).toHaveTextContent('?');
+  expect(glyphOf(times[0])).toBe('✓'); // the verdict glyph and colour are unchanged
+  for (const i of [1, 2, 3]) expect(marker(times[i])).toBeNull();
+  expect(comparison().getByText('forecast values missing for part of the arrival range')).toBeInTheDocument();
+});
+
+it('leaves the missing-values legend out when every time is fully known', () => {
+  usePlanner.setState({ scan: rankedScan([limitHours(0), limitHours(0, 1), {}]) });
+  render(<Planner />);
+  expect(comparison().queryByText('forecast values missing for part of the arrival range')).toBeNull();
+  expect(cells().some((cell) => cell.querySelector('[data-testid="missing-values-mark"]'))).toBe(false);
+});
+
+it('translates the missing-values legend into French', () => {
+  usePlanner.setState({ scan: rankedScan([limitHours(0, 0, { arrival_hours_no_data: 2 })]) });
+  const { container } = render(<div id="root"><Planner /><LocalizedDocument language="fr" /></div>);
+  expect(container).toHaveTextContent('valeurs de prévision manquantes sur une partie de la fenêtre d’arrivée estimée');
+  expect(container).not.toHaveTextContent('forecast values missing');
+});

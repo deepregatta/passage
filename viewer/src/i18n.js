@@ -589,6 +589,10 @@ const FR = {
   'arrival': 'arrivée',
   'The weather story': 'Situation météo',
   'The forecast stays inside the limits you set. Check the latest run once more before you leave.': 'La prévision reste dans les limites fixées. Vérifiez une dernière fois le cycle le plus récent avant de partir.',
+  'Where the forecast has values, it stays inside the limits you set. Check the latest run once more before you leave.': 'Là où la prévision a des valeurs, elle reste dans les limites fixées. Vérifiez une dernière fois le cycle le plus récent avant de partir.',
+  'A forecast value one of your limits needs is missing for': 'Il manque une valeur de prévision nécessaire à l’une de vos limites pendant',
+  'h of your arrival range: this check cannot say whether those hours stay inside your limits.': 'h de votre fenêtre d’arrivée estimée\u00A0: cette vérification ne peut pas dire si ces heures restent dans vos limites.',
+  'forecast values missing for part of the arrival range': 'valeurs de prévision manquantes sur une partie de la fenêtre d’arrivée estimée',
   'This forecast crosses your limits. Compare departure times before changing the route.': 'Cette prévision dépasse vos limites. Comparez les heures de départ avant de modifier la route.',
   'Wait for the next run before deciding.': 'Attendez le prochain cycle avant de décider.',
   'No estimate for the next run. Check the published forecast before departure.': 'Aucune estimation pour le prochain cycle. Consultez la prévision publiée avant le départ.',
@@ -1131,6 +1135,7 @@ const FR_PATTERNS = [
     return `${head}\u00A0: ${amount}`;
   }],
   [/^Strongest current at the points checked, anywhere in your arrival range: ([\d.]+) kt at the midpoint of leg (\d+) around (.+)\.$/, 'Courant le plus fort aux points vérifiés, sur toute votre fenêtre d’arrivée estimée\u00A0: $1 nd au milieu du tronçon $2 vers $3.'],
+  [/^A forecast value one of your limits needs is missing for (\d+) h of your arrival range: this check cannot say whether those hours stay inside your limits\.$/, 'Il manque une valeur de prévision nécessaire à l’une de vos limites pendant $1 h de votre fenêtre d’arrivée estimée\u00A0: cette vérification ne peut pas dire si ces heures restent dans vos limites.'],
   [/^The marked time is missing forecast values for (\d+) h of its arrival range\.$/, 'Il manque des valeurs de prévision à l’heure marquée pendant $1 h de sa fenêtre d’arrivée estimée.'],
   [/^Wind against current on the expected timing: (\d+) h$/, 'Vent contre courant selon l’horaire prévu\u00A0: $1 h'],
   [/^Wind against current: none on the expected timing, but it occurs at other times in your arrival range( \(\d+ h\))?\.$/, (_match, count = '') => `Vent contre courant\u00A0: aucun selon l’horaire prévu, mais il se produit à d’autres moments de votre fenêtre d’arrivée estimée${count}.`],

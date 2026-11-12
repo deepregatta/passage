@@ -241,8 +241,15 @@ marked time does not depend on input order.
 summary, the tooltip hours and gust difference in English and French, hours over a
 limit that fall outside the expected timing, a "within limits" cell with missing
 hours ranked after a fully known one without changing its colour, and the summary
-note when the marked time itself has missing hours. A scan is never saved, so
-neither suite touches a fixture, a schema or a saved identity.
+note when the marked time itself has missing hours, and the "?" mark on the face of
+a cell with missing hours with its legend, in English and French. A scan is never
+saved, so neither suite touches a fixture, a schema or a saved identity.
+`viewer/test/missingForecastHours.test.jsx` covers the passage page's count of
+arrival-range hours missing a value a recorded limit needs (read from the saved
+`findings.legs`; a declared layer with no value anywhere counts; a time over a
+limit counts as over), the statement in the decision band on any verdict, the
+qualified "within" next step, and both in French. The verdict is unchanged; the
+demo fixtures have no missing statuses, so the tests edit a clone in memory.
 
 ## Saved identity and history regressions
 

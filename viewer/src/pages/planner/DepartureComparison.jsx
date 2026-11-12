@@ -20,6 +20,9 @@ const RANK_MODES = [[RANK_TYPICAL, 'Typical'], [RANK_CAUTIOUS, 'Cautious']];
 
 const isCount = (value) => Number.isFinite(value);
 
+/** Some hour of the candidate's arrival range misses a forecast value one of the limits needs. */
+const hasMissing = (c) => isCount(c.arrival_hours_no_data) && c.arrival_hours_no_data > 0;
+
 /**
  * The tooltip's hour figures, each its own part so the French catalogue matches it
  * with one pattern. The ranked figures are distinct hours of the whole arrival
@@ -193,9 +196,13 @@ export default function DepartureComparison({ scan, departureLocal, busy, disabl
                     style={{ backgroundColor: v.hex }}
                   >
                     <span className="font-mono text-[12px] font-semibold">{c.hhmm}</span>
-                    <span className="text-[12px]" aria-hidden>
-                      {c.index === bestIndex ? '◎' : v.glyph}
-                      {tiedIndices.has(c.index) && ' ≈'}
+                    <span className="flex items-center gap-1">
+                      <span className="text-[12px]" aria-hidden>
+                        {c.index === bestIndex ? '◎' : v.glyph}
+                        {tiedIndices.has(c.index) && ' ≈'}
+                      </span>
+                      {/* the verdict ignores missing hours; the tooltip gives their count */}
+                      {hasMissing(c) && <span className="font-mono text-[12px] font-semibold" aria-hidden data-testid="missing-values-mark">?</span>}
                     </span>
                   </button>
                 );
@@ -242,6 +249,12 @@ export default function DepartureComparison({ scan, departureLocal, busy, disabl
               {SCAN_VERDICT[s]}
             </span>
           ))}
+          {scan.candidates.some(hasMissing) && (
+            <span className="flex items-center gap-1.5">
+              <span aria-hidden className="font-mono font-semibold">?</span>
+              forecast values missing for part of the arrival range
+            </span>
+          )}
           {tiedIndices.size > 0 && (
             <span className="flex items-center gap-1.5">
               <span aria-hidden>≈</span>

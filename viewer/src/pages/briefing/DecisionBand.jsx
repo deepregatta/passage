@@ -13,6 +13,7 @@ import { passageLabels } from '../../lib/passageLabels.js';
 import { nextRunText } from './nextRunText.js';
 import { useGoverningReason, verdictSentences } from './verdictSentence.js';
 import useNowMs from '../../hooks/useNowMs.js';
+import { missingForecastHours } from '../../lib/missingForecastHours.js';
 
 /** the action line: what each verdict state means for what you DO next. The numbers are in the
  * verdict sentence above it, never repeated here. */
@@ -25,6 +26,9 @@ const NEXT_STEP = {
     'This forecast crosses your limits. Compare departure times before changing the route.',
   insufficient: 'Wait for the next run before deciding.',
 };
+
+/** "within" when hours of the arrival range have no forecast value: only the hours with values are inside. */
+const WITHIN_PARTIAL_STEP = 'Where the forecast has values, it stays inside the limits you set. Check the latest run once more before you leave.';
 
 /**
  * The 10-second layer, before any chart: which passage, ONE verdict sentence
@@ -45,6 +49,8 @@ export default function DecisionBand({ findings, warningEvidence, onOpenBulletin
   const state = warningActive ? 'warning_active' : findings.verdict.state;
   const reason = useGoverningReason(findings);
   const sentences = verdictSentences(findings, reason, { emulatedWarning: emulated });
+  // the verdict ignores hours missing a value a limit needs: say how many, whatever the verdict
+  const missingHours = useMemo(() => missingForecastHours(findings), [findings]);
 
   // when to look again; the single place the page states it, read at display time
   const briefing = useApp((s) => s.briefing);
@@ -99,6 +105,11 @@ export default function DecisionBand({ findings, warningEvidence, onOpenBulletin
             </div>
           )}
         </div>
+        {missingHours > 0 && (
+          <p data-testid="missing-hours" className="font-sans text-[14px] max-w-[72ch]">
+            {`A forecast value one of your limits needs is missing for ${missingHours} h of your arrival range: this check cannot say whether those hours stay inside your limits.`}
+          </p>
+        )}
         <p className="font-sans text-[14px] text-ink-soft max-w-[72ch]">
           {warningActive
             ? (
@@ -108,7 +119,7 @@ export default function DecisionBand({ findings, warningEvidence, onOpenBulletin
                   : 'Read the official bulletin before anything else.'}
               </span>
             )
-            : <span>{NEXT_STEP[state]}</span>}
+            : <span>{state === 'within' && missingHours > 0 ? WITHIN_PARTIAL_STEP : NEXT_STEP[state]}</span>}
           {/* models disagree: the action is the next run, so it is stated right here */}
           {state === 'insufficient' && <>{' '}<span data-testid="next-run" aria-live="polite">{nextRun.text}</span></>}
         </p>
