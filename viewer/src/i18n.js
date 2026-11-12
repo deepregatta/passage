@@ -182,6 +182,22 @@ const FR = {
   'Comparison stopped.': 'Comparaison arrêtée.',
   'Comparison stopped: the route or departure changed. Compare again.': 'Comparaison arrêtée\u00A0: la route ou le départ a changé. Relancez la comparaison.',
   'The comparison could not finish. Try again.': 'La comparaison n’a pas pu aboutir. Réessayez.',
+  // Refining a departure comparison (RefineControl.jsx, usePlannerController.jsx)
+  'Refine around the least-exposure times': 'Affiner autour des heures les moins exposées',
+  'Refining…': 'Affinage…',
+  'Refining the comparison…': 'Affinage de la comparaison…',
+  'Stop refining': 'Arrêter l’affinage',
+  'Compare again': 'Relancer la comparaison',
+  'Refining stopped. The comparison is unchanged. Compare again to refine.': 'Affinage arrêté. La comparaison est inchangée. Relancez la comparaison pour l’affiner.',
+  'No other departure times to add within this comparison.': 'Aucune autre heure de départ à ajouter dans cette comparaison.',
+  'This comparison can no longer be refined. Compare again to refine.': 'Cette comparaison ne peut plus être affinée. Relancez la comparaison pour l’affiner.',
+  'Your limits have changed since this comparison. Compare again to refine.': 'Vos limites ont changé depuis cette comparaison. Relancez la comparaison pour l’affiner.',
+  'The forecast has been updated since this comparison. Compare again to refine.': 'La prévision a été mise à jour depuis cette comparaison. Relancez la comparaison pour l’affiner.',
+  'Refined: none of the added departure times could be assessed. They are listed under Unassessed departures.': 'Affinage\u00A0: aucune des heures de départ ajoutées n’a pu être évaluée. Elles figurent sous Départs non évalués.',
+  'second row: added by refining, every 2 h': 'seconde ligne\u00A0: ajoutées par l’affinage, toutes les 2 h',
+  // Why a refined departure was not assessed (engine OUTSIDE_SCAN_CURRENT, OUTSIDE_SELECTED_CURRENT)
+  'This departure time leaves the current grid used by the rest of the comparison.': 'Cette heure de départ sort de la grille de courants utilisée pour le reste de la comparaison.',
+  'This departure time\'s route leaves the current grid used by the rest of the comparison.': 'La route de cette heure de départ sort de la grille de courants utilisée pour le reste de la comparaison.',
   "Specify at least two valid waypoints.": "Indiquez au moins deux points de route valides.",
   "Click a point in open water near both ends of the passage": "Cliquez en pleine eau près de chaque extrémité de la traversée",
   "Couldn't load the coastline data needed for safe routing": "Impossible de charger les données côtières nécessaires au routage sécurisé",
@@ -1153,6 +1169,15 @@ const FR_PATTERNS = [
   [/^Routed at (\d+)% of the boat polar speeds$/, 'Routé à $1 % des vitesses de la polaire du bateau'],
   [/^Comparing departure times (\d+\/\d+)…$/, 'Comparaison des heures de départ $1…'],
   [/^Routing departures (\d+\/\d+)…$/, 'Calcul des routes $1…'],
+  // Refining a departure comparison (RefineControl.jsx). French counts 0 and 1 as singular.
+  [/^Adds (\d+) departure times?, every 2 h within 6 h of each ◎ or ≈ time( in either ranking)?, from the same forecast as this comparison\.$/, (_match, count, either) => {
+    const plural = Number(count) > 1 ? 's' : '';
+    return `Ajoute ${count} heure${plural} de départ, toutes les 2 h à moins de 6 h de chaque heure ◎ ou ≈${either ? ' de l’un ou l’autre classement' : ''}, sur la même prévision que cette comparaison.`;
+  }],
+  [/^Refined: (\d+) more departure times? compared, every 2 h around the ◎ and ≈ times\. They are in a second row under their day\.$/, (_match, count) => {
+    const plural = Number(count) > 1 ? 's' : '';
+    return `Affinage\u00A0: ${count} heure${plural} de départ de plus comparée${plural}, toutes les 2 h autour des heures ◎ et ≈. Elles figurent sur une seconde ligne sous leur jour.`;
+  }],
   [/^Forecasts cover the next (\d+) days, up to (.+)$/, 'Les prévisions couvrent les $1 prochains jours, jusqu’au $2'],
   [/^Choose a departure within the forecast, up to (.+)$/, 'Choisissez un départ dans la période couverte par les prévisions, jusqu’au $1'],
   [/^(reading forecast run manifest|evaluating against your limits|reading current tiles|loading coastline|loading forecast tiles|loading current tiles|loading prepared data|saving immutable snapshot|starting|computing route|scanning departures)( \d+\/\d+)?(…)?$/, (_match, label, count = '', ellipsis = '') => `${FR[label]}${count}${ellipsis}`],
@@ -1812,6 +1837,7 @@ const FR_FRAGMENTS = [
   // French counts 0 and 1 as singular.
   [/\b(\d+) of (\d+) forecast scenarios exceed a limit\b/g, (_match, exceed, total) => `${exceed} scénario${Number(exceed) > 1 ? 's' : ''} sur ${total} dépasse${Number(exceed) > 1 ? 'nt' : ''} une limite`],
   [/\beffectively tied with the least-exposure time\b/g, 'à égalité effective avec l’heure la moins exposée'],
+  [/\badded by refining\b/g, 'ajoutée par l’affinage'],
   // Hours over or approaching a limit in the arrival range (passageLimitHours), one part each; every
   // French phrase is invariable, so a count of 1 reads as well as 3.
   [/\b(\d+) h over a limit in your arrival range\b/g, '$1 h au-dessus d’une limite dans votre fenêtre d’arrivée estimée'],

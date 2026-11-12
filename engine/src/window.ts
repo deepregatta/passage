@@ -7,7 +7,7 @@
 import { runAnalysis, type AnalyzeOptions, type AnalyzeResult } from './analyze.js';
 import { evidenceLimitRatio } from './findings.js';
 import { forecastRunGone } from './forecast/store.js';
-import { resolveCurrentInput } from './currentInput.js';
+import { currentGridCovers, resolveCurrentInput, type CurrentInput } from './currentInput.js';
 import { withoutSavedIdentity } from './identity.js';
 import { computeRouteSchedules } from './eta.js';
 import { nominalPassageHours } from './routeSummary.js';
@@ -233,12 +233,79 @@ export function rankCandidates(
   return { best_index: bestIndex, tied_indices: tied };
 }
 
+/**
+ * What `scanDepartures` returns on request (`{ refinable: true }`), so that
+ * `refineScan` can add departures later and give exactly the result one scan
+ * over every departure would have given. Never a candidate's findings: per
+ * candidate only the data the scan's final figures are computed from.
+ * Engine-internal state, not for display or saving.
+ */
+export interface ScanRefinement {
+  /** Every departure the scan was asked for, in its order (candidates and skipped). */
+  departures: string[];
+  /** One record per candidate, in candidate order. */
+  records: CandidateRecord[];
+  /**
+   * The one current input every candidate was audited on: the caller's, or the
+   * one a drawn scan resolved once for all its candidates. A refinement audits
+   * its departures on this same input.
+   */
+  current_input: CurrentInput;
+}
+
+/** One audited candidate before the scan-wide figures: what the final step needs and nothing else. */
+export interface CandidateRecord {
+  /** The candidate as audited: zero hour figures, its own (absolute) passage metrics in `delta`, no `avoids_event_key`. */
+  candidate: WindowCandidate;
+  /** Its own peak gust and gust hours, from which the baseline-relative `delta` is computed. */
+  metrics: { peak_gust_kt: number; hours_over_limit: number };
+  /** The causal event keys of its audit, from which `avoids_event_key` is computed. */
+  event_keys: string[];
+  /** Its hour profile, from which the hour figures are computed once the scan-wide limits are known. */
+  hours: HourProfile;
+  /** Its audit's forecast tile records; the scan reports the first candidate's. */
+  input_records: AnalyzeResult['findings']['inputs']['forecast_tiles'];
+}
+
+/**
+ * The hours of one audit reduced to what `passageLimitHours` and `presentLimits`
+ * read: per distinct valid time, whether any leg's hour there is over a limit
+ * or approaching one, and which limits lack a known status in any leg's hour
+ * there; the limits with a known status somewhere; and the expected-timing count.
+ */
+export interface HourProfile {
+  known: LimitKey[];
+  times: Array<{ over: boolean; approaching: boolean; unknown: LimitKey[] }>;
+  expected_hours_over_limit: number;
+}
+
+export type RefinableScan = WindowScan & { refinement: ScanRefinement };
+
 export async function scanDepartures(
   base: ScanOptions,
   departures: string[],
   onCandidate?: (candidate: WindowCandidate) => void,
-): Promise<WindowScan> {
-  return scanCandidates(base, departures, onCandidate, { savedIdentity: false });
+): Promise<WindowScan>;
+export async function scanDepartures(
+  base: ScanOptions,
+  departures: string[],
+  onCandidate: ((candidate: WindowCandidate) => void) | undefined,
+  options: { refinable: true },
+): Promise<RefinableScan>;
+/**
+ * Audit every departure and rank them. With `{ refinable: true }` the result
+ * also carries `refinement` (see ScanRefinement), for `refineScan`; without it
+ * the result is exactly the scan's usual shape.
+ */
+export async function scanDepartures(
+  base: ScanOptions,
+  departures: string[],
+  onCandidate?: (candidate: WindowCandidate) => void,
+  { refinable = false }: { refinable?: boolean } = {},
+): Promise<WindowScan | RefinableScan> {
+  const audited = await auditDepartures(base, departures, onCandidate, { savedIdentity: false });
+  const scan = finishScan(audited.records, audited.skipped, departures, base.profile);
+  return refinable ? { ...scan, refinement: { departures: [...departures], records: audited.records, current_input: audited.currentInput } } : scan;
 }
 
 /**
@@ -254,14 +321,32 @@ export async function scanCandidates(
   onCandidate: ((candidate: WindowCandidate) => void) | undefined,
   { savedIdentity }: { savedIdentity: boolean },
 ): Promise<WindowScan> {
+  const audited = await auditDepartures(base, departures, onCandidate, { savedIdentity });
+  return finishScan(audited.records, audited.skipped, departures, base.profile);
+}
+
+const abortsScan = (error: unknown) => Boolean(forecastRunGone(error)) || (error as { code?: string })?.code === 'forecast-updated';
+
+/** Why a refined departure is skipped when its route leaves the prepared current grid the comparison used. */
+export const OUTSIDE_SCAN_CURRENT = 'This departure time leaves the current grid used by the rest of the comparison.';
+
+/**
+ * Route and audit each departure on one current input, without ranking.
+ * `admitPrepared`: a refinement audits on the coarse scan's input as given, so a
+ * prepared grid must still cover each of its routes (the audit would otherwise
+ * read no current there); a departure it does not cover is skipped.
+ */
+async function auditDepartures(
+  base: ScanOptions,
+  departures: string[],
+  onCandidate: ((candidate: WindowCandidate) => void) | undefined,
+  { savedIdentity, admitPrepared = false }: { savedIdentity: boolean; admitPrepared?: boolean },
+): Promise<{ records: CandidateRecord[]; skipped: WindowScan['skipped']; currentInput: CurrentInput }> {
   // one shared ForecastStore: every candidate reads the same immutable tile
   // run, so the store's tile cache serves all candidates after the first
   const { routeFor, ...analyzeBase } = base;
-  const candidates: WindowCandidate[] = [];
+  const records: CandidateRecord[] = [];
   const skipped: WindowScan['skipped'] = [];
-  const eventKeys: string[][] = [];
-  const candidateFindings: Findings[] = [];
-  let inputRecords: WindowScan['input_records'];
   const planned: Array<{ route: Route; departureUtc: string }> = [];
   // Route once before selecting current coverage across the entire scan.
   for (const departureUtc of departures) {
@@ -270,28 +355,32 @@ export async function scanCandidates(
       computeRouteSchedules(route, departureUtc); // invalid candidates cannot poison shared source admission
       planned.push({ route, departureUtc });
     } catch (error) {
-      if (forecastRunGone(error) || (error as { code?: string })?.code === 'forecast-updated') throw error;
+      if (abortsScan(error)) throw error;
       skipped.push({ departure_utc: departureUtc, reason: error instanceof Error ? error.message : String(error || 'Unknown error') });
     }
   }
-  if (!planned.length) return { candidates, best_index: null, skipped };
+  if (!planned.length) return { records, skipped, currentInput: base.currentInput ?? {} };
   if (!base.currentInput) await base.store.init();
   const currentInput = base.currentInput ?? await resolveCurrentInput(planned, base.store, base.currentGrid, base.currentGridProvenance);
+  const preparedGrid = admitPrepared && currentInput.provenance?.current_source === 'prepared' ? currentInput.grid : undefined;
 
   for (const { route, departureUtc } of planned) {
+    if (preparedGrid && !currentGridCovers(preparedGrid, { route, departureUtc })) {
+      skipped.push({ departure_utc: departureUtc, reason: OUTSIDE_SCAN_CURRENT });
+      continue;
+    }
     let result: AnalyzeResult;
     try {
       const options = { ...analyzeBase, route, departureUtc, currentInput };
       result = await runAnalysis(savedIdentity ? options : withoutSavedIdentity(options));
     } catch (error) {
       // a deleted forecast run fails every candidate: the caller refreshes and retries
-      if (forecastRunGone(error) || (error as { code?: string })?.code === 'forecast-updated') throw error;
+      if (abortsScan(error)) throw error;
       const reason = error instanceof Error ? error.message : error == null ? '' : String(error);
       skipped.push({ departure_utc: departureUtc, reason: reason || 'Unknown error' });
       continue;
     }
     const findings = result.findings;
-    inputRecords ??= findings.inputs.forecast_tiles;
     let worstRatio: number | null = null;
     let maxFraction: number | null = null;
     let maxMembers: { exceed: number; total: number } | null = null;
@@ -330,34 +419,163 @@ export async function scanCandidates(
       ...NO_HOURS,
       delta: passageMetrics(findings),
     };
-    candidates.push(candidate);
-    candidateFindings.push(findings);
-    eventKeys.push((findings.causal_events ?? []).map((event) => event.event_key).filter((key): key is string => Boolean(key)));
+    records.push({
+      candidate: { ...candidate, delta: { ...candidate.delta! } },
+      metrics: { ...candidate.delta! },
+      event_keys: (findings.causal_events ?? []).map((event) => event.event_key).filter((key): key is string => Boolean(key)),
+      hours: hourProfile(findings),
+      input_records: findings.inputs.forecast_tiles,
+    });
     // Progress only: the hour figures are still zero here and filled in once every candidate is audited.
     onCandidate?.(candidate);
   }
+  return { records, skipped, currentInput };
+}
 
-  const limits = presentLimits(base.profile, candidateFindings);
-  candidates.forEach((candidate, i) => Object.assign(candidate, passageLimitHours(candidateFindings[i], { limits })));
+/**
+ * The scan's result from its audited candidates: the hour figures against the
+ * limits present across all of them, the typical ranking, the fields relative
+ * to the first candidate (the baseline), and the skipped departures in the
+ * order of `departures`. A pure function of its inputs, shared by a scan and a
+ * refinement, so a refinement's merged result is the one-pass result.
+ */
+function finishScan(records: readonly CandidateRecord[], skipped: WindowScan['skipped'], departures: readonly string[],
+  profile: ScanOptions['profile']): WindowScan {
+  const limits = presentLimitsOf(profile, records.map((record) => record.hours.known));
+  const candidates: WindowCandidate[] = records.map((record) => ({
+    ...record.candidate,
+    ...hourFigures(record.hours, limits),
+    delta: { ...record.metrics },
+  }));
   const { best_index: bestIndex } = rankCandidates(candidates, { mode: 'typical' });
 
-  const baseline = candidates[0];
-  if (baseline?.delta) {
-    for (const candidate of candidates.slice(1)) {
-      const candidateIndex = candidates.indexOf(candidate);
-      const avoided = eventKeys[0]?.find((key) => !eventKeys[candidateIndex]?.includes(key));
+  const baseline = records[0];
+  if (baseline) {
+    candidates.forEach((candidate, i) => {
+      if (i === 0) return;
+      const avoided = baseline.event_keys.find((key) => !records[i]!.event_keys.includes(key));
       if (avoided) candidate.avoids_event_key = avoided;
-      if (candidate.delta) {
-        candidate.delta = {
-          peak_gust_kt: Math.round((candidate.delta.peak_gust_kt - baseline.delta.peak_gust_kt) * 10) / 10,
-          hours_over_limit: candidate.delta.hours_over_limit - baseline.delta.hours_over_limit,
-        };
-      }
-    }
+      candidate.delta = {
+        peak_gust_kt: Math.round((records[i]!.metrics.peak_gust_kt - baseline.metrics.peak_gust_kt) * 10) / 10,
+        hours_over_limit: records[i]!.metrics.hours_over_limit - baseline.metrics.hours_over_limit,
+      };
+    });
   }
 
-  skipped.sort((a, b) => departures.indexOf(a.departure_utc) - departures.indexOf(b.departure_utc));
-  return { candidates, best_index: bestIndex, skipped, ...(inputRecords ? { input_records: inputRecords } : {}) };
+  const sortedSkipped = [...skipped].sort((a, b) => departures.indexOf(a.departure_utc) - departures.indexOf(b.departure_utc));
+  // The first candidate's records, or the next one's when it has none, as the scan always reported them.
+  const inputRecords = records.find((record) => record.input_records != null)?.input_records;
+  return { candidates, best_index: bestIndex, skipped: sortedSkipped, ...(inputRecords ? { input_records: inputRecords } : {}) };
+}
+
+export interface RefineOptions {
+  /** Hours between added departures (default 2). */
+  stepH?: number;
+  /** How far either side of each anchor to add departures, in hours (default 6). */
+  spanH?: number;
+}
+
+const HOUR_MS = 3600_000;
+const isoUtc = (ms: number) => new Date(ms).toISOString().replace(/\.\d{3}Z$/, 'Z');
+
+/**
+ * The departures a refinement adds to a scan, and the candidates it adds them
+ * around (its anchors).
+ *
+ * - Anchors: the marked candidate and the candidates effectively tied with it in
+ *   the typical ranking, and in the cautious ranking too when any candidate has
+ *   forecast-scenario evidence. Both rankings, so the set does not depend on the
+ *   ranking the skipper happens to be viewing.
+ * - Added: every `stepH` hours within `spanH` hours either side of each anchor,
+ *   on the anchor's own grid, never before the first candidate (it is the
+ *   baseline every relative field is measured from) nor after the scan's last
+ *   departure (the shared current grid and assessment window were sized for the
+ *   scan's span), and never a time the scan already asked for, whether it became
+ *   a candidate or was skipped. Earliest first, each time once.
+ *
+ * `rankings` names the rankings the anchors came from (Typical, and Cautious when any
+ * candidate has scenario evidence), so a caller can say which marks were refined around.
+ * Works on a scan's usual result: every departure it asked for is either a candidate or skipped.
+ */
+export function refinementDepartures(scan: Pick<WindowScan, 'candidates' | 'skipped'>,
+  { stepH = 2, spanH = 6 }: RefineOptions = {}): { departures: string[]; anchors: string[]; rankings: RankMode[] } {
+  const { candidates } = scan;
+  const modes: RankMode[] = candidates.some(coveredOf) ? ['typical', 'cautious'] : ['typical'];
+  if (!candidates.length || !(stepH > 0) || !(spanH > 0)) return { departures: [], anchors: [], rankings: modes };
+  const asked = [...candidates.map((c) => c.departure_utc), ...(scan.skipped ?? []).map((s) => s.departure_utc)]
+    .map((iso) => Date.parse(iso)).filter(Number.isFinite);
+  const present = new Set(asked);
+  const first = Math.min(...candidates.map((c) => Date.parse(c.departure_utc)));
+  const last = Math.max(...asked);
+  const anchorIndices = new Set<number>();
+  for (const mode of modes) {
+    const { best_index: best, tied_indices: tied } = rankCandidates(candidates, { mode });
+    if (best !== null) anchorIndices.add(best);
+    for (const i of tied) anchorIndices.add(i);
+  }
+  const anchorTimes = [...anchorIndices].map((i) => Date.parse(candidates[i]!.departure_utc)).filter(Number.isFinite).sort((a, b) => a - b);
+  const added = new Set<number>();
+  const steps = Math.floor(spanH / stepH + 1e-9);
+  for (const anchor of anchorTimes) {
+    for (let k = -steps; k <= steps; k++) {
+      const t = anchor + k * stepH * HOUR_MS;
+      if (k === 0 || t < first || t > last || present.has(t)) continue;
+      added.add(t);
+    }
+  }
+  return {
+    departures: [...added].sort((a, b) => a - b).map(isoUtc),
+    anchors: [...new Set(anchorTimes)].map(isoUtc),
+    rankings: modes,
+  };
+}
+
+export type RefinedScan = RefinableScan & {
+  /** The departures this refinement asked for (candidates or skipped now), earliest first. */
+  refined_departures: string[];
+  /** The candidates it refined around (see refinementDepartures). */
+  refined_around: string[];
+};
+
+/**
+ * Route and audit extra departures around the marked and effectively tied
+ * candidates of a scan (see refinementDepartures), and merge them in: the
+ * result is the scan a single pass over every departure of both would give on
+ * the same current input (same candidates and figures, ranking, ties, input
+ * records and skipped departures). Every figure that depends on the whole scan
+ * is recomputed: the limits present across all candidates and so every
+ * candidate's hour figures, the ranking, and the fields relative to the first
+ * candidate.
+ *
+ * - `base` must be the options the coarse scan ran with (same store and runs,
+ *   profile, assessment window, and for a computed scan a `routeFor` on the same
+ *   current grid); its current input is replaced by the coarse scan's own.
+ * - On a prepared current grid, a departure whose route the grid does not cover
+ *   is skipped (OUTSIDE_SCAN_CURRENT): no departure is audited on another source.
+ * - Findings stay inside: only candidate data comes out.
+ */
+export async function refineScan(
+  base: ScanOptions,
+  coarse: RefinableScan,
+  options: RefineOptions = {},
+  onCandidate?: (candidate: WindowCandidate) => void,
+): Promise<RefinedScan> {
+  const { departures: added, anchors } = refinementDepartures(coarse, options);
+  const { refinement } = coarse;
+  const extra = added.length
+    ? await auditDepartures({ ...base, currentInput: refinement.current_input }, added, onCandidate, { savedIdentity: false, admitPrepared: true })
+    : { records: [], skipped: [] };
+  const byTime = (a: string, b: string) => Date.parse(a) - Date.parse(b);
+  const departures = [...refinement.departures, ...added].sort(byTime);
+  const records = [...refinement.records, ...extra.records]
+    .sort((a, b) => byTime(a.candidate.departure_utc, b.candidate.departure_utc));
+  const scan = finishScan(records, [...coarse.skipped, ...extra.skipped], departures, base.profile);
+  return {
+    ...scan,
+    refinement: { departures, records, current_input: refinement.current_input },
+    refined_departures: added,
+    refined_around: anchors,
+  };
 }
 
 /** Whether any audited hour carries an ensemble count, and the largest scenario total among them. */
@@ -382,19 +600,13 @@ const statuses = (hour: LegHour) => Object.values(hour.limit_status ?? {});
 const overLimit = (hour: LegHour): boolean => statuses(hour).includes('exceeded');
 const knownStatus = (status: string | undefined): boolean => status === 'ok' || status === 'approaching' || status === 'exceeded';
 
-/**
- * Whether this hour lacks a value one of `limits` needs: its status is "unknown" or
- * absent. Every limit counts alike, steepness included: its status is absent when
- * the wave period is, and an hour whose steepness was over the limit must not look
- * clean once the period goes missing. A layer no time of the scan has a value for is
- * not in `limits` (presentLimits).
+/*
+ * An hour lacks a value one of the counted limits needs when that limit's status
+ * is "unknown" or absent (HourProfile.unknown). Every limit counts alike, steepness
+ * included: its status is absent when the wave period is, and an hour whose
+ * steepness was over the limit must not look clean once the period goes missing. A
+ * layer no time of the scan has a value for is not counted (presentLimits).
  */
-function missingData(hour: LegHour, limits: ReadonlySet<LimitKey>): boolean {
-  for (const key of limits) {
-    if (!knownStatus(hour.limit_status?.[key])) return true;
-  }
-  return false;
-}
 
 /**
  * The limits whose missing values count as missing data across a scan: those the
@@ -403,21 +615,63 @@ function missingData(hour: LegHour, limits: ReadonlySet<LimitKey>): boolean {
  * layer missing from every candidate is left out for everyone, so it never turns
  * into passage length.
  */
-export function presentLimits(profile: { max_wave_height_m?: number; max_steepness?: number; min_visibility_nm?: number | null } | null | undefined,
-  findingsList: ReadonlyArray<Findings | null | undefined>): Set<LimitKey> {
+export function presentLimits(profile: LimitsProfile, findingsList: ReadonlyArray<Findings | null | undefined>): Set<LimitKey> {
+  return presentLimitsOf(profile, findingsList.map((findings) => knownLimits(findings)));
+}
+
+type LimitsProfile = { max_wave_height_m?: number; max_steepness?: number; min_visibility_nm?: number | null } | null | undefined;
+
+/** presentLimits over each audit's limits with a known status somewhere (HourProfile.known). */
+function presentLimitsOf(profile: LimitsProfile, knownLists: ReadonlyArray<readonly LimitKey[]>): Set<LimitKey> {
   const declared = new Set<LimitKey>(['sustained', 'gust']);
   if (profile?.max_wave_height_m !== undefined) declared.add('wave');
   if (profile?.max_steepness !== undefined) declared.add('steepness');
   if (profile?.min_visibility_nm !== undefined && profile?.min_visibility_nm !== null) declared.add('visibility');
   const present = new Set<LimitKey>();
-  for (const findings of findingsList) {
-    for (const leg of findings?.legs ?? []) {
-      for (const hour of leg.hours ?? []) {
-        for (const key of declared) if (knownStatus(hour.limit_status?.[key])) present.add(key);
-      }
-    }
+  for (const known of knownLists) {
+    for (const key of known) if (declared.has(key)) present.add(key);
   }
   return present;
+}
+
+/** The limits with a known status in at least one hour of these findings, in LIMIT_KEYS order. */
+function knownLimits(findings: Findings | null | undefined): LimitKey[] {
+  return LIMIT_KEYS.filter((key) => (findings?.legs ?? [])
+    .some((leg) => (leg.hours ?? []).some((hour) => knownStatus(hour.limit_status?.[key]))));
+}
+
+/** The reduction of an audit's hours that the hour figures are computed from (see HourProfile). */
+export function hourProfile(findings: Findings | null | undefined): HourProfile {
+  const byTime = new Map<string, LegHour[]>();
+  for (const leg of findings?.legs ?? []) {
+    for (const hour of leg.hours ?? []) {
+      const list = byTime.get(hour.valid_time);
+      if (list) list.push(hour);
+      else byTime.set(hour.valid_time, [hour]);
+    }
+  }
+  const times = [...byTime.values()].map((hours) => ({
+    over: hours.some(overLimit),
+    approaching: hours.some((hour) => statuses(hour).includes('approaching')),
+    unknown: LIMIT_KEYS.filter((key) => hours.some((hour) => !knownStatus(hour.limit_status?.[key]))),
+  }));
+  return {
+    known: knownLimits(findings),
+    times,
+    expected_hours_over_limit: nominalPassageHours(findings).filter(({ hour }) => overLimit(hour)).length,
+  };
+}
+
+/** The hour figures of a profile against `limits` (see passageLimitHours). */
+function hourFigures(profile: HourProfile, limits: ReadonlySet<LimitKey>): HourFigures {
+  let over = 0, approaching = 0, noData = 0;
+  for (const time of profile.times) {
+    if (time.over) over += 1;
+    else if (time.unknown.some((key) => limits.has(key))) noData += 1;
+    else if (time.approaching) approaching += 1;
+  }
+  return { arrival_hours_over_limit: over, arrival_hours_approaching: approaching, arrival_hours_no_data: noData,
+    expected_hours_over_limit: profile.expected_hours_over_limit };
 }
 
 /**
@@ -441,24 +695,8 @@ export function presentLimits(profile: { max_wave_height_m?: number; max_steepne
  */
 export function passageLimitHours(findings: Findings | null | undefined,
   { limits }: { limits?: ReadonlySet<LimitKey> } = {}): HourFigures {
-  const counted = limits ?? new Set(LIMIT_KEYS.filter((key) => (findings?.legs ?? [])
-    .some((leg) => (leg.hours ?? []).some((hour) => knownStatus(hour.limit_status?.[key])))));
-  const byTime = new Map<string, LegHour[]>();
-  for (const leg of findings?.legs ?? []) {
-    for (const hour of leg.hours ?? []) {
-      const list = byTime.get(hour.valid_time);
-      if (list) list.push(hour);
-      else byTime.set(hour.valid_time, [hour]);
-    }
-  }
-  let over = 0, approaching = 0, noData = 0;
-  for (const hours of byTime.values()) {
-    if (hours.some(overLimit)) over += 1;
-    else if (hours.some((hour) => missingData(hour, counted))) noData += 1;
-    else if (hours.some((hour) => statuses(hour).includes('approaching'))) approaching += 1;
-  }
-  const expected = nominalPassageHours(findings).filter(({ hour }) => overLimit(hour)).length;
-  return { arrival_hours_over_limit: over, arrival_hours_approaching: approaching, arrival_hours_no_data: noData, expected_hours_over_limit: expected };
+  const profile = hourProfile(findings);
+  return hourFigures(profile, limits ?? new Set(profile.known));
 }
 
 function passageMetrics(findings: AnalyzeResult['findings']) {

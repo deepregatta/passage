@@ -6,10 +6,11 @@ import DepartureComparison from './planner/DepartureComparison.jsx';
 import ActionBar from './planner/ActionBar.jsx';
 import ActionStatus from './planner/ActionStatus.jsx';
 import DepartureField from './planner/DepartureField.jsx';
+import RefineControl from './planner/RefineControl.jsx';
 import PlannerMap from './planner/PlannerMap.jsx';
 import usePlannerController, { validSpeed } from './planner/usePlannerController.jsx';
 import { POLAR_PERCENT_MAX, POLAR_PERCENT_MIN, polarPercentNote } from './planner/plannerInputs.js';
-import { ACTION, BUSY_BUTTON_LABEL, SOURCE, STOP_SCAN_LABEL, barStatus, mapHint, revealElement } from './planner/plannerFeedback.js';
+import { ACTION, BUSY_BUTTON_LABEL, SOURCE, STOP_REFINE_LABEL, STOP_SCAN_LABEL, barStatus, mapHint, revealElement } from './planner/plannerFeedback.js';
 import { gribRouteArea, gribRoutePoints } from '../lib/gribExport.js';
 import { useApp } from '../stores/appStore.js';
 import { useGrib } from '../stores/gribStore.js';
@@ -30,7 +31,7 @@ export default function Planner() {
     setName, setSpeeds, setDepartureLocal, setPolarPercent, busy, activeAction, failure, notice, staleRoute,
     departureIssue, blocked, retryAction, clearDraft, undoClear, clearedNotice, seededFromCompute, fitNonce, fileRef,
     route, distance, speedsValid, passageHours, addWaypoint, moveWaypoint,
-    runRouting, onGpx, runScan, stopScan, run, downloadLines
+    runRouting, onGpx, runScan, stopScan, run, downloadLines, runRefine, refineReason, refineCount, refineBothRankings,
   } = usePlannerController();
   // Every status below takes the same inputs; each one picks out its own action.
   const status = { activeAction, busy, failure, notice, onRetry: () => retryAction(failure?.kind), onSwitchToDraw: () => setMode('draw') };
@@ -61,13 +62,14 @@ export default function Planner() {
   // On a phone the primary action follows the sailor down the form.
   const primary = mode === 'compute' && !computed ? ACTION.compute : ACTION.check;
   const scanning = activeAction?.kind === ACTION.scan;
+  const refining = activeAction?.kind === ACTION.refine;
   const bar = {
-    // While a comparison runs the bar's button stops it (its progress is the bar's status).
-    label: scanning ? STOP_SCAN_LABEL
+    // While a comparison or its refinement runs the bar's button stops it (its progress is the bar's status).
+    label: refining ? STOP_REFINE_LABEL : scanning ? STOP_SCAN_LABEL
       : activeAction?.kind === primary ? BUSY_BUTTON_LABEL[primary]
       : primary === ACTION.compute ? 'Compute route' : 'Check this passage',
-    disabled: scanning ? false : busy !== null || (primary === ACTION.compute ? computeBlocked !== null : !canCheck),
-    onClick: scanning ? () => stopScan() : primary === ACTION.compute ? runRouting : () => run(),
+    disabled: scanning || refining ? false : busy !== null || (primary === ACTION.compute ? computeBlocked !== null : !canCheck),
+    onClick: scanning || refining ? () => stopScan() : primary === ACTION.compute ? runRouting : () => run(),
     failed: Boolean(failure),
     status: barStatus({
       failure, busy, blocked: primary === ACTION.compute ? computeBlocked : checkBlocked, mode, computed, waypoints, distance,
@@ -364,6 +366,18 @@ export default function Planner() {
             run({ departureUtc: candidate.departure_utc, route: rerouted?.route ?? route, source: SOURCE.comparison });
           }}
         >
+          <RefineControl
+            scan={scan}
+            reason={refineReason}
+            count={refineCount}
+            bothRankings={refineBothRankings}
+            downloadLine={downloadLines.refine}
+            busy={busy}
+            activeAction={activeAction}
+            onRefine={runRefine}
+            onStop={() => stopScan()}
+            status={status}
+          />
           <ActionStatus kind={ACTION.check} source={SOURCE.comparison} {...status} />
         </DepartureComparison>
       )}

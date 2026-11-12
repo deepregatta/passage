@@ -140,18 +140,61 @@ export default function DepartureComparison({ scan, departureLocal, busy, disabl
     );
   }
 
+  // Times added by refining go in a second row under their own day; the 6-hourly ones keep the first.
+  const refinedTimes = new Set(scan.refined?.departures ?? []);
   const days = [];
   for (const [i, c] of scan.candidates.entries()) {
     const stamp = fmtLocalTime(c.departure_utc); // "Mon 13 Jul 08:00" in browser-local time
     const day = stamp.slice(0, -6);
-    if (days.at(-1)?.day !== day) days.push({ day, cells: [] });
-    days.at(-1).cells.push({ ...c, index: i, hhmm: stamp.slice(-5) });
+    if (days.at(-1)?.day !== day) days.push({ day, cells: [], refinedCells: [] });
+    const cell = { ...c, index: i, hhmm: stamp.slice(-5), refined: refinedTimes.has(c.departure_utc) };
+    const today = days.at(-1);
+    (cell.refined ? today.refinedCells : today.cells).push(cell);
   }
   const bestIndex = ranking.best_index;
   const tiedIndices = new Set(ranking.tied_indices);
   const best = bestIndex !== null ? scan.candidates[bestIndex] : null;
   const allInsufficient = scan.candidates.every((c) => c.verdict === 'insufficient');
   const selectedDepartureMs = Date.parse(localDateTimeToIso(departureLocal));
+  const renderCell = (c) => {
+    const v = VERDICT[c.verdict] ?? VERDICT.insufficient;
+    const parts = [SCAN_VERDICT[c.verdict] ?? c.verdict];
+    if (c.refined) parts.push('added by refining');
+    if (c.passage_h) parts.push(`≈${Math.round(c.passage_h)} h passage`);
+    parts.push(...limitHourParts(c));
+    if (c.max_members) parts.push(`${c.max_members.exceed} of ${c.max_members.total} forecast scenarios exceed a limit`);
+    if (tiedIndices.has(c.index)) parts.push('effectively tied with the least-exposure time');
+    // The hours are given above; the delta's hour difference counted gusts only, twice where legs overlap.
+    if (c.delta && c.index > 0) parts.push(`gusts ${c.delta.peak_gust_kt > 0 ? '+' : ''}${Math.round(c.delta.peak_gust_kt)} kt vs first option`);
+    return (
+      <button
+        key={c.departure_utc}
+        type="button"
+        onClick={() => onPick(c)}
+        disabled={disabled || busy !== null}
+        aria-pressed={selectedDepartureMs === Date.parse(c.departure_utc)}
+        data-refined={c.refined || undefined}
+        title={`${fmtLocalTime(c.departure_utc)} local time (${localTimeZoneName()}) · ${parts.join(' · ')}`}
+        className={clsx(
+          'w-[66px] h-[54px] rounded-sm text-white flex flex-col items-center justify-center gap-0.5 disabled:opacity-40',
+          // Not by colour alone: a refined time also has a dashed inner edge (and its own row).
+          c.refined && 'border-2 border-dashed border-white/85',
+          selectedDepartureMs === Date.parse(c.departure_utc) && 'outline outline-2 outline-ink outline-offset-1',
+        )}
+        style={{ backgroundColor: v.hex }}
+      >
+        <span className="font-mono text-[12px] font-semibold">{c.hhmm}</span>
+        <span className="flex items-center gap-1">
+          <span className="text-[12px]" aria-hidden>
+            {c.index === bestIndex ? '◎' : v.glyph}
+            {tiedIndices.has(c.index) && ' ≈'}
+          </span>
+          {/* the verdict ignores missing hours; the tooltip gives their count */}
+          {hasMissing(c) && <span className="font-mono text-[12px] font-semibold" aria-hidden data-testid="missing-values-mark">?</span>}
+        </span>
+      </button>
+    );
+  };
 
   return (
     <section className="mt-6 border-t border-ink/40 pt-3" aria-label="Departure comparison">
@@ -172,42 +215,14 @@ export default function DepartureComparison({ scan, departureLocal, busy, disabl
           <div key={d.day}>
             <p className="font-instrument text-[12px] uppercase tracking-wider text-ink-soft mb-1">{d.day}</p>
             <div className="flex gap-1.5">
-              {d.cells.map((c) => {
-                const v = VERDICT[c.verdict] ?? VERDICT.insufficient;
-                const parts = [SCAN_VERDICT[c.verdict] ?? c.verdict];
-                if (c.passage_h) parts.push(`≈${Math.round(c.passage_h)} h passage`);
-                parts.push(...limitHourParts(c));
-                if (c.max_members) parts.push(`${c.max_members.exceed} of ${c.max_members.total} forecast scenarios exceed a limit`);
-                if (tiedIndices.has(c.index)) parts.push('effectively tied with the least-exposure time');
-                // The hours are given above; the delta's hour difference counted gusts only, twice where legs overlap.
-                if (c.delta && c.index > 0) parts.push(`gusts ${c.delta.peak_gust_kt > 0 ? '+' : ''}${Math.round(c.delta.peak_gust_kt)} kt vs first option`);
-                return (
-                  <button
-                    key={c.departure_utc}
-                    type="button"
-                    onClick={() => onPick(c)}
-                    disabled={disabled || busy !== null}
-                    aria-pressed={selectedDepartureMs === Date.parse(c.departure_utc)}
-                    title={`${fmtLocalTime(c.departure_utc)} local time (${localTimeZoneName()}) · ${parts.join(' · ')}`}
-                    className={clsx(
-                      'w-[66px] h-[54px] rounded-sm text-white flex flex-col items-center justify-center gap-0.5 disabled:opacity-40',
-                      selectedDepartureMs === Date.parse(c.departure_utc) && 'outline outline-2 outline-ink outline-offset-1',
-                    )}
-                    style={{ backgroundColor: v.hex }}
-                  >
-                    <span className="font-mono text-[12px] font-semibold">{c.hhmm}</span>
-                    <span className="flex items-center gap-1">
-                      <span className="text-[12px]" aria-hidden>
-                        {c.index === bestIndex ? '◎' : v.glyph}
-                        {tiedIndices.has(c.index) && ' ≈'}
-                      </span>
-                      {/* the verdict ignores missing hours; the tooltip gives their count */}
-                      {hasMissing(c) && <span className="font-mono text-[12px] font-semibold" aria-hidden data-testid="missing-values-mark">?</span>}
-                    </span>
-                  </button>
-                );
-              })}
+              {d.cells.map(renderCell)}
             </div>
+            {d.refinedCells.length > 0 && (
+              // At most four cells across, like the 6-hourly row, so a busy day wraps instead of widening the page on a phone.
+              <div className="flex flex-wrap gap-1.5 mt-1.5 max-w-[282px]" data-testid="refined-row">
+                {d.refinedCells.map(renderCell)}
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -242,7 +257,7 @@ export default function DepartureComparison({ scan, departureLocal, busy, disabl
             where they diverge and when the next update is due.</>
           )}
         </p>
-        <span className="flex gap-4 font-sans text-[12px] text-ink-soft">
+        <span className="flex flex-wrap gap-x-4 gap-y-1 font-sans text-[12px] text-ink-soft">
           {['within', 'approaching', 'exceeds', 'insufficient'].map((s) => (
             <span key={s} className="flex items-center gap-1.5">
               <span className="w-3.5 h-2.5 inline-block rounded-[2px]" style={{ backgroundColor: VERDICT[s].hex }} />
@@ -259,6 +274,12 @@ export default function DepartureComparison({ scan, departureLocal, busy, disabl
             <span className="flex items-center gap-1.5">
               <span aria-hidden>≈</span>
               effectively tied with the least exposure
+            </span>
+          )}
+          {days.some((d) => d.refinedCells.length > 0) && (
+            <span className="flex items-center gap-1.5">
+              <span aria-hidden className="w-3.5 h-2.5 inline-block rounded-[2px] border border-dashed border-ink" />
+              second row: added by refining, every 2 h
             </span>
           )}
         </span>

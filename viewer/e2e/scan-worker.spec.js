@@ -36,7 +36,7 @@ async function openPlanner(page, { inPage = false, passageId = 'coastal-20nm' } 
   await page.route(`**/api/polars/${meta.polarId}`, (route) => route.fulfill({ body: readFileSync(path.join(fixtures, 'api/polars', meta.polarId)), contentType: 'application/json' }));
   await page.addInitScript(({ meta, inPage, passageId }) => {
     // Count the Workers the page starts and ends, without changing them.
-    window.__scanWorkers = { started: 0, terminated: 0, scans: 0 };
+    window.__scanWorkers = { started: 0, terminated: 0, scans: 0, refines: 0 };
     const Native = window.Worker;
     window.Worker = class extends Native {
       constructor(...args) {
@@ -45,6 +45,7 @@ async function openPlanner(page, { inPage = false, passageId = 'coastal-20nm' } 
       }
       postMessage(message, ...rest) {
         if (message?.type === 'scan') window.__scanWorkers.scans += 1;
+        if (message?.type === 'refine') window.__scanWorkers.refines += 1;
         return super.postMessage(message, ...rest);
       }
       terminate() {
@@ -87,7 +88,7 @@ const storedScan = (page) => page.evaluate(async () => {
   // Worker's is not; with the Worker's clock fixed too, the whole comparison was found identical.
   const scan = usePlanner.getState().scan;
   return scan && JSON.parse(JSON.stringify(scan, function strip(key, value) {
-    if (key === 'computed_at' || key === 'fetched_at') return undefined;
+    if (key === 'computed_at' || key === 'fetched_at' || key === 'scanId') return undefined;
     if (key === 'content_digest' && this.layer === 'currents' && this.current_source === 'tiles') return undefined;
     return value;
   }));
@@ -116,6 +117,42 @@ test.describe('departure comparison in a Worker', () => {
     await scanButton(inPagePage).click();
     await expect(inPagePage.getByText('Departure comparison ready.', { exact: false })).toBeVisible({ timeout: 120_000 });
     expect(await inPagePage.evaluate(() => window.__scanWorkers.scans)).toBe(0);
+    expect(viaWorker).toEqual(await storedScan(inPagePage));
+    await other.close();
+  });
+
+  test('refines once in the same Worker, with the same result as the page refining it itself', async ({ page, browser }) => {
+    const refineButton = (p) => p.getByRole('button', { name: 'Refine around the least-exposure times' });
+    const refineOnce = async (p) => {
+      await scanButton(p).click();
+      await expect(p.getByText('Departure comparison ready.', { exact: false })).toBeVisible({ timeout: 120_000 });
+      await expect(refineButton(p)).toBeEnabled();
+      const adds = Number(/^Adds (\d+) departure/.exec(await p.getByText(/^Adds \d+ departure times?,/).textContent())[1]);
+      await refineButton(p).click();
+      await expect(p.getByText(/^Refined: \d+ more departure/)).toBeVisible({ timeout: 120_000 });
+      return adds;
+    };
+    const errors = await openPlanner(page);
+    const adds = await refineOnce(page);
+    expect(adds).toBeGreaterThan(0);
+    // the same Worker, still running, with one comparison and one refinement
+    expect(await page.evaluate(() => window.__scanWorkers)).toMatchObject({ started: 1, scans: 1, refines: 1, terminated: 0 });
+    const texts = await page.evaluate(() => window.__statusTexts);
+    const counted = new RegExp(`^Comparing departure times \\d+/${adds}…$`);
+    expect(texts.some((t) => counted.test(t))).toBe(true);
+    const viaWorker = await storedScan(page);
+    expect(viaWorker.refined.departures).toHaveLength(adds);
+    expect(viaWorker.requested).toBe(21 + adds);
+    expect(new Set(viaWorker.candidates.map((c) => c.departure_utc)).size).toBe(viaWorker.candidates.length);
+    await expect(page.getByTestId('refined-row').first()).toBeVisible();
+    await expect(refineButton(page)).toHaveCount(0); // once per comparison
+    expect(errors).toEqual([]);
+
+    const other = await browser.newContext({ timezoneId: 'Europe/Paris' });
+    const inPagePage = await other.newPage();
+    await openPlanner(inPagePage, { inPage: true });
+    expect(await refineOnce(inPagePage)).toBe(adds);
+    expect(await inPagePage.evaluate(() => window.__scanWorkers.refines)).toBe(0);
     expect(viaWorker).toEqual(await storedScan(inPagePage));
     await other.close();
   });

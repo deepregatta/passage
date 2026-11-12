@@ -63,6 +63,21 @@ function runReplaced(error) {
 }
 
 /**
+ * Run an action that must read the runs an earlier action read (a refinement
+ * of a departure comparison): no refresh before it, none while it runs (it
+ * counts as a running action, so others share its runs), and no retry on new
+ * runs if one was replaced; that failure is the caller's to report.
+ */
+export async function holdForecastRuns(action) {
+  activeActions += 1;
+  try {
+    return await action();
+  } finally {
+    activeActions -= 1;
+  }
+}
+
+/**
  * Run a user action that reads forecast tiles, on fresh runs. The action
  * receives `{ changed }`: the layers whose run was swapped just before it, so
  * a page that planned on the old runs can plan again.

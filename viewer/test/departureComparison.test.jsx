@@ -488,3 +488,49 @@ it('translates the missing-values legend into French', () => {
   expect(container).toHaveTextContent('valeurs de prévision manquantes sur une partie de la fenêtre d’arrivée estimée');
   expect(container).not.toHaveTextContent('forecast values missing');
 });
+
+it('puts refined times in a second row under their own day, wrapping at four cells, and keeps the 6-hourly row as it was', () => {
+  const coarse = ['2026-09-09T12:00:00Z', '2026-09-09T18:00:00Z', '2026-09-10T00:00:00Z', '2026-09-10T06:00:00Z'];
+  const refined = ['2026-09-09T14:00:00Z', '2026-09-09T16:00:00Z', '2026-09-09T20:00:00Z', '2026-09-09T22:00:00Z',
+    '2026-09-10T02:00:00Z', '2026-09-10T04:00:00Z'];
+  const all = [...coarse, ...refined].sort((a, b) => Date.parse(a) - Date.parse(b));
+  usePlanner.setState({
+    departureLocal: toLocalDateTimeValue(coarse[0]),
+    scan: { candidates: all.map((departure_utc) => ({ departure_utc, verdict: 'within', passage_h: 2, worst_ratio: departure_utc === refined[2] ? 0.2 : 0.8 })),
+      best_index: 4, skipped: [], refined: { departures: refined, around: [coarse[1], coarse[2]] } },
+  });
+  render(<Planner />);
+  const rows = comparison().getAllByTestId('refined-row');
+  const seen = [];
+  for (const row of rows) {
+    const column = row.parentElement;
+    const day = column.querySelector('p').textContent;
+    const [first] = column.querySelectorAll(':scope > div');
+    // the first row of the column holds only 6-hourly times, the second only refined ones, all of that day
+    expect([...first.querySelectorAll('button')].every((b) => !b.dataset.refined)).toBe(true);
+    for (const b of within(row).getAllByRole('button')) {
+      expect(b.dataset.refined).toBe('true');
+      expect(b.title.startsWith(day)).toBe(true);
+      expect(b).toHaveClass('border-dashed'); // not told apart by colour alone
+      seen.push(refined.find((d) => b.title.startsWith(`${fmtLocalTime(d)} `)));
+    }
+    expect(row).toHaveClass('flex-wrap', 'max-w-[282px]');
+  }
+  expect(seen).toEqual(refined);
+  expect(cells().filter((b) => !b.dataset.refined).map((b) => coarse.find((d) => b.title.startsWith(`${fmtLocalTime(d)} `)))).toEqual(coarse);
+  // the marked time is a refined one here
+  expect(cells().find((b) => b.title.startsWith(`${fmtLocalTime(refined[2])} `))).toHaveTextContent('◎');
+});
+
+it('translates a refined cell\'s tooltip and the second-row legend into French', () => {
+  const refined = ['2026-09-09T08:00:00Z'];
+  usePlanner.setState({
+    scan: { candidates: ['2026-09-09T06:00:00Z', ...refined, '2026-09-09T12:00:00Z'].map((departure_utc) => ({ departure_utc, verdict: 'within', passage_h: 2 })),
+      best_index: 0, skipped: [], refined: { departures: refined, around: ['2026-09-09T06:00:00Z'] } },
+  });
+  const { container } = render(<div id="root"><Planner /><LocalizedDocument language="fr" /></div>);
+  expect(container.textContent).toContain('seconde ligne\u00A0: ajoutées par l’affinage, toutes les 2 h');
+  const title = container.querySelector('button[data-refined="true"]').getAttribute('title');
+  expect(title).toContain('ajoutée par l’affinage');
+  expect(title).not.toMatch(/added by refining/);
+});

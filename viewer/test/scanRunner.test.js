@@ -1,12 +1,14 @@
 // The page side of the scan Worker: start, progress, result, cancel, fallback.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { forecastRunGone, ForecastRunGoneError } from '@deepweather/engine';
-import { runScanAction } from '../src/lib/scanAction.js';
-import { resetScanWorker, runScanJob, SCAN_FAILED, ScanCancelledError } from '../src/lib/scanRunner.js';
-import { serializeError } from '../src/lib/scanMessages.js';
+import { runRefineAction, runScanAction } from '../src/lib/scanAction.js';
+import {
+  refinableSnapshot, refineHeld, releaseRefinable, resetScanWorker, runRefineJob, runScanJob, SCAN_FAILED, ScanCancelledError, subscribeRefinable,
+} from '../src/lib/scanRunner.js';
+import { RefineUnavailableError, serializeError } from '../src/lib/scanMessages.js';
 
 vi.mock('../src/lib/forecastStore.js', () => ({ forecastStore: () => null }));
-vi.mock('../src/lib/scanAction.js', () => ({ runScanAction: vi.fn() }));
+vi.mock('../src/lib/scanAction.js', () => ({ runScanAction: vi.fn(), runRefineAction: vi.fn() }));
 
 /** A Worker double: records what the page posts and lets the test answer. */
 class FakeWorker {
@@ -40,6 +42,7 @@ beforeEach(() => {
   FakeWorker.instances = [];
   resetScanWorker();
   runScanAction.mockReset().mockResolvedValue({ inPage: true });
+  runRefineAction.mockReset().mockResolvedValue({ refinedInPage: true });
 });
 afterEach(() => {
   delete globalThis.__deepweatherScanInPage;
@@ -59,7 +62,7 @@ describe('runScanJob', () => {
     worker.reply({ type: 'progress', step: 'routing departures 3/21' });
     worker.reply({ type: 'progress', step: 'scanning departures 5/21' });
     worker.reply({ type: 'done', out: OUT });
-    await expect(job).resolves.toEqual(OUT);
+    await expect(job).resolves.toEqual({ ...OUT, scanId: expect.any(Number) });
     expect(progress).toEqual(['routing departures 3/21', 'scanning departures 5/21']);
     expect(runScanAction).not.toHaveBeenCalled();
     // the Worker stays for the next comparison
@@ -85,7 +88,7 @@ describe('runScanJob', () => {
     const second = FakeWorker.instances[1];
     await posted(second);
     second.reply({ type: 'done', out: OUT });
-    await expect(next).resolves.toEqual(OUT);
+    await expect(next).resolves.toEqual({ ...OUT, scanId: expect.any(Number) });
   });
 
   it('does not start when already cancelled', async () => {
@@ -126,8 +129,8 @@ describe('fallback: the page runs the comparison itself', () => {
   ])('when %s, and remembers it for the visit', async (_, createWorker) => {
     const progress = vi.fn();
     const pageStore = store();
-    await expect(runScanJob(REQUEST, { store: pageStore, createWorker, onProgress: progress })).resolves.toEqual({ inPage: true });
-    expect(runScanAction).toHaveBeenCalledWith(REQUEST, { store: pageStore, onProgress: progress });
+    await expect(runScanJob(REQUEST, { store: pageStore, createWorker, onProgress: progress })).resolves.toEqual({ inPage: true, scanId: expect.any(Number) });
+    expect(runScanAction).toHaveBeenCalledWith(REQUEST, { store: pageStore, onProgress: progress, keepContext: expect.any(Function) });
     const built = FakeWorker.instances.length;
     await runScanJob(REQUEST, { store: pageStore, createWorker: () => new FakeWorker() });
     expect(FakeWorker.instances).toHaveLength(built);
@@ -138,7 +141,7 @@ describe('fallback: the page runs the comparison itself', () => {
     vi.useFakeTimers();
     const job = runScanJob(REQUEST, { store: store(), createWorker: () => new FakeWorker({ ready: false }) });
     await vi.advanceTimersByTimeAsync(15_000);
-    await expect(job).resolves.toEqual({ inPage: true });
+    await expect(job).resolves.toEqual({ inPage: true, scanId: expect.any(Number) });
     expect(FakeWorker.instances[0].terminated).toBe(true);
   });
 
@@ -155,5 +158,116 @@ describe('fallback: the page runs the comparison itself', () => {
     const controller = new AbortController();
     runScanAction.mockImplementation(async () => { controller.abort(); return { inPage: true }; });
     await expect(runScanJob(REQUEST, { store: {}, signal: controller.signal })).rejects.toBeInstanceOf(ScanCancelledError);
+  });
+});
+
+describe('runRefineJob: one refinement of a comparison, where its inputs are held', () => {
+  const REFINED = { scan: { candidates: [], best_index: null, skipped: [] }, routes: {}, notes: [], currents: null, added: [], around: [], requested: 0 };
+  /** A finished comparison in a Worker: the Worker and the id it resolved with. */
+  async function scanned() {
+    const job = runScanJob(REQUEST, { store: store(), createWorker: () => new FakeWorker() });
+    const worker = FakeWorker.instances.at(-1);
+    await vi.waitFor(() => expect(worker.posted.length).toBeGreaterThan(0));
+    worker.reply({ type: 'done', out: OUT });
+    const { scanId } = await job;
+    return { worker, scanId };
+  }
+
+  it('asks the Worker that ran the comparison, forwards progress, and allows it once', async () => {
+    const { worker, scanId } = await scanned();
+    expect(refineHeld(scanId)).toBe(true);
+    const progress = [];
+    const job = runRefineJob(scanId, { onProgress: (step) => progress.push(step) });
+    await vi.waitFor(() => expect(worker.posted).toHaveLength(2));
+    expect(worker.posted[1]).toEqual({ type: 'refine', id: expect.any(Number), scanId });
+    expect(refineHeld(scanId)).toBe(false); // one refinement, whatever its outcome
+    worker.reply({ type: 'progress', step: 'scanning departures 2/4' });
+    worker.reply({ type: 'done', out: REFINED });
+    await expect(job).resolves.toEqual(REFINED);
+    expect(progress).toEqual(['scanning departures 2/4']);
+    await expect(runRefineJob(scanId)).rejects.toBeInstanceOf(RefineUnavailableError);
+    expect(worker.posted).toHaveLength(2); // nothing posted for a refinement it cannot run
+  });
+
+  it('stops by ending the Worker, which releases the comparison\'s inputs', async () => {
+    const { worker, scanId } = await scanned();
+    const controller = new AbortController();
+    const job = runRefineJob(scanId, { signal: controller.signal });
+    await vi.waitFor(() => expect(worker.posted).toHaveLength(2));
+    controller.abort();
+    await expect(job).rejects.toBeInstanceOf(ScanCancelledError);
+    expect(worker.terminated).toBe(true);
+    await expect(runRefineJob(scanId)).rejects.toBeInstanceOf(RefineUnavailableError);
+  });
+
+  it('is unavailable, without posting, once a newer comparison has started', async () => {
+    const first = await scanned();
+    const next = runScanJob(REQUEST, { store: store(), createWorker: () => new FakeWorker() });
+    expect(refineHeld(first.scanId)).toBe(false);
+    await vi.waitFor(() => expect(first.worker.posted).toHaveLength(2));
+    first.worker.reply({ type: 'done', out: OUT });
+    const { scanId } = await next;
+    expect(refineHeld(scanId)).toBe(true);
+    await expect(runRefineJob(first.scanId)).rejects.toBeInstanceOf(RefineUnavailableError);
+    expect(first.worker.posted).toHaveLength(2);
+  });
+
+  it('notices a Worker that fails between jobs: it is ended, its inputs released and subscribers told at once', async () => {
+    const { worker, scanId } = await scanned();
+    const told = vi.fn();
+    const unsubscribe = subscribeRefinable(told);
+    const version = refinableSnapshot();
+    worker.emit('error', { message: 'gone' }); // no job is running
+    expect(worker.terminated).toBe(true);
+    expect(refineHeld(scanId)).toBe(false);
+    expect(told).toHaveBeenCalledTimes(1);
+    expect(refinableSnapshot()).not.toBe(version);
+    unsubscribe();
+    await expect(runRefineJob(scanId)).rejects.toBeInstanceOf(RefineUnavailableError);
+    expect(worker.posted).toHaveLength(1);
+  });
+
+  it('releases a comparison\'s inputs on request: the Worker is told to drop them, the page drops its own', async () => {
+    const { worker, scanId } = await scanned();
+    releaseRefinable(scanId + 100); // another comparison: nothing happens
+    expect(refineHeld(scanId)).toBe(true);
+    expect(worker.posted).toHaveLength(1);
+    const told = vi.fn();
+    subscribeRefinable(told);
+    releaseRefinable(scanId);
+    expect(refineHeld(scanId)).toBe(false);
+    expect(told).toHaveBeenCalledTimes(1);
+    expect(worker.posted.at(-1)).toEqual({ type: 'release', scanId });
+    expect(worker.terminated).toBe(false); // the Worker stays for the next comparison
+    releaseRefinable(scanId); // twice: nothing more
+    expect(worker.posted).toHaveLength(2);
+    // in the page: the kept context is dropped
+    runScanAction.mockImplementation(async (_request, { keepContext }) => { keepContext({ kept: true }); return { inPage: true }; });
+    const inPage = await runScanJob(REQUEST, { store: {} });
+    expect(refineHeld(inPage.scanId)).toBe(true);
+    releaseRefinable(inPage.scanId);
+    expect(refineHeld(inPage.scanId)).toBe(false);
+    await expect(runRefineJob(inPage.scanId)).rejects.toBeInstanceOf(RefineUnavailableError);
+    expect(runRefineAction).not.toHaveBeenCalled();
+  });
+
+  it('rebuilds the Worker\'s "unavailable" answer', async () => {
+    const { worker, scanId } = await scanned();
+    const job = runRefineJob(scanId);
+    await vi.waitFor(() => expect(worker.posted).toHaveLength(2));
+    worker.reply({ type: 'error', error: serializeError(new RefineUnavailableError()) });
+    await expect(job).rejects.toBeInstanceOf(RefineUnavailableError);
+  });
+
+  it('refines in the page, on the context the page kept, where the comparison ran in the page', async () => {
+    const context = { kept: true };
+    runScanAction.mockImplementation(async (_request, { keepContext }) => { keepContext(context); return { inPage: true }; });
+    const { scanId } = await runScanJob(REQUEST, { store: {} });
+    expect(refineHeld(scanId)).toBe(true);
+    const onProgress = vi.fn();
+    await expect(runRefineJob(scanId, { onProgress })).resolves.toEqual({ refinedInPage: true });
+    expect(runRefineAction).toHaveBeenCalledWith(context, { onProgress });
+    await expect(runRefineJob(scanId)).rejects.toBeInstanceOf(RefineUnavailableError);
+    expect(runRefineAction).toHaveBeenCalledTimes(1);
   });
 });

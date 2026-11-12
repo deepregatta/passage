@@ -489,10 +489,12 @@
         "compute",
         "draw",
         "fast",
+        "forecast-updated",
         "function",
         "gpx-import",
         "nominal",
         "passage_attempt",
+        "refining departures",
         "route",
         "slow",
         "through_water",
@@ -577,6 +579,9 @@
         "message"
       ],
       "viewer/src/pages/planner/ActionStatus.jsx": [
+        "polite"
+      ],
+      "viewer/src/pages/planner/RefineControl.jsx": [
         "polite"
       ]
     },

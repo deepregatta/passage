@@ -190,6 +190,62 @@ These tests cover it:
 Browser specs that replace the page store's reads set
 `window.__deepweatherScanInPage` so that the scan stays on the page.
 
+### Refining a comparison (D2)
+
+A refinement adds departure times around the marked and tied times of a finished
+comparison and merges them in. Its inputs are the comparison's own: the Worker
+(or the page, in the fallback) keeps that comparison's frozen bundle, routing
+inputs and current input for one refinement, and nothing crosses back to the
+page. That is the comparison's whole working set (its pinned store with up to
+64 MB of decoded tiles, its grids and records), so it is released as soon as the
+comparison can no longer be refined: after the refinement, on Stop, a failure or
+a Worker error, at the next comparison, and when the page drops the comparison
+(cleared, no longer current, the planner left, its forecast runs replaced); the
+page then posts `release` to the Worker. Changed limits keep it. `scanDepartures(base, departures, onCandidate, { refinable: true })` adds
+the engine's refinement data (per candidate: its event keys, absolute gust
+metrics and a reduced hour profile; the scan's departures and current input);
+without the option the result is unchanged, and the scan golden still passes
+byte for byte.
+
+- `engine/test/refineScan.test.ts`: the central property, on 120 generated seeds
+  with missing values, failed departures (the first one included) and a layer
+  present only at refined times: `refineScan(coarse)` equals one
+  `scanDepartures` over the merged departure list on the coarse scan's current
+  input (candidates, `best_index`, ties in both rankings, `input_records`,
+  skipped). The equality holds whenever the coarse current input covers every
+  refined time: on a prepared grid, a refined time the grid does not cover is
+  deliberately listed as not assessed (so no second current source is used),
+  where the pinned-input oracle would audit it. The test asserts the property is not vacuous (refining moved the
+  mark, and changed earlier times' hour figures, in dozens of seeds). Also: every
+  baseline-relative field, one current input across both passes, which times are
+  added (clamping at both ends, no re-added skipped time, ties and both rankings),
+  and that the reduced hour profile gives the same figures as counting the hours,
+  for every set of limits.
+- `engine/test/refineScanFixtures.test.ts`: the same property on the committed
+  Cherbourg -> Plymouth fixtures; a drawn scan resolving its current once for
+  both passes; a computed scan routing its refined times on the comparison's
+  prepared or tile grid only (`routeOnSelectedCurrent`), never another; a
+  refined time outside the prepared grid listed as not assessed.
+- `viewer/test/scanWorker.test.js`: the refinement through the Worker handler
+  equals the page's own, loads nothing again, answers a stale or second request
+  with "unavailable", and drops the inputs on `release`; `scanRunner.test.js`: one
+  refinement where the inputs are held, Stop ends the Worker and releases them, a
+  newer comparison releases them, a Worker failing between jobs is ended and its
+  subscribers told at once, `releaseRefinable` in the Worker and in-page paths.
+- `viewer/test/plannerRefine.test.jsx`: the action, its count, progress, Stop,
+  stale inputs, refusal when the forecast runs or limits changed (at render and
+  at the click), failures that never retry on other data, the second row with
+  the mark and ties, the wording when no added time was assessed and when only
+  the Typical ranking exists, each message shown once, the release of the held
+  inputs (dropped, cleared, left, forecast replaced; not for changed limits),
+  French. `departureComparison.test.jsx`: the row under its
+  own day and the French tooltip. `downloadQuote.test.js` and
+  `plannerDownloadQuote.test.jsx`: the refine download line.
+- `viewer/e2e/scan-worker.spec.js`: a real refinement in the same Worker, equal
+  to the page refining it itself.
+- The browser harness times a refinement with `PERF_REFINE=1`
+  (`viewer/e2e/perf/scan-responsiveness.perf.js`).
+
 Prepared discovery bypasses a stale HTTP pointer at each action and does not
 memoize failures. Artifact paths are resolved from one selected pointer; saved
 chart references remain verbatim. Input provenance includes canonical FNV-1a64

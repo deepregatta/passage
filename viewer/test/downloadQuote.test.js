@@ -176,6 +176,35 @@ describe('the quote names the tiles Compute, Check and Scan fetch', () => {
     expect(scan.layers.find((l) => l.layer === 'currents').tiles).toBe(compute.layers.find((l) => l.layer === 'currents').tiles);
   });
 
+  it('Refine, drawn route: the tiles the added departures read in the comparison\'s window, already held after the comparison', async () => {
+    const departureUtc = '2026-07-20T08:00:00Z';
+    const departures = candidateDepartures(Date.parse(departureUtc), 120, 6);
+    const dateWindow = scanDateWindow(departures, 48, NOW);
+    const added = ['2026-07-21T14:00:00Z', '2026-07-21T16:00:00Z', '2026-07-21T20:00:00Z', '2026-07-21T22:00:00Z'];
+    const refine = { departures: added, dateWindow, rerouted: false };
+    // on its own, the quote names exactly what auditing those departures in that window reads
+    const alone = await quoteFor({ route, departureUtc, passageHours: 48, want: { refine: true }, refine });
+    await scanDepartures({ route, profile: limits, departureUtc, store: setup.store, now: () => NOW, dateWindow }, added);
+    expect(perLayer(alone.refine)).toEqual(fetchedPerLayer(setup.fetched));
+    expect(alone.refine.downloadTiles).toBe(alone.refine.tiles);
+    // after the comparison over the same window, everything a refinement reads is on the device
+    await scanDepartures({ route, profile: limits, departureUtc, store: setup.store, now: () => NOW, dateWindow }, departures);
+    const after = await quoteFor({ route, departureUtc, passageHours: 48, want: { refine: true }, refine });
+    expect(after.refine).toMatchObject({ downloadTiles: 0 });
+    expect(downloadLine(after.refine)).toBe('Forecast tiles already on this device');
+    // nothing to refine, nothing quoted
+    expect((await quoteFor({ route, want: { refine: true }, refine: { ...refine, departures: [] } })).refine).toBeNull();
+  });
+
+  it('Refine, computed route: the audit layers over the box only; no routing or current tile, those grids are held', async () => {
+    const endpoints = [{ lat: 49.2, lng: -5.2 }, { lat: 50.7, lng: -4.6 }];
+    const refine = { departures: ['2026-07-21T14:00:00Z'], dateWindow: null, rerouted: true };
+    const { scan, refine: refined } = await quoteFor({ mode: 'compute', endpoints, polarId: 'test', route, want: { scan: true, refine: true }, refine });
+    expect(perLayer(refined)).toEqual({ weather: 2, ensemble: 2, waves: 2, 'weather-ecmwf': 2, 'weather-ecmwf-short': 2 });
+    expect(perLayer(scan)).toMatchObject({ currents: 2 });
+    expect(refined.bytes).toBeLessThan(scan.bytes);
+  });
+
   it('subtracts what the cache holds, and never fetches while quoting', async () => {
     const before = setup.fetched.size;
     const first = await quoteFor({ route, want: { check: true } });
@@ -188,7 +217,7 @@ describe('the quote names the tiles Compute, Check and Scan fetch', () => {
   });
 
   it('answers nothing for an action that was not asked for, a store without weather, or a route it cannot schedule', async () => {
-    expect(await quoteFor({ route, want: {} })).toEqual({ compute: null, scan: null, check: null });
+    expect(await quoteFor({ route, want: {} })).toEqual({ compute: null, scan: null, check: null, refine: null });
     const none = await quotePlannerActions({
       store: setup.store, manifests: () => null, mode: 'draw', endpoints: [], polarId: null, route, departureUtc: '2026-07-20T08:00:00Z',
       passageHours: null, want: { check: true },

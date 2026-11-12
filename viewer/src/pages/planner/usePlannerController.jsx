@@ -1,16 +1,18 @@
 import { captureActionDraft } from '../../lib/actionInputs.js';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { deriveLegs, totalDistanceNm, parseGpx } from '@deepweather/engine';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { contentHash, deriveLegs, forecastRunGone, totalDistanceNm, parseGpx, refinementDepartures } from '@deepweather/engine';
 import { track } from '../../lib/analytics.js';
 import { localDateTimeToIso, toLocalDateTimeValue } from '../../lib/format.js';
 import { useApp } from '../../stores/appStore.js';
-import { usePlanner } from '../../stores/plannerStore.js';
+import { RANK_CAUTIOUS, usePlanner } from '../../stores/plannerStore.js';
 import { analyzeInBrowser, saveRoute, prepareAnalysisInputs } from '../../lib/browserAnalysis.js';
 import { routeOnOneCurrent, scanDeparturesFor } from '../../lib/scanAction.js';
-import { ScanCancelledError, runScanJob } from '../../lib/scanRunner.js';
+import {
+  ScanCancelledError, refinableSnapshot, refineHeld, releaseRefinable, runRefineJob, runScanJob, subscribeRefinable,
+} from '../../lib/scanRunner.js';
 import { loadRoutingInputs as loadLiveRoutingInputs, routedOutcome } from '../../lib/routingInputs.js';
 import { forecastStore } from '../../lib/forecastStore.js';
-import { withFreshForecast } from '../../lib/forecastFreshness.js';
+import { holdForecastRuns, refreshForecastIfStale, withFreshForecast } from '../../lib/forecastFreshness.js';
 import { validateDeparture } from './departureInput.js';
 import useDownloadQuotes from './useDownloadQuotes.js';
 import { loadPorts, loadedPorts, portNameAt } from '../../lib/ports.js';
@@ -28,6 +30,24 @@ export const validSpeed = (value) => Number.isFinite(value) && value > 0;
 /** What the scan button's status says when a comparison is stopped. */
 export const SCAN_STOPPED = 'Comparison stopped.';
 export const SCAN_STOPPED_STALE = 'Comparison stopped: the route or departure changed. Compare again.';
+/** What the refine control's status says when a refinement is stopped: the comparison stays as it was. */
+export const REFINE_STOPPED = 'Refining stopped. The comparison is unchanged. Compare again to refine.';
+/** Why a comparison cannot be refined (the control is shown disabled with this reason). */
+export const REFINE_REASON = Object.freeze({
+  nothing: 'No other departure times to add within this comparison.',
+  notHeld: 'This comparison can no longer be refined. Compare again to refine.',
+  limits: 'Your limits have changed since this comparison. Compare again to refine.',
+  forecast: 'The forecast has been updated since this comparison. Compare again to refine.',
+});
+
+/** The digest of a store's pinned runs, or null when it cannot say (not loaded yet). */
+function runsDigest(store) {
+  try {
+    return typeof store?.describe === 'function' ? contentHash(store.describe()) : null;
+  } catch {
+    return null;
+  }
+}
 
 /** Owns the draft, routing, scan and audit lifecycle for the planner page. */
 export default function usePlannerController() {
@@ -275,6 +295,7 @@ export default function usePlannerController() {
   const runScan = useCallback(async () => {
     if (!route || !departureUtc || !speedsValid || departureIssue) return;
     const run = {
+      kind: ACTION.scan,
       controller: new AbortController(),
       // What this comparison is for, captured at the click: if any of it changes
       // while it runs it is stopped, and afterwards the result is dropped instead of shown.
@@ -317,6 +338,10 @@ export default function usePlannerController() {
         ...out.scan, routes, rerouted: out.rerouted, requested: out.requested,
         notes: out.rerouted ? Object.values(routes)[0]?.notes ?? [] : [],
         basis: run.basis, anchorMs: run.anchorMs,
+        // What a refinement must still match: the runs and limits this comparison read,
+        // and where its inputs are held. Memory only, like the comparison itself.
+        scanId: out.scanId ?? null, runsDigest: out.forecastRuns ? contentHash(out.forecastRuns) : null,
+        profileRevision: draft.profileRevision, dateWindow: out.dateWindow ?? null, refined: null,
       });
       scanRunRef.current = null;
       endAction();
@@ -329,13 +354,16 @@ export default function usePlannerController() {
   }, [route, departureUtc, departureIssue, speedsValid, setScan, passageHours, mode, endpoints, waypoints, polarId, polarPercent, speeds, beginAction, endAction, failAction]);
 
   /** Stop the running comparison: nothing is shown from it, and the line under its button says why. */
-  const stopScan = useCallback((text = SCAN_STOPPED) => {
+  const stopScan = useCallback((text) => {
     const run = scanRunRef.current;
     if (!run) return;
     scanRunRef.current = null;
     run.controller.abort();
     endAction();
-    setNoticeState({ kind: ACTION.scan, text, signature: draftSignature(usePlanner.getState()) });
+    // A stopped refinement leaves its comparison in place; a stale one is said at the comparison's button.
+    const kind = run.kind === ACTION.refine && text === undefined ? ACTION.refine : ACTION.scan;
+    const said = text ?? (kind === ACTION.refine ? REFINE_STOPPED : SCAN_STOPPED);
+    setNoticeState({ kind, text: said, signature: draftSignature(usePlanner.getState()) });
   }, [endAction]);
   // The page answers while a comparison runs: a change to what it compares stops
   // it. Moving the departure to the anchor or one of its candidate times does not.
@@ -353,6 +381,86 @@ export default function usePlannerController() {
     scanRunRef.current = null;
     run?.controller.abort();
   }, []);
+
+  // Refining the comparison on show: why it cannot run (null when it can), and the times it would add.
+  // Re-rendered whenever the runner's held inputs change (a refinement taken, a Worker that failed or ended).
+  useSyncExternalStore(subscribeRefinable, refinableSnapshot);
+  const limits = useApp((s) => s.limits);
+  const refinement = useMemo(() => (scan && scan.candidates.length > 0 && !scan.refined ? refinementDepartures(scan) : null), [scan]);
+  const refineReason = (() => {
+    if (!refinement) return null;
+    if (refinement.departures.length === 0) return REFINE_REASON.nothing;
+    if (!refineHeld(scan.scanId)) return REFINE_REASON.notHeld;
+    if (scan.profileRevision && limits && contentHash(limits) !== scan.profileRevision) return REFINE_REASON.limits;
+    const runs = runsDigest(forecastStore());
+    if (scan.runsDigest && runs && runs !== scan.runsDigest) return REFINE_REASON.forecast;
+    return null;
+  })();
+  // The inputs held for a refinement are the comparison's whole working set (its pinned store with
+  // decoded tiles, routing and current grids, records). Release them as soon as it can no longer be
+  // refined: the comparison is replaced, dropped or cleared (any change of the comparison on show
+  // releases the previous one), the planner is left (unmount), or its forecast runs were replaced
+  // (the page's runs only move forward). Changed limits keep them: the limits can be changed back.
+  const scanId = scan?.scanId ?? null;
+  useEffect(() => () => { if (scanId !== null) releaseRefinable(scanId); }, [scanId]);
+  useEffect(() => {
+    if (scanId !== null && refineReason === REFINE_REASON.forecast) releaseRefinable(scanId);
+  }, [refineReason, scanId]);
+
+  /** Refine the comparison on show once, on the inputs it ran with. Never automatic. */
+  const runRefine = useCallback(async () => {
+    const held = usePlanner.getState().scan;
+    if (!held || !scan || held !== scan || busyRef.current !== null) return;
+    const { departures } = refinementDepartures(held);
+    const run = {
+      kind: ACTION.refine,
+      controller: new AbortController(),
+      basis: held.basis,
+      anchorMs: held.anchorMs,
+      departures: [...held.candidates.map((c) => Date.parse(c.departure_utc)), ...departures.map((iso) => Date.parse(iso))],
+    };
+    const current = () => scanRunRef.current === run;
+    scanRunRef.current = run;
+    beginAction(ACTION.refine);
+    setBusy('refining departures');
+    try {
+      // The runs this comparison read must still be the page's: a refinement never reads newer ones.
+      const store = forecastStore();
+      await refreshForecastIfStale({ store });
+      const appLimits = useApp.getState().limits;
+      if (held.profileRevision && appLimits && contentHash(appLimits) !== held.profileRevision) throw new Error(REFINE_REASON.limits);
+      const runs = runsDigest(store);
+      if (held.runsDigest && runs !== held.runsDigest) {
+        releaseRefinable(held.scanId); // replaced runs never come back
+        throw new Error(REFINE_REASON.forecast);
+      }
+      const out = await holdForecastRuns(() => runRefineJob(held.scanId, {
+        signal: run.controller.signal,
+        onProgress: (step) => { if (current()) setBusy(step); },
+      }));
+      if (!current()) return;
+      scanRunRef.current = null;
+      endAction();
+      const latest = usePlanner.getState().scan;
+      if (latest !== held) return; // the comparison was replaced or dropped meanwhile
+      const added = Object.fromEntries(Object.entries(out.routes).map(([candidateUtc, result]) => [candidateUtc, {
+        ...result, notes: out.notes, currents: out.currents,
+        inputKey: routingInputKey({ endpoints, polarId, departureLocal: toLocalDateTimeValue(candidateUtc), polarPercent }),
+      }]));
+      setScan({
+        ...held, ...out.scan, routes: { ...held.routes, ...added },
+        requested: (held.requested ?? held.candidates.length + held.skipped.length) + out.requested,
+        refined: { departures: out.added, around: out.around },
+      });
+    } catch (e) {
+      if (!current()) return;
+      scanRunRef.current = null;
+      endAction();
+      if (e instanceof ScanCancelledError) return;
+      const gone = forecastRunGone(e) || e?.code === 'forecast-updated';
+      failAction(ACTION.refine, gone ? new Error(REFINE_REASON.forecast) : e);
+    }
+  }, [scan, endpoints, polarId, polarPercent, setScan, beginAction, endAction, failAction]);
 
   // arriving from a briefing's "Find a departure that fits": run the scan once, then clear the flag
   const autoScan = usePlanner((s) => s.autoScan);
@@ -408,14 +516,16 @@ export default function usePlannerController() {
   // Scan is held by the same reasons as Check. The line under a button is for an action that can run.
   const canCheck = blocked(ACTION.check) === null;
   const downloadLines = useDownloadQuotes({
-    want: { compute: mode === 'compute' && blocked(ACTION.compute) === null, scan: canCheck, check: canCheck },
+    want: { compute: mode === 'compute' && blocked(ACTION.compute) === null, scan: canCheck, check: canCheck,
+      refine: Boolean(refinement) && refineReason === null },
     busy, mode, endpoints, polarId, route, departureUtc, passageHours,
+    refine: refinement && scan ? { departures: refinement.departures, dateWindow: scan.dateWindow, rerouted: scan.rerouted } : null,
   });
 
   /** Run again whatever just failed. A failed GPX import has nothing to re-run: it asks for another file. */
   const retryAction = (kind) => {
     if (kind === ACTION.compute) runRouting();
-    else if (kind === ACTION.scan) runScan();
+    else if (kind === ACTION.scan || kind === ACTION.refine) runScan();
     else if (kind === ACTION.check) run();
     else fileRef.current?.click();
   };
@@ -448,6 +558,8 @@ export default function usePlannerController() {
     seededFromCompute: mode === 'draw' && seededFromCompute && waypoints.length > 0,
     clearedNotice: cleared?.signature === signature,
     route, distance, speedsValid, passageHours, departureUtc, addWaypoint, moveWaypoint,
-    runRouting, onGpx, runScan, stopScan, run, downloadLines
+    runRouting, onGpx, runScan, stopScan, run, downloadLines,
+    runRefine, refineReason, refineCount: refinement?.departures.length ?? 0,
+    refineBothRankings: refinement?.rankings.includes(RANK_CAUTIOUS) ?? false,
   };
 }

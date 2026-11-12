@@ -3,7 +3,7 @@
  * strings are translated here, at the point they are shown. */
 
 /** The planner actions that can be busy or fail; each shows its own status. */
-export const ACTION = Object.freeze({ compute: 'compute', scan: 'scan', check: 'check', gpx: 'gpx' });
+export const ACTION = Object.freeze({ compute: 'compute', scan: 'scan', refine: 'refine', check: 'check', gpx: 'gpx' });
 
 /** Where an action was started from, when it is not its usual button. */
 export const SOURCE = Object.freeze({ comparison: 'comparison' });
@@ -12,11 +12,29 @@ export const SOURCE = Object.freeze({ comparison: 'comparison' });
 export const BUSY_BUTTON_LABEL = Object.freeze({
   compute: 'Computing route…',
   scan: 'Comparing departure times…',
+  refine: 'Refining…',
   check: 'Checking this passage…',
 });
 
 /** The control that stops a running departure comparison. */
 export const STOP_SCAN_LABEL = 'Stop comparing';
+/** The control that stops a running refinement of the comparison. */
+export const STOP_REFINE_LABEL = 'Stop refining';
+
+/**
+ * What the refine action will do, before it runs: `count` departure times it adds
+ * around the ◎ and ≈ times, of both rankings when `bothRankings` (the Cautious one
+ * has scenario evidence to rank on), else of the Typical ranking alone.
+ */
+export const refineAddsText = (count, bothRankings = false) =>
+  `Adds ${count} departure ${count === 1 ? 'time' : 'times'}, every 2 h within 6 h of each ◎ or ≈ time${bothRankings ? ' in either ranking' : ''}, from the same forecast as this comparison.`;
+
+/** When no added time could be assessed: no second row exists, and the times are listed as unassessed. */
+export const REFINED_NONE = 'Refined: none of the added departure times could be assessed. They are listed under Unassessed departures.';
+
+/** What a refinement did: `count` added departure times that were assessed (the others are listed as unassessed). */
+export const refinedText = (count) => (count === 0 ? REFINED_NONE
+  : `Refined: ${count} more departure ${count === 1 ? 'time' : 'times'} compared, every 2 h around the ◎ and ≈ times. They are in a second row under their day.`);
 
 const PROGRESS = {
   starting: 'Starting…',
@@ -34,6 +52,7 @@ const PROGRESS = {
   'evaluating against your limits': 'Comparing with your limits…',
   'saving immutable snapshot': 'Saving your check…',
   'scanning departures': 'Comparing departure times…',
+  'refining departures': 'Refining the comparison…',
 };
 
 /** Map a lib's progress string ("loading prepared data", "scanning departures 3/21")

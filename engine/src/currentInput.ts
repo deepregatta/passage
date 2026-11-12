@@ -153,6 +153,54 @@ function axisCovers(grid: RegionGrid, departureUtc: string): boolean {
   return times.length > 0 && times.every(Number.isFinite) && Number.isFinite(at) && times[0]! <= at && at <= times[times.length - 1]!;
 }
 
+/** Why a departure added to a computed scan is not routed: its route would leave the scan's prepared grid. */
+export const OUTSIDE_SELECTED_CURRENT = 'This departure time\'s route leaves the current grid used by the rest of the comparison.';
+
+/**
+ * Route more departures of an action whose current source is already chosen
+ * (a refinement of a computed scan), on exactly that source and never another:
+ * on a prepared grid in strict-current mode, with the audit's coverage test and
+ * the same `routing_request` stamp as selectRoutingCurrent; a departure the
+ * grid cannot carry fails with OUTSIDE_SELECTED_CURRENT instead of falling back
+ * to tiles. On tiles (or no current), the same non-strict routing as the scan's.
+ */
+export function routeOnSelectedCurrent<T extends { route: Route }>(options: {
+  departures: string[];
+  currentInput: CurrentInput;
+  route: (departureUtc: string, currentGrid: RegionGrid | undefined, strictCurrent: boolean) => T;
+}): Map<string, RoutingOutcome<T>> {
+  const { departures, currentInput } = options;
+  const grid = currentInput.grid;
+  const prepared = currentInput.provenance?.current_source === 'prepared' ? grid : undefined;
+  const results = new Map<string, RoutingOutcome<T>>();
+  const outside = () => ({ error: new Error(OUTSIDE_SELECTED_CURRENT) });
+  const digest = prepared ? gridDigest(prepared) : null;
+  for (const departureUtc of departures) {
+    if (currentInput.provenance?.current_source === 'prepared' && (!prepared || !axisCovers(prepared, departureUtc))) {
+      results.set(departureUtc, outside());
+      continue;
+    }
+    try {
+      const result = options.route(departureUtc, prepared ?? grid, Boolean(prepared));
+      if (!prepared) {
+        results.set(departureUtc, { result });
+        continue;
+      }
+      if (!currentGridCovers(prepared, { route: result.route, departureUtc })) {
+        results.set(departureUtc, outside());
+        continue;
+      }
+      results.set(departureUtc, { result: { ...result, route: { ...result.route, provenance: { ...result.route.provenance,
+        routing_request: { ...routingRequest(result.route), current_source: 'prepared', current_digest: digest } } } } });
+    } catch (error) {
+      if (prepared && currentGap(error)) results.set(departureUtc, outside());
+      else if (abortsAction(error)) throw error;
+      else results.set(departureUtc, { error });
+    }
+  }
+  return results;
+}
+
 /**
  * One current source for a Compute or a computed scan, by the audit's rule.
  * The prepared grid is used only when (1) its time axis holds every departure,

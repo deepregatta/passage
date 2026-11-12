@@ -33,7 +33,8 @@ export default function ActionStatus({
           )}
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={onRetry} className="min-h-11 px-3 border border-ink/50 rounded-sm hover:bg-white/50">
-              {kind === ACTION.gpx ? 'Choose another file' : 'Retry'}
+              {/* A failed refinement has released its comparison's inputs: the way on is a new comparison. */}
+              {kind === ACTION.gpx ? 'Choose another file' : kind === ACTION.refine ? 'Compare again' : 'Retry'}
             </button>
             {failed.polars && (
               <button type="button" onClick={onSwitchToDraw} className="min-h-11 px-3 border border-ink/50 rounded-sm hover:bg-white/50">

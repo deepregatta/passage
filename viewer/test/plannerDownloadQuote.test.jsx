@@ -8,6 +8,7 @@ import { useApp } from '../src/stores/appStore.js';
 import { loadRoutingInputs } from '../src/lib/routingInputs.js';
 import { analyzeInBrowser, prepareAnalysisInputs } from '../src/lib/browserAnalysis.js';
 import { QUOTE_TICK_MS } from '../src/pages/planner/useDownloadQuotes.js';
+import { refineHeld } from '../src/lib/scanRunner.js';
 import limits from '../../config/profiles/default-limits.json';
 
 const mapEvents = vi.hoisted(() => ({ click: null, fitBounds: vi.fn(), eachLayer: () => {}, on: () => {}, off: () => {} }));
@@ -51,6 +52,7 @@ vi.mock('../src/lib/forecastStore.js', () => ({
 vi.mock('@deepweather/engine', async (original) => ({
   ...await original(), computeRoute: vi.fn(), scanDepartures: vi.fn(),
 }));
+vi.mock('../src/lib/scanRunner.js', async (original) => ({ ...await original(), refineHeld: vi.fn() }));
 
 const NOW = '2026-09-10T09:00:00Z';
 const computeButton = () => screen.getByRole('button', { name: /^(Compute route|Computing route…)$/ });
@@ -323,4 +325,29 @@ it('offline after a successful init: ticks and ten edits over nine minutes make 
   at(10);
   await timers.fire();
   await waitFor(() => expect(fake.refresh).toHaveBeenCalledTimes(2));
+});
+
+it('adds a line under the refine action of a comparison on show, and says when its tiles are already here', async () => {
+  refineHeld.mockReturnValue(true);
+  render(<Planner />);
+  await compute();
+  const at = (h) => new Date(Date.parse('2026-09-12T06:00:00Z') + h * 3600_000).toISOString().replace(/\.\d{3}Z$/, 'Z');
+  const candidate = (h, verdict) => ({ departure_utc: at(h), verdict, worst_ratio: 1, max_fraction: null, ensemble_covered: false,
+    max_members: null, driver_summary: null, passage_h: 2, arrival_hours_over_limit: verdict === 'within' ? 0 : 3,
+    arrival_hours_approaching: 0, arrival_hours_no_data: 0, expected_hours_over_limit: 0 });
+  act(() => usePlanner.setState({ scan: {
+    candidates: [candidate(0, 'exceeds'), candidate(6, 'within'), candidate(12, 'exceeds')], best_index: 1, skipped: [],
+    routes: {}, rerouted: true, requested: 3, notes: [], scanId: 1, runsDigest: null, profileRevision: null, dateWindow: null, refined: null,
+  } }));
+  const refineButton = await screen.findByRole('button', { name: 'Refine around the least-exposure times' });
+  // a computed comparison's refinement routes on the grids it holds: only the audit layers over the box, no currents
+  await waitFor(() => expect(lineOf(refineButton)).toHaveTextContent('Downloads up to 10 MB of forecast tiles'));
+  expect(lineOf(scanButton())).toHaveTextContent('Downloads up to 13 MB of forecast tiles');
+  expect(refineButton).toHaveAttribute('aria-describedby', 'download-refine');
+  expect(fake.reads).not.toHaveBeenCalled();
+  // once the comparison has read them, nothing is left to fetch
+  fake.cached = new Set(['weather', 'currents', 'ensemble'].map((layer) => key(layer, 'N50W010')));
+  act(() => usePlanner.getState().patch({ name: 'Held tiles' }));
+  await act(async () => { window.dispatchEvent(new Event('focus')); });
+  await waitFor(() => expect(lineOf(refineButton)).toHaveTextContent('Forecast tiles already on this device'));
 });

@@ -11,6 +11,7 @@
 //                 PERF_RUNS      runs per case                   (default 3 at 1x, 2 at 4x and 6x)
 //                 PERF_VARIANTS  tiles, prepared-covering, prepared-runs-out, prepared-small
 //                                (default tiles; the prepared ones apply to channel-63nm only)
+//                 PERF_REFINE    1 to also time the comparison's refinement (D2) after the scan (default off)
 import { expect, test, devices } from '@playwright/test';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
@@ -28,6 +29,7 @@ const passages = csv(process.env.PERF_PASSAGES, 'coastal-20nm,channel-63nm,bisca
 });
 const rates = csv(process.env.PERF_RATES, '1,4,6').map(Number);
 const variants = csv(process.env.PERF_VARIANTS, 'tiles');
+const refine = process.env.PERF_REFINE === '1';
 const runsFor = (rate) => Number(process.env.PERF_RUNS ?? (rate === 1 ? 3 : 2));
 
 const allRuns = [];
@@ -101,6 +103,11 @@ for (const passage of passages) {
           record.computeCaption = (await page.locator('p:has-text("Weather-routed")').first().textContent())?.replace(/\s+/g, ' ').trim();
           await act('scan', page.getByRole('button', { name: 'Compare departure times (next 5 days)' }), 'Departure comparison ready');
           record.scanCandidatesShown = await page.getByRole('region', { name: 'Departure comparison' }).locator('button[title]').count();
+          if (refine) {
+            await act('refine', page.getByRole('button', { name: 'Refine around the least-exposure times' }), 'Refined:');
+            record.refineCandidatesShown = await page.getByRole('region', { name: 'Departure comparison' }).locator('button[title]').count();
+            console.log(`  refine: ${record.refine.totalMs} ms (longest block ${record.refine.longTasks.longestMs}, taps max delay ${record.refine.taps.maxDelayMs} ms, frames ${record.refine.frames}), ${record.refineCandidatesShown - record.scanCandidatesShown} times added`);
+          }
           allRuns.push(record);
           console.log(`${passage.id} ${variant} ${rate}x run ${run}: Compute ${record.compute.totalMs} ms (longest block ${record.compute.longTasks.longestMs}), Scan ${record.scan.totalMs} ms (longest block ${record.scan.longTasks.longestMs}, taps max delay ${record.scan.taps.maxDelayMs} ms, frames ${record.scan.frames})`);
           expect(errors, 'page errors').toEqual([]);

@@ -3,7 +3,7 @@ import { forecastStore } from '../../lib/forecastStore.js';
 import { FORECAST_CHECK_MS, refreshForecastIfStale } from '../../lib/forecastFreshness.js';
 import { downloadLine, quotePlannerActions } from '../../lib/downloadQuote.js';
 
-const NO_LINES = Object.freeze({ compute: null, scan: null, check: null });
+const NO_LINES = Object.freeze({ compute: null, scan: null, check: null, refine: null });
 
 /**
  * How often an open page re-quotes. Shorter than the freshness threshold on
@@ -38,12 +38,16 @@ export const QUOTE_TICK_MS = 60_000;
  * forecast run replaces the tiles an earlier quote counted as held. While an action
  * runs, or when an action is blocked, its line is hidden.
  *
- * @param {{ want: { compute: boolean, scan: boolean, check: boolean }, busy: string | null, mode: string,
+ * The refine line (under "Refine around the least-exposure times") is quoted the
+ * same way for the departures that refinement would add.
+ *
+ * @param {{ want: { compute: boolean, scan: boolean, check: boolean, refine?: boolean }, busy: string | null, mode: string,
  *   endpoints: Array<{lat: number, lng: number}>, polarId: string | null, route: object | null,
- *   departureUtc: string | null, passageHours: number | null }} inputs
+ *   departureUtc: string | null, passageHours: number | null,
+ *   refine?: { departures: string[], dateWindow: object | null, rerouted: boolean } | null }} inputs
  */
 export default function useDownloadQuotes(inputs) {
-  const { want, busy, mode, endpoints, polarId, route, departureUtc, passageHours } = inputs;
+  const { want, busy, mode, endpoints, polarId, route, departureUtc, passageHours, refine = null } = inputs;
   const [lines, setLines] = useState(NO_LINES);
   const [tick, setTick] = useState(0);
   const latest = useRef(inputs);
@@ -78,20 +82,21 @@ export default function useDownloadQuotes(inputs) {
     };
   }, [idle]);
 
-  const wantKey = [want.compute, want.scan, want.check].join('|');
+  const wantKey = [want.compute, want.scan, want.check, Boolean(want.refine)].join('|');
+  const refineKey = refine ? JSON.stringify([refine.departures, refine.dateWindow, refine.rerouted]) : '';
   const endpointsKey = JSON.stringify(endpoints.map(({ lat, lng }) => [lat, lng]));
   // The name and passage id are not inputs of a quote; the points, speeds and timing are.
   const routeKey = route ? JSON.stringify([route.waypoints?.map((p) => [p.lat, p.lon]), route.speeds_kt, route.timing]) : '';
 
   useEffect(() => {
     // A re-quote for the clock or focus alone keeps the line up; an edit clears it until the new figure is in.
-    const inputKey = [idle, wantKey, mode, endpointsKey, polarId, routeKey, departureUtc, passageHours].join('#');
+    const inputKey = [idle, wantKey, mode, endpointsKey, polarId, routeKey, departureUtc, passageHours, refineKey].join('#');
     if (shownFor.current !== inputKey) {
       shownFor.current = inputKey;
       setLines(NO_LINES);
     }
     const current = latest.current;
-    if (!idle || !(current.want.compute || current.want.scan || current.want.check)) return undefined;
+    if (!idle || !(current.want.compute || current.want.scan || current.want.check || current.want.refine)) return undefined;
     let live = true;
     (async () => {
       let quotes;
@@ -122,21 +127,23 @@ export default function useDownloadQuotes(inputs) {
         quotes = await quotePlannerActions({
           store, manifests: (layer) => store.manifestFor(layer), want: current.want, mode: current.mode,
           endpoints: current.endpoints, polarId: current.polarId, route: current.route,
-          departureUtc: current.departureUtc, passageHours: current.passageHours,
+          departureUtc: current.departureUtc, passageHours: current.passageHours, refine: current.refine ?? null,
         });
       } catch {
         return; // no figure rather than a wrong one
       }
       if (live) {
-        setLines({ compute: downloadLine(quotes.compute), scan: downloadLine(quotes.scan), check: downloadLine(quotes.check) });
+        setLines({ compute: downloadLine(quotes.compute), scan: downloadLine(quotes.scan), check: downloadLine(quotes.check),
+          refine: downloadLine(quotes.refine) });
       }
     })();
     return () => { live = false; };
-  }, [idle, tick, wantKey, mode, endpointsKey, polarId, routeKey, departureUtc, passageHours]);
+  }, [idle, tick, wantKey, mode, endpointsKey, polarId, routeKey, departureUtc, passageHours, refineKey]);
 
   return {
     compute: want.compute ? lines.compute : null,
     scan: want.scan ? lines.scan : null,
     check: want.check ? lines.check : null,
+    refine: want.refine ? lines.refine : null,
   };
 }

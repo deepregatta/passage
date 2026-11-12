@@ -6,9 +6,9 @@ import { ForecastRunGoneError, forecastRunGone } from '@deepweather/engine';
 import { captureActionDraft } from '../src/lib/actionInputs.js';
 import { loadRoutingInputs } from '../src/lib/routingInputs.js';
 import { prepareAnalysisInputs } from '../src/lib/browserAnalysis.js';
-import { runScanAction } from '../src/lib/scanAction.js';
+import { runRefineAction, runScanAction } from '../src/lib/scanAction.js';
 import { createScanHandler } from '../src/lib/scanWorkerHandler.js';
-import { rebuildError, serializeError } from '../src/lib/scanMessages.js';
+import { RefineUnavailableError, rebuildError, serializeError } from '../src/lib/scanMessages.js';
 import { ForecastUpdatedError, withFreshForecast } from '../src/lib/forecastFreshness.js';
 import limits from '../../config/profiles/default-limits.json';
 import { auditStore, DEPARTURE, routingInputs } from './fixtures/routingTiming.js';
@@ -89,6 +89,93 @@ describe('the scan across the Worker boundary', () => {
   it('fails as an updated forecast when the Worker cannot pin the page\'s runs', async () => {
     const messages = await viaWorker(request(), { pinStore: async () => { throw new ForecastUpdatedError(); } });
     expect(rebuildError(messages.at(-1).error)).toBeInstanceOf(ForecastUpdatedError);
+  });
+});
+
+// computed_at is the router's own wall clock; everything else must be identical
+const clean = (out) => JSON.parse(JSON.stringify(out, (key, value) => (key === 'computed_at' ? undefined : value)));
+
+describe('refining across the Worker boundary', () => {
+  const CATALOGUE = { runs: {}, layers: [], regionalLayers: [] };
+  /** A comparison, then a refinement, through one handler; every message cloned as postMessage would. */
+  async function scanThenRefine(mode, scanId = 7) {
+    const messages = [];
+    const handle = createScanHandler((message) => messages.push(structuredClone(message)), { pinStore: async () => store });
+    await handle(structuredClone({ type: 'scan', id: 7, request: request(mode), catalogue: CATALOGUE, nowMs: NOW }));
+    const scanned = messages.at(-1);
+    messages.length = 0;
+    await handle(structuredClone({ type: 'refine', id: 8, scanId }));
+    return { scanned, messages, handle };
+  }
+
+  it.each(['compute', 'draw'])('refines the %s comparison on the very inputs it ran with, as the page does, loading nothing again', async (mode) => {
+    const { scanned, messages } = await scanThenRefine(mode);
+    expect(scanned).toMatchObject({ type: 'done', id: 7 });
+    expect(Object.keys(scanned.out.scan)).not.toContain('refinement'); // the engine's refinement data never crosses
+    const done = messages.at(-1);
+    expect(done).toMatchObject({ type: 'done', id: 8 });
+    expect(loadRoutingInputs).toHaveBeenCalledTimes(mode === 'compute' ? 1 : 0);
+    expect(prepareAnalysisInputs).toHaveBeenCalledTimes(1);
+    // Uniform weather: every 6-hourly time is tied, so every 2 h time of the span is added once.
+    expect(done.out.added).toHaveLength(40);
+    expect(done.out.scan.candidates).toHaveLength(61);
+    expect(new Set(done.out.scan.candidates.map((c) => c.departure_utc)).size).toBe(61);
+    expect(Object.keys(done.out.scan)).not.toContain('refinement');
+    // the same refinement run by the page itself
+    let context;
+    await runScanAction(request(mode), { store, keepContext: (kept) => { context = kept; } });
+    expect(clean(done.out)).toEqual(clean(await runRefineAction(context)));
+    const steps = messages.filter((m) => m.type === 'progress').map((m) => m.step);
+    if (mode === 'compute') {
+      expect(steps[0]).toBe('routing departures 0/40');
+      expect(steps).toContain('routing departures 40/40');
+      // one current source across both passes: every refined route on the comparison's grid
+      const coarse = scanned.out.routes['2026-07-20T00:00:00Z'].route.provenance.routing_request;
+      for (const departure of done.out.added) {
+        expect(done.out.routes[departure].route.provenance.routing_request.current_run).toBe(coarse.current_run);
+      }
+    } else {
+      expect(done.out.routes).toEqual({});
+    }
+    expect(steps.at(-1)).toBe('scanning departures 40/40');
+  });
+
+  it('answers a refinement of another comparison, or a second refinement, with "unavailable", never silence', async () => {
+    const stale = await scanThenRefine('draw', 6);
+    expect(rebuildError(stale.messages.at(-1).error)).toBeInstanceOf(RefineUnavailableError);
+    // the stale request released nothing it did not hold: but one request per comparison, whatever it was
+    const { messages, handle } = await scanThenRefine('draw');
+    expect(messages.at(-1)).toMatchObject({ type: 'done', id: 8 });
+    messages.length = 0;
+    await handle({ type: 'refine', id: 9, scanId: 7 });
+    expect(messages).toHaveLength(1);
+    expect(rebuildError(messages[0].error)).toBeInstanceOf(RefineUnavailableError);
+  });
+
+  it('releases the inputs when the page drops the comparison, and only that comparison\'s', async () => {
+    const messages = [];
+    const handle = createScanHandler((message) => messages.push(structuredClone(message)), { pinStore: async () => store });
+    await handle({ type: 'scan', id: 1, request: request('draw'), catalogue: CATALOGUE, nowMs: NOW });
+    await handle({ type: 'release', scanId: 9 }); // another comparison's id: kept
+    await handle({ type: 'refine', id: 2, scanId: 1 });
+    expect(messages.at(-1)).toMatchObject({ type: 'done', id: 2 });
+    await handle({ type: 'scan', id: 3, request: request('draw'), catalogue: CATALOGUE, nowMs: NOW });
+    messages.length = 0;
+    await handle({ type: 'release', scanId: 3 });
+    expect(messages).toEqual([]); // a release is never answered
+    await handle({ type: 'refine', id: 4, scanId: 3 });
+    expect(rebuildError(messages.at(-1).error)).toBeInstanceOf(RefineUnavailableError);
+  });
+
+  it('releases the inputs when a newer comparison starts, and after a failed comparison holds none', async () => {
+    const messages = [];
+    const handle = createScanHandler((message) => messages.push(structuredClone(message)), { pinStore: async () => store });
+    await handle({ type: 'scan', id: 1, request: request('draw'), catalogue: CATALOGUE, nowMs: NOW });
+    prepareAnalysisInputs.mockRejectedValueOnce(new Error('offline'));
+    await handle({ type: 'scan', id: 2, request: request('draw'), catalogue: CATALOGUE, nowMs: NOW });
+    await handle({ type: 'refine', id: 3, scanId: 1 });
+    await handle({ type: 'refine', id: 4, scanId: 2 });
+    expect(messages.filter((m) => m.id >= 3).map((m) => rebuildError(m.error))).toEqual([expect.any(RefineUnavailableError), expect.any(RefineUnavailableError)]);
   });
 });
 

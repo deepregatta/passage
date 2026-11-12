@@ -19,7 +19,7 @@ import {
 import { fmtGribBytes } from './gribExport.js';
 import { scanDateWindow } from './scanWindow.js';
 
-const NONE = Object.freeze({ compute: null, scan: null, check: null });
+const NONE = Object.freeze({ compute: null, scan: null, check: null, refine: null });
 
 /** The departures of a comparison and the scan the Planner runs for them. */
 const SCAN_SPAN_H = 120;
@@ -48,6 +48,11 @@ async function quoted(read) {
  *   route box (each candidate is routed afresh, so its leg points are not known
  *   yet), both ECMWF layers, and no current tiles of its own (a scan is handed
  *   the routing grid).
+ * - refine: what a refinement of the comparison on show reads for the departures
+ *   it adds. Drawn: their audits, in that comparison's assessment window
+ *   (`refine.dateWindow`). Computed: only the audit layers over the route box; it
+ *   routes on the grids the comparison holds and audits on its current grid, so no
+ *   routing or current tile. Most of it is usually already on the device.
  *
  * @param {object} input
  * @param {{ manifestFor: Function, listedLayers?: Function, regionalLayerIds?: Function, hasTile?: Function }} input.store
@@ -59,10 +64,11 @@ async function quoted(read) {
  * @param {object | null} input.route  the route Check audits (drawn, or the computed one)
  * @param {string} input.departureUtc
  * @param {number | null} input.passageHours  the drawn route's nominal passage time, as the scan uses it
+ * @param {{ departures: string[], dateWindow: { startDate: string, endDate: string } | null, rerouted: boolean } | null} [input.refine]
  * @param {number} [input.nowMs]
  */
 export async function quotePlannerActions({
-  store, manifests, want, mode, endpoints, polarId, route, departureUtc, passageHours, nowMs = Date.now(),
+  store, manifests, want, mode, endpoints, polarId, route, departureUtc, passageHours, refine = null, nowMs = Date.now(),
 }) {
   if (!manifests('weather')) return NONE;
   const listed = typeof store.listedLayers === 'function' ? store.listedLayers() : undefined;
@@ -103,8 +109,27 @@ export async function quotePlannerActions({
       return quote(requests);
     });
   }
-  const [computeQuote, scanQuote, checkQuote] = await Promise.all([compute, scan, check]);
-  return { compute: computeQuote, scan: scanQuote, check: checkQuote };
+  let refineQuote = null;
+  if (want.refine && refine?.departures.length) {
+    refineQuote = quoted(() => {
+      if (refine.rerouted) {
+        // Routed on the routing grids the comparison already holds: only the audits read tiles,
+        // over the route box (the new routes are not known yet), with the held current grid.
+        if (endpoints.length !== 2) return null;
+        return quote(auditTileRequests(manifests, { where: { area: endpointBox() }, regionalLayers }));
+      }
+      if (!route || !refine.dateWindow) return null;
+      return quote(refine.departures.flatMap((departure) => {
+        try {
+          return audit(auditSamplePlan(route, departure, refine.dateWindow));
+        } catch {
+          return [];
+        }
+      }));
+    });
+  }
+  const [computeQuote, scanQuote, checkQuote, refineResult] = await Promise.all([compute, scan, check, refineQuote]);
+  return { compute: computeQuote, scan: scanQuote, check: checkQuote, refine: refineResult };
 }
 
 /**

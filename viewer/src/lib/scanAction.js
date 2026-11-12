@@ -3,7 +3,9 @@
 // and the page runs it itself where no Worker can start (scanRunner.js).
 // Everything in it reads the store it is given, so the forecast runs it sees
 // are the runs the caller pinned.
-import { candidateDepartures, computeRoute, scanDepartures, selectRoutingCurrent } from '@deepweather/engine';
+import {
+  candidateDepartures, computeRoute, refineScan, refinementDepartures, routeOnSelectedCurrent, scanDepartures, selectRoutingCurrent,
+} from '@deepweather/engine';
 import { freezeActionInputs } from './actionInputs.js';
 import { prepareAnalysisInputs } from './browserAnalysis.js';
 import { loadRoutingInputs, routedOutcome, routingCurrentSummary, selectedRoutingNotes } from './routingInputs.js';
@@ -72,11 +74,17 @@ export const routeOnOneCurrent = (inputs, departures, polarPercent, prepared = i
  * @param {import('@deepweather/engine').ForecastStore} [deps.store]  the store the action pins (the page's by default)
  * @param {(step: string) => void} [deps.onProgress]
  * @param {() => number} [deps.now]
+ * @param {(context: ScanContext) => void} [deps.keepContext]  receives what a refinement of this
+ *   comparison needs (runRefineAction). It holds grids and closures: it stays on the thread that ran
+ *   the comparison and never crosses to another.
  * @returns {Promise<{ scan: import('@deepweather/engine').WindowScan, routes: Record<string, object>, notes: string[],
- *   currents: object | null, rerouted: boolean, requested: number }>}
+ *   currents: object | null, rerouted: boolean, requested: number, forecastRuns: object,
+ *   dateWindow: { startDate: string, endDate: string } }>}
  *   `routes` holds each routed departure's outcome; the caller adds what depends on the page (its input key).
+ *   `forecastRuns` are the runs the comparison read (the pinned store's description); `dateWindow` its one
+ *   assessment window, which a refinement keeps (its download quote reads it).
  */
-export async function runScanAction(request, { store, onProgress = () => {}, now } = {}) {
+export async function runScanAction(request, { store, onProgress = () => {}, now, keepContext } = {}) {
   const { draft, departureUtc, mode, endpoints, polarId, polarPercent, passageHours } = request;
   const action = await prepareAnalysisInputs(draft, onProgress, store);
   const departures = scanDeparturesFor(departureUtc);
@@ -87,8 +95,9 @@ export async function runScanAction(request, { store, onProgress = () => {}, now
   let currentInput;
   let selection;
   let scanPassageHours = passageHours ?? 48;
+  let routingInputs;
   if (mode === 'compute' && endpoints.length === 2 && polarId) {
-    const inputs = await loadRoutingInputs({
+    routingInputs = await loadRoutingInputs({
       start: { lat: endpoints[0].lat, lon: endpoints[0].lng, name: 'Start' },
       finish: { lat: endpoints[1].lat, lon: endpoints[1].lng, name: 'Finish' },
       polarId,
@@ -102,11 +111,11 @@ export async function runScanAction(request, { store, onProgress = () => {}, now
     // action's prepared grid when every candidate stays inside it, else
     // tiles. A drawn scan selects coverage across every candidate in engine.
     onProgress(`routing departures 0/${departures.length}`);
-    selection = routeOnOneCurrent(inputs, departures, polarPercent,
+    selection = routeOnOneCurrent(routingInputs, departures, polarPercent,
       { currentGrid: action.currentGrid, currentGridProvenance: action.currentGridProvenance },
       (n) => onProgress(`routing departures ${n}/${departures.length}`));
     currentInput = selection.currentInput;
-    scanPassageHours = inputs.maxHours;
+    scanPassageHours = routingInputs.maxHours;
     routeFor = (candidateUtc) => {
       // A routing failure is reported as that candidate's skip reason.
       const result = routedOutcome(selection.results, candidateUtc);
@@ -120,12 +129,75 @@ export async function runScanAction(request, { store, onProgress = () => {}, now
   const dateWindow = scanDateWindow(departures, scanPassageHours);
   let audited = 0;
   const scanInputs = freezeActionInputs({ ...action, currentInput });
-  const scan = await scanDepartures({ ...scanInputs, routeFor, dateWindow, ...(now ? { now } : {}) }, departures, () => {
+  const base = { ...scanInputs, routeFor, dateWindow, ...(now ? { now } : {}) };
+  const { refinement, ...scan } = await scanDepartures(base, departures, () => {
     audited += 1;
     onProgress(`scanning departures ${audited}/${departures.length}`);
-  });
-  return {
+  }, { refinable: true });
+  const out = {
     scan, routes, notes: selection?.notes ?? [], currents: selection?.currents ?? null,
-    rerouted: Boolean(routeFor), requested: departures.length,
+    rerouted: Boolean(routeFor), requested: departures.length, forecastRuns: action.tileRuns, dateWindow,
   };
+  keepContext?.({
+    base, coarse: { ...scan, refinement }, notes: out.notes, currents: out.currents,
+    routing: selection ? { inputs: routingInputs, polarPercent, passageId: draft.route.passage_id, name: draft.route.name } : null,
+  });
+  return out;
+}
+
+/**
+ * What a refinement needs from the comparison it refines: the very inputs that
+ * comparison ran with (the frozen action inputs and pinned store, its one current
+ * input, its assessment window and clock, its routing inputs), and its result
+ * with the engine's refinement data. Kept on the thread that ran the comparison.
+ * @typedef {{ base: object, coarse: import('@deepweather/engine').RefinableScan, notes: string[], currents: object | null,
+ *   routing: { inputs: object, polarPercent: number, passageId: string, name: string } | null }} ScanContext
+ */
+
+/**
+ * Refine a comparison: route (computed) and audit the departures every 2 h
+ * around its marked and tied times, on exactly the comparison's inputs, and
+ * merge them in (engine refineScan). Nothing is loaded again: no newer forecast
+ * run, prepared grid or polar can enter.
+ * @param {ScanContext} context
+ * @param {{ onProgress?: (step: string) => void }} [deps]
+ * @returns {Promise<{ scan: import('@deepweather/engine').WindowScan, routes: Record<string, object>, notes: string[],
+ *   currents: object | null, added: string[], around: string[], requested: number }>}
+ */
+export async function runRefineAction(context, { onProgress = () => {} } = {}) {
+  const { base, coarse, routing } = context;
+  const { departures } = refinementDepartures(coarse);
+  const routes = {};
+  let routeFor;
+  if (routing) {
+    onProgress(`routing departures 0/${departures.length}`);
+    let routed = 0;
+    // On the comparison's own current grid, strict when it is the prepared one: never another source.
+    const results = routeOnSelectedCurrent({
+      departures,
+      currentInput: coarse.refinement.current_input,
+      route: (departureUtc, currentGrid, strictCurrent) => {
+        try {
+          return routeForDeparture(routing.inputs, departureUtc, routing.polarPercent, currentGrid, strictCurrent);
+        } finally {
+          routed += 1;
+          onProgress(`routing departures ${routed}/${departures.length}`);
+        }
+      },
+    });
+    routeFor = (candidateUtc) => {
+      const result = routedOutcome(results, candidateUtc);
+      routes[candidateUtc] = result;
+      return { ...result.route, passage_id: routing.passageId, name: routing.name };
+    };
+  }
+  onProgress(`scanning departures 0/${departures.length}`);
+  let audited = 0;
+  const { refinement: _engineData, refined_departures: added, refined_around: around, ...scan } = await refineScan(
+    { ...base, ...(routeFor ? { routeFor } : {}) }, coarse, {}, () => {
+      audited += 1;
+      onProgress(`scanning departures ${audited}/${departures.length}`);
+    },
+  );
+  return { scan, routes, notes: context.notes, currents: context.currents, added, around, requested: added.length };
 }

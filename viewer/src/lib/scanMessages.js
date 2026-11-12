@@ -4,6 +4,18 @@
 import { ForecastRunGoneError, forecastRunGone } from '@deepweather/engine';
 import { ForecastUpdatedError } from './forecastFreshness.js';
 
+/** The code of a refinement whose comparison's inputs are no longer held (see scanRunner.js). */
+export const REFINE_UNAVAILABLE_CODE = 'refine-unavailable';
+
+/** A refinement asked for a comparison whose inputs are gone: a Worker that ended, a newer comparison, one refinement already run. */
+export class RefineUnavailableError extends Error {
+  code = REFINE_UNAVAILABLE_CODE;
+  constructor() {
+    super('This comparison can no longer be refined. Compare again to refine.');
+    this.name = 'RefineUnavailableError';
+  }
+}
+
 /** @param {unknown} error */
 export function serializeError(error) {
   const gone = forecastRunGone(error);
@@ -19,6 +31,7 @@ export function serializeError(error) {
 /** The error the page throws for a serialized one. @param {ReturnType<typeof serializeError>} data */
 export function rebuildError(data) {
   if (data.code === 'forecast-updated') return new ForecastUpdatedError();
+  if (data.code === REFINE_UNAVAILABLE_CODE) return new RefineUnavailableError();
   if (data.gone) {
     const gone = new ForecastRunGoneError(data.gone.layer, data.gone.runId);
     return data.message === gone.message ? gone : new Error(data.message, { cause: gone });
