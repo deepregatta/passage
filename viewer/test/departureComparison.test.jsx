@@ -335,7 +335,9 @@ it('persists the ranking mode, defaults it for a draft saved without one, and ke
 });
 
 // ---- Hours over and approaching a limit (C4) ------------------------------------------------
+// A time with an hour over a limit "exceeds" unless told otherwise, as the audit would say.
 const limitHours = (over, approaching = 0, extra = {}) => ({
+  ...(over > 0 ? { verdict: 'exceeds' } : {}),
   arrival_hours_over_limit: over, arrival_hours_approaching: approaching, arrival_hours_no_data: 0, expected_hours_over_limit: over, ...extra,
 });
 
@@ -407,6 +409,52 @@ it('moves the mark to fewer hours over a limit before the ratio, in both modes',
   // the scenario share still comes first in Cautious: 0 for the second time
   expect(glyphOf(times[1])).toBe('◎');
   // with equal shares, the hours decide before the ratio
-  act(() => usePlanner.setState({ scan: rankedScan([limitHours(4, 0, { max_fraction: 0 }), limitHours(1, 0, { max_fraction: 0, worst_ratio: 0.95 })]) }));
+  act(() => usePlanner.setState({ scan: rankedScan([limitHours(4, 0, { max_fraction: 0 }), limitHours(1, 0, { max_fraction: 0, worst_ratio: 0.95 }), limitHours(3, 0, { max_fraction: 0 }), limitHours(5, 0, { max_fraction: 0 })]) }));
   expect(glyphOf(usePlanner.getState().scan.candidates[1].departure_utc)).toBe('◎');
+});
+
+it('marks a fully known time ahead of a calmer-looking one with missing forecast values, without changing its colour', () => {
+  // the first time reads "within limits" but misses 3 h; the second is fully known and approaching
+  usePlanner.setState({ scan: rankedScan([
+    limitHours(0, 0, { arrival_hours_no_data: 3, worst_ratio: 0.2 }),
+    limitHours(0, 2, { verdict: 'approaching', worst_ratio: 0.8 }),
+    limitHours(0, 3, { verdict: 'approaching', worst_ratio: 0.85 }),
+    limitHours(0, 0, { arrival_hours_no_data: 1, worst_ratio: 0.1 }),
+  ]) });
+  render(<Planner />);
+  const times = usePlanner.getState().scan.candidates.map(c => c.departure_utc);
+  expect(glyphOf(times[1])).toBe('◎');
+  expect(glyphOf(times[0])).toBe('✓'); // its verdict glyph and colour stay "within limits"
+  expect(cellFor(times[0]).title).toContain('within limits');
+  expect(cellFor(times[0]).title).toContain('a forecast value needed for your limits is missing for 3 h of your arrival range');
+  expect(summary()).toHaveTextContent(fmtLocalTime(times[1]));
+  expect(summary()).not.toHaveTextContent('missing forecast values');
+  // ties follow the ranking severity: the two approaching times tie, the masked ones do not
+  expect(glyphOf(times[2])).toMatch(/≈$/);
+  expect(glyphOf(times[3])).not.toContain('≈');
+  fireEvent.click(toggle('Cautious'));
+  expect(glyphOf(times[1])).toBe('◎');
+  expect(scanDepartures).not.toHaveBeenCalled();
+});
+
+it('says in the summary when the marked time itself has missing forecast values, in English and French', () => {
+  // every time misses some hours: the marked one is the least exposed of them, and the summary says it is incomplete
+  const scan = rankedScan(Array.from({ length: 4 }, (_, i) =>
+    limitHours(i === 1 ? 0 : 1, 0, { arrival_hours_no_data: 2, verdict: i === 1 ? 'within' : 'exceeds' })));
+  usePlanner.setState({ scan });
+  const view = render(<Planner />);
+  expect(glyphOf(scan.candidates[1].departure_utc)).toBe('◎');
+  expect(summary()).toHaveTextContent('The marked time is missing forecast values for 2 h of its arrival range.');
+  view.unmount();
+  usePlanner.setState({ scan });
+  const { container } = render(<div id="root"><Planner /><LocalizedDocument language="fr" /></div>);
+  expect(container).toHaveTextContent('Il manque des valeurs de prévision à l’heure marquée pendant 2 h de sa fenêtre d’arrivée estimée.');
+  expect(container).not.toHaveTextContent('The marked time is missing');
+  expect(container).toHaveTextContent('Une heure de départ à laquelle il manque des valeurs de prévision est classée après toute heure entièrement connue qui ne dépasse aucune limite et n’a pas d’alerte officielle.');
+});
+
+it('tells under the toggle that a time with missing forecast values ranks behind every fully known time that is not over a limit and has no official warning', () => {
+  usePlanner.setState({ scan: rankedScan() });
+  render(<Planner />);
+  expect(comparison().getByText(/A time with missing forecast values is ranked behind every fully known time that is not over a limit and has no official warning\./)).toBeInTheDocument();
 });

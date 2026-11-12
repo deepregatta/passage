@@ -219,16 +219,29 @@ intercepted POSTs. Demo fixture files must stay untouched.
 Departure ranking: `engine/test/window.test.ts` covers the hour figures on
 hand-built findings (each arrival-range hour counted once across overlapping
 legs and several limits, over before missing data before approaching, missing
-values for each limit, steepness with a known wave height, a layer missing from
-every candidate of a scan, an undeclared limit, the expected-timing count apart)
-and `rankCandidates` in both modes: key order, ranking on the arrival range
-rather than the expected timing, the 5 % and one-hour tie edges, ties measured
-against the marked time only (a chain of one-hour steps does not tie its far
-end), `Infinity` and `null` ratios, the first candidate kept on equal values, and
-the known limitation that missing data does not change the severity key.
+values for each limit including a steepness that lost its wave period, a layer
+missing from every candidate of a scan, an undeclared limit, the expected-timing
+count apart) and `rankCandidates` in both modes: key order, ranking on the arrival
+range rather than the expected timing, the worst-case severity for times with
+missing hours against fully known "within", "approaching", "insufficient",
+"exceeds" and "warning_active" times, "insufficient" times with known hours over a
+limit ranked at the exceeds level, the 5 % and one-hour tie edges, ties
+measured against the marked time only (a chain of one-hour steps does not tie its
+far end), `Infinity` and `null` ratios, and the first candidate kept on equal
+values. Generated scans (fixed seeds 1 to 200; 1 to 5 legs, some under an hour,
+all five limits, shared and unshared missing hours, verdicts from reasons that are
+not hours, verdicts consistent with the known hours) check that a time with
+missing hours is never marked ahead of a fully known time that is not over a limit
+and has no official warning; that with no missing hours the result equals the
+committed C4 ranking (f38b319) except for "insufficient" times with hours over a
+limit, which now rank at the exceeds level (no longer tied with, and in Cautious
+no longer marked ahead of, an "insufficient" time without any); and that the
+marked time does not depend on input order.
 `viewer/test/departureComparison.test.jsx` covers the toggle, the tie mark and
-summary, the tooltip hours and gust difference in English and French, and hours
-over a limit that fall outside the expected timing. A scan is never saved, so
+summary, the tooltip hours and gust difference in English and French, hours over a
+limit that fall outside the expected timing, a "within limits" cell with missing
+hours ranked after a fully known one without changing its colour, and the summary
+note when the marked time itself has missing hours. A scan is never saved, so
 neither suite touches a fixture, a schema or a saved identity.
 
 ## Saved identity and history regressions

@@ -484,8 +484,10 @@ describe('departure ranking copy', () => {
       '4 h au-dessus d’une limite dans votre fenêtre d’arrivée estimée · aucune selon l’horaire prévu'],
     ['gusts +3 kt vs first option', 'rafales +3 nd par rapport à la première option'],
     ['gusts -2 kt vs first option', 'rafales -2 nd par rapport à la première option'],
-    ['Typical: ranked on the main forecast against your limits, including how many hours of your arrival range are over or approaching a limit. Cautious: ranked first on how many forecast scenarios exceed your limits, then on those hours.',
-      'Habituel : classé d’après la prévision principale, face à vos limites, y compris le nombre d’heures de votre fenêtre d’arrivée estimée au-dessus d’une limite ou à l’approche d’une limite. Prudent : classé d’abord selon le nombre de scénarios de prévision qui dépassent vos limites, puis selon ces heures.'],
+    ['Typical: ranked on the main forecast against your limits, including how many hours of your arrival range are over or approaching a limit. Cautious: ranked first on how many forecast scenarios exceed your limits, then on those hours. A time with missing forecast values is ranked behind every fully known time that is not over a limit and has no official warning.',
+      'Habituel : classé d’après la prévision principale, face à vos limites, y compris le nombre d’heures de votre fenêtre d’arrivée estimée au-dessus d’une limite ou à l’approche d’une limite. Prudent : classé d’abord selon le nombre de scénarios de prévision qui dépassent vos limites, puis selon ces heures. Une heure de départ à laquelle il manque des valeurs de prévision est classée après toute heure entièrement connue qui ne dépasse aucune limite et n’a pas d’alerte officielle.'],
+    ['The marked time is missing forecast values for 3 h of its arrival range.', 'Il manque des valeurs de prévision à l’heure marquée pendant 3 h de sa fenêtre d’arrivée estimée.'],
+    ['The marked time is missing forecast values for 1 h of its arrival range.', 'Il manque des valeurs de prévision à l’heure marquée pendant 1 h de sa fenêtre d’arrivée estimée.'],
   ])('translates %s', (english, french) => {
     expect(translateText(english, 'fr')).toBe(french);
     expect(translateText(english, 'en')).toBe(english);

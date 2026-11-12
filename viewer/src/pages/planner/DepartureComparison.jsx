@@ -74,7 +74,7 @@ function RankToggle({ mode, cautiousAvailable, onChange }) {
         </div>
       </div>
       <p className="font-sans text-[12px] text-ink-soft mt-1 max-w-[80ch]">
-        Typical: ranked on the main forecast against your limits, including how many hours of your arrival range are over or approaching a limit. Cautious: ranked first on how many forecast scenarios exceed your limits, then on those hours.
+        Typical: ranked on the main forecast against your limits, including how many hours of your arrival range are over or approaching a limit. Cautious: ranked first on how many forecast scenarios exceed your limits, then on those hours. A time with missing forecast values is ranked behind every fully known time that is not over a limit and has no official warning.
       </p>
       {!cautiousAvailable && (
         <p id="rank-mode-reason" className="font-sans text-[12px] text-ink-soft mt-1 max-w-[80ch]">
@@ -213,6 +213,13 @@ export default function DepartureComparison({ scan, departureLocal, busy, disabl
             <>
               <span className="font-medium">◎ Least exposure this window: {fmtLocalTime(best.departure_utc)} local time</span>
               {'. '}
+              {/* Whenever the marked time itself misses forecast values (it can, e.g. when every time does, or the others exceed a limit): say so. */}
+              {isCount(best.arrival_hours_no_data) && best.arrival_hours_no_data > 0 && (
+                <>
+                  <span>{`The marked time is missing forecast values for ${best.arrival_hours_no_data} h of its arrival range.`}</span>
+                  {' '}
+                </>
+              )}
               {tiedIndices.size > 0 && (
                 <>
                   <span className="font-medium">≈ Effectively tied:</span>{' '}

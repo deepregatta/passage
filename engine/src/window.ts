@@ -120,6 +120,23 @@ const hoursKnown = (c: Rankable): boolean => finiteCount(c.arrival_hours_over_li
 // An hour missing a needed value may have been over a limit: for ranking it counts as one.
 const possiblyOverOf = (c: Rankable): number => c.arrival_hours_over_limit! + (finiteCount(c.arrival_hours_no_data) ? c.arrival_hours_no_data : 0);
 const approachingOf = (c: Rankable): number => c.arrival_hours_approaching!;
+const noDataOf = (c: Rankable): number => (finiteCount(c.arrival_hours_no_data) ? c.arrival_hours_no_data : 0);
+
+const overOf = (c: Rankable): number => (finiteCount(c.arrival_hours_over_limit) ? c.arrival_hours_over_limit : 0);
+
+/**
+ * The worst-case severity a candidate ranks at first: its verdict's, raised to
+ * "exceeds" when any hour of its arrival range misses a value one of the skipper's
+ * limits needs (that hour may have been over a limit) or is known to be over one.
+ * The second case matters because decideVerdict reports model disagreement before
+ * an exceedance, so an "insufficient" verdict can hide known hours over a limit.
+ * An official warning, above "exceeds", keeps its own level. The verdict itself,
+ * and the cell's colour, still ignore missing values.
+ */
+function worstCaseSeverity(c: Rankable): number {
+  const own = SEVERITY[c.verdict];
+  return noDataOf(c) > 0 || overOf(c) > 0 ? Math.max(own, SEVERITY.exceeds) : own;
+}
 
 /** Negative when `a` ranks ahead of `b` on the hour figures; missing figures rank last. */
 function compareHours(a: Rankable, b: Rankable): number {
@@ -130,6 +147,8 @@ function compareHours(a: Rankable, b: Rankable): number {
 
 /** Negative when `a` ranks ahead of `b`; zero when every key of the mode is equal. */
 function compareCandidates(a: Rankable, b: Rankable, mode: RankMode): number {
+  const worstCase = worstCaseSeverity(a) - worstCaseSeverity(b);
+  if (worstCase !== 0) return worstCase;
   const severity = SEVERITY[a.verdict] - SEVERITY[b.verdict];
   if (severity !== 0) return severity;
   if (mode === 'cautious') {
@@ -150,6 +169,7 @@ function compareCandidates(a: Rankable, b: Rankable, mode: RankMode): number {
 
 /** True when every key the mode ranks on is within its tolerance of the best candidate's. */
 function tiedWith(best: Rankable, c: Rankable, mode: RankMode, limit: number, hourLimit: number): boolean {
+  if (worstCaseSeverity(c) !== worstCaseSeverity(best)) return false;
   if (SEVERITY[c.verdict] !== SEVERITY[best.verdict]) return false;
   if (mode === 'cautious') {
     if (coveredOf(c) !== coveredOf(best)) return false;
@@ -166,21 +186,29 @@ function tiedWith(best: Rankable, c: Rankable, mode: RankMode, limit: number, ho
 /**
  * Rank candidates without ever saying GO. The best candidate is exact: the lowest
  * under the mode's order, the first one when equal. The tolerances only label the
- * others that are effectively tied with it (same verdict severity, and every value
- * the mode ranks on within its tolerance of the best's), so they never move the mark.
- * Ties are measured against the best only: a time one hour worse than a tied time
- * but two hours worse than the best is not tied.
- * - typical: verdict severity, then hours over a limit, then hours approaching one,
- *   then worst deterministic ratio.
- * - cautious: verdict severity, then worst ensemble fraction (a covered candidate with
- *   no exceeding scenario counts as 0; a candidate with no ensemble ranks after covered
- *   ones), then the two hour figures, then the ratio.
+ * others that are effectively tied with it (the same worst-case severity and the
+ * same verdict, and every later value the mode ranks on within its tolerance of the
+ * best's), so they never move the mark. Ties are measured against the best only: a
+ * time one hour worse than a tied time but two hours worse than the best is not tied.
+ *
+ * - typical: worst-case severity, verdict severity, then hours over a limit plus
+ *   hours missing data, then hours approaching one, then the worst deterministic ratio.
+ * - cautious: worst-case severity, verdict severity, then the worst ensemble fraction
+ *   (a covered candidate with no exceeding scenario counts as 0; a candidate with no
+ *   ensemble ranks after covered ones), then the same two hour keys, then the ratio.
+ *
+ * The worst-case severity is the verdict's, raised to "exceeds" when any hour of
+ * the arrival range misses a value one of the skipper's limits needs or is over a
+ * limit (an "insufficient" verdict can hide known hours over a limit, since model
+ * disagreement is reported first). So a time with missing hours ranks behind every
+ * fully known time that is not over a limit and has no official warning, and an
+ * official warning keeps its own, higher level. What it deliberately does not do:
+ * among times that exceed a limit or have missing values, the verdict decides next,
+ * so a "within" time with unknown hours is marked ahead of a time with a known
+ * exceedance; the verdict and the cell's colour still ignore missing hours; and in
+ * cautious mode the scenario share stays ahead of the hours.
  * The hours are distinct valid times of the whole arrival range, where the verdict
- * looks (passageLimitHours). For ranking, an hour missing a value one of the
- * skipper's limits needs counts as over a limit, so within the same verdict severity
- * missing data never ranks better than known data. Across severities it can: a
- * missing value does not raise the verdict, so a "within" time with unknown hours
- * still ranks ahead of a fully known "approaching" one (a known limitation).
+ * looks (passageLimitHours).
  * A candidate without the hour figures ranks after those with them.
  * `tied_indices` excludes the best one.
  */
@@ -338,15 +366,14 @@ const knownStatus = (status: string | undefined): boolean => status === 'ok' || 
 
 /**
  * Whether this hour lacks a value one of `limits` needs: its status is "unknown" or
- * absent. Steepness is derived from the wave height and period, and its status is
- * absent whenever the period is: with a wave height known, the sea-state limits are
- * answered and a missing steepness is not counted.
+ * absent. Every limit counts alike, steepness included: its status is absent when
+ * the wave period is, and an hour whose steepness was over the limit must not look
+ * clean once the period goes missing. A layer no time of the scan has a value for is
+ * not in `limits` (presentLimits).
  */
 function missingData(hour: LegHour, limits: ReadonlySet<LimitKey>): boolean {
   for (const key of limits) {
-    if (knownStatus(hour.limit_status?.[key])) continue;
-    if (key === 'steepness' && hour.waves?.hs_m != null) continue;
-    return true;
+    if (!knownStatus(hour.limit_status?.[key])) return true;
   }
   return false;
 }
