@@ -221,6 +221,21 @@ Responsiveness measurement (not a test, never run by `npm test` or `npm run test
 departure scan on synthetic inputs of real size; see
 [the record](maintenance/2026-11-12-scan-responsiveness.md) for method, results and
 how to repeat it on a phone. Output goes to the git-ignored `output/perf/`.
+`engine/test/scanHashing.test.ts` holds the hashing change that record measures
+without timing anything: it counts `contentHash` calls (no candidate decision
+input and no shared current grid hashed in a scan; a grid the scan reads itself
+hashed once per scan; a Check's grid hashed once), compares a scan with and
+without its candidates' saved identity byte for byte, compares a Check's saved
+decision inputs and findings with a separate build from the same options, and
+shows that an audit without identity cannot be saved and that a copy of its
+options gets the identity back. Findings audited without identity (a scan's
+candidates only) keep `identity_version: 2` with no `decision_hash`, so they are
+invalid against `contracts/findings.schema.json` by construction: they are
+scan-internal and must never be exposed, saved or validated; keeping a
+candidate's audit takes a full Check. `engine/test/scanGolden.test.ts` pins a
+fixed four-departure scan (its `WindowScan` and progress candidates) byte for
+byte against `engine/test/golden/scan-cherbourg-plymouth.json`, generated from
+the engine before this change (see the fixture policy below).
 
 Departure ranking: `engine/test/window.test.ts` covers the hour figures on
 hand-built findings (each arrival-range hour counted once across overlapping
@@ -294,6 +309,13 @@ is implied.
   scans, persistence, current hazards and the routing horizon. The browser
   test uses synthetic transport, fresh browser storage and intercepted POSTs;
   it never writes demo artifacts.
+- `engine/test/golden/scan-cherbourg-plymouth.json` is the departure-scan golden
+  (`scanGolden.test.ts`, scan defined in `engine/test/helpers/scanGolden.ts`). It was
+  generated from commit fa31563's engine with
+  `git archive fa31563 engine config | tar -x -C <dir>` and
+  `npx tsx engine/scripts/make-scan-golden.ts --root <dir>`; after an intentional
+  change to a scan's result, regenerate it from the checkout with
+  `npx tsx engine/scripts/make-scan-golden.ts` and review the diff.
 - `engine/test/fixtures/grib/` contains the golden GRIB2 export files and their
   `*.expected.json`. An engine test requires a byte-identical re-encode, and
   `analysis/tests/test_grib_export_contract.py` decodes every file with ecCodes

@@ -82,6 +82,11 @@ no additional runner is needed. [Testing](testing.md) details fixture guarantees
    51 s at 6× CPU throttling), mostly in the audits, with no repaint; Compute blocks
    up to 0.9 s at 6×. The record recommends a cancelable Worker for the scan before
    D2/D3. No physical device was measured; that stays open, with steps in the record.
+   Since then a scan no longer hashes its candidates' saved identity, which it never
+   shows or saves (a picked time is checked afresh): the block is 65 to 69 % shorter
+   (1.0 to 2.6 s unthrottled, 6.6 to 15.6 s at 6× for Channel and Biscay), with
+   every returned and saved value unchanged. It still freezes the page; the Worker
+   recommendation stands.
 3. Resolve prepared background-wind coherence separately: `RouteMap` still
    selects current prepared wind for non-example saved briefings while leg arrows
    use frozen findings. Keep its display responsibility; never substitute latest

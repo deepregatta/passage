@@ -5,8 +5,8 @@
  * downloaded per-route and cached locally; routing and audit never leave the browser.
  */
 
-import { assembleFindings, type AssembleOptions } from './findings.js';
-import { decisionInputs } from './identity.js';
+import { assembleAudit, type AssembleOptions } from './findings.js';
+import { skipsSavedIdentity } from './identity.js';
 import { renderBriefing, nextForecastRuns, type Briefing } from './briefing.js';
 import { buildPlume, writeSnapshot, type Plume, type SnapshotStore } from './snapshot.js';
 import { deriveLegs, legMidpoints } from './route.js';
@@ -162,7 +162,8 @@ export async function runAnalysis(options: AnalyzeOptions): Promise<AnalyzeResul
     engineVersion: ENGINE_VERSION,
     nowMs,
   };
-  const findings = assembleFindings(assembled);
+  // A Check archives the very decision inputs its identity hashed; a scan's ranking-only audit builds neither.
+  const { findings, decisionInputs } = assembleAudit(assembled, { savedIdentity: !skipsSavedIdentity(options) });
   const briefing = renderBriefing(findings, options.synoptic, { route, nextRuns: nextForecastRuns(layers, findings.generated_at) });
   const plume = buildPlume(findings, ens?.forecasts ?? [], profile.max_gust_kt, multi?.byModel);
   return {
@@ -170,7 +171,7 @@ export async function runAnalysis(options: AnalyzeOptions): Promise<AnalyzeResul
     briefing,
     plume,
     snapshotInputs: {
-      decisionInputs: decisionInputs(assembled),
+      decisionInputs,
       ...(options.warnings ? { warnings: options.warnings.doc } : {}),
       ...(options.synoptic ? { synoptic: options.synoptic } : {}),
       ...(options.tides ? { tides: options.tides } : {}),

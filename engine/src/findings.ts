@@ -30,6 +30,17 @@ export type { AssembleOptions } from './findings/options.js';
 const DEFAULT_SCENARIO_FLOOR = 0.3;
 
 export function assembleFindings(options: AssembleOptions): Findings {
+  return assembleAudit(options, { savedIdentity: true }).findings;
+}
+
+/**
+ * The findings, and the decision inputs their identity hashes, built once (a Check
+ * archives exactly these). Without `savedIdentity` (a departure scan's ranking only)
+ * neither the inputs nor their hash is computed: `snapshot_id` is empty and
+ * `decision_hash` absent, so such findings cannot be saved (writeSnapshot refuses them).
+ */
+export function assembleAudit(options: AssembleOptions, { savedIdentity }: { savedIdentity: boolean }):
+  { findings: Findings; decisionInputs?: Record<string, unknown> } {
   const {
     route,
     profile,
@@ -205,8 +216,14 @@ export function assembleFindings(options: AssembleOptions): Findings {
     profile_hash: profileHash,
   };
 
-  const decisionHash = contentHash(decisionInputs(options));
-  const snapshotId = `snapshot_v2_${decisionHash}`;
+  // Without savedIdentity (a departure scan's candidates only) these findings keep
+  // identity_version 2 but carry no decision_hash and an empty snapshot_id: they are
+  // invalid against contracts/findings.schema.json by construction. They are
+  // scan-internal and must never be exposed, saved or validated; to keep a
+  // candidate's audit, run a full Check (runAnalysis without the mark).
+  const identityInputs = savedIdentity ? decisionInputs(options) : undefined;
+  const decisionHash = identityInputs ? contentHash(identityInputs) : undefined;
+  const snapshotId = decisionHash ? `snapshot_v2_${decisionHash}` : '';
 
   const causalEvents = assignEventKeys(
     [
@@ -231,7 +248,7 @@ export function assembleFindings(options: AssembleOptions): Findings {
     currentDetail: grid?.under_resolved_note,
   });
 
-  return {
+  const findings: Findings = {
     schema_version: 1,
     snapshot_id: snapshotId,
     identity_version: IDENTITY_VERSION,
@@ -255,4 +272,5 @@ export function assembleFindings(options: AssembleOptions): Findings {
       .filter((item) => item.status === 'not_assessed')
       .map((item) => item.detail ?? item.capability.replaceAll('_', ' ')),
   };
+  return identityInputs ? { findings, decisionInputs: identityInputs } : { findings };
 }

@@ -8,6 +8,7 @@ import { runAnalysis, type AnalyzeOptions, type AnalyzeResult } from './analyze.
 import { evidenceLimitRatio } from './findings.js';
 import { forecastRunGone } from './forecast/store.js';
 import { resolveCurrentInput } from './currentInput.js';
+import { withoutSavedIdentity } from './identity.js';
 import { computeRouteSchedules } from './eta.js';
 import { nominalPassageHours } from './routeSummary.js';
 import type { Findings, LegHour, Route, VerdictState } from './types.js';
@@ -237,6 +238,22 @@ export async function scanDepartures(
   departures: string[],
   onCandidate?: (candidate: WindowCandidate) => void,
 ): Promise<WindowScan> {
+  return scanCandidates(base, departures, onCandidate, { savedIdentity: false });
+}
+
+/**
+ * Internal (not exported by the package): the scan, with `savedIdentity` saying
+ * whether each candidate's audit also builds its saved identity. A scan only
+ * ranks its candidates' findings, never shows or saves them, and a candidate the
+ * skipper picks is checked afresh, so `scanDepartures` skips it. Tests run both
+ * to show the scan's result does not depend on it.
+ */
+export async function scanCandidates(
+  base: ScanOptions,
+  departures: string[],
+  onCandidate: ((candidate: WindowCandidate) => void) | undefined,
+  { savedIdentity }: { savedIdentity: boolean },
+): Promise<WindowScan> {
   // one shared ForecastStore: every candidate reads the same immutable tile
   // run, so the store's tile cache serves all candidates after the first
   const { routeFor, ...analyzeBase } = base;
@@ -264,7 +281,8 @@ export async function scanDepartures(
   for (const { route, departureUtc } of planned) {
     let result: AnalyzeResult;
     try {
-      result = await runAnalysis({ ...analyzeBase, route, departureUtc, currentInput });
+      const options = { ...analyzeBase, route, departureUtc, currentInput };
+      result = await runAnalysis(savedIdentity ? options : withoutSavedIdentity(options));
     } catch (error) {
       // a deleted forecast run fails every candidate: the caller refreshes and retries
       if (forecastRunGone(error) || (error as { code?: string })?.code === 'forecast-updated') throw error;

@@ -1,0 +1,241 @@
+{
+  "scan": {
+    "candidates": [
+      {
+        "departure_utc": "2026-07-12T00:00:00Z",
+        "verdict": "insufficient",
+        "worst_ratio": 1.9,
+        "max_fraction": 1,
+        "ensemble_covered": true,
+        "max_members": {
+          "exceed": 51,
+          "total": 51
+        },
+        "driver_summary": "W-GUST-03 on L5 at 2026-07-12T11:00:00Z",
+        "passage_h": 19.6,
+        "arrival_hours_over_limit": 13,
+        "arrival_hours_approaching": 13,
+        "arrival_hours_no_data": 0,
+        "expected_hours_over_limit": 4,
+        "delta": {
+          "peak_gust_kt": 34,
+          "hours_over_limit": 16
+        }
+      },
+      {
+        "departure_utc": "2026-07-12T06:00:00Z",
+        "verdict": "insufficient",
+        "worst_ratio": 4,
+        "max_fraction": 1,
+        "ensemble_covered": true,
+        "max_members": {
+          "exceed": 51,
+          "total": 51
+        },
+        "driver_summary": "W-GUST-03 on L3 at 2026-07-12T16:00:00Z",
+        "passage_h": 19.6,
+        "arrival_hours_over_limit": 19,
+        "arrival_hours_approaching": 7,
+        "arrival_hours_no_data": 0,
+        "expected_hours_over_limit": 12,
+        "delta": {
+          "peak_gust_kt": 0.6,
+          "hours_over_limit": 11
+        }
+      },
+      {
+        "departure_utc": "2026-07-12T12:00:00Z",
+        "verdict": "insufficient",
+        "worst_ratio": 1.28,
+        "max_fraction": 1,
+        "ensemble_covered": true,
+        "max_members": {
+          "exceed": 51,
+          "total": 51
+        },
+        "driver_summary": "W-GUST-03 on L3 at 2026-07-12T16:00:00Z",
+        "passage_h": 19,
+        "arrival_hours_over_limit": 23,
+        "arrival_hours_approaching": 2,
+        "arrival_hours_no_data": 0,
+        "expected_hours_over_limit": 15,
+        "delta": {
+          "peak_gust_kt": 1.8,
+          "hours_over_limit": 20
+        }
+      },
+      {
+        "departure_utc": "2026-07-12T18:00:00Z",
+        "verdict": "insufficient",
+        "worst_ratio": 1.31,
+        "max_fraction": 1,
+        "ensemble_covered": true,
+        "max_members": {
+          "exceed": 51,
+          "total": 51
+        },
+        "driver_summary": "W-GUST-03 on L2 at 2026-07-12T20:00:00Z",
+        "passage_h": 19.4,
+        "arrival_hours_over_limit": 20,
+        "arrival_hours_approaching": 4,
+        "arrival_hours_no_data": 0,
+        "expected_hours_over_limit": 18,
+        "delta": {
+          "peak_gust_kt": 2.7,
+          "hours_over_limit": 26
+        }
+      }
+    ],
+    "best_index": 0,
+    "skipped": [],
+    "input_records": [
+      {
+        "source": "fixture",
+        "layer": "weather",
+        "model": "scenario",
+        "run_id": "scenario-5cfe696f",
+        "cycle": "scenario",
+        "resolution_deg": 0.25,
+        "tiles": [],
+        "fetched_at": "2026-07-11T18:00:00.000Z",
+        "cached_tiles": 0,
+        "points": 6
+      },
+      {
+        "source": "fixture",
+        "layer": "ensemble",
+        "model": "scenario",
+        "run_id": "scenario-2a3ba0d9",
+        "cycle": "scenario",
+        "resolution_deg": 0.25,
+        "member_count": 51,
+        "tiles": [],
+        "fetched_at": "2026-07-11T18:00:00.000Z",
+        "cached_tiles": 0,
+        "points": 6
+      },
+      {
+        "source": "fixture",
+        "layer": "waves",
+        "model": "scenario",
+        "run_id": "scenario-90080f74",
+        "cycle": "scenario",
+        "resolution_deg": 0.25,
+        "tiles": [],
+        "fetched_at": "2026-07-11T18:00:00.000Z",
+        "cached_tiles": 0,
+        "points": 6
+      },
+      {
+        "source": "fixture",
+        "layer": "weather-multimodel",
+        "model": "scenario",
+        "run_id": "scenario-c24a873d",
+        "cycle": "scenario",
+        "resolution_deg": 0.25,
+        "tiles": [],
+        "fetched_at": "2026-07-11T18:00:00.000Z",
+        "cached_tiles": 0,
+        "points": 6
+      },
+      {
+        "source": "tiles",
+        "layer": "currents",
+        "model": "tile-cmems",
+        "run_id": "tile-current",
+        "mode": "live",
+        "fetched_at": "2026-07-11T17:30:00Z",
+        "resolution_deg": 0.083,
+        "current_source": "tiles",
+        "content_digest": "2393ab1b69f926f8",
+        "digest_algorithm": "fnv1a64"
+      }
+    ]
+  },
+  "progress": [
+    {
+      "departure_utc": "2026-07-12T00:00:00Z",
+      "verdict": "insufficient",
+      "worst_ratio": 1.9,
+      "max_fraction": 1,
+      "ensemble_covered": true,
+      "max_members": {
+        "exceed": 51,
+        "total": 51
+      },
+      "driver_summary": "W-GUST-03 on L5 at 2026-07-12T11:00:00Z",
+      "passage_h": 19.6,
+      "arrival_hours_over_limit": 0,
+      "arrival_hours_approaching": 0,
+      "arrival_hours_no_data": 0,
+      "expected_hours_over_limit": 0,
+      "delta": {
+        "peak_gust_kt": 34,
+        "hours_over_limit": 16
+      }
+    },
+    {
+      "departure_utc": "2026-07-12T06:00:00Z",
+      "verdict": "insufficient",
+      "worst_ratio": 4,
+      "max_fraction": 1,
+      "ensemble_covered": true,
+      "max_members": {
+        "exceed": 51,
+        "total": 51
+      },
+      "driver_summary": "W-GUST-03 on L3 at 2026-07-12T16:00:00Z",
+      "passage_h": 19.6,
+      "arrival_hours_over_limit": 0,
+      "arrival_hours_approaching": 0,
+      "arrival_hours_no_data": 0,
+      "expected_hours_over_limit": 0,
+      "delta": {
+        "peak_gust_kt": 34.6,
+        "hours_over_limit": 27
+      }
+    },
+    {
+      "departure_utc": "2026-07-12T12:00:00Z",
+      "verdict": "insufficient",
+      "worst_ratio": 1.28,
+      "max_fraction": 1,
+      "ensemble_covered": true,
+      "max_members": {
+        "exceed": 51,
+        "total": 51
+      },
+      "driver_summary": "W-GUST-03 on L3 at 2026-07-12T16:00:00Z",
+      "passage_h": 19,
+      "arrival_hours_over_limit": 0,
+      "arrival_hours_approaching": 0,
+      "arrival_hours_no_data": 0,
+      "expected_hours_over_limit": 0,
+      "delta": {
+        "peak_gust_kt": 35.8,
+        "hours_over_limit": 36
+      }
+    },
+    {
+      "departure_utc": "2026-07-12T18:00:00Z",
+      "verdict": "insufficient",
+      "worst_ratio": 1.31,
+      "max_fraction": 1,
+      "ensemble_covered": true,
+      "max_members": {
+        "exceed": 51,
+        "total": 51
+      },
+      "driver_summary": "W-GUST-03 on L2 at 2026-07-12T20:00:00Z",
+      "passage_h": 19.4,
+      "arrival_hours_over_limit": 0,
+      "arrival_hours_approaching": 0,
+      "arrival_hours_no_data": 0,
+      "expected_hours_over_limit": 0,
+      "delta": {
+        "peak_gust_kt": 36.7,
+        "hours_over_limit": 42
+      }
+    }
+  ]
+}

@@ -14,6 +14,22 @@ export function routeRevision(route: Route, departureUtc: string): string {
   return contentHash({ route: content, departureUtc: toIso(parseUtc(departureUtc)) });
 }
 
+// A departure scan only ranks its candidates' findings: it never shows or saves
+// them, and a candidate the skipper opens is checked afresh. Hashing their
+// decision inputs was most of a scan's time, so a scan marks its audit options.
+// The mark is on that exact object: a copy, or any other caller, keeps the identity.
+const withoutIdentity = new WeakSet<object>();
+
+/** Audit these exact options without the saved identity (no decision inputs, decision hash or snapshot id). */
+export function withoutSavedIdentity<T extends object>(options: T): T {
+  withoutIdentity.add(options);
+  return options;
+}
+
+export function skipsSavedIdentity(options: object): boolean {
+  return withoutIdentity.has(options);
+}
+
 /** Archive exactly this JSON before the manifest; equality protects hash collisions. */
 export function decisionInputs(options: AssembleOptions): Record<string, unknown> {
   const { nowMs: _clock, requestMeta, ensembleMeta, marineMeta, multiModel, ...inputs } = options;
