@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { OWNED } from '../lib/passages.js';
-import { groupSummary } from '../lib/dataSources.js';
+import { groupSummary, isByArrangement } from '../lib/dataSources.js';
 
 // Licences and credit lines are register data, copied as recorded and never
 // translated. OWNED keeps the localiser off them; the attribute is also used here
@@ -9,6 +9,13 @@ import { groupSummary } from '../lib/dataSources.js';
 // proper names pass through), as do the labels and status words below.
 // A redistribute value with no entry here (unconfirmed) is shown as not yet confirmed.
 const REDISTRIBUTION = { yes: 'Yes, under the licence', no: 'No' };
+// An arrangement is not a licence, so a yes there says so instead.
+const BY_ARRANGEMENT = 'Yes, by arrangement with the provider';
+
+function redistributionAnswer(source) {
+  const answer = REDISTRIBUTION[source.redistribute];
+  return answer === REDISTRIBUTION.yes && isByArrangement(source) ? BY_ARRANGEMENT : answer;
+}
 
 function Row({ label, pending, children }) {
   return (
@@ -44,13 +51,14 @@ function SourceTerms({ sources }) {
           <p className="font-sans text-[12px] text-ink-soft [overflow-wrap:anywhere]">{source.provider}</p>
           <dl className="mt-1 space-y-0.5 font-sans text-[13px]">
             <Row label="Licence" pending={!source.licence}>
-              {source.licence ? <span {...OWNED}>{source.licence}</span> : 'Not yet confirmed'}
+              {/* The arrangement wording is Passage's own, so the localiser translates it; other licences are verbatim data. */}
+              {source.licence ? <span {...(isByArrangement(source) ? {} : OWNED)}>{source.licence}</span> : 'Not yet confirmed'}
             </Row>
             <Row label="Attribution" pending={!source.attribution}>
               {source.attribution ? <span {...OWNED}>{source.attribution}</span> : 'Not yet confirmed'}
             </Row>
             <Row label="Redistribution" pending={!REDISTRIBUTION[source.redistribute]}>
-              {REDISTRIBUTION[source.redistribute] ?? 'Not yet confirmed'}
+              {redistributionAnswer(source) ?? 'Not yet confirmed'}
             </Row>
             {source.share_alike === true && (
               <Row label="Share-alike">Yes, adapted data keep the same licence</Row>

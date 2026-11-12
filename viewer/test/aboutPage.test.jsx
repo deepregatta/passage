@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import About from '../src/pages/About.jsx';
 import SourceTerms, { SourceGroup } from '../src/components/SourceTerms.jsx';
-import { groupSummary } from '../src/lib/dataSources.js';
+import { ARRANGEMENT_SOURCES, groupSummary } from '../src/lib/dataSources.js';
 import Privacy from '../src/pages/Privacy.jsx';
 import { LocalizedDocument, localizeNotationFr, translateText } from '../src/i18n.js';
 import { useApp } from '../src/stores/appStore.js';
@@ -114,32 +114,84 @@ describe('About: terms for each source', () => {
     }
   });
 
-  it('shows the recorded licence, attribution, share-alike and verified date, and no redistribution answer yet', () => {
+  it('shows the recorded licence, attribution, share-alike, redistribution answer and verified date of UKV', () => {
     show();
     const ukv = card('metoffice-ukv');
     expect(value(ukv, 'Licence').textContent).toBe('CC BY-SA 4.0');
     expect(value(ukv, 'Attribution').textContent).toMatch(/^British Crown copyright, Met Office UKV via Open-Meteo/);
-    expect(value(ukv, 'Verified on').textContent).toBe('2026-10-02');
+    expect(value(ukv, 'Verified on').textContent).toBe('2026-11-12');
     expect(value(ukv, 'Share-alike').textContent).toBe('Yes, adapted data keep the same licence');
-    // No "yes" is recorded until the owner confirms one.
-    expect(value(ukv, 'Redistribution').textContent).toBe('Not yet confirmed');
+    expect(value(ukv, 'Redistribution').textContent).toBe('Yes, under the licence');
   });
 
   it('reads an unconfirmed source plainly as not yet confirmed, never as permission', () => {
     show();
-    const gfs = card('noaa-gfs');
-    for (const label of ['Licence', 'Attribution', 'Redistribution']) expect(value(gfs, label).textContent).toBe('Not yet confirmed');
-    expect(value(gfs, 'Verified on').textContent).toBe('Not yet verified');
-    expect(gfs.textContent).not.toMatch(/\b(?:Yes|permitted|allowed|free to)\b/i);
-    // A licence is recorded for ECMWF but redistribution is not: the row under it must still say so.
-    const ecmwf = card('ecmwf-open-ifs');
-    expect(value(ecmwf, 'Licence').textContent).toBe('CC BY 4.0');
-    expect(value(ecmwf, 'Redistribution').textContent).toBe('Not yet confirmed');
+    // Passage's own tile service is the only entry the registers leave unconfirmed.
+    const service = card('forecast-tiles-service');
+    for (const label of ['Licence', 'Attribution', 'Redistribution']) expect(value(service, label).textContent).toBe('Not yet confirmed');
+    expect(value(service, 'Verified on').textContent).toBe('Not yet verified');
+    expect(service.textContent).not.toMatch(/\b(?:Yes|permitted|allowed|free to)\b/i);
     for (const item of document.querySelectorAll('[data-source-id]')) {
       const source = [...tiles.sources, ...own.sources].find((s) => s.id === item.dataset.sourceId);
       if (source.redistribute === 'unconfirmed') {
         expect(value(item, 'Redistribution').textContent, source.id).toBe('Not yet confirmed');
       }
+    }
+  });
+
+  it('shows a licence that is recorded but whose redistribution is unconfirmed without reading as permission', () => {
+    // A fixture: the registers no longer hold this combination.
+    const { container } = render(<SourceTerms sources={[{
+      id: 'fixture', name: 'Fixture', provider: 'Fixture', licence: 'CC BY 4.0', attribution: null,
+      share_alike: null, redistribute: 'unconfirmed', verified_on: null,
+    }]} />);
+    expect(within(container).getByText('Licence').nextElementSibling.textContent).toBe('CC BY 4.0');
+    expect(within(container).getByText('Redistribution').nextElementSibling.textContent).toBe('Not yet confirmed');
+  });
+
+  it('keeps "Not yet verified" for the entries confirmed on the owner’s decision with no provider page read', () => {
+    show();
+    for (const id of ['meteofrance-arome', 'ndbc-observations', 'world-port-index']) {
+      const item = card(id);
+      expect(value(item, 'Redistribution').textContent, id).toBe('Yes, under the licence');
+      expect(value(item, 'Verified on').textContent, id).toBe('Not yet verified');
+    }
+    const arome = card('meteofrance-arome');
+    expect(value(arome, 'Licence').textContent).toBe('CC BY 4.0 (Open-Meteo bulk catalogue); Météo-France open data');
+    expect(value(arome, 'Attribution').textContent).toBe('Météo-France AROME via Open-Meteo (open-data, CC BY 4.0)');
+    expect(arome.querySelector('time')).toBeNull();
+  });
+
+  it('shows what the owner confirmed on 12 November 2026: licence, redistribution and verified date', () => {
+    show();
+    const gfs = card('noaa-gfs');
+    expect(value(gfs, 'Licence').textContent).toBe('US Government work, public domain');
+    expect(value(gfs, 'Redistribution').textContent).toBe('Yes, under the licence');
+    expect(value(gfs, 'Verified on').textContent).toBe('2026-11-12');
+    const ecmwf = card('ecmwf-open-ifs');
+    expect(value(ecmwf, 'Attribution').textContent).toBe('This service is based on data and products of the European Centre for Medium-Range Weather Forecasts (ECMWF)');
+    const era5 = card('era5-reanalysis');
+    expect(value(era5, 'Licence').textContent).toBe('CC BY 4.0');
+    expect(value(era5, 'Redistribution').textContent).toBe('Yes, under the licence');
+  });
+
+  it('shows the two arrangement entries with the exact wording the owner gave, not as a licence', () => {
+    show();
+    for (const id of ARRANGEMENT_SOURCES) {
+      const item = card(id);
+      expect(value(item, 'Licence').textContent, id).toBe('By arrangement with the provider');
+      expect(value(item, 'Attribution').textContent, id).toBe('Not yet confirmed');
+      expect(value(item, 'Redistribution').textContent, id).toBe('Yes, by arrangement with the provider');
+      expect(value(item, 'Verified on').textContent, id).toBe('Not yet verified');
+      expect(item.textContent, id).not.toMatch(/under the licence/);
+    }
+  });
+
+  it('keeps the arrangement list in step with the register', () => {
+    const byArrangement = own.sources.filter((s) => s.licence === 'By arrangement with the provider').map((s) => s.id);
+    expect(byArrangement.sort()).toEqual([...ARRANGEMENT_SOURCES].sort());
+    for (const source of own.sources.filter((s) => ARRANGEMENT_SOURCES.includes(s.id))) {
+      expect(source).toMatchObject({ redistribute: 'yes', licence_url: null, share_alike: null, verified_on: null, verified_from: null });
     }
   });
 
@@ -156,15 +208,24 @@ describe('About: terms for each source', () => {
     await waitFor(() => expect(screen.getByText('Conditions de chaque source')).toBeTruthy());
     const ukv = card('metoffice-ukv');
     expect(within(ukv).getByText('Vérifié le')).toBeTruthy();
-    expect(value(ukv, 'Redistribution').textContent).toBe('Pas encore confirmé');
+    expect(value(ukv, 'Redistribution').textContent).toBe('Oui, selon la licence');
     expect(within(ukv).getByText('Partage dans les mêmes conditions')).toBeTruthy();
-    expect(value(ukv, 'Vérifié le').textContent).toBe('2026-10-02');
+    expect(value(ukv, 'Vérifié le').textContent).toBe('2026-11-12');
     expect(value(ukv, 'Licence').textContent).toBe('CC BY-SA 4.0');
     expect(value(ukv, 'Attribution').textContent).toContain('native CRS correction, geographic remapping and quantization');
+    const arome = card('meteofrance-arome');
+    expect(within(arome).getByText('Météo-France AROME 0,025°')).toBeTruthy();
+    expect(value(arome, 'Redistribution').textContent).toBe('Oui, selon la licence');
+    expect(value(arome, 'Vérifié le').textContent).toBe('Pas encore vérifié');
+    const service = card('forecast-tiles-service');
+    expect(value(service, 'Redistribution').textContent).toBe('Pas encore confirmé');
     const gfs = card('noaa-gfs');
-    expect(within(gfs).getByText('NOAA GFS 0,25°')).toBeTruthy();
-    expect(value(gfs, 'Redistribution').textContent).toBe('Pas encore confirmé');
-    expect(value(gfs, 'Vérifié le').textContent).toBe('Pas encore vérifié');
+    expect(value(gfs, 'Redistribution').textContent).toBe('Oui, selon la licence');
+    for (const id of ARRANGEMENT_SOURCES) {
+      expect(value(card(id), 'Licence').textContent, id).toBe('Par accord avec le fournisseur');
+      expect(value(card(id), 'Redistribution').textContent, id).toBe('Oui, par accord avec le fournisseur');
+    }
+    expect(value(gfs, 'Vérifié le').textContent).toBe('2026-11-12');
     view.rerender(<div id="root"><About /><LocalizedDocument language="en" /></div>);
   });
 
@@ -191,7 +252,7 @@ describe('About: terms for each source', () => {
 });
 
 describe('About: redistribution answers', () => {
-  // Fixture entries, not real data: the registers hold no yes or no yet.
+  // Fixture entries: the registers hold no "no" answer, and the "yes" strings need their own test.
   const fixture = (redistribute) => ({
     id: `fixture-${redistribute}`, name: 'Fixture source', provider: 'Fixture provider',
     licence: 'Fixture licence 1.0', attribution: 'Fixture credit', share_alike: null,
@@ -206,6 +267,12 @@ describe('About: redistribution answers', () => {
   it('reads a no answer as "No"', () => {
     const { container } = render(<SourceTerms sources={[fixture('no')]} />);
     expect(within(container).getByText('Redistribution').nextElementSibling.textContent).toBe('No');
+  });
+
+  it('reads a yes answer for an arrangement entry as "Yes, by arrangement with the provider"', () => {
+    const { container } = render(<SourceTerms sources={[{ ...fixture('yes'), id: 'bom-marine-warnings', licence: 'By arrangement with the provider' }]} />);
+    expect(within(container).getByText('Redistribution').nextElementSibling.textContent).toBe('Yes, by arrangement with the provider');
+    expect(within(container).getByText('Licence').nextElementSibling.textContent).toBe('By arrangement with the provider');
   });
 
   it('translates both answers in French', async () => {
@@ -242,8 +309,8 @@ describe('About: source groups', () => {
 
   it('gives each summary the group name, the source count and how many are not yet confirmed', () => {
     show();
-    expect(forecast().querySelector('summary').textContent).toBe('Forecast model data · 9 sources · none confirmed yet');
-    expect(other().querySelector('summary').textContent).toBe('Other feeds and map layers · 18 sources · none confirmed yet');
+    expect(forecast().querySelector('summary').textContent).toBe('Forecast model data · 9 sources · all confirmed');
+    expect(other().querySelector('summary').textContent).toBe('Other feeds and map layers · 18 sources · 1 not yet confirmed');
   });
 
   it('counts correctly for one source, mixed and fully confirmed groups', () => {
@@ -262,8 +329,8 @@ describe('About: source groups', () => {
   it('translates the summary lines, with their numbers, in French', async () => {
     const view = show('fr');
     await waitFor(() => expect(forecast().querySelector('summary').textContent)
-      .toBe('Données des modèles de prévision · 9 sources · aucune confirmée pour l’instant'));
-    expect(other().querySelector('summary').textContent).toBe('Autres flux et fonds de carte · 18 sources · aucune confirmée pour l’instant');
+      .toBe('Données des modèles de prévision · 9 sources · toutes confirmées'));
+    expect(other().querySelector('summary').textContent).toBe('Autres flux et fonds de carte · 18 sources · 1 pas encore confirmée');
     view.rerender(<div id="root"><About /><LocalizedDocument language="en" /></div>);
   });
 

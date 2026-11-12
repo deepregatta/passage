@@ -87,6 +87,19 @@ A saved briefing keeps a warning as it was at check time, which is by design not
 9. **GSHHG and the port index.** Read the licence file inside the GSHHG archive; fetch the port index from NGA directly.
 10. **A source missing from the registers.** `analysis/src/deepweather_analysis/openmeteo_history.py` calls Open-Meteo's historical-forecast API for the verification corpus. That is the free API, under the non-commercial terms. It needs a register entry, or a note that it is research-only.
 
+## Owner decisions, 12 November 2026
+
+Recorded as the owner gave them. The sections above are the proposals as they stood before these decisions.
+
+- **The 20 rows proposed as `yes`:** confirmed.
+- **`bom-marine-warnings`:** the owner has an arrangement with the provider. Its terms are not recorded in this repository.
+- **`metoffice-shipping-forecast`:** the owner has an arrangement with the provider. Its terms are not recorded in this repository.
+- **`metoffice-ukv`:** CC BY-SA 4.0 is the licence that applies. Derived tiles and GRIB exports therefore carry the credit, the licence link, a modification notice and the BY-SA label.
+
+- **The other nine** (`meteoalarm-warnings`, `meteofrance-arome`, `ndbc-observations`, `copernicus-insitu-observations`, `gshhg`, `open-waters-seamap`, `world-port-index`, `openstreetmap-base-map`, `openseamap-seamarks`): confirmed as `yes` by the owner. This is the owner's decision, not a finding of this review. For three of them no provider statement of the licence was read: AROME model data, the port index, and the Met Office buoys relayed by NDBC. Their `verified_on` stays empty, because that field records a date on which the provider's terms were read. The open points listed for each in "Not yet proposable" still stand.
+
+That makes 32 entries recorded as redistributable. Passage's own tiles keep their entry as it was.
+
 ## What confirmation would change
 
 - For each confirmed row: `licence`, `licence_url`, `attribution`, `share_alike`, `redistribute`, `verified_on` and `verified_from` in the register that owns it (forecast-tiles first, then re-vendored here).

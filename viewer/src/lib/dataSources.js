@@ -32,3 +32,10 @@ export function groupSummary(title, sources) {
   else status = `${pending} not yet confirmed`;
   return `${title} · ${total} ${total === 1 ? 'source' : 'sources'} · ${status}`;
 }
+
+/** Sources the owner covers by an arrangement with the provider (stated on
+ * 2026-11-12; its terms are not in the repository). Named here, not found by
+ * matching the licence text; the data-source tests check this list against the
+ * register so the two cannot drift. */
+export const ARRANGEMENT_SOURCES = ['bom-marine-warnings', 'metoffice-shipping-forecast'];
+export const isByArrangement = (source) => ARRANGEMENT_SOURCES.includes(source.id);

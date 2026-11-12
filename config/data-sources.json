@@ -22,241 +22,268 @@
       "id": "ecmwf-open-data-charts",
       "name": "ECMWF open data for synoptic charts",
       "provider": "ECMWF",
-      "licence": "CC-BY-4.0, source: ECMWF open data",
-      "licence_url": null,
-      "attribution": null,
-      "share_alike": null,
-      "redistribute": "unconfirmed",
-      "verified_on": null,
-      "verified_from": null,
+      "licence": "CC BY 4.0 plus ECMWF Terms of Use for open data",
+      "licence_url": "https://creativecommons.org/licenses/by/4.0/",
+      "attribution": "This service is based on data and products of the European Centre for Medium-Range Weather Forecasts (ECMWF)",
+      "share_alike": false,
+      "redistribute": "yes",
+      "verified_on": "2026-11-12",
+      "verified_from": "https://www.ecmwf.int/en/forecasts/datasets/open-data",
       "used_by": [
         "ecmwf_open_data"
       ],
       "recorded_in": [
-        "analysis/src/deepweather_analysis/ecmwf_open_data.py"
+        "analysis/src/deepweather_analysis/ecmwf_open_data.py",
+        "docs/maintenance/2026-11-12-licence-verification-proposals.md"
       ],
-      "notes": "Licence copied from LICENCE in analysis/src/deepweather_analysis/ecmwf_open_data.py. The synoptic chart image credit and the GRIB page line say \"CC-BY-4.0\" and \"CC BY 4.0\" (analysis/src/deepweather_analysis/synoptic/render.py, engine/src/export/gribDatasets.ts); neither is recorded here as the attribution. Redistribution is not stated. Terms not yet confirmed."
+      "notes": "CC BY 4.0 plus ECMWF's Terms of Use for open data. For a service built on the data, the credit is \"This service is based on data and products of the European Centre for Medium-Range Weather Forecasts (ECMWF)\", shown prominently with the source, the licence link, ECMWF's disclaimer and a statement that the data were modified; ECMWF may ask for the credit to be removed. Confirmed by the owner on 2026-11-12."
     },
     {
       "id": "copernicus-marine-currents",
       "name": "Copernicus Marine currents",
       "provider": "Copernicus Marine Service",
-      "licence": null,
-      "licence_url": null,
-      "attribution": null,
-      "share_alike": null,
-      "redistribute": "unconfirmed",
-      "verified_on": null,
-      "verified_from": null,
+      "licence": "Copernicus Marine Service licence",
+      "licence_url": "https://marine.copernicus.eu/user-corner/service-commitments-and-licence",
+      "attribution": "Generated using E.U. Copernicus Marine Service Information",
+      "share_alike": false,
+      "redistribute": "yes",
+      "verified_on": "2026-11-12",
+      "verified_from": "https://marine.copernicus.eu/user-corner/service-commitments-and-licence",
       "used_by": [
         "cmems_currents"
       ],
-      "recorded_in": [],
-      "notes": "No licence or attribution for this feed is recorded in this repository outside the GRIB page's per-dataset line, which is left as it is. Terms not yet confirmed."
+      "recorded_in": [
+        "docs/maintenance/2026-11-12-licence-verification-proposals.md"
+      ],
+      "notes": "Derived works may be distributed for any purpose with the credit \"Generated using E.U. Copernicus Marine Service Information\" and each product's DOI, placed on the home page or the page where users get the data. The licence asks licensees to keep records that trace product use, and that duty passes into every downstream licence; it carries an indemnity, is under French law, has no version number and can be revised at any time. Downloads need a personal login; no page says any product can be downloaded without one. Confirmed by the owner on 2026-11-12."
     },
     {
       "id": "era5-reanalysis",
       "name": "ERA5 reanalysis",
       "provider": "Copernicus",
-      "licence": null,
-      "licence_url": null,
+      "licence": "CC BY 4.0",
+      "licence_url": "https://creativecommons.org/licenses/by/4.0/",
       "attribution": null,
-      "share_alike": null,
-      "redistribute": "unconfirmed",
-      "verified_on": null,
-      "verified_from": null,
+      "share_alike": false,
+      "redistribute": "yes",
+      "verified_on": "2026-11-12",
+      "verified_from": "https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels",
       "used_by": [
         "era5"
       ],
-      "recorded_in": [],
-      "notes": "No licence, attribution or redistribution statement for ERA5 is recorded in this repository. Terms not yet confirmed."
+      "recorded_in": [
+        "docs/maintenance/2026-11-12-licence-verification-proposals.md"
+      ],
+      "notes": "CC BY 4.0 replaced the older Copernicus licence on 2 July 2025. Credit is the dataset's own citation with DOI 10.24381/cds.adbb2d47 (the older \"Copernicus Climate Change Service information\" sentence belongs to the previous licence); downloads need a Climate Data Store account. Confirmed by the owner on 2026-11-12."
     },
     {
       "id": "meteofrance-marine-bulletins",
       "name": "Météo-France marine bulletins",
       "provider": "Météo-France",
-      "licence": null,
-      "licence_url": null,
+      "licence": "Licence Ouverte 2.0",
+      "licence_url": "https://www.data.gouv.fr/pages/legal/licences/etalab-2.0",
       "attribution": null,
-      "share_alike": null,
-      "redistribute": "unconfirmed",
-      "verified_on": null,
-      "verified_from": null,
+      "share_alike": false,
+      "redistribute": "yes",
+      "verified_on": "2026-11-12",
+      "verified_from": "https://www.data.gouv.fr/datasets/bulletin-meteorologique-special-annuel",
       "used_by": [
         "warnings_fr"
       ],
-      "recorded_in": [],
-      "notes": "config/providers.json describes the feed as the official data.gouv BMS mirror, synced daily. No licence, attribution or redistribution statement is recorded. Terms not yet confirmed."
+      "recorded_in": [
+        "docs/maintenance/2026-11-12-licence-verification-proposals.md"
+      ],
+      "notes": "Licence Ouverte 2.0 on the government portal's dataset page, which is the dataset warnings_mf.py reads. Credit Météo-France and the date of last update, and imply no endorsement. Confirmed by the owner on 2026-11-12."
     },
     {
       "id": "metoffice-shipping-forecast",
       "name": "Met Office shipping forecast print page",
       "provider": "Met Office",
-      "licence": null,
+      "licence": "By arrangement with the provider",
       "licence_url": null,
       "attribution": null,
       "share_alike": null,
-      "redistribute": "unconfirmed",
+      "redistribute": "yes",
       "verified_on": null,
       "verified_from": null,
       "used_by": [
         "warnings_uk"
       ],
-      "recorded_in": [],
-      "notes": "config/providers.json describes the feed as the shipping-forecast print page, with no API. No licence, attribution or redistribution statement is recorded. Terms not yet confirmed."
+      "recorded_in": [
+        "docs/maintenance/2026-11-12-licence-verification-proposals.md"
+      ],
+      "notes": "The owner states an arrangement with the provider that covers Passage's use (stated 2026-11-12). Its terms are not recorded in this repository. The provider's public terms, as read on 2026-11-12, would not by themselves allow it."
     },
     {
       "id": "nws-marine-alerts",
       "name": "NWS marine alerts (api.weather.gov)",
       "provider": "NWS",
-      "licence": null,
+      "licence": "Open data, free for any purpose (NWS API documentation)",
       "licence_url": null,
       "attribution": null,
-      "share_alike": null,
-      "redistribute": "unconfirmed",
-      "verified_on": null,
-      "verified_from": null,
+      "share_alike": false,
+      "redistribute": "yes",
+      "verified_on": "2026-11-12",
+      "verified_from": "https://www.weather.gov/documentation/services-web-api",
       "used_by": [
         "warnings_us"
       ],
-      "recorded_in": [],
-      "notes": "config/providers.json describes the feed as the active-alerts API per marine zone. No licence, attribution or redistribution statement is recorded. Terms not yet confirmed."
+      "recorded_in": [
+        "docs/maintenance/2026-11-12-licence-verification-proposals.md"
+      ],
+      "notes": "Requests must send a User-Agent that identifies the application, and unpublished rate limits apply. Confirmed by the owner on 2026-11-12."
     },
     {
       "id": "meteoalarm-warnings",
       "name": "Meteoalarm warnings",
       "provider": "Meteoalarm",
-      "licence": null,
-      "licence_url": null,
+      "licence": "MeteoAlarm Terms and Conditions (equivalent to CC BY 4.0, with added requirements)",
+      "licence_url": "https://www.meteoalarm.org/en/live/page/terms-and-conditions",
       "attribution": null,
-      "share_alike": null,
-      "redistribute": "unconfirmed",
-      "verified_on": null,
-      "verified_from": null,
+      "share_alike": false,
+      "redistribute": "yes",
+      "verified_on": "2026-11-12",
+      "verified_from": "https://www.meteoalarm.org/en/live/page/terms-and-conditions",
       "used_by": [
         "warnings_meteoalarm"
       ],
-      "recorded_in": [],
-      "notes": "config/providers.json describes the feed as the Meteoalarm CAP JSON per country. No licence, attribution or redistribution statement is recorded. Terms not yet confirmed."
+      "recorded_in": [
+        "docs/maintenance/2026-11-12-licence-verification-proposals.md"
+      ],
+      "notes": "The terms add seven requirements to CC BY 4.0, among them naming the source, showing the issue time, linking to meteoalarm.org, publishing a set disclaimer, showing modified information with the unmodified, and real-time redistribution; whether saved briefings meet the real-time one is open. Confirmed by the owner on 2026-11-12."
     },
     {
       "id": "bom-marine-warnings",
       "name": "BOM marine wind warnings",
       "provider": "BOM",
-      "licence": null,
+      "licence": "By arrangement with the provider",
       "licence_url": null,
       "attribution": null,
       "share_alike": null,
-      "redistribute": "unconfirmed",
+      "redistribute": "yes",
       "verified_on": null,
       "verified_from": null,
       "used_by": [
         "warnings_au"
       ],
-      "recorded_in": [],
-      "notes": "config/providers.json describes the feed as the marine wind warning summary XML per state over anonymous FTP. No licence, attribution or redistribution statement is recorded. Terms not yet confirmed."
+      "recorded_in": [
+        "docs/maintenance/2026-11-12-licence-verification-proposals.md"
+      ],
+      "notes": "The owner states an arrangement with the provider that covers Passage's use (stated 2026-11-12). Its terms are not recorded in this repository. The provider's public terms, as read on 2026-11-12, would not by themselves allow it."
     },
     {
       "id": "noaa-coops-tides",
       "name": "NOAA CO-OPS tide predictions",
       "provider": "NOAA CO-OPS",
-      "licence": null,
+      "licence": "Public domain (NOS disclaimer)",
       "licence_url": null,
       "attribution": null,
-      "share_alike": null,
-      "redistribute": "unconfirmed",
-      "verified_on": null,
-      "verified_from": null,
+      "share_alike": false,
+      "redistribute": "yes",
+      "verified_on": "2026-11-12",
+      "verified_from": "https://tidesandcurrents.noaa.gov/disclaimers.html",
       "used_by": [
         "tides"
       ],
-      "recorded_in": [],
-      "notes": "Named in analysis/src/deepweather_analysis/tides.py as the official harmonic predictions for US routes. No licence, attribution or redistribution statement is recorded. Terms not yet confirmed."
+      "recorded_in": [
+        "docs/maintenance/2026-11-12-licence-verification-proposals.md"
+      ],
+      "notes": "Credit is requested; the data are provided as is, and modified data must not be shown as official. Confirmed by the owner on 2026-11-12."
     },
     {
       "id": "msq-queensland-tides",
       "name": "Maritime Safety Queensland tide predictions",
       "provider": "Maritime Safety Queensland",
-      "licence": null,
-      "licence_url": null,
+      "licence": "CC BY 4.0",
+      "licence_url": "https://creativecommons.org/licenses/by/4.0/",
       "attribution": null,
-      "share_alike": null,
-      "redistribute": "unconfirmed",
-      "verified_on": null,
-      "verified_from": null,
+      "share_alike": false,
+      "redistribute": "yes",
+      "verified_on": "2026-11-12",
+      "verified_from": "https://www.data.qld.gov.au/api/3/action/package_search?q=tide",
       "used_by": [
         "tides"
       ],
-      "recorded_in": [],
-      "notes": "Named in analysis/src/deepweather_analysis/tides.py as official predictions on data.qld.gov.au (\"open data\" there is a description of the source, not a recorded licence). No licence, attribution or redistribution statement is recorded. Terms not yet confirmed."
+      "recorded_in": [
+        "docs/maintenance/2026-11-12-licence-verification-proposals.md"
+      ],
+      "notes": "Credit the State of Queensland (Transport and Main Roads, Maritime Safety Queensland), link the licence and note changes. Two of the four prediction datasets were checked, and one near-real-time dataset shows CC BY 3.0. Confirmed by the owner on 2026-11-12."
     },
     {
       "id": "copernicus-marine-ssh-tides",
       "name": "Copernicus Marine sea surface height (tides)",
       "provider": "Copernicus Marine Service",
-      "licence": null,
-      "licence_url": null,
-      "attribution": null,
-      "share_alike": null,
-      "redistribute": "unconfirmed",
-      "verified_on": null,
-      "verified_from": null,
+      "licence": "Copernicus Marine Service licence",
+      "licence_url": "https://marine.copernicus.eu/user-corner/service-commitments-and-licence",
+      "attribution": "Generated using E.U. Copernicus Marine Service Information",
+      "share_alike": false,
+      "redistribute": "yes",
+      "verified_on": "2026-11-12",
+      "verified_from": "https://marine.copernicus.eu/user-corner/service-commitments-and-licence",
       "used_by": [
         "tides"
       ],
-      "recorded_in": [],
-      "notes": "Named in config/providers.json and analysis/src/deepweather_analysis/tides.py as the 15-minute model sea surface height used for tides on some routes. No licence, attribution or redistribution statement is recorded. Terms not yet confirmed."
+      "recorded_in": [
+        "docs/maintenance/2026-11-12-licence-verification-proposals.md"
+      ],
+      "notes": "Derived works may be distributed for any purpose with the credit \"Generated using E.U. Copernicus Marine Service Information\" and each product's DOI, placed on the home page or the page where users get the data. The licence asks licensees to keep records that trace product use, and that duty passes into every downstream licence; it carries an indemnity, is under French law, has no version number and can be revised at any time. Downloads need a personal login; no page says any product can be downloaded without one. Confirmed by the owner on 2026-11-12."
     },
     {
       "id": "ndbc-observations",
       "name": "NDBC realtime observations",
       "provider": "NDBC",
-      "licence": null,
+      "licence": "Public domain (NDBC, US Government work); the two buoys read are owned by the UK Met Office",
       "licence_url": null,
       "attribution": null,
       "share_alike": null,
-      "redistribute": "unconfirmed",
+      "redistribute": "yes",
       "verified_on": null,
       "verified_from": null,
       "used_by": [
         "observations"
       ],
-      "recorded_in": [],
-      "notes": "Named in config/providers.json (realtime2, GTS and C-MAN). No licence, attribution or redistribution statement is recorded. Terms not yet confirmed."
+      "recorded_in": [
+        "docs/maintenance/2026-11-12-licence-verification-proposals.md"
+      ],
+      "notes": "NDBC states no terms for data it relays, and the Met Office's terms for these observations were not read. Confirmed by the owner on 2026-11-12."
     },
     {
       "id": "copernicus-insitu-observations",
       "name": "Copernicus In Situ TAC moorings",
       "provider": "Copernicus Marine Service",
-      "licence": null,
-      "licence_url": null,
+      "licence": "Copernicus Marine Service licence",
+      "licence_url": "https://marine.copernicus.eu/user-corner/service-commitments-and-licence",
       "attribution": null,
-      "share_alike": null,
-      "redistribute": "unconfirmed",
-      "verified_on": null,
-      "verified_from": null,
+      "share_alike": false,
+      "redistribute": "yes",
+      "verified_on": "2026-11-12",
+      "verified_from": "https://marine.copernicus.eu/user-corner/service-commitments-and-licence",
       "used_by": [
         "observations"
       ],
-      "recorded_in": [],
-      "notes": "Named in config/providers.json (near-real-time moorings, Mediterranean). No licence, attribution or redistribution statement is recorded. Terms not yet confirmed."
+      "recorded_in": [
+        "docs/maintenance/2026-11-12-licence-verification-proposals.md"
+      ],
+      "notes": "The product's user manual, where contributor conditions would be, was not read, and the Copernicus Marine record-keeping clause applies. Confirmed by the owner on 2026-11-12."
     },
     {
       "id": "queensland-wave-buoys",
       "name": "Queensland Coastal Data System wave buoys",
       "provider": "Queensland Coastal Data System",
-      "licence": null,
-      "licence_url": null,
+      "licence": "CC BY 4.0",
+      "licence_url": "https://creativecommons.org/licenses/by/4.0/",
       "attribution": null,
-      "share_alike": null,
-      "redistribute": "unconfirmed",
-      "verified_on": null,
-      "verified_from": null,
+      "share_alike": false,
+      "redistribute": "yes",
+      "verified_on": "2026-11-12",
+      "verified_from": "https://www.data.qld.gov.au/api/3/action/package_show?id=coastal-data-system-waves-gladstone",
       "used_by": [
         "observations"
       ],
-      "recorded_in": [],
-      "notes": "Named in config/providers.json (waves only). No licence, attribution or redistribution statement is recorded. Terms not yet confirmed."
+      "recorded_in": [
+        "docs/maintenance/2026-11-12-licence-verification-proposals.md"
+      ],
+      "notes": "Credit the Queensland Government; the Gladstone buoy is run jointly with Gladstone Ports Corporation. Only the Gladstone record was read. Confirmed by the owner on 2026-11-12."
     },
     {
       "id": "world-port-index",
@@ -266,7 +293,7 @@
       "licence_url": null,
       "attribution": null,
       "share_alike": null,
-      "redistribute": "unconfirmed",
+      "redistribute": "yes",
       "verified_on": null,
       "verified_from": null,
       "used_by": [
@@ -274,49 +301,52 @@
       ],
       "recorded_in": [
         "viewer/src/data/PROVENANCE.md",
-        "docs/port-names.md"
+        "docs/port-names.md",
+        "docs/maintenance/2026-11-12-licence-verification-proposals.md"
       ],
-      "notes": "viewer/src/data/PROVENANCE.md records the licence as public domain (the service item's licence text, \"released into Public Domain\") and says public domain needs no attribution, so attribution stays null. The copy was obtained on 2026-11-11 from the Esri service, not from NGA; no date is recorded for reading the terms, so verified_on stays null. The file also says Passage does not claim NGA endorsement, and a refresh from NGA is planned. Redistribution is not stated. Terms not yet confirmed."
+      "notes": "NGA's own pages could not be read, and the bundled copy came through a third-party portal. Confirmed by the owner on 2026-11-12."
     },
     {
       "id": "openstreetmap-base-map",
       "name": "OpenStreetMap base map tiles",
       "provider": "OpenStreetMap contributors",
-      "licence": null,
-      "licence_url": null,
+      "licence": "OpenStreetMap tile usage policy; map data ODbL 1.0",
+      "licence_url": "https://operations.osmfoundation.org/policies/tiles/",
       "attribution": "© OpenStreetMap contributors",
       "share_alike": null,
-      "redistribute": "unconfirmed",
-      "verified_on": null,
-      "verified_from": null,
+      "redistribute": "yes",
+      "verified_on": "2026-11-12",
+      "verified_from": "https://operations.osmfoundation.org/policies/tiles/",
       "used_by": [
         "basemap_osm"
       ],
       "recorded_in": [
-        "viewer/src/lib/basemap.js"
+        "viewer/src/lib/basemap.js",
+        "docs/maintenance/2026-11-12-licence-verification-proposals.md"
       ],
-      "notes": "Credit line as rendered, from the attribution in viewer/src/lib/basemap.js (its markup links the OpenStreetMap copyright page). No licence is recorded here. Terms not yet confirmed."
+      "notes": "Passage displays the tiles and does not redistribute them; the policy forbids bulk download and requires visible credit, and commercial services are warned that access can be withdrawn. Confirmed by the owner on 2026-11-12."
     },
     {
       "id": "openseamap-seamarks",
       "name": "OpenSeaMap seamark tiles",
       "provider": "OpenSeaMap",
-      "licence": null,
+      "licence": "Data ODbL 1.0; tiles CC BY-SA",
       "licence_url": null,
       "attribution": "seamarks © OpenSeaMap",
-      "share_alike": null,
-      "redistribute": "unconfirmed",
-      "verified_on": null,
-      "verified_from": null,
+      "share_alike": true,
+      "redistribute": "yes",
+      "verified_on": "2026-11-12",
+      "verified_from": "https://wiki.openstreetmap.org/wiki/OpenSeaMap",
       "used_by": [
         "seamarks_openseamap"
       ],
       "recorded_in": [
         "viewer/src/components/RouteMap.jsx",
         "viewer/src/pages/planner/PlannerMap.jsx",
-        "viewer/src/pages/grib/GribMap.jsx"
+        "viewer/src/pages/grib/GribMap.jsx",
+        "docs/maintenance/2026-11-12-licence-verification-proposals.md"
       ],
-      "notes": "Credit line from the seamark layer attribution in viewer/src/components/RouteMap.jsx, viewer/src/pages/planner/PlannerMap.jsx and viewer/src/pages/grib/GribMap.jsx. No licence is recorded here. Terms not yet confirmed."
+      "notes": "Displayed as an overlay; the tile licence version (2.0) rests on a search summary, and no tile usage policy was found. Confirmed by the owner on 2026-11-12."
     }
   ]
 }

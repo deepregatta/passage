@@ -107,6 +107,8 @@ const FR = {
   "Yes, under the licence": "Oui, selon la licence",
   "Yes, adapted data keep the same licence": "Oui, les données adaptées gardent la même licence",
   "No": "Non",
+  "Yes, by arrangement with the provider": "Oui, par accord avec le fournisseur",
+  "By arrangement with the provider": "Par accord avec le fournisseur",
   // About: source names and providers from the registers (proper names and product codes pass through unchanged).
   "ECMWF open data IFS 0.25°": "Données ouvertes ECMWF IFS 0,25°",
   "ECMWF open data for synoptic charts": "Données ouvertes ECMWF pour les cartes synoptiques",
