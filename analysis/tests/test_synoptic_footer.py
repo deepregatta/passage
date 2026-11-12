@@ -27,7 +27,9 @@ def _dataset() -> xr.Dataset:
     lons = np.arange(-35.0, 10.01, 1.0)
     lon_grid, lat_grid = np.meshgrid(lons, lats)
     # Pascals: the renderer detects the unit
-    msl = 101300.0 + 40.0 * np.sin(np.radians(lat_grid * 3)) + 30.0 * np.cos(np.radians(lon_grid * 4))
+    msl = (
+        101300.0 + 40.0 * np.sin(np.radians(lat_grid * 3)) + 30.0 * np.cos(np.radians(lon_grid * 4))
+    )
     return xr.Dataset(
         {"msl": (("step", "latitude", "longitude"), msl[None])},
         coords={"step": [0], "latitude": lats, "longitude": lons},
