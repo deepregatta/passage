@@ -28,7 +28,7 @@ not complete valid-time coverage, artifact freshness or operational accuracy.
 | **Production-enabled reference demo; local-only generation:** demo, synthetic scenarios, reader for published cases | [Fixture policy](testing.md), [ScenarioBundleStore](../engine/src/forecast/scenarioStore.ts), [outcome reader](../viewer/src/pages/briefing/OutcomeSection.jsx); compatibility/i18n/outcome/fixture-persistence tests | Pages packages the emulated reference demo. Dev fixture writes are refused; new checks use IndexedDB. Other published cases need an explicit producer/publication path; emulated cases contribute no calibration samples. |
 | **Deferred:** automatic verification of browser-local checks | [Bounded follow-up](verification.md); outcome/browser tests assert unavailable | No private route transport or browser observation matcher. A missing case is not a scheduled job. |
 | **Implemented in source:** bounded decision message IDs | [Message-ID contract](maintenance/briefing-message-ids.md), engine/viewer `decisionMessages` and browser `decision-messages.spec.js` | Optional version-1 metadata; typed EN/FR verdict/driver rendering, literal names, visible whole-field fallback. Gated registers and other families remain legacy. Current deployed revision unverified. |
-| **Deferred:** wider message-ID migration, wider synoptic/authority publication, night-risk evaluation, routing Worker | [Message-ID design](maintenance/briefing-message-ids.md), [product scope](product-brief.md), remaining work below | Full version-2 IDs remain deferred; legacy prose/regex translation stays active for unmigrated and archived fields. Saved `night_ok` changes no verdict, scan or timing. The bounded decision slice changes none of these deferred capabilities. |
+| **Deferred:** wider message-ID migration, wider synoptic/authority publication, night-risk evaluation, Compute in the scan Worker | [Message-ID design](maintenance/briefing-message-ids.md), [product scope](product-brief.md), remaining work below | Full version-2 IDs remain deferred; legacy prose/regex translation stays active for unmigrated and archived fields. Saved `night_ok` changes no verdict, scan or timing. The bounded decision slice changes none of these deferred capabilities. |
 
 ## Preserved contracts
 
@@ -89,8 +89,15 @@ no additional runner is needed. [Testing](testing.md) details fixture guarantees
    Since then a scan no longer hashes its candidates' saved identity, which it never
    shows or saves (a picked time is checked afresh): the block is 65 to 69 % shorter
    (1.0 to 2.6 s unthrottled, 6.6 to 15.6 s at 6× for Channel and Biscay), with
-   every returned and saved value unchanged. It still freezes the page; the Worker
-   recommendation stands.
+   every returned and saved value unchanged. It still froze the page.
+   The part right after the tap turned out to be the routing of the 21 candidates
+   (desktop Chromium's long-task observer did not report it). On 2026-11-12 the
+   whole scan action moved to a cancellable Web Worker (`viewer/src/lib/scanRunner.js`):
+   the page keeps painting, counts routed and compared departures, answers taps, and
+   can stop a scan; it stops itself when the route or departure changes. Results are
+   unchanged, apart from wall-clock stamps. Where no Worker starts, it runs on the
+   page as before. Compute stays on the page's thread. Desktop measurements are in
+   the record. Local tests only: not deployed, and not measured on a phone.
 3. Resolve prepared background-wind coherence separately: `RouteMap` still
    selects current prepared wind for non-example saved briefings while leg arrows
    use frozen findings. Keep its display responsibility; never substitute latest

@@ -81,11 +81,12 @@ async function loadTides(routeId) {
 /** Refresh once at the action boundary; every artifact resolves through this pointer.
  * @param {ReturnType<typeof captureActionDraft>} draft
  * @param {(step: string) => void} [onProgress]
+ * @param {import('@deepweather/engine').ForecastStore} [store] the store to pin: the page's, or the scan Worker's copy of its runs
  * @returns {Promise<import('./actionInputs.js').ActionInputs>}
  */
-export async function prepareAnalysisInputs(draft, onProgress) {
+export async function prepareAnalysisInputs(draft, onProgress, store = forecastStore()) {
   const { route } = draft;
-  const pinned = await pinForecastInputs(forecastStore());
+  const pinned = await pinForecastInputs(store);
   onProgress?.('loading prepared data');
   const { doc: latest } = await preparedRun({ refresh: true });
   const [{ currentGrid, currentGridProvenance }, synoptic, tideArtifact, gatesDoc, warningsDoc, zonesDoc] = await Promise.all([

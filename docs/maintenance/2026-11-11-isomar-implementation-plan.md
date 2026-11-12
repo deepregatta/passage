@@ -145,6 +145,8 @@ Already remaining work 2 in `docs/capabilities.md`. A scan routes every candidat
 
 **Status 2026-11-12: local measurement and one mid-range phone measured; a low-end phone not.** [Record](2026-11-12-scan-responsiveness.md): the scan blocks the page for 2.2 to 8.4 s unthrottled and 13 to 51 s at 6× CPU throttling (audits are 80 to 95 % of it), Compute for up to 0.9 s at 6×; D2 would add 4 to 16 candidates. Recommendation: a cancelable Worker for the scan before D2 and D3. A Galaxy A53 (mid-range, unthrottled) blocked for 4.1, 6.0 and 21 s on a 20, 63 and 321 nm scan, and for 2.0, 2.3 and 6.7 s after the scan stopped hashing its candidates' identity (commit 69eb2a4); it behaves like about 2× desktop throttling. A low-end phone was not measured; the record gives the steps.
 
+**Update, 2026-11-12, evening: the cancellable Worker is in place.** The scan, routing included, runs in a Web Worker with a live count and a Stop button, and its results are unchanged. On the desktop the page's longest task during a scan fell from 1 to 19 s to at most 58 ms. A phone has not been measured since. See [After the Worker](2026-11-12-scan-responsiveness.md#after-the-worker). D2 and D3 now add to the Worker's run, not to a page freeze.
+
 ### D2. Refinement pass (review step 7)
 
 - **Engine.** `refineScan(base, coarse, { stepH, spanH })`: route and audit extra departures around the best and tied candidates (default every 2 h within 6 h either side, skipping times already present), merge in time order, recompute the baseline-relative fields and rerank.

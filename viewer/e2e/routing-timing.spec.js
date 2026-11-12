@@ -10,6 +10,8 @@ async function installForecast(page, along) {
     const { forecastStore } = await import('/src/lib/forecastStore.js');
     const inputs = routingInputs(along);
     const fixture = auditStore(engine, inputs.currentGrid);
+    // This fixture replaces the page store's reads, which a scan Worker cannot see: compare on the page's thread.
+    window.__deepweatherScanInPage = true;
     const store = forecastStore();
     for (const method of ['init', 'describe', 'getPointForecasts', 'getEnsembleForecasts', 'getWaveForecasts', 'getHazardForecasts', 'getCurrentGrid']) {
       store[method] = fixture[method].bind(fixture);

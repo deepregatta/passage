@@ -12,6 +12,7 @@ _12 November 2026. A measurement record, not current product guidance. It answer
 - **Recommendation:** put the scan in a cancellable Worker before D2 and D3. D2 would add 4 to 16 candidates (19 to 76 % more work). Details and what would change this are in [Conclusion](#conclusion-and-recommendation).
 - **On a real phone** (Galaxy A53, mid-range, unthrottled), a scan blocked the page for 4.1 s (20 nm), 6.0 s (Channel) and 21 s (Biscay) before the hashing change and 2.0, 2.3 and 6.7 s after it (−52 to −68 %), still with no repaint and no response to a tap. The phone behaves like about 2× desktop throttling, so the 4× and 6× rows overstate it. A low-end phone was not measured. See [Measured on a real phone](#measured-on-a-real-phone).
 - **Later the same day** a scan stopped hashing its candidates' saved identity: its block fell by 65 to 69 % (Channel 6.6 s and Biscay 15.6 s at 6×), and it still freezes the page. See [After the hashing change](#after-the-hashing-change).
+- **That evening the scan moved to a cancellable Web Worker.** During a scan the page's longest task is now 58 ms at 6× and none over 50 ms at 1× and 2×, against 1.0 to 19 s before. The page paints 76 to 360 frames per scan, against 4 to 10, and the status line counts the routed and then the compared departures. A tap waited at most 24 ms at 1× and 2× and 119 ms at 6×. The comparison is unchanged. The long task right after the tap on the phone was the routing of the 21 candidates; desktop Chromium's long-task observer had not reported it. Desktop measurement only. See [After the Worker](#after-the-worker).
 
 ## What runs on the main thread
 
@@ -353,6 +354,108 @@ adb reverse --remove tcp:<port>; adb forward --remove tcp:<host-port>
 
 The "before/after" order of this run: after build (coastal, Channel, Biscay, 3 runs each), then the "before" build again for 3 Channel scans (drift control); the "before" build had been measured in an earlier session on the same fixtures. Run builds alternately in one session when comparing, start the phone at a similar temperature, and report temperature with the results.
 
+## After the Worker
+
+_12 November 2026, evening. This section records the change that the recommendation above asked for. The sections above are left as they were measured._
+
+### The long task right after the tap
+
+Before writing the Worker I timed the steps of `runScan` and compared them with the probe's 10 ms timer-lag sampler. The run was Biscay at 2× (about the phone's speed), on the production build, with temporary timestamps that were then removed.
+
+- After the Compute had already loaded the routing inputs, `prepareAnalysisInputs` and `loadRoutingInputs` ended about 60 ms after the click.
+- **Routing the 21 candidates (`routeOnOneCurrent`, 21 × `computeRoute`, synchronous) then ran as one block of 4.4 s.**
+- The first audit started 0.4 s later.
+- The 21 audits ran as one block of 5.3 s.
+
+The phone's "second long task" is therefore the routing loop: it matches the Node routing figures times the phone's factor (0.34, 1.4 and 4.1 to 6.1 s against 0.15, 0.8 and 2.5 s in Node).
+
+On the desktop, Chromium's `longtask` observer did not report the routing block, but the timer-lag sampler did. **The desktop rows above under "longest block" and "sum of long tasks" therefore counted the audit block only.** The click-to-result, frame-gap and tap-delay columns were not affected. This is why the Worker takes the routing as well as the audits.
+
+### What changed
+
+The whole scan action now runs in a module Worker. The design was agreed with the owner before implementation.
+
+- **Code.**
+  - `viewer/src/lib/scanAction.js` is the action: prepare the inputs, load the routing inputs, route every candidate on one current source, audit and rank. The Worker and the in-page fallback run the same code.
+  - `scanRunner.js` is the page's side.
+  - `scanWorker.js` and `scanWorkerHandler.js` are the Worker's side.
+  - `pinnedForecast.js` hands the page's pinned runs to the Worker.
+- **What crosses the boundary:**
+  - Into the Worker: the draft frozen at the click, a few parameters, the page's clock, and a copy of the page store's pinned run catalogue and manifests (a few KB).
+  - Back from the Worker: the comparison and each departure's route.
+  - Tiles and grids never cross. The Worker builds its own `TileForecastStore` over exactly those runs. It reads tiles through the shared IndexedDB cache (gzip bytes) or over HTTP and decodes them itself. It cannot read `latest.json` or evict the cache.
+  - A store whose runs differ from the page's fails the action as an updated forecast. Errors come back with their deleted-run identity, so the existing refresh-and-retry still applies.
+  - The Worker builds and freezes the action bundle on its side and routes and audits on one current source. Only the page's input key (local time) is added on the page.
+- **Progress, stop and stale inputs.**
+  - The status line counts "Routing departures n/21…" and then "Comparing departure times n/21…" (French: "Calcul des routes n/21…", "Comparaison des heures de départ n/21…").
+  - No partial result is shown, because hour figures and ranking are filled in only after the last audit.
+  - "Stop comparing", under the scan button and on the phone's action bar, ends the Worker at once. The next scan starts a new Worker.
+  - A change to the route points, boat, percent of polar or speeds during a scan stops it with "Comparison stopped: the route or departure changed. Compare again." A departure moved outside the anchor and its candidate times stops it the same way.
+  - Leaving the planner stops a scan silently.
+- **Fallback.** The page runs the same action itself, as before, when there is no `Worker`, when construction throws, or when no "ready" arrives within 15 s. The choice is kept for the rest of the visit. The production build emits the Worker as one 115 kB file (an IIFE started as a module Worker); the CSP already allows `worker-src 'self'`.
+- **Compute stays on the page's thread.** Its longest block is unchanged (below).
+
+### Results unchanged
+
+The comparison (candidates, ranking, skipped, routes, notes, current source, input records and digests) is identical across the boundary.
+
+- **Node.** `viewer/test/scanWorker.test.js` sends structured-cloned messages through the Worker's handler and compares the result with the in-page call, for computed and drawn scans.
+- **Real browser.** `viewer/e2e/scan-worker.spec.js` runs a real Worker on PFT1 tiles and the real coastline, and compares the stored scan with the same scan run on the page.
+- **What may differ.** In the browser only wall-clock stamps differ: a route's `computed_at`, a tile read's `fetched_at`, and the tile current record's `content_digest`, which hashes the current grid together with its read time (adjacent finding 6 below). The test page's clock is fixed and the Worker's is not. In a one-off run with the Worker's clock fixed too, everything was identical.
+- **Unchanged checks.** The engine (and its scan golden) is unchanged, and the identity suites pass.
+
+### Desktop browser, before and after
+
+The commands were `npm run perf:prepare`, then `PERF_PASSAGES=coastal-20nm,channel-63nm,biscay-321nm PERF_RATES=1,2,6 PERF_RUNS=2 npm run perf:browser`.
+
+- **Builds.** "Before" was a production build of commit ad3aae5, served by the same harness. "After" was this change. The two builds were measured back to back on the machine above.
+- **Figures.** Medians of 2 runs, in seconds. All 24 scans showed 21 candidates.
+- **Measures.** "Longest block" is the longest timer lag, which caught the routing block where the long-task observer did not. "Tap" is the largest input delay of a tap on the probe's corner pad.
+
+| Passage | Throttle | Click to result | Longest block | Longest frame gap | Largest tap delay | Frames during the scan | Status changes |
+|---|---|---|---|---|---|---|---|
+| coastal 20.7 nm | 1× | 1.52 → 1.87 | 1.05 → none over 30 ms | 1.06 → under 0.05 | 0.93 → 0.015 | 10 → 115 | 3 → 40 |
+| | 2× | 3.07 → 1.80 | 2.14 → none | 2.20 → under 0.05 | 1.90 → 0.024 | 8 → 110 | 3 → 40 |
+| | 6× | 9.63 → 1.99 | 6.69 → 0.14 | 7.29 → 0.17 | 6.65 → 0.12 | 6 → 76 | 3 → 28 |
+| Channel 62.7 nm | 1× | 2.36 → 2.52 | 1.12 → none | 1.27 → under 0.05 | 0.88 → 0.014 | 5 → 154 | 3 → 49 |
+| | 2× | 4.60 → 2.66 | 2.29 → none | 2.79 → under 0.05 | 2.22 → 0.008 | 4 → 163 | 2 → 50 |
+| | 6× | 14.8 → 2.91 | 6.99 → 0.09 | 9.04 → 0.12 | 6.85 → 0.11 | 6 → 128 | 3 → 46 |
+| Biscay 321 nm | 1× | 5.84 → 5.75 | 2.84 → none | 3.18 → under 0.05 | 2.80 → 0.014 | 4 → 356 | 3 → 50 |
+| | 2× | 12.2 → 5.82 | 6.24 → none | 6.92 → under 0.05 | 6.04 → 0.010 | 6 → 360 | 2 → 50 |
+| | 6× | 40.8 → 6.24 | 19.0 → 0.08 | 21.8 → 0.14 | 18.9 → 0.09 | 5 → 346 | 3 → 48 |
+
+- **During a scan the page paints and answers.**
+  - The longest long task is 58 ms at 6× and none at 1× and 2×.
+  - A tap waited at most 24 ms at 1× and 2×, and 88 to 119 ms at 6×, where the page's own work (rendering each count, a few short tasks) runs six times slower.
+  - The status line paints the counts: 40 to 50 changes per scan, against 2 to 3 before ("n/21" was never painted before).
+- **Total time at 1× is about the same or a little longer.**
+  - Coastal +0.35 s, Channel +0.16 s, Biscay −0.09 s.
+  - The Worker starts once per visit, fetches and decodes the coastline and its tiles again (from the shared cache), and decodes the wind grid that Compute had already decoded on the page.
+- **CPU throttling does not slow the Worker.** `Emulation.setCPUThrottlingRate` throttles the page's thread, not a dedicated Worker's: after the change the 2× and 6× totals are within 0.4 s of the 1× ones.
+  - **So the throttled "after" totals are not a phone estimate.** On a phone the Worker runs at the phone's speed, so expect the scan to take about as long as before. The page stays usable meanwhile.
+  - The main-thread columns, which are what the Worker is for, remain valid under throttling.
+- **Compute is unchanged.** Its longest block was 0 to 0.16 s at 1×, 0.05 to 0.34 s at 2× and 0.16 to 1.24 s at 6×, before and after alike (Biscay at 6×: 1.24 before, 1.00 after).
+
+### Against the thresholds
+
+- **Met, desktop.** On the desktop, at every throttle tried:
+  - the page repaints during a scan;
+  - the progress count advances;
+  - a tap is handled within 100 ms at 1× and 2× (the phone's speed) and within 120 ms at 6×;
+  - a scan can be stopped at once.
+- **Not measured.**
+  - **No phone has been measured after this change.**
+  - The phone steps above still apply; the Worker needs no change to them.
+  - A low-end phone has still not been measured.
+- **Effect on D2.** D2's extra candidates now lengthen the Worker's run, not the page's freeze. The D2 table above becomes waiting time with a live count and a Stop button.
+
+### Adjacent findings (recorded, not fixed)
+
+5. **The dev server serves the coastline `.bin.gz` with `Content-Encoding: gzip`**, so the browser decompresses it before the app's own `DecompressionStream` does. A Compute on the real coastline therefore fails in development with "Couldn't load the coastline data needed for safe routing". Production and the perf server are unaffected. The browser specs stub the coastline or serve it themselves.
+6. **The tile current record's `content_digest` includes the grid's read time.** `resolveCurrentInput` and `selectRoutingCurrent` hash the tile current grid with its `generated_at` and `source.fetched_at` (`engine/src/currentInput.ts`), so two scans or Checks on the same run record different digests a second apart. The saved identity strips these clocks (`engine/src/identity.ts`); this provenance digest does not.
+7. **Compute could use the same Worker.** It is a single route and its block is at most 0.28 s on the phone and 1.2 s at 6×, so it was left on the page. A prepared grid's digest is its largest part.
+8. **The French `fixture-persistence` browser test** (`e2e/fixture-persistence.spec.js:49`, "Execution context was destroyed") failed in 3 of 3 runs on the unchanged ad3aae5 tree and in 2 of 4 runs with this change. It is the known intermittent failure and is not caused by the Worker.
+
 ## Repeat it
 
 All commands run from the repository root. The harness lives in `engine/scripts/` and `viewer/e2e/perf/`, writes only to `output/perf/` (git-ignored), needs no network and no polar service, and is not run by `npm test` or `npm run test:e2e`. Never run it at the same time as vitest or the e2e suite; Playwright uses port 5194 (`PASSAGE_PERF_PORT` or `PASSAGE_E2E_PORT` to change it) and starts no other server.
@@ -389,4 +492,5 @@ _Written before the phone measurement; the run that followed is in [Measured on 
 
 - `engine/scripts/perf/scenarios.ts` (passages, synthetic weather, tiles, prepared grids), `engine/scripts/perf/prepare-fixtures.ts`, `engine/scripts/bench-routing-scan.ts`
 - `viewer/e2e/perf/scan-responsiveness.perf.js`, `probe.js`, `serve.js`, `viewer/playwright.perf.config.js`
+- The scan Worker (2026-11-12, evening): `viewer/src/lib/scanAction.js`, `scanRunner.js`, `scanWorker.js`, `scanWorkerHandler.js`, `scanMessages.js`, `pinnedForecast.js`; tests `viewer/test/scanWorker.test.js`, `scanRunner.test.js`, `pinnedForecast.test.js`, `plannerScanStop.test.jsx`, `viewer/e2e/scan-worker.spec.js`
 - npm scripts `perf:node`, `perf:prepare`, `perf:browser`, `perf:serve` (root), `bench:routing`, `perf:fixtures` (engine), `perf:build`, `test:perf` (viewer)

@@ -166,6 +166,30 @@ they never reread the profile storage adapter. A deleted/changed tile run aborts
 the whole attempt; the existing freshness wrapper may retry with a new bundle,
 retaining the user inputs captured at the click.
 
+A departure Scan builds and uses that bundle in a Web Worker
+(`viewer/src/lib/scanRunner.js`, since 2026-11-12). The page pins its runs and
+sends the Worker the frozen draft, a few parameters, its clock, and a copy of the
+pinned run catalogue and manifests (`pinnedForecast.js`). It never sends tiles.
+The Worker builds its own store over exactly those runs: it cannot read
+latest.json, and a mismatch fails as an updated forecast. It reads tiles through
+the shared IndexedDB cache, builds and freezes the bundle on its side, and routes
+and audits every candidate on one current source. Errors come back with their
+deleted-run identity, so the freshness wrapper still retries. Stop ends the
+Worker. Where no Worker starts, the page runs the same `runScanAction` itself.
+
+These tests cover it:
+
+- `viewer/test/scanWorker.test.js`: identical results across the
+  structured-clone boundary, the page's clock, rebuilt errors;
+- `scanRunner.test.js`: progress, cancel, crash, fallback;
+- `pinnedForecast.test.js`;
+- `plannerScanStop.test.jsx`: stop, stale inputs, counts;
+- `viewer/e2e/scan-worker.spec.js`: a real Worker on PFT1 tiles against the
+  in-page path.
+
+Browser specs that replace the page store's reads set
+`window.__deepweatherScanInPage` so that the scan stays on the page.
+
 Prepared discovery bypasses a stale HTTP pointer at each action and does not
 memoize failures. Artifact paths are resolved from one selected pointer; saved
 chart references remain verbatim. Input provenance includes canonical FNV-1a64

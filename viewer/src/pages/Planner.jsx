@@ -9,7 +9,7 @@ import DepartureField from './planner/DepartureField.jsx';
 import PlannerMap from './planner/PlannerMap.jsx';
 import usePlannerController, { validSpeed } from './planner/usePlannerController.jsx';
 import { POLAR_PERCENT_MAX, POLAR_PERCENT_MIN, polarPercentNote } from './planner/plannerInputs.js';
-import { ACTION, BUSY_BUTTON_LABEL, SOURCE, barStatus, mapHint, revealElement } from './planner/plannerFeedback.js';
+import { ACTION, BUSY_BUTTON_LABEL, SOURCE, STOP_SCAN_LABEL, barStatus, mapHint, revealElement } from './planner/plannerFeedback.js';
 import { gribRouteArea, gribRoutePoints } from '../lib/gribExport.js';
 import { useApp } from '../stores/appStore.js';
 import { useGrib } from '../stores/gribStore.js';
@@ -30,7 +30,7 @@ export default function Planner() {
     setName, setSpeeds, setDepartureLocal, setPolarPercent, busy, activeAction, failure, notice, staleRoute,
     departureIssue, blocked, retryAction, clearDraft, undoClear, clearedNotice, seededFromCompute, fitNonce, fileRef,
     route, distance, speedsValid, passageHours, addWaypoint, moveWaypoint,
-    runRouting, onGpx, runScan, run, downloadLines
+    runRouting, onGpx, runScan, stopScan, run, downloadLines
   } = usePlannerController();
   // Every status below takes the same inputs; each one picks out its own action.
   const status = { activeAction, busy, failure, notice, onRetry: () => retryAction(failure?.kind), onSwitchToDraw: () => setMode('draw') };
@@ -62,11 +62,12 @@ export default function Planner() {
   const primary = mode === 'compute' && !computed ? ACTION.compute : ACTION.check;
   const scanning = activeAction?.kind === ACTION.scan;
   const bar = {
-    label: scanning ? BUSY_BUTTON_LABEL.scan
+    // While a comparison runs the bar's button stops it (its progress is the bar's status).
+    label: scanning ? STOP_SCAN_LABEL
       : activeAction?.kind === primary ? BUSY_BUTTON_LABEL[primary]
       : primary === ACTION.compute ? 'Compute route' : 'Check this passage',
-    disabled: busy !== null || (primary === ACTION.compute ? computeBlocked !== null : !canCheck),
-    onClick: primary === ACTION.compute ? runRouting : () => run(),
+    disabled: scanning ? false : busy !== null || (primary === ACTION.compute ? computeBlocked !== null : !canCheck),
+    onClick: scanning ? () => stopScan() : primary === ACTION.compute ? runRouting : () => run(),
     failed: Boolean(failure),
     status: barStatus({
       failure, busy, blocked: primary === ACTION.compute ? computeBlocked : checkBlocked, mode, computed, waypoints, distance,
@@ -304,6 +305,15 @@ export default function Planner() {
             </button>
             {downloadLines.scan && <p id="download-scan" className="text-[12px] text-ink-soft">{downloadLines.scan}</p>}
             <ActionStatus kind={ACTION.scan} {...status} />
+            {scanning && (
+              <button
+                type="button"
+                onClick={() => stopScan()}
+                className="self-start min-h-11 px-3 border border-ink/50 rounded-sm hover:bg-white/50"
+              >
+                {STOP_SCAN_LABEL}
+              </button>
+            )}
             <div aria-live="polite" className="empty:hidden">
               {busy === null && scanBlocked && <p className="text-[13px] text-ink-soft">{scanBlocked}</p>}
               {scan && scan.candidates.length > 0 && (

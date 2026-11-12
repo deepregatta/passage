@@ -14,7 +14,7 @@ const RAW_PROGRESS = [
   'loading prepared data', 'reading forecast run manifest', 'reading deterministic forecast tiles',
   'checking ensemble tiles', 'reading 51-member ensemble tiles', 'reading wave tiles',
   'reading hazard and model-comparison tiles', 'reading current tiles', 'evaluating against your limits',
-  'saving immutable snapshot', 'scanning departures', 'scanning departures 3/21',
+  'saving immutable snapshot', 'scanning departures', 'scanning departures 3/21', 'routing departures 7/21',
 ];
 
 it.each(RAW_PROGRESS)('shows "%s" in plain words with a French translation', (raw) => {
@@ -29,6 +29,20 @@ it('keeps unknown progress visible instead of hiding it', () => {
   expect(progressLabel(null)).toBeNull();
   expect(progressLabel('scanning departures 3/21')).toBe('Comparing departure times 3/21…');
   expect(translateText('Comparing departure times 3/21…', 'fr')).toBe('Comparaison des heures de départ 3/21…');
+});
+
+it('counts the routed departures before the compared ones, in both languages', () => {
+  expect(progressLabel('routing departures 0/21')).toBe('Routing departures 0/21…');
+  expect(translateText('Routing departures 7/21…', 'fr')).toBe('Calcul des routes 7/21…');
+});
+
+it.each([
+  ['Stop comparing', 'Arrêter la comparaison'],
+  ['Comparison stopped.', 'Comparaison arrêtée.'],
+  ['Comparison stopped: the route or departure changed. Compare again.', 'Comparaison arrêtée\u00A0: la route ou le départ a changé. Relancez la comparaison.'],
+  ['The comparison could not finish. Try again.', 'La comparaison n’a pas pu aboutir. Réessayez.'],
+])('translates the comparison control and stop message "%s"', (english, french) => {
+  expect(translateText(english, 'fr')).toBe(french);
 });
 
 it.each([

@@ -15,6 +15,9 @@ export const BUSY_BUTTON_LABEL = Object.freeze({
   check: 'Checking this passage…',
 });
 
+/** The control that stops a running departure comparison. */
+export const STOP_SCAN_LABEL = 'Stop comparing';
+
 const PROGRESS = {
   starting: 'Starting…',
   'computing route': 'Finding the best route…',
@@ -40,6 +43,8 @@ export function progressLabel(raw) {
   if (PROGRESS[raw]) return PROGRESS[raw];
   const scanning = /^scanning departures (\d+\/\d+)$/.exec(raw);
   if (scanning) return `Comparing departure times ${scanning[1]}…`;
+  const routing = /^routing departures (\d+\/\d+)$/.exec(raw);
+  if (routing) return `Routing departures ${routing[1]}…`;
   if (/^reading \d+-member ensemble tiles$/.test(raw)) return PROGRESS['checking ensemble tiles'];
   return `${raw.charAt(0).toUpperCase()}${raw.slice(1)}…`;
 }

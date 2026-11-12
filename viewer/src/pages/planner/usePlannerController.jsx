@@ -1,17 +1,14 @@
-import { captureActionDraft, freezeActionInputs } from '../../lib/actionInputs.js';
+import { captureActionDraft } from '../../lib/actionInputs.js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  deriveLegs, totalDistanceNm, parseGpx, computeRoute, scanDepartures, candidateDepartures, selectRoutingCurrent,
-} from '@deepweather/engine';
+import { deriveLegs, totalDistanceNm, parseGpx } from '@deepweather/engine';
 import { track } from '../../lib/analytics.js';
 import { localDateTimeToIso, toLocalDateTimeValue } from '../../lib/format.js';
 import { useApp } from '../../stores/appStore.js';
 import { usePlanner } from '../../stores/plannerStore.js';
 import { analyzeInBrowser, saveRoute, prepareAnalysisInputs } from '../../lib/browserAnalysis.js';
-import {
-  loadRoutingInputs as loadLiveRoutingInputs, routedOutcome, routingCurrentSummary, selectedRoutingNotes,
-} from '../../lib/routingInputs.js';
-import { scanDateWindow } from '../../lib/scanWindow.js';
+import { routeOnOneCurrent, scanDeparturesFor } from '../../lib/scanAction.js';
+import { ScanCancelledError, runScanJob } from '../../lib/scanRunner.js';
+import { loadRoutingInputs as loadLiveRoutingInputs, routedOutcome } from '../../lib/routingInputs.js';
 import { forecastStore } from '../../lib/forecastStore.js';
 import { withFreshForecast } from '../../lib/forecastFreshness.js';
 import { validateDeparture } from './departureInput.js';
@@ -28,35 +25,9 @@ export const CLEAR_UNDO_MS = 8000;
 
 export const validSpeed = (value) => Number.isFinite(value) && value > 0;
 
-const routeForDeparture = (inputs, departureUtc, polarPercent, currentGrid, strictCurrent) =>
-  computeRoute({
-    start: inputs.start,
-    finish: inputs.finish,
-    departureUtc,
-    polar: inputs.polar,
-    polarScaling: polarPercent / 100,
-    windGrid: inputs.windGrid,
-    currentGrid: currentGrid ?? undefined,
-    ...(strictCurrent ? { strictCurrent: true } : {}),
-    landMask: inputs.landMask,
-    maxHours: inputs.maxHours,
-  });
-
-/** One current source for every departure of a Compute or a computed scan,
- * by the engine's rule: the prepared grid only when routing and the audit both
- * stay inside it, otherwise the tile grid. The audits of these routes use it too. */
-const routeOnOneCurrent = (inputs, departures, polarPercent, prepared = inputs.preparedCurrent) => {
-  const selection = selectRoutingCurrent({
-    departures,
-    route: (departureUtc, currentGrid, strictCurrent) =>
-      routeForDeparture(inputs, departureUtc, polarPercent, currentGrid, strictCurrent),
-    tileGrid: inputs.currentGrid,
-    prepared: prepared?.currentGrid,
-    preparedProvenance: prepared?.currentGridProvenance,
-  });
-  return { ...selection, notes: selectedRoutingNotes(inputs, selection.currentInput),
-    currents: routingCurrentSummary(selection.currentInput) };
-};
+/** What the scan button's status says when a comparison is stopped. */
+export const SCAN_STOPPED = 'Comparison stopped.';
+export const SCAN_STOPPED_STALE = 'Comparison stopped: the route or departure changed. Compare again.';
 
 /** Owns the draft, routing, scan and audit lifecycle for the planner page. */
 export default function usePlannerController() {
@@ -244,19 +215,6 @@ export default function usePlannerController() {
     [mode, computed, setComputed, setEndpoints, setWaypoints, placePoint],
   );
 
-  // shared by Compute route and the per-departure scan routing
-  const loadRoutingInputs = useCallback((scanning = false, store = forecastStore(), prepared = false) =>
-    loadLiveRoutingInputs({
-      start: { lat: endpoints[0].lat, lon: endpoints[0].lng, name: 'Start' },
-      finish: { lat: endpoints[1].lat, lon: endpoints[1].lng, name: 'Finish' },
-      polarId,
-      departureIso: departureUtc,
-      scanning,
-      store,
-      prepared,
-      onProgress: setBusy,
-    }), [endpoints, polarId, departureUtc]);
-
   const runRouting = async () => {
     if (endpoints.length !== 2 || !polarId || !polarPercentValid || !departureUtc || departureIssue) return;
     const hadRoute = Boolean(computed);
@@ -265,7 +223,12 @@ export default function usePlannerController() {
     setComputed(null);
     setBusy('computing route');
     try {
-      const inputs = await withFreshForecast(() => loadRoutingInputs(false, forecastStore(), true));
+      // Compute stays on the page's thread (a fraction of a second; the scan is what the Worker takes).
+      const inputs = await withFreshForecast(() => loadLiveRoutingInputs({
+        start: { lat: endpoints[0].lat, lon: endpoints[0].lng, name: 'Start' },
+        finish: { lat: endpoints[1].lat, lon: endpoints[1].lng, name: 'Finish' },
+        polarId, departureIso: departureUtc, store: forecastStore(), prepared: true, onProgress: setBusy,
+      }));
       if (routingInputKey(usePlanner.getState()) !== inputKey) return;
       setBusy('computing route');
       const { results, notes, currents } = routeOnOneCurrent(inputs, [departureUtc], polarPercent);
@@ -306,72 +269,90 @@ export default function usePlannerController() {
     }
   };
 
+  // The comparison running now ({controller, basis, anchorMs, departures}), or null.
+  // Only that run may report a result, a failure or the end of its action.
+  const scanRunRef = useRef(null);
   const runScan = useCallback(async () => {
     if (!route || !departureUtc || !speedsValid || departureIssue) return;
+    const run = {
+      controller: new AbortController(),
+      // What this comparison is for, captured at the click: if any of it changes
+      // while it runs it is stopped, and afterwards the result is dropped instead of shown.
+      basis: scanBasis({ mode, endpoints, waypoints, polarId, speeds, polarPercent }),
+      anchorMs: Date.parse(departureUtc),
+      departures: scanDeparturesFor(departureUtc).map((iso) => Date.parse(iso)),
+    };
+    const current = () => scanRunRef.current === run;
+    scanRunRef.current = run;
     beginAction(ACTION.scan);
     setBusy('scanning departures');
     setScan(null);
-    // What this comparison is for, captured at the click: if any of it changes
-    // while it runs or afterwards, the result is dropped instead of shown.
-    const basis = scanBasis({ mode, endpoints, waypoints, polarId, speeds, polarPercent });
     let draft;
     try {
       if (!useApp.getState().limits) await useApp.getState().ensureLimits();
       draft = captureActionDraft({ route, profile: useApp.getState().limits, departureUtc });
-    } catch (e) { endAction(); failAction(ACTION.scan, e); return; }
-    // A deleted run retries discovery; the user draft remains the one at the click.
-    const scanOnce = async () => {
-      const action = await prepareAnalysisInputs(draft, setBusy);
-      const departures = candidateDepartures(Date.parse(departureUtc), 120, 6);
-      // weather-dependent routing: in compute mode every candidate departure
-      // gets its own route through its own wind field
-      const routes = {};
-      let routeFor;
-      let currentInput;
-      let scanPassageHours = passageHours ?? 48;
-      if (mode === 'compute' && endpoints.length === 2 && polarId) {
-        const inputs = await loadRoutingInputs(true, action.store);
-        // Computed candidates and their audits share one routing grid: the
-        // action's prepared grid when every candidate stays inside it, else
-        // tiles. A drawn scan selects coverage across every candidate in engine.
-        setBusy('scanning departures');
-        const selection = routeOnOneCurrent(inputs, departures, polarPercent,
-          { currentGrid: action.currentGrid, currentGridProvenance: action.currentGridProvenance });
-        currentInput = selection.currentInput;
-        scanPassageHours = inputs.maxHours;
-        routeFor = (departureUtc) => {
-          // A routing failure is reported as that candidate's skip reason.
-          const result = {
-            ...routedOutcome(selection.results, departureUtc), notes: selection.notes, currents: selection.currents,
-            inputKey: routingInputKey({ endpoints, polarId, departureLocal: toLocalDateTimeValue(departureUtc), polarPercent }),
-          };
-          routes[departureUtc] = result;
-          return { ...result.route, passage_id: draft.route.passage_id, name: draft.route.name };
-        };
-      }
-      // one shared assessment window covering every candidate: all candidates read
-      // the same immutable tile run and share the tile cache
-      const dateWindow = scanDateWindow(departures, scanPassageHours);
-      const partial = [];
-      const scanInputs = freezeActionInputs({ ...action, currentInput });
-      const result = await scanDepartures({ ...scanInputs, routeFor, dateWindow }, departures, (c) => {
-        partial.push(c);
-        setBusy(`scanning departures ${partial.length}/${departures.length}`);
-      });
-      setScan({
-        ...result, routes, rerouted: Boolean(routeFor), requested: departures.length,
-        notes: routeFor ? Object.values(routes)[0]?.notes ?? [] : [],
-        basis, anchorMs: Date.parse(departureUtc),
-      });
-      endAction();
-    };
-    try {
-      await withFreshForecast(scanOnce);
     } catch (e) {
+      if (!current()) return;
+      scanRunRef.current = null;
       endAction();
       failAction(ACTION.scan, e);
+      return;
     }
-  }, [route, departureUtc, departureIssue, speedsValid, setScan, passageHours, mode, endpoints, waypoints, polarId, polarPercent, speeds, loadRoutingInputs, beginAction, endAction, failAction]);
+    const request = {
+      draft, departureUtc, mode, endpoints: endpoints.map(({ lat, lng }) => ({ lat, lng })), polarId, polarPercent, passageHours,
+    };
+    try {
+      // A deleted run retries discovery; the user draft remains the one at the click.
+      const out = await withFreshForecast(() => runScanJob(request, {
+        signal: run.controller.signal,
+        onProgress: (step) => { if (current()) setBusy(step); },
+      }));
+      if (!current()) return;
+      // The input key is the page's (its local time), so it is added here, after the comparison.
+      const routes = Object.fromEntries(Object.entries(out.routes).map(([candidateUtc, result]) => [candidateUtc, {
+        ...result, notes: out.notes, currents: out.currents,
+        inputKey: routingInputKey({ endpoints, polarId, departureLocal: toLocalDateTimeValue(candidateUtc), polarPercent }),
+      }]));
+      setScan({
+        ...out.scan, routes, rerouted: out.rerouted, requested: out.requested,
+        notes: out.rerouted ? Object.values(routes)[0]?.notes ?? [] : [],
+        basis: run.basis, anchorMs: run.anchorMs,
+      });
+      scanRunRef.current = null;
+      endAction();
+    } catch (e) {
+      if (!current()) return;
+      scanRunRef.current = null;
+      endAction();
+      if (!(e instanceof ScanCancelledError)) failAction(ACTION.scan, e);
+    }
+  }, [route, departureUtc, departureIssue, speedsValid, setScan, passageHours, mode, endpoints, waypoints, polarId, polarPercent, speeds, beginAction, endAction, failAction]);
+
+  /** Stop the running comparison: nothing is shown from it, and the line under its button says why. */
+  const stopScan = useCallback((text = SCAN_STOPPED) => {
+    const run = scanRunRef.current;
+    if (!run) return;
+    scanRunRef.current = null;
+    run.controller.abort();
+    endAction();
+    setNoticeState({ kind: ACTION.scan, text, signature: draftSignature(usePlanner.getState()) });
+  }, [endAction]);
+  // The page answers while a comparison runs: a change to what it compares stops
+  // it. Moving the departure to the anchor or one of its candidate times does not.
+  useEffect(() => {
+    const run = scanRunRef.current;
+    if (!run) return;
+    const departureMs = Date.parse(localDateTimeToIso(departureLocal) ?? '');
+    const sameRoute = scanBasis({ mode, endpoints, waypoints, polarId, speeds, polarPercent }) === run.basis;
+    const sameTimes = departureMs === run.anchorMs || run.departures.includes(departureMs);
+    if (!sameRoute || !sameTimes) stopScan(SCAN_STOPPED_STALE);
+  }, [mode, endpoints, waypoints, polarId, speeds, polarPercent, departureLocal, stopScan]);
+  // Leaving the planner stops a comparison silently.
+  useEffect(() => () => {
+    const run = scanRunRef.current;
+    scanRunRef.current = null;
+    run?.controller.abort();
+  }, []);
 
   // arriving from a briefing's "Find a departure that fits": run the scan once, then clear the flag
   const autoScan = usePlanner((s) => s.autoScan);
@@ -467,6 +448,6 @@ export default function usePlannerController() {
     seededFromCompute: mode === 'draw' && seededFromCompute && waypoints.length > 0,
     clearedNotice: cleared?.signature === signature,
     route, distance, speedsValid, passageHours, departureUtc, addWaypoint, moveWaypoint,
-    runRouting, onGpx, runScan, run, downloadLines
+    runRouting, onGpx, runScan, stopScan, run, downloadLines
   };
 }

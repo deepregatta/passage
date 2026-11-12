@@ -56,6 +56,8 @@ for (const invalid of ['outside', 'expired', 'empty']) {
         result.forecasts.forEach(forecast => { forecast.gust_kt = forecast.gust_kt.map(() => 25); });
         return result;
       };
+      // This fixture replaces the page store's reads, which a scan Worker cannot see: compare on the page's thread.
+      window.__deepweatherScanInPage = true;
       const store = forecastStore();
       window.scratchActionReads = { current: 0, profiles: [] };
       for (const method of ['init', 'describe', 'getPointForecasts', 'getEnsembleForecasts', 'getWaveForecasts', 'getHazardForecasts', 'getWindGrid']) store[method] = fixture[method].bind(fixture);
