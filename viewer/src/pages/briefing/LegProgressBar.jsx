@@ -1,4 +1,5 @@
-import { hourStatus, STATUS_HEX } from '../../lib/format.js';
+import { recordedLimits } from '../../lib/missingForecastHours.js';
+import { hourStatus, STATUS_HEX, STATUS_RANK } from '../../lib/format.js';
 import { routeTitle } from './routeLabels.jsx';
 import { useElementSize } from '../../lib/useElementSize.js';
 import { spreadMarkers } from '../../lib/ruler.js';
@@ -7,15 +8,15 @@ import { spreadMarkers } from '../../lib/ruler.js';
 export default function LegProgressBar({ findings }) {
   const [barRef, barSize] = useElementSize();
   const width = barSize?.w ?? 320; // jsdom / first paint: assume a phone-width bar
-  const rank = { ok: 0, unknown: 0, approaching: 1, exceeded: 2 };
+  const limits = recordedLimits(findings);
   const total = findings.legs.reduce((s, l) => s + l.distance_nm, 0);
   let cum = 0;
   const dots = findings.legs.map((leg, i) => {
     cum += leg.distance_nm;
     let worst = 'ok';
     for (const hour of leg.hours) {
-      const s = hourStatus(hour);
-      if (rank[s] > rank[worst]) worst = s;
+      const s = hourStatus(hour, limits);
+      if (STATUS_RANK[s] > STATUS_RANK[worst]) worst = s;
     }
     const durH = (Date.parse(leg.eta_range.nominal) - Date.parse(leg.enter_range.nominal)) / 3600000;
     return {

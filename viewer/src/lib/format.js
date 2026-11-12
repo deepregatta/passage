@@ -171,11 +171,22 @@ export const STATUS_HEX = {
   unknown: palette.unknown,
 };
 
-/** worst per-hour condition status across all evaluated conditions */
-export function hourStatus(hour) {
-  const statuses = Object.values(hour.limit_status ?? {});
+/**
+ * Worst per-hour condition status across the evaluated conditions. An hour with
+ * an "unknown" status, or no status for a limit in `limits` (the limits the check
+ * recorded anywhere, see recordedLimits), and nothing exceeded or approaching,
+ * reads "unknown" (a forecast value is missing), never "ok". Display only: the
+ * verdict ignores these hours.
+ */
+export function hourStatus(hour, limits) {
+  const status = hour.limit_status ?? {};
+  const statuses = Object.values(status);
   if (statuses.includes('exceeded')) return 'exceeded';
   if (statuses.includes('approaching')) return 'approaching';
-  if (statuses.includes('unknown') && statuses.every((s) => s === 'unknown')) return 'unknown';
+  if (statuses.includes('unknown')) return 'unknown';
+  for (const key of limits ?? []) if (status[key] !== 'ok') return 'unknown';
   return 'ok';
 }
+
+/** Severity order of hourStatus for "worst of" scans: missing sits between fine and approaching. */
+export const STATUS_RANK = { ok: 0, unknown: 1, approaching: 2, exceeded: 3 };

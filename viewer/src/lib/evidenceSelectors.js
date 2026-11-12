@@ -10,6 +10,16 @@ const CAPABILITY_RULES = {
   official_warnings: ['A-WARN-01'],
 };
 
+// Capability -> the limit_status key whose hours it is judged on. Waves count the
+// wave height status; a missing period shows in the steepness status instead.
+const HOUR_COVERAGE = {
+  sustained_wind: { key: 'sustained', label: 'wind' },
+  gusts: { key: 'gust', label: 'gust' },
+  waves: { key: 'wave', label: 'wave' },
+  visibility_and_convection: { key: 'visibility', label: 'visibility' },
+};
+const KNOWN = new Set(['ok', 'approaching', 'exceeded']);
+
 // Apply known prepared-run limits on read; archived snapshot bytes stay immutable.
 export function deriveCoverage(findings) {
   const coverage = recordedOrLegacyCoverage(findings);
@@ -23,6 +33,15 @@ export function deriveCoverage(findings) {
       if (!currentCount) return { ...item, status: 'not_assessed', detail: 'tidal currents (no finite current samples for the route and time)' };
       if (currentCount < hours.length && item.status === 'assessed') return {
         ...item, status: 'partially_assessed', detail: `current samples available for ${currentCount}/${hours.length} route hours`,
+      };
+    }
+    const layer = HOUR_COVERAGE[item.capability];
+    if (layer && item.status !== 'not_assessed' && hours.some(hour => layer.key in (hour.limit_status ?? {}))) {
+      // The verdict ignores hours without a value; say how many the layer covers.
+      const known = hours.filter(hour => KNOWN.has(hour.limit_status?.[layer.key])).length;
+      if (!known) return { ...item, status: 'not_assessed', detail: `${layer.label} values available for 0/${hours.length} route hours`, route_hours: { known, total: hours.length } };
+      if (known < hours.length) return {
+        ...item, status: 'partially_assessed', detail: `${layer.label} values available for ${known}/${hours.length} route hours`, route_hours: { known, total: hours.length },
       };
     }
     return item.capability === 'synoptic_attribution' && prepared

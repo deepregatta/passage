@@ -16,12 +16,18 @@ import { passageLimitHours } from '@deepweather/engine';
  * @returns {number}
  */
 export function missingForecastHours(findings) {
+  const limits = recordedLimits(findings);
+  if (!limits.size) return 0;
+  return passageLimitHours(findings, { limits }).arrival_hours_no_data;
+}
+
+/** Limit keys the check recorded a status for in any hour, "unknown" included. */
+export function recordedLimits(findings) {
   const limits = new Set();
   for (const leg of findings?.legs ?? []) {
     for (const hour of leg.hours ?? []) {
       for (const key of Object.keys(hour.limit_status ?? {})) limits.add(key);
     }
   }
-  if (!limits.size) return 0;
-  return passageLimitHours(findings, { limits }).arrival_hours_no_data;
+  return limits;
 }

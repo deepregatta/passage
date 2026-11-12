@@ -27,3 +27,19 @@ it('lists the timeline table by place and leg number with the local time first, 
   expect(details.innerHTML).not.toMatch(/max-h-|overflow-y/);
   expect(details.querySelector('summary').className).toMatch(/min-h-11/);
 });
+
+it('reads an hour missing a recorded limit value as not assessed, not fine', () => {
+  const f = structuredClone(findings);
+  for (const leg of f.legs) for (const hour of leg.hours) for (const key of Object.keys(hour.limit_status)) hour.limit_status[key] = 'ok';
+  f.legs[0].hours[0].limit_status.wave = 'unknown'; // ok wind, unknown wave
+  delete f.legs[1].hours[0].limit_status.steepness; // absent where other hours record it
+  f.legs[1].hours[3].limit_status.wave = 'exceeded';
+  useApp.setState({ ...useApp.getInitialState(), findings: f }, true);
+  render(<RouteTimeline />);
+  const rows = within(screen.getByText('Table alternative for route timeline').closest('details')).getAllByRole('row', { hidden: true }).slice(1);
+  const status = (i) => within(rows[i]).getAllByRole('cell', { hidden: true }).at(-1).textContent;
+  expect(status(0)).toBe('not assessed');
+  expect(status(1)).toBe('not assessed');
+  expect(status(2)).toBe('exceeded');
+  expect(status(3)).toBe('ok');
+});

@@ -250,6 +250,10 @@ arrival-range hours missing a value a recorded limit needs (read from the saved
 limit counts as over), the statement in the decision band on any verdict, the
 qualified "within" next step, and both in French. The verdict is unchanged; the
 demo fixtures have no missing statuses, so the tests edit a clone in memory.
+`viewer/test/format.test.js` and `routeTimelineTable.test.jsx` cover `hourStatus` reading an
+hour with an unknown or absent recorded limit as missing unless exceeded or approaching;
+`coverageHours.test.jsx` covers the coverage panel's wind/gust/wave/visibility hour counts
+(English and French). All edit in-memory clones; nothing saved changes.
 
 ## Saved identity and history regressions
 

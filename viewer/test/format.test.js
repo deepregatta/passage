@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fmtAge, fmtAgeOld, fmtLocalTime, fmtTextClock, fmtTextTime, fmtUtcClock, localDateTimeToIso, runAge, toLocalDateTimeValue } from '../src/lib/format.js';
+import { fmtAge, hourStatus, fmtAgeOld, fmtLocalTime, fmtTextClock, fmtTextTime, fmtUtcClock, localDateTimeToIso, runAge, toLocalDateTimeValue } from '../src/lib/format.js';
 
 describe('fmtLocalTime', () => {
   it('uses the browser local timezone for briefing creation timestamps', () => {
@@ -52,5 +52,20 @@ describe('text times and ages', () => {
     expect(runAge('2026-07-19T18:00:00Z', Date.parse('2026-11-10T00:00:00Z'))).toBe('113 days');
     expect(fmtAgeOld(2726 * 3600_000)).toBe('114 days old');
     expect(fmtAgeOld(3 * 3600_000)).toBe('3 h old');
+  });
+});
+
+describe('hourStatus with missing values', () => {
+  const hour = (s) => ({ limit_status: s });
+  it('exceeded and approaching outrank missing; missing outranks ok', () => {
+    expect(hourStatus(hour({ sustained: 'ok', wave: 'unknown' }))).toBe('unknown');
+    expect(hourStatus(hour({ sustained: 'approaching', wave: 'unknown' }))).toBe('approaching');
+    expect(hourStatus(hour({ gust: 'exceeded', wave: 'unknown' }))).toBe('exceeded');
+    expect(hourStatus(hour({ sustained: 'ok', gust: 'ok' }))).toBe('ok');
+  });
+  it('an absent status counts as missing only for a limit the check recorded', () => {
+    const limits = new Set(['sustained', 'steepness']);
+    expect(hourStatus(hour({ sustained: 'ok' }), limits)).toBe('unknown');
+    expect(hourStatus(hour({ sustained: 'ok' }))).toBe('ok');
   });
 });

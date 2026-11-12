@@ -1756,6 +1756,10 @@ function translateCapabilityList(value) {
     .replace(/tidal_currents \(stride-subsampled x(\d+) from native ([\d.]+) deg to ([\d.]+) deg \(target ([\d.]+) deg\); values are exact native cell values, no smoothing\)/gi, 'courants de marée (sous-échantillonnage par pas x$1, de $2° natif à $3°, cible $4° ; valeurs exactes des cellules natives, sans lissage)')
     .replace(/tidal currents \(no finite current samples for the route and time\)/gi, 'courants de marée (aucun échantillon fini pour la route et l’horaire)')
     .replace(/current samples available for (\d+)\/(\d+) route hours/gi, 'échantillons de courants disponibles pour $1/$2 heures de route')
+    .replace(/wind values available for (\d+)\/(\d+) route hours/gi, 'valeurs de vent disponibles pour $1/$2 heures de route')
+    .replace(/gust values available for (\d+)\/(\d+) route hours/gi, 'valeurs de rafales disponibles pour $1/$2 heures de route')
+    .replace(/wave values available for (\d+)\/(\d+) route hours/gi, 'valeurs de vagues disponibles pour $1/$2 heures de route')
+    .replace(/visibility values available for (\d+)\/(\d+) route hours/gi, 'valeurs de visibilité disponibles pour $1/$2 heures de route')
     .replace(/tidal currents \(no prepared current grid\)/gi, 'courants de marée (aucune grille de courants préparée)')
     .replace(/tidal gates & HW\/LW heights \(no tide data\)/gi, 'portes de marée et hauteurs PM/BM (aucune donnée de marée)')
     .replace(/tropical systems/gi, 'systèmes tropicaux')
@@ -1824,6 +1828,10 @@ const FR_FRAGMENTS = [
   [/\bNo flag does not mean no risk\b/g, 'L’absence de signalement ne signifie pas l’absence de risque'],
   [/\btidal currents \(no finite current samples for the route and time\)/g, 'courants de marée (aucun échantillon fini pour la route et l’horaire)'],
   [/\bcurrent samples available for (\d+)\/(\d+) route hours/g, 'échantillons de courants disponibles pour $1/$2 heures de route'],
+  [/\bwind values available for (\d+)\/(\d+) route hours/g, 'valeurs de vent disponibles pour $1/$2 heures de route'],
+  [/\bgust values available for (\d+)\/(\d+) route hours/g, 'valeurs de rafales disponibles pour $1/$2 heures de route'],
+  [/\bwave values available for (\d+)\/(\d+) route hours/g, 'valeurs de vagues disponibles pour $1/$2 heures de route'],
+  [/\bvisibility values available for (\d+)\/(\d+) route hours/g, 'valeurs de visibilité disponibles pour $1/$2 heures de route'],
   [/\btidal currents \(no prepared current grid\)/g, 'courants de marée (aucune grille de courants préparée)'],
   [/\btidal gates & HW\/LW heights \(no tide data\)/g, 'portes de marée et hauteurs PM/BM (aucune donnée de marée)'],
   [/\btropical systems\b/gi, 'systèmes tropicaux'],

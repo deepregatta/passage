@@ -2,6 +2,7 @@ import { palette, rgba } from '../lib/palette.js';
 import ReactECharts from './lazy/EChartsLazy.jsx';
 import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../stores/appStore.js';
+import { recordedLimits } from '../lib/missingForecastHours.js';
 import { STATUS_HEX, hourStatus, fmtHour, fmtLocalTime } from '../lib/format.js';
 import { usePlayback } from '../stores/playbackStore.js';
 import useViewport from '../hooks/useViewport.js';
@@ -110,6 +111,7 @@ function PassageClock({ findings }) {
  * status. It spans the playback window, and dragging along it moves the time cursor. */
 function ConditionStrip({ findings }) {
   const rows = collectRows(findings);
+  const limits = recordedLimits(findings);
   const cursor = usePlayback((state) => state.cursorHours);
   const setCursor = usePlayback((state) => state.setCursor);
   const mobile = useViewport();
@@ -121,7 +123,7 @@ function ConditionStrip({ findings }) {
 
   const merged = [];
   for (const r of rows) {
-    const status = hourStatus(r.hour);
+    const status = hourStatus(r.hour, limits);
     const last = merged[merged.length - 1];
     if (last && last.status === status) last.to = r.t + 3600_000;
     else merged.push({ from: r.t, to: r.t + 3600_000, status });
@@ -244,6 +246,7 @@ function nowLine(time, span) {
  * (as the plume table does), legs by place and number ("Mid-Channel (leg 4)", never the raw "L4");
  * the disclosure grows with its rows, it is not a scroll box of its own. */
 function TimelineTable({ findings }) {
+  const limits = recordedLimits(findings);
   const rows = findings.legs.flatMap((leg) => leg.hours.filter((_, index) => index % 3 === 0).map((hour) => ({ leg: leg.leg_id, ...hour })));
   return (
     <details className="mt-3 border-t hairline pt-2">
@@ -260,7 +263,7 @@ function TimelineTable({ findings }) {
                 <td className="pr-3">{row.wind_kt ?? 'n/a'}</td>
                 <td className="pr-3">{row.gust_kt ?? 'n/a'}</td>
                 <td className="pr-3">{row.waves?.hs_m ?? 'not assessed'}</td>
-                <td>{hourStatus(row)}</td>
+                <td>{hourStatus(row, limits) === 'unknown' ? 'not assessed' : hourStatus(row, limits)}</td>
               </tr>
             ))}
           </tbody>

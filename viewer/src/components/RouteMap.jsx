@@ -6,7 +6,8 @@ import 'leaflet/dist/leaflet.css';
 import { GridSampler } from '@deepweather/engine';
 import { useApp } from '../stores/appStore.js';
 import { frameForCursor, usePlayback } from '../stores/playbackStore.js';
-import { STATUS_HEX, hourStatus, fmtTime } from '../lib/format.js';
+import { recordedLimits } from '../lib/missingForecastHours.js';
+import { STATUS_HEX, STATUS_RANK, hourStatus, fmtTime } from '../lib/format.js';
 import { preparedRun, artifactUrl } from '../lib/preparedRun.js';
 import { BASEMAP } from '../lib/basemap.js';
 import MapTouchScroll from './MapTouchScroll.jsx';
@@ -20,18 +21,17 @@ import { windArrowHtml } from '../lib/windArrowHtml.js';
 
 const seaStyle = { height: '100%', width: '100%', background: palette.sea };
 
-function legWorstStatus(leg) {
+function legWorstStatus(leg, limits) {
   let worst = 'ok';
-  const rank = { ok: 0, unknown: 0, approaching: 1, exceeded: 2 };
   for (const hour of leg.hours) {
-    const s = hourStatus(hour);
-    if (rank[s] > rank[worst]) worst = s;
+    const s = hourStatus(hour, limits);
+    if (STATUS_RANK[s] > STATUS_RANK[worst]) worst = s;
   }
   return worst;
 }
 
 function legMarkerIcon(label, color, status) {
-  const mark = status === 'exceeded' ? '×' : status === 'approaching' ? '!' : '·';
+  const mark = status === 'exceeded' ? '×' : status === 'approaching' ? '!' : status === 'unknown' ? '?' : '·';
   return L.divIcon({
     className: '',
     html: `<div class="font-instrument" style="width:22px;height:22px;border-radius:50%;background:${color};color:${palette.paper.DEFAULT};
@@ -98,6 +98,7 @@ function gateIcon(status) {
 
 export default function RouteMap({ height = 420 }) {
   const findings = useApp((s) => s.findings);
+  const limits = useMemo(() => recordedLimits(findings), [findings]);
   const example = useApp((s) => s.manifest?.snapshots?.some(item => item.snapshot_id === s.snapshotId && item.demo === true));
   const routeDoc = useApp((s) => s.route);
   const [gatePositions, setGatePositions] = useState({});
@@ -218,7 +219,7 @@ export default function RouteMap({ height = 420 }) {
           pathOptions={{ color: palette.ink.DEFAULT, weight: 2.5, dashArray: '1 7', lineCap: 'round' }}
         />
         {findings.legs.map((leg, i) => {
-          const status = legWorstStatus(leg);
+          const status = legWorstStatus(leg, limits);
           const wp = routeDoc.waypoints[i + 1] ?? routeDoc.waypoints[i];
           if (!wp) return null;
           return (
