@@ -13,6 +13,7 @@ import { ACTION, BUSY_BUTTON_LABEL, SOURCE, barStatus, mapHint, revealElement } 
 import { gribRouteArea, gribRoutePoints } from '../lib/gribExport.js';
 import { useApp } from '../stores/appStore.js';
 import { useGrib } from '../stores/gribStore.js';
+import RouteSourceNotes from './planner/RouteSourceNotes.jsx';
 
 // Computing a route from the forecast and your boat is the primary way in.
 const MODES = [
@@ -225,9 +226,7 @@ export default function Planner() {
                     )}
                   </p>
                 )}
-                {computed?.notes?.length > 0 && (
-                  <p className="text-[12px] text-ink-soft">{computed.notes.join(' ')}</p>
-                )}
+                {computed && <RouteSourceNotes computed={computed} />}
               </>
             )}
           </Step>

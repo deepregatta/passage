@@ -29,6 +29,12 @@ export interface RoutingRequest {
   polarScaling?: number;
   windGrid: RegionGrid;
   currentGrid?: RegionGrid;
+  /**
+   * Without it a missing current sample counts as no current. With it the
+   * router stops with CurrentGapError instead, so a route is never part one
+   * grid and part zero current (used for prepared grids).
+   */
+  strictCurrent?: boolean;
   landMask?: LandMask;
   /** graph resolution in degrees; default adapts to the crossing size */
   resolutionDeg?: number;
@@ -48,6 +54,15 @@ export interface RoutingResult {
 }
 
 const MIN_SOG_KT = 0.3;
+
+/** A strict-current search read a point or time the current grid does not cover. */
+export class CurrentGapError extends Error {
+  readonly code = 'current-gap';
+  constructor() {
+    super('The current grid does not cover every point and time the router reads');
+    this.name = 'CurrentGapError';
+  }
+}
 
 /** 16-direction neighborhood: angular resolution ~22.5° */
 const NEIGHBORS: Array<[number, number]> = [
@@ -116,7 +131,9 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
     const heading = bearingDegTrue(from.lat, from.lon, to.lat, to.lon);
     const stw = boatSpeedKt(polar, Math.hypot(w.u_kt, w.v_kt),
       Math.abs(wrap180(windFromDeg(w.u_kt, w.v_kt) - heading))) * scaling;
-    const c = current?.sample(from.lat, from.lon, t) ?? { u_kt: 0, v_kt: 0 };
+    const sampled = current?.sample(from.lat, from.lon, t);
+    if (sampled === null && request.strictCurrent) throw new CurrentGapError();
+    const c = sampled ?? { u_kt: 0, v_kt: 0 };
     const sog = stw + alongCourseComponentKt(c, heading);
     if (stw < MIN_SOG_KT || sog < MIN_SOG_KT) return null;
     const hours = dist / sog;

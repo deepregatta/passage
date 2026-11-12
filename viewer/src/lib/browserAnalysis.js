@@ -9,6 +9,7 @@ import { runAnalysis, persistSnapshot, contentHash, ENGINE_VERSION } from '@deep
 import { forecastStore } from './forecastStore.js';
 import { localSnapshots } from './localSnapshots.js';
 import { preparedRun, artifactUrl } from './preparedRun.js';
+import { artifactRecord, loadJson, loadPreparedCurrent } from './preparedCurrent.js';
 import { captureActionDraft, freezeActionInputs, pinForecastInputs } from './actionInputs.js';
 
 // statuses that mean "no write endpoint here", not "this write failed"
@@ -68,16 +69,6 @@ class FallbackSnapshotStore {
   }
 }
 
-/** @param {string} url @returns {Promise<any>} External JSON; admitted at the consumer boundary. */
-async function loadJson(url) {
-  try {
-    const res = await fetch(url);
-    return res.ok ? await res.json() : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
 /** @param {string} routeId */
 async function loadTides(routeId) {
   const index = await loadJson('/data/tides/index.json');
@@ -97,8 +88,8 @@ export async function prepareAnalysisInputs(draft, onProgress) {
   const pinned = await pinForecastInputs(forecastStore());
   onProgress?.('loading prepared data');
   const { doc: latest } = await preparedRun({ refresh: true });
-  const [currentGrid, synoptic, tideArtifact, gatesDoc, warningsDoc, zonesDoc] = await Promise.all([
-    latest?.artifacts?.current_grid ? artifactUrl(latest.artifacts.current_grid).then(loadJson) : undefined,
+  const [{ currentGrid, currentGridProvenance }, synoptic, tideArtifact, gatesDoc, warningsDoc, zonesDoc] = await Promise.all([
+    loadPreparedCurrent(latest),
     latest?.artifacts?.synoptic_features
       ? artifactUrl(latest.artifacts.synoptic_features).then(loadJson)
       : undefined,
@@ -128,32 +119,18 @@ export async function prepareAnalysisInputs(draft, onProgress) {
     warnings = { doc: warningsDoc, routeZoneIds: zoneIds, ref: '/data/warnings/latest.json' };
   }
 
-  /** @param {string} layer @param {any} doc @param {string | undefined} ref @returns {Record<string, unknown> | null} */
-  const artifactRecord = (layer, doc, ref) => {
-    if (!doc) return null;
-    const fromPreparedRun = layer === 'currents' || layer === 'synoptic';
-    return {
-      source: 'prepared-artifact', layer, model: doc.source?.dataset_id ?? (fromPreparedRun ? latest?.model : layer) ?? layer,
-      run_id: doc.run_id ?? (fromPreparedRun ? latest?.run_id : null) ?? null,
-      fetched_at: doc.source?.fetched_at ?? doc.fetched_at ?? doc.generated_at ?? (fromPreparedRun ? latest?.generated_at : null),
-      artifact_ref: ref, content_digest: contentHash(doc), digest_algorithm: 'fnv1a64',
-      ...(doc.source?.mode === 'synthetic' ? { source_kind: 'emulated' } : {}),
-      ...(layer === 'warnings' ? { route_zone_ids: warnings?.routeZoneIds } : {}),
-    };
-  };
-  const currentGridProvenance = artifactRecord('currents', currentGrid, latest?.artifacts?.current_grid);
   const inputRecords = [
     { source: 'action-inputs', layer: 'action', route_revision: draft.routeRevision,
       profile_revision: draft.profileRevision, departure_utc: draft.departureUtc,
       engine_version: ENGINE_VERSION,
       tile_runs: pinned.tileRuns, prepared_run_id: latest?.run_id ?? null,
       prepared_pointer_digest: latest ? contentHash(latest) : null, digest_algorithm: 'fnv1a64' },
-    artifactRecord('synoptic', synoptic, latest?.artifacts?.synoptic_features),
-    artifactRecord('tides', tides, tideArtifact?.ref),
-    gates?.length ? artifactRecord('gates', gatesDoc, '/data/config/gates.json') : null,
-    artifactRecord('warnings', warningsDoc, '/data/warnings/latest.json'),
+    artifactRecord(latest, 'synoptic', synoptic, latest?.artifacts?.synoptic_features),
+    artifactRecord(latest, 'tides', tides, tideArtifact?.ref),
+    gates?.length ? artifactRecord(latest, 'gates', gatesDoc, '/data/config/gates.json') : null,
+    artifactRecord(latest, 'warnings', warningsDoc, '/data/warnings/latest.json', { route_zone_ids: warnings?.routeZoneIds }),
   ].filter((record) => record !== null);
-  return freezeActionInputs({ ...draft, ...pinned, currentGrid, currentGridProvenance: currentGridProvenance ?? undefined,
+  return freezeActionInputs({ ...draft, ...pinned, currentGrid, currentGridProvenance,
     synoptic, tides, gates: gates?.length ? gates : undefined, warnings, inputRecords });
 }
 

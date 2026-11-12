@@ -14,6 +14,7 @@ vi.mock('@deepweather/engine', () => ({
   snapToSea: mocks.snapToSea,
   polarFromRelease: mocks.polarFromRelease,
   forecastRunGone: (error) => (error?.name === 'ForecastRunGoneError' ? error : null),
+  contentHash: (value) => `digest-${value.run_id}`,
   TileForecastStore: class TileForecastStore {},
   HttpTileTransport: class HttpTileTransport {},
 }));
@@ -22,7 +23,7 @@ vi.mock('../src/lib/landMask.js', () => ({
   landMaskForBbox: mocks.landMaskForBbox,
 }));
 
-import { loadRoutingInputs } from '../src/lib/routingInputs.js';
+import { loadRoutingInputs, routedOutcome, routingCurrentSummary, routingNotes } from '../src/lib/routingInputs.js';
 
 const departureIso = '2026-07-20T00:00:00Z';
 const now = () => Date.parse('2026-07-19T00:00:00Z');
@@ -148,4 +149,48 @@ describe('live routing inputs', () => {
       });
     },
   );
+
+  it('reads the prepared current grid only for Compute, from a fresh pointer', async () => {
+    const preparedGrid = { kind: 'surface_current', run_id: 'cmems-ibi-20260719T06Z', source: { dataset_id: 'cmems_mod_ibi_phy_anfc' } };
+    global.fetch = vi.fn(async (url) => new Response(JSON.stringify(
+      url === '/data/runs/latest.json' ? { run_id: 'prepared', artifacts: { current_grid: 'runs/prepared/current_grid.json' } }
+        : url === '/data/runs/prepared/current_grid.json' ? preparedGrid : entry)));
+    const args = { start: { lat: 0, lon: 0 }, finish: { lat: 1, lon: 1 }, polarId: 'test', departureIso, now, store };
+    const scan = await loadRoutingInputs({ ...args, scanning: true });
+    expect(scan).not.toHaveProperty('preparedCurrent');
+    expect(global.fetch.mock.calls.map(([url]) => url)).toEqual(['/api/polars/test']);
+    mocks.snapToSea.mockReturnValueOnce({ lat: 0.1, lon: 0.1 }).mockReturnValueOnce({ lat: 0.9, lon: 0.9 });
+    const onProgress = vi.fn();
+    const compute = await loadRoutingInputs({ ...args, prepared: true, onProgress });
+    expect(compute.preparedCurrent).toEqual({ currentGrid: preparedGrid, currentGridProvenance: expect.objectContaining({
+      source: 'prepared-artifact', layer: 'currents', model: 'cmems_mod_ibi_phy_anfc', run_id: 'cmems-ibi-20260719T06Z',
+      artifact_ref: 'runs/prepared/current_grid.json', content_digest: 'digest-cmems-ibi-20260719T06Z',
+    }) });
+    expect(global.fetch).toHaveBeenCalledWith('/data/runs/latest.json', { cache: 'no-cache' });
+    expect(onProgress.mock.calls.at(-1)[0]).toBe('loading prepared data');
+  });
+
+  it('notes only what the chosen current source says about the route', () => {
+    const wind = { under_resolved_note: 'Grid was coarsened.' };
+    const tile = { under_resolved_note: 'Tile currents coarsened.' };
+    const prepared = { under_resolved_note: 'stride-subsampled x2 from native 0.0278 deg' };
+    expect(routingNotes(wind, tile)).toEqual(['Grid was coarsened.', 'Tile currents coarsened.']);
+    expect(routingNotes(wind, null)).toEqual(['Grid was coarsened.', 'Currents unavailable right now. This route uses wind alone.']);
+    expect(routingNotes(wind, prepared, 'prepared')).toEqual(['Grid was coarsened.']);
+  });
+
+  it('fails a departure the selection never routed with a message, and rethrows a routing error', () => {
+    const failure = new Error('No route found within 48 h (wind coverage, land, or no-go conditions)');
+    const results = new Map([['a', { result: { route: 'r' } }], ['b', { error: failure }]]);
+    expect(routedOutcome(results, 'a')).toEqual({ route: 'r' });
+    expect(() => routedOutcome(results, 'b')).toThrow(failure);
+    expect(() => routedOutcome(results, 'c')).toThrow('This departure could not be routed.');
+  });
+
+  it('names the tile currents model even when the grid does not record it', () => {
+    const tiles = (dataset) => ({ grid: { source: { mode: 'live', ...(dataset ? { dataset_id: dataset } : {}) } }, provenance: { current_source: 'tiles' } });
+    expect(routingCurrentSummary(tiles('cmems_glo12 tiles (currents-20260720T00Z)'))).toEqual({ source: 'tiles', model: 'cmems_glo12', emulated: false, caveat: null });
+    expect(routingCurrentSummary(tiles()).model).toBe('cmems_glo12');
+    expect(routingCurrentSummary({ grid: undefined, provenance: { current_source: 'tiles' } })).toBeNull();
+  });
 });

@@ -12,7 +12,7 @@ import { buildPlume, writeSnapshot, type Plume, type SnapshotStore } from './sna
 import { deriveLegs, legMidpoints } from './route.js';
 import { computeRouteSchedules, parseUtc, toIso } from './eta.js';
 import { type ForecastStore } from './forecast/store.js';
-import { currentGridCovers, resolveCurrentInput, type CurrentInput } from './currentInput.js';
+import { preparedCurrentAdmits, resolveCurrentInput, type CurrentInput } from './currentInput.js';
 import { ENGINE_VERSION } from './version.js';
 import type { Findings, LimitsProfile, Route, SynopticFeatures, WarningsInput } from './types.js';
 
@@ -132,7 +132,7 @@ export async function runAnalysis(options: AnalyzeOptions): Promise<AnalyzeResul
       () => store.getHazardForecasts(points, startMs, endMs)),
   ]);
 
-  if (!options.currentInput && (!options.currentGrid || !currentGridCovers(options.currentGrid, { route, departureUtc }))) {
+  if (!options.currentInput && (!options.currentGrid || !preparedCurrentAdmits(options.currentGrid, { route, departureUtc }))) {
     progress('reading current tiles');
   }
   const currentInput = options.currentInput ?? await resolveCurrentInput(

@@ -140,16 +140,38 @@ Prepared current admission checks every leg midpoint at its current-adjusted
 entry/exit envelope and occupancy hours, including all successful drawn-scan
 candidates. Any spatial, time or finite-sample gap selects tile currents for the
 whole action. Partial tile availability stays partial; zero actual samples stays
-unavailable. Computed scans use their routing tile-current grid for every audit,
-with declared source provenance; there is no pointwise source blending. The
+unavailable. Compute and computed scans pick their current grid by the same
+rule, widened to what the router reads: the prepared grid only when its time
+axis holds every departure, the router (in strict-current mode) never reads a
+point or time the grid lacks, and every routed candidate then passes the audit's
+coverage test; otherwise every departure is routed on tile currents. A computed
+scan audits each candidate on that same routing grid, with declared source
+provenance; there is no pointwise source blending. A route computed on the
+prepared grid records it (`routing_request.current_source` and
+`current_digest`); a Check admits a prepared grid for a computed route only when
+it is that same grid, so a route computed on tiles is checked on tiles; its
+record names why (computed on tile currents, without currents, on another
+prepared grid, or on a prepared grid no longer available). On the prepared grid,
+a departure that fails for any reason other than a current gap (such as "No
+route found") stays that departure's failure and does not move the action to
+tiles. A computed scan whose last departure lies beyond the prepared grid's time
+axis routes every candidate on tiles, while a single Compute at the anchor may
+still use the prepared grid. Compute now also downloads `latest.json` and the
+prepared current grid; neither is in the planner's tile download figure, which
+still counts current tiles for Compute because they are read before the choice
+and serve as its fallback. The route result names the current model it used
+("Currents · Copernicus IBI ocean currents"), an emulated badge for synthetic
+data, and a fixed sentence when a prepared grid carries a resolution note. The
 coverage selector also downgrades older presence-based claims using saved
 samples alone, without changing snapshot bytes or substituting latest data.
 
 Regression ownership: `engine/test/currentAdmission.test.ts` covers admission,
-fallback, finite samples, partial coverage and single-source scans;
-`viewer/test/actionInputs.test.jsx` crosses the real loader, action bundle,
-engine and ModelsUsed UI; `plannerComputed.test.jsx` crosses visible limits,
-failed persistence and in-flight edits. `viewer/e2e/action-inputs.spec.js` and
+fallback, finite samples, partial coverage and single-source scans, for audits
+and for routing; `viewer/test/actionInputs.test.jsx` crosses the real loader,
+action bundle, engine and ModelsUsed UI, including a computed route and its
+Check on one source; `plannerComputed.test.jsx` crosses visible limits,
+failed persistence, in-flight edits and Compute → Check → Scan on one current
+source. `viewer/e2e/action-inputs.spec.js` and
 `routing-timing.spec.js` exercise Check/Scan and saved reopening on desktop and
 mobile, using synthetic transport, fresh storage, blocked telemetry and
 intercepted POSTs. Demo fixture files must stay untouched.

@@ -2,6 +2,8 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, afterEach, expect, it, vi } from 'vitest';
 import { runAnalysis, contentHash } from '@deepweather/engine';
 import { prepareAnalysisInputs } from '../src/lib/browserAnalysis.js';
+import { loadPreparedCurrent } from '../src/lib/preparedCurrent.js';
+import { preparedRun } from '../src/lib/preparedRun.js';
 import { captureActionDraft } from '../src/lib/actionInputs.js';
 import { useApp } from '../src/stores/appStore.js';
 import ModelsUsed from '../src/components/ModelsUsed.jsx';
@@ -112,4 +114,36 @@ it.each(['assessed', 'partially_assessed'])('corrects archived zero-sample %s co
   const row = within(screen.getByRole('region', { name: 'Recorded coverage' })).getByText('tidal currents').closest('li');
   expect(within(row).getByText('not assessed')).toBeVisible();
   expect(JSON.stringify(archived)).toBe(bytes);
+});
+
+// C1: Compute loads the prepared grid through the same loader as the Check, so
+// a computed route and its own Check name one current source and grid.
+it.each([
+  ['prepared', 'the routing area', {}],
+  // Covers the route's own samples, not the area the router searches.
+  ['tiles', 'only a corridor', { lat0: 49.4, lon0: -3.55, dlat: 0.1, dlon: 0.2, nlat: 3, nlon: 3, u_kt: Array(18).fill(1), v_kt: Array(18).fill(0) }],
+])('computes and then checks a route on %s when the prepared grid covers %s', async (source, _, extra) => {
+  const engine = await vi.importActual('@deepweather/engine');
+  docs['prepared-a'] = prepared('prepared-a', { u_kt: Array(24).fill(1), ...extra });
+  const inputs = routingInputs(0);
+  const tileGrid = await state.store.getCurrentGrid();
+  const preparedCurrent = await loadPreparedCurrent((await preparedRun({ refresh: true })).doc);
+  const selection = engine.selectRoutingCurrent({
+    departures: [DEPARTURE], tileGrid, prepared: preparedCurrent.currentGrid, preparedProvenance: preparedCurrent.currentGridProvenance,
+    route: (departureUtc, currentGrid, strictCurrent) => engine.computeRoute({ ...inputs, departureUtc, currentGrid, ...(strictCurrent ? { strictCurrent } : {}) }),
+  });
+  const routed = selection.results.get(DEPARTURE).result.route;
+  state.store.getCurrentGrid.mockClear();
+  const check = await runAnalysis(await prepareAnalysisInputs(captureActionDraft({ route: routed, profile: limits, departureUtc: DEPARTURE })));
+  const record = check.findings.inputs.forecast_tiles.find(x => x.layer === 'currents');
+  expect(selection.currentInput.provenance.current_source).toBe(source);
+  expect(record.current_source).toBe(source);
+  expect(record.run_id).toBe(selection.currentInput.grid.run_id);
+  if (source === 'prepared') {
+    expect(record).toMatchObject({ artifact_ref: 'runs/prepared-a/current.json', content_digest: selection.currentInput.provenance.content_digest });
+    expect(state.store.getCurrentGrid).not.toHaveBeenCalled();
+  } else {
+    // The corridor alone would have admitted prepared currents for this Check.
+    expect(record.fallback_reason).toBe('route was computed on tile currents');
+  }
 });

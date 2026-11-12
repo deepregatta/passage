@@ -1,12 +1,16 @@
-import { captureActionDraft, freezeActionInputs, routingCurrentInput } from '../../lib/actionInputs.js';
+import { captureActionDraft, freezeActionInputs } from '../../lib/actionInputs.js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { deriveLegs, totalDistanceNm, parseGpx, computeRoute, scanDepartures, candidateDepartures } from '@deepweather/engine';
+import {
+  deriveLegs, totalDistanceNm, parseGpx, computeRoute, scanDepartures, candidateDepartures, selectRoutingCurrent,
+} from '@deepweather/engine';
 import { track } from '../../lib/analytics.js';
 import { localDateTimeToIso, toLocalDateTimeValue } from '../../lib/format.js';
 import { useApp } from '../../stores/appStore.js';
 import { usePlanner } from '../../stores/plannerStore.js';
 import { analyzeInBrowser, saveRoute, prepareAnalysisInputs } from '../../lib/browserAnalysis.js';
-import { loadRoutingInputs as loadLiveRoutingInputs } from '../../lib/routingInputs.js';
+import {
+  loadRoutingInputs as loadLiveRoutingInputs, routedOutcome, routingCurrentSummary, selectedRoutingNotes,
+} from '../../lib/routingInputs.js';
 import { scanDateWindow } from '../../lib/scanWindow.js';
 import { forecastStore } from '../../lib/forecastStore.js';
 import { withFreshForecast } from '../../lib/forecastFreshness.js';
@@ -24,7 +28,7 @@ export const CLEAR_UNDO_MS = 8000;
 
 export const validSpeed = (value) => Number.isFinite(value) && value > 0;
 
-const routeForDeparture = (inputs, departureUtc, polarPercent) =>
+const routeForDeparture = (inputs, departureUtc, polarPercent, currentGrid, strictCurrent) =>
   computeRoute({
     start: inputs.start,
     finish: inputs.finish,
@@ -32,10 +36,27 @@ const routeForDeparture = (inputs, departureUtc, polarPercent) =>
     polar: inputs.polar,
     polarScaling: polarPercent / 100,
     windGrid: inputs.windGrid,
-    currentGrid: inputs.currentGrid ?? undefined,
+    currentGrid: currentGrid ?? undefined,
+    ...(strictCurrent ? { strictCurrent: true } : {}),
     landMask: inputs.landMask,
     maxHours: inputs.maxHours,
   });
+
+/** One current source for every departure of a Compute or a computed scan,
+ * by the engine's rule: the prepared grid only when routing and the audit both
+ * stay inside it, otherwise the tile grid. The audits of these routes use it too. */
+const routeOnOneCurrent = (inputs, departures, polarPercent, prepared = inputs.preparedCurrent) => {
+  const selection = selectRoutingCurrent({
+    departures,
+    route: (departureUtc, currentGrid, strictCurrent) =>
+      routeForDeparture(inputs, departureUtc, polarPercent, currentGrid, strictCurrent),
+    tileGrid: inputs.currentGrid,
+    prepared: prepared?.currentGrid,
+    preparedProvenance: prepared?.currentGridProvenance,
+  });
+  return { ...selection, notes: selectedRoutingNotes(inputs, selection.currentInput),
+    currents: routingCurrentSummary(selection.currentInput) };
+};
 
 /** Owns the draft, routing, scan and audit lifecycle for the planner page. */
 export default function usePlannerController() {
@@ -224,7 +245,7 @@ export default function usePlannerController() {
   );
 
   // shared by Compute route and the per-departure scan routing
-  const loadRoutingInputs = useCallback((scanning = false, store = forecastStore()) =>
+  const loadRoutingInputs = useCallback((scanning = false, store = forecastStore(), prepared = false) =>
     loadLiveRoutingInputs({
       start: { lat: endpoints[0].lat, lon: endpoints[0].lng, name: 'Start' },
       finish: { lat: endpoints[1].lat, lon: endpoints[1].lng, name: 'Finish' },
@@ -232,6 +253,7 @@ export default function usePlannerController() {
       departureIso: departureUtc,
       scanning,
       store,
+      prepared,
       onProgress: setBusy,
     }), [endpoints, polarId, departureUtc]);
 
@@ -243,10 +265,11 @@ export default function usePlannerController() {
     setComputed(null);
     setBusy('computing route');
     try {
-      const inputs = await withFreshForecast(() => loadRoutingInputs());
+      const inputs = await withFreshForecast(() => loadRoutingInputs(false, forecastStore(), true));
       if (routingInputKey(usePlanner.getState()) !== inputKey) return;
       setBusy('computing route');
-      setComputed({ ...routeForDeparture(inputs, departureUtc, polarPercent), notes: inputs.notes, inputKey });
+      const { results, notes, currents } = routeOnOneCurrent(inputs, [departureUtc], polarPercent);
+      setComputed({ ...routedOutcome(results, departureUtc), notes, currents, inputKey });
       setNoticeState({
         kind: ACTION.compute, text: hadRoute ? 'Route updated' : 'Route computed',
         signature: draftSignature(usePlanner.getState()),
@@ -308,13 +331,18 @@ export default function usePlannerController() {
       let scanPassageHours = passageHours ?? 48;
       if (mode === 'compute' && endpoints.length === 2 && polarId) {
         const inputs = await loadRoutingInputs(true, action.store);
-        // Computed candidates and their audits share the routing grid. A drawn
-        // scan selects prepared-vs-tile coverage across every candidate in engine.
-        currentInput = routingCurrentInput(inputs.currentGrid);
+        // Computed candidates and their audits share one routing grid: the
+        // action's prepared grid when every candidate stays inside it, else
+        // tiles. A drawn scan selects coverage across every candidate in engine.
+        setBusy('scanning departures');
+        const selection = routeOnOneCurrent(inputs, departures, polarPercent,
+          { currentGrid: action.currentGrid, currentGridProvenance: action.currentGridProvenance });
+        currentInput = selection.currentInput;
         scanPassageHours = inputs.maxHours;
         routeFor = (departureUtc) => {
+          // A routing failure is reported as that candidate's skip reason.
           const result = {
-            ...routeForDeparture(inputs, departureUtc, polarPercent), notes: inputs.notes,
+            ...routedOutcome(selection.results, departureUtc), notes: selection.notes, currents: selection.currents,
             inputKey: routingInputKey({ endpoints, polarId, departureLocal: toLocalDateTimeValue(departureUtc), polarPercent }),
           };
           routes[departureUtc] = result;

@@ -81,11 +81,3 @@ export function freezeActionInputs(inputs) {
   const { store, ...data } = inputs;
   return Object.freeze({ ...freezeInput(data), store });
 }
-
-/** @param {AnalyzeOptions['currentGrid'] | null} grid @returns {NonNullable<AnalyzeOptions['currentInput']>} */
-export function routingCurrentInput(grid) {
-  return freezeInput({ grid: grid ?? undefined, provenance: {
-    source: 'tiles', current_source: 'tiles', selection_reason: 'same current grid as scan routing',
-    content_digest: grid ? contentHash(grid) : null, digest_algorithm: 'fnv1a64',
-  } });
-}

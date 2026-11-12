@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { computeRoute, scanDepartures } from '@deepweather/engine';
+import { candidateDepartures, computeRoute, scanDepartures } from '@deepweather/engine';
 import Planner from '../src/pages/Planner.jsx';
 import LimitsDrawer from '../src/components/LimitsDrawer.jsx';
 import { usePlanner } from '../src/stores/plannerStore.js';
@@ -108,6 +108,54 @@ it.each([2, -2, 0])('carries real routed timing through Compute, Check, Scan and
   await waitFor(() => expect(audits).toHaveLength(2));
   expect(audits[1].legs.at(-1).eta_range.nominal).toBe(usePlanner.getState().computed.arrival_utc);
   expect(saveRoute.mock.lastCall[0].timing).toEqual(usePlanner.getState().computed.route.timing);
+});
+
+it.each([
+  ['prepared', 'the routing area', {}],
+  ['tiles', 'only a corridor', { lat0: 49.4, lon0: -3.55, dlat: 0.1, dlon: 0.2, nlat: 3, nlon: 3, u_kt: Array(18).fill(2), v_kt: Array(18).fill(0) }],
+])('Compute, its Check and a computed scan use %s currents when the prepared grid covers %s', async (source, _, extra) => {
+  vi.setSystemTime(new Date('2026-07-19T12:00:00Z'));
+  const engine = await vi.importActual('@deepweather/engine');
+  const inputs = routingInputs(1);
+  const store = auditStore(engine, inputs.currentGrid);
+  const prepared = { ...routingInputs(2).currentGrid, run_id: 'prepared', under_resolved_note: 'stride-subsampled x2 from native', ...extra };
+  const preparedCurrent = { currentGrid: prepared, currentGridProvenance: { source: 'prepared-artifact', layer: 'currents', model: 'Synthetic current', run_id: 'prepared' } };
+  usePlanner.setState({ departureLocal: toLocalDateTimeValue(DEPARTURE),
+    endpoints: [inputs.start, inputs.finish].map(({ lat, lon }) => ({ lat, lng: lon })) });
+  loadRoutingInputs.mockImplementation(async ({ prepared: loadPrepared }) => ({ ...inputs, ...(loadPrepared ? { preparedCurrent } : {}) }));
+  prepareAnalysisInputs.mockImplementation(async draft => ({ ...draft, store, tileRuns: {}, inputRecords: [], ...preparedCurrent }));
+  computeRoute.mockImplementation(engine.computeRoute);
+  scanDepartures.mockImplementation((options, ...rest) => engine.scanDepartures({ ...options, store }, ...rest));
+  const audits = [];
+  analyzeInBrowser.mockImplementation(async (options) => {
+    const result = await engine.runAnalysis({ ...options, store });
+    audits.push(result.findings);
+    return { snapshotId: result.findings.snapshot_id };
+  });
+  const currents = (records) => records.find(x => x.layer === 'currents');
+  render(<Planner />);
+  fireEvent.click(computeButton());
+  await waitFor(() => expect(usePlanner.getState().computed?.route.timing.basis).toBe('routed'));
+  const routed = usePlanner.getState().computed;
+  // 5 kt boat plus 1 kt (tiles) or 2 kt (prepared) of current along the route
+  expect(routed.avg_sog_kt).toBeCloseTo(source === 'prepared' ? 7 : 6, 1);
+  expect(routed.notes).toEqual([]); // never the prepared grid's English factory note
+  // The corridor is tried on the prepared grid, meets a gap and is routed once more on tiles.
+  expect(computeRoute).toHaveBeenCalledTimes(source === 'prepared' ? 1 : 2);
+  expect(screen.getByTestId('route-currents')).toHaveTextContent(`Currents · ${source === 'prepared' ? 'Synthetic current' : 'Copernicus global ocean currents'}`);
+  fireEvent.click(checkButton());
+  await waitFor(() => expect(audits).toHaveLength(1));
+  expect(currents(audits[0].inputs.forecast_tiles)).toMatchObject({ current_source: source, run_id: source === 'prepared' ? 'prepared' : inputs.currentGrid.run_id });
+  computeRoute.mockClear();
+  fireEvent.click(scanButton());
+  await screen.findByRole('region', { name: 'Departure comparison' });
+  const scan = usePlanner.getState().scan;
+  // Prepared: every candidate once. Corridor: the first candidate meets the gap, then every candidate on tiles.
+  const candidates = candidateDepartures(Date.parse(DEPARTURE), 120, 6).length;
+  expect(computeRoute).toHaveBeenCalledTimes(source === 'prepared' ? candidates : candidates + 1);
+  // One source for every candidate's route and audit: this prepared grid runs to 30 July, past the whole scan.
+  expect(currents(scan.input_records).current_source).toBe(source);
+  expect(Object.values(scan.routes).every(r => r.avg_sog_kt === Object.values(scan.routes)[0].avg_sog_kt)).toBe(true);
 });
 
 it('disables Check and Scan when real routing cannot arrive within the horizon', async () => {
@@ -432,8 +480,10 @@ it('routes every scan candidate with the percentage and keeps the picked time\'s
   });
   fireEvent.click(scanButton());
   const region = await screen.findByRole('region', { name: 'Departure comparison' });
+  // Every candidate is routed once, in order, before the scan audits any (one current source for all).
+  const anchor = localDateTimeToIso(usePlanner.getState().departureLocal);
   expect(computeRoute.mock.calls.map(([request]) => [request.departureUtc, request.polarScaling]))
-    .toEqual(departures.map((departure) => [departure, 0.9]));
+    .toEqual(candidateDepartures(Date.parse(anchor), 120, 6).map((departure) => [departure, 0.9]));
   // The scan survives the percentage it was run for and is dropped when it changes.
   fireEvent.click(within(region).getAllByTitle(/ local time \(/)[1]);
   await waitFor(() => expect(analyzeInBrowser).toHaveBeenCalled());
