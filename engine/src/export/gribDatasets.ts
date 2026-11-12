@@ -16,6 +16,19 @@ export type GribDatasetId = 'wind-arome' | 'wind-icon-eu' | 'wind-ukv' | 'wind-g
 
 export type GribDatasetKind = 'wind' | 'waves' | 'currents';
 
+export interface AttributionPart {
+  text: string;
+  /**
+   * True for what the provider prescribes: its credit sentence, DOI, copyright
+   * statement, licence name and link. Shown as written in every language.
+   * False for Passage's own words (a source label, the modification clause),
+   * which the French page translates.
+   */
+  verbatim: boolean;
+  /** what follows this part in the one-string line; defaults to ATTRIBUTION_SEPARATOR */
+  then?: string;
+}
+
 export interface GribVariableSpec {
   /** PFT1 tile variable */
   tileVar: string;
@@ -54,7 +67,14 @@ export interface GribDatasetSpec {
   shortRangeLayers?: readonly string[];
   kind: GribDatasetKind;
   label: string;
+  /** the credit line as one English string (summary.json, tests); the page shows `attributionParts` when present */
   attribution: string;
+  /**
+   * The same line split where the provider's own words end and Passage's begin.
+   * `verbatim` parts are credit, licence and DOI text the provider prescribes:
+   * shown as written, in every language. Absent: the whole line is Passage's wording.
+   */
+  attributionParts?: readonly AttributionPart[];
   /** ocean-model currents disclosure; never suggest tidal-stream predictions */
   note?: string;
   centre: number;
@@ -70,8 +90,42 @@ const WAVE_SURFACE: GribLevel = { type: 1, value: 1 };
 const SWELL_1: GribLevel = { type: 241, value: 1 };
 
 const NOAA = 'NOAA/NCEP';
-const ECMWF = 'ECMWF open data, CC BY 4.0';
-const COPERNICUS = 'Generated using E.U. Copernicus Marine Service Information';
+
+/** What joins the parts of a credit line, on the page and in `attribution`. */
+export const ATTRIBUTION_SEPARATOR = '; ';
+const MODIFIED = 'modified: converted and quantized data';
+const CC_BY_4 = 'CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)';
+
+/** A provider-prescribed part (shown as written in every language). */
+const own = (text: string, then?: string): AttributionPart => ({ text, verbatim: true, ...(then ? { then } : {}) });
+/** Passage's own words: a source label or the modification clause (translated on /fr/grib). */
+const label = (text: string, then?: string): AttributionPart => ({ text, verbatim: false, ...(then ? { then } : {}) });
+
+/**
+ * A credit line of the pattern the UKV line uses: the credit, the licence with its
+ * link in parentheses, then a clause saying the data were modified. The same text is
+ * the register `attribution` and is recorded in forecast-tiles DATA-LICENSES.md
+ * ("Credit lines for derived tiles"). The credit sentences, DOIs and licence text are
+ * the providers' own; the source labels and the clause are Passage's. The tiles are
+ * converted (units, speed and direction to components) and quantized; the files keep
+ * each message's own grid.
+ */
+function credit(...parts: AttributionPart[]): { attribution: string; attributionParts: readonly AttributionPart[] } {
+  const attribution = parts.map((part, index) => part.text + (index < parts.length - 1 ? part.then ?? ATTRIBUTION_SEPARATOR : '')).join('');
+  return { attribution, attributionParts: parts };
+}
+
+// ECMWF's disclaimer is not shown: its wording is not recorded (the open-data page does not carry it).
+const ECMWF = credit(
+  own('This service is based on data and products of the European Centre for Medium-Range Weather Forecasts (ECMWF)'),
+  label('ECMWF open data'),
+  own(CC_BY_4),
+  label(MODIFIED),
+);
+const COPERNICUS_SENTENCE = 'Generated using E.U. Copernicus Marine Service Information';
+/** One per product: each carries its own DOI (GLO12 and IBI, recorded in the forecast-tiles register). */
+const COPERNICUS_GLO12 = credit(own(COPERNICUS_SENTENCE), own('doi:10.48670/moi-00016'), label(MODIFIED));
+const COPERNICUS_IBI = credit(own(COPERNICUS_SENTENCE), own('doi:10.48670/moi-00027'), label(MODIFIED));
 
 const kt = { convert: 'kt-to-ms', outputUnit: 'm/s' } as const;
 
@@ -115,14 +169,16 @@ const ECMWF_WIND_VARIABLES: readonly GribVariableSpec[] = [
 
 export const GRIB_DATASETS: readonly GribDatasetSpec[] = [
   {id: 'wind-ukv', layer: 'weather-ukv', kind: 'wind', label: 'Wind – UKV',
-    attribution: 'British Crown copyright 2023–2025, Met Office UKV via Open-Meteo; CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/); native CRS corrected, remapped and quantized data',
+    ...credit(own('British Crown copyright 2023–2025', ', '), label('Met Office UKV via Open-Meteo'),
+      own('CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/)'),
+      label('native CRS corrected, remapped and quantized data')),
     centre: 74, generatingProcess: 255, hasLand: true,
     variables: WIND_VARIABLES.map(variable => variable.tileVar === 'gust_kt' ? {...variable, level: LEVEL_10M} : variable)},
   {id: 'wind-arome', layer: 'weather-arome', kind: 'wind', label: 'Wind – AROME',
-    attribution: 'Météo-France AROME via Open-Meteo (CC BY 4.0)', centre: 85,
+    ...credit(label('Météo-France AROME via Open-Meteo'), own(CC_BY_4), label(MODIFIED)), centre: 85,
     generatingProcess: 255, hasLand: true, variables: ECMWF_WIND_VARIABLES},
   {id: 'wind-icon-eu', layer: 'weather-icon-eu', kind: 'wind', label: 'Wind – ICON-EU',
-    attribution: 'Deutscher Wetterdienst ICON-EU via Open-Meteo (CC BY 4.0)', centre: 78,
+    ...credit(label('Deutscher Wetterdienst ICON-EU via Open-Meteo'), own(CC_BY_4), label(MODIFIED)), centre: 78,
     generatingProcess: 255, hasLand: true, variables: ECMWF_WIND_VARIABLES},
   {
     id: 'wind-gfs',
@@ -141,7 +197,7 @@ export const GRIB_DATASETS: readonly GribDatasetSpec[] = [
     shortRangeLayers: ['weather-ecmwf-short'],
     kind: 'wind',
     label: 'Wind – ECMWF',
-    attribution: ECMWF,
+    ...ECMWF,
     centre: 98,
     generatingProcess: 255,
     hasLand: false,
@@ -175,7 +231,7 @@ export const GRIB_DATASETS: readonly GribDatasetSpec[] = [
     layer: 'currents',
     kind: 'currents',
     label: 'Currents – global (6-hourly)',
-    attribution: COPERNICUS,
+    ...COPERNICUS_GLO12,
     note: '6-hourly ocean-model currents. Tides are not resolved; do not use as tidal streams.',
     centre: 255,
     generatingProcess: 255,
@@ -187,7 +243,7 @@ export const GRIB_DATASETS: readonly GribDatasetSpec[] = [
     layer: 'currents-ibi',
     kind: 'currents',
     label: 'Currents – IBI regional (hourly, tide included)',
-    attribution: COPERNICUS,
+    ...COPERNICUS_IBI,
     note: 'Hourly regional model currents including tide. Not an official tidal-stream prediction.',
     centre: 255,
     generatingProcess: 255,

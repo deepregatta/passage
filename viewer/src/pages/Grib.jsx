@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { GRIB_EXPORT_NOTICE, FORECAST_UPDATED_MESSAGE, gribDataset } from '@deepweather/engine';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { ATTRIBUTION_SEPARATOR, GRIB_EXPORT_NOTICE, FORECAST_UPDATED_MESSAGE, gribDataset } from '@deepweather/engine';
 import { EmulatedStamp, Panel } from '../components/common.jsx';
 import { PlanBackLink } from '../components/BackLink.jsx';
 import { track, withUtm } from '../lib/analytics.js';
 import { gribReplayRaces, gribReplayUrl } from '../lib/gribNextSteps.js';
 import { useApp } from '../stores/appStore.js';
 import { fmtTime } from '../lib/format.js';
+import { OWNED } from '../lib/passages.js';
 import { forecastStore, friendlyForecastError } from '../lib/forecastStore.js';
 import { withFreshForecast } from '../lib/forecastFreshness.js';
 import {
@@ -408,6 +409,23 @@ function CombinedRow({ datasets, estBytes, result, running, progress, busy, erro
  * kind (wind, currents, waves), built in the browser from the pinned forecast
  * runs (docs/grib-export.md → GRIB files page).
  */
+/**
+ * One credit line. What the provider prescribes (its credit sentence, DOI,
+ * copyright statement, licence name and link: the `verbatim` parts) is owned and
+ * shown as written in every language. Passage's own words (the source label and
+ * the modification clause) are translated like the rest of the page.
+ */
+function AttributionLine({ spec }) {
+  const parts = spec.attributionParts;
+  if (!parts) return <span>{spec.attribution}</span>;
+  return parts.map((part, index) => {
+    const separator = index < parts.length - 1 ? part.then ?? ATTRIBUTION_SEPARATOR : '';
+    return part.verbatim
+      ? <span key={part.text} {...OWNED}>{`${part.text}${separator}`}</span>
+      : <Fragment key={part.text}><span>{part.text}</span>{separator}</Fragment>;
+  });
+}
+
 export default function Grib() {
   const language = useApp((state) => state.language);
   const { area, period, step, models, fitNonce, patch, showArea } = useGrib();
@@ -549,7 +567,7 @@ export default function Grib() {
 
   const running = progress !== null;
   const periodLocal = fmtLocalRange(timeWindow.startIso, timeWindow.endIso);
-  const attributions = [...new Set(kinds.map(({ dataset }) => dataset.spec.attribution))];
+  const attributions = [...new Map(kinds.map(({ dataset }) => [dataset.spec.attribution, dataset.spec])).values()];
 
   // One file: re-read latest.json first when it is over 10 minutes old; a
   // deleted run refreshes and retries once (lib/forecastFreshness.js).
@@ -822,8 +840,8 @@ export default function Grib() {
               {attributions.length > 0 && (
                 <p>
                   <span>Data sources:</span>{' '}
-                  {attributions.map((line, index) => (
-                    <span key={line}>{index > 0 && ' · '}<span>{line}</span></span>
+                  {attributions.map((spec, index) => (
+                    <span key={spec.attribution}>{index > 0 && ' · '}<AttributionLine spec={spec} /></span>
                   ))}
                 </p>
               )}

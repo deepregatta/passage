@@ -24,7 +24,7 @@
       "provider": "ECMWF",
       "licence": "CC BY 4.0 plus ECMWF Terms of Use for open data",
       "licence_url": "https://creativecommons.org/licenses/by/4.0/",
-      "attribution": "This service is based on data and products of the European Centre for Medium-Range Weather Forecasts (ECMWF)",
+      "attribution": "This service is based on data and products of the European Centre for Medium-Range Weather Forecasts (ECMWF); ECMWF open data; CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/); modified: cropped to the chart window, converted and drawn as isobar charts and wind arrows",
       "share_alike": false,
       "redistribute": "yes",
       "verified_on": "2026-11-12",
@@ -34,7 +34,9 @@
       ],
       "recorded_in": [
         "analysis/src/deepweather_analysis/ecmwf_open_data.py",
-        "docs/maintenance/2026-11-12-licence-verification-proposals.md"
+        "docs/maintenance/2026-11-12-licence-verification-proposals.md",
+        "docs/maintenance/2026-11-12-credit-audit.md",
+        "analysis/src/deepweather_analysis/synoptic/render.py"
       ],
       "notes": "CC BY 4.0 plus ECMWF's Terms of Use for open data. For a service built on the data, the credit is \"This service is based on data and products of the European Centre for Medium-Range Weather Forecasts (ECMWF)\", shown prominently with the source, the licence link, ECMWF's disclaimer and a statement that the data were modified; ECMWF may ask for the credit to be removed. Confirmed by the owner on 2026-11-12."
     },
@@ -44,7 +46,7 @@
       "provider": "Copernicus Marine Service",
       "licence": "Copernicus Marine Service licence",
       "licence_url": "https://marine.copernicus.eu/user-corner/service-commitments-and-licence",
-      "attribution": "Generated using E.U. Copernicus Marine Service Information",
+      "attribution": "Generated using E.U. Copernicus Marine Service Information; doi:10.48670/moi-00027 (IBI), doi:10.48670/moi-00016 (global analysis and forecast)",
       "share_alike": false,
       "redistribute": "yes",
       "verified_on": "2026-11-12",
@@ -53,9 +55,12 @@
         "cmems_currents"
       ],
       "recorded_in": [
-        "docs/maintenance/2026-11-12-licence-verification-proposals.md"
+        "docs/maintenance/2026-11-12-licence-verification-proposals.md",
+        "contracts/forecast-tiles-data-sources.json",
+        "analysis/src/deepweather_analysis/environment_fetcher.py",
+        "docs/maintenance/2026-11-12-credit-audit.md"
       ],
-      "notes": "Derived works may be distributed for any purpose with the credit \"Generated using E.U. Copernicus Marine Service Information\" and each product's DOI, placed on the home page or the page where users get the data. The licence asks licensees to keep records that trace product use, and that duty passes into every downstream licence; it carries an indemnity, is under French law, has no version number and can be revised at any time. Downloads need a personal login; no page says any product can be downloaded without one. Confirmed by the owner on 2026-11-12."
+      "notes": "The prepared grid's product is chosen at run time from the IBI, North West Shelf, Mediterranean, Baltic or global Copernicus Marine datasets (environment_fetcher.py). The credit names the two DOIs recorded in the forecast-tiles register (IBI and GLO12); the North West Shelf, Mediterranean and Baltic products carry their own DOI, not recorded here. That the factory's global forecast dataset belongs to the product with DOI 10.48670/moi-00016 is assumed, not confirmed. Adjacent finding: the prepared grid does not record its product id (the fetcher returns it as product_id, grids_prep.py keeps only dataset_id), so the DOI cannot be read back from a saved grid. The prepared grid's product is chosen at run time from the IBI, North West Shelf, Mediterranean, Baltic or global Copernicus Marine datasets (environment_fetcher.py), so the credit names the two DOIs recorded in the forecast-tiles register (IBI and GLO12) and says the others carry their own; that the factory's global dataset is the GLO12 product is assumed, not confirmed. Derived works may be distributed for any purpose with the credit \"Generated using E.U. Copernicus Marine Service Information\" and each product's DOI, placed on the home page or the page where users get the data. The licence asks licensees to keep records that trace product use, and that duty passes into every downstream licence; it carries an indemnity, is under French law, has no version number and can be revised at any time. Downloads need a personal login; no page says any product can be downloaded without one. Confirmed by the owner on 2026-11-12."
     },
     {
       "id": "era5-reanalysis",
@@ -63,7 +68,7 @@
       "provider": "Copernicus",
       "licence": "CC BY 4.0",
       "licence_url": "https://creativecommons.org/licenses/by/4.0/",
-      "attribution": null,
+      "attribution": "ERA5 reanalysis (Copernicus Climate Data Store), doi:10.24381/cds.adbb2d47; CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)",
       "share_alike": false,
       "redistribute": "yes",
       "verified_on": "2026-11-12",
@@ -72,7 +77,8 @@
         "era5"
       ],
       "recorded_in": [
-        "docs/maintenance/2026-11-12-licence-verification-proposals.md"
+        "docs/maintenance/2026-11-12-licence-verification-proposals.md",
+        "docs/maintenance/2026-11-12-credit-audit.md"
       ],
       "notes": "CC BY 4.0 replaced the older Copernicus licence on 2 July 2025. Credit is the dataset's own citation with DOI 10.24381/cds.adbb2d47 (the older \"Copernicus Climate Change Service information\" sentence belongs to the previous licence); downloads need a Climate Data Store account. Confirmed by the owner on 2026-11-12."
     },
@@ -82,7 +88,7 @@
       "provider": "Météo-France",
       "licence": "Licence Ouverte 2.0",
       "licence_url": "https://www.data.gouv.fr/pages/legal/licences/etalab-2.0",
-      "attribution": null,
+      "attribution": "Météo-France",
       "share_alike": false,
       "redistribute": "yes",
       "verified_on": "2026-11-12",
@@ -91,7 +97,8 @@
         "warnings_fr"
       ],
       "recorded_in": [
-        "docs/maintenance/2026-11-12-licence-verification-proposals.md"
+        "docs/maintenance/2026-11-12-licence-verification-proposals.md",
+        "docs/maintenance/2026-11-12-credit-audit.md"
       ],
       "notes": "Licence Ouverte 2.0 on the government portal's dataset page, which is the dataset warnings_mf.py reads. Credit Météo-France and the date of last update, and imply no endorsement. Confirmed by the owner on 2026-11-12."
     },
@@ -196,7 +203,7 @@
       "provider": "Maritime Safety Queensland",
       "licence": "CC BY 4.0",
       "licence_url": "https://creativecommons.org/licenses/by/4.0/",
-      "attribution": null,
+      "attribution": "State of Queensland (Transport and Main Roads, Maritime Safety Queensland); CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)",
       "share_alike": false,
       "redistribute": "yes",
       "verified_on": "2026-11-12",
@@ -205,7 +212,8 @@
         "tides"
       ],
       "recorded_in": [
-        "docs/maintenance/2026-11-12-licence-verification-proposals.md"
+        "docs/maintenance/2026-11-12-licence-verification-proposals.md",
+        "docs/maintenance/2026-11-12-credit-audit.md"
       ],
       "notes": "Credit the State of Queensland (Transport and Main Roads, Maritime Safety Queensland), link the licence and note changes. Two of the four prediction datasets were checked, and one near-real-time dataset shows CC BY 3.0. Confirmed by the owner on 2026-11-12."
     },
@@ -272,7 +280,7 @@
       "provider": "Queensland Coastal Data System",
       "licence": "CC BY 4.0",
       "licence_url": "https://creativecommons.org/licenses/by/4.0/",
-      "attribution": null,
+      "attribution": "Queensland Government; for the Gladstone buoy, Queensland Government and Gladstone Ports Corporation; CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)",
       "share_alike": false,
       "redistribute": "yes",
       "verified_on": "2026-11-12",
@@ -281,7 +289,8 @@
         "observations"
       ],
       "recorded_in": [
-        "docs/maintenance/2026-11-12-licence-verification-proposals.md"
+        "docs/maintenance/2026-11-12-licence-verification-proposals.md",
+        "docs/maintenance/2026-11-12-credit-audit.md"
       ],
       "notes": "Credit the Queensland Government; the Gladstone buoy is run jointly with Gladstone Ports Corporation. Only the Gladstone record was read. Confirmed by the owner on 2026-11-12."
     },

@@ -266,7 +266,11 @@ describe('GRIB files page copy', () => {
   it('translates the engine registry copy shown on the GRIB page', () => {
     const shown = [
       ...GRIB_DATASETS.flatMap((dataset) => [dataset.label, dataset.note].filter(Boolean)),
-      ...new Set(GRIB_DATASETS.map((dataset) => dataset.attribution)),
+      // every part that is Passage's own words (source labels, the modification clause); what a provider
+      // prescribes is shown as written, and is checked below
+      ...new Set(GRIB_DATASETS.flatMap((dataset) => (dataset.attributionParts
+        ? dataset.attributionParts.filter((part) => !part.verbatim).map((part) => part.text)
+        : [dataset.attribution]))),
       GRIB_EXPORT_NOTICE,
       FORECAST_UPDATED_MESSAGE,
     ].filter((text) => text !== 'NOAA/NCEP'); // an agency name, the same in French
@@ -274,6 +278,10 @@ describe('GRIB files page copy', () => {
       expect(translateText(english, 'fr'), english).not.toBe(english);
       expect(translateText(english, 'en')).toBe(english);
     }
+    // the providers' own text is never translated
+    const prescribed = GRIB_DATASETS.flatMap((dataset) => (dataset.attributionParts ?? []).filter((part) => part.verbatim).map((part) => part.text));
+    expect(prescribed.length).toBeGreaterThan(5);
+    for (const english of prescribed) expect(translateText(english, 'fr'), english).toBe(english);
     expect(translateText('Currents – global (6-hourly)', 'fr')).toBe('Courants – global (toutes les 6 h)');
     expect(translateText(GRIB_EXPORT_NOTICE, 'fr'))
       .toBe('Données de prévision pour la préparation, pas pour la navigation. Consultez les prévisions et les alertes officielles.');

@@ -9,6 +9,7 @@
 import { currentInputRecord } from '@deepweather/engine';
 import { fmtTextTime } from './format.js';
 import { routeSummaryEmulated } from './routeSummaryLines.js';
+import { currentCreditLine } from './credits.js';
 import { currentModelFamily, isScenarioId, tileModelId } from './sourceNames.js';
 
 /**
@@ -41,14 +42,33 @@ const isTiles = (record) => record.current_source === 'tiles' || record.source =
  * @returns {{ name: string | null, caveat: keyof typeof CURRENT_CAVEATS }}
  */
 export function currentSource(findings) {
-  const record = currentInputRecord(findings);
-  if (!record) return { name: null, caveat: 'not_recorded' };
-  const tiles = isTiles(record);
-  const family = currentModelFamily(tiles ? tileModelId(record.model) : record.model);
+  const { family, tiles } = currentFamilyOf(findings);
   if (!family) return { name: null, caveat: 'not_recorded' };
   const caveat = family.tide === true ? 'regional_tide'
     : family.tide === false ? (tiles ? 'tiles_global' : 'global') : 'not_recorded';
   return { name: family.name, caveat };
+}
+
+/** The recorded current model's family, and whether the grid came from tiles; no family when none is recorded. */
+function currentFamilyOf(findings) {
+  const record = currentInputRecord(findings);
+  if (!record) return { family: null, tiles: false };
+  const tiles = isTiles(record);
+  return { family: currentModelFamily(tiles ? tileModelId(record.model) : record.model), tiles };
+}
+
+/**
+ * The Copernicus Marine credit for the recorded current model, with the product's DOI where one is
+ * recorded; null when the model is not Copernicus or none is recorded (credits.js), and
+ * when the values are emulated (the heading's rule, currentSummaryEmulated): a real
+ * provider's credit never sits under synthetic values.
+ * @param {any} findings
+ * @returns {string | null}
+ */
+export function currentCredit(findings) {
+  if (currentSummaryEmulated(findings)) return null;
+  const { family } = currentFamilyOf(findings);
+  return family ? currentCreditLine(family) : null;
 }
 
 /**

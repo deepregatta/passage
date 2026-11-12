@@ -28,9 +28,17 @@ INK = "#16283E"
 RED = "#A63B2A"
 
 FIG_W_PX, FIG_H_PX, DPI = 1200, 900, 100
-
 ISOBAR_STEP_HPA = 4
 ISOBAR_LABEL_EVERY_HPA = 8
+
+# Credit footer: two lines, so the strip left under the axes is twice a single line's.
+FOOTER_RESERVE = 0.032
+FOOTER_LINES = (
+    "This service is based on data and products of the European Centre for "
+    "Medium-Range Weather Forecasts (ECMWF)",
+    "ECMWF open data; CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/); "
+    f"modified: cropped and drawn as isobars every {ISOBAR_STEP_HPA} hPa",
+)
 
 # Anchors for plain-language positions ("south of Iceland", "over Biscay").
 _ANCHORS = [
@@ -357,20 +365,17 @@ def render_panels(
             loc="left",
             pad=10,
         )
-        fig.text(
-            0.99,
-            0.01,
-            "ECMWF open data (CC-BY-4.0) — isobars every 4 hPa",
-            color=INK,
-            fontsize=7,
-            alpha=0.7,
-            ha="right",
-        )
+        # ECMWF's recorded credit: the service sentence, the source, the licence
+        # link and a statement that the data were modified (a second line carries
+        # the licence and the statement). The disclaimer is not shown: its
+        # wording is not recorded.
+        for y, line in zip((0.0185, 0.004), FOOTER_LINES):
+            fig.text(0.99, y, line, color=INK, fontsize=7.5, alpha=0.85, ha="right")
 
         # fixed canvas (no tight crop) so the axes' pixel geometry is exact and
         # publishable — the viewer overlays the per-user route client-side, which
         # keeps the prepared chart route-independent (shared across users)
-        fig.tight_layout(rect=(0, 0.015, 1, 1))
+        fig.tight_layout(rect=(0, FOOTER_RESERVE, 1, 1))
         fig.canvas.draw()
         pos = ax.get_position()
 

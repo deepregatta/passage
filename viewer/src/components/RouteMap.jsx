@@ -1,6 +1,6 @@
 import { palette } from '../lib/palette.js';
 import { useEffect, useMemo, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Polyline, Tooltip } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Polyline, Tooltip, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { GridSampler } from '@deepweather/engine';
@@ -12,6 +12,7 @@ import { preparedRun, artifactUrl } from '../lib/preparedRun.js';
 import { BASEMAP } from '../lib/basemap.js';
 import MapTouchScroll from './MapTouchScroll.jsx';
 import { windArrowHtml } from '../lib/windArrowHtml.js';
+import { ECMWF_MAP_CREDIT } from '../lib/credits.js';
 
 /**
  * The passage on a chart (mockup 1): marine-styled Leaflet; light base +
@@ -20,6 +21,18 @@ import { windArrowHtml } from '../lib/windArrowHtml.js';
  */
 
 const seaStyle = { height: '100%', width: '100%', background: palette.sea };
+
+/** Adds `html` to the map's attribution while `active`. */
+function MapCredit({ html, active }) {
+  const map = useMap();
+  useEffect(() => {
+    const control = map?.attributionControl;
+    if (!active || !control) return undefined;
+    control.addAttribution(html);
+    return () => control.removeAttribution(html);
+  }, [map, html, active]);
+  return null;
+}
 
 function legWorstStatus(leg, limits) {
   let worst = 'ok';
@@ -201,6 +214,7 @@ export default function RouteMap({ height = 420 }) {
     <div className="isolate border border-ink/30 rounded-sm overflow-hidden" style={{ height }}>
       <MapContainer bounds={bounds} style={seaStyle} scrollWheelZoom={false} attributionControl>
         <MapTouchScroll />
+        <MapCredit html={ECMWF_MAP_CREDIT} active={fieldArrows.length > 0} />
         <TileLayer {...BASEMAP} />
         <TileLayer
           url="https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png"

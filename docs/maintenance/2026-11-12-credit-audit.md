@@ -257,3 +257,47 @@ Nothing else was found. The fetch code in both repositories was searched for pro
 6. **Public bucket.** Add one notice object to the forecast-tiles bucket, and add credit fields to the `.emodnet.npz` cuts and the prepared current grid.
 7. **Before enabling feeds.** Decide what must exist before warnings, tides and observations go to production: per-bulletin issuer and issue time, the MeteoAlarm requirements, and the credit lines.
 8. **Unregistered feeds.** Add register entries, or research-only notes, for the Open-Meteo historical API, the Open-Meteo bulk files, GLOBE via `global-land-mask`, and Esri as port-index intermediary.
+
+## Fixed on 12 November 2026
+
+_Added after the audit; the findings above are unchanged and describe the code as it stood at `3c131e9`._ This change corrects credit wording only, from the recorded terms. It adds no licence wording that was not recorded.
+
+**Closed or partly closed (wording):**
+
+- **Gap 2, ECMWF (partly closed).** The GRIB page line, the synoptic chart footer (two lines, inside the image) and both registers' `attribution` fields now carry the service sentence, the source, the CC BY 4.0 link and a modification statement. The briefing map's attribution, while the ECMWF wind arrows are drawn, carries a short form only: "ECMWF open data, CC BY 4.0 (modified)" with the licence link, not the service sentence. The two registers' lines share the sentence, source and licence link; their modification clauses differ with the use (tiles and GRIB files: "converted and quantized data"; the prepared run's charts and wind arrows: "cropped to the chart window, converted and drawn as isobar charts and wind arrows"). Not closed: ECMWF's disclaimer is still shown nowhere, the About card is still in a closed section, and the footer is still in the bottom-right corner, which the audit says the zoomed briefing chart may crop (the PNG was checked, the briefing view was not).
+- **Gap 3, Copernicus Marine.** The GRIB page has one line per product, each with "Generated using E.U. Copernicus Marine Service Information", the product's DOI and the modification clause. The register `attribution` of `cmems-glo12` and `cmems-ibi` is the full line. The "Current along your route" block shows the sentence with the DOI for the GLO12 and IBI families and without a DOI for the North West Shelf, Mediterranean and Baltic families, and nothing for RTOFS or a model not recorded. Passage's `copernicus-marine-currents` names both recorded DOIs (IBI and global); its notes say the other regional products carry their own.
+- **Gap 4, DWD ICON-EU and Météo-France AROME.** The GRIB page lines and the register `attribution` fields gained the modification statement; the GRIB lines also gained the licence link.
+- **ERA5 credit.** The About page shows the dataset credit with DOI `10.24381/cds.adbb2d47` beside the skill statement, and the `era5-reanalysis` register `attribution` holds it.
+- **Register fields (owner decisions 3 and 4, wording part).** `attribution` was filled for `era5-reanalysis`, `meteofrance-marine-bulletins` (the credit "Météo-France" only: the date of last update is not shown anywhere and stays a duty in `notes`), `msq-queensland-tides` and `queensland-wave-buoys` from the wording recorded in their `notes`; the NOAA entries, `copernicus-insitu-observations`, `world-port-index`, the arrangements and the other empty fields stay empty.
+- **French.** On `/fr/grib` only what a provider prescribes is shown as written (`data-i18n-owned`): the ECMWF service sentence, "Generated using E.U. Copernicus Marine Service Information", the DOIs, UKV's Crown copyright statement, and the licence names and links. Passage's own words (source labels such as "Météo-France AROME via Open-Meteo" and "ECMWF open data", and the modification clause) are translated. The same applies to the other new credit lines: the About ERA5 credit and the current block's Copernicus line are English as written, with their label translated.
+
+**One wording per product.** The register `attribution` and the GRIB page line are the same text for ECMWF IFS, GLO12, IBI, ICON-EU and AROME, in the form credit; licence (link); modification clause, recorded in forecast-tiles `DATA-LICENSES.md` ("Credit lines for derived tiles") with the source files the clause rests on. UKV keeps its own register line, which differs from its GRIB line (see below). Lines recorded here for the Passage register, as the files their `recorded_in` cite:
+
+- `ecmwf-open-data-charts`: the ECMWF line above with the clause "modified: cropped to the chart window, converted and drawn as isobar charts and wind arrows" (the chart footer in `render.py` says "cropped and drawn as isobars every 4 hPa"; the arrows come from the same prepared run).
+- `copernicus-marine-currents`: "Generated using E.U. Copernicus Marine Service Information; doi:10.48670/moi-00027 (IBI), doi:10.48670/moi-00016 (global analysis and forecast)". The prepared grid does not record its product id (`grids_prep.py` keeps only the dataset id), an adjacent finding not fixed here.
+- `era5-reanalysis`: "ERA5 reanalysis (Copernicus Climate Data Store), doi:10.24381/cds.adbb2d47; CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)".
+- `meteofrance-marine-bulletins`: "Météo-France".
+- `msq-queensland-tides`: "State of Queensland (Transport and Main Roads, Maritime Safety Queensland); CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)".
+- `queensland-wave-buoys`: "Queensland Government; for the Gladstone buoy, Queensland Government and Gladstone Ports Corporation; CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)".
+
+**Current block.** The Copernicus credit line is not shown under emulated current values, even when the record carries a real Copernicus dataset id.
+
+**Modification statements.** They say what the code does: the tiles are converted and quantized, so the clause reads "modified: converted and quantized data". Only UKV's tiles are remapped (`adapter.py`), so "remapped" was not used for the other sources.
+
+**Wording looked for and not found.** On 12 November 2026 the page the ECMWF register entry cites, <https://www.ecmwf.int/en/forecasts/datasets/open-data>, was read again through a fetch tool that summarises the page. It states "subject to appropriate attribution" and points to ECMWF's Terms of Use, but carries neither the service sentence nor a disclaimer, so the disclaimer is still not shown anywhere. The CDS page for ERA5 (<https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels>) gave only the DOI line under "Citation and attribution", not a citation text, so the ERA5 credit gives the dataset name, DOI and licence and no author citation. Nothing was recorded in `DATA-LICENSES.md` because nothing new was read.
+
+**Remains open:**
+
+- Gap 1 (credit and licence text travelling with downloaded GRIB files), gap 5 (GRIB originating-centre metadata) and the notice object in the public bucket.
+- Gaps 6, 7 and 8 (EMODnet, Shom, OpenStreetMap in the chart archives).
+- ECMWF's disclaimer and the full ERA5 citation: owner to supply, or a page that carries them.
+- The NOAA credit, how a source that needs no credit should read, and the Open-Meteo link.
+- Printing `licence_url` on About, and opening its terms sections by default or adding a credits line to the footer.
+- Everything for warnings, tides and observations, the unregistered feeds, and credit fields in the prepared current grid JSON and the `.emodnet.npz` cuts.
+- The tile manifests: `forecast-tiles/src/ingest/sources/openmeteo/registry.py` (AROME, ICON-EU, UKV) and `cmems.py` / `ibi.py` still write their earlier attribution strings into published manifests, so the About-page register lines and the manifest strings now differ until a producer change is made and a run published.
+- PNG charts already published or committed as fixtures keep the old footer until regenerated.
+- Inconsistencies that remain between surfaces:
+  - Published tile manifests and the evidence inspector (`EvidenceInspector.jsx`, which prints the manifest's attribution) still show the earlier credit strings, until a producer change is made and a run published.
+  - The UKV register line ("British Crown copyright, Met Office UKV via Open-Meteo; CC BY-SA 4.0. Modified: …") differs in form and wording from its GRIB page line.
+  - The briefing route map uses a short ECMWF form, not the service sentence.
+  - `msq-queensland-tides` records a "note changes" duty in its notes that its credit line does not carry (the feed is not in production).

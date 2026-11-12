@@ -218,6 +218,49 @@ it('names the model and caveat by family and recorded source; a disclaimer alway
   expect(translateText('NOAA RTOFS ocean currents', 'fr')).toBe('Courants océaniques NOAA RTOFS');
 });
 
+it('credits Copernicus Marine under the block with the product DOI where one is recorded, and says nothing for any other source', () => {
+  const credit = (findings) => view(findings).querySelector('[data-testid="current-credit"]')?.textContent ?? null;
+  const SENTENCE = 'Generated using E.U. Copernicus Marine Service Information';
+  // the two products whose DOI is recorded: tiles (GLO12) and the prepared IBI or global grid
+  expect(credit(withCurrent(GLO12_TILES))).toBe(`${SENTENCE}; doi:10.48670/moi-00016`);
+  expect(credit(withCurrent({ ...GLO12_TILES, model: 'cmems_ibi tiles (currents-ibi-20260720T00Z)' }))).toBe(`${SENTENCE}; doi:10.48670/moi-00027`);
+  expect(credit(withCurrent(IBI_PREPARED))).toBe(`${SENTENCE}; doi:10.48670/moi-00027`);
+  expect(credit(withCurrent({ ...IBI_PREPARED, model: 'cmems_mod_glo_phy-cur_anfc_0.083deg_PT6H-i' }))).toBe(`${SENTENCE}; doi:10.48670/moi-00016`);
+  // other Copernicus families: the sentence, no DOI, none guessed
+  for (const model of ['cmems_mod_nws_phy-cur_anfc_0.027deg-2D_PT1H-m', 'cmems_mod_med_phy-cur_anfc_4.2km_PT15M-i', 'cmems_mod_bal_phy_anfc_PT1H-i']) {
+    expect(credit(withCurrent({ ...IBI_PREPARED, model })), model).toBe(SENTENCE);
+  }
+  // a multi-year or reanalysis global dataset is a different product: no DOI of the forecast product
+  expect(credit(withCurrent({ ...IBI_PREPARED, model: 'cmems_mod_glo_phy_my_0.083deg_P1D-m' }))).toBe(SENTENCE);
+  // not Copernicus, or not recorded: nothing
+  for (const model of ['rtofs', 'cmems', 'currents']) expect(credit(withCurrent({ ...IBI_PREPARED, model })), model).toBeNull();
+  expect(credit(withCurrent(null))).toBeNull();
+  expect(credit(withCurrent({ source: 'tiles', layer: 'currents', model: 'cmems', run_id: 'test-surface_current-2', mode: 'synthetic', source_kind: 'emulated', current_source: 'tiles' }))).toBeNull();
+});
+
+it('shows no Copernicus credit under emulated values, even when the record carries a real Copernicus dataset id', () => {
+  const credit = (findings) => view(findings).querySelector('[data-testid="current-credit"]');
+  expect(credit(withCurrent(IBI_PREPARED))).not.toBeNull();
+  for (const emulated of [
+    { ...IBI_PREPARED, source_kind: 'emulated' },
+    { ...IBI_PREPARED, mode: 'synthetic' },
+    { ...IBI_PREPARED, source: 'synthetic' },
+    { ...GLO12_TILES, source_kind: 'emulated' },
+    { ...GLO12_TILES, mode: 'synthetic' },
+  ]) {
+    const findings = withCurrent(emulated);
+    expect(currentSummaryEmulated(findings)).toBe(true);
+    expect(credit(findings), JSON.stringify(emulated)).toBeNull();
+  }
+});
+
+it('shows the Copernicus credit as written on the French page', async () => {
+  const { container } = render(<div id="root"><CurrentSummary findings={withCurrent(IBI_PREPARED)} /><LocalizedDocument language="fr" /></div>);
+  await waitFor(() => expect(container.querySelector('h3').textContent).toContain('Courant le long de votre route'));
+  expect(container.querySelector('[data-testid="current-credit"]').textContent)
+    .toBe('Generated using E.U. Copernicus Marine Service Information; doi:10.48670/moi-00027');
+});
+
 it('a grid with no dataset id is "Model not recorded", never a guessed model, and is stamped when emulated', () => {
   const synthetic = withCurrent({ source: 'tiles', layer: 'currents', model: 'cmems', run_id: 'test-surface_current-2', mode: 'synthetic', source_kind: 'emulated', current_source: 'tiles' });
   const container = view(synthetic);

@@ -90,25 +90,31 @@ const isScenario = (id) => /^scenario([\s_-]|$)/i.test(String(id));
  * which older pipeline notes name as a historical fallback.
  */
 const CURRENT_FAMILIES = [
-  { pattern: /^(cmems_glo12$|cmems_mod_glo_phy)/i, name: 'Copernicus global ocean currents', tide: false },
-  { pattern: /^(cmems_ibi$|cmems_mod_ibi_phy)/i, name: 'Copernicus IBI ocean currents', tide: true },
-  { pattern: /^cmems_mod_nws_phy/i, name: 'Copernicus North West Shelf ocean currents', tide: null },
-  { pattern: /^cmems_mod_med_phy/i, name: 'Copernicus Mediterranean ocean currents', tide: null },
-  { pattern: /^cmems_mod_bal_phy/i, name: 'Copernicus Baltic ocean currents', tide: null },
-  { pattern: /^rtofs/i, name: 'NOAA RTOFS ocean currents', tide: null },
+  // doi: the product's DOI where the forecast-tiles register records it (GLO12 and IBI). A reanalysis
+  // or multi-year global dataset is another product, so it gets none.
+  { pattern: /^(cmems_glo12$|cmems_mod_glo_phy)/i, name: 'Copernicus global ocean currents', tide: false, copernicus: true,
+    doi: (id) => (/^cmems_glo12$|^cmems_mod_glo_phy(?!.*_my(int)?_)/i.test(id) ? '10.48670/moi-00016' : null) },
+  { pattern: /^(cmems_ibi$|cmems_mod_ibi_phy)/i, name: 'Copernicus IBI ocean currents', tide: true, copernicus: true,
+    doi: (id) => (/^cmems_ibi$|^cmems_mod_ibi_phy_anfc/i.test(id) ? '10.48670/moi-00027' : null) },
+  { pattern: /^cmems_mod_nws_phy/i, name: 'Copernicus North West Shelf ocean currents', tide: null, copernicus: true },
+  { pattern: /^cmems_mod_med_phy/i, name: 'Copernicus Mediterranean ocean currents', tide: null, copernicus: true },
+  { pattern: /^cmems_mod_bal_phy/i, name: 'Copernicus Baltic ocean currents', tide: null, copernicus: true },
+  { pattern: /^rtofs/i, name: 'NOAA RTOFS ocean currents', tide: null, copernicus: false },
 ];
 
 /**
  * The family of a current model id, or null for an id that identifies no model
  * ("cmems", "currents", a test label, nothing): the caller then says the model
  * was not recorded rather than showing the id.
+ * `copernicus` and `doi` say whether it is a Copernicus Marine family and which
+ * product DOI is recorded for it.
  * @param {unknown} id
- * @returns {{ name: string, tide: boolean | null } | null}
+ * @returns {{ name: string, tide: boolean | null, copernicus: boolean, doi: string | null } | null}
  */
 export function currentModelFamily(id) {
   const text = typeof id === 'string' ? id.trim() : '';
   const family = text ? CURRENT_FAMILIES.find(({ pattern }) => pattern.test(text)) : null;
-  return family ? { name: family.name, tide: family.tide } : null;
+  return family ? { name: family.name, tide: family.tide, copernicus: family.copernicus, doi: family.doi?.(text) ?? null } : null;
 }
 
 /**

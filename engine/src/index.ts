@@ -103,8 +103,9 @@ export * from './types.js';
 export { eventKeyForSystem, assignEventKeys, matchSystems } from './events.js';
 export { encodeGrib2Message, gribRound, latticeCornersMicro } from './export/grib2.js';
 export type { Grib2Field, GribLattice, GribLevel, LonConvention } from './export/grib2.js';
-export { GRIB_DATASETS, GRIB_EXPORT_NOTICE, MS_TO_KT, gribDataset } from './export/gribDatasets.js';
+export { ATTRIBUTION_SEPARATOR, GRIB_DATASETS, GRIB_EXPORT_NOTICE, MS_TO_KT, gribDataset } from './export/gribDatasets.js';
 export type {
+  AttributionPart,
   GribDatasetId,
   GribDatasetKind,
   GribDatasetSpec,

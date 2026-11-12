@@ -7,6 +7,8 @@ import { loadJson } from '../lib/verification.js';
 import { PlanBackLink } from '../components/BackLink.jsx';
 import { SourceGroup } from '../components/SourceTerms.jsx';
 import { FORECAST_SOURCES, OTHER_SOURCES } from '../lib/dataSources.js';
+import { ERA5_CREDIT } from '../lib/credits.js';
+import { OWNED } from '../lib/passages.js';
 
 // Human names for the feeds in config/providers.json. An id not listed here is
 // still shown readably (see providerName), so a new feed never prints raw.
@@ -73,6 +75,9 @@ export default function About() {
           </span>
           <span>{emulatedCaseLabel(caseIndex)}</span>
         </div>
+        <p className="font-sans text-[12px] text-ink-soft" data-testid="era5-credit">
+          <span>Reanalysis credit:</span> <span {...OWNED}>{ERA5_CREDIT}</span>
+        </p>
 
         <Panel title={'Calibration record'}>
           {!calibration && (

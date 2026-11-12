@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
 import { currentSummary } from '@deepweather/engine';
 import { EmulatedStamp } from '../../components/common.jsx';
+import { OWNED } from '../../lib/passages.js';
 import {
-  CURRENT_CAVEATS, CURRENT_DISCLAIMER, currentSource, currentSummaryEmulated, currentSummaryLines,
+  CURRENT_CAVEATS, CURRENT_DISCLAIMER, currentCredit, currentSource, currentSummaryEmulated, currentSummaryLines,
   windAgainstCurrentEmulated, windAgainstCurrentHazard,
 } from '../../lib/currentSummaryLines.js';
 
@@ -14,7 +15,9 @@ import {
  * identifies one), with that source's caveat and the not-a-tidal-stream-prediction disclaimer.
  * The heading's EMULATED stamp follows the current record; the wind-against-current line, which
  * depends on wind and current, is stamped when either is emulated. No hours with and against the
- * current: no saved record shows whether the source resolves the tide. */
+ * current: no saved record shows whether the source resolves the tide.
+ * A Copernicus model also gets Copernicus Marine's credit sentence, with the product's DOI where one is
+ * recorded (credits.js), shown as written in French too. */
 export default function CurrentSummary({ findings, route = null }) {
   const summary = useMemo(() => currentSummary(findings, route), [findings, route]);
   const legNumber = (legId) => {
@@ -24,6 +27,7 @@ export default function CurrentSummary({ findings, route = null }) {
   const lines = currentSummaryLines(summary, { legNumber, hazard: windAgainstCurrentHazard(findings) });
   if (!lines.length) return null;
   const { name, caveat } = currentSource(findings);
+  const credit = currentCredit(findings);
   const emulated = currentSummaryEmulated(findings);
   const wacEmulated = windAgainstCurrentEmulated(findings);
   return (
@@ -39,6 +43,7 @@ export default function CurrentSummary({ findings, route = null }) {
         : <p key={key} data-line>{text}</p>))}
       <p className="text-ink-soft" data-line>{CURRENT_CAVEATS[caveat]}</p>
       <p className="text-ink-soft" data-line>{CURRENT_DISCLAIMER}</p>
+      {credit && <p className="text-ink-soft" data-testid="current-credit" {...OWNED}>{credit}</p>}
     </div>
   );
 }

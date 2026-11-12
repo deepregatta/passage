@@ -158,7 +158,7 @@ describe('About: terms for each source', () => {
     }
     const arome = card('meteofrance-arome');
     expect(value(arome, 'Licence').textContent).toBe('CC BY 4.0 (Open-Meteo bulk catalogue); Météo-France open data');
-    expect(value(arome, 'Attribution').textContent).toBe('Météo-France AROME via Open-Meteo (open-data, CC BY 4.0)');
+    expect(value(arome, 'Attribution').textContent).toBe('Météo-France AROME via Open-Meteo; CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/); modified: converted and quantized data');
     expect(arome.querySelector('time')).toBeNull();
   });
 
@@ -169,10 +169,27 @@ describe('About: terms for each source', () => {
     expect(value(gfs, 'Redistribution').textContent).toBe('Yes, under the licence');
     expect(value(gfs, 'Verified on').textContent).toBe('2026-11-12');
     const ecmwf = card('ecmwf-open-ifs');
-    expect(value(ecmwf, 'Attribution').textContent).toBe('This service is based on data and products of the European Centre for Medium-Range Weather Forecasts (ECMWF)');
+    expect(value(ecmwf, 'Attribution').textContent).toBe('This service is based on data and products of the European Centre for Medium-Range Weather Forecasts (ECMWF); ECMWF open data; CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/); modified: converted and quantized data');
     const era5 = card('era5-reanalysis');
     expect(value(era5, 'Licence').textContent).toBe('CC BY 4.0');
     expect(value(era5, 'Redistribution').textContent).toBe('Yes, under the licence');
+  });
+
+  it('shows the credits the recorded terms give for Copernicus Marine, ERA5, Météo-France bulletins and the Queensland feeds', () => {
+    show();
+    const attribution = (id) => value(card(id), 'Attribution').textContent;
+    expect(attribution('cmems-glo12')).toBe('Generated using E.U. Copernicus Marine Service Information; doi:10.48670/moi-00016; modified: converted and quantized data');
+    expect(attribution('cmems-ibi')).toBe('Generated using E.U. Copernicus Marine Service Information; doi:10.48670/moi-00027; modified: converted and quantized data');
+    expect(attribution('copernicus-marine-currents')).toBe('Generated using E.U. Copernicus Marine Service Information; doi:10.48670/moi-00027 (IBI), doi:10.48670/moi-00016 (global analysis and forecast)');
+    expect(attribution('ecmwf-open-data-charts')).toMatch(/^This service is based on data and products of the European Centre for Medium-Range Weather Forecasts \(ECMWF\); ECMWF open data; CC BY 4\.0 \(https:\/\/creativecommons\.org\/licenses\/by\/4\.0\/\); modified: /);
+    expect(attribution('era5-reanalysis')).toContain('doi:10.24381/cds.adbb2d47');
+    expect(attribution('meteofrance-marine-bulletins')).toBe('Météo-France');
+    expect(attribution('msq-queensland-tides')).toMatch(/^State of Queensland \(Transport and Main Roads, Maritime Safety Queensland\); CC BY 4\.0/);
+    expect(attribution('queensland-wave-buoys')).toMatch(/^Queensland Government; for the Gladstone buoy, Queensland Government and Gladstone Ports Corporation; CC BY 4\.0/);
+    // wording that is not recorded stays empty
+    for (const id of ['noaa-gfs', 'noaa-gfs-wave', 'noaa-gefs', 'copernicus-insitu-observations', 'world-port-index', 'forecast-tiles-service', 'noaa-coops-tides']) {
+      expect(attribution(id), id).toBe('Not yet confirmed');
+    }
   });
 
   it('shows the two arrangement entries with the exact wording the owner gave, not as a licence', () => {
@@ -248,6 +265,26 @@ describe('About: terms for each source', () => {
     expect(untranslated, 'add a French catalogue entry, or list a proper name above').toEqual([]);
     const unused = [...PROPER].filter((text) => !sources.some((s) => s.name === text || s.provider === text));
     expect(unused, 'stale proper-name entries').toEqual([]);
+  });
+});
+
+describe('About: the ERA5 credit beside the skill statement', () => {
+  const CREDIT = 'ERA5 reanalysis (Copernicus Climate Data Store), doi:10.24381/cds.adbb2d47; CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)';
+
+  it('shows the dataset credit with its DOI next to "Skill claims use N real ERA5 cases."', () => {
+    show();
+    const statement = screen.getByText(/^Skill claims use \d+ real ERA5 cases\.$/);
+    const credit = screen.getByTestId('era5-credit');
+    expect(credit.textContent).toContain(CREDIT);
+    expect(statement.closest('section')).toBe(credit.closest('section'));
+    expect(credit.textContent).not.toMatch(/deepweather/i);
+  });
+
+  it('shows the credit as written on the French page, with only the label translated', async () => {
+    const view = show('fr');
+    await waitFor(() => expect(screen.getByTestId('era5-credit').textContent).toContain('Crédit de la réanalyse'));
+    expect(screen.getByTestId('era5-credit').textContent).toContain(CREDIT);
+    expect(view.container.textContent).toContain(CREDIT);
   });
 });
 

@@ -522,8 +522,15 @@ describe('GRIB files page', () => {
     expect(kindItem('Download waves').getByText('Not in the current forecast runs.')).toBeInTheDocument();
 
     expect(page().getByText('Forecast data for planning, not for navigation. Check official forecasts and warnings.')).toBeInTheDocument();
-    expect(page().getByText('ECMWF open data, CC BY 4.0')).toBeInTheDocument();
-    expect(page().getByText('Generated using E.U. Copernicus Marine Service Information')).toBeInTheDocument();
+    // ECMWF's service sentence, source and licence link, then Passage's own modification clause
+    const sources = page().getByText('Data sources:').parentElement;
+    expect(sources.textContent).toContain(
+      'This service is based on data and products of the European Centre for Medium-Range Weather Forecasts (ECMWF); '
+      + 'ECMWF open data; CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/); modified: converted and quantized data',
+    );
+    expect(sources.textContent).toContain(
+      'Generated using E.U. Copernicus Marine Service Information; doi:10.48670/moi-00027; modified: converted and quantized data',
+    );
   });
 
   it('offers a one-day export window for short regional forecasts', async () => {
@@ -826,6 +833,27 @@ describe('GRIB files page', () => {
     expect(await page().findByText('The forecast runs are unavailable, so GRIB files can’t be prepared right now.')).toBeInTheDocument();
     fireEvent.click(page().getByRole('button', { name: 'Try again' }));
     expect(await page().findByRole('button', { name: 'Download wind' })).toBeEnabled();
+  });
+
+  it('shows only what the providers prescribe as written on the French page and translates the labels and the clause', async () => {
+    act(() => useGrib.setState({ area: CHANNEL }));
+    render(<div id="root"><Grib /><LocalizedDocument language="fr" /></div>);
+    const label = await screen.findByText('Sources des données :');
+    await waitFor(() => expect(label.parentElement.textContent).toContain('modifié'));
+    const sources = label.parentElement.textContent;
+    // the providers' own words are not translated
+    expect(sources).toContain('This service is based on data and products of the European Centre for Medium-Range Weather Forecasts (ECMWF); ');
+    expect(sources).toContain('CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)');
+    expect(sources).toContain('Generated using E.U. Copernicus Marine Service Information; doi:10.48670/moi-00027');
+    // Passage's own source label and clause are
+    expect(sources).toContain('Données ouvertes ECMWF');
+    expect(sources).not.toContain('ECMWF open data');
+    expect(sources).toContain('modifié : données converties et quantifiées');
+    expect(sources).not.toContain('modified: converted and quantized data');
+    expect(sources).not.toContain('Généré à partir');
+    for (const owned of label.parentElement.querySelectorAll('[data-i18n-owned]')) {
+      expect(owned.textContent).not.toMatch(/modifi|Données/);
+    }
   });
 
   it('keeps run ids and file names intact under the French localiser', async () => {

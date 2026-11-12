@@ -75,6 +75,7 @@ const dynamicKeys = {
   'forecast scenarios exceed your wind limit': 'Evidence.jsx: variable is interpolated into a whole text node',
   'forecast scenarios exceed your gust limit': 'Evidence.jsx: variable is interpolated into a whole text node',
   'contributors, seamarks © OpenSeaMap': 'Leaflet joins OSM and OpenSeaMap attribution text',
+  'contributors, seamarks © OpenSeaMap,': 'Leaflet joins OSM, OpenSeaMap and (while wind arrows are drawn) ECMWF attribution text with a comma',
   'slow speed': 'Planner.jsx: accessible speed input label is built from k',
   'nominal speed': 'Planner.jsx: accessible speed input label is built from k',
   'fast speed': 'Planner.jsx: accessible speed input label is built from k',

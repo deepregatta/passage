@@ -328,8 +328,12 @@ Per dataset it returns:
     tidal-stream prediction."
 - Always shown: "Forecast data for planning, not for navigation. Check
   official forecasts and warnings." (`GRIB_EXPORT_NOTICE`), plus the
-  attribution lines for the ticked datasets: NOAA/NCEP; ECMWF open data,
-  CC BY 4.0; "Generated using E.U. Copernicus Marine Service Information".
+  attribution lines for the ticked datasets (`gribDatasets.ts`): NOAA/NCEP;
+  ECMWF's service sentence, source, CC BY 4.0 link and a modification clause;
+  "Generated using E.U. Copernicus Marine Service Information" with that
+  product's DOI and the clause; DWD ICON-EU and Météo-France AROME with the
+  licence link and the clause; UKV as before. The providers' own words are
+  shown as written on `/fr/grib` too; only the clause is translated.
 
 ## One file for wind and currents
 
