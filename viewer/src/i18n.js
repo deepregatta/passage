@@ -212,6 +212,9 @@ const FR = {
   "Route is outside the coastline mask": "La route se trouve hors du masque côtier",
   "Start or finish is on land": "Le départ ou l’arrivée se trouve à terre",
   "No sea node near start/finish": "Aucun point en mer près du départ ou de l’arrivée",
+  // SearchBoundsError (engine isochrone.ts): a comparison departure keeps 'no-route' as its skip reason.
+  "No route found inside the area the route may search": "Aucune route trouvée dans la zone de recherche autorisée",
+  "The start or finish is outside the area the route may search": "Le départ ou l’arrivée est hors de la zone de recherche autorisée",
   "This browser cannot store briefings (no IndexedDB)": "Ce navigateur ne peut pas enregistrer de briefings (IndexedDB indisponible)",
   "arrives": "arrivée",
   "avg": "moy.",

@@ -622,6 +622,33 @@ applies to the nominal routed arrival; the existing slow/fast scenarios remain a
 confidence intervals. Times and durations displayed by the app retain their
 existing rounding.
 
+The finish joins the graph at the node nearest to it (or the nearest node with a
+land-free leg to it, within seven rings). Since 2026-11-13, when that node's last leg cannot be sailed at the time the search
+reaches it (no-go cone, no wind there, or past `maxHours`), the router no longer
+stops with "No route found": every other node within the same seven rings with a
+land-free leg to the finish becomes a finish node, joined at its own settle time,
+and the route ends through the one arriving first. The search then goes on only
+until no unsettled finish node could arrive earlier, or all have been tried, or,
+while none has joined, 6 h past the time the nearest node failed
+(`ALTERNATIVE_END_WINDOW_MS`): a finish node reachable only dead upwind, or not
+at all, no longer holds a failing search to the full horizon. When the search
+ends without reaching the nearest node at all (the horizon came first, or it
+cannot be reached), the finish nodes it did settle are joined the same way.
+A route whose nearest node works is unchanged byte for byte. A finish node
+outside `searchBounds` is never joined and counts as the box holding the route
+back when it has wind at that time; so a confined search that fails can still be
+reported as a box failure (`SearchBoundsError`) when the unconfined request fails
+too. Under strict current a missing value anywhere along a finish node's leg is a
+gap like anywhere else, and so is any value the search reads during those 6 h: a
+search that still finds no route can end as a current gap where it used to end as
+"No route found", and a finish node's leg that outlasts the grid's time axis is a
+time gap. Such a leg is straight, but integrated in equal steps no
+longer than the router's longest edge (√5 graph cells), each reading wind and
+current at its own start and time; no waypoint is added, so the route's last leg
+carries the summed time and through-water distance. It can still be long: up to
+about ten graph cells, which at the default resolution of a long passage is tens
+of miles (26 nm was seen at 0.1°). Tests: `engine/test/routingFinish.test.ts`.
+
 ## Shared forecast contracts
 
 `npm run check:contracts` verifies the four forecast schemas and producer golden

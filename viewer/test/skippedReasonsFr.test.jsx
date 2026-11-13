@@ -2,7 +2,7 @@
 // reason the planner can produce, and the time-zone fallback must read French wherever a zone is shown.
 import { cleanup, render } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
-import { CurrentGapError, OUTSIDE_SCAN_CURRENT, OUTSIDE_SELECTED_CURRENT } from '@deepweather/engine';
+import { CurrentGapError, OUTSIDE_SCAN_CURRENT, OUTSIDE_SELECTED_CURRENT, SearchBoundsError } from '@deepweather/engine';
 import DepartureComparison from '../src/pages/planner/DepartureComparison.jsx';
 import { routedOutcome } from '../src/lib/routingInputs.js';
 import { localTimeZoneName } from '../src/lib/format.js';
@@ -27,6 +27,8 @@ const REASONS = [
   [missingRouting, 'Aucune route n’a pu être calculée pour ce départ.'],
   ['This departure is beyond the forecast horizon', 'Ce départ dépasse l’horizon des prévisions'],
   ['No route found within 48 h (wind coverage, land, or no-go conditions)', 'Aucune route trouvée en 48 h (couverture du vent, terre ou conditions impraticables)'],
+  // A later departure of a comparison on a prepared grid keeps this error (selectComparisonCurrent).
+  [new SearchBoundsError('no-route').message, 'Aucune route trouvée dans la zone de recherche autorisée'],
   ['Start or finish is on land', 'Le départ ou l’arrivée se trouve à terre'],
   ['No sea node near start/finish', 'Aucun point en mer près du départ ou de l’arrivée'],
   ['Route is outside the coastline mask', 'La route se trouve hors du masque côtier'],
@@ -36,6 +38,11 @@ const REASONS = [
 
 it.each(REASONS)('says the skip reason %j in French', (english, french) => {
   expect(fr(english)).toBe(french);
+});
+
+// Never a skip reason today (an end outside the grid moves the whole action to tiles), translated all the same.
+it('says the router\'s other search-area message in French', () => {
+  expect(fr(new SearchBoundsError('endpoint-outside').message)).toBe('Le départ ou l’arrivée est hors de la zone de recherche autorisée');
 });
 
 it('shows the reasons in French when rendered in the unassessed list', () => {

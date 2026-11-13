@@ -49,6 +49,7 @@ export const SYNTHETIC_POLAR_FILES = new Map([
   ['engine/test/deepPolars.test.ts', 'invented release-shaped tables'],
   ['engine/test/refineScanFixtures.test.ts', 'constant 5 kt table'],
   ['engine/test/routing.test.ts', 'invented 3×4 "test-32ft" table'],
+  ['engine/test/routingFinish.test.ts', 'the invented 3×4 "test-32ft" table again'],
   ['engine/test/routingTiming.test.ts', 'constant 5 kt table'],
   ['engine/test/tileStore.test.ts', 'invented 3×4 table'],
   ['viewer/test/fixtures/routingTiming.js', 'constant 5 kt table'],

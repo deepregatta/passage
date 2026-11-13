@@ -68,6 +68,8 @@ export interface RoutingResult {
 }
 
 const MIN_SOG_KT = 0.3;
+/** How many rings of graph nodes around an endpoint may connect to it. */
+const ENDPOINT_RINGS = 7;
 
 /** A strict-current search read a point or time the current grid does not cover. */
 export class CurrentGapError extends Error {
@@ -113,6 +115,15 @@ const NEIGHBORS: Array<[number, number]> = [
   [2, 1], [2, -1], [-2, 1], [-2, -1],
   [1, 2], [1, -2], [-1, 2], [-1, -2],
 ];
+/** The longest graph edge in grid cells (√5): the longest step of a last leg from another finish node. */
+const LONGEST_EDGE_CELLS = Math.max(...NEIGHBORS.map(([di, dj]) => Math.hypot(di, dj)));
+/**
+ * After the snapped finish node's last leg failed and no other finish node has joined yet,
+ * how far past that node's settle time the search goes on before it gives up: a finish
+ * node it has not settled by then (reachable only dead upwind, or not at all) no longer
+ * holds it to the full horizon.
+ */
+const ALTERNATIVE_END_WINDOW_MS = 6 * 3600_000;
 
 export function computeRoute(request: RoutingRequest): RoutingResult {
   const { start, finish, polar, windGrid, currentGrid, landMask } = request;
@@ -191,11 +202,13 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
     return arrivalMs <= deadlineMs ? { arrivalMs, waterNm: stw * hours } : null;
   };
 
+  const nearestNode = (p: { lat: number; lon: number }): [number, number] => [
+    Math.max(0, Math.min(nlat - 1, Math.round((p.lat - lat0) / res))),
+    Math.max(0, Math.min(nlon - 1, Math.round((p.lon - lon0) / res))),
+  ];
+
   const snap = (p: { lat: number; lon: number }, fromStart = false): [number, number] => {
-    let bi = Math.round((p.lat - lat0) / res);
-    let bj = Math.round((p.lon - lon0) / res);
-    bi = Math.max(0, Math.min(nlat - 1, bi));
-    bj = Math.max(0, Math.min(nlon - 1, bj));
+    const [bi, bj] = nearestNode(p);
     let hasSeaConnection = false;
     const connects = (i: number, j: number) => {
       const node = { lat: latOf(i), lon: lonOf(j) };
@@ -209,7 +222,7 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
     if (!connects(bi, bj)) {
       // A sea node can still be across a peninsula or a thin wall. Search
       // nearby rings for a node with a checked connection to the endpoint.
-      for (let r = 1; r < 8; r++) {
+      for (let r = 1; r <= ENDPOINT_RINGS; r++) {
         for (let di = -r; di <= r; di++) {
           for (let dj = -r; dj <= r; dj++) {
             if (Math.max(Math.abs(di), Math.abs(dj)) !== r) continue;
@@ -282,6 +295,92 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
   const settled = new Uint8Array(nlat * nlon);
   let settledCount = 0;
   let terminal: ReturnType<typeof travel> = null;
+  // The finish-node state below is the loop's own (no closure writes it): the hot loop keeps it local.
+  // The graph node the route reaches the finish from: the snapped finish node, unless its last leg fails.
+  let endId = finishId;
+  // Only after the snapped finish node's last leg failed: 1 for each other finish node not settled yet.
+  let pendingEnds: Uint8Array | null = null;
+  let pendingCount = 0;
+  // When the search stops: never until alternative finish nodes open, then the snapped node's settle
+  // time plus ALTERNATIVE_END_WINDOW_MS, and once one has joined, its arrival (no node settled from
+  // then on arrives earlier).
+  let stopAtMs = Infinity;
+
+  /**
+   * The last leg from graph node (i, j), left at `t`, to the finish: straight, in equal steps
+   * no longer than the longest graph edge, each read at its own start and time like an edge.
+   * Null when a step cannot be sailed or arrives past the deadline.
+   */
+  const legToFinish = (i: number, j: number, t: number) => {
+    const from = { lat: latOf(i), lon: lonOf(j) };
+    const steps = Math.max(1, Math.ceil(
+      Math.hypot((finishPoint.lat - from.lat) / res, (finishPoint.lon - from.lon) / res) / LONGEST_EDGE_CELLS));
+    let at = from;
+    let arrivalMs = t;
+    let waterNm = 0;
+    for (let k = 1; k <= steps; k++) {
+      const to = k === steps ? finishPoint : {
+        lat: from.lat + ((finishPoint.lat - from.lat) * k) / steps,
+        lon: from.lon + ((finishPoint.lon - from.lon) * k) / steps,
+      };
+      const step = travel(at, to, arrivalMs);
+      if (!step) return null;
+      arrivalMs = step.arrivalMs;
+      waterNm += step.waterNm;
+      at = to;
+    }
+    return { arrivalMs, waterNm };
+  };
+
+  /** The leg joining another finish node, settled at `t`, to the finish; null when it cannot. */
+  const endLeg = (node: number, t: number) => {
+    const i = Math.floor(node / nlon);
+    const j = node % nlon;
+    // Like snap(), a node outside searchBounds never joins an end: the box held the route back,
+    // unless the node has no wind then (its leg could not have been sailed: as the clip branch).
+    if (!searchable(i, j)) {
+      if (wind.sample(latOf(i), lonOf(j), t) !== null) clipped = true;
+      return null;
+    }
+    return legToFinish(i, j, t);
+  };
+
+  /**
+   * The snapped finish node's last leg cannot be sailed when the search reaches it (no-go,
+   * no wind there, or past the deadline), or the search ended without reaching it. Every
+   * other node snap() would accept for the finish (within ENDPOINT_RINGS, with a land-free
+   * leg to it) becomes a finish node: those already settled are joined now at their own
+   * settle time, in settle order (`best`); the rest are marked pending (1) to be joined when
+   * the search settles them. The route ends through the finish node arriving first (on a
+   * tie, the one settled first).
+   */
+  const openAlternativeEnds = () => {
+    const [bi, bj] = nearestNode(finishPoint);
+    const pending = new Uint8Array(nlat * nlon);
+    let count = 0;
+    const settledEnds: number[] = [];
+    for (let i = Math.max(0, bi - ENDPOINT_RINGS); i <= Math.min(nlat - 1, bi + ENDPOINT_RINGS); i++) {
+      for (let j = Math.max(0, bj - ENDPOINT_RINGS); j <= Math.min(nlon - 1, bj + ENDPOINT_RINGS); j++) {
+        const node = id(i, j);
+        if (node === finishId) continue;
+        if (landMask && segmentCrossesLand(landMask, finishPoint, { lat: latOf(i), lon: lonOf(j) })) continue;
+        if (settled[node]) {
+          settledEnds.push(node);
+        } else {
+          pending[node] = 1;
+          count += 1;
+        }
+      }
+    }
+    // A settled node's label is its settle time, and nodes settle in time order (equal times: by index).
+    settledEnds.sort((a, b) => arrival[a]! - arrival[b]! || a - b);
+    let best: { leg: NonNullable<ReturnType<typeof travel>>; node: number } | null = null;
+    for (const node of settledEnds) {
+      const leg = endLeg(node, arrival[node]!);
+      if (leg && (!best || leg.arrivalMs < best.leg.arrivalMs)) best = { leg, node };
+    }
+    return { pending, count, best };
+  };
   // The neighbour (ni, nj) of (i, j) that expanding (i, j) would travel to: in the graph, unsettled, sea,
   // and not across land. Expanding a node reads the weather (and current) there only for such a neighbour.
   const expandsTo = (i: number, j: number, ni: number, nj: number) => {
@@ -298,6 +397,7 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
     const { t, node } = pop();
     if (settled[node]) continue;
     if (t > deadlineMs) break;
+    if (t >= stopAtMs) break;
     const i = Math.floor(node / nlon);
     const j = node % nlon;
     // Outside searchBounds, a node the search would expand is never expanded: from here the bounds
@@ -307,13 +407,37 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
       NEIGHBORS.some(([di, dj]) => expandsTo(i, j, i + di, j + dj))) {
       settled[node] = 1;
       clipped = true;
+      if (pendingEnds?.[node]) {
+        pendingEnds[node] = 0;
+        if (--pendingCount === 0) break;
+      }
       continue;
     }
     settled[node] = 1;
     settledCount += 1;
     if (node === finishId) {
       terminal = travel({ lat: latOf(fi), lon: lonOf(fj) }, finishPoint, t);
-      break;
+      if (terminal) break;
+      const opened = openAlternativeEnds();
+      pendingEnds = opened.pending;
+      pendingCount = opened.count;
+      stopAtMs = t + ALTERNATIVE_END_WINDOW_MS;
+      if (opened.best) {
+        terminal = opened.best.leg;
+        endId = opened.best.node;
+        stopAtMs = terminal.arrivalMs;
+      }
+      // Search on (expanding this node too) only while a finish node is still to settle.
+      if (pendingCount === 0) break;
+    } else if (pendingEnds?.[node]) {
+      pendingEnds[node] = 0;
+      const leg = endLeg(node, t);
+      if (leg && (!terminal || leg.arrivalMs < terminal.arrivalMs)) {
+        terminal = leg;
+        endId = node;
+        stopAtMs = leg.arrivalMs;
+      }
+      if (--pendingCount === 0) break;
     }
 
     const fromLat = latOf(i);
@@ -347,11 +471,21 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
     }
   }
 
+  // The search ended before settling the snapped finish node (the deadline came first, or it
+  // cannot be reached): join the other finish nodes it did settle, as above.
+  if (!terminal && !pendingEnds && !settled[finishId]) {
+    const { best } = openAlternativeEnds();
+    if (best) {
+      terminal = best.leg;
+      endId = best.node;
+    }
+  }
+
   if (!terminal || terminal.arrivalMs > deadlineMs) throw noRoute();
 
   // backtrack over grid nodes
   const gridPath: Array<{ lat: number; lon: number; timeMs: number; waterNm: number }> = [];
-  for (let n = finishId; n !== -1; n = parent[n]!) {
+  for (let n = endId; n !== -1; n = parent[n]!) {
     gridPath.unshift({ lat: latOf(Math.floor(n / nlon)), lon: lonOf(n % nlon), timeMs: arrival[n]!, waterNm: waterDistance[n]! });
   }
 
@@ -360,7 +494,7 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
   const path = [
     { ...startPoint, timeMs: departureMs, waterNm: 0 },
     ...gridPath,
-    { ...finishPoint, timeMs: terminal.arrivalMs, waterNm: waterDistance[finishId]! + terminal.waterNm },
+    { ...finishPoint, timeMs: terminal.arrivalMs, waterNm: waterDistance[endId]! + terminal.waterNm },
   ].filter((p, k, points) => k === 0 ||
     p.lat !== points[k - 1]!.lat || p.lon !== points[k - 1]!.lon);
   // Keep real corners regardless of waypoint count. Check each shortcut from
@@ -401,7 +535,7 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
   }
   const durationH = (terminal.arrivalMs - departureMs) / 3600_000;
   const avgSog = distance / durationH;
-  const avgStw = (waterDistance[finishId]! + terminal.waterNm) / durationH;
+  const avgStw = (waterDistance[endId]! + terminal.waterNm) / durationH;
 
   const route: Route = {
     schema_version: 1,
