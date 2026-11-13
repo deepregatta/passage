@@ -3,7 +3,9 @@ name: prepare-synoptic
 # Publishes the route-independent prepared run (synoptic features + chart
 # panels + wind grid, plus the CMEMS current grid when credentials are set)
 # to R2 under prepared/, where the production viewer reads it from the
-# forecast tile host (viewer/src/lib/preparedRun.js).
+# forecast tile host (viewer/src/lib/preparedRun.js). A run whose currents step
+# produced no grid carries the live pointer's grid over while its time axis
+# still reaches 48 h past upload (scripts/upload-prepared-run.py).
 #
 # Requires repo secrets (same values as deepregatta/forecast-tiles):
 #   R2_ENDPOINT, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET
@@ -58,9 +60,14 @@ jobs:
           CYCLE: ${{ inputs.cycle }}
 
       - name: Prepare current grid (CMEMS)
+        id: currents
         if: ${{ env.CMEMS_USERNAME != '' }}
         working-directory: analysis
-        continue-on-error: true # a currents outage never blocks the synoptic publish
+        # A currents outage never blocks the synoptic publish. The step then
+        # shows as passed; the upload step reads its real outcome. When no grid
+        # was produced it keeps the live regional grid while that grid is still
+        # usable, and raises a warning plus a job-summary line, kept or dropped.
+        continue-on-error: true
         run: uv run --no-sync deepweather-analysis fetch-currents
         env:
           COPERNICUSMARINE_SERVICE_USERNAME: ${{ secrets.COPERNICUSMARINE_SERVICE_USERNAME }}
@@ -75,3 +82,4 @@ jobs:
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          CURRENTS_OUTCOME: ${{ steps.currents.outcome }} # success, failure, cancelled or skipped

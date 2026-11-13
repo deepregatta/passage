@@ -40,7 +40,13 @@ optional current step (the username-presence flag remains at job scope).
 
 The publisher retains `group: prepare-synoptic`, `cancel-in-progress: false`, its
 45-minute timeout, optional-current failure handling and the paid-work/capacity
-gates. Cancellation or a new concurrency policy must not interrupt pointer-last
+gates. The currents step (`id: currents`) keeps `continue-on-error`, so a
+failed fetch still shows as passed in the jobs API. Its real
+`steps.currents.outcome` reaches the upload step as `CURRENTS_OUTCOME`. There a
+run without a grid keeps the live grid while it is still usable, and writes a
+warning annotation and a job-summary line whether it kept or dropped one; a
+skipped step with no grid to keep logs a plain line (2026-11-13).
+Cancellation or a new concurrency policy must not interrupt pointer-last
 publication. CI has no concurrency stanza; this change adds none. Pins do not
 freeze runner images, package registries or upstream weather data. Credential
 rotation, provider admission and scientific acceptance have separate gates.

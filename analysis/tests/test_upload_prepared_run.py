@@ -5,6 +5,7 @@ import importlib.util
 import json
 import sys
 import threading
+from datetime import datetime, timedelta, timezone
 from io import BytesIO
 
 from botocore.exceptions import ClientError
@@ -28,6 +29,8 @@ class Store:
         self.lose_key = None
         self.lock = threading.RLock()
         self.parts_bytes = 0
+        self.gets = []
+        self.fail_get = None
 
     def get_paginator(self, name):
         assert name == "list_multipart_uploads"
@@ -47,6 +50,9 @@ class Store:
 
     def get_object(self, **kwargs):
         with self.lock:
+            self.gets.append(kwargs["Key"])
+            if kwargs["Key"] == self.fail_get:
+                raise TimeoutError("read failed")
             obj = self.objects.get(kwargs["Key"])
             if obj is None:
                 raise ClientError(
@@ -89,6 +95,9 @@ def upload(tmp_path, monkeypatch):
     module.RUNS_DIR.mkdir()
     monkeypatch.setenv("CAPACITY_ENFORCE", "0")
     monkeypatch.setenv("PAID_WORK_ENFORCE", "0")
+    # Hosted CI sets these for its own job; tests never write its summary.
+    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+    monkeypatch.delenv("CURRENTS_OUTCOME", raising=False)
     for name in ("R2_BUCKET", "R2_ENDPOINT", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY"):
         monkeypatch.setenv(name, "test")
     return module, store
@@ -915,3 +924,489 @@ def test_capacity_pause_preserves_paid_work_start_runtime_and_finishes_only_leas
     ]
     assert store.calls == []
     assert module.LATEST not in store.objects
+
+
+# --- A run without a current grid keeps the live regional grid ---------------
+# The job's runner starts with no local pointer, so a failed currents step used
+# to publish a pointer without `current_grid`. The uploader now carries the live
+# pointer's grid over while that grid's own time axis still reaches
+# CARRIED_CURRENT_MIN_HOURS past upload time, and says so in the pointer and in
+# a workflow warning. A run that produced a grid publishes exactly as before.
+
+T0 = datetime(2026, 11, 13, 5, 0, tzinfo=timezone.utc)
+GRID_RUN = "cmems-ibi-20261113T05Z"
+GRID_END = "2026-11-18T05:00:00Z"  # T0 + 120 h, the factory's window
+
+
+def iso(t):
+    return t.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def grid_body(run_id=GRID_RUN, start=T0, hours=120, **extra):
+    doc = {
+        "schema_version": 1,
+        "kind": "surface_current",
+        "run_id": run_id,
+        "generated_at": iso(start),
+        "lat0": 48.5,
+        "lon0": -6.0,
+        "dlat": 0.5,
+        "dlon": 0.5,
+        "nlat": 2,
+        "nlon": 2,
+        "time_axis": [iso(start + timedelta(hours=h)) for h in range(0, hours + 1, 6)],
+        "u_kt": [0.0] * 4,
+        "v_kt": [0.0] * 4,
+        "source": {"mode": "live", "dataset_id": "cmems_mod_ibi_phy_anfc"},
+        **extra,
+    }
+    return (json.dumps(doc, separators=(",", ":")) + "\n").encode()
+
+
+def runner(module, cycle, grid=None):
+    """Write the local runs/ tree the way the job's fresh runner does.
+
+    prepare-run writes the synoptic artifacts and the pointer; fetch-currents
+    adds `current_grid` (and its CMEMS run_id) only when it succeeded.
+    """
+    root = module.RUNS_DIR.parent
+    run_id = f"ecmwf-ifs025-{cycle}"
+    artifacts = {"wind_grid": f"runs/{run_id}/wind_grid.json", "land_mask": "runs/land_mask.json"}
+    files = {artifacts["wind_grid"]: f"wind {cycle}".encode(), artifacts["land_mask"]: b"land"}
+    if grid is not None:
+        run_id = json.loads(grid)["run_id"]
+        artifacts["current_grid"] = f"runs/{run_id}/current_grid.json"
+        files[artifacts["current_grid"]] = grid
+    for rel, body in files.items():
+        path = root / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(body)
+    pointer = {"run_id": run_id, "artifacts": artifacts}
+    (module.RUNS_DIR / "latest.json").write_text(json.dumps(pointer, indent=2) + "\n")
+    return pointer, files
+
+
+def at(monkeypatch, module, hours):
+    monkeypatch.setattr(module, "utcnow", lambda: T0 + timedelta(hours=hours))
+
+
+def todays_pointer_bytes(pointer, files):
+    """The pointer bytes the uploader published before carry-over existed."""
+    artifacts = {role: versioned_rel(rel, files[rel]) for role, rel in pointer["artifacts"].items()}
+    return (json.dumps({**pointer, "artifacts": artifacts}, separators=(",", ":")) + "\n").encode()
+
+
+@pytest.fixture
+def summary(tmp_path, monkeypatch):
+    path = tmp_path / "step-summary.md"
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(path))
+    return path
+
+
+def test_failed_currents_run_carries_the_live_grid(upload, monkeypatch, capsys, summary):
+    module, store = upload
+    at(monkeypatch, module, 1)
+    runner(module, "20261113T00Z", grid_body())
+    assert module.main() == 0
+    live_body = store.objects[module.LATEST]["Body"]
+    live = json.loads(live_body)
+    ref = live["artifacts"]["current_grid"]
+    capsys.readouterr()
+
+    monkeypatch.setenv("CURRENTS_OUTCOME", "failure")
+    at(monkeypatch, module, 7)
+    pointer, _ = runner(module, "20261113T06Z")
+    assert "current_grid" not in pointer["artifacts"]
+    store.calls.clear()
+    assert module.main() == 0
+
+    published = published_pointer(store)
+    assert published["run_id"] == "ecmwf-ifs025-20261113T06Z"
+    assert published["artifacts"]["wind_grid"] != live["artifacts"]["wind_grid"]
+    assert published["artifacts"]["current_grid"] == ref  # the same immutable object
+    assert published["current_grid_carried_over"] == {
+        "grid_run_id": GRID_RUN,
+        "time_axis_end": GRID_END,
+        "reason": "currents step failed",
+    }
+    assert store.objects["prepared/" + ref]["Body"] == grid_body()
+    assert not any(key.startswith("prepared/runs/cmems") for _, key in store.calls)
+    assert store.objects[module.PREVIOUS]["Body"] == live_body
+    out = capsys.readouterr().out
+    message = (
+        "No current grid was produced this run (currents step failed). "
+        f"Carried over the previous regional grid {GRID_RUN}: its time axis ends {GRID_END}, "
+        "at least 48 h after this upload."
+    )
+    assert f"::warning title=Prepared currents::{message}\n" in out
+    assert summary.read_text() == f"- {message}\n"
+
+
+@pytest.mark.parametrize("live", ["none", "with_grid", "carried"])
+def test_successful_currents_run_publishes_todays_pointer(upload, monkeypatch, capsys, live):
+    module, store = upload
+    old_ref = None
+    if live != "none":
+        at(monkeypatch, module, 1)
+        runner(module, "20261113T00Z", grid_body())
+        module.main()
+        old_ref = published_pointer(store)["artifacts"]["current_grid"]
+    if live == "carried":
+        at(monkeypatch, module, 7)
+        runner(module, "20261113T06Z")
+        module.main()
+        assert "current_grid_carried_over" in published_pointer(store)
+    capsys.readouterr()
+    monkeypatch.setenv("CURRENTS_OUTCOME", "success")
+    at(monkeypatch, module, 13)
+    store.gets.clear()
+    pointer, files = runner(
+        module, "20261113T12Z", grid_body("cmems-ibi-20261113T17Z", T0 + timedelta(hours=12))
+    )
+    assert module.main() == 0
+    assert store.objects[module.LATEST]["Body"] == todays_pointer_bytes(pointer, files)
+    assert "current_grid_carried_over" not in published_pointer(store)
+    assert "::warning" not in capsys.readouterr().out
+    if old_ref is not None:
+        assert "prepared/" + old_ref not in store.gets  # the old grid is never read
+
+
+@pytest.mark.parametrize("hours, carried", [(72, True), (73, False)])
+def test_carried_grid_must_reach_48_hours_past_upload(upload, monkeypatch, capsys, hours, carried):
+    module, store = upload
+    at(monkeypatch, module, 1)
+    runner(module, "20261113T00Z", grid_body())
+    module.main()
+    ref = published_pointer(store)["artifacts"]["current_grid"]
+    capsys.readouterr()
+    at(monkeypatch, module, hours)
+    runner(module, "20261116T00Z")
+    assert module.main() == 0
+    published = published_pointer(store)
+    out = capsys.readouterr().out
+    if carried:
+        assert published["artifacts"]["current_grid"] == ref
+        assert "Carried over the previous regional grid" in out
+    else:
+        assert "current_grid" not in published["artifacts"]
+        assert "current_grid_carried_over" not in published
+        assert published["artifacts"]["wind_grid"]  # the synoptic run still publishes
+        assert (
+            "No current grid was produced this run (no current grid produced). "
+            f"The previous regional grid was dropped: grid {GRID_RUN} time axis ends "
+            f"{GRID_END}, less than 48 h after this upload. "
+            "The site uses tile currents until a run produces a grid."
+        ) in out
+
+
+def test_consecutive_failed_runs_carry_one_grid_until_it_ages_out(upload, monkeypatch):
+    module, store = upload
+    at(monkeypatch, module, 1)
+    runner(module, "20261113T00Z", grid_body())
+    module.main()
+    ref = published_pointer(store)["artifacts"]["current_grid"]
+    monkeypatch.setenv("CURRENTS_OUTCOME", "failure")
+    for hours, cycle in [(7, "20261113T06Z"), (13, "20261113T12Z"), (61, "20261115T12Z")]:
+        at(monkeypatch, module, hours)
+        runner(module, cycle)
+        assert module.main() == 0
+        published = published_pointer(store)
+        assert published["run_id"] == f"ecmwf-ifs025-{cycle}"
+        assert published["artifacts"]["current_grid"] == ref
+        assert published["current_grid_carried_over"]["grid_run_id"] == GRID_RUN
+        assert published["current_grid_carried_over"]["time_axis_end"] == GRID_END
+    # Age is read from the grid, not from the pointer that last carried it.
+    at(monkeypatch, module, 73)
+    runner(module, "20261116T00Z")
+    assert module.main() == 0
+    published = published_pointer(store)
+    assert "current_grid" not in published["artifacts"]
+    assert "current_grid_carried_over" not in published
+
+
+def seed_live(module, store, *, current_grid=None, body=None, versioned=True):
+    """A live pointer (and grid object) as an earlier publication left them."""
+    artifacts = {"wind_grid": "runs/ecmwf-ifs025-20261112T18Z/wind_grid.0.json"}
+    rel = None
+    if current_grid is not None:
+        rel = versioned_rel(current_grid, body) if versioned and body is not None else current_grid
+        artifacts["current_grid"] = rel
+    pointer = json.dumps({"run_id": "ecmwf-ifs025-20261112T18Z", "artifacts": artifacts}).encode()
+    store.objects[module.LATEST] = {"Body": pointer, "ETag": etag(pointer)}
+    if body is not None and isinstance(rel, str):
+        store.objects["prepared/" + rel] = {"Body": body, "ETag": etag(body)}
+    return rel
+
+
+GRID_REL = f"runs/{GRID_RUN}/current_grid.json"
+DROPPED = "The previous regional grid was dropped"
+NOTHING = "No regional grid to keep"
+NO_AXIS = "it has no readable time axis"
+
+
+@pytest.mark.parametrize(
+    "case, lead, reason",
+    [
+        ("no_live_pointer", NOTHING, "there is no live pointer"),
+        ("live_without_grid", NOTHING, "the live pointer has no current grid"),
+        ("reference_not_a_path", DROPPED, "its reference is malformed"),
+        ("reference_outside_runs", DROPPED, "its reference is malformed"),
+        ("reference_without_digest", DROPPED, "its reference carries no digest"),
+        ("object_missing", DROPPED, "its object is missing"),
+        ("object_unreadable", DROPPED, "its object could not be read (TimeoutError)"),
+        ("bytes_do_not_match_name", DROPPED, "its bytes do not match its reference"),
+        ("not_json", DROPPED, NO_AXIS),
+        ("no_time_axis", DROPPED, NO_AXIS),
+        ("empty_time_axis", DROPPED, NO_AXIS),
+        ("naive_times", DROPPED, NO_AXIS),
+        ("time_axis_dict", DROPPED, NO_AXIS),
+        ("time_axis_number", DROPPED, NO_AXIS),
+        ("overflow_late", DROPPED, NO_AXIS),
+        ("overflow_early", DROPPED, NO_AXIS),
+        ("deeply_nested", DROPPED, NO_AXIS),
+        ("not_a_current_grid", DROPPED, "it is not a surface current grid"),
+        ("run_id_not_a_string", DROPPED, "its run id is unreadable"),
+    ],
+)
+def test_unusable_live_grid_publishes_without_currents(
+    upload, monkeypatch, capsys, case, lead, reason
+):
+    module, store = upload
+    at(monkeypatch, module, 7)
+    monkeypatch.setenv("CURRENTS_OUTCOME", "failure")
+    if case == "live_without_grid":
+        seed_live(module, store)
+    elif case == "reference_not_a_path":
+        seed_live(module, store, current_grid=7)
+    elif case == "reference_outside_runs":
+        seed_live(module, store, current_grid="../latest.json")
+    elif case == "reference_without_digest":
+        seed_live(module, store, current_grid=GRID_REL, body=grid_body(), versioned=False)
+    elif case == "object_missing":
+        seed_live(module, store, current_grid=versioned_rel(GRID_REL, grid_body()))
+    elif case == "object_unreadable":
+        rel = seed_live(module, store, current_grid=GRID_REL, body=grid_body())
+        store.fail_get = "prepared/" + rel
+    elif case == "bytes_do_not_match_name":
+        rel = seed_live(module, store, current_grid=GRID_REL, body=grid_body())
+        store.objects["prepared/" + rel]["Body"] = grid_body(hours=114)
+    elif case != "no_live_pointer":
+        # Each body's digest matches its name: only its content is wrong.
+        body = {
+            "not_json": b"{not json",
+            "no_time_axis": grid_body(time_axis=None),
+            "empty_time_axis": grid_body(time_axis=[]),
+            "naive_times": grid_body(time_axis=["2026-11-20T00:00:00"]),
+            "time_axis_dict": grid_body(time_axis={"2026-11-20T00:00:00Z": 1}),
+            "time_axis_number": grid_body(time_axis=["2026-11-20T00:00:00Z", 7]),
+            "overflow_late": grid_body(time_axis=["9999-12-31T23:30:00-01:00"]),
+            "overflow_early": grid_body(time_axis=["0001-01-01T00:30:00+01:00"]),
+            "deeply_nested": b"[" * 200_000,
+            "not_a_current_grid": grid_body(kind="wind10m"),
+            "run_id_not_a_string": grid_body(run_id=["cmems"]),
+        }[case]
+        seed_live(module, store, current_grid=GRID_REL, body=body)
+    runner(module, "20261113T06Z")
+    assert module.main() == 0
+    published = published_pointer(store)
+    assert published["run_id"] == "ecmwf-ifs025-20261113T06Z"
+    assert published["artifacts"]["wind_grid"] == versioned_rel(
+        "runs/ecmwf-ifs025-20261113T06Z/wind_grid.json", b"wind 20261113T06Z"
+    )
+    assert "current_grid" not in published["artifacts"]
+    assert "current_grid_carried_over" not in published
+    assert (
+        "::warning title=Prepared currents::No current grid was produced this run "
+        f"(currents step failed). {lead}: {reason}. "
+        "The site uses tile currents until a run produces a grid.\n"
+    ) in capsys.readouterr().out
+
+
+def test_deadline_still_escapes_the_grid_judgement(upload, monkeypatch):
+    module, store = upload
+    at(monkeypatch, module, 7)
+    seed_live(module, store, current_grid=GRID_REL, body=grid_body())
+    live = store.objects[module.LATEST]["Body"]
+
+    def expire(value):
+        raise module.RuntimeExpired("reserved runtime expired")
+
+    monkeypatch.setattr(module, "parse_utc", expire)
+    runner(module, "20261113T06Z")
+    with pytest.raises(module.RuntimeExpired):
+        module.publish()
+    assert store.objects[module.LATEST]["Body"] == live
+    assert store.calls == []
+
+
+def test_unprintable_grid_text_never_fails_a_committed_publication(
+    upload, monkeypatch, capsys, summary
+):
+    module, store = upload
+    at(monkeypatch, module, 7)
+    body = grid_body().replace(GRID_RUN.encode(), b"cmems-\\ud800")
+    rel = seed_live(module, store, current_grid=GRID_REL, body=body)
+    runner(module, "20261113T06Z")
+    assert module.main() == 0
+    published = published_pointer(store)
+    assert published["artifacts"]["current_grid"] == rel
+    assert published["current_grid_carried_over"]["grid_run_id"] == "cmems-\ud800"
+    assert "previous regional grid cmems-\\ud800:" in capsys.readouterr().out
+    assert "cmems-\\ud800" in summary.read_text()
+
+
+def test_unparseable_live_pointer_is_still_refused_as_today(upload, monkeypatch):
+    module, store = upload
+    store.objects[module.LATEST] = {"Body": b"not a pointer", "ETag": etag(b"not a pointer")}
+    runner(module, "20261113T06Z")
+    with pytest.raises(ValueError):
+        module.main()
+    assert store.objects[module.LATEST]["Body"] == b"not a pointer"
+    assert store.calls == []
+
+
+@pytest.mark.parametrize(
+    "outcome, reason",
+    [
+        ("cancelled", "currents step cancelled"),
+        ("skipped", "currents step skipped"),
+        ("", "no current grid produced"),
+    ],
+)
+def test_marker_reason_follows_the_currents_step_outcome(upload, monkeypatch, outcome, reason):
+    module, store = upload
+    at(monkeypatch, module, 1)
+    runner(module, "20261113T00Z", grid_body())
+    module.main()
+    monkeypatch.setenv("CURRENTS_OUTCOME", outcome)
+    at(monkeypatch, module, 7)
+    runner(module, "20261113T06Z")
+    module.main()
+    assert published_pointer(store)["current_grid_carried_over"]["reason"] == reason
+
+
+def test_capacity_pause_keeps_the_live_pointer_and_says_so(upload, monkeypatch, capsys, summary):
+    module, store = upload
+    at(monkeypatch, module, 1)
+    runner(module, "20261113T00Z", grid_body())
+    module.main()
+    live = store.objects[module.LATEST]["Body"]
+    capsys.readouterr()
+    monkeypatch.setenv("CURRENTS_OUTCOME", "failure")
+    monkeypatch.setenv("CAPACITY_ENFORCE", "1")  # no capacity ledger: the guard denies
+    at(monkeypatch, module, 7)
+    runner(module, "20261113T06Z")
+    store.calls.clear()
+    assert module.main() == 0
+    assert store.calls == []
+    assert store.objects[module.LATEST]["Body"] == live
+    out = capsys.readouterr().out
+    message = (
+        "No current grid was produced this run (currents step failed). "
+        "Publication paused, so nothing was carried over or dropped: "
+        "the live pointer and its current grid are unchanged."
+    )
+    assert f"::warning title=Prepared currents::{message}\n" in out
+    assert summary.read_text() == f"- {message}\n"
+
+
+def test_workflow_command_text_is_escaped(upload):
+    module, _ = upload
+    assert module.workflow_escape("50%\r\nnext") == "50%25%0D%0Anext"
+
+
+def test_carry_under_capacity_admission_reserves_no_grid_bytes(upload, monkeypatch):
+    module, store = upload
+    at(monkeypatch, module, 1)
+    runner(module, "20261113T00Z", grid_body())
+    module.publish()
+    old = store.objects[module.LATEST]["Body"]
+    ref = json.loads(old)["artifacts"]["current_grid"]
+    at(monkeypatch, module, 7)
+    runner(module, "20261113T06Z")
+    admission = capacity(module, store)
+    store.calls.clear()
+    assert module.publish(capacity_admission=admission) == 0
+    pointer = store.objects[module.LATEST]["Body"]
+    assert json.loads(pointer)["artifacts"]["current_grid"] == ref
+    _, objects = module.versioned_publication(
+        json.loads((module.RUNS_DIR / "latest.json").read_bytes())
+    )
+    peak = sum(map(len, objects.values())) + len(pointer) + len(old) + module.MUTABLE_UPLOAD_BYTES
+    reservations = ledger(store)["reservations"].values()
+    assert [r["bytes"] for r in reservations] == [peak]
+    assert [r["state"] for r in reservations] == ["finished"]
+    assert ("put", "prepared/" + ref) not in store.calls
+
+
+def test_pause_after_the_pointer_commit_reports_what_was_published(
+    upload, monkeypatch, capsys, summary
+):
+    module, store = upload
+    at(monkeypatch, module, 1)
+    runner(module, "20261113T00Z", grid_body())
+    module.main()
+    ref = published_pointer(store)["artifacts"]["current_grid"]
+    capsys.readouterr()
+    monkeypatch.setenv("CURRENTS_OUTCOME", "failure")
+    at(monkeypatch, module, 7)
+    runner(module, "20261113T06Z")
+    capacity(module, store)  # a reviewed ledger: the publication is admitted
+    monkeypatch.setenv("CAPACITY_ENFORCE", "1")
+
+    def paused_finish(self, reservation):
+        raise module.CapacityDenied("operator pause")  # arrives after the commit
+
+    monkeypatch.setattr(module.Admission, "finish", paused_finish)
+    assert module.main() == 0
+    assert published_pointer(store)["artifacts"]["current_grid"] == ref
+    out = capsys.readouterr().out
+    assert "prepared production paused: operator pause" in out
+    message = (
+        "No current grid was produced this run (currents step failed). "
+        f"Carried over the previous regional grid {GRID_RUN}: its time axis ends {GRID_END}, "
+        "at least 48 h after this upload."
+    )
+    assert out.count("::warning") == 1
+    assert f"::warning title=Prepared currents::{message}\n" in out
+    assert "Publication paused" not in out
+    assert summary.read_text() == f"- {message}\n"
+
+
+def test_skipped_currents_with_no_grid_to_keep_stays_a_plain_notice(
+    upload, monkeypatch, capsys, summary
+):
+    module, store = upload
+    monkeypatch.setenv("CURRENTS_OUTCOME", "skipped")  # no CMEMS credentials
+    head = "prepared currents: No current grid was produced this run (currents step skipped)."
+    at(monkeypatch, module, 7)
+    runner(module, "20261113T06Z")
+    assert module.main() == 0  # first publication: no live pointer
+    runner(module, "20261113T12Z")
+    assert module.main() == 0  # the live pointer has no grid
+    assert "current_grid" not in published_pointer(store)["artifacts"]
+    runner(module, "20261113T18Z")
+    monkeypatch.setenv("CAPACITY_ENFORCE", "1")  # no ledger: paused before the commit
+    assert module.main() == 0
+    out = capsys.readouterr().out
+    assert "::warning" not in out
+    assert f"{head} No regional grid to keep: there is no live pointer." in out
+    assert f"{head} No regional grid to keep: the live pointer has no current grid." in out
+    assert f"{head} Publication paused, so nothing was carried over or dropped" in out
+    assert not summary.exists()
+
+
+def test_skipped_currents_still_warns_when_a_grid_is_carried(upload, monkeypatch, capsys):
+    module, store = upload
+    at(monkeypatch, module, 1)
+    runner(module, "20261113T00Z", grid_body())
+    module.main()
+    capsys.readouterr()
+    monkeypatch.setenv("CURRENTS_OUTCOME", "skipped")
+    at(monkeypatch, module, 7)
+    runner(module, "20261113T06Z")
+    assert module.main() == 0
+    assert (
+        "::warning title=Prepared currents::No current grid was produced this run "
+        "(currents step skipped). Carried over the previous regional grid"
+    ) in capsys.readouterr().out

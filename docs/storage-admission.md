@@ -73,6 +73,14 @@ read leaves the outcome unresolved and the full charge retained. No error or
 pointer outcome triggers cleanup. Already-open and saved briefings keep their
 original artifact paths/digests; no migration or latest-data substitution occurs.
 
+A run that produced no current grid may reference the live pointer's existing
+current-grid object instead (2026-11-13, see `scripts/upload-prepared-run.py`):
+the uploader reads that immutable object, checks its name digest and time axis,
+and only then names it in the new pointer with `current_grid_carried_over`. It
+is neither uploaded again nor counted in the reservation, since no bytes are
+written; it stays protected as a current/previous/archived reference. Any read
+or check failure publishes the run without a current grid, as before.
+
 ## Protected reference policy and cleanup preview
 
 | Owner/reference class | Policy |
