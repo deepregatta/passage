@@ -288,7 +288,8 @@ identity contract covers this frozen bundle; see [saved identities](saved-identi
 Prepared current admission checks every leg midpoint at its current-adjusted
 entry/exit envelope and occupancy hours, including all successful drawn-scan
 candidates. Any spatial, time or finite-sample gap selects tile currents for the
-whole action. Partial tile availability stays partial; zero actual samples stays
+whole action, except a departure comparison's time gaps (see "A comparison on
+the regional current grid" below). Partial tile availability stays partial; zero actual samples stays
 unavailable. Compute and computed scans pick their current grid by the same
 rule, widened to what the router reads: the prepared grid only when its time
 axis holds every departure, both ends of the route lie inside the grid's box,
@@ -316,8 +317,7 @@ This is deliberately conservative: a finish just outside the grid (up to about
 half a cell, every read still inside) was admitted before and now routes on
 tiles.
 Strict mode is unchanged inside the box: a cell without a value or a time past
-the axis is a gap, never calm water. Comparisons keep the same rule and usually
-stay on tiles (the 120 h axis); a refinement of a confined comparison is
+the axis is a gap, never calm water. A refinement of a confined comparison is
 confined to the same box. A computed
 scan audits each candidate on that same routing grid, with declared source
 provenance; there is no pointwise source blending. A route computed on the
@@ -328,9 +328,7 @@ record names why (computed on tile currents, without currents, on another
 prepared grid, or on a prepared grid no longer available). On the prepared grid,
 a departure that fails for any reason other than a current gap or the box (such
 as "No route found" in a search the box never held back) stays that
-departure's failure and does not move the action to tiles. A computed scan whose last departure lies beyond the prepared grid's time
-axis routes every candidate on tiles, while a single Compute at the anchor may
-still use the prepared grid. Compute now also downloads `latest.json` and the
+departure's failure and does not move the action to tiles. Compute now also downloads `latest.json` and the
 prepared current grid; neither is in the planner's tile download figure, which
 still counts current tiles for Compute because they are read before the choice
 and serve as its fallback. The route result names the current model it used by its family
@@ -339,6 +337,68 @@ records no model, never a guessed one), an emulated badge for synthetic
 data, and a fixed sentence when a prepared grid carries a resolution note. The
 coverage selector also downgrades older presence-based claims using saved
 samples alone, without changing snapshot bytes or substituting latest data.
+
+**A comparison on the regional current grid.** Owner decision 2026-11-13 (decision 4 of the [Isomar plan](maintenance/2026-11-11-isomar-implementation-plan.md)):
+a departure comparison (21 departures over 120 h) uses the prepared grid for the
+departures it covers instead of sending all of them to tiles because its axis
+ends before the last ones. One source per comparison stays absolute: every
+assessed departure is on the prepared grid, or every one is on tiles.
+
+- **Computed** (`selectComparisonCurrent` in `engine/src/currentInput.ts`, used by
+  `runScanAction`; Compute keeps `selectRoutingCurrent`). The grid is used when it
+  is a current grid, the first departure is inside its axis, routes on it
+  (strict, confined to its box) and passes the audit's coverage test, nothing read
+  at a time the grid covers is missing, and at least `MIN_COVERED_SHARE` (0.5,
+  rounded up: 11 of 21) of the departures asked for are fully covered (routed on
+  it and covered to the slow arrival). A departure after the axis end is never
+  routed; routing stops once the share can no longer be reached. A departure whose
+  passage outlasts the axis (`CurrentGapError.beyondTimeAxis`, or a coverage gap
+  only at times past the axis) is not assessed (`OUTSIDE_SCAN_CURRENT`); one with
+  no route inside the box, or none at all, keeps its own routing error and no
+  longer moves the comparison to tiles. Otherwise every departure is routed on
+  tiles with Compute's reason, `first departure time has no route on the prepared
+  grid`, or `prepared grid covers fewer than half of the departure times`. The
+  first departure's route is Compute's byte for byte except `computed_at` (the
+  route provenance's clock), and every route on the grid
+  carries its digest, so a picked departure's Check admits the same grid.
+- **Drawn** (`resolveComparisonCurrent`, from `scanDepartures` without a current
+  input): the same rule on the route's samples, with no routing.
+- `CurrentInput.coverage` lists the departures left out and the last covered one;
+  the scan result then carries `current_reach` with `last_departure_utc` (the
+  later of that and the last assessed time, so a refinement can extend it) and
+  `not_covered` (how many were not assessed because the grid does not cover them,
+  refined ones included). A departure left out can be earlier than the last
+  covered one, when its own passage outlasts the grid (an adverse current), so the
+  planner counts them instead of calling them later. Under the comparison's
+  heading: "This comparison used the regional current model, which covers
+  departures up to {time} local time; {N} departure times it does not cover were
+  not assessed." ("1 departure time … was not assessed" in the singular; French
+  through one anchored `FR_PATTERNS` entry, singular for 0 and 1, with the
+  template's fragments in `FR` for the coverage scanner). The mark then reads
+  "◎ Least exposure among the assessed departure times: {time} local time" instead
+  of "◎ Least exposure this window: …", and the all-"models disagree" sentence says
+  "at every assessed departure time" instead of "throughout this window". A
+  comparison the grid covers entirely, or one on tiles, has neither field and
+  keeps the earlier wording.
+- Refinement adds times as before and assesses only those the grid covers on that
+  same grid (`routeOnSelectedCurrent`, `admitPrepared`). Ranking, ties, limits hours
+  and baseline-relative fields are computed over the assessed departures only, as
+  for any comparison with unassessed departures. Scan results are still never saved;
+  no saved identity changes, and the scan golden (tile currents) is unchanged.
+- The download line before Compare is unchanged and stays an upper bound: a computed
+  comparison reads the tile currents before choosing (they are its fallback), and a
+  drawn comparison's quote counts them ("up to").
+
+Tests: `engine/test/comparisonCurrent.test.ts` (computed and drawn: partial
+coverage, the first departure's route equal to Compute's, a picked departure's
+Check, refinement, each fallback reason, a covered departure without a route,
+full coverage equal to before), `engine/test/currentAdmission.test.ts`,
+`viewer/test/scanRegionalCurrent.test.jsx` (`runScanAction` computed and drawn,
+the Worker handler for a comparison and its refinement, the line in English and
+French in the plural and the singular, a departure left out earlier than the last
+covered one with its line and list, the mark and the "models disagree" sentence of
+a cut comparison in both languages, no line when the grid covers every departure
+or on tiles).
 
 Regression ownership: `engine/test/currentAdmission.test.ts` covers admission,
 fallback, finite samples, partial coverage and single-source scans, for audits

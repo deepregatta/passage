@@ -47,7 +47,10 @@ async function quoted(read) {
  *   route. For a computed route, Compute's grids plus the audit over the whole
  *   route box (each candidate is routed afresh, so its leg points are not known
  *   yet), both ECMWF layers, and no current tiles of its own (a scan is handed
- *   the routing grid).
+ *   the routing grid). A comparison on the regional (prepared) current grid
+ *   leaves both figures as they are: a computed one still reads the tile
+ *   currents with Compute's grids (its fallback, read before the choice), and a
+ *   drawn one that reads none keeps them counted, as an upper bound ("up to").
  * - refine: what a refinement of the comparison on show reads for the departures
  *   it adds. Drawn: their audits, in that comparison's assessment window
  *   (`refine.dateWindow`). Computed: only the audit layers over the route box; it

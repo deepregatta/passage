@@ -72,7 +72,13 @@ const MIN_SOG_KT = 0.3;
 /** A strict-current search read a point or time the current grid does not cover. */
 export class CurrentGapError extends Error {
   readonly code = 'current-gap';
-  constructor() {
+  /**
+   * @param beyondTimeAxis true when the read was at a time outside the grid's
+   *   time axis (the passage outlasts the grid), false when it was at a time the
+   *   grid covers (a place without a value). A departure comparison leaves out
+   *   only the departures whose passage outlasts the grid.
+   */
+  constructor(readonly beyondTimeAxis = false) {
     super('The current grid does not cover every point and time the router reads');
     this.name = 'CurrentGapError';
   }
@@ -176,7 +182,7 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
     const stw = boatSpeedKt(polar, Math.hypot(w.u_kt, w.v_kt),
       Math.abs(wrap180(windFromDeg(w.u_kt, w.v_kt) - heading))) * scaling;
     const sampled = current?.sample(from.lat, from.lon, t);
-    if (sampled === null && request.strictCurrent) throw new CurrentGapError();
+    if (sampled === null && request.strictCurrent) throw new CurrentGapError(current!.outsideTimeAxis(t));
     const c = sampled ?? { u_kt: 0, v_kt: 0 };
     const sog = stw + alongCourseComponentKt(c, heading);
     if (stw < MIN_SOG_KT || sog < MIN_SOG_KT) return null;

@@ -238,6 +238,11 @@ const FR = {
   "Selected evidence summary": "Résumé des éléments probants sélectionnés",
   "My passage": "Ma traversée",
   "departure times could not be assessed and are not shown.": "heures de départ n’ont pas pu être évaluées et ne sont pas affichées.",
+  // Template fragments of DepartureComparison.jsx CurrentReach; the rendered line is matched whole by its FR_PATTERNS entry.
+  'This comparison used the regional current model, which covers departures up to': 'Cette comparaison a utilisé le modèle régional de courants, qui couvre les départs jusqu’au',
+  'local time; 1 departure time it does not cover was not assessed.': 'heure locale ; 1 heure de départ qu’il ne couvre pas n’a pas été évaluée.',
+  'local time;': 'heure locale ;',
+  'departure times it does not cover were not assessed.': 'heures de départ qu’il ne couvre pas n’ont pas été évaluées.',
   "local time (": "heure locale (",
   "Check the published forecast before departure.": "Consultez la prévision publiée avant le départ.",
   "Next forecast update time unavailable.": "Heure de la prochaine mise à jour indisponible.",
@@ -837,6 +842,7 @@ const FR = {
   'A missing cell does not mean safe conditions.': 'Une case manquante ne signifie pas des conditions sûres.',
   'Unknown error': 'Erreur inconnue',
   '◎ Least exposure this window:': '◎ Exposition minimale sur cette fenêtre :',
+  '◎ Least exposure among the assessed departure times:': '◎ Exposition minimale parmi les heures de départ évaluées :',
   'Rank by': 'Classer selon',
   'Typical': 'Habituel',
   'Cautious': 'Prudent',
@@ -849,6 +855,7 @@ const FR = {
   '(it sails its own computed route)': '(il suit sa propre route calculée)',
   '— the full briefing opens straight away.': '— le briefing complet s’ouvre directement.',
   'The models disagree near your limits throughout this window. Open a briefing to see where they diverge and when the next update is due.': 'Les modèles divergent près de vos limites sur toute cette fenêtre. Ouvrez un briefing pour voir où ils divergent et quand la prochaine mise à jour est attendue.',
+  'The models disagree near your limits at every assessed departure time. Open a briefing to see where they diverge and when the next update is due.': 'Les modèles divergent près de vos limites à chaque heure de départ évaluée. Ouvrez un briefing pour voir où ils divergent et quand la prochaine mise à jour est attendue.',
   'not': 'pas',
   // Changes page and change ledger vocabulary.
   'Change ledger error:': 'Erreur du registre des évolutions :',
@@ -1238,6 +1245,9 @@ const FR_PATTERNS = [
   [/^forecast tile invalid: (.+) \(checksum mismatch\)$/, 'Tuile de prévision invalide : $1 (somme de contrôle incorrecte)'],
   [/^forecast tile invalid: (.+) \(decode failed\)$/, 'Tuile de prévision invalide : $1 (échec du décodage)'],
   [/^forecast tile fetch failed: HTTP (\d+) for (.+)$/, 'Échec du chargement d’une tuile de prévision : HTTP $1 pour $2'],
+  // DepartureComparison.jsx CurrentReach: a comparison on the regional current model that left later departures out.
+  // French counts 0 and 1 as singular; the count is at least 1 here.
+  [/^This comparison used the regional current model, which covers departures up to (.+) local time; (\d+) departure times? it does not cover (?:was|were) not assessed\.$/, (_match, time, count) => `Cette comparaison a utilisé le modèle régional de courants, qui couvre les départs jusqu’au ${time}, heure locale ; ${count} ${Number(count) <= 1 ? 'heure de départ qu’il ne couvre pas n’a pas été évaluée' : 'heures de départ qu’il ne couvre pas n’ont pas été évaluées'}.`],
   [/^(\d+) of (\d+) departure times could not be assessed and are not shown\.$/, (_match, hidden, total) => `${hidden} sur ${total} heures de départ n’ont pas pu être évaluées et ne sont pas affichées.`],
   [/^(\d+) of (\d+) departure times fall beyond the (live forecast|forecast) horizon and are not shown\. A missing cell does not mean safe conditions\.$/, (_match, hidden, total, kind) => `${hidden} sur ${total} heures de départ sont au-delà de l’horizon de ${kind === 'live forecast' ? 'la prévision en direct' : 'prévision'} et ne sont pas affichées. Une case manquante ne signifie pas des conditions sûres.`],
   // Change-ledger entries (engine diff.ts descriptions and headlines).

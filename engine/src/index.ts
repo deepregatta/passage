@@ -36,7 +36,11 @@ export { CURRENT_PRODUCTS, currentProduct, currentRecordProduct, currentRecordFr
 export type { CurrentProductId } from './currentProducts.js';
 export type { CurrentSummary } from './currentSummary.js';
 export { routeBbox, passageMaxHours } from './fetch/liveGrids.js';
-export { currentGridBbox, gridSearchBounds, selectRoutingCurrent, routeOnSelectedCurrent, OUTSIDE_SELECTED_CURRENT } from './currentInput.js';
+export {
+  currentGridBbox, gridSearchBounds, selectRoutingCurrent, selectComparisonCurrent, routeOnSelectedCurrent, OUTSIDE_SELECTED_CURRENT,
+  MIN_COVERED_SHARE, minCoveredDepartures,
+} from './currentInput.js';
+export type { ComparisonCoverage, CurrentInput } from './currentInput.js';
 export type { RoutingCurrentSelection, RoutingOutcome } from './currentInput.js';
 export type { RouteBbox } from './fetch/liveGrids.js';
 export { GridSampler, alongCourseKt, currentSetDeg, currentSpeedKt, gridTimeStepHours } from './grids.js';

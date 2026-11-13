@@ -496,6 +496,20 @@ _13 November 2026. Code only: nothing was published, and the prepared grid, its 
 
 Tests: `engine/test/hash.test.ts` (the equality corpus and `cachedContentHash`: a mutable, partly frozen or getter-bearing value is never served an old digest; a deep-frozen grid is serialised once), `engine/test/currentAdmission.test.ts` ("one digest per loaded prepared grid") (one serialisation of the grid for a Compute, a comparison of three candidates with their audits and a refinement; a Check adds only the grid inside its saved decision inputs; a grid that is not frozen and was changed after its record is recorded with its new digest), `viewer/test/actionInputs.test.jsx` (the real loader, Compute selection and Check: one digest, recorded values equal to `contentHash` of the same grid), `viewer/test/scanWorker.test.js` (computed and drawn comparisons and their refinement: no further digest after the load), `viewer/test/routingInputs.test.js` (the loaded grid is frozen).
 
+### A comparison on the regional current grid (2026-11-13, night)
+
+_Code only, local Node measurement on this desktop; no browser or phone was measured, nothing deployed._ A computed comparison now uses the prepared grid for the departures it covers when it covers the first one and at least half of them (`selectComparisonCurrent`, owner decision 4 of the [implementation plan](2026-11-11-isomar-implementation-plan.md)); before, its 120 h axis sent every departure to tiles. A scratch script (not in the repository) ran both selections on the same inputs: the perf harness's synthetic wind and tiles (`engine/scripts/perf/scenarios.ts`), the real coastline mask, an invented constant 6 kt polar, and a synthetic prepared grid of the live shape (45 × 117 × 121, 48.527–50.972°N, 5.999°W–0.446°E, from `preparedCurrentGrid`), its run 2 h or 14 h before the first departure (12Z; the axis ends 118 h or 106 h after it). Routing confined to the grid's box as the planner does; then the audits of every assessed departure (`scanDepartures`). Three runs each after one warm-up on the same store, medians, milliseconds, Node v24.22.3.
+
+| Passage, grid age | Before: tiles (routing + audits = total) | After: regional grid (routing + audits = total) | Routed before → after (attempts on the grid) | Not assessed after | Last covered departure |
+|---|---|---|---|---|---|
+| Coastal 20 nm, 2 h | 139 + 900 = 1,043 | 139 + 898 = 1,037 | 21 → 20 (20) | 1 | +114 h |
+| Coastal 20 nm, 14 h | 140 + 916 = 1,055 | 125 + 815 = 941 | 21 → 18 (18) | 3 | +102 h |
+| Channel 63 nm, 2 h | 917 + 938 = 1,851 | 809 + 999 = 1,807 | 21 → 18 (20) | 3 | +102 h |
+| Channel 63 nm, 14 h | 870 + 938 = 1,807 | 728 + 852 = 1,580 | 21 → 16 (18) | 5 | +90 h |
+
+- No departure is routed twice: a departure after the axis end is never routed, and one whose passage outlasts the axis stops when its search reaches the axis end (two such attempts on the 63 nm crossing). The cost per assessed departure is about the same on either source; a comparison on the grid is cheaper by the departures it leaves out.
+- The worst case is unchanged in kind: a comparison that routes the grid's departures and then falls back (the first departure or a place without a value fails late, or the share is missed after routing) routes twice, as a rejected Compute does. Routing stops as soon as half can no longer be reached.
+
 ## Repeat it
 
 All commands run from the repository root. The harness lives in `engine/scripts/` and `viewer/e2e/perf/`, writes only to `output/perf/` (git-ignored), needs no network and no polar service, and is not run by `npm test` or `npm run test:e2e`. Never run it at the same time as vitest or the e2e suite; Playwright uses port 5194 (`PASSAGE_PERF_PORT` or `PASSAGE_E2E_PORT` to change it) and starts no other server.

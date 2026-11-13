@@ -7,7 +7,7 @@
 import { runAnalysis, type AnalyzeOptions, type AnalyzeResult } from './analyze.js';
 import { evidenceLimitRatio } from './findings.js';
 import { forecastRunGone } from './forecast/store.js';
-import { currentGridCovers, resolveCurrentInput, type CurrentInput } from './currentInput.js';
+import { currentGridCovers, OUTSIDE_SCAN_CURRENT, OUTSIDE_SELECTED_CURRENT, resolveComparisonCurrent, type CurrentInput } from './currentInput.js';
 import { withoutSavedIdentity } from './identity.js';
 import { computeRouteSchedules } from './eta.js';
 import { nominalPassageHours } from './routeSummary.js';
@@ -68,6 +68,16 @@ export interface WindowScan {
   skipped: Array<{ departure_utc: string; reason: string }>;
   /** index into candidates of the least-bad window (never a GO) */
   best_index: number | null;
+  /**
+   * Present only when the comparison ran on a prepared (regional) current grid
+   * that left departures out because its time axis does not reach them: the
+   * latest departure that grid carries (a covered or assessed one), and how
+   * many departures were not assessed because the grid does not cover them
+   * (at least 1; they are in `skipped` with OUTSIDE_SCAN_CURRENT, or, for a
+   * computed refinement, OUTSIDE_SELECTED_CURRENT). A departure left out can
+   * be earlier than the last covered one: its own passage can outlast the grid.
+   */
+  current_reach?: { last_departure_utc: string; not_covered: number };
 }
 
 const SEVERITY: Record<VerdictState, number> = {
@@ -304,7 +314,7 @@ export async function scanDepartures(
   { refinable = false }: { refinable?: boolean } = {},
 ): Promise<WindowScan | RefinableScan> {
   const audited = await auditDepartures(base, departures, onCandidate, { savedIdentity: false });
-  const scan = finishScan(audited.records, audited.skipped, departures, base.profile);
+  const scan = withReach(finishScan(audited.records, audited.skipped, departures, base.profile), audited.currentInput, audited.records);
   return refinable ? { ...scan, refinement: { departures: [...departures], records: audited.records, current_input: audited.currentInput } } : scan;
 }
 
@@ -322,13 +332,32 @@ export async function scanCandidates(
   { savedIdentity }: { savedIdentity: boolean },
 ): Promise<WindowScan> {
   const audited = await auditDepartures(base, departures, onCandidate, { savedIdentity });
-  return finishScan(audited.records, audited.skipped, departures, base.profile);
+  return withReach(finishScan(audited.records, audited.skipped, departures, base.profile), audited.currentInput, audited.records);
+}
+
+/**
+ * The scan with `current_reach` when its current input is a prepared grid that
+ * left departures out (CurrentInput.coverage): the later of the grid's last
+ * covered departure and the last assessed one (a refinement can assess a time
+ * between the last covered departure and the next one asked for).
+ */
+function withReach(scan: WindowScan, currentInput: CurrentInput, records: readonly CandidateRecord[]): WindowScan {
+  const coverage = currentInput.coverage;
+  if (!coverage?.not_covered.length || currentInput.provenance?.current_source !== 'prepared') return scan;
+  let last = coverage.last_covered_utc;
+  for (const { candidate } of records) if (Date.parse(candidate.departure_utc) > Date.parse(last)) last = candidate.departure_utc;
+  const notCovered = scan.skipped.filter(({ reason }) => reason === OUTSIDE_SCAN_CURRENT || reason === OUTSIDE_SELECTED_CURRENT).length;
+  return { ...scan, current_reach: { last_departure_utc: last, not_covered: notCovered } };
 }
 
 const abortsScan = (error: unknown) => Boolean(forecastRunGone(error)) || (error as { code?: string })?.code === 'forecast-updated';
 
-/** Why a refined departure is skipped when its route leaves the prepared current grid the comparison used. */
-export const OUTSIDE_SCAN_CURRENT = 'This departure time leaves the current grid used by the rest of the comparison.';
+/**
+ * Why a departure is skipped when the prepared current grid the comparison uses
+ * does not carry it: a departure that grid's time axis does not reach, or a
+ * refined departure whose route leaves it. Defined with the selection.
+ */
+export { OUTSIDE_SCAN_CURRENT };
 
 /**
  * Route and audit each departure on one current input, without ranking.
@@ -361,10 +390,17 @@ async function auditDepartures(
   }
   if (!planned.length) return { records, skipped, currentInput: base.currentInput ?? {} };
   if (!base.currentInput) await base.store.init();
-  const currentInput = base.currentInput ?? await resolveCurrentInput(planned, base.store, base.currentGrid, base.currentGridProvenance);
+  // A drawn scan's prepared grid may leave later departures out (resolveComparisonCurrent): they are not assessed.
+  const currentInput = base.currentInput
+    ?? await resolveComparisonCurrent(planned, departures, base.store, base.currentGrid, base.currentGridProvenance);
   const preparedGrid = admitPrepared && currentInput.provenance?.current_source === 'prepared' ? currentInput.grid : undefined;
+  const notCovered = new Set(currentInput.coverage?.not_covered ?? []);
 
   for (const { route, departureUtc } of planned) {
+    if (notCovered.has(departureUtc)) {
+      skipped.push({ departure_utc: departureUtc, reason: OUTSIDE_SCAN_CURRENT });
+      continue;
+    }
     if (preparedGrid && !currentGridCovers(preparedGrid, { route, departureUtc })) {
       skipped.push({ departure_utc: departureUtc, reason: OUTSIDE_SCAN_CURRENT });
       continue;
@@ -569,7 +605,7 @@ export async function refineScan(
   const departures = [...refinement.departures, ...added].sort(byTime);
   const records = [...refinement.records, ...extra.records]
     .sort((a, b) => byTime(a.candidate.departure_utc, b.candidate.departure_utc));
-  const scan = finishScan(records, [...coarse.skipped, ...extra.skipped], departures, base.profile);
+  const scan = withReach(finishScan(records, [...coarse.skipped, ...extra.skipped], departures, base.profile), refinement.current_input, records);
   return {
     ...scan,
     refinement: { departures, records, current_input: refinement.current_input },

@@ -4,7 +4,8 @@
 // Everything in it reads the store it is given, so the forecast runs it sees
 // are the runs the caller pinned.
 import {
-  candidateDepartures, computeRoute, refineScan, refinementDepartures, routeOnSelectedCurrent, scanDepartures, selectRoutingCurrent,
+  candidateDepartures, computeRoute, refineScan, refinementDepartures, routeOnSelectedCurrent, scanDepartures, selectComparisonCurrent,
+  selectRoutingCurrent,
 } from '@deepweather/engine';
 import { freezeActionInputs } from './actionInputs.js';
 import { prepareAnalysisInputs } from './browserAnalysis.js';
@@ -38,10 +39,14 @@ const routeForDeparture = (inputs, departureUtc, polarPercent, currentGrid, stri
  * by the engine's rule: the prepared grid only when both ends are inside it and
  * the router, searching only inside it, and the audit both find what they need
  * there, otherwise the tile grid. The audits of these routes use it too.
- * `onRouted(n)` reports how many departures the current pass has routed. */
-export const routeOnOneCurrent = (inputs, departures, polarPercent, prepared = inputs.preparedCurrent, onRouted) => {
+ * `onRouted(n)` reports how many departures the current pass has routed.
+ * `comparison`: a departure comparison (selectComparisonCurrent), which keeps
+ * the prepared grid for the departures it covers when it covers the first one
+ * and at least half of them, and leaves the later ones out. */
+export const routeOnOneCurrent = (inputs, departures, polarPercent, prepared = inputs.preparedCurrent, onRouted, { comparison = false } = {}) => {
   let pass = new Set();
-  const selection = selectRoutingCurrent({
+  const select = comparison ? selectComparisonCurrent : selectRoutingCurrent;
+  const selection = select({
     departures,
     route: (departureUtc, currentGrid, strictCurrent, searchBounds) => {
       // A second pass (the prepared grid was rejected) starts the count again.
@@ -111,12 +116,13 @@ export async function runScanAction(request, { store, onProgress = () => {}, now
       ...(now ? { now } : {}),
     });
     // Computed candidates and their audits share one routing grid: the
-    // action's prepared grid when every candidate stays inside it, else
-    // tiles. A drawn scan selects coverage across every candidate in engine.
+    // action's prepared grid for the candidates it covers (the first one and at
+    // least half of them; the later ones are not assessed), else tiles for all.
+    // A drawn scan selects coverage across every candidate in engine.
     onProgress(`routing departures 0/${departures.length}`);
     selection = routeOnOneCurrent(routingInputs, departures, polarPercent,
       { currentGrid: action.currentGrid, currentGridProvenance: action.currentGridProvenance },
-      (n) => onProgress(`routing departures ${n}/${departures.length}`));
+      (n) => onProgress(`routing departures ${n}/${departures.length}`), { comparison: true });
     currentInput = selection.currentInput;
     scanPassageHours = routingInputs.maxHours;
     routeFor = (candidateUtc) => {

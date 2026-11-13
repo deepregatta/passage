@@ -88,6 +88,31 @@ function RankToggle({ mode, cautiousAvailable, onChange }) {
   );
 }
 
+/**
+ * The comparison ran on the regional current model and left departures out
+ * because that model does not cover them (engine `current_reach`): say so under
+ * the heading, so "next 5 days" is not read as five assessed days. A departure
+ * left out can be earlier than the last covered one (its own passage can
+ * outlast the model), so the line counts them instead of calling them later.
+ */
+function currentReachText(reach) {
+  const time = fmtLocalTime(reach.last_departure_utc);
+  const count = reach.not_covered;
+  return count === 1
+    ? `This comparison used the regional current model, which covers departures up to ${time} local time; 1 departure time it does not cover was not assessed.`
+    : `This comparison used the regional current model, which covers departures up to ${time} local time; ${count} departure times it does not cover were not assessed.`;
+}
+
+function CurrentReach({ scan }) {
+  const reach = scan.current_reach;
+  if (!reach?.last_departure_utc) return null;
+  return (
+    <p className="font-sans text-[12px] text-ink-soft mt-1 max-w-[80ch]" data-testid="current-reach">
+      {currentReachText(reach)}
+    </p>
+  );
+}
+
 function SkippedDepartures({ scan }) {
   const skipped = scan.skipped ?? [];
   const missing = scan.requested != null ? scan.requested - scan.candidates.length : skipped.length;
@@ -132,6 +157,7 @@ export default function DepartureComparison({ scan, departureLocal, busy, disabl
     return (
       <section className="mt-6 border-t border-ink/40 pt-3" aria-label="Departure comparison">
         <h2 ref={headingRef} tabIndex={-1} className="scroll-mt-16 font-instrument font-semibold uppercase tracking-wider">Departure comparison</h2>
+        <CurrentReach scan={scan} />
         <p className="font-sans text-sm text-ink-soft mt-2 max-w-[70ch]">
           None of the candidate departures could be assessed.
         </p>
@@ -155,6 +181,8 @@ export default function DepartureComparison({ scan, departureLocal, busy, disabl
   const tiedIndices = new Set(ranking.tied_indices);
   const best = bestIndex !== null ? scan.candidates[bestIndex] : null;
   const allInsufficient = scan.candidates.every((c) => c.verdict === 'insufficient');
+  // The regional current model left departures out: the mark and the summary speak of the assessed times only.
+  const cut = Boolean(scan.current_reach?.last_departure_utc);
   const selectedDepartureMs = Date.parse(localDateTimeToIso(departureLocal));
   const renderCell = (c) => {
     const v = VERDICT[c.verdict] ?? VERDICT.insufficient;
@@ -207,6 +235,7 @@ export default function DepartureComparison({ scan, departureLocal, busy, disabl
           <span>{scan.rerouted ? 'each departure sails its own computed route' : 'same route, different weather'}</span>
         </span>
       </div>
+      <CurrentReach scan={scan} />
 
       <RankToggle mode={mode} cautiousAvailable={cautiousAvailable} onChange={(next) => patch({ rankMode: next })} />
 
@@ -233,7 +262,9 @@ export default function DepartureComparison({ scan, departureLocal, busy, disabl
         <p className="font-sans text-[13px] max-w-[80ch]">
           {best && (
             <>
-              <span className="font-medium">◎ Least exposure this window: {fmtLocalTime(best.departure_utc)} local time</span>
+              <span className="font-medium">
+                {cut ? '◎ Least exposure among the assessed departure times:' : '◎ Least exposure this window:'} {fmtLocalTime(best.departure_utc)} local time
+              </span>
               {'. '}
               {/* Whenever the marked time itself misses forecast values (it can, e.g. when every time does, or the others exceed a limit): say so. */}
               {isCount(best.arrival_hours_no_data) && best.arrival_hours_no_data > 0 && (
@@ -252,10 +283,12 @@ export default function DepartureComparison({ scan, departureLocal, busy, disabl
             </>
           )}
           Click a time to check that departure against your limits{scan.rerouted ? ' (it sails its own computed route)' : ''} — the full briefing opens straight away.
-          {allInsufficient && (
+          {allInsufficient && (cut ? (
+            <>{' The models disagree near your limits at every assessed departure time. Open a briefing to see where they diverge and when the next update is due.'}</>
+          ) : (
             <> The models disagree near your limits throughout this window. Open a briefing to see
             where they diverge and when the next update is due.</>
-          )}
+          ))}
         </p>
         <span className="flex flex-wrap gap-x-4 gap-y-1 font-sans text-[12px] text-ink-soft">
           {['within', 'approaching', 'exceeds', 'insufficient'].map((s) => (

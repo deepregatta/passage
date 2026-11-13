@@ -90,6 +90,17 @@ export class GridSampler {
     return best;
   }
 
+  /**
+   * True when `timeMs` is a valid time before or after this grid's time axis,
+   * by the same test as `sample`: every sample there is null, wherever it is.
+   * False for an unusable axis (every sample is null for another reason).
+   */
+  outsideTimeAxis(timeMs: number): boolean {
+    const times = this.timesMs;
+    return this.validTimeAxis && times.length > 0 && Number.isFinite(timeMs)
+      && (timeMs < times[0]! || timeMs > times[times.length - 1]!);
+  }
+
   /** sample u/v at (lat, lon, time); null outside coverage (space or time) */
   sample(lat: number, lon: number, timeMs: number): GridSample | null {
     const { lat0, lon0, dlat, dlon, nlat, nlon } = this.grid;

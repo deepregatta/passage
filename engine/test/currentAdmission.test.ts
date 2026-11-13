@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { runAnalysis, GridSampler, scanDepartures, computeRoute, selectRoutingCurrent, routeOnSelectedCurrent, contentHash, routeRevision, cachedContentHash } from '../src/index.js';
+import { runAnalysis, GridSampler, scanDepartures, computeRoute, selectRoutingCurrent, selectComparisonCurrent, routeOnSelectedCurrent, contentHash, routeRevision, cachedContentHash } from '../src/index.js';
 import type { RegionGrid, Route, LimitsProfile, Polar, RoutingRequest, LandMask } from '../src/index.js';
 import { currentGridCovers } from '../src/currentInput.js';
 import { withoutSavedIdentity } from '../src/identity.js';
@@ -60,13 +60,26 @@ it('does not extrapolate a wet boundary cell outside the grid', () => {
   expect(sample.sample(40, 1.9, Date.parse(departureUtc))).toBeNull();
   expect(sample.sample(40, 3, Date.parse(departureUtc))).toEqual({ u_kt: 0, v_kt: 0 });
 });
-it('chooses tile currents once for every scan candidate if any candidate lacks prepared coverage', async () => {
+it('chooses tile currents once for every scan candidate if the first candidate lacks prepared coverage', async () => {
+  const tiles = store();
+  const scan = await scanDepartures({ route, profile, store: tiles,
+    currentGrid: grid({ run_id: 'prepared', time_axis: ['2026-07-20T07:00Z', '2026-07-21T12:00Z'] }),
+  }, [departureUtc, '2026-07-21T06:00:00Z']);
+  expect(tiles.getCurrentGrid).toHaveBeenCalledOnce();
+  expect(scan.candidates).toHaveLength(2);
+  expect(scan.input_records?.find(x => x.layer === 'currents')).toMatchObject({ run_id: 'tile-current', current_source: 'tiles' });
+});
+// Owner decision 2026-11-13 (comparisonCurrent.test.ts): a later candidate the prepared grid does not reach is
+// left out, not moved to tiles with the others, when the first one and at least half of them are covered.
+it('leaves out a later scan candidate the prepared grid does not reach, and keeps the others on it', async () => {
   const tiles = store();
   const scan = await scanDepartures({ route, profile, store: tiles,
     currentGrid: grid({ run_id: 'prepared', time_axis: ['2026-07-20T00:00Z', '2026-07-20T12:00Z'] }),
   }, [departureUtc, '2026-07-21T06:00:00Z']);
-  expect(tiles.getCurrentGrid).toHaveBeenCalledOnce();
-  expect(scan.input_records?.find(x => x.layer === 'currents')).toMatchObject({ run_id: 'tile-current', current_source: 'tiles' });
+  expect(tiles.getCurrentGrid).not.toHaveBeenCalled();
+  expect(scan.candidates.map(c => c.departure_utc)).toEqual([departureUtc]);
+  expect(scan.skipped).toEqual([{ departure_utc: '2026-07-21T06:00:00Z', reason: 'This departure time leaves the current grid used by the rest of the comparison.' }]);
+  expect(scan.input_records?.find(x => x.layer === 'currents')).toMatchObject({ run_id: 'prepared', current_source: 'prepared' });
 });
 
 // Routing admission (C1 phase 1): Compute and computed scans route on the
@@ -436,13 +449,16 @@ describe('prepared currents for routing', () => {
     expect(String(ignoring.get('2026-07-20T02:00:00Z')!.error)).toMatch(/leaves the current grid/);
   });
 
-  it('routes a computed scan on tiles when its last departure is past the prepared grid, while a Compute at the anchor uses it', () => {
+  it('selectRoutingCurrent (Compute) routes every departure on tiles when one is past the prepared grid; a comparison selects with selectComparisonCurrent', () => {
     const grid = prepared({ time_axis: [routedDeparture, '2026-07-22T00:00:00Z'] }); // 48 h
     const departures = Array.from({ length: 21 }, (_, i) => new Date(Date.parse(routedDeparture) + i * 6 * 3600_000).toISOString());
     const scan = select(grid, departures);
     expect(scan.currentInput.provenance).toMatchObject({ current_source: 'tiles', fallback_reason: 'prepared grid does not cover every departure time' });
     expect(router.mock.calls.every(([, used]) => used === tileGrid)).toBe(true);
     expect(select(grid).currentInput.provenance).toMatchObject({ current_source: 'prepared' });
+    // 9 of 21 departures inside a 48 h axis: fewer than half, so the comparison stays on tiles too.
+    expect(selectComparisonCurrent({ departures, route: router, tileGrid, prepared: grid, preparedProvenance }).currentInput.provenance)
+      .toMatchObject({ current_source: 'tiles', fallback_reason: 'prepared grid covers fewer than half of the departure times' });
   });
 });
 

@@ -44,6 +44,7 @@ const CONTENT_RULES = [
 // Invented tables, never ORC, SailGrib or Meltemus data. Each entry is a
 // reviewed exception for repository files; the built site has none.
 export const SYNTHETIC_POLAR_FILES = new Map([
+  ['engine/test/comparisonCurrent.test.ts', 'constant 5 kt table'],
   ['engine/test/currentAdmission.test.ts', 'constant 5 kt table'],
   ['engine/test/deepPolars.test.ts', 'invented release-shaped tables'],
   ['engine/test/refineScanFixtures.test.ts', 'constant 5 kt table'],
