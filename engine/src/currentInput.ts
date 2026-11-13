@@ -1,7 +1,7 @@
 import { computeRouteSchedules, parseUtc } from './eta.js';
 import { passageMaxHours, routeBbox, type RouteBbox } from './fetch/liveGrids.js';
 import { GridSampler, type RegionGrid } from './grids.js';
-import { contentHash } from './hash.js';
+import { cachedContentHash, contentHash } from './hash.js';
 import { forecastRunGone, type ForecastStore } from './forecast/store.js';
 import { deriveLegs, legMidpoints } from './route.js';
 import { CurrentGapError, SearchBoundsError, type SearchBounds } from './routing/isochrone.js';
@@ -31,17 +31,12 @@ export function currentGridCovers(grid: RegionGrid, candidate: Candidate): boole
   } catch { return false; }
 }
 
-// Hashing a regional grid costs a noticeable fraction of a second. A frozen
-// grid (every action's inputs are deep-frozen) cannot change, so its digest is
-// computed once for the progress check, admission and the input record.
-const frozenDigests = new WeakMap<RegionGrid, string>();
-function gridDigest(grid: RegionGrid): string {
-  const frozen = [grid, grid.u_kt, grid.v_kt, grid.time_axis, grid.source].every(part => Object.isFrozen(part));
-  if (!frozen) return contentHash(grid);
-  let digest = frozenDigests.get(grid);
-  if (digest === undefined) frozenDigests.set(grid, digest = contentHash(grid));
-  return digest;
-}
+// Hashing a regional grid costs a noticeable fraction of a second. A deep-frozen
+// grid (the viewer freezes the prepared grid when it loads it, and every action's
+// inputs are deep-frozen) cannot change, so its digest is computed once per grid
+// object: for the input record, the progress check, routing and admission alike.
+// A grid that could still change is hashed every time (cachedContentHash).
+const gridDigest = (grid: RegionGrid): string => cachedContentHash(grid);
 
 // Recorded as `fallback_reason` when an action does not use a prepared grid.
 const NOT_COVERED = 'prepared grid does not cover every route/time sample';
@@ -128,7 +123,7 @@ export async function resolveCurrentInput(
 
 function rejectedPrepared(prepared: RegionGrid, preparedProvenance: Record<string, unknown> | undefined, reason: string) {
   return { fallback_reason: reason, rejected_prepared_run_id: prepared.run_id,
-    rejected_prepared_input: preparedProvenance ?? { content_digest: contentHash(prepared), digest_algorithm: 'fnv1a64' } };
+    rejected_prepared_input: preparedProvenance ?? { content_digest: gridDigest(prepared), digest_algorithm: 'fnv1a64' } };
 }
 
 const ROUTING_SELECTION_REASON = 'same current grid as scan routing';

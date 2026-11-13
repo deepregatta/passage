@@ -17,6 +17,7 @@ vi.mock('@deepweather/engine', async (importOriginal) => ({
   polarFromRelease: mocks.polarFromRelease,
   forecastRunGone: (error) => (error?.name === 'ForecastRunGoneError' ? error : null),
   contentHash: (value) => `digest-${value.run_id}`,
+  cachedContentHash: (value) => `digest-${value.run_id}`,
   TileForecastStore: class TileForecastStore {},
   HttpTileTransport: class HttpTileTransport {},
 }));
@@ -168,6 +169,9 @@ describe('live routing inputs', () => {
       source: 'prepared-artifact', layer: 'currents', model: 'cmems_mod_ibi_phy_anfc', run_id: 'cmems-ibi-20260719T06Z',
       artifact_ref: 'runs/prepared/current_grid.json', content_digest: 'digest-cmems-ibi-20260719T06Z',
     }) });
+    // deep-frozen before it is hashed, so the engine can reuse its digest (cachedContentHash)
+    expect(Object.isFrozen(compute.preparedCurrent.currentGrid)).toBe(true);
+    expect(Object.isFrozen(compute.preparedCurrent.currentGrid.source)).toBe(true);
     expect(global.fetch).toHaveBeenCalledWith('/data/runs/latest.json', { cache: 'no-cache' });
     expect(onProgress.mock.calls.at(-1)[0]).toBe('loading prepared data');
   });

@@ -9,7 +9,7 @@
 export { preparedSynopticCoverage, CHANNEL_PREPARED_COVERAGE } from './synopticCoverage.js';
 
 export { ENGINE_VERSION } from './version.js';
-export { contentHash } from './hash.js';
+export { cachedContentHash, contentHash } from './hash.js';
 
 export { runAnalysis, persistSnapshot, auditSamplePlan } from './analyze.js';
 export type { AnalyzeOptions, AnalyzeResult, AuditSamplePlan } from './analyze.js';

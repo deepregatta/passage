@@ -8,6 +8,8 @@ import { loadRoutingInputs } from '../src/lib/routingInputs.js';
 import { prepareAnalysisInputs } from '../src/lib/browserAnalysis.js';
 import { runRefineAction, runScanAction } from '../src/lib/scanAction.js';
 import { createScanHandler } from '../src/lib/scanWorkerHandler.js';
+import { freezeActionInputs } from '../src/lib/actionInputs.js';
+import { loadPreparedCurrent } from '../src/lib/preparedCurrent.js';
 import { RefineUnavailableError, rebuildError, serializeError } from '../src/lib/scanMessages.js';
 import { ForecastUpdatedError, withFreshForecast } from '../src/lib/forecastFreshness.js';
 import limits from '../../config/profiles/default-limits.json';
@@ -202,5 +204,28 @@ describe('errors across the boundary', () => {
     expect(rebuilt.message).toBe('No route found within 48 h');
     expect(rebuilt.code).toBe('no-route');
     expect(rebuildError(serializeError('plain')).message).toBe('plain');
+  });
+});
+
+// 2026-11-13: the Worker's comparison loads the prepared grid once (prepareAnalysisInputs,
+// through loadPreparedCurrent) and hashes it there only: the routing of every candidate,
+// every audit and the refinement reuse that digest. A comparison saves no decision hash.
+describe('the prepared grid in a comparison and its refinement', () => {
+  it.each(['compute', 'draw'])('is hashed once for the whole %s comparison and its refinement', async (mode) => {
+    const grid = { ...routingInputs(1).currentGrid, run_id: 'prepared-scan' };
+    vi.stubGlobal('fetch', vi.fn(async (url) => new Response(JSON.stringify(url.endsWith('/current.json') ? grid : null))));
+    const prepared = await loadPreparedCurrent({ run_id: 'prepared-scan', artifacts: { current_grid: 'runs/prepared-scan/current.json' } });
+    const entries = vi.spyOn(Object, 'entries');
+    const serialised = () => entries.mock.calls.filter(([arg]) => arg === prepared.currentGrid).length;
+    prepareAnalysisInputs.mockImplementation(async (draft) => freezeActionInputs({ ...draft, store, tileRuns: {}, inputRecords: [], ...prepared }));
+    let context;
+    const out = await runScanAction(request(mode), { store, keepContext: (kept) => { context = kept; } });
+    expect(out.scan.candidates.length).toBe(21);
+    expect(out.scan.input_records.find((r) => r.layer === 'currents')).toMatchObject({
+      current_source: 'prepared', content_digest: prepared.currentGridProvenance.content_digest });
+    const refined = await runRefineAction(context);
+    expect(refined.added.length).toBeGreaterThan(0);
+    expect(serialised()).toBe(0); // its one digest was taken when it was loaded, before this count began
+    vi.unstubAllGlobals();
   });
 });

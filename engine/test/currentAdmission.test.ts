@@ -1,7 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { runAnalysis, GridSampler, scanDepartures, computeRoute, selectRoutingCurrent, routeOnSelectedCurrent, contentHash, routeRevision } from '../src/index.js';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { runAnalysis, GridSampler, scanDepartures, computeRoute, selectRoutingCurrent, routeOnSelectedCurrent, contentHash, routeRevision, cachedContentHash } from '../src/index.js';
 import type { RegionGrid, Route, LimitsProfile, Polar, RoutingRequest, LandMask } from '../src/index.js';
 import { currentGridCovers } from '../src/currentInput.js';
+import { withoutSavedIdentity } from '../src/identity.js';
 import { ScenarioBundleStore } from '../src/forecast/scenarioStore.js';
 import { readFileSync } from 'node:fs';
 import Ajv2020 from 'ajv/dist/2020.js';
@@ -487,4 +488,109 @@ describe('a dead-end outside node the router pops', () => {
       vi.useRealTimers();
     }
   });
+});
+
+// The prepared current grid is hashed once per loaded grid object (2026-11-13):
+// the viewer deep-freezes it when it loads it and takes the record's digest with
+// cachedContentHash; routing, admission, the audit, a comparison and its
+// refinement then reuse that digest. A grid that could still change is hashed
+// every time, so no stale digest can be recorded for it.
+describe('one digest per loaded prepared grid', () => {
+  const departure = '2026-07-20T00:00:00Z';
+  const polar: Polar = {
+    schema_version: 1, polar_id: 'constant-5', label: 'Constant 5 kt',
+    tws_kt: [6, 20], twa_deg: [45, 180], speeds_kt: [[5, 5], [5, 5]], source: { kind: 'generic' },
+  };
+  const regionGrid = (kind: RegionGrid['kind'], u: number, extra: Partial<RegionGrid> = {}): RegionGrid => ({
+    schema_version: 1, kind, run_id: `test-${kind}`, generated_at: departure,
+    lat0: 49, lon0: -4, dlat: 0.5, dlon: 0.5, nlat: 3, nlon: 4,
+    time_axis: [departure, '2026-07-30T00:00:00Z'],
+    u_kt: Array(24).fill(u), v_kt: Array(24).fill(kind === 'wind10m' ? -12 : 0), source: { mode: 'synthetic' }, ...extra,
+  });
+  const request: Omit<RoutingRequest, 'departureUtc'> = {
+    start: { lat: 49.5, lon: -3.5 }, finish: { lat: 49.5, lon: -3.2 }, polar, windGrid: regionGrid('wind10m', 0), resolutionDeg: 0.1, maxHours: 48,
+  };
+  const tileGrid = regionGrid('surface_current', 1, { run_id: 'tile-current' });
+  const route = (departureUtc: string, currentGrid: RegionGrid | undefined, strictCurrent: boolean) =>
+    computeRoute({ ...request, departureUtc, ...(currentGrid ? { currentGrid } : {}), ...(strictCurrent ? { strictCurrent } : {}) });
+  function tileStore() {
+    const times = Array.from({ length: 241 }, (_, h) => new Date(Date.parse(departure) + h * 3600_000).toISOString());
+    const store = new ScenarioBundleStore({ loadBundle: async name => name === 'forecast' ? { hourly: {
+      time: times, wind_speed_10m: times.map(() => 12), wind_gusts_10m: times.map(() => 15), wind_direction_10m: times.map(() => 90),
+    } } : null });
+    vi.spyOn(store, 'getCurrentGrid').mockResolvedValue(tileGrid);
+    return store;
+  }
+  const deepFreeze = <T,>(value: T): T => {
+    if (value && typeof value === 'object') {
+      Object.values(value).forEach(deepFreeze);
+      Object.freeze(value);
+    }
+    return value;
+  };
+
+  /** What the viewer's loadPreparedCurrent does: a fresh parsed grid, deep-frozen, then the record's digest. */
+  function load(extra: Partial<RegionGrid> = {}, freeze = true) {
+    const parsed = JSON.parse(JSON.stringify(regionGrid('surface_current', 2, { run_id: 'prepared', ...extra }))) as RegionGrid;
+    const grid = freeze ? deepFreeze(parsed) : parsed;
+    const provenance = { source: 'prepared-artifact', layer: 'currents', model: 'cmems', run_id: 'prepared',
+      content_digest: cachedContentHash(grid), digest_algorithm: 'fnv1a64' };
+    return { grid, provenance };
+  }
+
+  // canonicalJson reads an object's entries exactly once each time it serialises it,
+  // whether the grid is hashed alone or inside a larger value (a decision hash).
+  let entries: ReturnType<typeof vi.spyOn>;
+  const serialised = (grid: object) => entries.mock.calls.filter(([arg]: unknown[]) => arg === grid).length;
+  beforeEach(() => { entries = vi.spyOn(Object, 'entries'); });
+  afterEach(() => { entries.mockRestore(); });
+
+    it('Compute: the record\'s digest is the routing digest, and routing does not hash the grid again', () => {
+      const { grid, provenance } = load();
+      const selection = selectRoutingCurrent({ departures: [departure], route, tileGrid, prepared: grid, preparedProvenance: provenance });
+      expect(selection.currentInput.provenance).toMatchObject({ current_source: 'prepared', content_digest: provenance.content_digest });
+      const routed = selection.results.get(departure)!.result!.route;
+      expect(routed.provenance?.routing_request).toMatchObject({ current_digest: provenance.content_digest });
+      expect(serialised(grid)).toBe(1);
+      // the value recorded is today's digest of the same grid, byte for byte
+      expect(provenance.content_digest).toBe(contentHash(JSON.parse(JSON.stringify(grid))));
+    });
+
+    it('Check: the grid\'s own digest is reused; the only other serialisation is the saved decision hash', async () => {
+      const computed = load();
+      const routed = selectRoutingCurrent({ departures: [departure], route, tileGrid, prepared: computed.grid, preparedProvenance: computed.provenance })
+        .results.get(departure)!.result!.route;
+      const { grid, provenance } = load();
+      const options = deepFreeze({ route: routed, profile, departureUtc: departure, currentGrid: grid, currentGridProvenance: provenance });
+      const check = await runAnalysis({ ...options, store: tileStore() });
+      expect(check.findings.inputs.forecast_tiles.find(x => x.layer === 'currents')).toMatchObject({
+        current_source: 'prepared', content_digest: provenance.content_digest });
+      expect(serialised(grid)).toBe(2); // the record, then the grid inside the decision inputs (the saved identity)
+      const { grid: unsaved, provenance: unsavedRecord } = load();
+      await runAnalysis(withoutSavedIdentity({ route: routed, profile, departureUtc: departure, currentGrid: unsaved, currentGridProvenance: unsavedRecord, store: tileStore() }));
+      expect(serialised(unsaved)).toBe(1);
+    });
+
+    it('comparison and refinement: one digest for the routing of every candidate, every audit and the refinement', async () => {
+      const { grid, provenance } = load();
+      const departures = [departure, '2026-07-20T06:00:00Z', '2026-07-20T12:00:00Z'];
+      const selection = selectRoutingCurrent({ departures, route, tileGrid, prepared: grid, preparedProvenance: provenance });
+      expect(selection.currentInput.provenance).toMatchObject({ current_source: 'prepared' });
+      const routes = Object.fromEntries(departures.map(d => [d, selection.results.get(d)!.result!.route]));
+      const scan = await scanDepartures({ route: routes[departure]!, profile, store: tileStore(), currentInput: deepFreeze(selection.currentInput),
+        routeFor: d => routes[d]! }, departures);
+      expect(scan.candidates).toHaveLength(3);
+      const refined = routeOnSelectedCurrent({ departures: ['2026-07-20T02:00:00Z'], currentInput: selection.currentInput, route });
+      expect(refined.get('2026-07-20T02:00:00Z')!.result!.route.provenance?.routing_request).toMatchObject({ current_digest: provenance.content_digest });
+      expect(serialised(grid)).toBe(1);
+    });
+
+    it('a grid that is not deep-frozen is hashed again, and a change to it is recorded, never an old digest', () => {
+      const { grid, provenance } = load({}, false);
+      (grid.u_kt as number[])[0] = 2.5; // changed after its record was made
+      const selection = selectRoutingCurrent({ departures: [departure], route, tileGrid, prepared: grid, preparedProvenance: provenance });
+      expect(serialised(grid)).toBe(2); // the record, then the selection hashes the grid as it is now
+      expect(selection.currentInput.provenance?.content_digest).toBe(contentHash(grid));
+      expect(selection.currentInput.provenance?.content_digest).not.toBe(provenance.content_digest);
+    });
 });

@@ -147,3 +147,30 @@ it.each([
     expect(record.fallback_reason).toBe('route was computed on tile currents');
   }
 });
+
+// 2026-11-13: the loader deep-freezes the prepared grid and hashes it once; the
+// Compute selection and the Check's admission reuse that digest. canonicalJson
+// reads a grid's entries once each time it serialises it, which is what is counted.
+it('hashes a loaded prepared grid once for Compute, and once for a Check plus its saved decision hash', async () => {
+  const engine = await vi.importActual('@deepweather/engine');
+  docs['prepared-a'] = prepared('prepared-a', { u_kt: Array(24).fill(1) });
+  const expected = contentHash(structuredClone(docs['prepared-a']));
+  const entries = vi.spyOn(Object, 'entries');
+  const serialised = grid => entries.mock.calls.filter(([arg]) => arg === grid).length;
+  const inputs = routingInputs(0);
+  const preparedCurrent = await loadPreparedCurrent((await preparedRun({ refresh: true })).doc);
+  const selection = engine.selectRoutingCurrent({
+    departures: [DEPARTURE], tileGrid: await state.store.getCurrentGrid(), prepared: preparedCurrent.currentGrid, preparedProvenance: preparedCurrent.currentGridProvenance,
+    route: (departureUtc, currentGrid, strictCurrent, searchBounds) => engine.computeRoute({ ...inputs, departureUtc, currentGrid,
+      ...(strictCurrent ? { strictCurrent } : {}), ...(searchBounds ? { searchBounds } : {}) }),
+  });
+  expect(selection.currentInput.provenance).toMatchObject({ current_source: 'prepared', content_digest: expected });
+  expect(preparedCurrent.currentGridProvenance.content_digest).toBe(expected);
+  expect(serialised(preparedCurrent.currentGrid)).toBe(1);
+
+  const action = await prepareAnalysisInputs(captureActionDraft({ route: selection.results.get(DEPARTURE).result.route, profile: limits, departureUtc: DEPARTURE }));
+  const check = await runAnalysis(action);
+  expect(check.findings.inputs.forecast_tiles.find(x => x.layer === 'currents')).toMatchObject({ current_source: 'prepared', content_digest: expected });
+  // its own record, then the grid inside the decision inputs that the saved identity hashes
+  expect(serialised(action.currentGrid)).toBe(2);
+});

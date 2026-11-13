@@ -379,6 +379,21 @@ fixed four-departure scan (its `WindowScan` and progress candidates) byte for
 byte against `engine/test/golden/scan-cherbourg-plymouth.json`, generated from
 the engine before this change (see the fixture policy below).
 
+Prepared grid digest (2026-11-13): `engine/test/hash.test.ts` proves the
+16-bit-limb FNV-1a equal to the BigInt definition. The corpus is every file under
+`engine/test/fixtures`, `engine/test/golden` and `contracts/` (raw, gunzipped and as canonical JSON), every
+single code unit and byte, million-unit inputs and 3,000 seeded random strings,
+byte arrays and part lists with surrogate pairs and lone surrogates. It also
+covers `cachedContentHash`: a mutable, partly frozen or getter-bearing value is
+hashed afresh; a deep-frozen one is serialised once.
+`engine/test/currentAdmission.test.ts` ("one digest per loaded prepared grid") counts serialisations of a loaded grid
+(through `Object.entries`): one for a Compute, a comparison with its audits and a
+refinement; a Check adds only the grid inside its saved decision inputs. A grid
+that is not frozen and was changed after its record is recorded with its new
+digest. `viewer/test/actionInputs.test.jsx` and `viewer/test/scanWorker.test.js`
+make the same count through the real loader, Compute selection, Check, computed and
+drawn comparisons and refinement.
+
 Departure ranking: `engine/test/window.test.ts` covers the hour figures on
 hand-built findings (each arrival-range hour counted once across overlapping
 legs and several limits, over before missing data before approaching, missing
