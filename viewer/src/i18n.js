@@ -149,6 +149,7 @@ const FR = {
   "Currents unavailable right now. This route uses wind alone.": "Courants indisponibles pour le moment. Cette route utilise uniquement le vent.",
   'This currents grid is coarser than the model’s native resolution.': 'Cette grille de courants est plus grossière que la résolution native du modèle.',
   'The grid of this currents model is coarser than Passage aims for.': 'La grille de ce modèle de courants est plus grossière que celle visée par Passage.',
+  'The current grid does not cover every point and time the router reads': 'La grille de courants ne couvre pas tous les points et instants lus par le routeur',
   'This departure could not be routed.': 'Aucune route n’a pu être calculée pour ce départ.',
   "Drawing forecast…": "Tracé de la prévision…",
   "Loading passage chart…": "Chargement de la carte de traversée…",
@@ -1805,6 +1806,9 @@ function translateCapabilityList(value) {
 }
 
 const FR_FRAGMENTS = [
+  // localTimeZoneName() falls back to this English text when the browser names no zone; it is
+  // substituted into composed strings, so it is replaced as a fragment, first, before any "local time" rule.
+  [/\bbrowser local time\b/g, 'fuseau du navigateur'],
   [/The (.+?) gate does not fit this departure: you would reach it (.+?) UTC, outside the favorable stream \((.+?)\)\. Shifting departure may fix this\./g, 'La porte $1 ne convient pas à ce départ : vous l’atteindriez $2 UTC, hors du courant favorable ($3). Décaler le départ peut y remédier.'],
   [/The (.+?) gate only partly fits: aim for the (.+?)-referenced window \((.+?)\)\./g, 'La porte $1 ne convient que partiellement : visez la fenêtre référencée sur $2 ($3).'],
   [/Wind opposes the swell here, making the sea steeper and less comfortable\./g, 'Le vent s’oppose à la houle ici, rendant la mer plus cambrée et moins confortable.'],
