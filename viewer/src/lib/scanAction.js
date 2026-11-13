@@ -18,7 +18,8 @@ export const SCAN_STEP_H = 6;
 /** The candidate departures of a comparison anchored at `departureUtc`. */
 export const scanDeparturesFor = (departureUtc) => candidateDepartures(Date.parse(departureUtc), SCAN_SPAN_H, SCAN_STEP_H);
 
-const routeForDeparture = (inputs, departureUtc, polarPercent, currentGrid, strictCurrent) =>
+// `searchBounds`: the prepared grid's box when the engine tries that grid (the router then searches only inside it).
+const routeForDeparture = (inputs, departureUtc, polarPercent, currentGrid, strictCurrent, searchBounds) =>
   computeRoute({
     start: inputs.start,
     finish: inputs.finish,
@@ -28,24 +29,26 @@ const routeForDeparture = (inputs, departureUtc, polarPercent, currentGrid, stri
     windGrid: inputs.windGrid,
     currentGrid: currentGrid ?? undefined,
     ...(strictCurrent ? { strictCurrent: true } : {}),
+    ...(searchBounds ? { searchBounds } : {}),
     landMask: inputs.landMask,
     maxHours: inputs.maxHours,
   });
 
 /** One current source for every departure of a Compute or a computed scan,
- * by the engine's rule: the prepared grid only when routing and the audit both
- * stay inside it, otherwise the tile grid. The audits of these routes use it too.
+ * by the engine's rule: the prepared grid only when both ends are inside it and
+ * the router, searching only inside it, and the audit both find what they need
+ * there, otherwise the tile grid. The audits of these routes use it too.
  * `onRouted(n)` reports how many departures the current pass has routed. */
 export const routeOnOneCurrent = (inputs, departures, polarPercent, prepared = inputs.preparedCurrent, onRouted) => {
   let pass = new Set();
   const selection = selectRoutingCurrent({
     departures,
-    route: (departureUtc, currentGrid, strictCurrent) => {
+    route: (departureUtc, currentGrid, strictCurrent, searchBounds) => {
       // A second pass (the prepared grid was rejected) starts the count again.
       if (pass.has(departureUtc)) pass = new Set();
       pass.add(departureUtc);
       try {
-        return routeForDeparture(inputs, departureUtc, polarPercent, currentGrid, strictCurrent);
+        return routeForDeparture(inputs, departureUtc, polarPercent, currentGrid, strictCurrent, searchBounds);
       } finally {
         onRouted?.(pass.size);
       }
@@ -176,9 +179,9 @@ export async function runRefineAction(context, { onProgress = () => {} } = {}) {
     const results = routeOnSelectedCurrent({
       departures,
       currentInput: coarse.refinement.current_input,
-      route: (departureUtc, currentGrid, strictCurrent) => {
+      route: (departureUtc, currentGrid, strictCurrent, searchBounds) => {
         try {
-          return routeForDeparture(routing.inputs, departureUtc, routing.polarPercent, currentGrid, strictCurrent);
+          return routeForDeparture(routing.inputs, departureUtc, routing.polarPercent, currentGrid, strictCurrent, searchBounds);
         } finally {
           routed += 1;
           onProgress(`routing departures ${routed}/${departures.length}`);

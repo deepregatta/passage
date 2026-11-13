@@ -41,6 +41,22 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   every new check a new identity and the field on retry.
   `engine/test/legacySnapshot.test.ts` proves this on a committed check saved by
   the earlier engine.
+- Router confined to the prepared current grid (2026-11-13, owner decision
+  "clip the router"): a computed route that the grid's box held back carries
+  `routing_request.search_bounds` (the extent of the graph nodes it could use),
+  optional and additive inside the free-form `routing_request` object of
+  `contracts/route.schema.json`, which needs no schema change and is not a
+  shared contract. Like every route field it is route content, so it is part of
+  `route_revision`, `inputs.route_hash`, the frozen decision inputs (the route)
+  and so `decision_hash` and `snapshot_id` of a check on that route; the same
+  request routed again gives the same route and the same identities. A route
+  the box never held back (the search never had to skip expanding a node
+  outside it, or joining one to an end) is byte-identical to the route computed
+  before the change and records nothing new, so no identity moves; routes and passages
+  saved before the change are read and verified unchanged
+  (`legacySnapshot.test.ts`, `routed-current.json` reproduced byte for byte).
+  Engine semantics and identity version are unchanged: evaluation of a given
+  route is unchanged; only which route Compute produces can differ.
 - Successful exact retries reopen the complete original snapshot. Partial,
   legacy or conflicting existing artifacts are never overwritten or accepted
   as a retry. The manifest remains the completion marker; frozen decision

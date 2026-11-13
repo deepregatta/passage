@@ -291,9 +291,34 @@ candidates. Any spatial, time or finite-sample gap selects tile currents for the
 whole action. Partial tile availability stays partial; zero actual samples stays
 unavailable. Compute and computed scans pick their current grid by the same
 rule, widened to what the router reads: the prepared grid only when its time
-axis holds every departure, the router (in strict-current mode) never reads a
-point or time the grid lacks, and every routed candidate then passes the audit's
-coverage test; otherwise every departure is routed on tile currents. A computed
+axis holds every departure, both ends of the route lie inside the grid's box,
+the router (in strict-current mode, confined to that box) never reads a point
+or time the grid lacks and finds a route there, and every routed candidate then
+passes the audit's coverage test; otherwise every departure is routed again on
+tile currents over the router's normal, unconfined area. Confining the router
+(owner decision 2026-11-13, "clip the router"): on the prepared attempt the
+router's normal search area is intersected with the grid's box (`searchBounds`;
+graph, resolution and node positions unchanged), so a grid smaller than the
+padded box around the route (the live Channel grid is 1.3° tall, any padded box
+at least 1° plus the route's own span) can carry the route and its Check. The box
+holds the search back only when the search would expand a node outside it (a
+node with wind there and a neighbour it could travel to: in the graph,
+unsettled, sea, not across land) or join one to an end; an outside dead end
+that reads nothing is settled as before. A route the box never held back is
+byte-identical to the route computed before the change (same bytes, same
+`steps_used`) and records nothing new; a route it held back records the area searched
+(`routing_request.search_bounds`), and the planner says so under the route
+("Routed inside the area the regional current model covers; the route could not
+go outside it."). A route held back by the box that finds no route there moves
+the whole action to tiles ("no route found inside the prepared grid"); an end
+outside the box keeps "router read a point or time outside the prepared grid".
+This is deliberately conservative: a finish just outside the grid (up to about
+half a cell, every read still inside) was admitted before and now routes on
+tiles.
+Strict mode is unchanged inside the box: a cell without a value or a time past
+the axis is a gap, never calm water. Comparisons keep the same rule and usually
+stay on tiles (the 120 h axis); a refinement of a confined comparison is
+confined to the same box. A computed
 scan audits each candidate on that same routing grid, with declared source
 provenance; there is no pointwise source blending. A route computed on the
 prepared grid records it (`routing_request.current_source` and
@@ -301,9 +326,9 @@ prepared grid records it (`routing_request.current_source` and
 it is that same grid, so a route computed on tiles is checked on tiles; its
 record names why (computed on tile currents, without currents, on another
 prepared grid, or on a prepared grid no longer available). On the prepared grid,
-a departure that fails for any reason other than a current gap (such as "No
-route found") stays that departure's failure and does not move the action to
-tiles. A computed scan whose last departure lies beyond the prepared grid's time
+a departure that fails for any reason other than a current gap or the box (such
+as "No route found" in a search the box never held back) stays that
+departure's failure and does not move the action to tiles. A computed scan whose last departure lies beyond the prepared grid's time
 axis routes every candidate on tiles, while a single Compute at the anchor may
 still use the prepared grid. Compute now also downloads `latest.json` and the
 prepared current grid; neither is in the planner's tile download figure, which
@@ -317,7 +342,14 @@ samples alone, without changing snapshot bytes or substituting latest data.
 
 Regression ownership: `engine/test/currentAdmission.test.ts` covers admission,
 fallback, finite samples, partial coverage and single-source scans, for audits
-and for routing; `viewer/test/actionInputs.test.jsx` crosses the real loader,
+and for routing, including the confined router (inside the box, every read and
+waypoint in it and the Check on the same digest with `time_step_h: 1`; an end
+outside, time not covered, land closing the box, a cell without value, one
+failing departure, exact retry, refinement, and byte-identical results where the
+box never holds the search back, including a dead-end inlet outside the box
+that the search pops but cannot expand); `routingTiming.test.ts` reproduces the
+committed `routed-current.json` byte for byte with the box;
+`routeSourceNotes.test.jsx` the note in English and French; `viewer/test/actionInputs.test.jsx` crosses the real loader,
 action bundle, engine and ModelsUsed UI, including a computed route and its
 Check on one source; `plannerComputed.test.jsx` crosses visible limits,
 failed persistence, in-flight edits and Compute → Check → Scan on one current

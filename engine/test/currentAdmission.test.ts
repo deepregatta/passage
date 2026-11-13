@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { runAnalysis, GridSampler, scanDepartures, computeRoute, selectRoutingCurrent, contentHash } from '../src/index.js';
-import type { RegionGrid, Route, LimitsProfile, Polar, RoutingRequest } from '../src/index.js';
+import { runAnalysis, GridSampler, scanDepartures, computeRoute, selectRoutingCurrent, routeOnSelectedCurrent, contentHash, routeRevision } from '../src/index.js';
+import type { RegionGrid, Route, LimitsProfile, Polar, RoutingRequest, LandMask } from '../src/index.js';
 import { currentGridCovers } from '../src/currentInput.js';
 import { ScenarioBundleStore } from '../src/forecast/scenarioStore.js';
 import { readFileSync } from 'node:fs';
+import Ajv2020 from 'ajv/dist/2020.js';
+import addFormats from 'ajv-formats';
 
 const departureUtc = '2026-07-20T06:00:00Z';
 const profile: LimitsProfile = JSON.parse(readFileSync(new URL('../../config/profiles/default-limits.json', import.meta.url), 'utf8'));
@@ -24,6 +26,9 @@ function store(current: RegionGrid | null = grid()) {
   vi.spyOn(store, 'getCurrentGrid').mockResolvedValue(current);
   return store;
 }
+const ajv = new Ajv2020({ strict: false });
+addFormats(ajv);
+const validateRoute = ajv.compile(JSON.parse(readFileSync(new URL('../../contracts/route.schema.json', import.meta.url), 'utf8')));
 const coverage = (findings: Awaited<ReturnType<typeof runAnalysis>>['findings']) => findings.coverage!.find(x => x.capability === 'tidal_currents')!;
 
 it.each([
@@ -236,6 +241,200 @@ describe('prepared currents for routing', () => {
     expect(routed(selection).avg_sog_kt).toBeCloseTo(6, 1);
   });
 
+  // The router clipped to the prepared grid (C1, 2026-11-13): the router passes the bounds it is given
+  // on to computeRoute, as the planner's does. A router that ignores them is routed as before (above).
+  type Bounds = { minLat: number; maxLat: number; minLon: number; maxLon: number };
+  const boundedRouter = (extra: Partial<RoutingRequest> = {}) =>
+    vi.fn((departureUtc: string, currentGrid: RegionGrid | undefined, strictCurrent: boolean, searchBounds?: Bounds) =>
+      computeRoute({ ...request, ...extra, departureUtc, ...(currentGrid ? { currentGrid } : {}), ...(strictCurrent ? { strictCurrent } : {}),
+        ...(searchBounds ? { searchBounds } : {}) } as RoutingRequest));
+  const clipRouter = boundedRouter();
+  const selectClipped = (grid: RegionGrid | undefined, departures = [routedDeparture]) =>
+    selectRoutingCurrent({ departures, route: clipRouter, tileGrid, prepared: grid, preparedProvenance: grid ? preparedProvenance : undefined });
+  const hourly = (hours: number) => Array.from({ length: hours + 1 }, (_, h) =>
+    new Date(Date.parse(routedDeparture) + h * 3600_000).toISOString().replace('.000Z', 'Z'));
+  // An hourly corridor around the route, 0.2° tall: smaller than the 1°×1.5° box the router searches.
+  const hourlyCorridor = (extra: Partial<RegionGrid> = {}, hours = 48) => {
+    const time_axis = hourly(hours);
+    const shape = { lat0: 49.4, lon0: -3.55, dlat: 0.1, dlon: 0.2, nlat: 3, nlon: 3, ...extra };
+    const cells = shape.nlat * shape.nlon * time_axis.length;
+    return prepared({ time_axis, u_kt: Array(cells).fill(2), v_kt: Array(cells).fill(0), ...shape });
+  };
+  const inBox = (grid: RegionGrid, p: { lat: number; lon: number }) =>
+    new GridSampler({ ...grid, time_axis: [grid.time_axis[0]!, grid.time_axis.at(-1)!],
+      u_kt: Array(2 * grid.nlat * grid.nlon).fill(0), v_kt: Array(2 * grid.nlat * grid.nlon).fill(0) })
+      .sample(p.lat, p.lon, Date.parse(grid.time_axis[0]!)) !== null;
+  /** Every point at which the router or the audit read this grid. */
+  const readsOf = (grid: RegionGrid, run: () => void) => {
+    const reads: Array<{ lat: number; lon: number }> = [];
+    const original = GridSampler.prototype.sample;
+    GridSampler.prototype.sample = function (this: GridSampler, lat: number, lon: number, time: number) {
+      if ((this as unknown as { grid: RegionGrid }).grid === grid) reads.push({ lat, lon });
+      return original.call(this, lat, lon, time);
+    };
+    try { run(); } finally { GridSampler.prototype.sample = original; }
+    return reads;
+  };
+  beforeEach(() => { clipRouter.mockClear(); });
+
+  it('routes inside a prepared grid smaller than the router\'s box, records the clip, and its Check uses the same grid hourly', async () => {
+    const grid = hourlyCorridor();
+    let selection!: ReturnType<typeof selectClipped>;
+    const reads = readsOf(grid, () => { selection = selectClipped(grid); });
+    expect(selection.currentInput.grid).toBe(grid);
+    expect(selection.currentInput.provenance).toMatchObject({ ...preparedProvenance, current_source: 'prepared', content_digest: contentHash(grid) });
+    expect(selection.currentInput.provenance).not.toHaveProperty('fallback_reason');
+    const result = routed(selection);
+    expect(result.avg_sog_kt).toBeCloseTo(7, 1); // 5 kt boat with 2 kt prepared current along
+    // The nodes searched: 49.6 is the grid's edge on paper, but GridSampler reads (49.6 - 49.4) / 0.1 as just over 2.
+    expect(result.route.provenance?.routing_request).toMatchObject({ current_run: 'prepared', current_source: 'prepared',
+      current_digest: contentHash(grid), search_bounds: { minLat: 49.4, maxLat: 49.5, minLon: -3.5, maxLon: -3.2 } });
+    // the router was given the grid's box, and neither it nor the audit read the grid outside it
+    expect(clipRouter).toHaveBeenCalledOnce();
+    expect(clipRouter.mock.calls[0]![3]).toMatchObject({ minLon: -3.55 });
+    expect(reads.length).toBeGreaterThan(10);
+    expect(reads.every(p => inBox(grid, p))).toBe(true);
+    expect(result.route.waypoints.every(p => inBox(grid, p))).toBe(true);
+    // its Check admits the same grid, by the same digest, and records its hourly step
+    const { tiles, record } = await checkCurrents(result.route, grid);
+    expect(tiles.getCurrentGrid).not.toHaveBeenCalled();
+    expect(record).toMatchObject({ run_id: 'prepared', current_source: 'prepared', content_digest: contentHash(grid), time_step_h: 1 });
+  });
+
+  /** The tile fallback: every departure routed again, not strict and not confined. */
+  const expectUnclippedTiles = (selection: ReturnType<typeof selectClipped>, reason: string, departures = [routedDeparture], used = clipRouter) => {
+    expect(selection.currentInput.grid).toBe(tileGrid);
+    expect(selection.currentInput.provenance).toMatchObject({ current_source: 'tiles', rejected_prepared_run_id: 'prepared', fallback_reason: reason });
+    expect(used.mock.calls.filter(([, grid]) => grid === tileGrid).map(call => call.slice(1))).toEqual(departures.map(() => [tileGrid, false]));
+    for (const departureUtc of departures) {
+      const request = routed(selection, departureUtc).route.provenance?.routing_request;
+      expect(request).toMatchObject({ current_run: 'tile-current' });
+      expect(request).not.toHaveProperty('search_bounds');
+      expect(request).not.toHaveProperty('current_source');
+    }
+  };
+
+  it('routes on tiles over the normal area, as before, when an end of the route is outside the prepared grid', () => {
+    const grid = hourlyCorridor({ nlon: 2 }); // -3.55 to -3.35: the finish at -3.2 is outside
+    const selection = selectClipped(grid);
+    expectUnclippedTiles(selection, 'router read a point or time outside the prepared grid');
+    expect(clipRouter).toHaveBeenCalledTimes(2);
+    expect(routed(selection).avg_sog_kt).toBeCloseTo(6, 1);
+  });
+
+  it.each([
+    ['starts after the departure', () => hourlyCorridor({ time_axis: hourly(48).slice(1) }), 'prepared grid does not cover every departure time'],
+    ['ends during the search', () => hourlyCorridor({}, 1), 'router read a point or time outside the prepared grid'],
+  ])('routes on tiles over the normal area when the prepared grid %s', (_, grid, reason) => {
+    expectUnclippedTiles(selectClipped(grid()), reason);
+  });
+
+  it('routes on tiles over the normal area when land closes the prepared grid, and that route may leave it', () => {
+    // A wall across the corridor's whole height, open to the north and south of it.
+    const mask: LandMask = { schema_version: 1, kind: 'land_mask', lat0: 49, lon0: -4, dlat: 0.05, dlon: 0.05, nlat: 21, nlon: 31,
+      land: Array.from({ length: 21 * 31 }, (_, k) => {
+        const i = Math.floor(k / 31);
+        return k % 31 === 13 && i >= 6 && i <= 14 ? 1 : 0; // lon -3.35, lat 49.3 to 49.7
+      }) };
+    const walled = boundedRouter({ landMask: mask });
+    const grid = hourlyCorridor();
+    const selection = selectRoutingCurrent({ departures: [routedDeparture], route: walled, tileGrid, prepared: grid, preparedProvenance });
+    expectUnclippedTiles(selection, 'no route found inside the prepared grid', [routedDeparture], walled);
+    expect(walled.mock.calls[0]![3]).toBeDefined(); // the first try was confined
+    expect(walled).toHaveBeenCalledTimes(2);
+    expect(routed(selection).route.waypoints.some(p => !inBox(grid, p))).toBe(true); // the detour leaves the grid
+  });
+
+  it('routes on tiles when the prepared grid has no value where the confined router reads: never as calm water', () => {
+    // 0.05° columns; -3.45 to -3.25 have no value, across the corridor's whole height and every hour.
+    const grid = hourlyCorridor({ dlon: 0.05, nlon: 9 });
+    const u = grid.u_kt.map((value, k) => (k % 9 >= 2 && k % 9 <= 6 ? null : value));
+    expectUnclippedTiles(selectClipped({ ...grid, u_kt: u }), 'router read a point or time outside the prepared grid');
+  });
+
+  it('gives a route the prepared grid admitted before exactly as before, with nothing new recorded', () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      vi.setSystemTime(new Date(routedDeparture));
+      const grid = prepared(); // the whole box the router searches
+      const before = select(grid); // a router that ignores the bounds: the earlier routing
+      const after = selectClipped(grid);
+      expect(clipRouter.mock.calls[0]![3]).toBeDefined();
+      expect(JSON.stringify([...after.results])).toBe(JSON.stringify([...before.results]));
+      expect(after.currentInput).toEqual(before.currentInput);
+      expect(routed(after).route.provenance?.routing_request).not.toHaveProperty('search_bounds');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('records nothing and changes nothing when everything outside a smaller prepared grid is land the router never enters', () => {
+    // Sea only inside the corridor (as land north of Plymouth lies outside the live grid): the search never meets the box.
+    const mask: LandMask = { schema_version: 1, kind: 'land_mask', lat0: 49, lon0: -4, dlat: 0.05, dlon: 0.05, nlat: 21, nlon: 31,
+      land: Array.from({ length: 21 * 31 }, (_, k) => {
+        const lat = 49 + Math.floor(k / 31) * 0.05, lon = -4 + (k % 31) * 0.05;
+        return lat > 49.38 && lat < 49.57 && lon > -3.57 && lon < -3.13 ? 0 : 1;
+      }) };
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      vi.setSystemTime(new Date(routedDeparture));
+      const grid = hourlyCorridor();
+      const ignoring = boundedRouter({ landMask: mask });
+      const before = selectRoutingCurrent({ departures: [routedDeparture], route: (d, g, strict) => ignoring(d, g, strict), tileGrid, prepared: grid, preparedProvenance });
+      const bounded = boundedRouter({ landMask: mask });
+      const after = selectRoutingCurrent({ departures: [routedDeparture], route: bounded, tileGrid, prepared: grid, preparedProvenance });
+      expect(before.currentInput.provenance).toMatchObject({ current_source: 'prepared' }); // admitted before the change
+      expect(bounded.mock.calls[0]![3]).toBeDefined();
+      expect(JSON.stringify([...after.results])).toBe(JSON.stringify([...before.results]));
+      expect(after.currentInput).toEqual(before.currentInput);
+      expect(routed(after).route.provenance?.routing_request).not.toHaveProperty('search_bounds');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('keeps one source: if any departure cannot route on the prepared grid, every departure routes on tiles', () => {
+    const departures = [routedDeparture, '2026-07-20T06:00:00Z'];
+    // The first departure routes inside the 7 h axis; the second runs past its end.
+    const selection = selectClipped(hourlyCorridor({}, 7), departures);
+    expect(clipRouter.mock.calls.slice(0, 2).map(([departure, , strict, bounds]) => [departure, strict, Boolean(bounds)]))
+      .toEqual([[departures[0], true, true], [departures[1], true, true]]);
+    expectUnclippedTiles(selection, 'router read a point or time outside the prepared grid', departures);
+  });
+
+  it('reproduces a confined route on an exact retry, with the same identity for its Check', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      vi.setSystemTime(new Date(routedDeparture));
+      const grid = hourlyCorridor();
+      const first = routed(selectClipped(grid)).route;
+      const again = routed(selectClipped(grid)).route;
+      expect(JSON.stringify(again)).toBe(JSON.stringify(first));
+      expect(first.provenance?.routing_request).toHaveProperty('search_bounds');
+      const check = async (route: Route) => (await runAnalysis({ route, profile, departureUtc: routedDeparture, store: store(tileGrid),
+        currentGrid: grid, currentGridProvenance: preparedProvenance, now: () => Date.parse(routedDeparture) })).findings;
+      const [a, b] = [await check(first), await check(again)];
+      expect(a.decision_hash).toBeTruthy();
+      expect([b.decision_hash, b.snapshot_id, b.route_revision]).toEqual([a.decision_hash, a.snapshot_id, a.route_revision]);
+      expect(routeRevision(first, routedDeparture)).toBe(a.route_revision);
+      // the recorded area is part of the saved route, and the route contract takes it as it is
+      expect(validateRoute(JSON.parse(JSON.stringify(first))), JSON.stringify(validateRoute.errors)).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('confines a refinement of a confined selection to the same grid', () => {
+    const grid = hourlyCorridor();
+    const { currentInput } = selectClipped(grid);
+    const refined = routeOnSelectedCurrent({ departures: ['2026-07-20T02:00:00Z'], currentInput, route: clipRouter });
+    expect(refined.get('2026-07-20T02:00:00Z')!.result!.route.provenance?.routing_request).toMatchObject({
+      current_source: 'prepared', current_digest: contentHash(grid), search_bounds: expect.any(Object) });
+    // a router that ignores the bounds leaves the grid: that departure is not routed on another source
+    const ignoring = routeOnSelectedCurrent({ departures: ['2026-07-20T02:00:00Z'], currentInput, route: router });
+    expect(String(ignoring.get('2026-07-20T02:00:00Z')!.error)).toMatch(/leaves the current grid/);
+  });
+
   it('routes a computed scan on tiles when its last departure is past the prepared grid, while a Compute at the anchor uses it', () => {
     const grid = prepared({ time_axis: [routedDeparture, '2026-07-22T00:00:00Z'] }); // 48 h
     const departures = Array.from({ length: 21 }, (_, i) => new Date(Date.parse(routedDeparture) + i * 6 * 3600_000).toISOString());
@@ -243,5 +442,49 @@ describe('prepared currents for routing', () => {
     expect(scan.currentInput.provenance).toMatchObject({ current_source: 'tiles', fallback_reason: 'prepared grid does not cover every departure time' });
     expect(router.mock.calls.every(([, used]) => used === tileGrid)).toBe(true);
     expect(select(grid).currentInput.provenance).toMatchObject({ current_source: 'prepared' });
+  });
+});
+
+// Review follow-up (2026-11-13): an outside node the search pops but cannot expand (a dead-end inlet) never read
+// the grid before the change, so it does not confine the route: settled and counted exactly as before.
+describe('a dead-end outside node the router pops', () => {
+  const departure = '2026-07-20T00:00:00Z';
+  const polar: Polar = { schema_version: 1, polar_id: 'constant-5', label: 'Constant 5 kt',
+    tws_kt: [6, 20], twa_deg: [45, 180], speeds_kt: [[5, 5], [5, 5]], source: { kind: 'generic' } };
+  const field = (kind: RegionGrid['kind'], u: number, extra: Partial<RegionGrid> = {}): RegionGrid => ({
+    schema_version: 1, kind, run_id: `inlet-${kind}`, generated_at: departure, lat0: 0, lon0: 0, dlat: 0.5, dlon: 0.5, nlat: 3, nlon: 3,
+    time_axis: [departure, '2026-07-30T00:00:00Z'], u_kt: Array(18).fill(u), v_kt: Array(18).fill(0), source: { mode: 'synthetic' }, ...extra });
+  // Land from 0.90N (mask row 18) north, except a one-cell inlet at (0.90, 0.50) reached across sea at 0.85N.
+  // The prepared grid ends at 0.85N, so the inlet's graph node is outside it; the wind is from the east.
+  const mask: LandMask = { schema_version: 1, kind: 'land_mask', lat0: 0, lon0: 0, dlat: 0.05, dlon: 0.05, nlat: 21, nlon: 21,
+    land: Array.from({ length: 21 * 21 }, (_, k) => {
+      const i = Math.floor(k / 21), j = k % 21;
+      return i >= 18 && !(i === 18 && j === 10) ? 1 : 0;
+    }) };
+  const preparedGrid = field('surface_current', 0.5, { run_id: 'prepared', dlat: 0.85, nlat: 2, u_kt: Array(12).fill(0.5), v_kt: Array(12).fill(0) });
+  const tiles = field('surface_current', 0.2, { run_id: 'tile-current' });
+  const route = vi.fn((departureUtc: string, currentGrid: RegionGrid | undefined, strictCurrent: boolean, searchBounds?: { minLat: number; maxLat: number; minLon: number; maxLon: number }) =>
+    computeRoute({ start: { lat: 0.5, lon: 0.5 }, finish: { lat: 0.1, lon: 0.1 }, polar, windGrid: field('wind10m', -12), landMask: mask,
+      resolutionDeg: 0.1, maxHours: 48, departureUtc, ...(currentGrid ? { currentGrid } : {}), ...(strictCurrent ? { strictCurrent } : {}),
+      ...(searchBounds ? { searchBounds } : {}) }));
+
+  it('gives exactly the route admitted before the change: same bytes, same steps, nothing recorded', () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      vi.setSystemTime(new Date(departure));
+      const options = { departures: [departure], tileGrid: tiles, prepared: preparedGrid, preparedProvenance: { run_id: 'prepared' } };
+      const before = selectRoutingCurrent({ ...options, route: (d, g, strict) => route(d, g, strict) });
+      const after = selectRoutingCurrent({ ...options, route });
+      expect(before.currentInput.provenance).toMatchObject({ current_source: 'prepared' });
+      expect(route.mock.calls.at(-1)![3]).toBeDefined();
+      const result = after.results.get(departure)!.result!;
+      expect(before.results.get(departure)!.result!.steps_used).toBe(80);
+      expect(result.steps_used).toBe(80);
+      expect(result.route.provenance?.routing_request).not.toHaveProperty('search_bounds');
+      expect(JSON.stringify([...after.results])).toBe(JSON.stringify([...before.results]));
+      expect(after.currentInput).toEqual(before.currentInput);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

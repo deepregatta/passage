@@ -109,6 +109,15 @@ Read each provider's terms and fill `licence`, `redistribute`, `verified_on` and
 - The result states which model was used, with its caveat.
 - Tests: `engine/test/currentAdmission.test.ts`, a route-then-Check test asserting one source, the identity suites in `docs/testing.md`.
 
+**Status 2026-11-13: router confined to the prepared grid, implemented in source, local tests only, not deployed.** Diagnosed on the live site: the router's padded search box (at least 1° plus the route's span in latitude) is always taller than the live 1.3° Channel grid, so a computed route and its Check almost never got the hourly regional currents, even Cherbourg–Plymouth. Owner decision ("clip the router"): when both ends are inside the grid and it covers every departure in time, the router's attempt on the prepared grid searches only the intersection of its normal area with the grid's box (`selectRoutingCurrent` passes `searchBounds` to `computeRoute`). Strict mode is unchanged inside it; any gap, an end outside the box or no route inside it routes every departure on tiles over the normal area, as before. A route the box held back records `routing_request.search_bounds`, and the planner shows "Routed inside the area the regional current model covers; the route could not go outside it." (French in the same change); a route the box never held back (no node outside it that the search would have expanded or joined to an end) is byte-identical to before. A finish just outside the grid (up to about half a cell) was admitted before and now routes on tiles: the conservative choice, kept. Still on tiles: comparisons (the 120 h axis), routes with an end outside the grid. Recorded, not done: persisting the Compute selection's `fallback_reason`; the double routing cost of a rejected prepared attempt; a larger published grid (a publication change not authorized).
+
+Known limits, not addressed:
+- The note appears whenever the box could have changed the search (49 of 55 routable pairs on the live grid in the review sweep) and does not say whether the clip cost anything.
+- With uniform weather the clip cost nothing in every case tested; an engineered case with much stronger wind just outside the box cost +43% time (7.0 h to 10.0 h). No guard exists; a fair one would re-route unconfined on the same wind without current and fall back above about 15% slower, at one extra routing per confined Compute.
+- One unroutable candidate whose search touched the box edge sends a whole comparison to tiles (comparisons are on tiles anyway because of the 120 h axis).
+- The saved passage page shows no statement that the route was confined; the field is saved with the route.
+- After a confined Compute, a comparison's anchor route (tiles, unconfined) can differ from the Compute route.
+
 **Phase 2 (L): `currents-ibi` tiles as the middle tier**, for when no prepared grid covers the route: prepared, then `currents-ibi`, then `currents`. Not started before these are settled:
 
 - a decode strategy for a 125 MB tile (a windowed or time-subset decode, or a dedicated budget) and a memory measurement on a phone;

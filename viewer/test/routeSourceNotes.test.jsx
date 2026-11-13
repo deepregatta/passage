@@ -66,3 +66,31 @@ it('translates the new sentences in the catalogue', () => {
     expect(translateText(english, 'fr')).toBe(expected.fr[kind].at(-1));
   }
 });
+
+// A route the engine confined to the prepared grid's box records the area it searched (C1, 2026-11-13).
+const CONFINED = {
+  en: 'Routed inside the area the regional current model covers; the route could not go outside it.',
+  fr: 'Route calculée à l’intérieur de la zone couverte par le modèle régional de courants ; elle ne pouvait pas en sortir.',
+};
+const computedRoute = (request) => ({ currents: routingCurrentSummary(prepared(ibi)), notes: [],
+  route: { mode: 'computed', provenance: { engine_version: 'grid-dijkstra-v1', routing_request: request } } });
+const confined = { current_source: 'prepared', current_digest: 'abc', search_bounds: { minLat: 49.4, maxLat: 49.5, minLon: -3.5, maxLon: -3.2 } };
+
+describe.each(['en', 'fr'])('a route confined to the regional current model in %s', (language) => {
+  it('says so in one whole line', async () => {
+    const view = render(<div id="root"><RouteSourceNotes computed={computedRoute(confined)} /><LocalizedDocument language={language} /></div>);
+    await waitFor(() => expect(view.getByTestId('route-confined').textContent).toBe(CONFINED[language]));
+    expect(view.container.textContent).not.toMatch(/tidal stream|\bbest\b|probab/i);
+    expect(view.container.textContent).not.toMatch(/\bGO\b/);
+  });
+
+  it.each([
+    ['routed on the prepared grid without being confined', { current_source: 'prepared', current_digest: 'abc' }],
+    ['routed on tiles', { current_run: 'tiles-run' }],
+  ])('says nothing for a route %s', async (_, request) => {
+    const view = render(<div id="root"><RouteSourceNotes computed={computedRoute(request)} /><LocalizedDocument language={language} /></div>);
+    await waitFor(() => expect(view.getByTestId('route-currents')).toBeInTheDocument());
+    expect(view.queryByTestId('route-confined')).toBeNull();
+    expect(view.container.textContent).not.toContain(language === 'fr' ? 'elle ne pouvait pas en sortir' : 'could not go outside');
+  });
+});

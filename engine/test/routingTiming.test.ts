@@ -1,8 +1,9 @@
 import { readFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import { computeRoute } from '../src/routing/isochrone.js';
+import { gridSearchBounds } from '../src/currentInput.js';
 import { runAnalysis } from '../src/analyze.js';
 import { scanDepartures } from '../src/window.js';
 import { ScenarioBundleStore } from '../src/forecast/scenarioStore.js';
@@ -58,6 +59,21 @@ describe('routed timing across audit and departure scans', () => {
     expect(schedules[1]!.enter.nominal).toBe(schedules[0]!.exit.nominal);
     expect(schedules[1]!.exit).toEqual({ slow: '2026-07-20T03:00:00Z', nominal: '2026-07-20T01:30:00Z', fast: '2026-07-20T00:45:00Z' });
     expect(schedules[1]!.occupancy_hours).toEqual(['2026-07-20T00:00:00Z', '2026-07-20T01:00:00Z', '2026-07-20T02:00:00Z', '2026-07-20T03:00:00Z']);
+  });
+
+  it('routes on a current grid covering its whole search area exactly as the committed route, when confined to that grid', () => {
+    // routed-current.json was written by the router before searchBounds existed; a box that leaves out no node changes nothing.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      vi.setSystemTime(new Date(departureUtc));
+      const current = grid('surface_current', 2, 0);
+      const saved = readFileSync(new URL('./fixtures/routes/routed-current.json', import.meta.url), 'utf8');
+      for (const extra of [{}, { strictCurrent: true, searchBounds: gridSearchBounds(current) }]) {
+        expect(JSON.stringify(computeRoute({ ...request, currentGrid: current, ...extra }).route)).toBe(JSON.stringify(JSON.parse(saved)));
+      }
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('requires rerouting for another departure but accepts equivalent UTC spellings', () => {

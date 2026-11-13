@@ -4,7 +4,7 @@ import { GridSampler, type RegionGrid } from './grids.js';
 import { contentHash } from './hash.js';
 import { forecastRunGone, type ForecastStore } from './forecast/store.js';
 import { deriveLegs, legMidpoints } from './route.js';
-import { CurrentGapError } from './routing/isochrone.js';
+import { CurrentGapError, SearchBoundsError, type SearchBounds } from './routing/isochrone.js';
 import type { Route } from './types.js';
 
 export interface CurrentInput {
@@ -52,6 +52,7 @@ const PREPARED_UNAVAILABLE = 'prepared grid the route was computed on is unavail
 const NOT_A_CURRENT_GRID = 'prepared grid is not a surface current grid';
 const DEPARTURE_OUTSIDE = 'prepared grid does not cover every departure time';
 const ROUTER_GAP = 'router read a point or time outside the prepared grid';
+const NO_ROUTE_INSIDE = 'no route found inside the prepared grid';
 
 /** The prepared-grid stamp a route computed on that grid carries (see selectRoutingCurrent). */
 function routingRequest(route: Route): Record<string, unknown> | null {
@@ -146,6 +147,27 @@ const abortsAction = (error: unknown) =>
 // By code as well: a second copy of the engine module has its own class.
 const currentGap = (error: unknown) =>
   error instanceof CurrentGapError || (error as { code?: string })?.code === 'current-gap';
+const outsideBounds = (error: unknown): error is SearchBoundsError =>
+  error instanceof SearchBoundsError || (error as { code?: string })?.code === 'search-bounds';
+
+/** The far edge of one grid axis, kept on the inside of GridSampler's own coverage test. */
+function axisEdge(origin: number, step: number, n: number): number {
+  let far = origin + (n - 1) * step;
+  for (let k = 0; k < 8 && (far - origin) / step > n - 1; k++) far -= step * Number.EPSILON * Math.max(1, Math.abs(far / step));
+  return far;
+}
+
+/**
+ * The lat/lon box of a grid, as RoutingRequest.searchBounds: every point
+ * inside it is inside the grid for GridSampler (a sample there can still be
+ * null: a cell without a value, or a time outside the axis).
+ */
+export function gridSearchBounds(grid: RegionGrid): SearchBounds {
+  const lat1 = axisEdge(grid.lat0, grid.dlat, grid.nlat);
+  const lon1 = axisEdge(grid.lon0, grid.dlon, grid.nlon);
+  return { minLat: Math.min(grid.lat0, lat1), maxLat: Math.max(grid.lat0, lat1),
+    minLon: Math.min(grid.lon0, lon1), maxLon: Math.max(grid.lon0, lon1) };
+}
 
 function axisCovers(grid: RegionGrid, departureUtc: string): boolean {
   const times = grid.time_axis.map(parseUtc);
@@ -167,7 +189,7 @@ export const OUTSIDE_SELECTED_CURRENT = 'This departure time\'s route leaves the
 export function routeOnSelectedCurrent<T extends { route: Route }>(options: {
   departures: string[];
   currentInput: CurrentInput;
-  route: (departureUtc: string, currentGrid: RegionGrid | undefined, strictCurrent: boolean) => T;
+  route: (departureUtc: string, currentGrid: RegionGrid | undefined, strictCurrent: boolean, searchBounds?: SearchBounds) => T;
 }): Map<string, RoutingOutcome<T>> {
   const { departures, currentInput } = options;
   const grid = currentInput.grid;
@@ -175,13 +197,14 @@ export function routeOnSelectedCurrent<T extends { route: Route }>(options: {
   const results = new Map<string, RoutingOutcome<T>>();
   const outside = () => ({ error: new Error(OUTSIDE_SELECTED_CURRENT) });
   const digest = prepared ? gridDigest(prepared) : null;
+  const bounds = prepared ? gridSearchBounds(prepared) : undefined;
   for (const departureUtc of departures) {
     if (currentInput.provenance?.current_source === 'prepared' && (!prepared || !axisCovers(prepared, departureUtc))) {
       results.set(departureUtc, outside());
       continue;
     }
     try {
-      const result = options.route(departureUtc, prepared ?? grid, Boolean(prepared));
+      const result = prepared ? options.route(departureUtc, prepared, true, bounds) : options.route(departureUtc, grid, false);
       if (!prepared) {
         results.set(departureUtc, { result });
         continue;
@@ -193,7 +216,7 @@ export function routeOnSelectedCurrent<T extends { route: Route }>(options: {
       results.set(departureUtc, { result: { ...result, route: { ...result.route, provenance: { ...result.route.provenance,
         routing_request: { ...routingRequest(result.route), current_source: 'prepared', current_digest: digest } } } } });
     } catch (error) {
-      if (prepared && currentGap(error)) results.set(departureUtc, outside());
+      if (prepared && (currentGap(error) || outsideBounds(error))) results.set(departureUtc, outside());
       else if (abortsAction(error)) throw error;
       else results.set(departureUtc, { error });
     }
@@ -204,17 +227,25 @@ export function routeOnSelectedCurrent<T extends { route: Route }>(options: {
 /**
  * One current source for a Compute or a computed scan, by the audit's rule.
  * The prepared grid is used only when (1) its time axis holds every departure,
- * (2) the router, in strict-current mode, never reads a point or time the grid
- * lacks, and (3) every routed candidate then passes the audit's own coverage
- * test (`currentGridCovers`). Any gap routes every departure again on the tile
- * grid: no route mixes grids, and no action mixes routes from two grids.
- * Routes on the prepared grid record it in `routing_request`, so their Check
- * admits that grid and a route computed on tiles is checked on tiles.
+ * (2) the router, in strict-current mode and confined to the grid's box
+ * (`searchBounds`: the intersection of its normal search area with the grid),
+ * has both ends inside that box, never reads a point or time the grid lacks
+ * and finds a route inside it, and (3) every routed candidate then passes the
+ * audit's own coverage test (`currentGridCovers`). Anything else routes every
+ * departure again on the tile grid, over the normal unclipped area: no route
+ * mixes grids, and no action mixes routes from two grids. Routes on the
+ * prepared grid record it in `routing_request`, so their Check admits that
+ * grid and a route computed on tiles is checked on tiles; a route the box
+ * confined also records the area it searched (`search_bounds`).
  */
 export function selectRoutingCurrent<T extends { route: Route }>(options: {
   departures: string[];
-  /** Routes one departure; `strictCurrent` must reach RoutingRequest.strictCurrent. */
-  route: (departureUtc: string, currentGrid: RegionGrid | undefined, strictCurrent: boolean) => T;
+  /**
+   * Routes one departure; `strictCurrent` must reach RoutingRequest.strictCurrent
+   * and `searchBounds` RoutingRequest.searchBounds. A router that ignores the
+   * bounds is not confined, and is admitted only where it never leaves the grid.
+   */
+  route: (departureUtc: string, currentGrid: RegionGrid | undefined, strictCurrent: boolean, searchBounds?: SearchBounds) => T;
   tileGrid?: RegionGrid | null;
   prepared?: RegionGrid;
   preparedProvenance?: Record<string, unknown>;
@@ -223,13 +254,16 @@ export function selectRoutingCurrent<T extends { route: Route }>(options: {
   // Routes every departure on one grid; on the prepared grid, stops at the first gap with its reason.
   const routeAll = (grid: RegionGrid | undefined, strict: boolean) => {
     const results = new Map<string, RoutingOutcome<T>>();
+    const bounds = strict ? gridSearchBounds(grid!) : undefined;
     for (const departureUtc of departures) {
       try {
-        const result = options.route(departureUtc, grid, strict);
+        const result = strict ? options.route(departureUtc, grid, true, bounds) : options.route(departureUtc, grid, false);
         if (strict && !currentGridCovers(grid!, { route: result.route, departureUtc })) return NOT_COVERED;
         results.set(departureUtc, { result });
       } catch (error) {
         if (strict && currentGap(error)) return ROUTER_GAP;
+        // An end outside the grid is a point the router would read outside it.
+        if (strict && outsideBounds(error)) return error.reason === 'endpoint-outside' ? ROUTER_GAP : NO_ROUTE_INSIDE;
         if (abortsAction(error)) throw error;
         results.set(departureUtc, { error });
       }

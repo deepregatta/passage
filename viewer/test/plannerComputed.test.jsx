@@ -110,10 +110,14 @@ it.each([2, -2, 0])('carries real routed timing through Compute, Check, Scan and
   expect(saveRoute.mock.lastCall[0].timing).toEqual(usePlanner.getState().computed.route.timing);
 });
 
+const corridor = { lat0: 49.4, lon0: -3.55, dlat: 0.1, dlon: 0.2, nlat: 3, nlon: 3, u_kt: Array(18).fill(2), v_kt: Array(18).fill(0) };
 it.each([
-  ['prepared', 'the routing area', {}],
-  ['tiles', 'only a corridor', { lat0: 49.4, lon0: -3.55, dlat: 0.1, dlon: 0.2, nlat: 3, nlon: 3, u_kt: Array(18).fill(2), v_kt: Array(18).fill(0) }],
-])('Compute, its Check and a computed scan use %s currents when the prepared grid covers %s', async (source, _, extra) => {
+  ['prepared', 'the routing area', {}, false],
+  // Smaller than the box the router searches: the router searches only inside it, and the result says so.
+  ['prepared', 'only a corridor around the route', corridor, true],
+  // The finish (-3.2) is outside it: tiles, over the router's normal area.
+  ['tiles', 'a corridor that leaves out the finish', { ...corridor, nlon: 2, u_kt: Array(12).fill(2), v_kt: Array(12).fill(0) }, false],
+])('Compute, its Check and a computed scan use %s currents when the prepared grid covers %s', async (source, _, extra, confined) => {
   vi.setSystemTime(new Date('2026-07-19T12:00:00Z'));
   const engine = await vi.importActual('@deepweather/engine');
   const inputs = routingInputs(1);
@@ -140,10 +144,17 @@ it.each([
   // 5 kt boat plus 1 kt (tiles) or 2 kt (prepared) of current along the route
   expect(routed.avg_sog_kt).toBeCloseTo(source === 'prepared' ? 7 : 6, 1);
   expect(routed.notes).toEqual([]); // never the prepared grid's English factory note
-  // The corridor is tried on the prepared grid, meets a gap and is routed once more on tiles.
+  // The short corridor is tried on the prepared grid, cannot hold the finish and is routed once more on tiles.
   expect(computeRoute).toHaveBeenCalledTimes(source === 'prepared' ? 1 : 2);
+  expect(Boolean(computeRoute.mock.calls[0][0].searchBounds)).toBe(true);
+  if (source === 'tiles') expect(computeRoute.mock.calls[1][0]).not.toHaveProperty('searchBounds');
   // neither test grid identifies a model ('Synthetic current', or no dataset id): nothing is guessed
   expect(screen.getByTestId('route-currents')).toHaveTextContent('Currents · Model not recorded');
+  if (confined) {
+    expect(screen.getByTestId('route-confined')).toHaveTextContent('Routed inside the area the regional current model covers; the route could not go outside it.');
+  } else {
+    expect(screen.queryByTestId('route-confined')).not.toBeInTheDocument();
+  }
   fireEvent.click(checkButton());
   await waitFor(() => expect(audits).toHaveLength(1));
   expect(currents(audits[0].inputs.forecast_tiles)).toMatchObject({ current_source: source, run_id: source === 'prepared' ? 'prepared' : inputs.currentGrid.run_id });
@@ -151,7 +162,7 @@ it.each([
   fireEvent.click(scanButton());
   await screen.findByRole('region', { name: 'Departure comparison' });
   const scan = usePlanner.getState().scan;
-  // Prepared: every candidate once. Corridor: the first candidate meets the gap, then every candidate on tiles.
+  // Prepared: every candidate once. Short corridor: the first candidate fails on it, then every candidate on tiles.
   const candidates = candidateDepartures(Date.parse(DEPARTURE), 120, 6).length;
   expect(computeRoute).toHaveBeenCalledTimes(source === 'prepared' ? candidates : candidates + 1);
   // One source for every candidate's route and audit: this prepared grid runs to 30 July, past the whole scan.

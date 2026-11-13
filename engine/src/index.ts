@@ -36,13 +36,13 @@ export { CURRENT_PRODUCTS, currentProduct, currentRecordProduct, currentRecordFr
 export type { CurrentProductId } from './currentProducts.js';
 export type { CurrentSummary } from './currentSummary.js';
 export { routeBbox, passageMaxHours } from './fetch/liveGrids.js';
-export { currentGridBbox, selectRoutingCurrent, routeOnSelectedCurrent, OUTSIDE_SELECTED_CURRENT } from './currentInput.js';
+export { currentGridBbox, gridSearchBounds, selectRoutingCurrent, routeOnSelectedCurrent, OUTSIDE_SELECTED_CURRENT } from './currentInput.js';
 export type { RoutingCurrentSelection, RoutingOutcome } from './currentInput.js';
 export type { RouteBbox } from './fetch/liveGrids.js';
 export { GridSampler, alongCourseKt, currentSetDeg, currentSpeedKt, gridTimeStepHours } from './grids.js';
 export type { RegionGrid, GridSample } from './grids.js';
-export { computeRoute, CurrentGapError } from './routing/isochrone.js';
-export type { RoutingRequest, RoutingResult } from './routing/isochrone.js';
+export { computeRoute, CurrentGapError, SearchBoundsError } from './routing/isochrone.js';
+export type { RoutingRequest, RoutingResult, SearchBounds } from './routing/isochrone.js';
 export { boatSpeedKt } from './routing/polar.js';
 export type { Polar } from './routing/polar.js';
 export { polarFromRelease } from './routing/deepPolars.js';

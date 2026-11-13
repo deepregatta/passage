@@ -35,6 +35,20 @@ export interface RoutingRequest {
    * grid and part zero current (used for prepared grids).
    */
   strictCurrent?: boolean;
+  /**
+   * Confines the search to this lat/lon box (selectRoutingCurrent passes a
+   * prepared current grid's box): a graph node outside it is never expanded
+   * and never joins an end, and both ends must lie inside it, or the router
+   * throws SearchBoundsError. The graph itself (extent, resolution, node
+   * positions) is unchanged, and until the search would expand a node outside
+   * the box (travel on from it to any neighbour) or join one to an end, it runs
+   * exactly as without it, so a route the box never held back is the route
+   * computed without it, byte for byte. A route the box held back
+   * records the area searched (`routing_request.search_bounds`), and a search
+   * the box held back that finds no route throws SearchBoundsError instead of
+   * the usual routing error.
+   */
+  searchBounds?: SearchBounds;
   landMask?: LandMask;
   /** graph resolution in degrees; default adapts to the crossing size */
   resolutionDeg?: number;
@@ -64,6 +78,28 @@ export class CurrentGapError extends Error {
   }
 }
 
+export interface SearchBounds {
+  minLat: number;
+  maxLat: number;
+  minLon: number;
+  maxLon: number;
+}
+
+/**
+ * A search confined by RoutingRequest.searchBounds could not run inside them:
+ * an end lies outside the box (`endpoint-outside`), or no route was found
+ * after the box held the search back (`no-route`).
+ */
+export class SearchBoundsError extends Error {
+  readonly code = 'search-bounds';
+  constructor(readonly reason: 'endpoint-outside' | 'no-route') {
+    super(reason === 'endpoint-outside'
+      ? 'The start or finish is outside the area the route may search'
+      : 'No route found inside the area the route may search');
+    this.name = 'SearchBoundsError';
+  }
+}
+
 /** 16-direction neighborhood: angular resolution ~22.5° */
 const NEIGHBORS: Array<[number, number]> = [
   [1, 0], [-1, 0], [0, 1], [0, -1],
@@ -80,7 +116,9 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
   if (!Number.isFinite(maxMs) || maxMs < 0) throw new Error('Routing horizon must be finite and nonnegative');
   if (!Number.isFinite(scaling) || scaling <= 0) throw new Error('Polar scaling must be finite and positive');
   const deadlineMs = departureMs + maxMs;
-  const noRoute = () => new Error(
+  // Set once searchBounds holds the search back: a node outside it would otherwise be expanded or join an end.
+  let clipped = false;
+  const noRoute = () => clipped ? new SearchBoundsError('no-route') : new Error(
     `No route found within ${request.maxHours ?? 48} h (wind coverage, land, or no-go conditions)`,
   );
 
@@ -120,6 +158,12 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
   const lonOf = (j: number) => rounded(lon0 + j * res);
   const id = (i: number, j: number) => i * nlon + j;
 
+  // The rows and columns of the graph inside searchBounds (all of them without it).
+  const bounds = request.searchBounds;
+  const rowIn = Array.from({ length: nlat }, (_, i) => !bounds || (latOf(i) >= bounds.minLat && latOf(i) <= bounds.maxLat));
+  const colIn = Array.from({ length: nlon }, (_, j) => !bounds || (lonOf(j) >= bounds.minLon && lonOf(j) <= bounds.maxLon));
+  const searchable = (i: number, j: number) => rowIn[i]! && colIn[j]!;
+
   const wind = new GridSampler(windGrid);
   const current = currentGrid ? new GridSampler(currentGrid) : null;
   // Includes the endpoint connections, which previously had zero travel time.
@@ -151,7 +195,10 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
       const node = { lat: latOf(i), lon: lonOf(j) };
       if (landMask && segmentCrossesLand(landMask, p, node)) return false;
       hasSeaConnection = true;
-      return !fromStart || travel(p, node, departureMs) !== null;
+      if (fromStart && travel(p, node, departureMs) === null) return false;
+      if (searchable(i, j)) return true;
+      clipped = true;
+      return false;
     };
     if (!connects(bi, bj)) {
       // A sea node can still be across a peninsula or a thin wall. Search
@@ -175,6 +222,9 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
 
   const startPoint = { lat: rounded(start.lat), lon: rounded(start.lon) };
   const finishPoint = { lat: rounded(finish.lat), lon: rounded(finish.lon) };
+  const insideBounds = (p: { lat: number; lon: number }) => !bounds ||
+    (p.lat >= bounds.minLat && p.lat <= bounds.maxLat && p.lon >= bounds.minLon && p.lon <= bounds.maxLon);
+  if (!insideBounds(startPoint) || !insideBounds(finishPoint)) throw new SearchBoundsError('endpoint-outside');
   if (landMask && (isLand(landMask, startPoint.lat, startPoint.lon) || isLand(landMask, finishPoint.lat, finishPoint.lon))) {
     throw new Error('Start or finish is on land');
   }
@@ -226,11 +276,33 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
   const settled = new Uint8Array(nlat * nlon);
   let settledCount = 0;
   let terminal: ReturnType<typeof travel> = null;
+  // The neighbour (ni, nj) of (i, j) that expanding (i, j) would travel to: in the graph, unsettled, sea,
+  // and not across land. Expanding a node reads the weather (and current) there only for such a neighbour.
+  const expandsTo = (i: number, j: number, ni: number, nj: number) => {
+    if (ni < 0 || ni >= nlat || nj < 0 || nj >= nlon) return false;
+    if (settled[id(ni, nj)]) return false;
+    const toLat = latOf(ni);
+    const toLon = lonOf(nj);
+    if (landMask && isLand(landMask, toLat, toLon)) return false;
+    // Even adjacent sea nodes can straddle land in a finer-resolution mask.
+    return !(landMask && segmentCrossesLand(landMask, { lat: latOf(i), lon: lonOf(j) }, { lat: toLat, lon: toLon }));
+  };
 
   while (heap.length) {
     const { t, node } = pop();
     if (settled[node]) continue;
     if (t > deadlineMs) break;
+    const i = Math.floor(node / nlon);
+    const j = node % nlon;
+    // Outside searchBounds, a node the search would expand is never expanded: from here the bounds
+    // confine the route. One whose expansion reads nothing (a dead end, or no wind there, so travel()
+    // stops before the current) is settled and expanded as before: it moves nothing.
+    if (!searchable(i, j) && wind.sample(latOf(i), lonOf(j), t) !== null &&
+      NEIGHBORS.some(([di, dj]) => expandsTo(i, j, i + di, j + dj))) {
+      settled[node] = 1;
+      clipped = true;
+      continue;
+    }
     settled[node] = 1;
     settledCount += 1;
     if (node === finishId) {
@@ -238,28 +310,16 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
       break;
     }
 
-    const i = Math.floor(node / nlon);
-    const j = node % nlon;
     const fromLat = latOf(i);
     const fromLon = lonOf(j);
 
     for (const [di, dj] of NEIGHBORS) {
       const ni = i + di;
       const nj = j + dj;
-      if (ni < 0 || ni >= nlat || nj < 0 || nj >= nlon) continue;
+      if (!expandsTo(i, j, ni, nj)) continue;
       const nid = id(ni, nj);
-      if (settled[nid]) continue;
       const toLat = latOf(ni);
       const toLon = lonOf(nj);
-      if (landMask && isLand(landMask, toLat, toLon)) continue;
-
-      // Even adjacent sea nodes can straddle land in a finer-resolution mask.
-      if (
-        landMask &&
-        segmentCrossesLand(landMask, { lat: fromLat, lon: fromLon }, { lat: toLat, lon: toLon })
-      ) {
-        continue;
-      }
 
       const edge = travel({ lat: fromLat, lon: fromLon }, { lat: toLat, lon: toLon }, t);
       if (!edge) continue;
@@ -326,9 +386,7 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
   // Fail closed for the actual emitted coordinates, including two-point paths.
   if (landMask && waypoints.some((to, k) => k > 0 &&
     segmentCrossesLand(landMask, waypoints[k - 1]!, to))) {
-    throw new Error(
-      `No route found within ${request.maxHours ?? 48} h (wind coverage, land, or no-go conditions)`,
-    );
+    throw noRoute();
   }
 
   let distance = 0;
@@ -374,6 +432,11 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
         wind_run: windGrid.run_id,
         current_run: currentGrid?.run_id ?? null,
         resolution_deg: Math.round(res * 1000) / 1000,
+        // Only when searchBounds held the search back: the extent of the graph nodes it could use.
+        ...(clipped ? { search_bounds: {
+          minLat: latOf(rowIn.indexOf(true)), maxLat: latOf(rowIn.lastIndexOf(true)),
+          minLon: lonOf(colIn.indexOf(true)), maxLon: lonOf(colIn.lastIndexOf(true)),
+        } } : {}),
       },
       polar_ref: polar.polar_id,
       computed_at: toIso(Date.now()),

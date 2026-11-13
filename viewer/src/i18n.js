@@ -149,6 +149,7 @@ const FR = {
   "Currents unavailable right now. This route uses wind alone.": "Courants indisponibles pour le moment. Cette route utilise uniquement le vent.",
   'This currents grid is coarser than the model’s native resolution.': 'Cette grille de courants est plus grossière que la résolution native du modèle.',
   'The grid of this currents model is coarser than Passage aims for.': 'La grille de ce modèle de courants est plus grossière que celle visée par Passage.',
+  'Routed inside the area the regional current model covers; the route could not go outside it.': 'Route calculée à l’intérieur de la zone couverte par le modèle régional de courants ; elle ne pouvait pas en sortir.',
   'The current grid does not cover every point and time the router reads': 'La grille de courants ne couvre pas tous les points et instants lus par le routeur',
   'This departure could not be routed.': 'Aucune route n’a pu être calculée pour ce départ.',
   "Drawing forecast…": "Tracé de la prévision…",
