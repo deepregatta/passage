@@ -181,6 +181,8 @@ const FR = {
   'Stop comparing': 'Arrêter la comparaison',
   'Comparison stopped.': 'Comparaison arrêtée.',
   'Comparison stopped: the route or departure changed. Compare again.': 'Comparaison arrêtée\u00A0: la route ou le départ a changé. Relancez la comparaison.',
+  'Comparison stopped: your limits changed. Compare again.': 'Comparaison arrêtée\u00A0: vos limites ont changé. Relancez la comparaison.',
+  'Comparison cleared: your limits changed. Compare again.': 'Comparaison effacée\u00A0: vos limites ont changé. Relancez la comparaison.',
   'The comparison could not finish. Try again.': 'La comparaison n’a pas pu aboutir. Réessayez.',
   // Refining a departure comparison (RefineControl.jsx, usePlannerController.jsx)
   'Refine around the least-exposure times': 'Affiner autour des heures les moins exposées',

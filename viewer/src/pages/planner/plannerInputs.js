@@ -76,12 +76,15 @@ export const scanBasis = ({ mode, endpoints, waypoints, polarId, speeds, polarPe
 /**
  * A comparison stays valid while the route inputs it was run for are unchanged
  * and the departure is the one it was anchored at or one of its candidates (picking
- * a time from the grid is how the sailor moves along it). A comparison saved
- * without a basis predates this check and is left alone.
+ * a time from the grid is how the sailor moves along it) and the sailor's limits are
+ * the ones it was ranked against. A comparison saved without a basis predates this
+ * check and is left alone, as is one whose limits revision is unknown on either side
+ * (a comparison from before it was recorded, limits not loaded yet).
  */
 export function scanIsCurrent(scan, draft) {
   if (!scan?.basis) return true;
   if (scan.basis !== scanBasis(draft)) return false;
+  if (scan.profileRevision && draft.profileRevision && scan.profileRevision !== draft.profileRevision) return false;
   const departureMs = Date.parse(localDateTimeToIso(draft.departureLocal) ?? '');
   if (!Number.isFinite(departureMs)) return false;
   return departureMs === scan.anchorMs

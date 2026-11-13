@@ -7,6 +7,7 @@ import {
   changedRoutingInputs, draftSignature, polarPercentNote, routingInputKey, scanBasis, scanIsCurrent, staleRouteMessage,
   validPolarPercent,
 } from '../src/pages/planner/plannerInputs.js';
+import { localDateTimeToIso } from '../src/lib/format.js';
 import { horizonText, validateDeparture } from '../src/pages/planner/departureInput.js';
 
 const RAW_PROGRESS = [
@@ -40,6 +41,8 @@ it.each([
   ['Stop comparing', 'Arrêter la comparaison'],
   ['Comparison stopped.', 'Comparaison arrêtée.'],
   ['Comparison stopped: the route or departure changed. Compare again.', 'Comparaison arrêtée\u00A0: la route ou le départ a changé. Relancez la comparaison.'],
+  ['Comparison stopped: your limits changed. Compare again.', 'Comparaison arrêtée\u00A0: vos limites ont changé. Relancez la comparaison.'],
+  ['Comparison cleared: your limits changed. Compare again.', 'Comparaison effacée\u00A0: vos limites ont changé. Relancez la comparaison.'],
   ['The comparison could not finish. Try again.', 'La comparaison n’a pas pu aboutir. Réessayez.'],
 ])('translates the comparison control and stop message "%s"', (english, french) => {
   expect(translateText(english, 'fr')).toBe(french);
@@ -157,6 +160,17 @@ it('keeps a departure comparison while the departure is its anchor or one of its
   // a comparison without a basis predates this check
   expect(scanIsCurrent({ candidates }, draft())).toBe(true);
   expect(scanIsCurrent(null, draft())).toBe(true);
+});
+
+it('drops a departure comparison when the limits it was ranked against changed', () => {
+  const here = '2026-09-12T08:00';
+  const anchorMs = Date.parse(localDateTimeToIso(here));
+  const scan = { candidates: [], basis: scanBasis(draft()), anchorMs, profileRevision: 'rev-a' };
+  expect(scanIsCurrent(scan, draft({ departureLocal: here, profileRevision: 'rev-a' }))).toBe(true);
+  expect(scanIsCurrent(scan, draft({ departureLocal: here, profileRevision: 'rev-b' }))).toBe(false);
+  // limits not loaded yet, or a comparison saved before the revision was recorded: left alone
+  expect(scanIsCurrent(scan, draft({ departureLocal: here }))).toBe(true);
+  expect(scanIsCurrent({ ...scan, profileRevision: undefined }, draft({ departureLocal: here, profileRevision: 'rev-b' }))).toBe(true);
 });
 
 it('changes the message signature with every input a status can be about', () => {

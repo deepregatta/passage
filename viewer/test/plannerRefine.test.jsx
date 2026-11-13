@@ -181,10 +181,7 @@ it('says when none of the added times could be assessed, with no second row', as
     .toBe('Affinage\u00A0: aucune des heures de départ ajoutées n’a pu être évaluée. Elles figurent sous Départs non évalués.');
 });
 
-it('releases the held inputs when the comparison is dropped, cleared or left, or its forecast was replaced; not for changed limits', async () => {
-  act(() => useApp.setState({ limits: { ...limits, max_gust_kt: limits.max_gust_kt + 5 } }));
-  expect(releaseRefinable).not.toHaveBeenCalled(); // limits can be changed back
-  act(() => useApp.setState({ limits }));
+it('releases the held inputs when the comparison is dropped, cleared or left, its forecast was replaced or its limits changed', async () => {
   page.runs = { weather: { layer: 'weather', run_id: 'w2' } };
   act(() => usePlanner.getState().patch({ name: 'Solent hop' }));
   expect(releaseRefinable).toHaveBeenCalledWith(5); // replaced runs never come back
@@ -192,6 +189,14 @@ it('releases the held inputs when the comparison is dropped, cleared or left, or
   page.runs = { weather: { layer: 'weather', run_id: 'w1' } };
   act(() => usePlanner.getState().patch({ polarPercent: 90 })); // the comparison is no longer current
   await waitFor(() => expect(usePlanner.getState().scan).toBeNull());
+  expect(releaseRefinable).toHaveBeenCalledWith(5);
+});
+
+it('drops the comparison when the limits change, says why, and releases its held inputs', async () => {
+  act(() => useApp.setState({ limits: { ...limits, max_gust_kt: limits.max_gust_kt + 5 } }));
+  await waitFor(() => expect(usePlanner.getState().scan).toBeNull());
+  expect(screen.queryByRole('region', { name: 'Departure comparison' })).toBeNull();
+  expect(screen.getByText('Comparison cleared: your limits changed. Compare again.')).toBeInTheDocument();
   expect(releaseRefinable).toHaveBeenCalledWith(5);
 });
 
@@ -271,10 +276,24 @@ it('checks the runs again at the click, and never refines on newer ones', async 
   expect(runRefineJob).not.toHaveBeenCalled();
 });
 
-it('is unavailable when the limits changed since the comparison', async () => {
+it('stops a refinement when the limits change while it runs, and never shows its result', async () => {
+  fireEvent.click(refineButton());
+  await waitFor(() => expect(runRefineJob).toHaveBeenCalled());
   act(() => useApp.setState({ limits: { ...limits, max_gust_kt: limits.max_gust_kt + 5 } }));
-  expect(refineButton()).toBeDisabled();
-  expect(within(comparison()).getByText('Your limits have changed since this comparison. Compare again to refine.')).toBeInTheDocument();
+  expect(job.options.signal.aborted).toBe(true);
+  await waitFor(() => expect(screen.getByText('Comparison stopped: your limits changed. Compare again.')).toBeInTheDocument());
+  expect(usePlanner.getState().scan).toBeNull();
+});
+
+it('refuses at the click when the limits changed since the comparison (defence behind the dropped comparison)', async () => {
+  const button = refineButton();
+  // the click reads the store directly, as when the limits change between a render and the click
+  const real = useApp.getState.bind(useApp);
+  const spy = vi.spyOn(useApp, 'getState').mockImplementation(() => ({ ...real(), limits: { ...limits, max_gust_kt: limits.max_gust_kt + 5 } }));
+  fireEvent.click(button);
+  await waitFor(() => expect(within(comparison()).getByRole('alert')).toHaveTextContent('Your limits have changed since this comparison. Compare again to refine.'));
+  spy.mockRestore();
+  expect(runRefineJob).not.toHaveBeenCalled();
 });
 
 it.each([
@@ -313,5 +332,7 @@ it('says the refinement and its reasons in French', () => {
     ['The forecast has been updated since this comparison. Compare again to refine.', 'La prévision a été mise à jour depuis cette comparaison. Relancez la comparaison pour l’affiner.'],
     ['This departure time leaves the current grid used by the rest of the comparison.', 'Cette heure de départ sort de la grille de courants utilisée pour le reste de la comparaison.'],
     ['This departure time\'s route leaves the current grid used by the rest of the comparison.', 'La route de cette heure de départ sort de la grille de courants utilisée pour le reste de la comparaison.'],
+    ['Comparison stopped: your limits changed. Compare again.', 'Comparaison arrêtée\u00A0: vos limites ont changé. Relancez la comparaison.'],
+    ['Comparison cleared: your limits changed. Compare again.', 'Comparaison effacée\u00A0: vos limites ont changé. Relancez la comparaison.'],
   ]) expect(fr(en)).toBe(french);
 });

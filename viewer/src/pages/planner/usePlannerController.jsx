@@ -30,6 +30,9 @@ export const validSpeed = (value) => Number.isFinite(value) && value > 0;
 /** What the scan button's status says when a comparison is stopped. */
 export const SCAN_STOPPED = 'Comparison stopped.';
 export const SCAN_STOPPED_STALE = 'Comparison stopped: the route or departure changed. Compare again.';
+/** Said when the limits changed while a comparison ran, and when they changed under the one on show. */
+export const SCAN_STOPPED_LIMITS = 'Comparison stopped: your limits changed. Compare again.';
+export const SCAN_CLEARED_LIMITS = 'Comparison cleared: your limits changed. Compare again.';
 /** What the refine control's status says when a refinement is stopped: the comparison stays as it was. */
 export const REFINE_STOPPED = 'Refining stopped. The comparison is unchanged. Compare again to refine.';
 /** Why a comparison cannot be refined (the control is shown disabled with this reason). */
@@ -74,9 +77,14 @@ export default function usePlannerController() {
   const patch = usePlanner((s) => s.patch);
   const inputKey = routingInputKey({ endpoints, polarId, departureLocal, polarPercent });
   const computed = storedComputed?.inputKey === inputKey ? storedComputed : null;
-  // A comparison belongs to the boat, route points and departures it was run for.
-  const scan = storedScan && scanIsCurrent(storedScan, { mode, endpoints, waypoints, polarId, speeds, departureLocal, polarPercent })
-    ? storedScan : null;
+  // A comparison belongs to the boat, route points and departures it was run for,
+  // and to the limits it was ranked against: changed limits drop it (and the page says so).
+  const limits = useApp((s) => s.limits);
+  const limitsRevision = useMemo(() => (limits ? contentHash(limits) : null), [limits]);
+  const scanDraft = { mode, endpoints, waypoints, polarId, speeds, departureLocal, polarPercent };
+  const scan = storedScan && scanIsCurrent(storedScan, { ...scanDraft, profileRevision: limitsRevision }) ? storedScan : null;
+  // Dropped for the limits alone: the route and departure still match.
+  const droppedForLimits = Boolean(storedScan && !scan && scanIsCurrent(storedScan, scanDraft));
   // The key of the last computed route that was thrown away, so the page can say why.
   const [discardedKey, setDiscardedKey] = useState(null);
   useEffect(() => {
@@ -87,8 +95,12 @@ export default function usePlannerController() {
     }
   }, [storedComputed, computed, patch]);
   useEffect(() => {
-    if (storedScan && !scan) patch({ scan: null });
-  }, [storedScan, scan, patch]);
+    if (!storedScan || scan) return;
+    patch({ scan: null });
+    if (droppedForLimits) {
+      setNoticeState({ kind: ACTION.scan, text: SCAN_CLEARED_LIMITS, signature: draftSignature(usePlanner.getState()) });
+    }
+  }, [storedScan, scan, droppedForLimits, patch]);
   /** Switching tabs carries the route across: a drawn route hands its first and
    * last waypoint to the router as start/finish, and endpoints hand themselves
    * back — so "Compute route" is ready to run straight after a switch. */
@@ -312,6 +324,7 @@ export default function usePlannerController() {
     try {
       if (!useApp.getState().limits) await useApp.getState().ensureLimits();
       draft = captureActionDraft({ route, profile: useApp.getState().limits, departureUtc });
+      if (current()) run.profileRevision = draft.profileRevision;
     } catch (e) {
       if (!current()) return;
       scanRunRef.current = null;
@@ -373,8 +386,10 @@ export default function usePlannerController() {
     const departureMs = Date.parse(localDateTimeToIso(departureLocal) ?? '');
     const sameRoute = scanBasis({ mode, endpoints, waypoints, polarId, speeds, polarPercent }) === run.basis;
     const sameTimes = departureMs === run.anchorMs || run.departures.includes(departureMs);
+    const sameLimits = !run.profileRevision || !limitsRevision || run.profileRevision === limitsRevision;
     if (!sameRoute || !sameTimes) stopScan(SCAN_STOPPED_STALE);
-  }, [mode, endpoints, waypoints, polarId, speeds, polarPercent, departureLocal, stopScan]);
+    else if (!sameLimits) stopScan(SCAN_STOPPED_LIMITS);
+  }, [mode, endpoints, waypoints, polarId, speeds, polarPercent, departureLocal, limitsRevision, stopScan]);
   // Leaving the planner stops a comparison silently.
   useEffect(() => () => {
     const run = scanRunRef.current;
@@ -385,13 +400,11 @@ export default function usePlannerController() {
   // Refining the comparison on show: why it cannot run (null when it can), and the times it would add.
   // Re-rendered whenever the runner's held inputs change (a refinement taken, a Worker that failed or ended).
   useSyncExternalStore(subscribeRefinable, refinableSnapshot);
-  const limits = useApp((s) => s.limits);
   const refinement = useMemo(() => (scan && scan.candidates.length > 0 && !scan.refined ? refinementDepartures(scan) : null), [scan]);
   const refineReason = (() => {
     if (!refinement) return null;
     if (refinement.departures.length === 0) return REFINE_REASON.nothing;
     if (!refineHeld(scan.scanId)) return REFINE_REASON.notHeld;
-    if (scan.profileRevision && limits && contentHash(limits) !== scan.profileRevision) return REFINE_REASON.limits;
     const runs = runsDigest(forecastStore());
     if (scan.runsDigest && runs && runs !== scan.runsDigest) return REFINE_REASON.forecast;
     return null;
@@ -400,7 +413,8 @@ export default function usePlannerController() {
   // decoded tiles, routing and current grids, records). Release them as soon as it can no longer be
   // refined: the comparison is replaced, dropped or cleared (any change of the comparison on show
   // releases the previous one), the planner is left (unmount), or its forecast runs were replaced
-  // (the page's runs only move forward). Changed limits keep them: the limits can be changed back.
+  // (the page's runs only move forward). Changed limits drop the comparison, so they release it
+  // through the scanId cleanup below; the action-time guard in runRefine is only a defence.
   const scanId = scan?.scanId ?? null;
   useEffect(() => () => { if (scanId !== null) releaseRefinable(scanId); }, [scanId]);
   useEffect(() => {
@@ -416,6 +430,7 @@ export default function usePlannerController() {
       kind: ACTION.refine,
       controller: new AbortController(),
       basis: held.basis,
+      profileRevision: held.profileRevision,
       anchorMs: held.anchorMs,
       departures: [...held.candidates.map((c) => Date.parse(c.departure_utc)), ...departures.map((iso) => Date.parse(iso))],
     };

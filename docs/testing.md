@@ -200,8 +200,8 @@ page. That is the comparison's whole working set (its pinned store with up to
 64 MB of decoded tiles, its grids and records), so it is released as soon as the
 comparison can no longer be refined: after the refinement, on Stop, a failure or
 a Worker error, at the next comparison, and when the page drops the comparison
-(cleared, no longer current, the planner left, its forecast runs replaced); the
-page then posts `release` to the Worker. Changed limits keep it. `scanDepartures(base, departures, onCandidate, { refinable: true })` adds
+(cleared, no longer current (including changed limits), the planner left, its forecast runs replaced); the
+page then posts `release` to the Worker. Changed limits drop the comparison, so they release it too. `scanDepartures(base, departures, onCandidate, { refinable: true })` adds
 the engine's refinement data (per candidate: its event keys, absolute gust
 metrics and a reduced hour profile; the scan's departures and current input);
 without the option the result is unchanged, and the scan golden still passes
@@ -233,11 +233,11 @@ byte for byte.
   newer comparison releases them, a Worker failing between jobs is ended and its
   subscribers told at once, `releaseRefinable` in the Worker and in-page paths.
 - `viewer/test/plannerRefine.test.jsx`: the action, its count, progress, Stop,
-  stale inputs, refusal when the forecast runs or limits changed (at render and
-  at the click), failures that never retry on other data, the second row with
+  stale inputs, a refinement stopped when the limits change while it runs, refusal when the
+  forecast runs changed (at render and at the click) and, as a defence, when the limits changed at the click, failures that never retry on other data, the second row with
   the mark and ties, the wording when no added time was assessed and when only
   the Typical ranking exists, each message shown once, the release of the held
-  inputs (dropped, cleared, left, forecast replaced; not for changed limits),
+  inputs (dropped, cleared, left, forecast replaced, limits changed),
   French. `departureComparison.test.jsx`: the row under its
   own day and the French tooltip. `downloadQuote.test.js` and
   `plannerDownloadQuote.test.jsx`: the refine download line.
