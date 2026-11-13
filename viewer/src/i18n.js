@@ -1836,6 +1836,11 @@ const FR_FRAGMENTS = [
   [/\bstrong winds while you are on this stretch\b/gi, 'vents forts pendant ce tronçon'],
   [/\blight winds while you are on this stretch\b/gi, 'vents faibles pendant ce tronçon'],
   // Departure-grid tooltip: the scenario count and the tie note sit inside one joined title.
+  // The title opens with the time, "local time (zone)" and the compact verdict (SCAN_VERDICT). Together,
+  // so the verdict words, which are common English words, are only replaced here; "limits" would
+  // otherwise reach the generic rule below and leave "within limites".
+  [/\blocal time \(([^()]*)\) · (within limits|approaching|exceeds|models disagree|official warning)(?= · |$)/g, (_match, zone, verdict) => `heure locale (${zone}) · ${FR[verdict]}`],
+  [/(≈?\d+) h passage\b/g, '$1 h de traversée'],
   // French counts 0 and 1 as singular.
   [/\b(\d+) of (\d+) forecast scenarios exceed a limit\b/g, (_match, exceed, total) => `${exceed} scénario${Number(exceed) > 1 ? 's' : ''} sur ${total} dépasse${Number(exceed) > 1 ? 'nt' : ''} une limite`],
   [/\beffectively tied with the least-exposure time\b/g, 'à égalité effective avec l’heure la moins exposée'],
