@@ -8,6 +8,8 @@
  *   npx tsx engine/scripts/make-scan-golden.ts --root <dir>
  * After an intentional change to a scan's result, regenerate from this checkout:
  *   npx tsx engine/scripts/make-scan-golden.ts
+ * Regenerated so on 2026-11-13: checks record the current grid's time step
+ * (`time_step_h`, 6 on this scan's tile grid), the golden's only change.
  */
 import { expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';

@@ -6,7 +6,7 @@
  * record of the current grid it read (`currentInputRecord`), never from other feeds.
  */
 
-import { currentInputRecord } from '@deepweather/engine';
+import { currentInputRecord, currentRecordFromTiles } from '@deepweather/engine';
 import { fmtTextTime } from './format.js';
 import { routeSummaryEmulated } from './routeSummaryLines.js';
 import { currentCreditLine } from './credits.js';
@@ -17,8 +17,9 @@ import { currentModelFamily, isScenarioId, tileModelId } from './sourceNames.js'
  * dataset notes (engine/src/export/gribDatasets.ts):
  * - `tiles_global`: tile currents of the global family (GLO12) are 6-hourly and carry no tide;
  * - `global`: a prepared global grid carries no tide, and its time step is not recorded;
- * - `regional_tide`: an IBI grid includes tide; its time step is not recorded
- *   (the factory may coarsen an hourly dataset), so "hourly" is left out;
+ * - `regional_tide`: an IBI grid includes tide; "hourly" is left out, because the
+ *   factory may coarsen an hourly dataset and checks saved before 2026-11-13 do not
+ *   record the step (a recorded hourly step shows as the with/against line instead);
  * - `not_recorded`: any other family, an unknown id, or no record.
  * Every caveat is followed by CURRENT_DISCLAIMER (docs/forecast-tile-format.md).
  */
@@ -31,8 +32,6 @@ export const CURRENT_CAVEATS = {
 
 /** The IBI GRIB note's closing sentence, reused verbatim with its French: the one permitted use of the term. */
 export const CURRENT_DISCLAIMER = 'Not an official tidal-stream prediction.';
-
-const isTiles = (record) => record.current_source === 'tiles' || record.source === 'tiles' || tileModelId(record.model) !== null;
 
 /**
  * The current model the check recorded, named by family (null: "Model not
@@ -53,7 +52,7 @@ export function currentSource(findings) {
 function currentFamilyOf(findings) {
   const record = currentInputRecord(findings);
   if (!record) return { family: null, tiles: false };
-  const tiles = isTiles(record);
+  const tiles = currentRecordFromTiles(record);
   return { family: currentModelFamily(tiles ? tileModelId(record.model) : record.model), tiles };
 }
 
@@ -131,6 +130,21 @@ function wacLine(summary, hazard) {
 }
 
 /**
+ * Hours with and against the current on the expected timing, with the hours
+ * across the track or weak so the figures add up (hours with no current value
+ * are the separate "No current value" line). Only when the engine gives them:
+ * an hourly current grid recorded by the check, from a product that includes
+ * tide. Every route's current is one value at each leg's midpoint, which the
+ * line says. Never "tidal stream", "fair" or "foul": the boat goes with or
+ * against the current.
+ * @param {import('@deepweather/engine').CurrentSummary['with_against']} figures
+ */
+function withAgainstLine(figures) {
+  if (!figures) return null;
+  return `On the expected timing, at each leg’s midpoint: ${figures.with_hours} h with the current · ${figures.against_hours} h against · ${figures.across_or_weak_hours} h across or weak (${figures.threshold_kt} kt or less along the track)`;
+}
+
+/**
  * @param {import('@deepweather/engine').CurrentSummary | null} summary from the engine's currentSummary
  * @param {{ legNumber?: (legId: string) => number | string, hazard?: boolean }} [options]
  *   legNumber: the leg's number on the page; hazard: whether the check raised T-WAC-01
@@ -145,6 +159,8 @@ export function currentSummaryLines(summary, { legNumber = (legId) => String(leg
   }
   const wac = wacLine(summary, hazard);
   if (wac) lines.push({ key: 'wac', text: wac });
+  const withAgainst = withAgainstLine(summary.with_against);
+  if (withAgainst) lines.push({ key: 'with_against', text: withAgainst });
   if (summary.unavailable_hours > 0) lines.push({ key: 'missing', text: `No current value for ${summary.unavailable_hours} h of the passage.` });
   return lines;
 }

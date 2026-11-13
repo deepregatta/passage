@@ -24,6 +24,23 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   per-model `run`/`model_runs`, and duplicate forecast_tiles inputs are
   collapsed. Snapshots computed earlier keep their IDs and are not reopened by
   an exact retry; the committed demo snapshots are unchanged.
+- Current grid time step (2026-11-13, owner-approved change to what a check
+  saves): a check's `currents` input record in `findings.inputs.forecast_tiles`
+  gains `time_step_h`, the largest interval of the whole time axis of the frozen
+  grid it sampled (null when undeterminable), optional and additive in
+  `contracts/findings.schema.json`. It is derived from a decision input already
+  fingerprinted in full (the frozen grid with its time axis), and the findings
+  record itself is not hashed, so `decision_hash`, `snapshot_id`,
+  `route_revision`, the archived decision inputs and their content digests are
+  unchanged; only `findings.json` bytes gain the field. Engine semantics stay
+  `passage-audit-3` and the identity version stays 2: evaluation is unchanged,
+  and a bump would move every saved identity, which was not approved. As a
+  consequence an exact retry of a check saved before the change reopens that
+  original snapshot, without the field (write-once), and such passages show no
+  hours with and against the current. Bumping the semantics would instead give
+  every new check a new identity and the field on retry.
+  `engine/test/legacySnapshot.test.ts` proves this on a committed check saved by
+  the earlier engine.
 - Successful exact retries reopen the complete original snapshot. Partial,
   legacy or conflicting existing artifacts are never overwritten or accepted
   as a retry. The manifest remains the completion marker; frozen decision

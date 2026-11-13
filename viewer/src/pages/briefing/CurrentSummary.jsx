@@ -14,8 +14,9 @@ import {
  * Names the current model the check recorded by its family ("Model not recorded" when nothing
  * identifies one), with that source's caveat and the not-a-tidal-stream-prediction disclaimer.
  * The heading's EMULATED stamp follows the current record; the wind-against-current line, which
- * depends on wind and current, is stamped when either is emulated. No hours with and against the
- * current: no saved record shows whether the source resolves the tide.
+ * depends on wind and current, is stamped when either is emulated. Hours with and against the
+ * current only when the check recorded an hourly grid of a product that includes tide (engine
+ * currentSummary); passages saved before checks recorded the step show the block without them.
  * A Copernicus model also gets Copernicus Marine's credit sentence, with the product's DOI where one is
  * recorded (credits.js), shown as written in French too. */
 export default function CurrentSummary({ findings, route = null }) {

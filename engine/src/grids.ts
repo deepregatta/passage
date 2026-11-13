@@ -145,3 +145,34 @@ export function currentSpeedKt(sample: GridSample): number {
 }
 
 const round2 = (x: number) => Math.round(x * 100) / 100;
+
+/**
+ * The time step of a grid, in hours: the LARGEST interval between consecutive
+ * times of its whole time axis, read from the axis itself (never from a dataset
+ * id: the factory may thin an hourly-named dataset to 3-hourly). The largest
+ * interval is conservative: a grid counts as hourly only when every interval of
+ * it is an hour or less. Null when it cannot be determined: fewer than two
+ * times, a time that does not parse, or times that do not strictly increase
+ * (the axis GridSampler also refuses).
+ */
+export function gridTimeStepHours(grid: Pick<RegionGrid, 'time_axis'>): number | null {
+  const axis = Array.isArray(grid.time_axis) ? grid.time_axis : [];
+  if (axis.length < 2) return null;
+  let largest = 0;
+  let previous = Number.NaN;
+  for (const [i, time] of axis.entries()) {
+    let at: number;
+    try {
+      at = parseUtc(time);
+    } catch {
+      return null;
+    }
+    if (!Number.isFinite(at)) return null;
+    if (i > 0) {
+      if (!(at > previous)) return null;
+      largest = Math.max(largest, at - previous);
+    }
+    previous = at;
+  }
+  return largest / 3_600_000;
+}

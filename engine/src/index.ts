@@ -31,13 +31,15 @@ export { scenarioSpread, SCENARIO_SPREAD_MIN_MEMBERS } from './scenarioSpread.js
 export type { ScenarioSpread, ScenarioSpreadValues } from './scenarioSpread.js';
 export { routeSummary, WIND_BANDS } from './routeSummary.js';
 export type { RouteSummary, WindBandId } from './routeSummary.js';
-export { currentInputRecord, currentSummary } from './currentSummary.js';
+export { currentInputRecord, currentSummary, CURRENT_ALONG_TRACK_THRESHOLD_KT } from './currentSummary.js';
+export { CURRENT_PRODUCTS, currentProduct, currentRecordProduct, currentRecordFromTiles, tileModelId } from './currentProducts.js';
+export type { CurrentProductId } from './currentProducts.js';
 export type { CurrentSummary } from './currentSummary.js';
 export { routeBbox, passageMaxHours } from './fetch/liveGrids.js';
 export { currentGridBbox, selectRoutingCurrent, routeOnSelectedCurrent, OUTSIDE_SELECTED_CURRENT } from './currentInput.js';
 export type { RoutingCurrentSelection, RoutingOutcome } from './currentInput.js';
 export type { RouteBbox } from './fetch/liveGrids.js';
-export { GridSampler, alongCourseKt, currentSetDeg, currentSpeedKt } from './grids.js';
+export { GridSampler, alongCourseKt, currentSetDeg, currentSpeedKt, gridTimeStepHours } from './grids.js';
 export type { RegionGrid, GridSample } from './grids.js';
 export { computeRoute, CurrentGapError } from './routing/isochrone.js';
 export type { RoutingRequest, RoutingResult } from './routing/isochrone.js';

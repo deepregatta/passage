@@ -118,8 +118,15 @@ available, and then no passage distance), time weighting inside a leg that
 starts and ends between hours, the strongest current over every audited hour of
 the arrival range, wind-against-current hours on the expected timing (counted
 once) and as distinct flagged instants anywhere in the arrival range, the same
-hour total as the route summary, and the absence of hours with and against the
-current. A real check on a drawn route whose 3.1 kt current arrives only in the
+hour total as the route summary, and hours with and against the current: exact
+counts of a current turning through with, against, across, weak (0.5 kt either way
+counts as weak) and missing hours, overlapping legs counted once, figures adding up
+to the expected-timing hours (within one hour of the nominal passage time), a real
+check on an hourly IBI-named grid against an independent count, the same passage
+reversed 180 degrees swapping with and against, and no figures for a coarse,
+absent or null step, any tile grid (the 6-hourly layer, or IBI tiles with an hourly step), emulated grids (a real check on a synthetic hourly IBI-named grid records the step and gets no figures), a product whose tide is not recorded,
+no model, two current records or an older check's legacy record; the committed
+saved checks run without throwing and get none. A real check on a drawn route whose 3.1 kt current arrives only in the
 slow arrival range raises T-WAC-01: the strongest current is at least that
 evidence's value, at its hour, and the expected-timing count is zero. On the
 saved `routed-current.json` route (2 kt following current) the distance equals a
@@ -128,6 +135,23 @@ for an edited route, another current run, a route computed without currents and,
 for a route stamped as routed on a prepared grid, a different recorded digest
 (the same digest uses them). The `current_run` guard stays: a test shows a tile
 record and a route both without a run would otherwise match.
+`engine/test/currentTimeStep.test.ts` covers the step a check records on its
+`currents` input record (`time_step_h`): the largest interval of the whole time axis
+of the grid it sampled (hourly, 3-hourly under an hourly-sounding dataset id, the
+6-hourly tile grid through `runAnalysis` with a stubbed `getCurrentGrid` (not a real tile mosaic), irregular, sub-hourly, single-time and
+unreadable axes), that the provenance cannot set it, that the decision inputs do
+not contain it and two checks of the same inputs keep one identity, and the
+findings schema with and without it. `engine/test/legacySnapshot.test.ts` opens
+`engine/test/fixtures/legacy-current-snapshot/`, a complete check on an hourly
+prepared grid saved by the engine before the step was recorded: it validates,
+its saved decision inputs hash to its `decision_hash`, the same inputs checked
+now give the same `decision_hash`, `snapshot_id` and `route_revision` and findings
+that differ only by the step, an exact retry reopens it with every file
+byte-identical, and its block has every figure and no hours with and against.
+`viewer/test/currentWithAgainst.test.jsx` renders that line for an hourly IBI
+record against an independent count, the block unchanged for every other source
+and for the legacy fixture, emulated values with the heading stamp and no with/against or credit line, and the French
+whole line on the real French path (an anchored pattern: the line is composed).
 `viewer/test/currentSummary.test.jsx` renders the block from the demo findings
 with injected current values, in English and French, against a minute-by-minute
 reading; checks the null case on the committed saved checks, a strongest current
@@ -401,7 +425,16 @@ is implied.
   `git archive fa31563 engine config | tar -x -C <dir>` and
   `npx tsx engine/scripts/make-scan-golden.ts --root <dir>`; after an intentional
   change to a scan's result, regenerate it from the checkout with
-  `npx tsx engine/scripts/make-scan-golden.ts` and review the diff.
+  `npx tsx engine/scripts/make-scan-golden.ts` and review the diff. It was
+  regenerated so on 2026-11-13, when checks began recording the current grid's
+  time step: the only change is `"time_step_h": 6` on its tile currents record.
+- `engine/test/fixtures/legacy-current-snapshot/` is a complete saved check on an
+  hourly prepared current grid written by the engine before checks recorded the
+  time step: `git archive f75248e engine config | tar -x -C <dir>` and
+  `npx tsx engine/scripts/make-legacy-current-snapshot.ts --root <dir>` (check
+  defined in `engine/test/helpers/legacyCurrentSnapshot.ts`, invented values). It
+  is legacy evidence for `legacySnapshot.test.ts`, `currentWithAgainst.test.jsx` and
+  the Python contract test: never regenerate it from a newer engine.
 - `engine/test/fixtures/grib/` contains the golden GRIB2 export files and their
   `*.expected.json`. An engine test requires a byte-identical re-encode, and
   `analysis/tests/test_grib_export_contract.py` decodes every file with ecCodes

@@ -2,7 +2,9 @@
  * What the current did over the passage, from the findings a snapshot already
  * saves and, for a computed route, the route saved beside them. Nothing here
  * changes Findings, a schema, a golden or an identity hash, so passages saved
- * before this existed get it too.
+ * before this existed get it too, except the hours with and against the
+ * current: they need the current grid's time step, which checks record on
+ * their `currents` input record (`time_step_h`) only since 2026-11-13.
  *
  * - Distance gained or lost (nm, positive is gained), on the nominal timing:
  *   - `routed_timing`: a computed route's own figures, leg by leg
@@ -25,14 +27,25 @@
  *   (`nominalPassageHours`, as routeSummary counts them), and separately the
  *   distinct flagged hour instants anywhere in the arrival range.
  *
- * Hours with and against the current are deliberately absent: they are only
- * meaningful from an hourly source that resolves the tidal cycle, and no saved
- * record states the current grid's time step or whether it includes tide (a
- * recorded dataset id cannot: the factory may coarsen an hourly dataset).
+ * - Hours with and against the current (`with_against`), on the nominal timing
+ *   (`nominalPassageHours`, so no hour is counted twice): an hour is "with" when
+ *   the current's component along the leg's track (`along_kt`, + with the boat)
+ *   is more than CURRENT_ALONG_TRACK_THRESHOLD_KT, "against" when it is less than
+ *   minus that, otherwise across or weak; an hour with no current value is not
+ *   counted in any of the three (it is `unavailable_hours`). Like every current
+ *   figure here, each hour reads the one sample at its leg's midpoint.
+ *   Given only when the figures can resolve the tidal cycle: the check recorded
+ *   exactly one current grid, whose time step (`time_step_h`, read from the grid's
+ *   own time axis when the check ran) is an hour or less, from a product that
+ *   includes tide (currentProducts.ts), not built from tiles and not emulated.
+ *   Checks saved before the step was recorded, coarser grids, tile grids,
+ *   emulated grids, products without tide or not recorded, and checks with more
+ *   than one current record get null.
  */
 
 import { parseUtc } from './eta.js';
 import { contentHash } from './hash.js';
+import { currentRecordFromTiles, currentRecordProduct } from './currentProducts.js';
 import { nominalPassageHours } from './routeSummary.js';
 import type { Findings, LegFinding, LegHour, Route } from './types.js';
 
@@ -49,7 +62,29 @@ export interface CurrentSummary {
   wind_against_current_hours: number;
   /** distinct hour instants with that flag anywhere in the arrival range (every audited hour of every leg) */
   wind_against_current_arrival_hours: number;
+  /**
+   * Hours on the nominal timing with the current along the track, against it,
+   * and across or weak; with + against + across_or_weak + unavailable_hours =
+   * total_hours. Null unless the recorded current grid is hourly and includes tide.
+   */
+  with_against: {
+    with_hours: number;
+    against_hours: number;
+    across_or_weak_hours: number;
+    /** the recorded grid's time step, hours */
+    time_step_h: number;
+    threshold_kt: number;
+  } | null;
 }
+
+/**
+ * A current that matters to progress, in kt along the track. Below it an hour
+ * is "across or weak". Half a knot is about a tenth of a cruising yacht's 5 to 6
+ * kt, a change in speed over the ground a skipper would notice. It is a display
+ * threshold, not a claim about the model's accuracy. Not the 1 kt of
+ * findings/currents.ts, which is a wind-against-current sea-state threshold.
+ */
+export const CURRENT_ALONG_TRACK_THRESHOLD_KT = 0.5;
 
 const HOUR = 3_600_000;
 
@@ -78,6 +113,32 @@ export function currentInputRecord(findings: Findings | null | undefined): Recor
     ? (inputs.openmeteo as Array<Record<string, unknown>>).find((item) => item?.api === 'cmems-current-grid')
     : undefined;
   return legacy ?? null;
+}
+
+/**
+ * The recorded time step of the check's one current grid when that grid can
+ * resolve the tidal cycle (hourly or finer, from a product that includes tide,
+ * not a tile grid); null otherwise, and for a check with no record or more than one.
+ */
+function tideResolvingStep(findings: Findings): number | null {
+  const records = (findings.inputs?.forecast_tiles ?? []).filter((item) => item?.layer === 'currents' && item.available !== false);
+  if (records.length !== 1) return null;
+  const record = records[0]!;
+  // Tiles never: the audit reads only the 6-hourly global layer. If `currents-ibi`
+  // tiles become an audit source (plan C1 phase 2), lifting this is its own decision.
+  if (currentRecordFromTiles(record)) return null;
+  // Emulated values do not resolve a tidal cycle, whatever product id they carry.
+  if (record.source_kind === 'emulated' || record.mode === 'synthetic' || record.source === 'synthetic') return null;
+  // The step is pinned from the sampled grid's own axis (findings.ts writes it after the
+  // provenance), but the product is read from the record's `model`, which the action's
+  // provenance may set: for a prepared grid without a dataset id of its own,
+  // viewer/src/lib/preparedCurrent.js falls back to the latest.json pointer's `model`.
+  // The record cannot tell those two apart. Today the factory's pointer records no
+  // `model` (analysis latest.py), so that fallback gives "currents", which names no
+  // product, and the line is withheld.
+  const step = record.time_step_h;
+  if (!finite(step) || step <= 0 || step > 1) return null;
+  return currentRecordProduct(record)?.tide === true ? step : null;
 }
 
 /** The routed figures, when the saved route is the one the check audited, on the same current. */
@@ -177,11 +238,17 @@ export function currentSummary(findings: Findings | null | undefined, route?: Ro
   const hours = nominalPassageHours(findings);
   let sampled = 0;
   let wac = 0;
+  const along = { with: 0, against: 0, weak: 0 };
   for (const { hour } of hours) {
     if (!valid(hour.current)) continue;
     sampled += 1;
     if (hour.current.wind_against_current === true) wac += 1;
+    const component = hour.current.along_kt;
+    if (component > CURRENT_ALONG_TRACK_THRESHOLD_KT) along.with += 1;
+    else if (component < -CURRENT_ALONG_TRACK_THRESHOLD_KT) along.against += 1;
+    else along.weak += 1;
   }
+  const step = tideResolvingStep(findings);
   const routed = routedGain(findings, route);
   const sampledNm = routed === null ? sampledGain(findings) : null;
   return {
@@ -192,5 +259,12 @@ export function currentSummary(findings: Findings | null | undefined, route?: Ro
     strongest,
     wind_against_current_hours: wac,
     wind_against_current_arrival_hours: flagged.size,
+    with_against: step === null ? null : {
+      with_hours: along.with,
+      against_hours: along.against,
+      across_or_weak_hours: along.weak,
+      time_step_h: step,
+      threshold_kt: CURRENT_ALONG_TRACK_THRESHOLD_KT,
+    },
   };
 }

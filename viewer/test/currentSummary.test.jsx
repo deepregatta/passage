@@ -111,7 +111,7 @@ it('shows gain, strongest current and wind-against-current hours with the number
     DISCLAIMER,
   ]);
   expect(container.textContent.replace(DISCLAIMER, '')).not.toMatch(FORBIDDEN_EN);
-  // no hours with or against the current: no saved record shows a tide-resolving source
+  // no hours with or against the current: a 6-hourly global tile grid, recorded without a step
   expect(container.textContent).not.toMatch(/with the current|against the current/i);
 });
 

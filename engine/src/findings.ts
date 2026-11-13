@@ -7,7 +7,7 @@
  */
 
 import { computeRouteSchedules, parseUtc } from './eta.js';
-import { GridSampler } from './grids.js';
+import { GridSampler, gridTimeStepHours } from './grids.js';
 import { contentHash } from './hash.js';
 import { decisionInputs, routeRevision, IDENTITY_VERSION } from './identity.js';
 import { assessGates } from './hazards/tides.js';
@@ -203,6 +203,8 @@ export function assembleAudit(options: AssembleOptions, { savedIdentity }: { sav
       resolution_deg: grid.source.resolution_deg ?? null,
       ...(grid.source.mode === 'synthetic' ? { source_kind: 'emulated' } : {}),
       ...options.currentProvenance,
+      // From the frozen grid this audit sampled, after the provenance so nothing else can set it.
+      time_step_h: gridTimeStepHours(grid),
     });
   }
   if (!grid && options.currentProvenance) allMeta.push({ layer: 'currents', ...options.currentProvenance, available: false });

@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "snapshot_id": "snapshot_v2_3af3728b9a2828fd",
+  "sections": [
+    {
+      "id": "synoptic_story",
+      "title": "The weather system driving this",
+      "register_plain": "This run has no causal attribution. Reason: no prepared synoptic run was supplied.",
+      "register_pro": "Synoptic availability: unavailable (no prepared synoptic run was supplied). Route conditions and limit checks remain available, but this run does not attribute them to a weather system.",
+      "evidence_ids": [],
+      "glossary_terms": [
+        "model run"
+      ],
+      "availability": {
+        "status": "unavailable",
+        "reason": "no prepared synoptic run was supplied"
+      }
+    },
+    {
+      "id": "route_impact",
+      "title": "Route impact, leg by leg",
+      "register_plain": "What the forecast means for each stretch of your passage:",
+      "register_pro": "Per-leg conditions evaluated hourly across each leg's ETA occupancy window (slow/nominal/fast scenarios), course-relative.",
+      "evidence_ids": [],
+      "per_leg": [
+        {
+          "leg_id": "L1",
+          "register_plain": "Cherbourg, Passe de l'Ouest → Off Omonville-la-Rogue: moderate winds while you are on this stretch (Mon 20 Jul 06:00–Mon 20 Jul 08:00 UTC).",
+          "register_pro": "L1 Cherbourg, Passe de l'Ouest → Off Omonville-la-Rogue (7.91 nm, 294.8°T): sustained 10–13 kt, gusts to 18 kt across the ETA window Mon 20 Jul 06:00–Mon 20 Jul 08:00 UTC.",
+          "evidence_ids": []
+        },
+        {
+          "leg_id": "L2",
+          "register_plain": "Off Omonville-la-Rogue → NW of Cap de la Hague: moderate winds while you are on this stretch (Mon 20 Jul 07:22–Mon 20 Jul 09:45 UTC).",
+          "register_pro": "L2 Off Omonville-la-Rogue → NW of Cap de la Hague (9.26 nm, 293°T): sustained 10–13 kt, gusts to 18 kt across the ETA window Mon 20 Jul 07:22–Mon 20 Jul 09:45 UTC.",
+          "evidence_ids": []
+        }
+      ],
+      "glossary_terms": [
+        "gust",
+        "ensemble",
+        "ETA window"
+      ]
+    },
+    {
+      "id": "decision",
+      "title": "Against your declared limits",
+      "messages": {
+        "title": {
+          "message_id": "briefing.decision.title.v1",
+          "params": {}
+        },
+        "plain": [
+          {
+            "message_id": "briefing.decision.within.plain.v1",
+            "params": {}
+          }
+        ],
+        "pro": [
+          {
+            "message_id": "briefing.decision.within.pro.v1",
+            "params": {}
+          }
+        ]
+      },
+      "register_plain": "Forecast conditions stay inside the limits you declared for this departure.",
+      "register_pro": "All evaluated condition-hours remain below declared thresholds.",
+      "evidence_ids": []
+    },
+    {
+      "id": "what_could_change",
+      "title": "What could change",
+      "register_plain": "Next forecast update time unavailable. Check the published forecast before departure.",
+      "register_pro": "No future publication estimate is available from the loaded forecast metadata and known tile-pipeline schedules. Synthetic runs have no scheduled update.",
+      "evidence_ids": [],
+      "glossary_terms": [
+        "model run"
+      ]
+    },
+    {
+      "id": "unsupported",
+      "title": "Not assessed by this analysis",
+      "register_plain": "This briefing does NOT cover: waves (no marine forecast input), visibility and convection (no supporting model input), model comparison (no multi-model input), tidal gates & HW/LW heights (no tide data), official marine warnings (no feed configured), causal synoptic attribution (no prepared synoptic run), tropical systems, ice. Partly assessed: gusts. No warning here does not mean no risk.",
+      "register_pro": "Unassessed hazard classes: waves (no marine forecast input); visibility and convection (no supporting model input); model comparison (no multi-model input); tidal gates & HW/LW heights (no tide data); official marine warnings (no feed configured); causal synoptic attribution (no prepared synoptic run); tropical systems; ice. Partial capability coverage: gusts (limited inputs). Absence of a flag must not be read as absence of risk (brief §5).",
+      "evidence_ids": []
+    }
+  ],
+  "next_runs": []
+}

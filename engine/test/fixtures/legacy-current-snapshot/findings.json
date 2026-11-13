@@ -1,0 +1,355 @@
+{
+  "schema_version": 1,
+  "snapshot_id": "snapshot_v2_3af3728b9a2828fd",
+  "identity_version": 2,
+  "passage_id": "legacy-current-intent",
+  "route_revision": "b4bf7e04d63af2d7",
+  "decision_hash": "3af3728b9a2828fd",
+  "route_id": "cherbourg-hague-legacy-current",
+  "profile_id": "coastal-cruising-cautious",
+  "departure_utc": "2026-07-20T06:00:00Z",
+  "engine_version": "0.2.0",
+  "generated_at": "2026-07-19T18:00:00Z",
+  "inputs": {
+    "prepared_run_id": "cmems-ibi-20260719T19Z",
+    "synoptic_run_id": null,
+    "forecast_tiles": [
+      {
+        "source": "fixture",
+        "layer": "weather",
+        "model": "scenario",
+        "run_id": "scenario-legacy",
+        "cycle": "scenario",
+        "resolution_deg": 0.25,
+        "tiles": [],
+        "fetched_at": "2026-07-19T18:00:00.000Z",
+        "cached_tiles": 0,
+        "points": 2
+      },
+      {
+        "source": "prepared-artifact",
+        "layer": "currents",
+        "model": "cmems_mod_ibi_phy_anfc_0.027deg-3D_PT1H-m",
+        "run_id": "cmems-ibi-20260719T19Z",
+        "mode": "live",
+        "fetched_at": "2026-07-19T19:20:00Z",
+        "resolution_deg": 0.1,
+        "artifact_ref": "runs/cmems-ibi-20260719T19Z/current_grid.json",
+        "current_source": "prepared",
+        "content_digest": "c72d23f62c0ad5af",
+        "digest_algorithm": "fnv1a64"
+      }
+    ],
+    "warnings_ref": null,
+    "route_hash": "941d3c7c6a0d2aaf",
+    "profile_hash": "7c0e2e8460b2da21"
+  },
+  "legs": [
+    {
+      "leg_id": "L1",
+      "name": "Cherbourg, Passe de l'Ouest → Off Omonville-la-Rogue",
+      "distance_nm": 7.91,
+      "bearing_deg_true": 294.8,
+      "eta_range": {
+        "slow": "2026-07-20T08:00:23Z",
+        "nominal": "2026-07-20T07:38:09Z",
+        "fast": "2026-07-20T07:22:24Z"
+      },
+      "enter_range": {
+        "slow": "2026-07-20T06:00:00Z",
+        "nominal": "2026-07-20T06:00:00Z",
+        "fast": "2026-07-20T06:00:00Z"
+      },
+      "sog_kt": {
+        "slow": 3.94,
+        "nominal": 4.83,
+        "fast": 5.76
+      },
+      "hours": [
+        {
+          "valid_time": "2026-07-20T06:00:00Z",
+          "wind_kt": 11,
+          "gust_kt": 16,
+          "wind_dir_deg": 250,
+          "twa_deg": 44.8,
+          "point_of_sail": "upwind",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok"
+          },
+          "current": {
+            "u_kt": 1.4,
+            "v_kt": 0.29,
+            "speed_kt": 1.43,
+            "set_deg": 78,
+            "along_kt": -1.15,
+            "cross_kt": 0.85,
+            "wind_against_current": false
+          }
+        },
+        {
+          "valid_time": "2026-07-20T07:00:00Z",
+          "wind_kt": 12,
+          "gust_kt": 17,
+          "wind_dir_deg": 250,
+          "twa_deg": 44.8,
+          "point_of_sail": "upwind",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok"
+          },
+          "current": {
+            "u_kt": 0.85,
+            "v_kt": 0.51,
+            "speed_kt": 0.99,
+            "set_deg": 59,
+            "along_kt": -0.56,
+            "cross_kt": 0.82,
+            "wind_against_current": false
+          }
+        },
+        {
+          "valid_time": "2026-07-20T08:00:00Z",
+          "wind_kt": 13,
+          "gust_kt": 18,
+          "wind_dir_deg": 250,
+          "twa_deg": 44.8,
+          "point_of_sail": "upwind",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok"
+          },
+          "current": {
+            "u_kt": 0.08,
+            "v_kt": 0.6,
+            "speed_kt": 0.61,
+            "set_deg": 8,
+            "along_kt": 0.18,
+            "cross_kt": 0.58,
+            "wind_against_current": false
+          }
+        },
+        {
+          "valid_time": "2026-07-20T09:00:00Z",
+          "wind_kt": 10,
+          "gust_kt": 15,
+          "wind_dir_deg": 250,
+          "twa_deg": 44.8,
+          "point_of_sail": "upwind",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok"
+          },
+          "current": {
+            "u_kt": -0.7,
+            "v_kt": 0.54,
+            "speed_kt": 0.88,
+            "set_deg": 308,
+            "along_kt": 0.86,
+            "cross_kt": 0.2,
+            "wind_against_current": false
+          }
+        }
+      ],
+      "sample_point": {
+        "lat": 49.6925,
+        "lon": -1.7375
+      }
+    },
+    {
+      "leg_id": "L2",
+      "name": "Off Omonville-la-Rogue → NW of Cap de la Hague",
+      "distance_nm": 9.26,
+      "bearing_deg_true": 293,
+      "eta_range": {
+        "slow": "2026-07-20T09:45:52Z",
+        "nominal": "2026-07-20T09:11:34Z",
+        "fast": "2026-07-20T08:45:15Z"
+      },
+      "enter_range": {
+        "slow": "2026-07-20T08:00:23Z",
+        "nominal": "2026-07-20T07:38:09Z",
+        "fast": "2026-07-20T07:22:24Z"
+      },
+      "sog_kt": {
+        "slow": 5.27,
+        "nominal": 5.95,
+        "fast": 6.71
+      },
+      "hours": [
+        {
+          "valid_time": "2026-07-20T07:00:00Z",
+          "wind_kt": 12,
+          "gust_kt": 17,
+          "wind_dir_deg": 250,
+          "twa_deg": 43,
+          "point_of_sail": "upwind",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok"
+          },
+          "current": {
+            "u_kt": 0.85,
+            "v_kt": 0.51,
+            "speed_kt": 0.99,
+            "set_deg": 59,
+            "along_kt": -0.58,
+            "cross_kt": 0.8,
+            "wind_against_current": false
+          }
+        },
+        {
+          "valid_time": "2026-07-20T08:00:00Z",
+          "wind_kt": 13,
+          "gust_kt": 18,
+          "wind_dir_deg": 250,
+          "twa_deg": 43,
+          "point_of_sail": "upwind",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok"
+          },
+          "current": {
+            "u_kt": 0.08,
+            "v_kt": 0.6,
+            "speed_kt": 0.61,
+            "set_deg": 8,
+            "along_kt": 0.16,
+            "cross_kt": 0.58,
+            "wind_against_current": false
+          }
+        },
+        {
+          "valid_time": "2026-07-20T09:00:00Z",
+          "wind_kt": 10,
+          "gust_kt": 15,
+          "wind_dir_deg": 250,
+          "twa_deg": 43,
+          "point_of_sail": "upwind",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok"
+          },
+          "current": {
+            "u_kt": -0.7,
+            "v_kt": 0.54,
+            "speed_kt": 0.88,
+            "set_deg": 308,
+            "along_kt": 0.86,
+            "cross_kt": 0.22,
+            "wind_against_current": false
+          }
+        },
+        {
+          "valid_time": "2026-07-20T10:00:00Z",
+          "wind_kt": 11,
+          "gust_kt": 16,
+          "wind_dir_deg": 250,
+          "twa_deg": 43,
+          "point_of_sail": "upwind",
+          "limit_status": {
+            "sustained": "ok",
+            "gust": "ok"
+          },
+          "current": {
+            "u_kt": -1.31,
+            "v_kt": 0.34,
+            "speed_kt": 1.35,
+            "set_deg": 285,
+            "along_kt": 1.34,
+            "cross_kt": -0.2,
+            "wind_against_current": false
+          }
+        }
+      ],
+      "sample_point": {
+        "lat": 49.75,
+        "lon": -1.94
+      }
+    }
+  ],
+  "events": [],
+  "verdict": {
+    "state": "within",
+    "driver_evidence_id": null,
+    "warning_override": {
+      "active": false,
+      "bulletin_ref": null
+    }
+  },
+  "evidence": [],
+  "coverage": [
+    {
+      "capability": "sustained_wind",
+      "status": "assessed",
+      "evidence_ids": []
+    },
+    {
+      "capability": "gusts",
+      "status": "partially_assessed",
+      "evidence_ids": []
+    },
+    {
+      "capability": "waves",
+      "status": "not_assessed",
+      "detail": "waves (no marine forecast input)",
+      "evidence_ids": []
+    },
+    {
+      "capability": "visibility_and_convection",
+      "status": "not_assessed",
+      "detail": "visibility and convection (no supporting model input)",
+      "evidence_ids": []
+    },
+    {
+      "capability": "model_agreement",
+      "status": "not_assessed",
+      "detail": "model comparison (no multi-model input)",
+      "evidence_ids": []
+    },
+    {
+      "capability": "tidal_currents",
+      "status": "assessed",
+      "detail": "current grid assessed",
+      "evidence_ids": []
+    },
+    {
+      "capability": "tidal_gates",
+      "status": "not_assessed",
+      "detail": "tidal gates & HW/LW heights (no tide data)",
+      "evidence_ids": []
+    },
+    {
+      "capability": "official_warnings",
+      "status": "not_assessed",
+      "detail": "official marine warnings (no feed configured)",
+      "evidence_ids": []
+    },
+    {
+      "capability": "synoptic_attribution",
+      "status": "not_assessed",
+      "detail": "causal synoptic attribution (no prepared synoptic run)"
+    },
+    {
+      "capability": "tropical_systems",
+      "status": "not_assessed",
+      "detail": "tropical systems"
+    },
+    {
+      "capability": "ice",
+      "status": "not_assessed",
+      "detail": "ice"
+    }
+  ],
+  "causal_events": [],
+  "unsupported_hazards": [
+    "waves (no marine forecast input)",
+    "visibility and convection (no supporting model input)",
+    "model comparison (no multi-model input)",
+    "tidal gates & HW/LW heights (no tide data)",
+    "official marine warnings (no feed configured)",
+    "causal synoptic attribution (no prepared synoptic run)",
+    "tropical systems",
+    "ice"
+  ]
+}

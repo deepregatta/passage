@@ -5,6 +5,8 @@
 // engine/src/briefing.ts (PUBLICATION_SCHEDULE model ids), config/providers.json.
 // Unknown ids fall back to a cleaned-up form, never to the raw id.
 
+import { currentProduct, tileModelId } from '@deepweather/engine';
+
 const EMULATED = 'Scenario set (emulated)';
 
 /** Deterministic and ensemble model ids as recorded in findings.inputs and evidence. */
@@ -82,25 +84,23 @@ const isScenario = (id) => /^scenario([\s_-]|$)/i.test(String(id));
 
 /**
  * Current model families, for the lines that name the current model a check or
- * a computed route used. `tide` is what the family is known to do: true
- * includes tide (IBI), false has none (Copernicus global, GLO12), null not
- * recorded here. Ids are the tile models forecast-tiles publishes (`currents`
- * carries cmems_glo12, `currents-ibi` cmems_ibi), the factory's prepared
- * Copernicus dataset ids (REGION_PRIORITY IBI, NWS, MED, BAL, GLO) and RTOFS,
- * which older pipeline notes name as a historical fallback.
+ * a computed route used: the engine's current products (engine/src/currentProducts.ts),
+ * which alone decide which id names which product and whether it includes tide
+ * (`tide`: true includes tide (IBI), false has none (Copernicus global, GLO12),
+ * null not recorded), with the name and credit details shown for each.
+ * doi: the product's DOI where the forecast-tiles register records it (GLO12 and IBI). A reanalysis
+ * or multi-year global dataset is another product, so it gets none.
  */
-const CURRENT_FAMILIES = [
-  // doi: the product's DOI where the forecast-tiles register records it (GLO12 and IBI). A reanalysis
-  // or multi-year global dataset is another product, so it gets none.
-  { pattern: /^(cmems_glo12$|cmems_mod_glo_phy)/i, name: 'Copernicus global ocean currents', tide: false, copernicus: true,
+const CURRENT_FAMILY_TEXT = {
+  glo12: { name: 'Copernicus global ocean currents', copernicus: true,
     doi: (id) => (/^cmems_glo12$|^cmems_mod_glo_phy(?!.*_my(int)?_)/i.test(id) ? '10.48670/moi-00016' : null) },
-  { pattern: /^(cmems_ibi$|cmems_mod_ibi_phy)/i, name: 'Copernicus IBI ocean currents', tide: true, copernicus: true,
+  ibi: { name: 'Copernicus IBI ocean currents', copernicus: true,
     doi: (id) => (/^cmems_ibi$|^cmems_mod_ibi_phy_anfc/i.test(id) ? '10.48670/moi-00027' : null) },
-  { pattern: /^cmems_mod_nws_phy/i, name: 'Copernicus North West Shelf ocean currents', tide: null, copernicus: true },
-  { pattern: /^cmems_mod_med_phy/i, name: 'Copernicus Mediterranean ocean currents', tide: null, copernicus: true },
-  { pattern: /^cmems_mod_bal_phy/i, name: 'Copernicus Baltic ocean currents', tide: null, copernicus: true },
-  { pattern: /^rtofs/i, name: 'NOAA RTOFS ocean currents', tide: null, copernicus: false },
-];
+  nws: { name: 'Copernicus North West Shelf ocean currents', copernicus: true },
+  med: { name: 'Copernicus Mediterranean ocean currents', copernicus: true },
+  bal: { name: 'Copernicus Baltic ocean currents', copernicus: true },
+  rtofs: { name: 'NOAA RTOFS ocean currents', copernicus: false },
+};
 
 /**
  * The family of a current model id, or null for an id that identifies no model
@@ -112,18 +112,18 @@ const CURRENT_FAMILIES = [
  * @returns {{ name: string, tide: boolean | null, copernicus: boolean, doi: string | null } | null}
  */
 export function currentModelFamily(id) {
-  const text = typeof id === 'string' ? id.trim() : '';
-  const family = text ? CURRENT_FAMILIES.find(({ pattern }) => pattern.test(text)) : null;
-  return family ? { name: family.name, tide: family.tide, copernicus: family.copernicus, doi: family.doi?.(text) ?? null } : null;
+  const product = currentProduct(id);
+  if (!product) return null;
+  const text = CURRENT_FAMILY_TEXT[product.id];
+  return { name: text.name, tide: product.tide, copernicus: text.copernicus, doi: text.doi?.(String(id).trim()) ?? null };
 }
 
 /**
  * The model id inside a current grid built from tiles, whose dataset id (and
  * so its recorded `model`) reads "<model> tiles (<run>)"; null for any other id.
- * @param {unknown} datasetId
- * @returns {string | null}
+ * The engine's reading (engine/src/currentProducts.ts).
  */
-export const tileModelId = (datasetId) => /^(\S+) tiles \(/.exec(typeof datasetId === 'string' ? datasetId : '')?.[1] ?? null;
+export { tileModelId };
 
 /** True for the engine's emulated scenario ids ("scenario", "scenario ensemble", "scenario-74bece95"). */
 export const isScenarioId = (id) => id !== null && id !== undefined && isScenario(id);

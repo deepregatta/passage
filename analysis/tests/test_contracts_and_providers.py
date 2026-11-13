@@ -97,6 +97,24 @@ def test_saved_identity_contract_accepts_engine_v2_and_preserves_legacy():
                     assert path.read_bytes() == before
 
 
+def test_findings_current_time_step_is_optional_and_additive():
+    """A check saved before the current grid's time step was recorded, and one with it."""
+    repo = contracts_dir().parent
+    validator = Draft202012Validator(_load(contracts_dir() / "findings.schema.json"))
+    legacy = _load(repo / "engine/test/fixtures/legacy-current-snapshot/findings.json")
+    current = next(
+        item for item in legacy["inputs"]["forecast_tiles"] if item["layer"] == "currents"
+    )
+    assert "time_step_h" not in current
+    validator.validate(legacy)
+    for step in [1, 0.25, 6, None]:
+        current["time_step_h"] = step
+        validator.validate(legacy)
+    for bad in [0, -1, "1"]:
+        current["time_step_h"] = bad
+        assert not validator.is_valid(legacy)
+
+
 def test_decision_message_writer_and_tolerant_reader_contracts():
     repo = contracts_dir().parent
     writer = Draft202012Validator(_load(contracts_dir() / "briefing.schema.json"))

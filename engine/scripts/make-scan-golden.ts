@@ -11,6 +11,8 @@
  *   npx tsx engine/scripts/make-scan-golden.ts --root <dir>
  * After an intentional change to a scan's result, regenerate with this checkout
  * (no --root), and review the diff.
+ * Regenerated so on 2026-11-13: checks record the current grid's time step
+ * (`time_step_h`, 6 on this scan's tile grid), the golden's only change.
  */
 import { writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';

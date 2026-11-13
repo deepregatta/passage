@@ -26,7 +26,19 @@
       "properties": {
         "prepared_run_id": { "type": ["string", "null"] },
         "synoptic_run_id": { "type": ["string", "null"] },
-        "forecast_tiles": { "type": "array", "items": { "type": "object" } },
+        "forecast_tiles": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "time_step_h": {
+                "type": ["number", "null"],
+                "exclusiveMinimum": 0,
+                "description": "On a check's `currents` record (2026-11-13, optional and additive): the largest interval, in hours, between consecutive times of the whole time axis of the current grid the check sampled; null when it cannot be determined (fewer than two times, unreadable or non-increasing times). Absent on checks saved before it was recorded."
+              }
+            }
+          }
+        },
         "warnings_ref": { "type": ["string", "null"] },
         "route_hash": { "type": "string" },
         "profile_hash": { "type": "string" }

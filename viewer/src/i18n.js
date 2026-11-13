@@ -1168,6 +1168,8 @@ const FR_PATTERNS = [
   [/^Wind against current on the expected timing: (\d+) h$/, 'Vent contre courant selon l’horaire prévu\u00A0: $1 h'],
   [/^Wind against current: none on the expected timing, but it occurs at other times in your arrival range( \(\d+ h\))?\.$/, (_match, count = '') => `Vent contre courant\u00A0: aucun selon l’horaire prévu, mais il se produit à d’autres moments de votre fenêtre d’arrivée estimée${count}.`],
   [/^No current value for (\d+) h of the passage\.$/, 'Aucune valeur de courant pour $1 h de la traversée.'],
+  // Composed with counts and ' · ' (currentSummaryLines.js withAgainstLine): one anchored pattern, never a whole-string entry.
+  [/^On the expected timing, at each leg’s midpoint: (\d+) h with the current · (\d+) h against · (\d+) h across or weak \(([\d.]+) kt or less along the track\)$/, 'Selon l’horaire prévu, au milieu de chaque tronçon\u00A0: $1 h avec le courant · $2 h contre · $3 h de travers ou faible ($4 nd ou moins dans l’axe de la route)'],
   [/^(\d+) waypoints$/, '$1 points de route'],
   [/^Routed at (\d+)% of the boat polar speeds$/, 'Routé à $1 % des vitesses de la polaire du bateau'],
   [/^Comparing departure times (\d+\/\d+)…$/, 'Comparaison des heures de départ $1…'],

@@ -148,7 +148,8 @@
         "resolution_deg": 0.083,
         "current_source": "tiles",
         "content_digest": "2393ab1b69f926f8",
-        "digest_algorithm": "fnv1a64"
+        "digest_algorithm": "fnv1a64",
+        "time_step_h": 6
       }
     ]
   },

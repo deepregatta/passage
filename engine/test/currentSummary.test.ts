@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { contentHash, currentInputRecord, currentSummary, routeSummary } from '../src/index.js';
+import { CURRENT_ALONG_TRACK_THRESHOLD_KT, contentHash, currentInputRecord, currentSummary, routeSummary } from '../src/index.js';
+import { assembleFindings } from '../src/findings.js';
 import { runAnalysis } from '../src/analyze.js';
 import { ScenarioBundleStore } from '../src/forecast/scenarioStore.js';
 import { deriveLegs } from '../src/route.js';
@@ -144,12 +145,183 @@ describe('currentSummary definitions on hand-built findings', () => {
     }
   });
 
-  it('offers no hours with and against the current: no saved record establishes a tide-resolving source', () => {
+  it('gives no hours with and against the current without a recorded current grid', () => {
     const summary = currentSummary(findingsFor([{ id: 'L1', enter: T(0), eta: T(2), hours: [0, 1, 2].map((h) => hour(h, current(2))) }]), undefined)!;
-    expect(Object.keys(summary).sort()).toEqual(['gain', 'strongest', 'total_hours', 'unavailable_hours', 'wind_against_current_arrival_hours', 'wind_against_current_hours']);
+    expect(summary.with_against).toBeNull();
   });
 });
 
+// ---- hours with and against the current ----
+
+const IBI = { source: 'prepared-artifact', layer: 'currents', model: 'cmems_mod_ibi_phy_anfc_0.027deg-3D_PT1H-m', run_id: 'cmems-ibi-20260719T19Z', current_source: 'prepared', time_step_h: 1 };
+const GLO12_TILES = { source: 'tiles', layer: 'currents', model: 'cmems_glo12 tiles (currents-20260720T00Z)', run_id: 'currents-20260720T00Z', current_source: 'tiles', time_step_h: 6 };
+const withRecord = (legs: LegSpec[], ...records: Array<Record<string, unknown>>) => findingsFor(legs, { forecast_tiles: records });
+
+describe('hours with and against the current', () => {
+  // A current rotating through every case, one value per hour; 03:00 audited by both legs (counted once, in L2).
+  const cross = current(0.2, { u_kt: 0.2, v_kt: 1.8, speed_kt: 1.81, set_deg: 6, cross_kt: 1.8 });
+  const rotating = (): LegSpec[] => [
+    { id: 'L1', enter: T(0), eta: T(3), hours: [hour(0, current(1.4)), hour(1, current(-1.2)), hour(2, cross), hour(3, current(0.9))] },
+    { id: 'L2', enter: T(3), eta: T(9), hours: [hour(3, current(-2)), hour(4, current(0.3)), hour(5, current(0.5)), hour(6, current(-0.5)),
+      hour(7, current(0.51)), hour(8, null)] },
+  ];
+
+  it('counts each hour of the expected timing once: with, against, across or weak, and missing apart', () => {
+    const summary = currentSummary(withRecord(rotating(), IBI))!;
+    // with: 00 (1.4), 07 (0.51); against: 01 (-1.2), 03 (-2, L2's value, not L1's 0.9);
+    // across or weak: 02 (cross), 04 (0.3), 05 (exactly 0.5), 06 (exactly -0.5); missing: 08
+    expect(summary.with_against).toEqual({ with_hours: 2, against_hours: 2, across_or_weak_hours: 4, time_step_h: 1, threshold_kt: CURRENT_ALONG_TRACK_THRESHOLD_KT });
+    expect(summary.unavailable_hours).toBe(1);
+    const { with_hours, against_hours, across_or_weak_hours } = summary.with_against!;
+    expect(with_hours + against_hours + across_or_weak_hours + summary.unavailable_hours).toBe(summary.total_hours);
+    expect(summary.total_hours).toBe(9);
+  });
+
+  it('the threshold is half a knot along the track, strictly exceeded', () => {
+    expect(CURRENT_ALONG_TRACK_THRESHOLD_KT).toBe(0.5);
+  });
+
+  it('adds up to the nominal passage time within one hour on legs that start and end between hours', () => {
+    const legs = Array.from({ length: 12 }, (_, i) => ({
+      id: `L${i + 1}`, enter: T(Math.floor(i * 50 / 60), (i * 50) % 60), eta: T(Math.floor((i + 1) * 50 / 60), ((i + 1) * 50) % 60),
+      hours: [Math.floor(i * 50 / 60), Math.floor(i * 50 / 60) + 1].map((h) => hour(h, h % 3 === 0 ? null : current(h % 2 ? 1 : -1))),
+    }));
+    const findings = withRecord(legs, IBI);
+    const summary = currentSummary(findings)!;
+    const { with_hours, against_hours, across_or_weak_hours } = summary.with_against!;
+    expect(with_hours + against_hours + across_or_weak_hours + summary.unavailable_hours).toBe(summary.total_hours);
+    const nominalHours = (Date.parse(legs.at(-1)!.eta) - Date.parse(legs[0]!.enter)) / 3600_000;
+    expect(Math.abs(summary.total_hours - nominalHours)).toBeLessThanOrEqual(1);
+    expect(summary.total_hours).toBe(routeSummary(findings)!.total_hours);
+  });
+
+  it('is given for an hourly or finer grid of a product that includes tide, and for nothing else', () => {
+    const legs = rotating();
+    const shown = (...records: Array<Record<string, unknown>>) => currentSummary(withRecord(legs, ...records))!.with_against !== null;
+    expect(shown(IBI)).toBe(true);
+    expect(shown({ ...IBI, time_step_h: 0.25 })).toBe(true);
+    // coarse, absent (checks saved before the step was recorded), unknown
+    expect(shown({ ...IBI, time_step_h: 3 })).toBe(false);
+    expect(shown({ ...IBI, time_step_h: 1.5 })).toBe(false);
+    const { time_step_h: _step, ...older } = IBI;
+    expect(shown(older)).toBe(false);
+    expect(shown({ ...IBI, time_step_h: null })).toBe(false);
+    expect(shown({ ...IBI, time_step_h: '1' })).toBe(false);
+    expect(shown({ ...IBI, time_step_h: 0 })).toBe(false);
+    // tiles: the 6-hourly global layer, even if a record claimed an hourly step, and
+    // even hourly IBI tiles (no audit reads them; enabling them is a decision of its own)
+    expect(shown(GLO12_TILES)).toBe(false);
+    expect(shown({ ...GLO12_TILES, time_step_h: 1 })).toBe(false);
+    expect(shown({ ...IBI, model: 'cmems_ibi tiles (currents-ibi-20260720T00Z)', source: 'tiles', current_source: 'tiles' })).toBe(false);
+    expect(shown({ ...IBI, current_source: 'tiles' })).toBe(false);
+    // emulated values, even with an IBI id and an hourly step
+    expect(shown({ ...IBI, source_kind: 'emulated' })).toBe(false);
+    expect(shown({ ...IBI, mode: 'synthetic' })).toBe(false);
+    expect(shown({ ...IBI, source: 'synthetic' })).toBe(false);
+    // a model whose tide is not recorded, or no model at all
+    expect(shown({ ...IBI, model: 'cmems_mod_nws_phy-cur_anfc_0.027deg_PT1H-m' })).toBe(false);
+    expect(shown({ ...IBI, model: 'cmems' })).toBe(false);
+    expect(shown({ ...IBI, model: 'scenario' })).toBe(false);
+    expect(shown({ ...IBI, model: undefined })).toBe(false);
+    // mixed sources: more than one current record
+    expect(shown(IBI, { ...IBI, run_id: 'another' })).toBe(false);
+    expect(shown(IBI, GLO12_TILES)).toBe(false);
+    // an unavailable record is not a source
+    expect(shown(IBI, { layer: 'currents', source: 'tiles', available: false })).toBe(true);
+    // an older check's legacy grid record carries no step
+    const legacy = findingsFor(legs, { forecast_tiles: [] });
+    (legacy.inputs as Record<string, unknown>).openmeteo = [{ api: 'cmems-current-grid', model: IBI.model, run: IBI.run_id, mode: 'live' }];
+    expect(currentSummary(legacy)!.with_against).toBeNull();
+  });
+
+  it('the committed saved checks run without throwing and get no figures', () => {
+    const LEGACY = read<Findings>('./fixtures/legacy-current-snapshot/findings.json');
+    const COMPAT = read<Findings>('../../viewer/test/fixtures/compatibility/20260720T060000Z_44d2cd5f_4196266b/findings.json');
+    const OTHER = read<Findings>('../../viewer/test/fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_7b2600cd/findings.json');
+    for (const saved of [DEMO, GOLDEN, COMPAT, OTHER, LEGACY]) {
+      expect(() => currentSummary(saved)).not.toThrow();
+      expect(currentSummary(saved)?.with_against ?? null).toBeNull();
+    }
+  });
+});
+
+describe('hours with and against the current, through the audit', () => {
+  const profile = read<LimitsProfile>('../../config/profiles/default-limits.json');
+  const start = Date.parse('2026-07-20T05:00:00Z');
+  const times = Array.from({ length: 12 }, (_, h) => new Date(start + h * 3600_000).toISOString());
+  // spatially uniform, rotating through the hours: 2 kt east, 2 kt west, 2 kt north, 0.2 kt east, ...
+  const pattern: Array<[number, number]> = [[2, 0], [-2, 0], [0, 2], [0.2, 0]];
+  function hourlyGrid(datasetId = 'cmems_mod_ibi_phy_anfc_0.027deg-3D_PT1H-m'): RegionGrid {
+    const nlat = 4, nlon = 6;
+    const u = times.flatMap((_, t) => Array(nlat * nlon).fill(pattern[t % 4]![0]));
+    const v = times.flatMap((_, t) => Array(nlat * nlon).fill(pattern[t % 4]![1]));
+    return { schema_version: 1, kind: 'surface_current', run_id: 'cmems-ibi-20260719T19Z', generated_at: '2026-07-19T19:30:00Z',
+      lat0: 49.0, lon0: -3.0, dlat: 0.2, dlon: 0.2, nlat, nlon, time_axis: times, u_kt: u, v_kt: v,
+      source: { mode: 'live', dataset_id: datasetId, resolution_deg: 0.2, fetched_at: '2026-07-19T19:20:00Z' } };
+  }
+  // One leg due east and its reverse (about 27 nm), timed on speeds over the ground (an older
+  // computed route's basis) so the current does not move the ETA: both ways share the same
+  // expected hours and the same midpoint.
+  const eastward = { schema_version: 1, route_id: 'east', name: 'east', mode: 'user', timing: { basis: 'speed_over_ground' },
+    waypoints: [{ id: 'a', lat: 49.3, lon: -2.8 }, { id: 'b', lat: 49.3, lon: -2.1 }], speeds_kt: { slow: 4, nominal: 5, fast: 6 } } as Route;
+  const westward: Route = { ...eastward, route_id: 'west', waypoints: [...eastward.waypoints].reverse() } as Route;
+  function audit(route: Route, grid = hourlyGrid()) {
+    const legTimes = times;
+    return assembleFindings({ route, profile, departureUtc: '2026-07-20T06:00:00Z', nowMs: 1, engineVersion: 'test', requestMeta: [],
+      legForecasts: [{ lat: 49.3, lon: -2.45, times: legTimes, wind_kt: legTimes.map(() => 10), gust_kt: legTimes.map(() => 14), wind_dir_deg: legTimes.map(() => 200) }],
+      currentGrid: grid,
+      currentProvenance: { source: 'prepared-artifact', layer: 'currents', model: grid.source.dataset_id, run_id: grid.run_id, current_source: 'prepared',
+        content_digest: contentHash(grid), digest_algorithm: 'fnv1a64' } });
+  }
+
+  it('a real check on an hourly IBI grid records step 1 and counts the rotating current exactly', () => {
+    const findings = audit(eastward);
+    expect(findings.inputs.forecast_tiles.find((item: Record<string, unknown>) => item.layer === 'currents')!.time_step_h).toBe(1);
+    const summary = currentSummary(findings)!;
+    // independent reading: every hour on the expected timing, by the grid's pattern at that hour
+    const kinds = { with: 0, against: 0, weak: 0 };
+    const leg = findings.legs[0]!;
+    for (let t = Math.ceil(Date.parse(leg.enter_range.nominal) / 3600_000) * 3600_000; t < Date.parse(leg.eta_range.nominal); t += 3600_000) {
+      const [u] = pattern[Math.round((t - start) / 3600_000) % 4]!;
+      if (u > 0.5) kinds.with += 1; else if (u < -0.5) kinds.against += 1; else kinds.weak += 1;
+    }
+    expect(summary.with_against).toMatchObject({ with_hours: kinds.with, against_hours: kinds.against, across_or_weak_hours: kinds.weak });
+    expect(kinds.with + kinds.against + kinds.weak).toBe(summary.total_hours);
+    expect(kinds.with).toBeGreaterThan(0);
+    expect(kinds.against).toBeGreaterThan(0);
+  });
+
+  it('the same passage reversed 180 degrees swaps with and against', () => {
+    const east = currentSummary(audit(eastward))!;
+    const west = currentSummary(audit(westward))!;
+    expect(west.total_hours).toBe(east.total_hours);
+    expect(west.with_against!.with_hours).toBe(east.with_against!.against_hours);
+    expect(west.with_against!.against_hours).toBe(east.with_against!.with_hours);
+    expect(west.with_against!.across_or_weak_hours).toBe(east.with_against!.across_or_weak_hours);
+  });
+
+  it('a synthetic grid with the IBI id and an hourly axis: the step is recorded, no figures', () => {
+    const synthetic = hourlyGrid();
+    synthetic.source = { ...synthetic.source, mode: 'synthetic' };
+    const findings = audit(eastward, synthetic);
+    const record = findings.inputs.forecast_tiles.find((item: Record<string, unknown>) => item.layer === 'currents')!;
+    expect(record).toMatchObject({ time_step_h: 1, source_kind: 'emulated', model: 'cmems_mod_ibi_phy_anfc_0.027deg-3D_PT1H-m' });
+    const summary = currentSummary(findings)!;
+    expect(summary.strongest).not.toBeNull();
+    expect(summary.with_against).toBeNull();
+  });
+
+  it('the same values on a 3-hourly grid with the same hourly-sounding id: no figures', () => {
+    const thinned = hourlyGrid();
+    const keep = [0, 3, 6, 9];
+    const cells = 4 * 6;
+    const coarse: RegionGrid = { ...thinned, time_axis: keep.map((t) => times[t]!),
+      u_kt: keep.flatMap((t) => thinned.u_kt.slice(t * cells, (t + 1) * cells)), v_kt: keep.flatMap((t) => thinned.v_kt.slice(t * cells, (t + 1) * cells)) };
+    const summary = currentSummary(audit(eastward, coarse))!;
+    expect(summary.with_against).toBeNull();
+    expect(summary.strongest).not.toBeNull();
+  });
+});
 describe('currentInputRecord', () => {
   it('reads the current grid record, skipping an unavailable one, then the legacy record', () => {
     const tiles = { source: 'tiles', layer: 'currents', model: 'cmems_glo12 tiles (currents-20260720T00Z)', run_id: 'currents-20260720T00Z', mode: 'live', current_source: 'tiles' };

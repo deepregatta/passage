@@ -8,7 +8,9 @@ const mocks = vi.hoisted(() => ({
   polarFromRelease: vi.fn(),
 }));
 
-vi.mock('@deepweather/engine', () => ({
+vi.mock('@deepweather/engine', async (importOriginal) => ({
+  // the real readers of current model ids (sourceNames.js re-exports them)
+  ...(({ tileModelId, currentProduct }) => ({ tileModelId, currentProduct }))(await importOriginal()),
   routeBbox: () => ({ minLat: 0, maxLat: 1, minLon: 0, maxLon: 1 }),
   passageMaxHours: () => 48,
   snapToSea: mocks.snapToSea,
