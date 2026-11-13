@@ -36,7 +36,17 @@ from .units import MS_TO_KNOTS
 logger = logging.getLogger(__name__)
 
 TARGET_RESOLUTION_DEG = 0.05
-DEFAULT_WINDOW_HOURS = 120  # CMEMS IBI publishes ~5 days of forecast currents
+# Default time axis: the fetch hour to 168 h after it. The CMEMS IBI bulletin of
+# day D carries hourly forecasts from D 00:00 to D+9 23:00 (240 h; measured
+# 2026-09-28, forecast-tiles docs/ibi-currents.md), so even a run just before the
+# daily bulletin lands, reading the previous day's, has about 200 h ahead.
+DEFAULT_WINDOW_HOURS = 168
+# A product that ends before the window does gives a shorter axis (only hours
+# that exist; never padded or extrapolated), published when it still reaches
+# this far past the window start (the uploader's CARRIED_CURRENT_MIN_HOURS: the
+# router's shortest planning horizon), or the whole window when that is shorter.
+# Below it the step fails, so the uploader can keep a live grid that is longer.
+MIN_PUBLISHED_HOURS = 48
 SCHEMA_VERSION = 1
 
 
@@ -93,7 +103,10 @@ def prepare_current_grid(
             corridor window from config/route-sources.json (default route when
             route_id is omitted)
         start: window start (ISO or datetime); default now (floored to the hour)
-        end: window end; default start + 72 h
+        end: window end; default start + DEFAULT_WINDOW_HOURS (168 h). When the
+            product ends earlier the axis stops at its last hour; under
+            MIN_PUBLISHED_HOURS past start (and short of `end`) nothing is
+            published and RuntimeError is raised
         target_resolution_deg: target regular grid resolution (~0.05 deg)
         force: re-fetch even when a fresh cache exists
         route_id: route-sources registry key for the default bounds
@@ -239,6 +252,22 @@ def _build_grid_artifact(
     if times.size == 0:
         raise RuntimeError(
             f"No forecast timesteps within {start_time.isoformat()}..{end_time.isoformat()}"
+        )
+    # A product that ends inside the window gives a shorter axis (the fetch's
+    # default "inside" selection returns only the hours that exist). Publish it
+    # only while it is still long enough to be useful; never pad it.
+    required_end = min(end_time, start_time + timedelta(hours=MIN_PUBLISHED_HOURS))
+    if times[-1] < np.datetime64(required_end.replace(tzinfo=None), "s"):
+        raise RuntimeError(
+            f"Forecast currents end at {times[-1]}Z, before {_iso_z(required_end)} "
+            f"({MIN_PUBLISHED_HOURS} h after the window start {_iso_z(start_time)}); "
+            "not published"
+        )
+    if times[-1] < window_end:
+        logger.warning(
+            "Forecast currents end at %sZ, before the requested %s; the time axis stops there",
+            times[-1],
+            _iso_z(end_time),
         )
     time_axis = [
         _iso_z(datetime.fromtimestamp(int(t.astype("int64")), tz=timezone.utc)) for t in times

@@ -935,7 +935,9 @@ def test_capacity_pause_preserves_paid_work_start_runtime_and_finishes_only_leas
 
 T0 = datetime(2026, 11, 13, 5, 0, tzinfo=timezone.utc)
 GRID_RUN = "cmems-ibi-20261113T05Z"
-GRID_END = "2026-11-18T05:00:00Z"  # T0 + 120 h, the factory's window
+# T0 + 120 h: the factory's window until 2026-11-13 (168 h since); the rule
+# under test reads only the axis end, so any length serves.
+GRID_END = "2026-11-18T05:00:00Z"
 
 
 def iso(t):

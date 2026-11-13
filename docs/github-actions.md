@@ -46,6 +46,10 @@ failed fetch still shows as passed in the jobs API. Its real
 run without a grid keeps the live grid while it is still usable, and writes a
 warning annotation and a job-summary line whether it kept or dropped one; a
 skipped step with no grid to keep logs a plain line (2026-11-13).
+The step asks for 168 h from its fetch hour (120 h until 2026-11-13). A Copernicus
+product that ends earlier gives a shorter grid of the hours it has; one that
+does not reach 48 h past the fetch hour fails the step, and the upload step
+then judges the live grid as for any other failure.
 Cancellation or a new concurrency policy must not interrupt pointer-last
 publication. CI has no concurrency stanza; this change adds none. Pins do not
 freeze runner images, package registries or upstream weather data. Credential

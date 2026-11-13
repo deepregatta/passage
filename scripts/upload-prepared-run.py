@@ -62,11 +62,14 @@ IMMUTABLE = "public, max-age=31536000, immutable"
 POINTER = "public, max-age=300, must-revalidate"
 
 # A carried-over current grid must still cover this long after upload time. The
-# factory's grid spans 120 h from its fetch hour (grids_prep.DEFAULT_WINDOW_HOURS),
-# so a grid stays carried for about 72 h, several missed runs at the job's real
-# roughly twice-daily success cadence. 48 h is the shortest horizon the router
-# plans a passage over (engine passageMaxHours), so a carried grid can still
-# cover a typical Channel passage departing now. The viewer still admits it per
+# factory's grid spans 168 h from its fetch hour (grids_prep.DEFAULT_WINDOW_HOURS;
+# 120 h until 2026-11-13), so a grid stays carried for about 120 h, many missed
+# runs at the job's real roughly twice-daily success cadence. The factory
+# publishes no fresh grid shorter than this either (grids_prep.MIN_PUBLISHED_HOURS:
+# a product ending that early fails the currents step, and this rule then judges
+# the live grid). 48 h is the shortest horizon the router plans a passage over
+# (engine passageMaxHours), so a carried grid can still cover a typical Channel
+# passage departing now. The viewer still admits it per
 # route and departure time (engine currentGridCovers).
 CARRIED_CURRENT_MIN_HOURS = 48
 CARRIED = "current_grid_carried_over"

@@ -419,3 +419,133 @@ class TestGridArtifactWriter:
         latest = json.loads((tmp_path / "data" / "processed" / "runs" / "latest.json").read_text())
         assert latest["run_id"] == run_id
         assert latest["artifacts"]["current_grid"] == f"runs/{run_id}/current_grid.json"
+
+
+# =============================================================================
+# Time axis length: the default window and a product that ends early
+# =============================================================================
+
+# forecast-tiles docs/ibi-currents.md (measured 2026-09-28): the IBI bulletin of
+# day D carries hourly values from D 00:00 to D+9 23:00 (240 h) and lands about
+# 09:40-11:40 UTC, so a run before that reads the previous day's bulletin.
+BULLETIN_HOURS = 240
+
+
+def _hourly_value(hours_from_product_start):
+    return round(0.01 * hours_from_product_start, 4)
+
+
+def _write_hourly_currents(path, first, hours):
+    """A wet synthetic product of `hours` hourly steps from `first`: value = 0.01 * hour."""
+    times = np.array(
+        [np.datetime64(first.replace(tzinfo=None) + timedelta(hours=h), "ns") for h in range(hours)]
+    )
+    shape = (hours, 1, len(SYN_LATS), len(SYN_LONS))
+    values = np.broadcast_to(
+        np.array([_hourly_value(h) for h in range(hours)])[:, None, None, None], shape
+    ).copy()
+    ds = xr.Dataset(
+        {
+            "uo": (("time", "depth", "latitude", "longitude"), values),
+            "vo": (("time", "depth", "latitude", "longitude"), -values),
+        },
+        coords={"time": times, "depth": [0.5], "latitude": SYN_LATS, "longitude": SYN_LONS},
+    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    ds.to_netcdf(path)
+    ds.close()
+
+
+@pytest.fixture()
+def product_run(tmp_path, monkeypatch):
+    """prepare_current_grid against a product that holds only the hours it holds.
+
+    The fake fetch writes the product whatever window it is asked for, as
+    copernicusmarine.subset's default "inside" selection returns only the
+    requested hours that exist (a warning, not an error, when the request
+    runs past the dataset's end).
+    """
+    monkeypatch.setenv("DEEPWEATHER_DATA_ROOT", str(tmp_path / "data"))
+    requests = []
+
+    def run(product_first, product_hours, start, end=None):
+        def fetch(bounds, start_time, end_time, force=False):
+            requests.append((start_time, end_time))
+            _write_hourly_currents(
+                tmp_path / "cache" / "product" / "currents.nc", product_first, product_hours
+            )
+            return CurrentsMetadata(
+                fetch_id="product",
+                fetched_at=start_time.isoformat(),
+                valid_until=(start_time + timedelta(hours=12)).isoformat(),
+                bounds=dict(bounds),
+                time_range={"start": start_time.isoformat(), "end": end_time.isoformat()},
+                currents={
+                    "status": "ok",
+                    "source": "cmems_mod_ibi_phy_anfc_0.027deg-3D_PT1H-m",
+                    "region": "IBI",
+                    "resolution_deg": 0.05,
+                    "variables": ["uo", "vo"],
+                },
+            )
+
+        monkeypatch.setattr(fetcher, "fetch_forecast_currents", fetch)
+        monkeypatch.setattr(fetcher, "get_cache_dir", lambda fid: tmp_path / "cache" / fid)
+        path = grids_prep.prepare_current_grid(bounds=SYN_BOUNDS, start=start, end=end)
+        return json.loads(path.read_text())
+
+    return run, requests, tmp_path / "data" / "processed" / "runs"
+
+
+def _iso(t):
+    return t.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def test_run_before_the_bulletin_lands_publishes_the_whole_default_window(product_run):
+    run, requests, _ = product_run
+    day = datetime(2026, 11, 14, tzinfo=timezone.utc)
+    start = day + timedelta(hours=11)  # the latest a run still reads D-1's bulletin
+    doc = run(day - timedelta(days=1), BULLETIN_HOURS, _iso(start))
+
+    assert requests == [(start, start + timedelta(hours=168))]
+    assert len(doc["time_axis"]) == 169
+    assert doc["time_axis"][0] == _iso(start)
+    assert doc["time_axis"][-1] == _iso(start + timedelta(hours=168))
+    # Hour k of the axis is the product's hour 35 + k (D-1 00:00 + 24 h + 11 h).
+    cells = doc["nlat"] * doc["nlon"]
+    last = 168 * cells
+    assert doc["u_kt"][last] == pytest.approx(round(_hourly_value(35 + 168) * MS_TO_KNOTS, 2))
+
+
+@pytest.mark.parametrize("product_hours_past_start", [100, 48])
+def test_product_ending_early_publishes_a_shorter_axis_without_padding(
+    product_run, product_hours_past_start
+):
+    run, _, runs_dir = product_run
+    start = datetime(2026, 11, 14, 11, tzinfo=timezone.utc)
+    doc = run(start, product_hours_past_start + 1, _iso(start))
+
+    assert len(doc["time_axis"]) == product_hours_past_start + 1
+    assert doc["time_axis"][-1] == _iso(start + timedelta(hours=product_hours_past_start))
+    cells = doc["nlat"] * doc["nlon"]
+    assert len(doc["u_kt"]) == len(doc["v_kt"]) == len(doc["time_axis"]) * cells
+    for k in (0, product_hours_past_start):
+        expected = round(_hourly_value(k) * MS_TO_KNOTS, 2)
+        assert doc["u_kt"][k * cells : (k + 1) * cells] == [pytest.approx(expected)] * cells
+    latest = json.loads((runs_dir / "latest.json").read_text())
+    assert latest["artifacts"]["current_grid"] == f"runs/{doc['run_id']}/current_grid.json"
+
+
+def test_product_too_short_to_be_useful_fails_and_publishes_nothing(product_run):
+    run, _, runs_dir = product_run
+    start = datetime(2026, 11, 14, 11, tzinfo=timezone.utc)
+    with pytest.raises(RuntimeError, match="not published"):
+        run(start, 48, _iso(start))  # ends at start + 47 h
+    assert not runs_dir.exists() or not any(runs_dir.rglob("*.json"))
+
+
+def test_an_explicit_window_shorter_than_the_minimum_is_still_published(product_run):
+    run, _, _ = product_run
+    start = datetime(2026, 11, 14, 11, tzinfo=timezone.utc)
+    doc = run(start, 4, _iso(start), _iso(start + timedelta(hours=3)))
+    assert len(doc["time_axis"]) == 4
