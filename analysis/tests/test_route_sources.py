@@ -43,17 +43,20 @@ def test_tide_ports_match_previous_hardcode():
     assert rs.tides_artifact_name() == "channel"
 
 
-def test_currents_bounds_match_previous_hardcode():
+def test_currents_bounds_cover_the_western_and_central_channel():
+    # Widened on 2026-11-13 (owner-authorized publication change) from the
+    # Cherbourg-Plymouth corridor (49.3-50.6N, 5.0-1.2W): a computed route is
+    # only routed on the regional currents when both its ends are inside this box.
     assert rs.currents_bounds() == {
-        "min_lat": 49.3,
-        "max_lat": 50.6,
-        "min_lon": -5.0,
-        "max_lon": -1.2,
+        "min_lat": 48.5,
+        "max_lat": 51.0,
+        "min_lon": -6.0,
+        "max_lon": 0.5,
     }
     # callers may mutate their copy without corrupting the registry
     bounds = rs.currents_bounds()
     bounds["min_lat"] = 0.0
-    assert rs.currents_bounds()["min_lat"] == 49.3
+    assert rs.currents_bounds()["min_lat"] == 48.5
 
 
 def test_fr_broadcast_areas_match_previous_hardcode():
