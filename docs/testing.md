@@ -184,6 +184,12 @@ These tests cover it:
 - `scanRunner.test.js`: progress, cancel, crash, fallback;
 - `pinnedForecast.test.js`;
 - `plannerScanStop.test.jsx`: stop, stale inputs, counts;
+- `plannerStateDuringAction.test.jsx`: the boat, the percent of polar and the
+  Typical / Cautious toggle changed while Compute, a comparison or a refinement
+  runs. Nothing throws or logs an error; a result made for other inputs is
+  dropped (a late one never shown) and one the change does not concern is kept.
+  Not covered: a change of the departure or the route points during these runs
+  (see the stop tests above) and a real Worker;
 - `viewer/e2e/scan-worker.spec.js`: a real Worker on PFT1 tiles against the
   in-page path.
 

@@ -182,7 +182,7 @@ The change is additive: new variable names in the existing layer, readers look v
 
 ## Anti-lessons not covered above
 
-- **A crash from UI state.** The review suggested changing the model selection during a running check. Passage has no such control: forecast-model selects exist only on the GRIB page, and a Check deliberately keeps the draft captured at the click. The equivalent test here: change the boat, the percentage (A1) or the ranking toggle (A2) while Compute or Scan runs, and assert that nothing throws and that the result is kept or discarded as the stale-input rules say.
+- **A crash from UI state.** The review suggested changing the model selection during a running check. Passage has no such control: forecast-model selects exist only on the GRIB page, and a Check deliberately keeps the draft captured at the click. The equivalent test here: change the boat, the percentage (A1) or the ranking toggle (A2) while Compute or Scan runs, and assert that nothing throws and that the result is kept or discarded as the stale-input rules say. **Written 2026-11-13** in `viewer/test/plannerStateDuringAction.test.jsx`: Compute, a comparison and a refinement each against a changed boat, percent and ranking toggle (compute and drawn-route modes), failing on any thrown or logged error. It does not cover the departure or route points, a real Worker or a browser run.
 - **A busy chart.** A guideline for C2, C3 and D2: text blocks and one extra grid row, no new map layers.
 
 ## Decisions for the owner
