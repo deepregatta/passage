@@ -154,7 +154,16 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   check plain, 1.79 MB compressed; the Safari figure (11–21 MB plain) is an
   estimate from its serialization rules, not a measurement, and nothing has
   been measured on an iPhone. Nothing may ever compare or hash the compressed
-  bytes: gzip output differs between browsers and versions.
+  bytes: gzip output differs between browsers and versions. First live Check
+  the same night (one owner-authorized Check, deployed build `3f36b14`, a
+  Chromium-based browser, a drawn 67 nm route on the regional current grid):
+  six of the check's seven files were stored as gzip and the manifest plain;
+  9.93 M characters of text took 1.63 MB, of which `decision-inputs.json`
+  (9.61 M characters, the grid 9.34 M) took 1.59 MB; the origin's storage
+  estimate rose by 1.7 MB; compressing that file again in the page took about
+  0.3 s and decoding it about 0.06 s. The check reopened from My passages
+  after a reload, the seven earlier checks stayed plain, an earlier check
+  still opened, and the console logged no error.
 - Modern histories group only by explicit passage ID and persistence source.
   Legacy checks without explicit identity remain individually accessible and
   deletable. No inferred grouping from route names/counts/departure is permitted.
