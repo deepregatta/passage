@@ -151,7 +151,7 @@ it('round-trips every committed legacy artifact through storage without rewritin
     }
   }
   const old = await localSnapshots.list();
-  expect(old).toHaveLength(3);
+  expect(old).toHaveLength(5);
   const modern = { snapshot_id: 'v2', created_at: '2026-10-03T00:00:00.001Z', route_id: 'same',
     profile_id: 'default', departure_utc: '2026-10-04T00:00Z', identity_version: 2,
     passage_id: 'intent', route_revision: '0123456789abcdef', decision_hash: 'fedcba9876543210' };

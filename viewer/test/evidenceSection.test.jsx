@@ -6,8 +6,8 @@ import { LocalizedDocument } from '../src/i18n.js';
 import { useApp } from '../src/stores/appStore.js';
 import { governingReason } from '@deepweather/engine';
 import { governingClaim } from '../src/pages/briefing/verdictSentence.js';
-import savedFindings from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/findings.json';
-import savedPlume from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/plume.json';
+import savedFindings from './fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/findings.json';
+import savedPlume from './fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/plume.json';
 
 vi.mock('../src/components/lazy/EChartsLazy.jsx', () => ({ default: () => null }));
 

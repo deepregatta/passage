@@ -70,8 +70,10 @@ preservation and schema compatibility. The actual Python-generated
 `viewer/test/fixtures/verification-case-v2.json` is also validated by Python and
 rendered by viewer unit/browser tests. Regenerate it only from
 `analysis/tests/test_verification_retries.py:case`, passing the retained demo
-snapshot ID `20260720T060000Z_44d2cd5f_64ea971e` and fixing `generated_at` to
-`2026-07-13T00:00:00Z`; demo fixtures stay unchanged. Bilingual outcome smoke
+snapshot ID `snapshot_v2_406ad333228b0a73` (the regenerated demo's latest check;
+it was `20260720T060000Z_44d2cd5f_64ea971e` until 2026-11-14) and fixing
+`generated_at` to `2026-07-13T00:00:00Z`. The 2026-11-14 regeneration changed
+only `snapshot_id` and the `case_revision` hash derived from it. Bilingual outcome smoke
 uses `viewer/e2e/verification-outcome.spec.js` with scratch browser persistence
 and intercepted observation responses, never production calibration data.
 
@@ -668,8 +670,21 @@ with the browser's text only under Technical detail.
   the diff, and re-run the contract test. See [grib-export.md](grib-export.md).
 - `viewer/test/fixtures/demo/` is the current committed reference demo. Rebuild
   it with `node scripts/build-demo-snapshots.mjs` only for an explicit fixture
-  update. The identity-v2 engine produces new IDs; the current schema-version-1
-  pair remains compatibility evidence, never an inferred saved-data migration.
+  update. The identity-v2 engine produces new IDs; regeneration is never an
+  inferred saved-data migration. Regenerated on 2026-11-14 under engine
+  semantics `passage-audit-4` (owner-authorized fixture update): the pair is now
+  `snapshot_v2_8ca29e5bd5a065f3` (previous) and `snapshot_v2_406ad333228b0a73`
+  (latest), written by engine 0.2.0 with identity version 2, replacing the
+  schema-version-1 pair (`20260720T060000Z_44d2cd5f_7b2600cd` and
+  `..._64ea971e`, engine 0.1.0, one rounded grid point per leg), which is kept
+  byte-identical under `viewer/test/fixtures/compatibility/` as legacy
+  evidence (checks saved before message IDs and sample points); the Pages build
+  copies only `fixtures/demo`, so it does not ship. The verdicts are unchanged (warning active, both
+  snapshots); the findings gain `legs[].sample_points`, `hours[].expected` (on
+  the three multi-point legs) and `evidence[].sample_point_id`, some event
+  windows carry the boat's actual times instead of whole hours, and each
+  snapshot gains `decision-inputs.json` (about 0.86 MB each). Two runs of the
+  script leave identical bytes.
   Dev fixture mode refuses every non-read `/data/` request with HTTP 403;
   new briefings use the existing browser-local IndexedDB fallback. Warehouse
   mode retains dev persistence and write-once snapshot protection.
@@ -683,11 +698,22 @@ with the browser's text only under Technical detail.
 - `viewer/test/fixtures/compatibility/` contains older saved snapshots kept to
   ensure current UI code degrades safely when a browser still holds an earlier
   schema shape. Dates in these fixture paths are identifiers, not expiry dates.
+  It also holds the two snapshots of the earlier reference demo, restored
+  unchanged on 2026-11-14 (`20260720T060000Z_44d2cd5f_7b2600cd`,
+  `20260720T060000Z_44d2cd5f_64ea971e`): the legacy checks read by
+  `decisionMessages.test.jsx`, `scenarioSpread.test.jsx`,
+  `expectedPositionDisplays.test.jsx` and `e2e/decision-messages.spec.js`
+  (no message IDs, no sample points, one point per leg). Never regenerate them.
 - `analysis/tests/fixtures/` contains recorded real-source responses. Tests
   mock network calls around these files; do not refresh them merely because
   their dates are old.
 - `viewer/e2e/__screenshots__/` contains reviewed Playwright baselines. Update
   them only after inspecting the rendered change at both configured viewports.
+  Updated on 2026-11-14 with the regenerated demo (owner-approved): the
+  briefing and evidence baselines, desktop and mobile. The only change is the
+  ensemble plume block: shading on the audited hours only, the
+  expected-position caption and spread sentences, 24 px (desktop) and 56 px
+  (mobile) more height.
 
 ## Maintenance scripts
 

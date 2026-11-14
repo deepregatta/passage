@@ -4,7 +4,7 @@ import ModelsUsed from '../src/components/ModelsUsed.jsx';
 import { LocalizedDocument, translateText } from '../src/i18n.js';
 import { deriveCoverage } from '../src/lib/evidenceSelectors.js';
 import { useApp } from '../src/stores/appStore.js';
-import savedFindings from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/findings.json';
+import savedFindings from './fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/findings.json';
 
 afterEach(cleanup);
 

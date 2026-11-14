@@ -7,7 +7,7 @@ import { CURRENT_CAVEATS, CURRENT_DISCLAIMER, currentSource, currentSummaryEmula
 import { fmtTextTime } from '../src/lib/format.js';
 import { currentModelFamily, modelName } from '../src/lib/sourceNames.js';
 import compatibilityFindings from './fixtures/compatibility/20260720T060000Z_44d2cd5f_4196266b/findings.json';
-import savedFindings from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/findings.json';
+import savedFindings from './fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/findings.json';
 
 const HOUR = 3_600_000;
 const MINUTE = 60_000;

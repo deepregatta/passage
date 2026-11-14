@@ -3,9 +3,9 @@ import { beforeEach, expect, it, vi } from 'vitest';
 import ChangesSection from '../src/pages/briefing/ChangesSection.jsx';
 import { fmtTextTime } from '../src/lib/format.js';
 import { useApp } from '../src/stores/appStore.js';
-import findings from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/findings.json';
-import briefing from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/briefing.json';
-import synoptic from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/synoptic.json';
+import findings from './fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/findings.json';
+import briefing from './fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/briefing.json';
+import synoptic from './fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/synoptic.json';
 
 vi.mock('../src/components/lazy/EChartsLazy.jsx', () => ({ default: () => null }));
 

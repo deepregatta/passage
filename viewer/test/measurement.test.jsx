@@ -9,7 +9,7 @@ import { trackOnce } from '../src/lib/analytics.js';
 vi.mock('../src/lib/analytics.js', () => ({ trackOnce: vi.fn() }));
 vi.mock('../src/components/lazy/EChartsLazy.jsx', () => ({ default: () => <div /> }));
 vi.mock('../src/components/lazy/LeafletLazy.jsx', () => ({ default: () => <div /> }));
-const fixture = resolve(import.meta.dirname, './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e');
+const fixture = resolve(import.meta.dirname, './fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73');
 const findings = JSON.parse(readFileSync(join(fixture, 'findings.json'), 'utf8'));
 const briefing = JSON.parse(readFileSync(join(fixture, 'briefing.json'), 'utf8'));
 afterEach(() => { cleanup(); vi.clearAllMocks(); });

@@ -8,7 +8,7 @@ import { buildFixtureRun, type FixtureLayerSpec } from './helpers/fixtureRun.js'
 
 const read = (path: string) => JSON.parse(readFileSync(new URL(path, import.meta.url), 'utf8'));
 // The committed reference demo (read-only): warning_active, emulated scenario runs.
-const DEMO = '../../viewer/test/fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/findings.json';
+const DEMO = '../../viewer/test/fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/findings.json';
 const demo = () => read(DEMO) as Findings;
 
 describe('governingReason on the reference demo (warning_active)', () => {

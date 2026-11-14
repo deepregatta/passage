@@ -11,7 +11,7 @@ import { initialPage } from '../src/lib/routes.js';
 // outlast the default five seconds on a loaded machine.
 vi.setConfig({ testTimeout: 30_000 });
 
-const id = '20260720T060000Z_44d2cd5f_64ea971e';
+const id = 'snapshot_v2_406ad333228b0a73';
 const sharedHash = `#passage?snapshot=${id}`;
 beforeEach(() => {
   vi.restoreAllMocks();

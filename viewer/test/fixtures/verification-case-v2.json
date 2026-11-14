@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "snapshot_id": "20260720T060000Z_44d2cd5f_64ea971e",
+  "snapshot_id": "snapshot_v2_406ad333228b0a73",
   "generated_at": "2026-07-13T00:00:00Z",
   "check_generated_at": "2026-07-12T08:00:00Z",
   "source_mode": "fixture",
@@ -38,5 +38,5 @@
     "near_km": 10.0,
     "near_min": 20.0
   },
-  "case_revision": "c4752b81ab95dc981078acfe546c07273933f1e33f29b838428a4db8c3502132"
+  "case_revision": "8939fe98e37cabc94fcccb5aec323724f688c6a80a01af5c11941fc1fd3efbb6"
 }

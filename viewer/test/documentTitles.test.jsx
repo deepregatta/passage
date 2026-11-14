@@ -17,7 +17,7 @@ vi.mock('../src/lib/forecastStore.js', () => ({
   friendlyForecastError: () => new Error('offline'),
 }));
 
-const SNAPSHOT = '20260720T060000Z_44d2cd5f_64ea971e';
+const SNAPSHOT = 'snapshot_v2_406ad333228b0a73';
 const LANDING = `${COPY.en.title} | DeepRegatta`;
 
 beforeEach(() => {

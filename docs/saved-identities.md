@@ -64,6 +64,13 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   out), so none computed before the change survives a reload. Engine golden
   findings/briefing/scan files and the pinned hash in `snapshotAtomic.test.ts`
   were regenerated; committed demo, compatibility and legacy fixtures were not.
+- Committed demo (2026-11-14, explicit owner-authorized fixture update): the
+  reference demo pair in `viewer/test/fixtures/demo/` was regenerated with
+  `node scripts/build-demo-snapshots.mjs` under `passage-audit-4`. Its two
+  snapshots now have identity-v2 IDs (`snapshot_v2_8ca29e5bd5a065f3`,
+  `snapshot_v2_406ad333228b0a73`) in place of the schema-version-1 IDs, which
+  stay byte-identical under `viewer/test/fixtures/compatibility/` as legacy
+  evidence; the other compatibility and legacy fixtures were not touched.
 - Current grid time step (2026-11-13, owner-approved change to what a check
   saves): a check's `currents` input record in `findings.inputs.forecast_tiles`
   gains `time_step_h`, the largest interval of the whole time axis of the frozen

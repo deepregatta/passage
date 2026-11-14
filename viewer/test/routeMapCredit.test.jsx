@@ -5,8 +5,8 @@ import RouteMap from '../src/components/RouteMap.jsx';
 import { translateText } from '../src/i18n.js';
 import { preparedRun } from '../src/lib/preparedRun.js';
 import defaults from '../../config/profiles/default-limits.json';
-import findings from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/findings.json';
-import route from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/route.json';
+import findings from './fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/findings.json';
+import route from './fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/route.json';
 
 // The map draws wind arrows from the prepared ECMWF wind grid, so while they are shown the map's
 // attribution credits ECMWF (short form, with the licence link); the full sentence is on the chart

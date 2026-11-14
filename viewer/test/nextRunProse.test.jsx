@@ -5,8 +5,8 @@ import { useApp } from '../src/stores/appStore.js';
 import Briefing from '../src/pages/Briefing.jsx';
 import { fmtTextClock, fmtTextTime } from '../src/lib/format.js';
 import { fetchSnapshotJson } from '../src/lib/localSnapshots.js';
-import findings from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/findings.json';
-import savedBriefing from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/briefing.json';
+import findings from './fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/findings.json';
+import savedBriefing from './fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/briefing.json';
 
 vi.mock('../src/lib/localSnapshots.js', () => ({ fetchSnapshotJson: vi.fn(), localSnapshots: {}, snapshotTombstones: {} }));
 vi.mock('../src/components/lazy/EChartsLazy.jsx', () => ({ default: () => null }));

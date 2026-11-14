@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test';
 
-export const SNAPSHOT_ID = '20260720T060000Z_44d2cd5f_64ea971e';
+export const SNAPSHOT_ID = 'snapshot_v2_406ad333228b0a73';
 
 export async function openAuditedSnapshot(page) {
   // the app lands on Plan a passage; checked passages live in My passages.

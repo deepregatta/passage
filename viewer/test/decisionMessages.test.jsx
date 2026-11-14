@@ -170,8 +170,8 @@ it('the plain "why" drops the scenario-count signal for new and old checks, and 
   }
   // a numeric signal carries no count: kept
   expect(renderBriefingField(1, numeric, 'plain', 'en', undefined, opts).text).toBe(numeric.register_plain);
-  // the bundled example (saved before message IDs) loses only its "all 51 ... exceed" sentence
-  const example = read('./fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/briefing.json').sections.find(s => s.id === 'decision');
+  // the retained schema-version-1 demo (saved before message IDs, in fixtures/compatibility) loses only its "all 51 ... exceed" sentence
+  const example = read('./fixtures/compatibility/20260720T060000Z_44d2cd5f_64ea971e/briefing.json').sections.find(s => s.id === 'decision');
   expect(renderBriefingField(1, example, 'plain', 'en', undefined, opts)).toEqual({
     text: 'An official marine warning covers part of your route. That takes precedence over everything below.', status: 'legacy',
   });
@@ -180,8 +180,8 @@ it('the plain "why" drops the scenario-count signal for new and old checks, and 
 });
 
 it('restates the professional verdict driver with page labels for new and old checks, or leaves it alone', () => {
-  const example = read('./fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/briefing.json').sections.find(s => s.id === 'decision');
-  const exampleFindings = read('./fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/findings.json');
+  const example = read('./fixtures/compatibility/20260720T060000Z_44d2cd5f_64ea971e/briefing.json').sections.find(s => s.id === 'decision');
+  const exampleFindings = read('./fixtures/compatibility/20260720T060000Z_44d2cd5f_64ea971e/findings.json');
   const describeDriver = (params, language) => driverSignalText(exampleFindings, params, language);
   const en = renderBriefingField(1, example, 'pro', 'en', undefined, { describeDriver });
   expect(en.status).toBe('legacy');
@@ -201,7 +201,7 @@ it('restates the professional verdict driver with page labels for new and old ch
 });
 
 it('the plain "why" names the main signal by place and header-zone time, for new and old checks', () => {
-  const demo = read('./fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/findings.json');
+  const demo = read('./fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/findings.json');
   const localize = {
     departure: demo.departure_utc,
     leg: (name, language) => (name === 'Casquets TSS crossing → Mid-Channel' ? (language === 'fr' ? 'près de Mid-Channel (tronçon 4)' : 'near Mid-Channel (leg 4)') : null),
@@ -230,7 +230,7 @@ it('the plain "why" names the main signal by place and header-zone time, for new
 });
 
 it('renders the main signal in the header zone and by place in the page, not in UTC', () => {
-  const demo = read('./fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/findings.json');
+  const demo = read('./fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/findings.json');
   const section = structuredClone(numeric);
   section.messages.plain = [section.messages.plain[0], { message_id: 'briefing.decision.numeric.plain.v1', params: { leg_name: 'Casquets TSS crossing → Mid-Channel', valid_time: '2026-07-20T21:00:00Z', value: 22, limit: 18, units: 'kt', hazard: 'winds', relation: 'over', style: 'up_to' } }];
   section.register_plain = renderBriefingField(1, section, 'plain', 'en').text;

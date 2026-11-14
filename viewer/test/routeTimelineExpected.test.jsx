@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import RouteTimeline from '../src/components/RouteTimeline.jsx';
 import { useApp } from '../src/stores/appStore.js';
-import findings from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/findings.json';
+import findings from './fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/findings.json';
 
 // capture the chart option instead of drawing it
 const charts = vi.hoisted(() => []);

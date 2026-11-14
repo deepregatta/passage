@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, within } from '@testing-library/react';
 import RouteTimeline from '../src/components/RouteTimeline.jsx';
 import { useApp } from '../src/stores/appStore.js';
-import findings from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/findings.json';
+import findings from './fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/findings.json';
 
 vi.mock('../src/components/lazy/EChartsLazy.jsx', () => ({ default: () => null }));
 
@@ -30,7 +30,10 @@ it('lists the timeline table by place and leg number with the local time first, 
 
 it('reads an hour missing a recorded limit value as not assessed, not fine', () => {
   const f = structuredClone(findings);
-  for (const leg of f.legs) for (const hour of leg.hours) for (const key of Object.keys(hour.limit_status)) hour.limit_status[key] = 'ok';
+  // the table reads the hour at the boat's expected position where the check recorded one, so a record's
+  // limit statuses live in `expected.limit_status` on multi-point legs and in `limit_status` on the others
+  const statuses = (hour) => [hour.limit_status, hour.expected?.limit_status].filter(Boolean);
+  for (const leg of f.legs) for (const hour of leg.hours) for (const record of statuses(hour)) for (const key of Object.keys(record)) record[key] = 'ok';
   // the table lists the chart's rows (the expected timing, every third): find the hours of its first four rows
   useApp.setState({ ...useApp.getInitialState(), findings: f }, true);
   const first = render(<RouteTimeline />);
@@ -41,9 +44,9 @@ it('reads an hour missing a recorded limit value as not assessed, not fine', () 
     const leg = f.legs.find((l) => legText.endsWith(`(leg ${l.leg_id.slice(1)})`));
     return leg.hours.find((h) => h.valid_time.slice(11, 16) === utc && Date.parse(h.valid_time) >= Date.parse(leg.enter_range.nominal) - 1800_000);
   };
-  hourOf(listed[0]).limit_status.wave = 'unknown'; // ok wind, unknown wave
-  delete hourOf(listed[1]).limit_status.steepness; // absent where other hours record it
-  hourOf(listed[2]).limit_status.wave = 'exceeded';
+  for (const record of statuses(hourOf(listed[0]))) record.wave = 'unknown'; // ok wind, unknown wave
+  for (const record of statuses(hourOf(listed[1]))) delete record.steepness; // absent where other hours record it
+  for (const record of statuses(hourOf(listed[2]))) record.wave = 'exceeded';
   useApp.setState({ ...useApp.getInitialState(), findings: f }, true);
   render(<RouteTimeline />);
   const rows = within(screen.getByText('Table alternative for route timeline').closest('details')).getAllByRole('row', { hidden: true }).slice(1);

@@ -4,7 +4,7 @@ import { routeSummary, WIND_BANDS } from '../src/index.js';
 import type { Findings, LegHour } from '../src/types.js';
 
 const read = (path: string) => JSON.parse(readFileSync(new URL(path, import.meta.url), 'utf8')) as Findings;
-const DEMO = read('../../viewer/test/fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/findings.json');
+const DEMO = read('../../viewer/test/fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/findings.json');
 const GOLDEN = read('./golden/findings-cherbourg-plymouth.json');
 
 const H = (n: number) => `2026-07-20T${String(n).padStart(2, '0')}:00:00Z`;

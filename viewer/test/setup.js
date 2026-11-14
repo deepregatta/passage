@@ -3,15 +3,15 @@ import { afterEach, beforeEach, vi } from 'vitest';
 import { cleanup, configure } from '@testing-library/react';
 import { linkReferenceHistory } from '../src/lib/passageIdentity.js';
 import referenceIndex from './fixtures/demo/index.json';
-import manifest from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/snapshot.json';
-import findings from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/findings.json';
-import briefing from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/briefing.json';
-import plume from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/plume.json';
-import route from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/route.json';
-import warnings from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/warnings.json';
-import synoptic from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/synoptic.json';
-import previousManifest from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_7b2600cd/snapshot.json';
-import previousFindings from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_7b2600cd/findings.json';
+import manifest from './fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/snapshot.json';
+import findings from './fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/findings.json';
+import briefing from './fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/briefing.json';
+import plume from './fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/plume.json';
+import route from './fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/route.json';
+import warnings from './fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/warnings.json';
+import synoptic from './fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/synoptic.json';
+import previousManifest from './fixtures/demo/snapshots/snapshot_v2_8ca29e5bd5a065f3/snapshot.json';
+import previousFindings from './fixtures/demo/snapshots/snapshot_v2_8ca29e5bd5a065f3/findings.json';
 
 // Pages load lazily and the demo fetches are mocked, so a wait only runs out when the
 // machine is busy (a loaded laptop or a shared CI runner): give it room, not the default 1 s.

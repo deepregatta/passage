@@ -19,7 +19,7 @@ vi.mock('react-leaflet', () => ({
 }));
 vi.mock('../src/components/lazy/EChartsLazy.jsx', () => ({ default: () => null }));
 vi.mock('../src/components/lazy/LeafletLazy.jsx', () => ({ default: () => null }));
-const fixture = (name) => JSON.parse(readFileSync(resolve(import.meta.dirname, `fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/${name}.json`), 'utf8'));
+const fixture = (name) => JSON.parse(readFileSync(resolve(import.meta.dirname, `fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/${name}.json`), 'utf8'));
 let findings;
 let warnings;
 beforeEach(() => {

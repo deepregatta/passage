@@ -117,7 +117,7 @@ describe('viewer fixture harness', () => {
     await user.click(snapshot);
 
     await waitFor(() => expect(screen.getByText(/EMULATED WARNING SCENARIO/i)).toBeTruthy());
-    expect(useApp.getState().snapshotId).toBe('20260720T060000Z_44d2cd5f_64ea971e');
+    expect(useApp.getState().snapshotId).toBe('snapshot_v2_406ad333228b0a73');
   });
 
   it('does not present emulated warning evidence as verified authority', async () => {

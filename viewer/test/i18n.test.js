@@ -222,8 +222,8 @@ describe('language selection', () => {
   it('leaves no generated English briefing prose in the bundled snapshots', () => {
     const fixtures = [
       './fixtures/compatibility/20260720T060000Z_44d2cd5f_4196266b/briefing.json',
-      './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_7b2600cd/briefing.json',
-      './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/briefing.json',
+      './fixtures/demo/snapshots/snapshot_v2_8ca29e5bd5a065f3/briefing.json',
+      './fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/briefing.json',
     ];
     const english = /\b(?:while you are|forecast scenarios exceed|the forecasts|reassess after|official marine warnings|unassessed hazard classes|partial capability coverage|deterministic wave model|screening signals only|values are exact|absence of a flag|authority override|detected systems|front-type labels|per-leg conditions|sustained \d|gusts to|seas to|raw scenario fraction|calibrated probability|provider modes are recorded)\b/i;
     const visit = (value) => {

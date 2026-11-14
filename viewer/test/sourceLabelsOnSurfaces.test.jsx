@@ -4,8 +4,8 @@ import BulletinPanel from '../src/components/BulletinPanel.jsx';
 import EvidenceInspector from '../src/components/EvidenceInspector.jsx';
 import { fmtTextTime, fmtUtcClock } from '../src/lib/format.js';
 import { useApp } from '../src/stores/appStore.js';
-import savedFindings from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/findings.json';
-import savedWarnings from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/warnings.json';
+import savedFindings from './fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/findings.json';
+import savedWarnings from './fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/warnings.json';
 
 afterEach(() => vi.useRealTimers());
 beforeEach(() => {

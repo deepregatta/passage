@@ -3,9 +3,12 @@ import { expect, test } from '@playwright/test';
 import { renderBriefing } from '../../engine/dist/index.js';
 import { openAuditedSnapshot } from './helpers.js';
 
-const load = name => JSON.parse(readFileSync(new URL(`../test/fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/${name}.json`, import.meta.url), 'utf8'));
+const load = name => JSON.parse(readFileSync(new URL(`../test/fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/${name}.json`, import.meta.url), 'utf8'));
 const findings = load('findings');
-const original = load('briefing');
+// the retained schema-version-1 demo: saved before message IDs, served as the legacy check
+const legacy = name => JSON.parse(readFileSync(new URL(`../test/fixtures/compatibility/20260720T060000Z_44d2cd5f_64ea971e/${name}.json`, import.meta.url), 'utf8'));
+const legacyFindings = legacy('findings');
+const original = legacy('briefing');
 const name = 'Wind limit <img src=x onerror=alert(1)> Jul';
 const synthetic = structuredClone(findings);
 synthetic.gates = [];
@@ -25,7 +28,7 @@ test.beforeEach(async ({ page }) => {
 for (const language of ['en', 'fr']) {
   test(`served legacy, current IDs and whole-field fallback in ${language}`, async ({ page }, testInfo) => {
     let briefing = original;
-    let servedFindings = findings;
+    let servedFindings = legacyFindings;
     await page.route('**/data/snapshots/*/findings.json', route => route.fulfill({ json: servedFindings }));
     await page.route('**/data/snapshots/*/briefing.json', route => route.fulfill({ json: briefing }));
     await openAuditedSnapshot(page);

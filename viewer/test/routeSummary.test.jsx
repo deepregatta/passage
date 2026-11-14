@@ -5,7 +5,7 @@ import { LocalizedDocument } from '../src/i18n.js';
 import { routeSummaryLines } from '../src/lib/routeSummaryLines.js';
 import compatibilityFindings from './fixtures/compatibility/20260720T060000Z_44d2cd5f_4196266b/findings.json';
 import goldenFindings from '../../engine/test/golden/findings-cherbourg-plymouth.json';
-import savedFindings from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/findings.json';
+import savedFindings from './fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/findings.json';
 
 const HOUR = 3_600_000;
 const FORBIDDEN_EN = /probabilit|chance|likel|odds|%|tidal|deepweather/i;

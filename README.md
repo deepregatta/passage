@@ -64,7 +64,7 @@ node scripts/build-demo-snapshots.mjs
 VITE_DW_FIXTURE=demo npm run dev -w viewer
 ```
 
-The builder runs the engine CLI twice with a fixed clock and rebuilds the committed previous/latest snapshot pair in `viewer/test/fixtures/demo/`. It includes archived synthetic bulletin text, synoptic tracks/charts, an ensemble gust-scenario claim, a six-hour/four-hPa before/after low, a changes artifact, and an explicitly emulated verification case. The current committed pair is retained as schema-version-1 compatibility evidence.
+The builder runs the engine CLI twice with a fixed clock and rebuilds the committed previous/latest snapshot pair in `viewer/test/fixtures/demo/`. It includes archived synthetic bulletin text, synoptic tracks/charts, an ensemble gust-scenario claim, a six-hour/four-hPa before/after low, a changes artifact, and an explicitly emulated verification case. The committed pair was regenerated on 2026-11-14 under engine semantics `passage-audit-4` (identity version 2); the earlier schema-version-1 pair is kept under `viewer/test/fixtures/compatibility/` as legacy evidence.
 
 Verification compares filesystem snapshots with configured observations, or
 shows explicitly published cases. Browser-local briefings have no automatic

@@ -14,8 +14,11 @@ import { LocalizedDocument } from '../src/i18n.js';
 import { useApp } from '../src/stores/appStore.js';
 import { scenarioSpreadSentences } from '../src/lib/scenarioSpreadSentence.js';
 import { legWindArrow } from '../src/lib/legWindArrow.js';
-import savedFindings from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/findings.json';
-import savedPlume from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/plume.json';
+import savedFindings from './fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/findings.json';
+import savedPlume from './fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/plume.json';
+// the retained schema-version-1 demo: a check read at one point per leg
+import legacyFindings from './fixtures/compatibility/20260720T060000Z_44d2cd5f_64ea971e/findings.json';
+import legacyPlume from './fixtures/compatibility/20260720T060000Z_44d2cd5f_64ea971e/plume.json';
 
 const charts = vi.hoisted(() => []);
 vi.mock('../src/components/lazy/EChartsLazy.jsx', () => ({ default: (props) => { charts.push(props.option); return null; } }));
@@ -89,8 +92,8 @@ it('lists the check\'s own count beside each plume hour on a multi-point leg', (
 });
 
 it('keeps the plume shading and counts of a check read at one point per leg as before', () => {
-  const findings = structuredClone(savedFindings);
-  setApp(findings, structuredClone(savedPlume));
+  const findings = structuredClone(legacyFindings);
+  setApp(findings, structuredClone(legacyPlume));
   const claim = findings.evidence.find((e) => e.source_kind === 'ensemble' && e.member_fraction);
   render(<EnsemblePlume evidence={claim} variable={claim.rule_id.startsWith('W-GUST') ? 'gust' : 'wind'} />);
   expect(charts.at(-1)).toBeTruthy();

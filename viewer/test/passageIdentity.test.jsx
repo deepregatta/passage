@@ -4,7 +4,7 @@ import { groupPassages } from '../src/lib/passages.js';
 import ChangesSection from '../src/pages/briefing/ChangesSection.jsx';
 import { useApp } from '../src/stores/appStore.js';
 import { fetchSnapshotJson } from '../src/lib/localSnapshots.js';
-import saved from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/findings.json';
+import saved from './fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/findings.json';
 
 vi.mock('../src/lib/localSnapshots.js', () => ({ fetchSnapshotJson: vi.fn() }));
 vi.mock('../src/components/SynopticCompare.jsx', () => ({ default: () => null }));

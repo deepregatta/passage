@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import findings from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/findings.json';
-import synoptic from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/synoptic.json';
-import route from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/route.json';
+import findings from './fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/findings.json';
+import synoptic from './fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/synoptic.json';
+import route from './fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/route.json';
 import { chartProjector } from '../src/lib/synopticCharts.js';
 import { PHASE_CAPTION, chartFocusPoints, chartStageStyle, fitChartView, passageWindowMs, phaseCaption } from '../src/lib/synopticView.js';
 import { translateText } from '../src/i18n.js';

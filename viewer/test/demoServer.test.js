@@ -20,7 +20,7 @@ it('accepts a demo server whose index matches this checkout', async () => {
 it.each([
   ['live data', '{"fixture":null}', demoIndex],
   ['unidentified server', '<html>other application</html>', demoIndex],
-  ['different checkout', '{"fixture":"demo"}', demoIndex.replace('64ea971e', 'different')],
+  ['different checkout', '{"fixture":"demo"}', demoIndex.replace('406ad333228b0a73', 'different')],
 ])('rejects %s before the browser tests run', async (_, identity, index) => {
   vi.stubGlobal('fetch', vi.fn(async (url) => new Response(url.pathname === '/__passage_fixture' ? identity : index)));
   await expect(verifyDemoServer(config)).rejects.toThrow('Playwright requires the viewer-demo launch configuration');

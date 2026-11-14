@@ -10,7 +10,7 @@ import type { Findings, LegHour, LimitsProfile, Route } from '../src/types.js';
 import { alongEachLeg } from './helpers/samplePoints.js';
 
 const read = <T>(path: string) => JSON.parse(readFileSync(new URL(path, import.meta.url), 'utf8')) as T;
-const DEMO = read<Findings>('../../viewer/test/fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/findings.json');
+const DEMO = read<Findings>('../../viewer/test/fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/findings.json');
 const GOLDEN = read<Findings>('./golden/findings-cherbourg-plymouth.json');
 
 const H = (n: number) => `2026-07-20T${String(n).padStart(2, '0')}:00:00Z`;
@@ -238,7 +238,7 @@ describe('hours with and against the current', () => {
   it('the committed saved checks run without throwing and get no figures', () => {
     const LEGACY = read<Findings>('./fixtures/legacy-current-snapshot/findings.json');
     const COMPAT = read<Findings>('../../viewer/test/fixtures/compatibility/20260720T060000Z_44d2cd5f_4196266b/findings.json');
-    const OTHER = read<Findings>('../../viewer/test/fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_7b2600cd/findings.json');
+    const OTHER = read<Findings>('../../viewer/test/fixtures/demo/snapshots/snapshot_v2_8ca29e5bd5a065f3/findings.json');
     for (const saved of [DEMO, GOLDEN, COMPAT, OTHER, LEGACY]) {
       expect(() => currentSummary(saved)).not.toThrow();
       expect(currentSummary(saved)?.with_against ?? null).toBeNull();

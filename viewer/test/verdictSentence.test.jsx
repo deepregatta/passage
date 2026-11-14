@@ -7,10 +7,10 @@ import { fmtTextTime } from '../src/lib/format.js';
 import { useApp } from '../src/stores/appStore.js';
 import { usePlayback } from '../src/stores/playbackStore.js';
 import { verdictSentences } from '../src/pages/briefing/verdictSentence.js';
-import savedFindings from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/findings.json';
-import savedBriefing from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/briefing.json';
-import savedPlume from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/plume.json';
-import savedWarnings from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/warnings.json';
+import savedFindings from './fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/findings.json';
+import savedBriefing from './fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/briefing.json';
+import savedPlume from './fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/plume.json';
+import savedWarnings from './fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/warnings.json';
 
 vi.mock('../src/components/lazy/EChartsLazy.jsx', () => ({ default: () => null }));
 vi.mock('../src/components/lazy/LeafletLazy.jsx', () => ({ default: () => null }));

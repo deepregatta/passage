@@ -5,7 +5,7 @@ import About from '../src/pages/About.jsx';
 import Passages from '../src/pages/Passages.jsx';
 import { useApp } from '../src/stores/appStore.js';
 import pythonCase from './fixtures/verification-case-v2.json';
-import snapshot from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/snapshot.json';
+import snapshot from './fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/snapshot.json';
 
 const originalLoadManifest = useApp.getState().loadManifest;
 
@@ -72,7 +72,7 @@ it.each([false, true])('an indexed case is not an unconditional Verified claim (
 });
 
 it('names the matched leg by place and the valid time in the header zone, UTC marked second', async () => {
-  const demo = (await import('./fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/findings.json')).default;
+  const demo = (await import('./fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/findings.json')).default;
   useApp.setState({ findings: { ...demo, snapshot_id: pythonCase.snapshot_id }, snapshotSource: 'served' });
   vi.stubGlobal('fetch', vi.fn(async (url) => ({ ok: true, json: async () => String(url).endsWith('index.json')
     ? { cases: [{ snapshot_id: pythonCase.snapshot_id }] } : pythonCase })));

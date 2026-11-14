@@ -5,8 +5,11 @@ import EnsemblePlume from '../src/components/EnsemblePlume.jsx';
 import { LocalizedDocument } from '../src/i18n.js';
 import { useApp } from '../src/stores/appStore.js';
 import { scenarioSpreadSentences, wholeKnotsUp } from '../src/lib/scenarioSpreadSentence.js';
-import savedFindings from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/findings.json';
-import savedPlume from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/plume.json';
+import savedFindings from './fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/findings.json';
+import savedPlume from './fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/plume.json';
+// the retained schema-version-1 demo: one point per leg, the wording older checks keep
+import legacyFindings from './fixtures/compatibility/20260720T060000Z_44d2cd5f_64ea971e/findings.json';
+import legacyPlume from './fixtures/compatibility/20260720T060000Z_44d2cd5f_64ea971e/plume.json';
 
 const chart = vi.hoisted(() => ({ option: null }));
 vi.mock('../src/components/lazy/EChartsLazy.jsx', () => ({
@@ -18,11 +21,11 @@ const FORBIDDEN_EN = /probabilit|chance|likel|odds|%/i;
 const FORBIDDEN_FR = /probabilit|chance|probable|cote|%/i;
 
 /** Independent reading of the fixture: each member's maximum over the hours the findings audited. */
-function expectedFromFixture(variable) {
+function expectedFromFixture(variable, savedFindings_ = savedFindings, savedPlume_ = savedPlume) {
   const key = variable === 'gust' ? 'gust_members' : 'wind_members';
   const maxima = [];
-  for (const leg of savedFindings.legs) {
-    const plumeLeg = savedPlume.legs.find((l) => l.leg_id === leg.leg_id);
+  for (const leg of savedFindings_.legs) {
+    const plumeLeg = savedPlume_.legs.find((l) => l.leg_id === leg.leg_id);
     if (!plumeLeg) continue;
     const audited = new Set(leg.hours.map((h) => Date.parse(h.valid_time)));
     plumeLeg[key].forEach((series, m) => series.forEach((value, i) => {
@@ -44,10 +47,11 @@ beforeEach(() => { chart.option = null; setApp(); });
 const spreadText = (container) => container.querySelector('[data-testid="scenario-spread"]')?.textContent ?? null;
 
 it('shows the sentence beside the claim when scenarios exceed a limit', () => {
+  setApp({ findings: structuredClone(legacyFindings), plume: structuredClone(legacyPlume) });
   const { container } = render(<EvidenceSection />);
   expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent(/^\d+ of 51 forecast scenarios exceed your (wind|gust) limit$/);
-  const wind = expectedFromFixture('wind');
-  const gust = expectedFromFixture('gust');
+  const wind = expectedFromFixture('wind', legacyFindings, legacyPlume);
+  const gust = expectedFromFixture('gust', legacyFindings, legacyPlume);
   expect(wind.members).toBe(51);
   const paragraphs = [...container.querySelectorAll('[data-testid="scenario-spread"] p')].map((p) => p.textContent);
   expect(paragraphs).toEqual([
@@ -118,10 +122,10 @@ it('is built from the saved findings and plume alone: a plume of an older shape 
 
 it('writes the same sentence in French, with nd for knots, in both cases', async () => {
   for (const calm of [false, true]) {
-    setApp({ findings: calm ? withoutEnsembleClaims(savedFindings) : structuredClone(savedFindings) });
+    setApp({ findings: calm ? withoutEnsembleClaims(legacyFindings) : structuredClone(legacyFindings), plume: structuredClone(legacyPlume) });
     const { container, unmount } = render(<div id="root"><EvidenceSection /><LocalizedDocument language="fr" /></div>);
-    const wind = expectedFromFixture('wind');
-    const gust = expectedFromFixture('gust');
+    const wind = expectedFromFixture('wind', legacyFindings, legacyPlume);
+    const gust = expectedFromFixture('gust', legacyFindings, legacyPlume);
     await waitFor(() => expect(spreadText(container)).toContain('Dans la moitié des 51 scénarios de prévision'));
     expect([...container.querySelectorAll('[data-testid="scenario-spread"] p')].map((p) => p.textContent)).toEqual([
       `Dans la moitié des 51 scénarios de prévision simulés, le vent le plus fort aux points vérifiés le long de votre route reste à ${wind.median} nd ou moins${NBSP}; dans neuf scénarios sur dix, à ${wind.p90} nd ou moins.`,

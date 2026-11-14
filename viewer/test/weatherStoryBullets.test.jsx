@@ -3,8 +3,8 @@ import { beforeEach, expect, it } from 'vitest';
 import WeatherStoryCard from '../src/pages/briefing/WeatherStoryCard.jsx';
 import { fmtTextTime } from '../src/lib/format.js';
 import { useApp } from '../src/stores/appStore.js';
-import savedFindings from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/findings.json';
-import savedBriefing from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/briefing.json';
+import savedFindings from './fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/findings.json';
+import savedBriefing from './fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/briefing.json';
 
 let findings;
 beforeEach(() => {

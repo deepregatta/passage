@@ -3,7 +3,7 @@ import { expect, it } from 'vitest';
 import { CURRENT_ALONG_TRACK_THRESHOLD_KT, routeSummary } from '@deepweather/engine';
 import CurrentSummary from '../src/pages/briefing/CurrentSummary.jsx';
 import { LocalizedDocument, translateText } from '../src/i18n.js';
-import savedFindings from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/findings.json';
+import savedFindings from './fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/findings.json';
 // A check saved by the engine before checks recorded the current grid's time step (never regenerated).
 import legacyFindings from '../../engine/test/fixtures/legacy-current-snapshot/findings.json';
 import legacyRoute from '../../engine/test/fixtures/legacy-current-snapshot/route.json';

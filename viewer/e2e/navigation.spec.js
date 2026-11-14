@@ -67,9 +67,9 @@ test('the passage page publishes the frozen demo outcome with emulated exclusion
 });
 
 test('retired stage links open the same passage section', async ({ page }) => {
-  await page.goto(`/#watch/changes?snapshot=20260720T060000Z_44d2cd5f_64ea971e`);
+  await page.goto(`/#watch/changes?snapshot=snapshot_v2_406ad333228b0a73`);
   await expect(page.getByTestId('decision-band')).toBeVisible();
-  await expect(page).toHaveURL(/#passage\?snapshot=20260720T060000Z_44d2cd5f_64ea971e$/);
+  await expect(page).toHaveURL(/#passage\?snapshot=snapshot_v2_406ad333228b0a73$/);
   await expect(page.getByText(/Edited change story/i)).toBeInViewport();
 });
 

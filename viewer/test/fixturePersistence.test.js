@@ -7,7 +7,7 @@ import { dataMiddleware } from '../vite.config.js';
 
 let scratch, server;
 const fixtureRoot = path.join(import.meta.dirname, 'fixtures/demo');
-const snapshotId = '20260720T060000Z_44d2cd5f_64ea971e';
+const snapshotId = 'snapshot_v2_406ad333228b0a73';
 
 function bytes(root) {
   return Object.fromEntries(fs.readdirSync(root, { recursive: true, withFileTypes: true })

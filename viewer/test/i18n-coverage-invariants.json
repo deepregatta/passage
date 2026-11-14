@@ -503,8 +503,8 @@
         "user",
         "wp"
       ],
-      "viewer/test/fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/briefing.json": [
-        "20260720T060000Z_44d2cd5f_64ea971e",
+      "viewer/test/fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/briefing.json": [
+        "snapshot_v2_406ad333228b0a73",
         "E1",
         "E10",
         "E11",
@@ -541,10 +541,17 @@
         "synoptic_story",
         "unsupported",
         "warnings",
-        "what_could_change"
+        "what_could_change",
+        "briefing.decision.ensemble.plain.v1",
+        "briefing.decision.ensemble.pro.v1",
+        "briefing.decision.title.v1",
+        "briefing.decision.warning_active.plain.v1",
+        "briefing.decision.warning_active.pro.v1",
+        "2026-07-20T23:00:00Z",
+        "W-SUST-03"
       ],
-      "viewer/test/fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_7b2600cd/briefing.json": [
-        "20260720T060000Z_44d2cd5f_7b2600cd",
+      "viewer/test/fixtures/demo/snapshots/snapshot_v2_8ca29e5bd5a065f3/briefing.json": [
+        "snapshot_v2_8ca29e5bd5a065f3",
         "E1",
         "E10",
         "E11",
@@ -572,7 +579,14 @@
         "synoptic_story",
         "unsupported",
         "warnings",
-        "what_could_change"
+        "what_could_change",
+        "briefing.decision.ensemble.plain.v1",
+        "briefing.decision.ensemble.pro.v1",
+        "briefing.decision.title.v1",
+        "briefing.decision.warning_active.plain.v1",
+        "briefing.decision.warning_active.pro.v1",
+        "2026-07-21T05:00:00Z",
+        "W-SUST-03"
       ],
       "viewer/src/components/BriefingMessage.jsx": [
         "fallback",
@@ -622,10 +636,10 @@
       "viewer/src/pages/briefing/OutcomeSection.jsx": [
         "variable"
       ],
-      "viewer/test/fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/briefing.json": [
+      "viewer/test/fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/briefing.json": [
         "ensemble"
       ],
-      "viewer/test/fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_7b2600cd/briefing.json": [
+      "viewer/test/fixtures/demo/snapshots/snapshot_v2_8ca29e5bd5a065f3/briefing.json": [
         "ensemble"
       ]
     },

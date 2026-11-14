@@ -4,9 +4,9 @@ import SectionNav, { revealTab, scrollToSection } from '../src/pages/briefing/Se
 import { Term, tooltipShift } from '../src/lib/glossary.jsx';
 import Example from '../src/pages/Example.jsx';
 import { useApp } from '../src/stores/appStore.js';
-import savedFindings from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/findings.json';
-import savedBriefing from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/briefing.json';
-import savedRoute from './fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/route.json';
+import savedFindings from './fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/findings.json';
+import savedBriefing from './fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/briefing.json';
+import savedRoute from './fixtures/demo/snapshots/snapshot_v2_406ad333228b0a73/route.json';
 
 vi.mock('../src/components/lazy/EChartsLazy.jsx', () => ({ default: () => null }));
 vi.mock('../src/components/lazy/LeafletLazy.jsx', () => ({ default: () => <div data-testid="passage-map" /> }));
