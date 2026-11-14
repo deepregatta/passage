@@ -3,7 +3,9 @@ import { identityFields } from './passageIdentity.js';
 // The dev server accepts POST /data/snapshots/… and writes to the repo; in
 // production there is no write endpoint, so briefings persist here instead —
 // one IndexedDB record per artifact file, keyed `${snapshot_id}/${filename}`.
-// Snapshots remain write-once: any partial save exists, and add rejects replacement.
+// A check is saved by writeAll in one transaction, so a failed save stores
+// nothing. Snapshots remain write-once: add rejects replacement, and records
+// left by an interrupted save from before writeAll are kept as they are.
 
 const DB_NAME = 'passage-local-snapshots';
 const STORE = 'files';
@@ -47,7 +49,35 @@ function tx(db, mode, run) {
   });
 }
 
+// Adds every record in one readwrite transaction: any failure aborts it and
+// rolls back every add, so either all records exist afterwards or none do.
+// Rejects with the cause, wherever the browser reports it: a request's error
+// (a duplicate key, or quota in some browsers), the transaction's error (quota
+// on commit), the error add threw, or an AbortError when nothing names one.
+function addAll(db, records) {
+  return new Promise((resolve, reject) => {
+    let cause = null;
+    const t = db.transaction(STORE, 'readwrite');
+    t.oncomplete = () => resolve();
+    // Requests still queued when the transaction aborts fail with AbortError:
+    // a consequence, not the cause.
+    t.onerror = (event) => {
+      const error = event.target?.error;
+      if (error && error.name !== 'AbortError') cause ??= error;
+    };
+    t.onabort = () => reject(cause ?? t.error ?? new DOMException('The save was interrupted.', 'AbortError'));
+    try {
+      const store = t.objectStore(STORE);
+      for (const record of records) store.add(record);
+    } catch (error) {
+      cause ??= error;
+      try { t.abort(); } catch { /* already aborting */ }
+    }
+  });
+}
+
 const available = () => typeof indexedDB !== 'undefined';
+const NO_INDEXEDDB = 'This browser cannot store briefings (no IndexedDB)';
 
 export const localSnapshots = {
   async exists(snapshotId) {
@@ -62,11 +92,19 @@ export const localSnapshots = {
   },
 
   async write(snapshotId, filename, content) {
-    if (!available()) throw new Error('This browser cannot store briefings (no IndexedDB)');
+    if (!available()) throw new Error(NO_INDEXEDDB);
     const db = await openDb();
     await tx(db, 'readwrite', (s) =>
       s.add({ key: `${snapshotId}/${filename}`, snapshot_id: snapshotId, filename, content }),
     );
+  },
+
+  /** All files of one check ([{filename, content}], manifest last), all or nothing. */
+  async writeAll(snapshotId, files) {
+    if (!available()) throw new Error(NO_INDEXEDDB);
+    const db = await openDb();
+    await addAll(db, files.map(({ filename, content }) =>
+      ({ key: `${snapshotId}/${filename}`, snapshot_id: snapshotId, filename, content })));
   },
 
   // returns the raw JSON string, or null when this snapshot/file is not local

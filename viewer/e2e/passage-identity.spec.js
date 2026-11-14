@@ -153,6 +153,8 @@ test('separate intent, reroute history, exact retry, reopen, predecessor and del
   }, separate.id);
   await settleMap(page);
   await page.getByRole('button', { name: 'Check this passage', exact: true }).click();
+  await expect(page.getByRole('alert')).toHaveText('This check could not be saved: this browser already holds an earlier save of the same check that cannot be reopened, and saved checks are never overwritten. Nothing new was stored. A check on a newer forecast, or after a change to the route, departure or limits, can be saved normally.');
+  await page.getByText('Technical detail', { exact: true }).click();
   await expect(page.getByText(/incomplete, legacy or conflicting.*write-once/)).toBeVisible();
   expect(await page.evaluate(async id => (await import('/src/lib/localSnapshots.js')).localSnapshots.read(id, 'route.json'), separate.id)).toBe(partialBytes);
   expect(errors).toEqual([]);

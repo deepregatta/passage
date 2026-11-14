@@ -61,6 +61,26 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   legacy or conflicting existing artifacts are never overwritten or accepted
   as a retry. The manifest remains the completion marker; frozen decision
   inputs are archived alongside the existing artifacts.
+- All-or-nothing saves in the browser (2026-11-14): `writeSnapshot` builds
+  every artifact first and, when the store offers the optional `writeAll`,
+  hands them over in one call, manifest last. The browser store adds them in
+  one IndexedDB transaction, so a save that fails (storage full, an abort, a
+  closed tab) leaves no record for that snapshot id and the same Check can be
+  saved again. Write-once still holds: `add` never replaces a record, and an
+  existing partial, legacy or conflicting check is still refused, never
+  repaired or deleted; the planner says so instead of offering a retry
+  (`SnapshotExistsError`, also used for the dev middleware's 409). The CLI's
+  filesystem store has no `writeAll` and writes one file at a time as before,
+  manifest last. In dev warehouse mode the browser's `FallbackSnapshotStore`
+  has `writeAll` but posts the files to the dev middleware one request per
+  file, so a dev save failing part-way can still leave files on disk
+  (unchanged behaviour, dev only). Records already left by an interrupted save
+  from before this change stay as they are.
+- The stored layout of `decision-inputs.json` is not part of any identity.
+  `decision_hash` and `snapshot_id` hash the value, and an exact retry compares
+  canonical JSON of the parsed file. Since 2026-11-14 the file is written
+  without indentation (the other artifacts keep theirs); indented files saved
+  earlier reopen on an exact retry unchanged.
 - Modern histories group only by explicit passage ID and persistence source.
   Legacy checks without explicit identity remain individually accessible and
   deletable. No inferred grouping from route names/counts/departure is permitted.

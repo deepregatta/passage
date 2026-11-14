@@ -70,6 +70,15 @@ export function progressLabel(raw) {
 
 export const FORECAST_LOAD_FAILED = 'The forecast could not be loaded. Check your connection and try again.';
 
+/** A Check whose save failed stored nothing new (the save is all or nothing); `saveFailure` says why. */
+export const SAVE_FAILED = Object.freeze({
+  'storage-full': 'This check was not saved: this browser’s storage for this site is full, so nothing was stored. To free space, delete saved checks you no longer need in My passages.',
+  // write-once: records for this exact check exist and cannot be reopened (unfinished, legacy,
+  // conflicting, or unreadable just now); a new forecast run or another route, departure or limits gives a new check
+  blocked: 'This check could not be saved: this browser already holds an earlier save of the same check that cannot be reopened, and saved checks are never overwritten. Nothing new was stored. A check on a newer forecast, or after a change to the route, departure or limits, can be saved normally.',
+  failed: 'This check was not saved in this browser, and nothing was stored.',
+});
+
 const POLARS_UNAVAILABLE = /^Boat polars are unavailable/;
 const RAW_FORECAST_FAILURE = /^forecast (?:tile )?(?:fetch (?:failed|timed out)|invalid)/i;
 const RAW_NETWORK_FAILURE = /^(?:TypeError: )?(?:Failed to fetch|NetworkError|Network request failed|Load failed)/i;
@@ -78,10 +87,17 @@ const RAW_NETWORK_FAILURE = /^(?:TypeError: )?(?:Failed to fetch|NetworkError|Ne
  * A failure as the page shows it: plain wording, the original text kept as
  * `detail` for a "Technical detail" disclosure, and `polars` when switching to a
  * drawn route is the way out. Messages that are already friendly pass through.
+ * A failed save (`saveFailure` from browserAnalysis: 'storage-full', 'blocked' or 'failed')
+ * always gets its plain sentence; the browser's own text stays the detail.
+ * @param {unknown} raw
+ * @param {string | null} [saveFailure]
  * @returns {{message: string, detail: string | null, polars: boolean}}
  */
-export function friendlyError(raw) {
+export function friendlyError(raw, saveFailure = null) {
   const text = String(raw ?? '').trim() || 'Something went wrong. Please try again.';
+  if (saveFailure) {
+    return { message: SAVE_FAILED[saveFailure] ?? SAVE_FAILED.failed, detail: String(raw ?? '').trim() || null, polars: false };
+  }
   if (POLARS_UNAVAILABLE.test(text)) return { message: text, detail: null, polars: true };
   if (RAW_FORECAST_FAILURE.test(text) || RAW_NETWORK_FAILURE.test(text)) {
     return { message: FORECAST_LOAD_FAILED, detail: text, polars: false };

@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import { translateText } from '../src/i18n.js';
 import {
-  ACTION, BUSY_BUTTON_LABEL, FORECAST_LOAD_FAILED, blockReason, friendlyError, progressLabel,
+  ACTION, BUSY_BUTTON_LABEL, FORECAST_LOAD_FAILED, SAVE_FAILED, blockReason, friendlyError, progressLabel,
 } from '../src/pages/planner/plannerFeedback.js';
 import {
   changedRoutingInputs, draftSignature, polarPercentNote, routingInputKey, scanBasis, scanIsCurrent, staleRouteMessage,
@@ -70,6 +70,19 @@ it.each([
   expect(friendlyError(raw)).toEqual({ message: raw, detail: null, polars: false });
 });
 
+it.each([
+  ['storage-full', 'QuotaExceededError: Quota exceeded.', SAVE_FAILED['storage-full']],
+  ['blocked', 'Snapshot x is incomplete, legacy or conflicting. Snapshots are write-once.', SAVE_FAILED.blocked],
+  ['failed', 'AbortError: The save was interrupted.', SAVE_FAILED.failed],
+  ['failed', 'This browser cannot store briefings (no IndexedDB)', SAVE_FAILED.failed],
+  ['unknown-kind', 'Snapshot write failed: HTTP 500', SAVE_FAILED.failed],
+])('gives a %s save its plain sentence and keeps %j only as detail', (kind, raw, message) => {
+  expect(friendlyError(raw, kind)).toEqual({ message, detail: raw, polars: false });
+  expect(message).not.toMatch(/deepweather|\bGO\b|\bbest\b|probab|IndexedDB|quota|snapshot/i);
+  // the page offers Retry; only a storage-full or blocked save says what would change the outcome
+  expect(message).not.toMatch(/try again/i);
+});
+
 it('flags unavailable boat polars so the page can offer Draw my route', () => {
   expect(friendlyError('Boat polars are unavailable right now. Use Draw my route instead.').polars).toBe(true);
   expect(friendlyError('').message).toBe('Something went wrong. Please try again.');
@@ -79,7 +92,7 @@ it('has a French translation for every status, button and block reason it can sh
   const issue = validateDeparture('2000-01-01T08:00', Date.now());
   const draft = { mode: 'compute', endpoints: [], polarId: null, route: null, speedsValid: true, departureIssue: issue };
   const texts = [
-    FORECAST_LOAD_FAILED, 'Something went wrong. Please try again.', horizonText(),
+    FORECAST_LOAD_FAILED, 'Something went wrong. Please try again.', horizonText(), ...Object.values(SAVE_FAILED),
     ...Object.values(BUSY_BUTTON_LABEL),
     staleRouteMessage(['boat']), staleRouteMessage(['speed']), staleRouteMessage(['departure']), staleRouteMessage(['points']), staleRouteMessage(['boat', 'points']),
     issue.message, validateDeparture('', Date.now()).message,

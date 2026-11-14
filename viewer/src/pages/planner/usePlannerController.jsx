@@ -153,7 +153,8 @@ export default function usePlannerController() {
   // Stamped with the draft as it is now (not as the closure saw it): the message
   // stops being shown as soon as any input it was about changes.
   const failAction = useCallback((kind, error, source = null) => {
-    setFailureState({ kind, source, raw: error?.message ?? String(error), signature: draftSignature(usePlanner.getState()) });
+    setFailureState({ kind, source, raw: error?.message ?? String(error), saveFailure: error?.saveFailure ?? null,
+      signature: draftSignature(usePlanner.getState()) });
   }, []);
 
   useEffect(() => {
@@ -521,7 +522,7 @@ export default function usePlannerController() {
 
   // Messages about an action stop showing once any input they were about changes.
   const signature = draftSignature({ mode, endpoints, waypoints, polarId, departureLocal, speeds, polarPercent });
-  const failure = failureState?.signature === signature ? { ...failureState, ...friendlyError(failureState.raw) } : null;
+  const failure = failureState?.signature === signature ? { ...failureState, ...friendlyError(failureState.raw, failureState.saveFailure) } : null;
   const notice = noticeState?.signature === signature ? noticeState : null;
   // Why the computed route is gone, when it was thrown away because an input changed.
   const staleRoute = mode === 'compute' && !computed && discardedKey

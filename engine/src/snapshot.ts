@@ -20,6 +20,36 @@ export interface SnapshotStore {
   list?(): Promise<Array<Record<string, unknown>>>;
   /** write one artifact (relative filename inside the snapshot dir) */
   write(snapshotId: string, filename: string, content: string): Promise<void>;
+  /**
+   * Optional: write every artifact of one new snapshot, in order with the
+   * manifest last, as a single all-or-nothing operation. When it rejects, the
+   * store must hold no artifact for `snapshotId` that this call added, and it
+   * must still refuse to replace an existing artifact (write-once). Without it,
+   * `writeSnapshot` calls `write` once per file.
+   */
+  writeAll?(snapshotId: string, files: SnapshotFile[]): Promise<void>;
+}
+
+/**
+ * The write-once refusal: artifacts already exist for this snapshot id and
+ * cannot be reopened as an exact retry (an unfinished earlier save, a legacy or
+ * conflicting record, or a complete one the store could not read back). Nothing
+ * is written. Callers tell it apart by class or `name`, never by message text.
+ */
+export class SnapshotExistsError extends Error {
+  constructor(
+    readonly snapshotId: string,
+    message = `Snapshot ${snapshotId} is incomplete, legacy or conflicting. Snapshots are write-once.`,
+  ) {
+    super(message);
+    this.name = 'SnapshotExistsError';
+  }
+}
+
+/** One artifact of a snapshot: a relative filename inside the snapshot dir and its text. */
+export interface SnapshotFile {
+  filename: string;
+  content: string;
 }
 
 export interface PlumeLeg {
@@ -122,7 +152,7 @@ export async function writeSnapshot(
         }
       }
     }
-    throw new Error(`Snapshot ${id} is incomplete, legacy or conflicting. Snapshots are write-once.`);
+    throw new SnapshotExistsError(id);
   }
 
   // New metadata must be valid before any artifact is written. Existing exact
@@ -141,28 +171,35 @@ export async function writeSnapshot(
     briefing: 'briefing.json',
     route: 'route.json',
   };
+  // Every file is built before anything is written, so a store with writeAll
+  // can save the whole check or nothing.
+  const files: SnapshotFile[] = [];
   if (extras.decisionInputs) {
     artifacts.decision_inputs = 'decision-inputs.json';
-    await store.write(id, 'decision-inputs.json', stringify(extras.decisionInputs));
+    // Compact: this file holds the whole frozen grid, and indentation was over
+    // half its size. No identity reads its text: decision_hash and snapshot_id
+    // hash the value, and an exact retry compares canonical JSON of the parsed
+    // file, so indented files saved earlier still reopen.
+    files.push({ filename: 'decision-inputs.json', content: JSON.stringify(extras.decisionInputs) });
   }
-  await store.write(id, 'findings.json', stringify(findings));
-  await store.write(id, 'briefing.json', stringify(briefing));
-  await store.write(id, 'route.json', stringify(extras.route));
+  files.push({ filename: 'findings.json', content: stringify(findings) });
+  files.push({ filename: 'briefing.json', content: stringify(briefing) });
+  files.push({ filename: 'route.json', content: stringify(extras.route) });
   if (extras.plume) {
     artifacts.plume = 'plume.json';
-    await store.write(id, 'plume.json', stringify(extras.plume));
+    files.push({ filename: 'plume.json', content: stringify(extras.plume) });
   }
   if (extras.warnings !== undefined) {
     artifacts.warnings = 'warnings.json';
-    await store.write(id, 'warnings.json', stringify(extras.warnings));
+    files.push({ filename: 'warnings.json', content: stringify(extras.warnings) });
   }
   if (extras.synoptic !== undefined) {
     artifacts.synoptic = 'synoptic.json';
-    await store.write(id, 'synoptic.json', stringify(extras.synoptic));
+    files.push({ filename: 'synoptic.json', content: stringify(extras.synoptic) });
   }
   if (extras.tides !== undefined) {
     artifacts.tides = 'tides.json';
-    await store.write(id, 'tides.json', stringify(extras.tides));
+    files.push({ filename: 'tides.json', content: stringify(extras.tides) });
   }
 
   const manifest = {
@@ -185,7 +222,9 @@ export async function writeSnapshot(
     },
   };
   // manifest written LAST; its presence marks the snapshot complete
-  await store.write(id, 'snapshot.json', stringify(manifest));
+  files.push({ filename: 'snapshot.json', content: stringify(manifest) });
+  if (store.writeAll) await store.writeAll(id, files);
+  else for (const file of files) await store.write(id, file.filename, file.content);
   return { snapshot_id: id, manifest };
 }
 

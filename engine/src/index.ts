@@ -24,8 +24,8 @@ export { governingReason } from './governingReason.js';
 export type {
   GoverningReason, GoverningLeg, GoverningWarning, GoverningDisagreement, GoverningOther, LimitResult, LimitKind,
 } from './governingReason.js';
-export { buildPlume, writeSnapshot } from './snapshot.js';
-export type { Plume, SnapshotStore } from './snapshot.js';
+export { buildPlume, writeSnapshot, SnapshotExistsError } from './snapshot.js';
+export type { Plume, SnapshotFile, SnapshotStore } from './snapshot.js';
 export { quantile } from './quantile.js';
 export { scenarioSpread, SCENARIO_SPREAD_MIN_MEMBERS } from './scenarioSpread.js';
 export type { ScenarioSpread, ScenarioSpreadValues } from './scenarioSpread.js';

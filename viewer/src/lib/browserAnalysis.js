@@ -5,7 +5,7 @@
 // the dev middleware POST when it exists; static hosting (Cloudflare Pages)
 // answers 405, and the snapshot falls back to browser-local IndexedDB.
 
-import { runAnalysis, persistSnapshot, contentHash, ENGINE_VERSION } from '@deepweather/engine';
+import { runAnalysis, persistSnapshot, contentHash, ENGINE_VERSION, SnapshotExistsError } from '@deepweather/engine';
 import { forecastStore } from './forecastStore.js';
 import { localSnapshots } from './localSnapshots.js';
 import { preparedRun, artifactUrl } from './preparedRun.js';
@@ -50,23 +50,64 @@ class FallbackSnapshotStore {
     return res.ok ? res.text() : null;
   }
 
+  /** POST one artifact to the dev middleware: true when written, false when
+   * there is no write endpoint here (then every later artifact goes local).
+   * @param {string} snapshotId @param {string} filename @param {string} content */
+  async post(snapshotId, filename, content) {
+    const res = await fetch(`/data/snapshots/${snapshotId}/${filename}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: content,
+    });
+    if (res.ok) return true;
+    // the dev middleware's write-once refusal: the same kind as the engine's
+    if (res.status === 409) throw new SnapshotExistsError(snapshotId, `Snapshot ${snapshotId} already exists (write-once)`);
+    if (!NO_WRITE_ENDPOINT.has(res.status)) {
+      throw new Error(`Snapshot write failed: HTTP ${res.status}`);
+    }
+    this.useLocal = true; // keep every artifact of this snapshot in one place
+    return false;
+  }
+
   /** @param {string} snapshotId @param {string} filename @param {string} content */
   async write(snapshotId, filename, content) {
-    if (!this.useLocal) {
-      const res = await fetch(`/data/snapshots/${snapshotId}/${filename}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: content,
-      });
-      if (res.ok) return;
-      if (res.status === 409) throw new Error(`Snapshot ${snapshotId} already exists (write-once)`);
-      if (!NO_WRITE_ENDPOINT.has(res.status)) {
-        throw new Error(`Snapshot write failed: HTTP ${res.status}`);
-      }
-      this.useLocal = true; // keep every artifact of this snapshot in one place
-    }
+    if (!this.useLocal && await this.post(snapshotId, filename, content)) return;
     await localSnapshots.write(snapshotId, filename, content);
   }
+
+  /** The whole check at once: in this browser, one IndexedDB transaction (all
+   * or nothing). The dev middleware still takes one request per file, as before.
+   * @param {string} snapshotId @param {Array<{filename: string, content: string}>} files */
+  async writeAll(snapshotId, files) {
+    let sent = 0;
+    while (!this.useLocal && sent < files.length) {
+      const { filename, content } = files[sent];
+      if (!await this.post(snapshotId, filename, content)) break;
+      sent += 1;
+    }
+    if (sent < files.length) await localSnapshots.writeAll(snapshotId, files.slice(sent));
+  }
+}
+
+/** True when the browser refused the write because this site's storage is
+ * full. Browsers word the message differently; the name is the same. */
+function storageFull(/** @type {unknown} */ error) {
+  for (let e = /** @type {any} */ (error); e; e = e.cause) {
+    if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') return true;
+  }
+  return false;
+}
+
+/** A failed save, told apart for the planner: `saveFailure` is 'storage-full',
+ * 'blocked' (write-once: this check already has records that cannot be
+ * reopened) or 'failed'; the message keeps the original text for the detail. */
+function saveError(/** @type {any} */ error) {
+  const blocked = error instanceof SnapshotExistsError;
+  const name = error?.name && error.name !== 'Error' && !blocked ? error.name : null;
+  const text = [name, error?.message].filter(Boolean).join(': ') || String(error);
+  return Object.assign(new Error(text, { cause: error }), {
+    name: 'SnapshotSaveError', saveFailure: storageFull(error) ? 'storage-full' : blocked ? 'blocked' : 'failed',
+  });
 }
 
 /** @param {string} routeId */
@@ -141,7 +182,12 @@ export async function analyzeInBrowser(inputs) {
   const action = inputs.tileRuns ? inputs : await prepareAnalysisInputs(captureActionDraft(inputs), onProgress);
   const result = await runAnalysis({ ...action, onProgress });
   onProgress?.('saving immutable snapshot');
-  const snapshotId = await persistSnapshot(new FallbackSnapshotStore(), result, action.route, Date.now());
+  let snapshotId;
+  try {
+    snapshotId = await persistSnapshot(new FallbackSnapshotStore(), result, action.route, Date.now());
+  } catch (error) {
+    throw saveError(error);
+  }
   return { snapshotId, result };
 }
 

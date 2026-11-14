@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { IDBFactory, IDBIndex, IDBObjectStore } from 'fake-indexeddb';
+import { IDBDatabase, IDBFactory, IDBIndex, IDBObjectStore } from 'fake-indexeddb';
 
 let localSnapshots;
 let fetchSnapshotJson;
@@ -159,4 +159,84 @@ it('round-trips every committed legacy artifact through storage without rewritin
   expect((await localSnapshots.list()).find(s => s.snapshot_id === 'v2')).toMatchObject(modern);
   await localSnapshots.remove('v2');
   expect(await localSnapshots.list()).toEqual(old);
+});
+
+// All-or-nothing saves: one readwrite transaction per check.
+const CHECK = ['decision-inputs.json', 'findings.json', 'briefing.json', 'route.json', 'snapshot.json']
+  .map(filename => ({ filename, content: filename === 'snapshot.json' ? JSON.stringify({ snapshot_id: 'check', created_at: '2026-11-14T00:00:00Z' }) : `{"file":"${filename}"}` }));
+const recordsOf = async (id) => {
+  const opening = indexedDB.open('passage-local-snapshots');
+  const db = await requestResult(opening);
+  const keys = await requestResult(db.transaction('files').objectStore('files').index('snapshot_id').getAllKeys(id));
+  db.close();
+  return keys;
+};
+const quota = () => new DOMException('The quota has been exceeded.', 'QuotaExceededError');
+/** Make the `route.json` add fail the way a browser can: its request errors, the transaction aborts (with or without a cause), or add throws. */
+function failOnRoute(how) {
+  const add = IDBObjectStore.prototype.add;
+  return vi.spyOn(IDBObjectStore.prototype, 'add').mockImplementation(function (record) {
+    if (record.filename !== 'route.json') return add.call(this, record);
+    if (how === 'throw') throw new DOMException('could not be cloned', 'DataCloneError');
+    if (how === 'request-quota') {
+      // fake-indexeddb runs its own error event, abort and rollback for a failing record store
+      const raw = this._rawObjectStore;
+      const storeRecord = raw.storeRecord;
+      raw.storeRecord = () => { raw.storeRecord = storeRecord; throw quota(); };
+      return add.call(this, record);
+    }
+    const request = add.call(this, record);
+    const transaction = this.transaction;
+    // after every add is queued, as a failed commit or a closing tab would
+    queueMicrotask(() => {
+      transaction.abort();
+      if (how === 'abort-quota') transaction.error = quota(); // set before the abort event fires
+    });
+    return request;
+  });
+}
+
+it('writes a whole check in one transaction and lists it', async () => {
+  vi.stubGlobal('indexedDB', new IDBFactory());
+  const transaction = vi.spyOn(IDBDatabase.prototype, 'transaction');
+  await localSnapshots.writeAll('check', CHECK);
+  expect(transaction.mock.calls.filter(([, mode]) => mode === 'readwrite')).toHaveLength(1);
+  for (const { filename, content } of CHECK) expect(await localSnapshots.read('check', filename)).toBe(content);
+  expect((await localSnapshots.list()).map(item => item.snapshot_id)).toEqual(['check']);
+});
+
+it.each([
+  ['a request quota failure', 'request-quota', 'QuotaExceededError'],
+  ['a quota failure on commit', 'abort-quota', 'QuotaExceededError'],
+  ['an aborted transaction', 'abort', 'AbortError'],
+  ['an add that throws', 'throw', 'DataCloneError'],
+])('%s part-way leaves no record of the check, and the same check then saves', async (_name, how, name) => {
+  vi.stubGlobal('indexedDB', new IDBFactory());
+  const spy = failOnRoute(how);
+  const failure = localSnapshots.writeAll('check', CHECK);
+  await expect(failure).rejects.toMatchObject({ name });
+  if (how !== 'abort') await expect(failure).rejects.not.toMatchObject({ message: '' });
+  spy.mockRestore();
+  expect(await recordsOf('check')).toEqual([]);
+  expect(await localSnapshots.exists('check')).toBe(false);
+  expect(await localSnapshots.list()).toEqual([]);
+  await localSnapshots.writeAll('check', CHECK);
+  expect(await recordsOf('check')).toHaveLength(CHECK.length);
+  expect((await localSnapshots.list()).map(item => item.snapshot_id)).toEqual(['check']);
+});
+
+it('refuses a batch over a pre-existing partial check without adding or changing a record', async () => {
+  vi.stubGlobal('indexedDB', new IDBFactory());
+  await localSnapshots.write('check', 'route.json', '{"original":true}');
+  await expect(localSnapshots.writeAll('check', CHECK)).rejects.toMatchObject({ name: 'ConstraintError' });
+  expect(await recordsOf('check')).toEqual(['check/route.json']);
+  expect(await localSnapshots.read('check', 'route.json')).toBe('{"original":true}');
+  expect(await localSnapshots.list()).toEqual([]);
+});
+
+it('rejects a batch when IndexedDB is missing or cannot open', async () => {
+  vi.stubGlobal('indexedDB', undefined);
+  await expect(localSnapshots.writeAll('check', CHECK)).rejects.toThrow('no IndexedDB');
+  const { error } = installDb({ openFailure: 'error' });
+  await expect(localSnapshots.writeAll('check', CHECK)).rejects.toBe(error);
 });

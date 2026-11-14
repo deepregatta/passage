@@ -518,6 +518,23 @@ Run it through the existing viewer-demo launch configuration; intercept every
 POST/DELETE and block telemetry/external transport. No production data proof
 is implied.
 
+All-or-nothing saves: `engine/test/snapshotAtomic.test.ts` pins `decision_hash`
+and `snapshot_id` for a fixed input to values from the engine before the change,
+the compact `decision-inputs.json`, exact retries of compact and indented files,
+one `writeAll` call with the manifest last, a failure part-way that leaves
+nothing, and the sequential path of a store without `writeAll`.
+`viewer/test/localSnapshots.test.js` injects into fake-indexeddb a quota error on
+a request and on commit, a plain abort and a throwing `add` on a later file:
+each leaves no record and no `list()` entry, and the same check then saves; a
+pre-existing partial record still refuses the batch byte for byte.
+`viewer/test/browserSnapshotSave.test.js` runs the real Check path
+(`analyzeInBrowser` → `persistSnapshot` → `FallbackSnapshotStore` → IndexedDB)
+with a quota failure, a pre-existing partial and the dev middleware's 409 (both
+a blocked save, `SnapshotExistsError`) and a browser without IndexedDB.
+`plannerFeedback.test.jsx` and `plannerFeedback.copy.test.js` cover the three
+save-failure sentences (storage full, blocked, any other) in English and French,
+with the browser's text only under Technical detail.
+
 ## Fixture policy
 
 - `engine/test/fixtures/` contains deterministic engine inputs and PFT1 golden
