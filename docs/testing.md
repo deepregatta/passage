@@ -277,7 +277,9 @@ byte for byte.
   the Typical ranking exists, each message shown once, the release of the held
   inputs (dropped, cleared, left, forecast replaced, limits changed),
   French. `departureComparison.test.jsx`: the row under its
-  own day and the French tooltip. `downloadQuote.test.js` and
+  own day and the French tooltip. `comparisonRunChangeNote.test.jsx`: the fixed
+  next-run caption under the results (shown with assessed departures, absent
+  while busy or with none assessed, French). `downloadQuote.test.js` and
   `plannerDownloadQuote.test.jsx`: the refine download line.
 - `viewer/e2e/scan-worker.spec.js`: a real refinement in the same Worker, equal
   to the page refining it itself.

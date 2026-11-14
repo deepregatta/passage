@@ -16,6 +16,9 @@ const SCAN_VERDICT = {
 /** A candidate has ensemble evidence when the scan says so, or it carries a scenario fraction (an older scan). */
 const hasEnsemble = (c) => c.ensemble_covered === true || c.max_fraction != null;
 
+/** Static caption: how close a verdict sits to a limit decides whether the next forecast run can change it. */
+const RUN_CHANGE_NOTE = 'Verdicts close to a limit often change when the next forecast run arrives; a time well inside your limits rarely does. Check again after the next run.';
+
 const RANK_MODES = [[RANK_TYPICAL, 'Typical'], [RANK_CAUTIOUS, 'Cautious']];
 
 const isCount = (value) => Number.isFinite(value);
@@ -317,6 +320,11 @@ export default function DepartureComparison({ scan, departureLocal, busy, disabl
           )}
         </span>
       </div>
+      {busy === null && (
+        <p className="font-sans text-[12px] text-ink-soft mt-2 max-w-[80ch]" data-testid="comparison-run-change-note">
+          {RUN_CHANGE_NOTE}
+        </p>
+      )}
     </section>
   );
 }

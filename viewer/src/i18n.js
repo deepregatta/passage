@@ -864,6 +864,7 @@ const FR = {
   '— the full briefing opens straight away.': '— le briefing complet s’ouvre directement.',
   'The models disagree near your limits throughout this window. Open a briefing to see where they diverge and when the next update is due.': 'Les modèles divergent près de vos limites sur toute cette fenêtre. Ouvrez un briefing pour voir où ils divergent et quand la prochaine mise à jour est attendue.',
   'The models disagree near your limits at every assessed departure time. Open a briefing to see where they diverge and when the next update is due.': 'Les modèles divergent près de vos limites à chaque heure de départ évaluée. Ouvrez un briefing pour voir où ils divergent et quand la prochaine mise à jour est attendue.',
+  'Verdicts close to a limit often change when the next forecast run arrives; a time well inside your limits rarely does. Check again after the next run.': 'Les verdicts proches d’une limite changent souvent à l’arrivée du prochain cycle du modèle ; une heure de départ bien à l’intérieur de vos limites change rarement. Vérifiez à nouveau après le prochain cycle.',
   'not': 'pas',
   // Changes page and change ledger vocabulary.
   'Change ledger error:': 'Erreur du registre des évolutions :',
