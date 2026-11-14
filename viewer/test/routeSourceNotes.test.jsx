@@ -94,3 +94,56 @@ describe.each(['en', 'fr'])('a route confined to the regional current model in %
     expect(view.container.textContent).not.toContain(language === 'fr' ? 'elle ne pouvait pas en sortir' : 'could not go outside');
   });
 });
+
+// When the prepared regional grid was fetched, and a caution once it is old (2026-11-14).
+describe.each(['en', 'fr'])('the age of the prepared current grid in %s', (language) => {
+  const FETCHED = '2026-11-14T03:22:00Z';
+  const withGrid = (extra, source = 'prepared') => ({
+    notes: [], currents: routingCurrentSummary(source === 'prepared'
+      ? prepared({ ...ibi, ...extra }) : tiles({ ...ibi, ...extra })),
+  });
+  const show = async (computed, nowMs) => {
+    const view = render(<div id="root"><RouteSourceNotes computed={computed} nowMs={nowMs} /><LocalizedDocument language={language} /></div>);
+    await waitFor(() => expect(view.getByTestId('route-currents').textContent).toContain(language === 'fr' ? 'Courants' : 'Currents'));
+    return view;
+  };
+  const hours = (n) => Date.parse(FETCHED) + n * 3600_000;
+  const withFetch = { source: { ...ibi.source, fetched_at: FETCHED } };
+  const LINE = {
+    en: 'Currents fetched Sat 14 Nov 04:22 local time, 2 h ago',
+    fr: 'Courants récupérés le sam. 14 nov. 04:22 (heure locale), il y a 2 h',
+  };
+  const CAUTION = {
+    en: 'These currents were fetched Sat 14 Nov 04:22 local time, 3 days ago.',
+    fr: 'Ces courants ont été récupérés le sam. 14 nov. 04:22 (heure locale), il y a 3 jours.',
+  };
+
+  it('states the fetch time and age under the currents line of a route on the prepared grid', async () => {
+    const view = await show(withGrid(withFetch), hours(2));
+    await waitFor(() => expect(view.getByTestId('route-currents-age').textContent).toBe(LINE[language]));
+    expect(view.getByTestId('route-currents-age')).toHaveAttribute('data-stale', 'false');
+    expect(view.container.textContent).not.toMatch(/tidal stream|\bbest\b|probab|deepweather/i);
+  });
+
+  it('shows the same facts as a caution in the notice style when the grid is over 24 h old', async () => {
+    const view = await show(withGrid(withFetch), hours(72));
+    await waitFor(() => expect(view.getByTestId('route-currents-age').textContent).toBe(CAUTION[language]));
+    const line = view.getByTestId('route-currents-age');
+    expect(line).toHaveAttribute('data-stale', 'true');
+    expect(line.className).toContain('border-l-2');
+    expect(view.getAllByTestId('route-currents-age')).toHaveLength(1);
+  });
+
+  it('falls back to the grid’s generation time, and shows nothing when no time reads', async () => {
+    const generated = await show(withGrid({ source: ibi.source, generated_at: FETCHED }), hours(2));
+    await waitFor(() => expect(generated.getByTestId('route-currents-age').textContent).toBe(LINE[language]));
+    cleanup();
+    const none = await show(withGrid({ source: { ...ibi.source, fetched_at: 'unknown' }, generated_at: undefined }), hours(2));
+    expect(none.queryByTestId('route-currents-age')).toBeNull();
+  });
+
+  it('says nothing for tile currents, which have no prepared grid', async () => {
+    const view = await show(withGrid(withFetch, 'tiles'), hours(72));
+    expect(view.queryByTestId('route-currents-age')).toBeNull();
+  });
+});

@@ -4,6 +4,7 @@ import { forecastStore, friendlyForecastError } from './forecastStore.js';
 import { preparedRun } from './preparedRun.js';
 import { loadPreparedCurrent } from './preparedCurrent.js';
 import { tileModelId } from './sourceNames.js';
+import { gridFetchedAt } from './currentsAge.js';
 
 /** deterministic tile horizon (GFS 240 h); scans beyond it fail with a clear message */
 export const FORECAST_HOURS = 240;
@@ -44,8 +45,10 @@ export function selectedRoutingNotes(inputs, currentInput) {
  * in the briefing's Models and coverage panel), an emulated flag, and which
  * fixed caveat a prepared grid's resolution note calls for. Null when the
  * route was computed without currents. `model` is null when no record names it.
+ * A prepared grid also gives `fetchedAt`, the grid's own fetch time (null when
+ * it records none), for the line that states the grid's age.
  * @param {{ grid?: any, provenance?: Record<string, any> }} currentInput
- * @returns {{ source: string, model: string | null, emulated: boolean, caveat: 'subsampled' | 'coarse' | null } | null}
+ * @returns {{ source: string, model: string | null, emulated: boolean, caveat: 'subsampled' | 'coarse' | null, fetchedAt?: string | null } | null}
  */
 export function routingCurrentSummary(currentInput) {
   const grid = currentInput?.grid;
@@ -63,6 +66,7 @@ export function routingCurrentSummary(currentInput) {
     emulated: grid.source?.mode === 'synthetic' || record.source_kind === 'emulated',
     // The factory note is English free text: the result shows a fixed, translated sentence instead.
     caveat: !note ? null : /^stride-subsampled/i.test(note) ? 'subsampled' : 'coarse',
+    ...(source === 'prepared' ? { fetchedAt: gridFetchedAt(grid) } : {}),
   };
 }
 

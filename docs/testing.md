@@ -165,6 +165,10 @@ named as sea level, and the stamps: the heading follows the current record only
 the current or the wind. `viewer/test/routeSourceNotes.test.jsx`,
 `routingInputs.test.js` and `plannerComputed.test.jsx` pin that a computed
 route's note names no model ("Model not recorded") when its grid records none.
+`currentsAge.test.js`, `routeSourceNotes.test.jsx` and `plannerComputed.test.jsx`
+pin the planner's line stating when the prepared regional grid was fetched and how
+old it is (the 24 h threshold, hours against days, the `generated_at` fallback, no
+line without a readable time or for tile currents, English and French).
 
 `viewer/test/decisionMessages.test.jsx` checks typed EN/FR, legacy decoding,
 copy independence, whole-field fallback, literal interpolation, unit formatting,

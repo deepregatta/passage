@@ -122,7 +122,9 @@ it.each([
   const engine = await vi.importActual('@deepweather/engine');
   const inputs = routingInputs(1);
   const store = auditStore(engine, inputs.currentGrid);
-  const prepared = { ...routingInputs(2).currentGrid, run_id: 'prepared', under_resolved_note: 'stride-subsampled x2 from native', ...extra };
+  // fetched 3 h before the pinned clock (12:00Z)
+  const prepared = { ...routingInputs(2).currentGrid, run_id: 'prepared', under_resolved_note: 'stride-subsampled x2 from native', ...extra,
+    source: { mode: 'synthetic', fetched_at: '2026-07-19T09:00:00Z' } };
   const preparedCurrent = { currentGrid: prepared, currentGridProvenance: { source: 'prepared-artifact', layer: 'currents', model: 'Synthetic current', run_id: 'prepared' } };
   usePlanner.setState({ departureLocal: toLocalDateTimeValue(DEPARTURE),
     endpoints: [inputs.start, inputs.finish].map(({ lat, lon }) => ({ lat, lng: lon })) });
@@ -150,6 +152,12 @@ it.each([
   if (source === 'tiles') expect(computeRoute.mock.calls[1][0]).not.toHaveProperty('searchBounds');
   // neither test grid identifies a model ('Synthetic current', or no dataset id): nothing is guessed
   expect(screen.getByTestId('route-currents')).toHaveTextContent('Currents · Model not recorded');
+  // The grid's age is stated only when the prepared grid is the current source (Paris time: 09:00Z is 11:00).
+  if (source === 'prepared') {
+    expect(screen.getByTestId('route-currents-age')).toHaveTextContent('Currents fetched Sun 19 Jul 11:00 local time, 3 h ago');
+  } else {
+    expect(screen.queryByTestId('route-currents-age')).not.toBeInTheDocument();
+  }
   if (confined) {
     expect(screen.getByTestId('route-confined')).toHaveTextContent('Routed inside the area the regional current model covers; the route could not go outside it.');
   } else {
