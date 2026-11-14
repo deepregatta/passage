@@ -188,6 +188,31 @@ A spike before any commitment. The router is an earliest-arrival search keyed on
 
 **Record, 2026-11-14: the spike and its first prerequisite.** A prototype outside the repository made the router avoid over-limit wind; the avoiding routes were 35 to 115 % longer, and the audit still judged 5 of the 6 "exceeds". Owner decision 5 stays open. The spike named three prerequisites: the router and the audit read the same wind; gusts in the router; a margin. The first of them is implemented in source on 2026-11-14 (engine semantics `passage-audit-4`, [saved identities](../saved-identities.md)): the audit now reads the forecast along each leg, at points no more than 10 nm apart, interpolated on each layer's own grid and judged for the hours the boat can be at each point, where it read one rounded grid point per leg. In the measured study of real forecasts near the limit, the verdict agreed with a dense reading in about 92 % of Checks before and about 98 % after, and missed "exceeds" fell from about 4 % to 0.7 %. A reviewer's rerun on the study's real GFS tiles gave the same figures for the code as committed (98.5 % agreement, 0.7 % false and 0.7 % missed "exceeds" near the limit); a first Check on the live site the same day (one owner-authorized Check, deployed build `6c06be5`, a 67 nm computed route of 4 legs) saved under `passage-audit-4` with 2 sample points on every leg (stretches of 7.2 to 9.8 nm), an `expected` reading on all 23 hour rows, no console error, and an older Check still opening. It does not by itself make the router and the audit agree: the router still reads the wind grid at its own nodes and times, without gusts or a margin.
 
+**Record, 2026-11-14, later: the second-route prototype, and owner decision 5 ("do not build it").** A second prototype outside the repository gave the router the two remaining prerequisites and the audit's own timing: gusts, sustained wind by point of sail, a margin on the limit, and the fast-to-slow arrival range. The shipped `passage-audit-4` audit judged every route it found. Nothing in the repository changed.
+
+Inputs: the real GFS run of 14 November 2026 00Z; 93 cases where the fastest route was near or over the limit (Channel 32, coastal 16, Biscay 17, Gulf of Lion 28; the fastest route was "exceeds" in 91 and "approaching" in 2); an invented boat table; no currents; wind and gust limits only in the main runs. Each result was audited again on the next GFS run (06Z), and compared with leaving later: the fastest route at the best departure of the next 48 h.
+
+| | Route found (of 93) | "within" | "approaching" | "exceeds" | Median extra time | "exceeds" on the 06Z run (of those inside the limits) |
+|---|---|---|---|---|---|---|
+| Second route: gusts and timing range, no margin | 40 | 0 | 28 | 12 | 2.0 h (7 %) | 82 % |
+| Second route: the same, limit × 0.9 | 17 | 0 | 16 | 1 | 4.0 h (13 %) | 62 % |
+| Second route: the same, limit × 0.75 | 1 | 0 | 1 | 0 | 5.8 h (27 %) | 0 of 1 |
+| Second route: the audit's exact rule in the router, no margin | 22 | 0 | 22 | 0 | 2.4 h (8 %) | 73 % |
+| Leaving later, fastest route | 93 | 10 | 43 | 40 | median delay 24 h for the 53 inside | 42 % (none of the 10 "within", 22 of the 43 "approaching") |
+
+- At limit × 0.9, 76 of 93 searches found no route; 28 of them were blocked at or near the start.
+- The routes found sit just under the limit: their worst reading was a median 0.92 of the limit at × 0.9 and 0.99 without a margin, and 1.10 and 1.16 on the 06Z run.
+- The second route (limit × 0.9) was inside the limits where leaving later was not in 9 of 93 cases; leaving later was inside where the second route was not in 46.
+- 21 cases far over the limit (default limits): no variant found a route inside the limits; leaving later did in 3.
+- The timing range and gusts cannot be left out. Without the timing range (limit × 0.9), 45 of the 50 routes found were "exceeds"; without gusts, 12 of 36.
+- The router and the audit can be made to agree: with the audit's exact rule in the router, all 22 routes found were "approaching" and none "exceeds". The obstacle is the forecast: at a given departure, a route inside the limits seldom exists.
+- Waves, a side pass: of the 16 routes inside the limits on wind (limit × 0.9), 2 were "exceeds" once wave height and steepness were judged.
+- Cost in Node: where a route was found, the search took 8 to 12 times the fastest route's (median 0.4 to 0.6 s, worst 2.0 s).
+
+Limits of the study: one forecast run in one stormy week; one invented boat table; no currents; no ensemble; Biscay was near the limit only under a permissive limit set (× 1.5). A calmer week was not measured. The figures are the prototype's own output, checked against its output file and not rerun.
+
+**Owner decision 5, 14 November 2026: do not build the second route.** The router stays an earliest-arrival search on wind and current, and the audit judges its route. The departure comparison remains the answer to an over-limit route. One observation for that comparison, not acted on: its "approaching" departures were as fragile as the second routes (22 of 43 were "exceeds" on the next run); only its "within" departures held.
+
 ## Batch E
 
 Both tasks change what `forecast-tiles` publishes. Each needs its own authorization, a storage check against the 8 GB retention guard, and the producer and consumer checks for shared schemas.
@@ -218,7 +243,7 @@ The change is additive: new variable names in the existing layer, readers look v
 2. A2 and C4: the tie tolerances (0.05 of the limit, one scenario, one hour).
 3. B1: two registers with one schema, or a single register in forecast-tiles that also lists Passage's own feeds?
 4. C1 phase 2: may a scan and a Compute use different current models when IBI's horizon is too short, or should the scan window shrink? **Decided by the owner on 13 November 2026:** "Let a departure comparison use the regional currents, covering about 4 days instead of 5." When the route is inside the regional box, the comparison uses the regional currents for the departures the grid covers and lists the later ones as not assessed, as a refinement already does; the 120 h span and 6 h step stay. Rule: the grid as Compute admits it, the first departure fully covered, and at least half of the departures asked for fully covered (`MIN_COVERED_SHARE`); otherwise tiles for every departure. Never two sources in one comparison. Implemented the same day (C1 status above).
-5. D3: should the router ever avoid over-limit wind, or does that stay outside an audit?
+5. D3: should the router ever avoid over-limit wind, or does that stay outside an audit? **Decided by the owner on 14 November 2026: it stays outside; the second route "inside your limits" is not built.** On real forecasts it was rarely there, never "within", and most did not survive the next forecast run; leaving later did better (D3 record above).
 6. E1 and E2: both need authorization to change publication, after their gates.
 
 ## Not determined
