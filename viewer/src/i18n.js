@@ -859,6 +859,7 @@ const FR = {
   '≈ Effectively tied:': '≈ À égalité effective :',
   'effectively tied with the least exposure': 'à égalité effective avec l’exposition minimale',
   'effectively tied with the least-exposure time': 'à égalité effective avec l’heure la moins exposée',
+  'close to the line between two verdicts': 'proche de la frontière entre deux verdicts',
   'Click a time to check that departure against your limits': 'Cliquez sur une heure pour vérifier ce départ selon vos limites',
   '(it sails its own computed route)': '(il suit sa propre route calculée)',
   '— the full briefing opens straight away.': '— le briefing complet s’ouvre directement.',
@@ -1874,6 +1875,9 @@ const FR_FRAGMENTS = [
   [/\b(\d+) of (\d+) forecast scenarios exceed a limit\b/g, (_match, exceed, total) => `${exceed} scénario${Number(exceed) > 1 ? 's' : ''} sur ${total} dépasse${Number(exceed) > 1 ? 'nt' : ''} une limite`],
   [/\beffectively tied with the least-exposure time\b/g, 'à égalité effective avec l’heure la moins exposée'],
   [/\badded by refining\b/g, 'ajoutée par l’affinage'],
+  // The near-line mark's sentence, the title's last part (DepartureComparison NEAR_LINE_NOTE).
+  [/\bThe worst reading here is close to the line between two verdicts, so this verdict often changes on the next forecast run\./g,
+    'La pire valeur prévue ici est proche de la frontière entre deux verdicts, donc ce verdict change souvent au prochain cycle du modèle.'],
   // Hours over or approaching a limit in the arrival range (passageLimitHours), one part each; every
   // French phrase is invariable, so a count of 1 reads as well as 3.
   [/\b(\d+) h over a limit in your arrival range\b/g, '$1 h au-dessus d’une limite dans votre fenêtre d’arrivée estimée'],

@@ -19,6 +19,15 @@ const hasEnsemble = (c) => c.ensemble_covered === true || c.max_fraction != null
 /** Static caption: how close a verdict sits to a limit decides whether the next forecast run can change it. */
 const RUN_CHANGE_NOTE = 'Verdicts close to a limit often change when the next forecast run arrives; a time well inside your limits rarely does. Check again after the next run.';
 
+/**
+ * The engine marks a time whose worst reading decides its verdict and sits close to a
+ * verdict line (`near_verdict_line`, nearVerdictLine in engine/src/window.ts). A scan
+ * without the field (an older in-memory result) shows no mark.
+ */
+const NEAR_LINE_SIGN = '±';
+const NEAR_LINE_NOTE = 'The worst reading here is close to the line between two verdicts, so this verdict often changes on the next forecast run.';
+const nearLine = (c) => c.near_verdict_line === true;
+
 const RANK_MODES = [[RANK_TYPICAL, 'Typical'], [RANK_CAUTIOUS, 'Cautious']];
 
 const isCount = (value) => Number.isFinite(value);
@@ -197,6 +206,8 @@ export default function DepartureComparison({ scan, departureLocal, busy, disabl
     if (tiedIndices.has(c.index)) parts.push('effectively tied with the least-exposure time');
     // The hours are given above; the delta's hour difference counted gusts only, twice where legs overlap.
     if (c.delta && c.index > 0) parts.push(`gusts ${c.delta.peak_gust_kt > 0 ? '+' : ''}${Math.round(c.delta.peak_gust_kt)} kt vs first option`);
+    // Last, so its full stop ends the title.
+    if (nearLine(c)) parts.push(NEAR_LINE_NOTE);
     return (
       <button
         key={c.departure_utc}
@@ -207,13 +218,17 @@ export default function DepartureComparison({ scan, departureLocal, busy, disabl
         data-refined={c.refined || undefined}
         title={`${fmtLocalTime(c.departure_utc)} local time (${localTimeZoneName()}) · ${parts.join(' · ')}`}
         className={clsx(
-          'w-[66px] h-[54px] rounded-sm text-white flex flex-col items-center justify-center gap-0.5 disabled:opacity-40',
+          'relative w-[66px] h-[54px] rounded-sm text-white flex flex-col items-center justify-center gap-0.5 disabled:opacity-40',
           // Not by colour alone: a refined time also has a dashed inner edge (and its own row).
           c.refined && 'border-2 border-dashed border-white/85',
           selectedDepartureMs === Date.parse(c.departure_utc) && 'outline outline-2 outline-ink outline-offset-1',
         )}
         style={{ backgroundColor: v.hex }}
       >
+        {/* In the top-right corner, clear of the time and of the verdict, tie and missing-values signs below; out of the flow, so the cell keeps its size. */}
+        {nearLine(c) && (
+          <span className="absolute top-0.5 right-1 text-[11px] leading-none" aria-hidden data-testid="near-line-mark">{NEAR_LINE_SIGN}</span>
+        )}
         <span className="font-mono text-[12px] font-semibold">{c.hhmm}</span>
         <span className="flex items-center gap-1">
           <span className="text-[12px]" aria-hidden>
@@ -310,6 +325,12 @@ export default function DepartureComparison({ scan, departureLocal, busy, disabl
             <span className="flex items-center gap-1.5">
               <span aria-hidden>≈</span>
               effectively tied with the least exposure
+            </span>
+          )}
+          {scan.candidates.some(nearLine) && (
+            <span className="flex items-center gap-1.5" data-testid="near-line-legend">
+              <span aria-hidden>{NEAR_LINE_SIGN}</span>
+              close to the line between two verdicts
             </span>
           )}
           {days.some((d) => d.refinedCells.length > 0) && (

@@ -11,6 +11,7 @@ import { currentGridCovers, OUTSIDE_SCAN_CURRENT, OUTSIDE_SELECTED_CURRENT, reso
 import { withoutSavedIdentity } from './identity.js';
 import { computeRouteSchedules } from './eta.js';
 import { nominalPassageHours } from './routeSummary.js';
+import { approachingRatio, sustainedLimitKt } from './limits.js';
 import type { Findings, LegHour, Route, VerdictState } from './types.js';
 
 export interface WindowCandidate {
@@ -18,6 +19,16 @@ export interface WindowCandidate {
   verdict: VerdictState;
   /** Worst deterministic limit ratio (limit/value for minimum visibility). Zero visibility gives Infinity. */
   worst_ratio: number | null;
+  /**
+   * The largest reading-over-limit ratio of every audited leg-hour row, "ok" hours
+   * included (worstReadingRatio): sustained wind against the limit for that row's
+   * point of sail, gusts, and wave height and steepness when the profile declares
+   * them. Deterministic readings only. Shown, never ranked. Absent from scans made
+   * before it existed.
+   */
+  worst_reading_ratio?: number | null;
+  /** The worst reading decides the verdict and sits close to a verdict line (nearVerdictLine). Shown, never ranked. */
+  near_verdict_line?: boolean;
   /** worst ensemble exceedance fraction across the passage; null when no scenario exceeds a limit or there is no ensemble */
   max_fraction: number | null;
   /**
@@ -438,10 +449,14 @@ async function auditDepartures(
       (e) => e.evidence_id === findings.verdict.driver_evidence_id,
     );
     const lastLeg = findings.legs[findings.legs.length - 1];
+    const readingRatio = worstReadingRatio(findings, base.profile);
     const candidate: WindowCandidate = {
       departure_utc: departureUtc,
       verdict: findings.verdict.state,
       worst_ratio: worstRatio !== null ? Math.round(worstRatio * 100) / 100 : null,
+      worst_reading_ratio: readingRatio !== null ? Math.round(readingRatio * 100) / 100 : null,
+      // On the unrounded ratio: rounding could move a reading across the margin.
+      near_verdict_line: nearVerdictLine(findings.verdict.state, readingRatio, approachingRatio(base.profile)),
       max_fraction: maxFraction !== null ? Math.round(maxFraction * 100) / 100 : null,
       ensemble_covered: coverage.covered,
       max_members: coverage.covered ? maxMembers : null,
@@ -733,6 +748,72 @@ export function passageLimitHours(findings: Findings | null | undefined,
   { limits }: { limits?: ReadonlySet<LimitKey> } = {}): HourFigures {
   const profile = hourProfile(findings);
   return hourFigures(profile, limits ?? new Set(profile.known));
+}
+
+/**
+ * How close, in units of the limit, the worst reading must be to a verdict line
+ * (the approaching ratio or the limit itself) for the comparison to mark the
+ * departure. Measured in docs/maintenance/2026-11-11-isomar-implementation-plan.md,
+ * D3 ("Record, 2026-11-14, night" and the near-line paragraph after it): on GFS
+ * with its scenarios, at the next run, a departure whose worst wind or gust
+ * reading was this close to a line changed verdict in 30 % of cases, the others
+ * in 4 %.
+ */
+export const NEAR_VERDICT_LINE_MARGIN = 0.10;
+// A reading exactly at the margin (0.65, 0.85, 0.90, 1.10 with lines at 0.75 and 1)
+// is outside it: the subtraction can come out a hair under 0.10 in floating point.
+const MARGIN_EPSILON = 1e-9;
+
+const READING_VERDICTS: ReadonlySet<VerdictState> = new Set<VerdictState>(['within', 'approaching', 'exceeds']);
+
+/**
+ * True when `verdict` is a limit verdict (within, approaching, exceeds), it is
+ * the verdict the worst reading `ratio` alone gives (within below the approaching
+ * ratio `approaching`, approaching from it up to the limit, exceeds above the
+ * limit), and the reading is less than NEAR_VERDICT_LINE_MARGIN of the limit
+ * from either line. A verdict something else decided (forecast scenarios, squall
+ * potential, visibility, tidal gates, wind against current, model disagreement,
+ * an official warning) does not match the reading's and is never marked; neither
+ * is a candidate without a reading.
+ */
+export function nearVerdictLine(verdict: VerdictState, ratio: number | null | undefined, approaching: number): boolean {
+  if (!READING_VERDICTS.has(verdict) || typeof ratio !== 'number' || !Number.isFinite(ratio)) return false;
+  const byReading: VerdictState = ratio > 1 ? 'exceeds' : ratio >= approaching ? 'approaching' : 'within';
+  if (byReading !== verdict) return false;
+  return Math.min(Math.abs(ratio - approaching), Math.abs(ratio - 1)) < NEAR_VERDICT_LINE_MARGIN - MARGIN_EPSILON;
+}
+
+/**
+ * The largest reading-over-limit ratio over every leg-hour row of an audit, for
+ * each numeric limit whose status is purely ratio-based (evaluateAgainstLimit:
+ * approaching at the profile's approaching ratio, exceeded above the limit):
+ * sustained wind against the limit for the row's point of sail (the default
+ * limit when the row has none, as the audit judges it), gusts, wave height and
+ * steepness when the profile declares them. The values are the ones the evidence
+ * states, so where `worst_ratio` comes from one of these limits the two agree
+ * (evidenceLimitRatio). Every status counts, "ok" included; deterministic rows
+ * only, never scenarios. Visibility is left out (its "approaching" is within 1.5
+ * times the minimum, not the ratio rule), as are squall potential, cross sea, wind
+ * against swell or current and tidal gates (no limit ratio). Unrounded; null when
+ * no row has such a value.
+ */
+export function worstReadingRatio(findings: Findings | null | undefined, profile: ScanOptions['profile'] | null | undefined): number | null {
+  if (!profile) return null;
+  let worst: number | null = null;
+  const take = (value: number | null | undefined, limit: number | undefined) => {
+    if (typeof value !== 'number' || !Number.isFinite(value) || typeof limit !== 'number' || !(limit > 0)) return;
+    const ratio = value / limit;
+    if (worst === null || ratio > worst) worst = ratio;
+  };
+  for (const leg of findings?.legs ?? []) {
+    for (const hour of leg.hours ?? []) {
+      take(hour.wind_kt, hour.point_of_sail ? sustainedLimitKt(profile, hour.point_of_sail) : profile.max_sustained_kt.default);
+      take(hour.gust_kt, profile.max_gust_kt);
+      take(hour.waves?.hs_m, profile.max_wave_height_m);
+      take(hour.waves?.steepness, profile.max_steepness);
+    }
+  }
+  return worst;
 }
 
 function passageMetrics(findings: AnalyzeResult['findings']) {

@@ -5,6 +5,8 @@
         "departure_utc": "2026-07-12T00:00:00Z",
         "verdict": "insufficient",
         "worst_ratio": 1.9,
+        "worst_reading_ratio": 1.21,
+        "near_verdict_line": false,
         "max_fraction": 1,
         "ensemble_covered": true,
         "max_members": {
@@ -26,6 +28,8 @@
         "departure_utc": "2026-07-12T06:00:00Z",
         "verdict": "insufficient",
         "worst_ratio": 4,
+        "worst_reading_ratio": 1.24,
+        "near_verdict_line": false,
         "max_fraction": 1,
         "ensemble_covered": true,
         "max_members": {
@@ -47,6 +51,8 @@
         "departure_utc": "2026-07-12T12:00:00Z",
         "verdict": "insufficient",
         "worst_ratio": 1.28,
+        "worst_reading_ratio": 1.28,
+        "near_verdict_line": false,
         "max_fraction": 1,
         "ensemble_covered": true,
         "max_members": {
@@ -68,6 +74,8 @@
         "departure_utc": "2026-07-12T18:00:00Z",
         "verdict": "insufficient",
         "worst_ratio": 1.31,
+        "worst_reading_ratio": 1.31,
+        "near_verdict_line": false,
         "max_fraction": 1,
         "ensemble_covered": true,
         "max_members": {
@@ -158,6 +166,8 @@
       "departure_utc": "2026-07-12T00:00:00Z",
       "verdict": "insufficient",
       "worst_ratio": 1.9,
+      "worst_reading_ratio": 1.21,
+      "near_verdict_line": false,
       "max_fraction": 1,
       "ensemble_covered": true,
       "max_members": {
@@ -179,6 +189,8 @@
       "departure_utc": "2026-07-12T06:00:00Z",
       "verdict": "insufficient",
       "worst_ratio": 4,
+      "worst_reading_ratio": 1.24,
+      "near_verdict_line": false,
       "max_fraction": 1,
       "ensemble_covered": true,
       "max_members": {
@@ -200,6 +212,8 @@
       "departure_utc": "2026-07-12T12:00:00Z",
       "verdict": "insufficient",
       "worst_ratio": 1.28,
+      "worst_reading_ratio": 1.28,
+      "near_verdict_line": false,
       "max_fraction": 1,
       "ensemble_covered": true,
       "max_members": {
@@ -221,6 +235,8 @@
       "departure_utc": "2026-07-12T18:00:00Z",
       "verdict": "insufficient",
       "worst_ratio": 1.31,
+      "worst_reading_ratio": 1.31,
+      "near_verdict_line": false,
       "max_fraction": 1,
       "ensemble_covered": true,
       "max_members": {

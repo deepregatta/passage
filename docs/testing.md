@@ -492,6 +492,28 @@ hours ranked after a fully known one without changing its colour, and the summar
 note when the marked time itself has missing hours, and the "?" mark on the face of
 a cell with missing hours with its legend, in English and French. A scan is never
 saved, so neither suite touches a fixture, a schema or a saved identity.
+
+Near-line mark (2026-11-14): `engine/test/nearVerdictLine.test.ts` covers
+`nearVerdictLine` at and either side of 0.65, 0.85, 0.90 and 1.10 of the limit
+(exact boundaries are outside the margin), a custom approaching ratio, a missing
+or non-finite reading, and verdicts the reading does not give (raised by
+scenarios or another cause, "models disagree", an official warning), which are
+never marked; `worstReadingRatio` on hand-built rows (each wind against its own
+point-of-sail limit, the default limit without one, "ok" hours, wave height and
+steepness only when declared, visibility left out, null without values) and its
+agreement with the wind, gust, wave and steepness evidence ratios of the
+committed findings; scan candidates of every verdict, "within" included, carrying
+`worst_reading_ratio` and the mark, on progress candidates too, the margin
+applied before rounding, and the profile's approaching ratio; and the mark and
+the ties of both rankings unchanged with the fields removed or flipped on the
+golden's candidates. The refinement equality (`refineScan.test.ts`,
+`refineScanFixtures.test.ts`) and the scan golden cover the new fields as they
+stand. `viewer/test/departureNearLine.test.jsx` covers the "±" sign and the
+tooltip sentence on a marked cell only, with the cell's classes and colour
+unchanged, the legend entry only when a cell is marked, a scan without the fields
+rendering exactly like one with every mark off, the fixed caption unchanged, and
+the French sentence and legend, and a cell both tied and near a line showing
+"≈" after its glyph and "±" in its corner, each legend entry once.
 `viewer/test/missingForecastHours.test.jsx` covers the passage page's count of
 arrival-range hours missing a value a recorded limit needs (read from the saved
 `findings.legs`; a declared layer with no value anywhere counts; a time over a
@@ -657,6 +679,11 @@ with the browser's text only under Technical detail.
   only change is the point count of the four fixture input records (6 legs, 13
   sample points); the candidates are unchanged, because the fixture bundles
   hold one series per leg, which every sample point of that leg reads.
+  Regenerated again on 2026-11-14 for the comparison's near-line mark: the only
+  change is two added keys on each of its eight candidates (four in the scan,
+  four progress candidates), `worst_reading_ratio` and `near_verdict_line`
+  (false on all eight, whose verdicts are "insufficient"); with those keys
+  removed, the file is identical to the previous one, key order included.
 - `engine/test/fixtures/legacy-current-snapshot/` is a complete saved check on an
   hourly prepared current grid written by the engine before checks recorded the
   time step: `git archive f75248e engine config | tar -x -C <dir>` and
