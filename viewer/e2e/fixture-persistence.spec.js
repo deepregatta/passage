@@ -118,6 +118,31 @@ for (const language of ['en', 'fr']) {
     expect(saved.manifest.snapshot_id).toBe(saved.id);
     expect(mutations.length).toBeGreaterThan(0);
     expect(mutations.every(item => item.status === 403 && item.body === 'Fixture data is read-only')).toBe(true);
+    // Stored compressed (2026-11-15): the records as Chromium's IndexedDB holds them.
+    const stored = await page.evaluate(async id => {
+      const db = await new Promise((resolve, reject) => {
+        const opening = indexedDB.open('passage-local-snapshots');
+        opening.onsuccess = () => resolve(opening.result);
+        opening.onerror = () => reject(opening.error);
+      });
+      const records = await new Promise((resolve, reject) => {
+        const request = db.transaction('files').objectStore('files').index('snapshot_id').getAll(id);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      db.close();
+      const local = (await import('/src/lib/localSnapshots.js')).localSnapshots;
+      return Promise.all(records.map(async record => ({
+        filename: record.filename, encoding: record.encoding ?? null,
+        binary: record.content instanceof Uint8Array, stored: record.content.byteLength ?? record.content.length,
+        text: (await local.read(id, record.filename)).length,
+      })));
+    }, saved.id);
+    await testInfo.attach('stored-sizes', { body: JSON.stringify(stored, null, 2), contentType: 'application/json' });
+    const decisionRecord = stored.find(item => item.filename === 'decision-inputs.json');
+    expect(decisionRecord).toMatchObject({ encoding: 'gzip', binary: true });
+    expect(decisionRecord.stored).toBeLessThan(decisionRecord.text);
+    expect(stored.find(item => item.filename === 'snapshot.json')).toMatchObject({ encoding: null, binary: false });
     await page.reload();
     await page.evaluate(async id => (await import('/src/stores/appStore.js')).useApp.getState().openSnapshot(id), saved.id);
     await expect(page.getByTestId('decision-band')).toBeVisible();

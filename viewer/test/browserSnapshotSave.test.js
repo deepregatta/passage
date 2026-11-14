@@ -49,6 +49,24 @@ async function recordKeys() {
   db.close();
   return keys;
 }
+/** The records of the files store exactly as IndexedDB holds them, by key. */
+async function storedRecords() {
+  const opening = indexedDB.open('passage-local-snapshots');
+  const db = await new Promise((done, fail) => { opening.onsuccess = () => done(opening.result); opening.onerror = () => fail(opening.error); });
+  const request = db.transaction('files').objectStore('files').getAll();
+  const records = await new Promise(done => { request.onsuccess = () => done(request.result); });
+  db.close();
+  return Object.fromEntries(records.map(record => [record.filename, record]));
+}
+const storedLength = (content) => typeof content === 'string' ? content.length : content.byteLength;
+
+it('a saved Check stores its decision inputs compressed, under a quarter of their JSON text', async () => {
+  const { snapshotId } = await check();
+  const text = await localSnapshots.read(snapshotId, 'decision-inputs.json');
+  const stored = (await storedRecords())['decision-inputs.json'];
+  expect(storedLength(stored.content) / text.length).toBeLessThan(0.25);
+});
+
 /** The add of route.json fails the way it does when this site's storage is full. */
 function storageFullOnRoute() {
   const add = IDBObjectStore.prototype.add;
@@ -116,4 +134,72 @@ it.each([
   const failure = await check().catch(error => error);
   expect(failure).toMatchObject({ saveFailure: 'failed' });
   expect(failure.message).toMatch(/no IndexedDB/);
+});
+
+// Compressed storage (2026-11-15): the exact retry reads saved checks of both forms.
+const putRaw = async (record) => {
+  const opening = indexedDB.open('passage-local-snapshots');
+  const db = await new Promise((done, fail) => { opening.onsuccess = () => done(opening.result); opening.onerror = () => fail(opening.error); });
+  const transaction = db.transaction('files', 'readwrite');
+  transaction.objectStore('files').put(record);
+  await new Promise((done, fail) => { transaction.oncomplete = done; transaction.onabort = () => fail(transaction.error); });
+  db.close();
+};
+
+it('an exact retry reopens a compressed Check without writing', async () => {
+  const { snapshotId } = await check();
+  const stored = await storedRecords();
+  expect(stored['decision-inputs.json'].encoding).toBe('gzip');
+  expect(stored['snapshot.json'].encoding).toBeUndefined();
+  const add = vi.spyOn(IDBObjectStore.prototype, 'add');
+  await expect(check()).resolves.toMatchObject({ snapshotId });
+  expect(add).not.toHaveBeenCalled();
+});
+
+const nativeCompressionStream = globalThis.CompressionStream;
+it('an exact retry reopens a plain Check saved the way earlier builds saved it, without writing', async () => {
+  vi.stubGlobal('CompressionStream', undefined);
+  const { snapshotId } = await check();
+  expect(Object.values(await storedRecords()).every(record => !('encoding' in record) && typeof record.content === 'string')).toBe(true);
+  vi.stubGlobal('CompressionStream', nativeCompressionStream); // this build again
+  const add = vi.spyOn(IDBObjectStore.prototype, 'add');
+  await expect(check()).resolves.toMatchObject({ snapshotId });
+  expect(add).not.toHaveBeenCalled();
+});
+
+it('a Check whose compressed decision inputs cannot be decoded is a blocked save that keeps its bytes', async () => {
+  const { snapshotId } = await check();
+  const damaged = (await storedRecords())['decision-inputs.json'];
+  damaged.content = damaged.content.slice(0, 40);
+  await putRaw(damaged);
+  vi.spyOn(console, 'error').mockImplementation(() => {});
+  const add = vi.spyOn(IDBObjectStore.prototype, 'add');
+  const failure = await check().catch(error => error);
+  expect(failure).toMatchObject({ saveFailure: 'blocked' });
+  expect(add).not.toHaveBeenCalled();
+  expect(await localSnapshots.exists(snapshotId)).toBe(true);
+  expect(Array.from((await storedRecords())['decision-inputs.json'].content)).toEqual(Array.from(damaged.content));
+});
+
+it.each([
+  ['an aborted transaction', (transaction) => queueMicrotask(() => transaction.abort())],
+  ['an add that throws', () => { throw new DOMException('could not be cloned', 'DataCloneError'); }],
+])('%s with compressed records stores nothing and is a plain save failure', async (_name, fail) => {
+  const add = IDBObjectStore.prototype.add;
+  const spy = vi.spyOn(IDBObjectStore.prototype, 'add').mockImplementation(function (record) {
+    if (record.filename !== 'route.json') return add.call(this, record);
+    const request = fail(this.transaction);
+    return request ?? add.call(this, record);
+  });
+  const failure = await check().catch(error => error);
+  expect(spy.mock.calls.some(([record]) => record.encoding === 'gzip')).toBe(true);
+  expect(failure).toMatchObject({ saveFailure: 'failed' });
+  spy.mockRestore();
+  expect(await recordKeys()).toEqual([]);
+});
+
+it('deleting a compressed Check removes every record', async () => {
+  const { snapshotId } = await check();
+  expect(await localSnapshots.remove(snapshotId)).toBe(true);
+  expect(await recordKeys()).toEqual([]);
 });

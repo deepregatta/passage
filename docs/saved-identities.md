@@ -128,6 +128,33 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   canonical JSON of the parsed file. Since 2026-11-14 the file is written
   without indentation (the other artifacts keep theirs); indented files saved
   earlier reopen on an exact retry unchanged.
+- Compressed browser storage (2026-11-15): a check saved in this browser
+  keeps every file except the manifest `snapshot.json` as gzip bytes, one
+  IndexedDB record per file as before (`{ key, snapshot_id, filename,
+  encoding: 'gzip', content: Uint8Array }`), when that is smaller than the
+  text; otherwise, and always for the manifest, the record is the plain string
+  with no `encoding` field, exactly as before. Only the bytes IndexedDB holds
+  change: the files of a check, their text, `decision_hash`, `snapshot_id`,
+  the contracts, the engine's `SnapshotStore` and the dev middleware are
+  unchanged, and `read` returns the text the engine wrote for both forms.
+  A record is stored compressed only after this browser has decoded its gzip
+  bytes back to exactly the same text; otherwise it is stored plain.
+  Every file is compressed before the one `writeAll` transaction opens, so a
+  save stays all or nothing. Checks already saved are never rewritten: no
+  migration, no background pass. Without `CompressionStream`, or when
+  compression fails, the check is saved plain. A compressed record this
+  browser cannot decode (no `DecompressionStream`, damaged bytes) reads as an
+  unreadable record does: the check still exists and is never written again,
+  opening it reports a load error, and an exact retry is a blocked save. A tab
+  still running a build from before this change lists such a check but cannot
+  open it (its read hands the bytes to `JSON.parse`, a load error; an exact
+  retry there fails without writing); the record is not changed or removed,
+  and the tab opens it after a reload. Measured on the Chromium sample of the
+  design study (real prepared current grid, demo check): 4.83 MB on disk per
+  check plain, 1.79 MB compressed; the Safari figure (11–21 MB plain) is an
+  estimate from its serialization rules, not a measurement, and nothing has
+  been measured on an iPhone. Nothing may ever compare or hash the compressed
+  bytes: gzip output differs between browsers and versions.
 - Modern histories group only by explicit passage ID and persistence source.
   Legacy checks without explicit identity remain individually accessible and
   deletable. No inferred grouping from route names/counts/departure is permitted.

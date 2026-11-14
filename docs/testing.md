@@ -650,6 +650,24 @@ pre-existing partial record still refuses the batch byte for byte.
 (`analyzeInBrowser` → `persistSnapshot` → `FallbackSnapshotStore` → IndexedDB)
 with a quota failure, a pre-existing partial and the dev middleware's 409 (both
 a blocked save, `SnapshotExistsError`) and a browser without IndexedDB.
+Compressed storage (2026-11-15): `localSnapshots.test.js` saves a check
+with a route name outside Latin-1 and reads every file back string-equal, the
+manifest stored plain and the other files as gzip bytes; reads a plain record
+written the way earlier builds wrote it; stores plain a file gzip does not
+shrink and a check whose `CompressionStream` is missing, throws or fails
+mid-stream; with a deliberately slow codec, compresses every file before the
+one readwrite transaction opens, and the quota, abort and throwing-`add`
+failures still leave no record; a truncated, non-gzip, unknown-encoding or
+undecodable (no `DecompressionStream`) record reads as unreadable, never as
+text, while the check still exists, its opener fails and `writeAll` is still
+refused; a codec whose gzip decodes to different text or cannot be decoded,
+and a browser with `CompressionStream` but no `DecompressionStream`, store the
+check plain and read back the original; delete removes a compressed check. `browserSnapshotSave.test.js`
+checks that a saved Check's `decision-inputs.json` record is under a quarter
+of its JSON text, that an exact retry reopens a compressed and a plain Check
+without an `add`, that an undecodable decision-inputs record is a blocked
+save keeping its bytes, that an abort or throwing `add` with compressed
+records is a plain failure leaving nothing, and that delete removes it all.
 `plannerFeedback.test.jsx` and `plannerFeedback.copy.test.js` cover the three
 save-failure sentences (storage full, blocked, any other) in English and French,
 with the browser's text only under Technical detail.
@@ -721,7 +739,9 @@ with the browser's text only under Technical detail.
   copy and checks every file name and byte. `limitsDrawer.test.jsx` checks the
   inactive night-preference disclosure and preservation of saved `night_ok`.
   `viewer/e2e/fixture-persistence.spec.js` covers English/French desktop/mobile
-  limits, Check, local save, reload/reopen and local deletion. It forwards
+  limits, Check, local save (in real Chromium, `decision-inputs.json` stored
+  with `encoding: 'gzip'` as binary and smaller than its text, the manifest
+  plain), reload/reopen and local deletion. It forwards
   mutations to the real dev handler rooted in a scratch copy, blocks external
   transport/telemetry, and checks both scratch and committed fixture digests.
 - `viewer/test/fixtures/compatibility/` contains older saved snapshots kept to

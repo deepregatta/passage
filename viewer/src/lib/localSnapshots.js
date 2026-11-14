@@ -1,4 +1,5 @@
 import { identityFields } from './passageIdentity.js';
+import { gunzipText, gzipText } from './snapshotCodec.js';
 // Browser-local snapshot persistence for static hosting (Cloudflare Pages).
 // The dev server accepts POST /data/snapshots/… and writes to the repo; in
 // production there is no write endpoint, so briefings persist here instead —
@@ -6,6 +7,10 @@ import { identityFields } from './passageIdentity.js';
 // A check is saved by writeAll in one transaction, so a failed save stores
 // nothing. Snapshots remain write-once: add rejects replacement, and records
 // left by an interrupted save from before writeAll are kept as they are.
+// Since 2026-11-15 a new check's files, except the manifest, are stored as
+// gzip bytes ({ encoding: 'gzip', content: Uint8Array }) when that is smaller;
+// read returns the original text for both forms. Saved records are never
+// rewritten (docs/saved-identities.md).
 
 const DB_NAME = 'passage-local-snapshots';
 const STORE = 'files';
@@ -76,6 +81,46 @@ function addAll(db, records) {
   });
 }
 
+// The manifest stays a plain string: listing parses it straight from the index.
+const MANIFEST = 'snapshot.json';
+
+/** The record one file is stored as. Compression finishes here, before any
+ * transaction opens: a transaction commits as soon as its code awaits anything
+ * but its own requests, so awaiting a stream inside it would split a check.
+ * A saved check is write-once, so gzip bytes are stored only after this
+ * browser has decoded them back to exactly the same text. Without
+ * CompressionStream, on a codec error, when the round trip fails or differs,
+ * or when gzip does not shrink the text, the record is plain, exactly as
+ * before (no `encoding` field). */
+async function toRecord(snapshotId, filename, content) {
+  const record = { key: `${snapshotId}/${filename}`, snapshot_id: snapshotId, filename, content };
+  if (filename === MANIFEST || typeof content !== 'string') return record;
+  try {
+    const bytes = await gzipText(content);
+    if (bytes && bytes.byteLength < content.length && await gunzipText(bytes) === content) {
+      return { ...record, encoding: 'gzip', content: bytes };
+    }
+  } catch {
+    // compression is an optimisation: never a failed save
+  }
+  return record;
+}
+
+/** A record's text, or null. A record this build cannot decode (an unknown
+ * encoding, no DecompressionStream, corrupt bytes) reads as null, the path an
+ * unreadable record takes: the check still exists, so the opener reports it
+ * cannot load it and an exact retry is refused (blocked) without writing. */
+async function contentOf(record) {
+  if (record?.encoding === undefined) return record?.content ?? null;
+  try {
+    if (record.encoding !== 'gzip') throw new Error(`unknown encoding ${String(record.encoding)}`);
+    return await gunzipText(record.content);
+  } catch (error) {
+    console.error(`Saved briefing file ${record.key} cannot be read in this browser:`, error);
+    return null;
+  }
+}
+
 const available = () => typeof indexedDB !== 'undefined';
 const NO_INDEXEDDB = 'This browser cannot store briefings (no IndexedDB)';
 
@@ -93,30 +138,32 @@ export const localSnapshots = {
 
   async write(snapshotId, filename, content) {
     if (!available()) throw new Error(NO_INDEXEDDB);
+    const record = await toRecord(snapshotId, filename, content);
     const db = await openDb();
-    await tx(db, 'readwrite', (s) =>
-      s.add({ key: `${snapshotId}/${filename}`, snapshot_id: snapshotId, filename, content }),
-    );
+    await tx(db, 'readwrite', (s) => s.add(record));
   },
 
   /** All files of one check ([{filename, content}], manifest last), all or nothing. */
   async writeAll(snapshotId, files) {
     if (!available()) throw new Error(NO_INDEXEDDB);
+    // every file is compressed before the one transaction opens
+    const records = await Promise.all(files.map(({ filename, content }) => toRecord(snapshotId, filename, content)));
     const db = await openDb();
-    await addAll(db, files.map(({ filename, content }) =>
-      ({ key: `${snapshotId}/${filename}`, snapshot_id: snapshotId, filename, content })));
+    await addAll(db, records);
   },
 
   // returns the raw JSON string, or null when this snapshot/file is not local
+  // or cannot be read (see contentOf)
   async read(snapshotId, filename) {
     if (!available()) return null;
+    let record;
     try {
       const db = await openDb();
-      const record = await tx(db, 'readonly', (s) => s.get(`${snapshotId}/${filename}`));
-      return record?.content ?? null;
+      record = await tx(db, 'readonly', (s) => s.get(`${snapshotId}/${filename}`));
     } catch {
       return null;
     }
+    return contentOf(record);
   },
 
   // manifest entries (same shape as /data/snapshots/manifest.json), newest first

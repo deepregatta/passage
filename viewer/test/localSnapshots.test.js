@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { IDBDatabase, IDBFactory, IDBIndex, IDBObjectStore } from 'fake-indexeddb';
 
 let localSnapshots;
@@ -239,4 +239,203 @@ it('rejects a batch when IndexedDB is missing or cannot open', async () => {
   await expect(localSnapshots.writeAll('check', CHECK)).rejects.toThrow('no IndexedDB');
   const { error } = installDb({ openFailure: 'error' });
   await expect(localSnapshots.writeAll('check', CHECK)).rejects.toBe(error);
+});
+
+// Compressed storage (2026-11-15): every file of a new check but the manifest is
+// kept as gzip bytes when that is smaller; read returns the text it was given.
+const rawRecords = async () => {
+  const db = await requestResult(indexedDB.open('passage-local-snapshots'));
+  const records = await requestResult(db.transaction('files').objectStore('files').getAll());
+  db.close();
+  return Object.fromEntries(records.map(record => [record.key, record]));
+};
+const putRaw = async (record) => {
+  const db = await requestResult(indexedDB.open('passage-local-snapshots'));
+  const transaction = db.transaction('files', 'readwrite');
+  transaction.objectStore('files').put(record);
+  await new Promise((resolve, reject) => { transaction.oncomplete = resolve; transaction.onabort = () => reject(transaction.error); });
+  db.close();
+};
+// A route name outside Latin-1, and a body large and repetitive enough to shrink.
+const NAME = 'Baie de Morlaix → Île de Batz · 港 🌊';
+const grid = Array.from({ length: 4000 }, (_, i) => Math.round(Math.sin(i / 50) * 300) / 100);
+const BIG = ['decision-inputs.json', 'findings.json', 'briefing.json', 'route.json', 'snapshot.json']
+  .map(filename => ({ filename, content: filename === 'snapshot.json'
+    ? JSON.stringify({ snapshot_id: 'big', created_at: '2026-11-15T00:00:00Z', route_name: NAME })
+    : JSON.stringify({ file: filename, name: NAME, u_kt: grid, v_kt: grid.map(v => -v) }) }));
+
+it('stores every file but the manifest as gzip bytes and reads back the exact text, outside Latin-1 too', async () => {
+  vi.stubGlobal('indexedDB', new IDBFactory());
+  await localSnapshots.writeAll('big', BIG);
+  const raw = await rawRecords();
+  for (const { filename, content } of BIG) {
+    const record = raw[`big/${filename}`];
+    if (filename === 'snapshot.json') {
+      expect(record).toEqual({ key: 'big/snapshot.json', snapshot_id: 'big', filename, content });
+    } else {
+      expect(record.encoding).toBe('gzip');
+      // jsdom has its own Uint8Array global, so the tag, not instanceof
+      expect(Object.prototype.toString.call(record.content)).toBe('[object Uint8Array]');
+      expect(record.content.byteLength).toBeLessThan(content.length / 4);
+    }
+    const text = await localSnapshots.read('big', filename);
+    expect(text).toBe(content);
+    expect(text).toContain(NAME);
+  }
+  expect((await localSnapshots.list()).map(item => item.snapshot_id)).toEqual(['big']);
+  // a single write takes the same path
+  await localSnapshots.write('one', 'plume.json', BIG[0].content);
+  expect((await rawRecords())['one/plume.json'].encoding).toBe('gzip');
+  expect(await localSnapshots.read('one', 'plume.json')).toBe(BIG[0].content);
+});
+
+it('reads a plain record written the way earlier builds wrote it, and stores plain a file gzip does not shrink', async () => {
+  vi.stubGlobal('indexedDB', new IDBFactory());
+  await localSnapshots.list(); // creates the database
+  const plain = { key: 'old/decision-inputs.json', snapshot_id: 'old', filename: 'decision-inputs.json', content: BIG[0].content };
+  await putRaw(plain);
+  expect(await localSnapshots.read('old', 'decision-inputs.json')).toBe(BIG[0].content);
+  await localSnapshots.write('tiny', 'route.json', '{"a":1}');
+  expect((await rawRecords())['tiny/route.json']).toEqual({ key: 'tiny/route.json', snapshot_id: 'tiny', filename: 'route.json', content: '{"a":1}' });
+  expect((await rawRecords())['old/decision-inputs.json']).toEqual(plain);
+  // a lone surrogate cannot round-trip through UTF-8, so that text stays a string
+  const lone = BIG[0].content.replace('"file"', '"\uD800"');
+  await localSnapshots.write('lone', 'route.json', lone);
+  expect((await rawRecords())['lone/route.json'].encoding).toBeUndefined();
+  expect(await localSnapshots.read('lone', 'route.json')).toBe(lone);
+});
+
+it.each([
+  ['missing', () => vi.stubGlobal('CompressionStream', undefined)],
+  ['throwing on construction', () => vi.stubGlobal('CompressionStream', class { constructor() { throw new TypeError('unsupported'); } })],
+  ['failing mid-stream', () => vi.stubGlobal('CompressionStream', class {
+    constructor() { Object.assign(this, new TransformStream({ transform() { throw new Error('codec failed'); } })); }
+  })],
+])('saves a check plain when CompressionStream is %s, and reads it back', async (_name, arrange) => {
+  vi.stubGlobal('indexedDB', new IDBFactory());
+  arrange();
+  await localSnapshots.writeAll('big', BIG);
+  const raw = await rawRecords();
+  for (const { filename, content } of BIG) {
+    expect(raw[`big/${filename}`]).toEqual({ key: `big/${filename}`, snapshot_id: 'big', filename, content });
+    expect(await localSnapshots.read('big', filename)).toBe(content);
+  }
+});
+
+it.each([
+  ['truncated bytes', async (record) => ({ ...record, content: record.content.slice(0, record.content.byteLength - 12) })],
+  ['bytes that are not gzip', async (record) => ({ ...record, content: new TextEncoder().encode('{"not":"gzip"}') })],
+  ['an unknown encoding', async (record) => ({ ...record, encoding: 'zstd' })],
+  ['no DecompressionStream', async (record) => { vi.stubGlobal('DecompressionStream', undefined); return record; }],
+])('a compressed record that cannot be decoded (%s) reads as unreadable, never as text, and the check still exists', async (_name, damage) => {
+  vi.stubGlobal('indexedDB', new IDBFactory());
+  const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+  await localSnapshots.writeAll('big', BIG);
+  await putRaw(await damage((await rawRecords())['big/decision-inputs.json']));
+  expect(await localSnapshots.read('big', 'decision-inputs.json')).toBeNull();
+  expect(logged).toHaveBeenCalledWith(expect.stringContaining('big/decision-inputs.json'), expect.anything());
+  expect(await localSnapshots.exists('big')).toBe(true);
+  expect((await localSnapshots.list()).map(item => item.snapshot_id)).toEqual(['big']);
+  vi.stubGlobal('fetch', vi.fn());
+  await expect(fetchSnapshotJson('big', 'decision-inputs.json')).rejects.toThrow('not stored with this briefing');
+  expect(fetch).not.toHaveBeenCalled();
+  // write-once still holds over the damaged record
+  await expect(localSnapshots.writeAll('big', BIG)).rejects.toMatchObject({ name: 'ConstraintError' });
+});
+
+describe('with a deliberately slow codec', () => {
+  afterEach(() => vi.doUnmock('../src/lib/snapshotCodec.js'));
+  const slowCodec = async (events) => {
+    const real = await vi.importActual('../src/lib/snapshotCodec.js');
+    vi.doMock('../src/lib/snapshotCodec.js', () => ({
+      ...real,
+      gzipText: async (text) => {
+        await new Promise(resolve => setTimeout(resolve, 30));
+        const bytes = await real.gzipText(text);
+        events.push('compressed');
+        return bytes;
+      },
+    }));
+    vi.resetModules();
+    ({ localSnapshots } = await import('../src/lib/localSnapshots.js'));
+  };
+
+  it('compresses every file before its one transaction opens, and stores all of them', async () => {
+    vi.stubGlobal('indexedDB', new IDBFactory());
+    const events = [];
+    await slowCodec(events);
+    const original = IDBDatabase.prototype.transaction;
+    const transaction = vi.spyOn(IDBDatabase.prototype, 'transaction').mockImplementation(function (...args) {
+      if (args[1] === 'readwrite') events.push('transaction');
+      return original.apply(this, args);
+    });
+    await localSnapshots.writeAll('big', BIG);
+    expect(transaction.mock.calls.filter(([, mode]) => mode === 'readwrite')).toHaveLength(1);
+    expect(events).toEqual([...Array(BIG.length - 1).fill('compressed'), 'transaction']);
+    expect(await recordsOf('big')).toHaveLength(BIG.length);
+    for (const { filename, content } of BIG) expect(await localSnapshots.read('big', filename)).toBe(content);
+  });
+
+  it.each([
+    ['a request quota failure', 'request-quota', 'QuotaExceededError'],
+    ['a quota failure on commit', 'abort-quota', 'QuotaExceededError'],
+    ['an aborted transaction', 'abort', 'AbortError'],
+    ['an add that throws', 'throw', 'DataCloneError'],
+  ])('%s with compressed records leaves no record of the check', async (_name, how, name) => {
+    vi.stubGlobal('indexedDB', new IDBFactory());
+    await slowCodec([]);
+    const spy = failOnRoute(how);
+    await expect(localSnapshots.writeAll('big', BIG)).rejects.toMatchObject({ name });
+    spy.mockRestore();
+    expect(await recordsOf('big')).toEqual([]);
+    expect(await localSnapshots.exists('big')).toBe(false);
+    await localSnapshots.writeAll('big', BIG);
+    expect(await recordsOf('big')).toHaveLength(BIG.length);
+  });
+});
+
+it('removes a compressed check entirely', async () => {
+  vi.stubGlobal('indexedDB', new IDBFactory());
+  await localSnapshots.writeAll('big', BIG);
+  expect(await localSnapshots.remove('big')).toBe(true);
+  expect(await recordsOf('big')).toEqual([]);
+  expect(await localSnapshots.exists('big')).toBe(false);
+  expect(await localSnapshots.list()).toEqual([]);
+});
+
+describe('a compressed record is stored only after it decodes back to the same text', () => {
+  afterEach(() => vi.doUnmock('../src/lib/snapshotCodec.js'));
+  const withGzip = async (gzipText) => {
+    const real = await vi.importActual('../src/lib/snapshotCodec.js');
+    vi.doMock('../src/lib/snapshotCodec.js', () => ({ ...real, gzipText: (text) => gzipText(text, real) }));
+    vi.resetModules();
+    ({ localSnapshots } = await import('../src/lib/localSnapshots.js'));
+  };
+  const expectPlain = async () => {
+    await localSnapshots.writeAll('big', BIG);
+    const raw = await rawRecords();
+    for (const { filename, content } of BIG) {
+      expect(raw[`big/${filename}`]).toEqual({ key: `big/${filename}`, snapshot_id: 'big', filename, content });
+      expect(await localSnapshots.read('big', filename)).toBe(content);
+    }
+  };
+
+  it('stores plain when the gzip output decodes to different text', async () => {
+    vi.stubGlobal('indexedDB', new IDBFactory());
+    await withGzip((text, real) => real.gzipText(text.replace('"file"', '"elif"')));
+    await expectPlain();
+  });
+
+  it('stores plain when the gzip output cannot be decoded', async () => {
+    vi.stubGlobal('indexedDB', new IDBFactory());
+    await withGzip(async (text, real) => (await real.gzipText(text)).slice(0, 30));
+    await expectPlain();
+  });
+
+  it('stores plain when CompressionStream exists but DecompressionStream does not', async () => {
+    vi.stubGlobal('indexedDB', new IDBFactory());
+    vi.stubGlobal('DecompressionStream', undefined);
+    expect(typeof CompressionStream).toBe('function');
+    await expectPlain();
+  });
 });
