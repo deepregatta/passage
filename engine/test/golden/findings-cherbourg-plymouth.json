@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "snapshot_id": "snapshot_v2_e20e338f6d6fa5f7",
+  "snapshot_id": "snapshot_v2_353a9dab3fcb80a6",
   "identity_version": 2,
   "passage_id": null,
   "route_revision": "a3a053d22ba21c4d",
-  "decision_hash": "e20e338f6d6fa5f7",
+  "decision_hash": "353a9dab3fcb80a6",
   "route_id": "cherbourg-plymouth-v1",
   "profile_id": "coastal-cruising-cautious",
   "departure_utc": "2026-07-12T06:00:00Z",
@@ -24,7 +24,7 @@
         "tiles": [],
         "fetched_at": "2026-07-11T18:00:00.000Z",
         "cached_tiles": 0,
-        "points": 6
+        "points": 13
       },
       {
         "source": "fixture",
@@ -37,7 +37,7 @@
         "tiles": [],
         "fetched_at": "2026-07-11T18:00:00.000Z",
         "cached_tiles": 0,
-        "points": 6
+        "points": 13
       },
       {
         "source": "fixture",
@@ -49,7 +49,7 @@
         "tiles": [],
         "fetched_at": "2026-07-11T18:00:00.000Z",
         "cached_tiles": 0,
-        "points": 6
+        "points": 13
       },
       {
         "source": "fixture",
@@ -61,7 +61,7 @@
         "tiles": [],
         "fetched_at": "2026-07-11T18:00:00.000Z",
         "cached_tiles": 0,
-        "points": 6
+        "points": 13
       }
     ],
     "warnings_ref": null,
@@ -214,7 +214,16 @@
       "sample_point": {
         "lat": 49.6925,
         "lon": -1.7375
-      }
+      },
+      "sample_points": [
+        {
+          "point_id": "L1.1",
+          "lat": 49.6925,
+          "lon": -1.7375,
+          "from_nm": 0,
+          "to_nm": 7.91
+        }
+      ]
     },
     {
       "leg_id": "L2",
@@ -401,7 +410,16 @@
       "sample_point": {
         "lat": 49.75,
         "lon": -1.94
-      }
+      },
+      "sample_points": [
+        {
+          "point_id": "L2.1",
+          "lat": 49.75,
+          "lon": -1.94,
+          "from_nm": 0,
+          "to_nm": 9.26
+        }
+      ]
     },
     {
       "leg_id": "L3",
@@ -462,6 +480,31 @@
               "exceed": 5,
               "total": 51
             }
+          },
+          "expected": {
+            "sample_point_id": "L3.1",
+            "wind_kt": 20.4,
+            "gust_kt": 26,
+            "wind_dir_deg": 60,
+            "twa_deg": 131.4,
+            "point_of_sail": "downwind",
+            "limit_status": {
+              "sustained": "approaching",
+              "gust": "approaching",
+              "wave": "ok",
+              "steepness": "approaching",
+              "visibility": "ok"
+            },
+            "waves": {
+              "hs_m": 1.62,
+              "period_s": 5.2,
+              "steepness": 0.0384,
+              "wind_wave_h_m": 1.56,
+              "swell_h_m": 0.26,
+              "cross_sea_deg": 162,
+              "cross_sea_significant": false,
+              "wind_against_swell": false
+            }
           }
         },
         {
@@ -501,6 +544,31 @@
             "gust": {
               "exceed": 5,
               "total": 51
+            }
+          },
+          "expected": {
+            "sample_point_id": "L3.1",
+            "wind_kt": 20.6,
+            "gust_kt": 26,
+            "wind_dir_deg": 60,
+            "twa_deg": 131.4,
+            "point_of_sail": "downwind",
+            "limit_status": {
+              "sustained": "approaching",
+              "gust": "approaching",
+              "wave": "ok",
+              "steepness": "approaching",
+              "visibility": "ok"
+            },
+            "waves": {
+              "hs_m": 1.62,
+              "period_s": 5.2,
+              "steepness": 0.0384,
+              "wind_wave_h_m": 1.56,
+              "swell_h_m": 0.26,
+              "cross_sea_deg": 162,
+              "cross_sea_significant": false,
+              "wind_against_swell": false
             }
           }
         },
@@ -542,6 +610,31 @@
               "exceed": 5,
               "total": 51
             }
+          },
+          "expected": {
+            "sample_point_id": "L3.1",
+            "wind_kt": 20.8,
+            "gust_kt": 26.2,
+            "wind_dir_deg": 60,
+            "twa_deg": 131.4,
+            "point_of_sail": "downwind",
+            "limit_status": {
+              "sustained": "approaching",
+              "gust": "approaching",
+              "wave": "ok",
+              "steepness": "approaching",
+              "visibility": "ok"
+            },
+            "waves": {
+              "hs_m": 1.62,
+              "period_s": 5.2,
+              "steepness": 0.0384,
+              "wind_wave_h_m": 1.58,
+              "swell_h_m": 0.22,
+              "cross_sea_deg": 133,
+              "cross_sea_significant": false,
+              "wind_against_swell": false
+            }
           }
         },
         {
@@ -581,6 +674,31 @@
             "gust": {
               "exceed": 9,
               "total": 51
+            }
+          },
+          "expected": {
+            "sample_point_id": "L3.2",
+            "wind_kt": 20.9,
+            "gust_kt": 26.6,
+            "wind_dir_deg": 61,
+            "twa_deg": 132.4,
+            "point_of_sail": "downwind",
+            "limit_status": {
+              "sustained": "approaching",
+              "gust": "approaching",
+              "wave": "ok",
+              "steepness": "approaching",
+              "visibility": "ok"
+            },
+            "waves": {
+              "hs_m": 1.64,
+              "period_s": 5.25,
+              "steepness": 0.0381,
+              "wind_wave_h_m": 1.58,
+              "swell_h_m": 0.18,
+              "cross_sea_deg": 102,
+              "cross_sea_significant": false,
+              "wind_against_swell": false
             }
           }
         },
@@ -622,6 +740,31 @@
               "exceed": 16,
               "total": 51
             }
+          },
+          "expected": {
+            "sample_point_id": "L3.2",
+            "wind_kt": 21.2,
+            "gust_kt": 27.4,
+            "wind_dir_deg": 63,
+            "twa_deg": 134.4,
+            "point_of_sail": "downwind",
+            "limit_status": {
+              "sustained": "approaching",
+              "gust": "approaching",
+              "wave": "ok",
+              "steepness": "approaching",
+              "visibility": "ok"
+            },
+            "waves": {
+              "hs_m": 1.64,
+              "period_s": 5.25,
+              "steepness": 0.0381,
+              "wind_wave_h_m": 1.6,
+              "swell_h_m": 0.14,
+              "cross_sea_deg": 73,
+              "cross_sea_significant": false,
+              "wind_against_swell": false
+            }
           }
         },
         {
@@ -661,6 +804,31 @@
             "gust": {
               "exceed": 31,
               "total": 51
+            }
+          },
+          "expected": {
+            "sample_point_id": "L3.3",
+            "wind_kt": 22,
+            "gust_kt": 28.8,
+            "wind_dir_deg": 65,
+            "twa_deg": 136.4,
+            "point_of_sail": "downwind",
+            "limit_status": {
+              "sustained": "approaching",
+              "gust": "exceeded",
+              "wave": "ok",
+              "steepness": "approaching",
+              "visibility": "ok"
+            },
+            "waves": {
+              "hs_m": 1.7,
+              "period_s": 5.3,
+              "steepness": 0.0388,
+              "wind_wave_h_m": 1.66,
+              "swell_h_m": 0.14,
+              "cross_sea_deg": 71,
+              "cross_sea_significant": false,
+              "wind_against_swell": false
             }
           }
         },
@@ -702,6 +870,31 @@
               "exceed": 46,
               "total": 51
             }
+          },
+          "expected": {
+            "sample_point_id": "L3.4",
+            "wind_kt": 23.1,
+            "gust_kt": 30.3,
+            "wind_dir_deg": 69,
+            "twa_deg": 140.4,
+            "point_of_sail": "downwind",
+            "limit_status": {
+              "sustained": "approaching",
+              "gust": "exceeded",
+              "wave": "ok",
+              "steepness": "approaching",
+              "visibility": "ok"
+            },
+            "waves": {
+              "hs_m": 1.74,
+              "period_s": 5.3,
+              "steepness": 0.0397,
+              "wind_wave_h_m": 1.72,
+              "swell_h_m": 0.12,
+              "cross_sea_deg": 69,
+              "cross_sea_significant": false,
+              "wind_against_swell": false
+            }
           }
         },
         {
@@ -741,6 +934,31 @@
             "gust": {
               "exceed": 50,
               "total": 51
+            }
+          },
+          "expected": {
+            "sample_point_id": "L3.4",
+            "wind_kt": 24,
+            "gust_kt": 31.5,
+            "wind_dir_deg": 71,
+            "twa_deg": 142.4,
+            "point_of_sail": "downwind",
+            "limit_status": {
+              "sustained": "approaching",
+              "gust": "exceeded",
+              "wave": "ok",
+              "steepness": "approaching",
+              "visibility": "ok"
+            },
+            "waves": {
+              "hs_m": 1.8,
+              "period_s": 5.35,
+              "steepness": 0.0403,
+              "wind_wave_h_m": 1.78,
+              "swell_h_m": 0.12,
+              "cross_sea_deg": 67,
+              "cross_sea_significant": false,
+              "wind_against_swell": false
             }
           }
         },
@@ -782,6 +1000,31 @@
               "exceed": 51,
               "total": 51
             }
+          },
+          "expected": {
+            "sample_point_id": "L3.4",
+            "wind_kt": 24.3,
+            "gust_kt": 31.9,
+            "wind_dir_deg": 72,
+            "twa_deg": 143.4,
+            "point_of_sail": "downwind",
+            "limit_status": {
+              "sustained": "approaching",
+              "gust": "exceeded",
+              "wave": "ok",
+              "steepness": "approaching",
+              "visibility": "ok"
+            },
+            "waves": {
+              "hs_m": 1.84,
+              "period_s": 5.4,
+              "steepness": 0.0404,
+              "wind_wave_h_m": 1.82,
+              "swell_h_m": 0.12,
+              "cross_sea_deg": 97,
+              "cross_sea_significant": false,
+              "wind_against_swell": false
+            }
           }
         },
         {
@@ -821,6 +1064,31 @@
             "gust": {
               "exceed": 51,
               "total": 51
+            }
+          },
+          "expected": {
+            "sample_point_id": "L3.4",
+            "wind_kt": 24.4,
+            "gust_kt": 32.1,
+            "wind_dir_deg": 71,
+            "twa_deg": 142.4,
+            "point_of_sail": "downwind",
+            "limit_status": {
+              "sustained": "approaching",
+              "gust": "exceeded",
+              "wave": "approaching",
+              "steepness": "approaching",
+              "visibility": "ok"
+            },
+            "waves": {
+              "hs_m": 1.9,
+              "period_s": 5.45,
+              "steepness": 0.041,
+              "wind_wave_h_m": 1.88,
+              "swell_h_m": 0.14,
+              "cross_sea_deg": 128,
+              "cross_sea_significant": false,
+              "wind_against_swell": false
             }
           }
         },
@@ -862,13 +1130,68 @@
               "exceed": 51,
               "total": 51
             }
+          },
+          "expected": {
+            "sample_point_id": "L3.4",
+            "wind_kt": 24.5,
+            "gust_kt": 32.3,
+            "wind_dir_deg": 71,
+            "twa_deg": 142.4,
+            "point_of_sail": "downwind",
+            "limit_status": {
+              "sustained": "approaching",
+              "gust": "exceeded",
+              "wave": "approaching",
+              "steepness": "approaching",
+              "visibility": "ok"
+            },
+            "waves": {
+              "hs_m": 1.94,
+              "period_s": 5.5,
+              "steepness": 0.0411,
+              "wind_wave_h_m": 1.92,
+              "swell_h_m": 0.14,
+              "cross_sea_deg": 158,
+              "cross_sea_significant": false,
+              "wind_against_swell": false
+            }
           }
         }
       ],
       "sample_point": {
         "lat": 49.865,
         "lon": -2.45
-      }
+      },
+      "sample_points": [
+        {
+          "point_id": "L3.1",
+          "lat": 49.8013,
+          "lon": -2.15,
+          "from_nm": 0,
+          "to_nm": 8.15
+        },
+        {
+          "point_id": "L3.2",
+          "lat": 49.8438,
+          "lon": -2.35,
+          "from_nm": 8.15,
+          "to_nm": 16.3
+        },
+        {
+          "point_id": "L3.3",
+          "lat": 49.8863,
+          "lon": -2.55,
+          "from_nm": 16.3,
+          "to_nm": 24.45
+        },
+        {
+          "point_id": "L3.4",
+          "lat": 49.9288,
+          "lon": -2.75,
+          "from_nm": 24.45,
+          "to_nm": 32.6
+        }
+      ]
     },
     {
       "leg_id": "L4",
@@ -929,6 +1252,31 @@
               "exceed": 1,
               "total": 51
             }
+          },
+          "expected": {
+            "sample_point_id": "L4.1",
+            "wind_kt": 19.4,
+            "gust_kt": 24.7,
+            "wind_dir_deg": 71,
+            "twa_deg": 139.5,
+            "point_of_sail": "downwind",
+            "limit_status": {
+              "sustained": "approaching",
+              "gust": "approaching",
+              "wave": "ok",
+              "steepness": "approaching",
+              "visibility": "ok"
+            },
+            "waves": {
+              "hs_m": 1.6,
+              "period_s": 5.3,
+              "steepness": 0.0365,
+              "wind_wave_h_m": 1.54,
+              "swell_h_m": 0.24,
+              "cross_sea_deg": 35,
+              "cross_sea_significant": false,
+              "wind_against_swell": false
+            }
           }
         },
         {
@@ -968,6 +1316,31 @@
             "gust": {
               "exceed": 3,
               "total": 51
+            }
+          },
+          "expected": {
+            "sample_point_id": "L4.1",
+            "wind_kt": 20.6,
+            "gust_kt": 26,
+            "wind_dir_deg": 74,
+            "twa_deg": 142.5,
+            "point_of_sail": "downwind",
+            "limit_status": {
+              "sustained": "approaching",
+              "gust": "approaching",
+              "wave": "ok",
+              "steepness": "approaching",
+              "visibility": "ok"
+            },
+            "waves": {
+              "hs_m": 1.64,
+              "period_s": 5.3,
+              "steepness": 0.0374,
+              "wind_wave_h_m": 1.6,
+              "swell_h_m": 0.18,
+              "cross_sea_deg": 42,
+              "cross_sea_significant": false,
+              "wind_against_swell": false
             }
           }
         },
@@ -1009,6 +1382,31 @@
               "exceed": 11,
               "total": 51
             }
+          },
+          "expected": {
+            "sample_point_id": "L4.1",
+            "wind_kt": 21.6,
+            "gust_kt": 27.4,
+            "wind_dir_deg": 76,
+            "twa_deg": 144.5,
+            "point_of_sail": "downwind",
+            "limit_status": {
+              "sustained": "approaching",
+              "gust": "approaching",
+              "wave": "ok",
+              "steepness": "approaching",
+              "visibility": "ok"
+            },
+            "waves": {
+              "hs_m": 1.7,
+              "period_s": 5.35,
+              "steepness": 0.038,
+              "wind_wave_h_m": 1.68,
+              "swell_h_m": 0.14,
+              "cross_sea_deg": 49,
+              "cross_sea_significant": false,
+              "wind_against_swell": false
+            }
           }
         },
         {
@@ -1048,6 +1446,31 @@
             "gust": {
               "exceed": 19,
               "total": 51
+            }
+          },
+          "expected": {
+            "sample_point_id": "L4.1",
+            "wind_kt": 22.3,
+            "gust_kt": 28.6,
+            "wind_dir_deg": 76,
+            "twa_deg": 144.5,
+            "point_of_sail": "downwind",
+            "limit_status": {
+              "sustained": "approaching",
+              "gust": "exceeded",
+              "wave": "ok",
+              "steepness": "approaching",
+              "visibility": "ok"
+            },
+            "waves": {
+              "hs_m": 1.78,
+              "period_s": 5.4,
+              "steepness": 0.0391,
+              "wind_wave_h_m": 1.76,
+              "swell_h_m": 0.16,
+              "cross_sea_deg": 49,
+              "cross_sea_significant": false,
+              "wind_against_swell": false
             }
           }
         },
@@ -1089,6 +1512,31 @@
               "exceed": 36,
               "total": 51
             }
+          },
+          "expected": {
+            "sample_point_id": "L4.2",
+            "wind_kt": 22.8,
+            "gust_kt": 29.5,
+            "wind_dir_deg": 74,
+            "twa_deg": 142.5,
+            "point_of_sail": "downwind",
+            "limit_status": {
+              "sustained": "approaching",
+              "gust": "exceeded",
+              "wave": "approaching",
+              "steepness": "approaching",
+              "visibility": "ok"
+            },
+            "waves": {
+              "hs_m": 1.88,
+              "period_s": 5.5,
+              "steepness": 0.0398,
+              "wind_wave_h_m": 1.84,
+              "swell_h_m": 0.2,
+              "cross_sea_deg": 49,
+              "cross_sea_significant": false,
+              "wind_against_swell": false
+            }
           }
         },
         {
@@ -1128,6 +1576,31 @@
             "gust": {
               "exceed": 47,
               "total": 51
+            }
+          },
+          "expected": {
+            "sample_point_id": "L4.2",
+            "wind_kt": 23.6,
+            "gust_kt": 30.5,
+            "wind_dir_deg": 73,
+            "twa_deg": 141.5,
+            "point_of_sail": "downwind",
+            "limit_status": {
+              "sustained": "approaching",
+              "gust": "exceeded",
+              "wave": "approaching",
+              "steepness": "approaching",
+              "visibility": "ok"
+            },
+            "waves": {
+              "hs_m": 1.96,
+              "period_s": 5.6,
+              "steepness": 0.04,
+              "wind_wave_h_m": 1.92,
+              "swell_h_m": 0.22,
+              "cross_sea_deg": 49,
+              "cross_sea_significant": false,
+              "wind_against_swell": false
             }
           }
         },
@@ -1169,6 +1642,31 @@
               "exceed": 51,
               "total": 51
             }
+          },
+          "expected": {
+            "sample_point_id": "L4.3",
+            "wind_kt": 24.4,
+            "gust_kt": 31.7,
+            "wind_dir_deg": 73,
+            "twa_deg": 141.5,
+            "point_of_sail": "downwind",
+            "limit_status": {
+              "sustained": "approaching",
+              "gust": "exceeded",
+              "wave": "approaching",
+              "steepness": "approaching",
+              "visibility": "ok"
+            },
+            "waves": {
+              "hs_m": 2.02,
+              "period_s": 5.7,
+              "steepness": 0.0398,
+              "wind_wave_h_m": 2,
+              "swell_h_m": 0.22,
+              "cross_sea_deg": 49,
+              "cross_sea_significant": false,
+              "wind_against_swell": false
+            }
           }
         },
         {
@@ -1208,6 +1706,31 @@
             "gust": {
               "exceed": 51,
               "total": 51
+            }
+          },
+          "expected": {
+            "sample_point_id": "L4.3",
+            "wind_kt": 25.5,
+            "gust_kt": 32.7,
+            "wind_dir_deg": 72,
+            "twa_deg": 140.5,
+            "point_of_sail": "downwind",
+            "limit_status": {
+              "sustained": "exceeded",
+              "gust": "exceeded",
+              "wave": "approaching",
+              "steepness": "approaching",
+              "visibility": "ok"
+            },
+            "waves": {
+              "hs_m": 2.1,
+              "period_s": 5.8,
+              "steepness": 0.04,
+              "wind_wave_h_m": 2.06,
+              "swell_h_m": 0.22,
+              "cross_sea_deg": 50,
+              "cross_sea_significant": false,
+              "wind_against_swell": false
             }
           }
         },
@@ -1249,6 +1772,31 @@
               "exceed": 51,
               "total": 51
             }
+          },
+          "expected": {
+            "sample_point_id": "L4.3",
+            "wind_kt": 26.2,
+            "gust_kt": 33.6,
+            "wind_dir_deg": 72,
+            "twa_deg": 140.5,
+            "point_of_sail": "downwind",
+            "limit_status": {
+              "sustained": "exceeded",
+              "gust": "exceeded",
+              "wave": "approaching",
+              "steepness": "approaching",
+              "visibility": "ok"
+            },
+            "waves": {
+              "hs_m": 2.16,
+              "period_s": 5.85,
+              "steepness": 0.0404,
+              "wind_wave_h_m": 2.14,
+              "swell_h_m": 0.22,
+              "cross_sea_deg": 50,
+              "cross_sea_significant": false,
+              "wind_against_swell": false
+            }
           }
         },
         {
@@ -1288,6 +1836,31 @@
             "gust": {
               "exceed": 51,
               "total": 51
+            }
+          },
+          "expected": {
+            "sample_point_id": "L4.3",
+            "wind_kt": 26.6,
+            "gust_kt": 34.2,
+            "wind_dir_deg": 71,
+            "twa_deg": 139.5,
+            "point_of_sail": "downwind",
+            "limit_status": {
+              "sustained": "exceeded",
+              "gust": "exceeded",
+              "wave": "approaching",
+              "steepness": "approaching",
+              "visibility": "ok"
+            },
+            "waves": {
+              "hs_m": 2.2,
+              "period_s": 5.9,
+              "steepness": 0.0405,
+              "wind_wave_h_m": 2.18,
+              "swell_h_m": 0.22,
+              "cross_sea_deg": 51,
+              "cross_sea_significant": false,
+              "wind_against_swell": false
             }
           }
         },
@@ -1329,6 +1902,31 @@
               "exceed": 51,
               "total": 51
             }
+          },
+          "expected": {
+            "sample_point_id": "L4.3",
+            "wind_kt": 26.6,
+            "gust_kt": 34.6,
+            "wind_dir_deg": 69,
+            "twa_deg": 137.5,
+            "point_of_sail": "downwind",
+            "limit_status": {
+              "sustained": "exceeded",
+              "gust": "exceeded",
+              "wave": "approaching",
+              "steepness": "approaching",
+              "visibility": "ok"
+            },
+            "waves": {
+              "hs_m": 2.26,
+              "period_s": 5.9,
+              "steepness": 0.0416,
+              "wind_wave_h_m": 2.24,
+              "swell_h_m": 0.22,
+              "cross_sea_deg": 51,
+              "cross_sea_significant": false,
+              "wind_against_swell": false
+            }
           }
         }
       ],
@@ -1336,6 +1934,29 @@
         "lat": 50.025,
         "lon": -3.15
       },
+      "sample_points": [
+        {
+          "point_id": "L4.1",
+          "lat": 49.975,
+          "lon": -2.95,
+          "from_nm": 0,
+          "to_nm": 8.28
+        },
+        {
+          "point_id": "L4.2",
+          "lat": 50.025,
+          "lon": -3.15,
+          "from_nm": 8.28,
+          "to_nm": 16.55
+        },
+        {
+          "point_id": "L4.3",
+          "lat": 50.075,
+          "lon": -3.35,
+          "from_nm": 16.55,
+          "to_nm": 24.83
+        }
+      ],
       "divergent_hours": [
         {
           "valid_time": "2026-07-12T13:00:00Z",
@@ -1407,6 +2028,31 @@
               "exceed": 51,
               "total": 51
             }
+          },
+          "expected": {
+            "sample_point_id": "L5.1",
+            "wind_kt": 17.1,
+            "gust_kt": 31.1,
+            "wind_dir_deg": 78,
+            "twa_deg": 146.4,
+            "point_of_sail": "downwind",
+            "limit_status": {
+              "sustained": "ok",
+              "gust": "exceeded",
+              "wave": "ok",
+              "steepness": "approaching",
+              "visibility": "ok"
+            },
+            "waves": {
+              "hs_m": 1.62,
+              "period_s": 5.25,
+              "steepness": 0.0376,
+              "wind_wave_h_m": 1.54,
+              "swell_h_m": 0.34,
+              "cross_sea_deg": 30,
+              "cross_sea_significant": false,
+              "wind_against_swell": false
+            }
           }
         },
         {
@@ -1446,6 +2092,31 @@
             "gust": {
               "exceed": 51,
               "total": 51
+            }
+          },
+          "expected": {
+            "sample_point_id": "L5.1",
+            "wind_kt": 17.5,
+            "gust_kt": 31.7,
+            "wind_dir_deg": 77,
+            "twa_deg": 145.4,
+            "point_of_sail": "downwind",
+            "limit_status": {
+              "sustained": "ok",
+              "gust": "exceeded",
+              "wave": "ok",
+              "steepness": "approaching",
+              "visibility": "ok"
+            },
+            "waves": {
+              "hs_m": 1.7,
+              "period_s": 5.35,
+              "steepness": 0.038,
+              "wind_wave_h_m": 1.62,
+              "swell_h_m": 0.38,
+              "cross_sea_deg": 31,
+              "cross_sea_significant": false,
+              "wind_against_swell": false
             }
           }
         },
@@ -1487,6 +2158,31 @@
               "exceed": 51,
               "total": 51
             }
+          },
+          "expected": {
+            "sample_point_id": "L5.1",
+            "wind_kt": 18,
+            "gust_kt": 32.3,
+            "wind_dir_deg": 76,
+            "twa_deg": 144.4,
+            "point_of_sail": "downwind",
+            "limit_status": {
+              "sustained": "ok",
+              "gust": "exceeded",
+              "wave": "ok",
+              "steepness": "approaching",
+              "visibility": "ok"
+            },
+            "waves": {
+              "hs_m": 1.76,
+              "period_s": 5.45,
+              "steepness": 0.038,
+              "wind_wave_h_m": 1.68,
+              "swell_h_m": 0.42,
+              "cross_sea_deg": 33,
+              "cross_sea_significant": false,
+              "wind_against_swell": false
+            }
           }
         },
         {
@@ -1526,6 +2222,31 @@
             "gust": {
               "exceed": 51,
               "total": 51
+            }
+          },
+          "expected": {
+            "sample_point_id": "L5.1",
+            "wind_kt": 18.7,
+            "gust_kt": 32.9,
+            "wind_dir_deg": 76,
+            "twa_deg": 144.4,
+            "point_of_sail": "downwind",
+            "limit_status": {
+              "sustained": "ok",
+              "gust": "exceeded",
+              "wave": "ok",
+              "steepness": "approaching",
+              "visibility": "ok"
+            },
+            "waves": {
+              "hs_m": 1.84,
+              "period_s": 5.5,
+              "steepness": 0.039,
+              "wind_wave_h_m": 1.74,
+              "swell_h_m": 0.46,
+              "cross_sea_deg": 33,
+              "cross_sea_significant": false,
+              "wind_against_swell": false
             }
           }
         },
@@ -1567,6 +2288,31 @@
               "exceed": 51,
               "total": 51
             }
+          },
+          "expected": {
+            "sample_point_id": "L5.1",
+            "wind_kt": 19.1,
+            "gust_kt": 33.2,
+            "wind_dir_deg": 73,
+            "twa_deg": 141.4,
+            "point_of_sail": "downwind",
+            "limit_status": {
+              "sustained": "approaching",
+              "gust": "exceeded",
+              "wave": "approaching",
+              "steepness": "approaching",
+              "visibility": "ok"
+            },
+            "waves": {
+              "hs_m": 1.9,
+              "period_s": 5.6,
+              "steepness": 0.0388,
+              "wind_wave_h_m": 1.8,
+              "swell_h_m": 0.5,
+              "cross_sea_deg": 35,
+              "cross_sea_significant": false,
+              "wind_against_swell": false
+            }
           }
         },
         {
@@ -1606,6 +2352,31 @@
             "gust": {
               "exceed": 51,
               "total": 51
+            }
+          },
+          "expected": {
+            "sample_point_id": "L5.2",
+            "wind_kt": 19.2,
+            "gust_kt": 33.6,
+            "wind_dir_deg": 70,
+            "twa_deg": 138.4,
+            "point_of_sail": "downwind",
+            "limit_status": {
+              "sustained": "approaching",
+              "gust": "exceeded",
+              "wave": "approaching",
+              "steepness": "approaching",
+              "visibility": "ok"
+            },
+            "waves": {
+              "hs_m": 1.94,
+              "period_s": 5.65,
+              "steepness": 0.0389,
+              "wind_wave_h_m": 1.82,
+              "swell_h_m": 0.54,
+              "cross_sea_deg": 35,
+              "cross_sea_significant": false,
+              "wind_against_swell": false
             }
           }
         },
@@ -1647,6 +2418,31 @@
               "exceed": 51,
               "total": 51
             }
+          },
+          "expected": {
+            "sample_point_id": "L5.3",
+            "wind_kt": 19.6,
+            "gust_kt": 34,
+            "wind_dir_deg": 66,
+            "twa_deg": 134.4,
+            "point_of_sail": "downwind",
+            "limit_status": {
+              "sustained": "approaching",
+              "gust": "exceeded",
+              "wave": "approaching",
+              "steepness": "approaching",
+              "visibility": "ok"
+            },
+            "waves": {
+              "hs_m": 1.96,
+              "period_s": 5.7,
+              "steepness": 0.0386,
+              "wind_wave_h_m": 1.86,
+              "swell_h_m": 0.56,
+              "cross_sea_deg": 37,
+              "cross_sea_significant": false,
+              "wind_against_swell": false
+            }
           }
         },
         {
@@ -1686,6 +2482,31 @@
             "gust": {
               "exceed": 51,
               "total": 51
+            }
+          },
+          "expected": {
+            "sample_point_id": "L5.3",
+            "wind_kt": 19.6,
+            "gust_kt": 34,
+            "wind_dir_deg": 62,
+            "twa_deg": 130.4,
+            "point_of_sail": "downwind",
+            "limit_status": {
+              "sustained": "approaching",
+              "gust": "exceeded",
+              "wave": "approaching",
+              "steepness": "approaching",
+              "visibility": "ok"
+            },
+            "waves": {
+              "hs_m": 2,
+              "period_s": 5.75,
+              "steepness": 0.0387,
+              "wind_wave_h_m": 1.88,
+              "swell_h_m": 0.6,
+              "cross_sea_deg": 37,
+              "cross_sea_significant": false,
+              "wind_against_swell": false
             }
           }
         },
@@ -1727,6 +2548,31 @@
               "exceed": 51,
               "total": 51
             }
+          },
+          "expected": {
+            "sample_point_id": "L5.3",
+            "wind_kt": 19.2,
+            "gust_kt": 33.4,
+            "wind_dir_deg": 60,
+            "twa_deg": 128.4,
+            "point_of_sail": "downwind",
+            "limit_status": {
+              "sustained": "approaching",
+              "gust": "exceeded",
+              "wave": "approaching",
+              "steepness": "approaching",
+              "visibility": "ok"
+            },
+            "waves": {
+              "hs_m": 2.02,
+              "period_s": 5.8,
+              "steepness": 0.0385,
+              "wind_wave_h_m": 1.86,
+              "swell_h_m": 0.7,
+              "cross_sea_deg": 38,
+              "cross_sea_significant": false,
+              "wind_against_swell": false
+            }
           }
         },
         {
@@ -1766,6 +2612,31 @@
             "gust": {
               "exceed": 51,
               "total": 51
+            }
+          },
+          "expected": {
+            "sample_point_id": "L5.3",
+            "wind_kt": 18.5,
+            "gust_kt": 32.7,
+            "wind_dir_deg": 57,
+            "twa_deg": 125.4,
+            "point_of_sail": "downwind",
+            "limit_status": {
+              "sustained": "ok",
+              "gust": "exceeded",
+              "wave": "approaching",
+              "steepness": "approaching",
+              "visibility": "ok"
+            },
+            "waves": {
+              "hs_m": 2.02,
+              "period_s": 5.9,
+              "steepness": 0.0372,
+              "wind_wave_h_m": 1.82,
+              "swell_h_m": 0.78,
+              "cross_sea_deg": 38,
+              "cross_sea_significant": false,
+              "wind_against_swell": false
             }
           }
         },
@@ -1807,6 +2678,31 @@
               "exceed": 51,
               "total": 51
             }
+          },
+          "expected": {
+            "sample_point_id": "L5.3",
+            "wind_kt": 18,
+            "gust_kt": 32.1,
+            "wind_dir_deg": 55,
+            "twa_deg": 123.4,
+            "point_of_sail": "downwind",
+            "limit_status": {
+              "sustained": "ok",
+              "gust": "exceeded",
+              "wave": "approaching",
+              "steepness": "approaching",
+              "visibility": "ok"
+            },
+            "waves": {
+              "hs_m": 2.04,
+              "period_s": 5.95,
+              "steepness": 0.0369,
+              "wind_wave_h_m": 1.8,
+              "swell_h_m": 0.88,
+              "cross_sea_deg": 39,
+              "cross_sea_significant": false,
+              "wind_against_swell": false
+            }
           }
         },
         {
@@ -1846,6 +2742,31 @@
             "gust": {
               "exceed": 51,
               "total": 51
+            }
+          },
+          "expected": {
+            "sample_point_id": "L5.3",
+            "wind_kt": 17.9,
+            "gust_kt": 32.1,
+            "wind_dir_deg": 53,
+            "twa_deg": 121.4,
+            "point_of_sail": "downwind",
+            "limit_status": {
+              "sustained": "ok",
+              "gust": "exceeded",
+              "wave": "approaching",
+              "steepness": "approaching",
+              "visibility": "ok"
+            },
+            "waves": {
+              "hs_m": 2.04,
+              "period_s": 6,
+              "steepness": 0.0363,
+              "wind_wave_h_m": 1.78,
+              "swell_h_m": 0.9,
+              "cross_sea_deg": 38,
+              "cross_sea_significant": false,
+              "wind_against_swell": false
             }
           }
         },
@@ -1887,13 +2808,61 @@
               "exceed": 51,
               "total": 51
             }
+          },
+          "expected": {
+            "sample_point_id": "L5.3",
+            "wind_kt": 17.9,
+            "gust_kt": 32.5,
+            "wind_dir_deg": 53,
+            "twa_deg": 121.4,
+            "point_of_sail": "downwind",
+            "limit_status": {
+              "sustained": "ok",
+              "gust": "exceeded",
+              "wave": "approaching",
+              "steepness": "approaching",
+              "visibility": "ok"
+            },
+            "waves": {
+              "hs_m": 2.02,
+              "period_s": 6.05,
+              "steepness": 0.0353,
+              "wind_wave_h_m": 1.76,
+              "swell_h_m": 0.9,
+              "cross_sea_deg": 36,
+              "cross_sea_significant": false,
+              "wind_against_swell": false
+            }
           }
         }
       ],
       "sample_point": {
         "lat": 50.175,
         "lon": -3.75
-      }
+      },
+      "sample_points": [
+        {
+          "point_id": "L5.1",
+          "lat": 50.125,
+          "lon": -3.55,
+          "from_nm": 0,
+          "to_nm": 8.26
+        },
+        {
+          "point_id": "L5.2",
+          "lat": 50.175,
+          "lon": -3.75,
+          "from_nm": 8.26,
+          "to_nm": 16.51
+        },
+        {
+          "point_id": "L5.3",
+          "lat": 50.225,
+          "lon": -3.95,
+          "from_nm": 16.51,
+          "to_nm": 24.77
+        }
+      ]
     },
     {
       "leg_id": "L6",
@@ -2321,6 +3290,15 @@
         "lat": 50.2915,
         "lon": -4.1125
       },
+      "sample_points": [
+        {
+          "point_id": "L6.1",
+          "lat": 50.2915,
+          "lon": -4.1125,
+          "from_nm": 0,
+          "to_nm": 6.92
+        }
+      ],
       "divergent_hours": [
         {
           "valid_time": "2026-07-12T21:00:00Z",
@@ -2506,7 +3484,8 @@
       "value": 24.9,
       "limit": 28,
       "units": "kt",
-      "source_kind": "deterministic"
+      "source_kind": "deterministic",
+      "sample_point_id": "L1.1"
     },
     {
       "evidence_id": "E2",
@@ -2518,7 +3497,8 @@
       "value": 0.5,
       "limit": 2,
       "units": "nm (minimum)",
-      "source_kind": "deterministic"
+      "source_kind": "deterministic",
+      "sample_point_id": "L1.1"
     },
     {
       "evidence_id": "E3",
@@ -2530,7 +3510,8 @@
       "value": 19.8,
       "limit": 25,
       "units": "kt",
-      "source_kind": "deterministic"
+      "source_kind": "deterministic",
+      "sample_point_id": "L2.1"
     },
     {
       "evidence_id": "E4",
@@ -2542,7 +3523,8 @@
       "value": 24.7,
       "limit": 28,
       "units": "kt",
-      "source_kind": "deterministic"
+      "source_kind": "deterministic",
+      "sample_point_id": "L2.1"
     },
     {
       "evidence_id": "E5",
@@ -2554,7 +3536,8 @@
       "value": 0.0365,
       "limit": 0.045,
       "units": "H/L",
-      "source_kind": "deterministic"
+      "source_kind": "deterministic",
+      "sample_point_id": "L2.1"
     },
     {
       "evidence_id": "E6",
@@ -2566,7 +3549,8 @@
       "value": 24.5,
       "limit": 25,
       "units": "kt",
-      "source_kind": "deterministic"
+      "source_kind": "deterministic",
+      "sample_point_id": "L3.4"
     },
     {
       "evidence_id": "E7",
@@ -2578,7 +3562,8 @@
       "value": 32.3,
       "limit": 28,
       "units": "kt",
-      "source_kind": "deterministic"
+      "source_kind": "deterministic",
+      "sample_point_id": "L3.4"
     },
     {
       "evidence_id": "E8",
@@ -2622,7 +3607,8 @@
       "value": 1.94,
       "limit": 2.5,
       "units": "m",
-      "source_kind": "deterministic"
+      "source_kind": "deterministic",
+      "sample_point_id": "L3.4"
     },
     {
       "evidence_id": "E11",
@@ -2634,7 +3620,8 @@
       "value": 0.0411,
       "limit": 0.045,
       "units": "H/L",
-      "source_kind": "deterministic"
+      "source_kind": "deterministic",
+      "sample_point_id": "L3.4"
     },
     {
       "evidence_id": "E12",
@@ -2646,7 +3633,8 @@
       "value": 26.6,
       "limit": 25,
       "units": "kt",
-      "source_kind": "deterministic"
+      "source_kind": "deterministic",
+      "sample_point_id": "L4.3"
     },
     {
       "evidence_id": "E13",
@@ -2658,7 +3646,8 @@
       "value": 34.6,
       "limit": 28,
       "units": "kt",
-      "source_kind": "deterministic"
+      "source_kind": "deterministic",
+      "sample_point_id": "L4.3"
     },
     {
       "evidence_id": "E14",
@@ -2702,7 +3691,8 @@
       "value": 2.26,
       "limit": 2.5,
       "units": "m",
-      "source_kind": "deterministic"
+      "source_kind": "deterministic",
+      "sample_point_id": "L4.3"
     },
     {
       "evidence_id": "E17",
@@ -2714,7 +3704,8 @@
       "value": 0.0416,
       "limit": 0.045,
       "units": "H/L",
-      "source_kind": "deterministic"
+      "source_kind": "deterministic",
+      "sample_point_id": "L4.3"
     },
     {
       "evidence_id": "E18",
@@ -2730,7 +3721,8 @@
       },
       "limit": null,
       "units": "kt spread",
-      "source_kind": "deterministic"
+      "source_kind": "deterministic",
+      "sample_point_id": "L4.1"
     },
     {
       "evidence_id": "E19",
@@ -2742,7 +3734,8 @@
       "value": 19.6,
       "limit": 25,
       "units": "kt",
-      "source_kind": "deterministic"
+      "source_kind": "deterministic",
+      "sample_point_id": "L5.1"
     },
     {
       "evidence_id": "E20",
@@ -2754,7 +3747,8 @@
       "value": 34,
       "limit": 28,
       "units": "kt",
-      "source_kind": "deterministic"
+      "source_kind": "deterministic",
+      "sample_point_id": "L5.1"
     },
     {
       "evidence_id": "E21",
@@ -2782,7 +3776,8 @@
       "value": 2.04,
       "limit": 2.5,
       "units": "m",
-      "source_kind": "deterministic"
+      "source_kind": "deterministic",
+      "sample_point_id": "L5.2"
     },
     {
       "evidence_id": "E23",
@@ -2794,7 +3789,8 @@
       "value": 0.039,
       "limit": 0.045,
       "units": "H/L",
-      "source_kind": "deterministic"
+      "source_kind": "deterministic",
+      "sample_point_id": "L5.1"
     },
     {
       "evidence_id": "E24",
@@ -2806,7 +3802,8 @@
       "value": 27.4,
       "limit": 28,
       "units": "kt",
-      "source_kind": "deterministic"
+      "source_kind": "deterministic",
+      "sample_point_id": "L6.1"
     },
     {
       "evidence_id": "E25",
@@ -2834,7 +3831,8 @@
       "value": 0.036,
       "limit": 0.045,
       "units": "H/L",
-      "source_kind": "deterministic"
+      "source_kind": "deterministic",
+      "sample_point_id": "L6.1"
     },
     {
       "evidence_id": "E27",
@@ -2850,7 +3848,8 @@
       },
       "limit": null,
       "units": "kt spread",
-      "source_kind": "deterministic"
+      "source_kind": "deterministic",
+      "sample_point_id": "L6.1"
     }
   ],
   "coverage": [

@@ -37,8 +37,16 @@ export interface ScenarioBundleStoreOptions {
   now?: () => number;
 }
 
-/** collapse duplicate 0.01°-rounded coordinates, mirroring how the bundles were captured */
-function uniqueIndex(points: Array<{ lat: number; lon: number }>): number[] {
+/**
+ * The bundle location each point reads. A bundle holds one location per leg,
+ * captured at the leg's midpoint. Audit sample points name their leg
+ * (`leg_index`, auditSampling.ts): every point of a leg reads that leg's
+ * location, the only value the fixture has for it (it cannot interpolate).
+ * Points without one (direct callers) collapse duplicate 0.01°-rounded
+ * coordinates, mirroring how the bundles were captured.
+ */
+function uniqueIndex(points: Array<{ lat: number; lon: number; leg_index?: number }>): number[] {
+  if (points.length && points.every((p) => Number.isInteger(p.leg_index))) return points.map((p) => p.leg_index!);
   const indexForKey = new Map<string, number>();
   let next = 0;
   return points.map((p) => {

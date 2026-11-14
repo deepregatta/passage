@@ -24,6 +24,24 @@ const REL_SPREAD = 0.35;
 /** divergence matters when the worst model is within this ratio of the limit */
 const NEAR_LIMIT_RATIO = 0.8;
 
+/**
+ * The divergence rule at one place and hour: whether the models diverge beyond
+ * tolerance, and whether they do so near the limit (the strongest model at or
+ * above NEAR_LIMIT_RATIO of it), which makes the assessment insufficient.
+ */
+export function hourDivergence(byModel: Record<string, number | null>, sustainedLimitKt: number): {
+  divergent: boolean; nearLimit: boolean; spread: number; max: number;
+} {
+  const values = Object.values(byModel).filter((v): v is number => v !== null && Number.isFinite(v));
+  if (values.length < 2) return { divergent: false, nearLimit: false, spread: -Infinity, max: -Infinity };
+  const max = Math.max(...values);
+  const min = Math.min(...values);
+  const mean = values.reduce((a, b) => a + b, 0) / values.length;
+  const spread = max - min;
+  const divergent = spread >= ABS_SPREAD_KT || (mean > 0 && spread / mean >= REL_SPREAD);
+  return { divergent, nearLimit: divergent && max >= NEAR_LIMIT_RATIO * sustainedLimitKt, spread, max };
+}
+
 export function assessDisagreement(
   hours: Array<{
     valid_time: string;
@@ -38,22 +56,14 @@ export function assessDisagreement(
     const entries = Object.entries(hour.byModel).filter(
       (e): e is [string, number] => e[1] !== null && Number.isFinite(e[1]),
     );
-    if (entries.length < 2) continue;
-    const values = entries.map(([, v]) => v);
-    const max = Math.max(...values);
-    const min = Math.min(...values);
-    const mean = values.reduce((a, b) => a + b, 0) / values.length;
-    const spread = max - min;
-
-    if (spread >= ABS_SPREAD_KT || (mean > 0 && spread / mean >= REL_SPREAD)) {
+    const at = hourDivergence(hour.byModel, hour.sustained_limit_kt);
+    if (at.divergent) {
       divergent.push({
         valid_time: hour.valid_time,
         values: Object.fromEntries(entries.map(([m, v]) => [m, Math.round(v * 10) / 10])),
-        spread_kt: Math.round(spread * 10) / 10,
+        spread_kt: Math.round(at.spread * 10) / 10,
       });
-      if (max >= NEAR_LIMIT_RATIO * hour.sustained_limit_kt) {
-        insufficient = true;
-      }
+      if (at.nearLimit) insufficient = true;
     }
   }
 

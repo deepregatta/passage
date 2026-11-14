@@ -12,8 +12,8 @@
  * (expected) timing, and they add up to the nominal passage time within one hour.
  *
  * The wind is `LegHour.wind_kt`: the deterministic sustained wind the audit
- * itself compares to the sustained-wind limit. Not gusts, not an ensemble
- * statistic.
+ * itself compares to the sustained-wind limit, read at the boat's expected
+ * position (expectedTimingHour). Not gusts, not an ensemble statistic.
  */
 
 import { parseUtc } from './eta.js';
@@ -61,12 +61,27 @@ function sailOf(hour: LegHour): PointOfSail | 'unknown' {
 }
 
 /**
+ * An hour row as the expected (nominal) timing reads it: on a leg read at
+ * more than one sample point (engine semantics `passage-audit-4`), the values
+ * at the point the boat is at on the nominal timing (`LegHour.expected`) in
+ * place of the row's, which are the worst of every point the boat can be at
+ * in that hour; otherwise the row itself (single-point legs, and findings
+ * saved before the change, whose one value per leg is all there is).
+ */
+export function expectedTimingHour(hour: LegHour): LegHour {
+  if (!hour.expected) return hour;
+  const { sample_point_id: _point, waves, ...values } = hour.expected;
+  return { ...hour, ...values, ...(waves !== undefined ? { waves } : {}) };
+}
+
+/**
  * The whole hours of the passage on its nominal timing, each once, with the
  * leg it belongs to. A leg's hour counts when its start lies in
  * [enter_range.nominal, eta_range.nominal) of that leg; an hour start already
  * taken by an earlier leg is not counted again. A leg whose window cannot be
- * read contributes nothing. Shared by every summary that counts hours, so
- * their totals agree.
+ * read contributes nothing. Each hour is read at the boat's expected position
+ * (expectedTimingHour). Shared by every summary that counts hours, so their
+ * totals agree.
  */
 export function nominalPassageHours(findings: Findings | null | undefined): Array<{ leg: LegFinding; hour: LegHour }> {
   const out: Array<{ leg: LegFinding; hour: LegHour }> = [];
@@ -79,7 +94,7 @@ export function nominalPassageHours(findings: Findings | null | undefined): Arra
       const start = utcMs(hour.valid_time);
       if (!Number.isFinite(start) || start < from || start >= to || taken.has(start)) continue;
       taken.add(start);
-      out.push({ leg, hour });
+      out.push({ leg, hour: expectedTimingHour(hour) });
     }
   }
   return out;

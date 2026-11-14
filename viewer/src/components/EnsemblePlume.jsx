@@ -65,13 +65,20 @@ function buildOption(leg, legFindings, evidence, variable, mobile = false) {
     p90.push([times[i], vals.length ? Math.round(quantile(vals, 0.9) * 10) / 10 : null]);
   }
 
-  // Exceedance windows are derived from these same members and this same claim limit.
+  // Exceedance windows. On a leg the check read at several points (passage-audit-4) the lines are the
+  // reading at the expected position, so the windows come from the check's own counts (a scenario
+  // counts when it exceeds the limit at any point the boat can be at in that hour), never from these
+  // lines. On a leg read at one point the lines are that point's reading: the windows are derived from
+  // these same members and this same claim limit, as before.
   const floor = 0.3;
+  const audited = auditedFractions(legFindings, variable);
   const windows = [];
   let start = null;
   for (let i = 0; i < times.length; i++) {
     const values = members.map((series) => series[i]).filter((value) => Number.isFinite(value));
-    const above = limit !== null && values.length > 0 && values.filter((value) => value > limit).length / values.length >= floor;
+    const above = audited
+      ? (audited.get(times[i]) ?? 0) >= floor
+      : limit !== null && values.length > 0 && values.filter((value) => value > limit).length / values.length >= floor;
     const t = times[i];
     if (above && start === null) start = t;
     if (!above && start !== null) {
@@ -178,4 +185,32 @@ function buildOption(leg, legFindings, evidence, variable, mobile = false) {
   };
   const ariaLabel = plumeAriaLabel({ members: members.length, variable, startMs: times[0], endMs: times.at(-1), limit, units });
   return { chart, ariaLabel };
+}
+
+/** Whether the check read this leg at several points: then its plume lines follow the expected position. */
+export function readAtSeveralPoints(legFindings) {
+  return (legFindings?.sample_points?.length ?? 0) > 1;
+}
+
+/**
+ * The check's own scenario fraction per audited hour (ms) for one variable on a
+ * leg read at several points, or null for a leg read at one point.
+ */
+export function auditedFractions(legFindings, variable) {
+  if (!readAtSeveralPoints(legFindings)) return null;
+  const key = variable === 'gust' ? 'gust' : 'sustained';
+  const out = new Map();
+  for (const hour of legFindings.hours ?? []) {
+    const count = hour.exceedance?.[key];
+    if (count && count.total > 0) out.set(Date.parse(hour.valid_time), count.exceed / count.total);
+  }
+  return out;
+}
+
+/** The check's own count at one hour on a leg read at several points ("20/51"), or null when it did not audit that hour. */
+export function auditedCount(legFindings, variable, iso) {
+  const key = variable === 'gust' ? 'gust' : 'sustained';
+  const at = Date.parse(iso);
+  const count = (legFindings?.hours ?? []).find((hour) => Date.parse(hour.valid_time) === at)?.exceedance?.[key];
+  return count ? `${count.exceed}/${count.total}` : null;
 }

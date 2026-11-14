@@ -7,6 +7,7 @@ import { ScenarioBundleStore } from '../src/forecast/scenarioStore.js';
 import { deriveLegs } from '../src/route.js';
 import type { RegionGrid } from '../src/grids.js';
 import type { Findings, LegHour, LimitsProfile, Route } from '../src/types.js';
+import { alongEachLeg } from './helpers/samplePoints.js';
 
 const read = <T>(path: string) => JSON.parse(readFileSync(new URL(path, import.meta.url), 'utf8')) as T;
 const DEMO = read<Findings>('../../viewer/test/fixtures/demo/snapshots/20260720T060000Z_44d2cd5f_64ea971e/findings.json');
@@ -268,7 +269,7 @@ describe('hours with and against the current, through the audit', () => {
   function audit(route: Route, grid = hourlyGrid()) {
     const legTimes = times;
     return assembleFindings({ route, profile, departureUtc: '2026-07-20T06:00:00Z', nowMs: 1, engineVersion: 'test', requestMeta: [],
-      legForecasts: [{ lat: 49.3, lon: -2.45, times: legTimes, wind_kt: legTimes.map(() => 10), gust_kt: legTimes.map(() => 14), wind_dir_deg: legTimes.map(() => 200) }],
+      pointForecasts: alongEachLeg(route, [{ lat: 49.3, lon: -2.45, times: legTimes, wind_kt: legTimes.map(() => 10), gust_kt: legTimes.map(() => 14), wind_dir_deg: legTimes.map(() => 200) }]),
       currentGrid: grid,
       currentProvenance: { source: 'prepared-artifact', layer: 'currents', model: grid.source.dataset_id, run_id: grid.run_id, current_source: 'prepared',
         content_digest: contentHash(grid), digest_algorithm: 'fnv1a64' } });

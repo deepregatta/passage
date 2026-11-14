@@ -9,6 +9,7 @@ import useViewport from '../hooks/useViewport.js';
 import { edgeShift, fmtLocalClock, rulerTicks } from '../lib/ruler.js';
 import { createAxisLabelFormatter, createTimeTooltipFormatter } from '../lib/chartTime.js';
 import { legLabel } from '../pages/briefing/routeLabels.jsx';
+import { expectedTimingHour } from '@deepweather/engine';
 
 /**
  * Passage timeline and the page's one time control. Default = one glanceable
@@ -247,7 +248,8 @@ function nowLine(time, span) {
  * the disclosure grows with its rows, it is not a scroll box of its own. */
 function TimelineTable({ findings }) {
   const limits = recordedLimits(findings);
-  const rows = findings.legs.flatMap((leg) => leg.hours.filter((_, index) => index % 3 === 0).map((hour) => ({ leg: leg.leg_id, ...hour })));
+  // the chart's own rows (the expected timing, read at the boat's expected position), every third
+  const rows = collectRows(findings).filter((_, index) => index % 3 === 0).map(({ leg, hour }) => ({ leg, ...hour }));
   return (
     <details className="mt-3 border-t hairline pt-2">
       <summary className="font-instrument text-xs cursor-pointer min-h-11 flex items-center">Table alternative for route timeline</summary>
@@ -282,7 +284,7 @@ const EVENT_LABEL = {
   squall_potential: 'squalls?',
 };
 
-/** hours inside each leg's nominal occupancy window, time-sorted */
+/** hours inside each leg's nominal occupancy window, time-sorted, read at the boat's expected position (expectedTimingHour) */
 function collectRows(findings) {
   const rows = [];
   for (const leg of findings.legs) {
@@ -290,7 +292,7 @@ function collectRows(findings) {
     const exit = Date.parse(leg.eta_range.nominal);
     for (const hour of leg.hours) {
       const t = Date.parse(hour.valid_time);
-      if (t >= enter - 1800_000 && t <= exit + 1800_000) rows.push({ t, hour });
+      if (t >= enter - 1800_000 && t <= exit + 1800_000) rows.push({ t, leg: leg.leg_id, hour: expectedTimingHour(hour) });
     }
   }
   rows.sort((a, b) => a.t - b.t);

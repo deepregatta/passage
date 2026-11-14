@@ -14,7 +14,7 @@ function inputs(): AssembleOptions {
   route.waypoints = route.waypoints.slice(0, 2);
   const profile = JSON.parse(readFileSync(new URL('../../config/profiles/default-limits.json', import.meta.url), 'utf8'));
   return { route, profile, departureUtc: '2026-07-20T06:00:00Z', nowMs: 1, engineVersion: 'test',
-    requestMeta: [], legForecasts: [{ lat: 49, lon: -2, times: ['2026-07-20T06:00:00Z'],
+    requestMeta: [], pointForecasts: [{ lat: 49, lon: -2, times: ['2026-07-20T06:00:00Z'],
       wind_kt: [5], gust_kt: [8], wind_dir_deg: [0] }] };
 }
 
@@ -34,7 +34,7 @@ describe('complete decision identity', () => {
   it.each(['forecast', 'gates', 'tides', 'engine', 'prepared', 'geometry', 'departure', 'profile', 'intent'])('%s changes cannot reuse a snapshot', (kind) => {
     const opts = inputs();
     const before = assembleFindings(opts).snapshot_id;
-    if (kind === 'forecast') opts.legForecasts[0]!.gust_kt[0] = 9;
+    if (kind === 'forecast') opts.pointForecasts[0]!.gust_kt[0] = 9;
     if (kind === 'gates') opts.gates = [{ gate_id: 'gate', name: 'Gate', reference_port: 'port', lat: 49, lon: -2, favorable_sw_going: { from_hw_h: -1, to_hw_h: 1 } }];
     if (kind === 'tides') opts.tides = { generated_at: '2026-07-20T00:00Z', schema_version: 1, source: { mode: 'synthetic' }, ports: [] } as AssembleOptions['tides'];
     if (kind === 'engine') opts.engineVersion = 'changed';
@@ -119,12 +119,12 @@ it('persists creation order for a passage at tied timestamps; an exact retry ret
     opts.route.passage_id = 'ordered';
     const results = [];
     for (const gust of [8, 9, 10]) {
-      opts.legForecasts[0]!.gust_kt[0] = gust;
+      opts.pointForecasts[0]!.gust_kt[0] = gust;
       const findings = assembleFindings(opts);
       results.push(await writeSnapshot(store, findings, renderBriefing(findings), { route: opts.route, decisionInputs: decisionInputs(opts) }, 1));
     }
     expect(results.map(result => result.manifest.check_sequence)).toEqual([1, 2, 3]);
-    opts.legForecasts[0]!.gust_kt[0] = 8;
+    opts.pointForecasts[0]!.gust_kt[0] = 8;
     const findings = assembleFindings(opts);
     expect(await writeSnapshot(store, findings, renderBriefing(findings), { route: opts.route, decisionInputs: decisionInputs(opts) }, 999)).toEqual(results[0]);
   } finally { rmSync(root, { recursive: true, force: true }); }

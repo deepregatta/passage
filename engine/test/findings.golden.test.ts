@@ -16,7 +16,8 @@ import { assembleFindings } from '../src/findings.js';
 import { renderBriefing } from '../src/briefing.js';
 import { buildPlume } from '../src/snapshot.js';
 import { ScenarioBundleStore } from '../src/forecast/scenarioStore.js';
-import { deriveLegs, legMidpoints } from '../src/route.js';
+import { deriveLegs } from '../src/route.js';
+import { auditSamplePoints } from '../src/auditSampling.js';
 import { ENGINE_VERSION } from '../src/index.js';
 import type { LimitsProfile, Route } from '../src/types.js';
 
@@ -48,8 +49,8 @@ async function computePipeline() {
     loadBundle: async (name) => JSON.parse(readFileSync(paths[name]!, 'utf8')),
     now: () => FIXED_NOW,
   });
-  const midpoints = legMidpoints(deriveLegs(route));
-  const points = midpoints.map((p) => ({ lat: p.lat, lon: p.lon }));
+  // read where runAnalysis reads: every audit sample point, naming its leg (one bundle location per leg)
+  const points = auditSamplePoints(deriveLegs(route)).map(({ lat, lon, leg_index }) => ({ lat, lon, leg_index }));
   const det = await store.getPointForecasts(points, 0, 0);
   const ens = await store.getEnsembleForecasts(points, 0, 0);
   const marine = await store.getWaveForecasts(points, 0, 0);
@@ -59,10 +60,10 @@ async function computePipeline() {
     route,
     profile,
     departureUtc: DEPARTURE,
-    legForecasts: det.forecasts,
+    pointForecasts: det.forecasts,
     requestMeta: [det.meta],
-    ...(ens ? { legEnsembles: ens.forecasts, ensembleMeta: ens.meta } : {}),
-    ...(marine ? { legMarine: marine.forecasts, marineMeta: marine.meta } : {}),
+    ...(ens ? { pointEnsembles: ens.forecasts, ensembleMeta: ens.meta } : {}),
+    ...(marine ? { pointMarine: marine.forecasts, marineMeta: marine.meta } : {}),
     ...(multi ? { multiModel: multi } : {}),
     engineVersion: ENGINE_VERSION,
     nowMs: FIXED_NOW,
@@ -87,7 +88,7 @@ it('guides missing-speed routes to supply the three audit speeds', () => {
     route,
     profile,
     departureUtc: DEPARTURE,
-    legForecasts: [],
+    pointForecasts: [],
     requestMeta: [],
     engineVersion: ENGINE_VERSION,
     nowMs: FIXED_NOW,

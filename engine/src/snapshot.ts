@@ -10,6 +10,9 @@ import { canonicalJson, contentHash } from './hash.js';
 import type { Briefing } from './briefing.js';
 import type { EnsemblePointForecast, HazardPointForecast } from './forecast/types.js';
 import type { Findings, Route } from './types.js';
+import { expectedPointIndex } from './auditSampling.js';
+import { parseUtc } from './eta.js';
+import { pointTimeIndex } from './findings/points.js';
 
 export interface SnapshotStore {
   /** true if any artifact already exists for this snapshot id */
@@ -71,31 +74,49 @@ export interface Plume {
   legs: PlumeLeg[];
 }
 
+/**
+ * The ensemble plume and the deterministic model lines per leg, from the
+ * per-sample-point forecasts the audit read (index-aligned with every leg's
+ * `sample_points`, in order; one per leg for findings without them). A chart
+ * shows the passage on its expected timing, so each leg's series follows the
+ * boat's expected position: at each time, the sample point the boat is at on
+ * the nominal timing (clamped to the leg; auditSampling.expectedPointIndex),
+ * never the worst of the points.
+ */
 export function buildPlume(
   findings: Findings,
-  legEnsembles: EnsemblePointForecast[] | undefined,
+  pointEnsembles: EnsemblePointForecast[] | undefined,
   gustLimitKt: number,
-  multiModelByLeg?: Record<string, HazardPointForecast[]>,
+  multiModelByPoint?: Record<string, HazardPointForecast[]>,
 ): Plume {
   const legs: PlumeLeg[] = [];
-  if (legEnsembles) {
-    findings.legs.forEach((leg, i) => {
-      const ensemble = legEnsembles[i];
+  if (pointEnsembles) {
+    let offset = 0;
+    findings.legs.forEach((leg) => {
+      const n = leg.sample_points?.length || 1;
+      const at = offset;
+      offset += n;
+      const ensembles = pointEnsembles.slice(at, at + n);
+      const ensemble = ensembles[0];
       if (!ensemble) return;
+      const follow = expectedFollower(leg, n, ensemble.times);
+      const followMembers = (pick: (fc: EnsemblePointForecast) => Array<Array<number | null>>) =>
+        pick(ensemble).map((_, m) => follow(ensembles, (fc, t) => pick(fc)[m]?.[t] ?? null).map(round1));
       const plumeLeg: PlumeLeg = {
         leg_id: leg.leg_id,
         times: ensemble.times,
         gust_limit_kt: gustLimitKt,
-        gust_members: ensemble.gust_kt_members.map((s) => s.map(round1)),
-        wind_members: ensemble.wind_kt_members.map((s) => s.map(round1)),
+        gust_members: followMembers((fc) => fc.gust_kt_members),
+        wind_members: followMembers((fc) => fc.wind_kt_members),
       };
-      if (multiModelByLeg) {
+      if (multiModelByPoint) {
         const deterministic: Record<string, Array<number | null>> = {};
         let times: string[] | undefined;
-        for (const [model, forecasts] of Object.entries(multiModelByLeg)) {
-          const fc = forecasts[i];
+        for (const [model, forecasts] of Object.entries(multiModelByPoint)) {
+          const own = forecasts.slice(at, at + n);
+          const fc = own[0];
           if (!fc) continue;
-          deterministic[model] = fc.wind_kt.map(round1);
+          deterministic[model] = expectedFollower(leg, n, fc.times)(own, (f, t) => f.wind_kt[t] ?? null).map(round1);
           times = times ?? fc.times;
         }
         if (times) {
@@ -113,6 +134,35 @@ export function buildPlume(
     model: (ensembleInput?.model as string) ?? null,
     legs,
   };
+}
+
+/**
+ * A series on `times` that, at each time, takes the value of the leg's sample
+ * point the boat is at on the nominal timing. `pick(forecast, index)` reads one
+ * point's value at its own index of that time.
+ */
+function expectedFollower(leg: Findings['legs'][number], n: number, times: string[]) {
+  const nominal = { enterMs: utcOrNaN(leg.enter_range?.nominal), exitMs: utcOrNaN(leg.eta_range?.nominal) };
+  const timesMs = times.map(utcOrNaN);
+  const which = timesMs.map((t) => (Number.isFinite(nominal.enterMs) && Number.isFinite(nominal.exitMs) ? expectedPointIndex(n, nominal, t) : 0));
+  return <F extends { times: string[] }>(forecasts: readonly F[], pick: (forecast: F, index: number) => number | null) => {
+    const index = pointTimeIndex(forecasts);
+    return timesMs.map((t, j) => {
+      const k = which[j]!;
+      const forecast = forecasts[k];
+      const at = forecast ? index(k, t) : undefined;
+      return forecast && at !== undefined ? pick(forecast, at) : null;
+    });
+  };
+}
+
+function utcOrNaN(iso: string | undefined): number {
+  if (!iso) return Number.NaN;
+  try {
+    return parseUtc(iso);
+  } catch {
+    return Number.NaN;
+  }
 }
 
 export interface SnapshotExtras {

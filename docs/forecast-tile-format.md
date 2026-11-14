@@ -137,15 +137,30 @@ Consumers that need lattice positions round the header position to the
 nearest 1/12° or 1/36° rather than assume `lat0 = 10·row`; the GRIB export
 does this ([grib-export.md](grib-export.md)).
 
-Nearest-point sampling must look across tile edges. Within one cell of a 10°
-line, the grid point nearest to a query can be in the neighbouring tile. On
-aligned grids that is the neighbour's first row or column, the one on the line.
-On the offset grids above it can be the southern or western tile's last row or
-column. `TileForecastStore` samples the tile containing the point first. When
-the rounded index there falls outside that tile's grid, it checks the
-neighbour on that side, using the neighbour's own header geometry. If the
-containing tile is unpublished, it checks each neighbour within one cell. This
-also covers mosaic lattice points that float noise puts just below a line.
+Sampling must look across tile edges. Within one cell of a 10° line, a grid
+point next to a query can be in the neighbouring tile. On aligned grids that is
+the neighbour's first row or column, the one on the line. On the offset grids
+above it can be the southern or western tile's last row or column.
+
+A point read (the audit's point forecasts, engine semantics `passage-audit-4`)
+interpolates bilinearly between the grid points around the exact query point
+on the layer's own grid: wind as its u and v components, directions as unit
+vectors, ensemble members one by one. `TileForecastStore` takes the lattice
+from the tile containing the point (or, when it is unpublished, a published
+neighbour within one cell), then finds each surrounding grid point in its own
+tile, across the line when it lies beyond it, with that tile's header
+geometry. When the nearest of the surrounding grid points lies in no published tile,
+the read is missing, as it was before interpolation. Otherwise, when a
+surrounding grid point has no value (a land-masked wave cell, or a farther
+grid point in an unpublished tile), the nearest one with a value stands in
+for all of them; when none has a value the read is missing.
+
+A region-grid lattice point (the routing and current mosaics) reads the nearest
+grid point. The tile containing the point is read first; when the rounded index
+there falls outside that tile's grid, the neighbour on that side is checked,
+using the neighbour's own header geometry. If the containing tile is
+unpublished, each neighbour within one cell is checked. This also covers mosaic
+lattice points that float noise puts just below a line.
 
 ## R2 layout and caching
 

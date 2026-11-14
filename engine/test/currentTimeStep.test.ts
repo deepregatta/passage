@@ -43,7 +43,7 @@ function options(currentGrid: RegionGrid, provenance: Record<string, unknown> = 
   const times = axis('2026-07-20T05:00:00Z', [0, 1, 2, 3, 4]);
   return {
     route, profile, departureUtc: DEPARTURE, nowMs: 1, engineVersion: 'test', requestMeta: [],
-    legForecasts: [{ lat: 49.75, lon: -1.94, times, wind_kt: times.map(() => 12), gust_kt: times.map(() => 16), wind_dir_deg: times.map(() => 250) }],
+    pointForecasts: [{ lat: 49.75, lon: -1.94, times, wind_kt: times.map(() => 12), gust_kt: times.map(() => 16), wind_dir_deg: times.map(() => 250) }],
     currentGrid,
     currentProvenance: { source: 'prepared-artifact', layer: 'currents', model: currentGrid.source.dataset_id, run_id: currentGrid.run_id,
       current_source: 'prepared', content_digest: contentHash(currentGrid), digest_algorithm: 'fnv1a64', ...provenance },

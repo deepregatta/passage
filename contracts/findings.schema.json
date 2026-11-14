@@ -61,7 +61,45 @@
             }
           },
           "sog_kt": { "type": "object" },
-          "hours": { "type": "array", "items": { "type": "object" } }
+          "hours": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "expected": {
+                  "type": "object",
+                  "description": "Engine semantics passage-audit-4 (2026-11-14, optional and additive): on a leg read at more than one sample point, the values at the one point the boat is at on the nominal (expected) timing at this hour, judged like the row; the row itself is the worst of every point the boat can be at in the hour. Read by whatever counts the expected timing (route summary, expected hours over a limit, route timeline), never by the verdict. Absent on single-point legs and in findings saved earlier.",
+                  "required": ["sample_point_id", "wind_kt", "gust_kt", "wind_dir_deg", "twa_deg", "point_of_sail", "limit_status"],
+                  "properties": {
+                    "sample_point_id": { "type": "string" },
+                    "wind_kt": { "type": ["number", "null"] },
+                    "gust_kt": { "type": ["number", "null"] },
+                    "wind_dir_deg": { "type": ["number", "null"] },
+                    "twa_deg": { "type": ["number", "null"] },
+                    "point_of_sail": { "type": ["string", "null"] },
+                    "limit_status": { "type": "object" },
+                    "waves": { "type": ["object", "null"] }
+                  }
+                }
+              }
+            }
+          },
+          "sample_points": {
+            "type": "array",
+            "minItems": 1,
+            "description": "Engine semantics passage-audit-4 (2026-11-14, optional and additive): where the forecast was read on this leg, every audit sample point along it (no more than 10 nm apart), each standing for the stretch from_nm to to_nm from the leg's start. `sample_point` stays the leg's midpoint, a representative position. Absent in findings saved earlier, which read one point per leg near the midpoint.",
+            "items": {
+              "type": "object",
+              "required": ["point_id", "lat", "lon", "from_nm", "to_nm"],
+              "properties": {
+                "point_id": { "type": "string", "minLength": 1 },
+                "lat": { "type": "number", "minimum": -90, "maximum": 90 },
+                "lon": { "type": "number", "minimum": -180, "maximum": 180 },
+                "from_nm": { "type": "number", "minimum": 0 },
+                "to_nm": { "type": "number", "minimum": 0 }
+              }
+            }
+          }
         }
       }
     },
@@ -116,6 +154,11 @@
               "exceed": { "type": "integer", "minimum": 0 },
               "total": { "type": "integer", "minimum": 1 }
             }
+          },
+          "sample_point_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Engine semantics passage-audit-4 (2026-11-14, optional and additive): the leg's audit sample point (legs[].sample_points[].point_id) the value was read at, for a rule read per point. Absent in findings saved earlier, and on ensemble counts (a scenario counts when it exceeds at any point the boat can be at in the hour)."
           },
           "model_runs": {
             "type": "array",

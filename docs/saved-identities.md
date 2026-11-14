@@ -24,6 +24,46 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   per-model `run`/`model_runs`, and duplicate forecast_tiles inputs are
   collapsed. Snapshots computed earlier keep their IDs and are not reopened by
   an exact retry; the committed demo snapshots are unchanged.
+- Engine semantics `passage-audit-4` (2026-11-14, owner-approved; previously
+  `-3`): the audit reads the forecast along each leg instead of at one point
+  per leg. Each leg is cut into stretches of at most 10 nm and read at the
+  middle of each (`engine/src/auditSampling.ts`), every forecast layer
+  (wind and gusts, waves, ensemble members, the second and regional models)
+  interpolated between the grid points of its own grid around the exact
+  point, each point judged for the hours the boat can be in its stretch; a
+  leg's hour takes the worst of the points the boat can be at (a forecast
+  scenario counts when it exceeds a limit at any of them; model disagreement
+  is judged at each). Interpolated values are frozen and judged rounded,
+  arithmetically, toward the hazardous side: wind speed, gust, ensemble members
+  and wave heights up to 0.01, CAPE up and visibility down to their tile scale,
+  the wave period that gives the steepness down to its tile scale, directions to
+  0.1° and other values to their tile scale; in a comparison of one
+  value with a limit a rounded value is never less hazardous than the value
+  read, and it is within one step of it (the relative model-spread test and
+  the fog screen combine values and can move either way within one step) (values on the lattice
+  within a thousandth of a step stay there), and the archived inputs are exactly
+  what was evaluated; each point keeps the whole read window (the plume and the
+  model lines read it beyond the point's own hours). Before, the
+  leg midpoint was rounded to a 0.25° lattice and the nearest grid point read
+  (the 0.5° ensemble a second time, up to 0.375° away). The frozen decision
+  inputs now hold one forecast per sample point (`pointForecasts`,
+  `pointEnsembles`, `pointMarine`, `multiModel` per point) where they held one
+  per leg (`legForecasts`, ...), so every new check has a new `decision_hash`
+  and `snapshot_id`; the identity version stays 2 and `route_revision` is
+  unchanged. Findings gain optional, additive fields in
+  `contracts/findings.schema.json`: `legs[].sample_points` (where the forecast
+  was read), `evidence[].sample_point_id` (the point a value came from) and
+  `legs[].hours[].expected` (the reading at the boat's expected position, read
+  by the route summary, the expected hours over a limit and the route
+  timeline). `sample_point` stays the leg midpoint. Saved checks are never
+  recomputed: they reopen from their files unchanged and read as before
+  (no `expected`: their one value per leg is all there is). An exact retry of
+  a check saved under `-3` (or earlier) is a new check, saved beside it; the
+  old one is never rewritten (`engine/test/legacySnapshot.test.ts`).
+  Departure comparisons are not persisted (the planner store leaves the scan
+  out), so none computed before the change survives a reload. Engine golden
+  findings/briefing/scan files and the pinned hash in `snapshotAtomic.test.ts`
+  were regenerated; committed demo, compatibility and legacy fixtures were not.
 - Current grid time step (2026-11-13, owner-approved change to what a check
   saves): a check's `currents` input record in `findings.inputs.forecast_tiles`
   gains `time_step_h`, the largest interval of the whole time axis of the frozen

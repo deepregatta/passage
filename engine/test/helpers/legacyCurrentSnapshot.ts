@@ -12,6 +12,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { AssembleOptions } from '../../src/findings/options.js';
 import type { RegionGrid } from '../../src/grids.js';
+import { alongEachLeg } from './samplePoints.js';
 
 export const LEGACY_DEPARTURE = '2026-07-20T06:00:00Z';
 export const LEGACY_NOW_MS = Date.parse('2026-07-19T18:00:00Z');
@@ -65,4 +66,15 @@ export function legacyOptions(root: string, contentHash: (value: unknown) => str
       current_source: 'prepared', content_digest: contentHash(grid), digest_algorithm: 'fnv1a64',
     },
   } as unknown as AssembleOptions;
+}
+
+/**
+ * The same check's inputs in the shape this engine audits (one forecast per
+ * audit sample point since engine semantics `passage-audit-4`): each leg's
+ * series copied to every sample point of that leg. Only for repeating the
+ * check with this engine; `legacyOptions` stays what the legacy engine read.
+ */
+export function legacyOptionsForThisEngine(root: string, contentHash: (value: unknown) => string): AssembleOptions {
+  const { legForecasts, ...options } = legacyOptions(root, contentHash) as unknown as AssembleOptions & { legForecasts: AssembleOptions['pointForecasts'] };
+  return { ...options, pointForecasts: alongEachLeg(options.route, legForecasts) };
 }

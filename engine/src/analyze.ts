@@ -9,7 +9,8 @@ import { assembleAudit, type AssembleOptions } from './findings.js';
 import { skipsSavedIdentity } from './identity.js';
 import { renderBriefing, nextForecastRuns, type Briefing } from './briefing.js';
 import { buildPlume, writeSnapshot, type Plume, type SnapshotStore } from './snapshot.js';
-import { deriveLegs, legMidpoints } from './route.js';
+import { deriveLegs } from './route.js';
+import { auditSamplePoints, type AuditSamplePoint } from './auditSampling.js';
 import { computeRouteSchedules, parseUtc, toIso } from './eta.js';
 import { type ForecastStore } from './forecast/store.js';
 import { preparedCurrentAdmits, resolveCurrentInput, type CurrentInput } from './currentInput.js';
@@ -45,38 +46,27 @@ export interface AnalyzeOptions {
   dateWindow?: { startDate: string; endDate: string };
 }
 
-/**
- * Audit sampling cell: leg-midpoint forecasts snap to this grid so that
- * near-identical routes (departure-scan candidates re-routed per departure)
- * resolve to the same sample coordinates and share cached tiles. 0.25° is the
- * native GFS/ECMWF resolution — snapping loses no model detail, and makes the
- * tile lookup an exact grid-point read.
- */
-const AUDIT_CELL_DEG = 0.25;
-
-function snapToAuditCell(value: number): number {
-  return Math.round(value / AUDIT_CELL_DEG) * AUDIT_CELL_DEG;
-}
-
 export interface AuditSamplePlan {
-  /** the leg sample points, snapped to the audit cell */
-  points: Array<{ lat: number; lon: number }>;
+  /** every audit sample point of the route, leg by leg (auditSampling.ts) */
+  points: AuditSamplePoint[];
   /** the forecast window every layer is read for */
   startMs: number;
   endMs: number;
 }
 
 /**
- * Where and when `runAnalysis` samples a route: the snapped leg midpoints and
- * the window from 00Z on the departure day to a day past the slowest arrival,
- * widened by `dateWindow`. The download quote asks the same question.
+ * Where and when `runAnalysis` reads the forecast for a route: the audit
+ * sample points along every leg (no more than AUDIT_SAMPLE_SPACING_NM apart,
+ * at their exact positions; auditSampling.ts) and the window from 00Z on the
+ * departure day to a day past the slowest arrival, widened by `dateWindow`.
+ * The download quote asks the same question.
  */
 export function auditSamplePlan(
   route: Route,
   departureUtc: string,
   dateWindow?: { startDate: string; endDate: string },
 ): AuditSamplePlan {
-  const midpoints = legMidpoints(deriveLegs(route));
+  const points = auditSamplePoints(deriveLegs(route));
   const schedules = computeRouteSchedules(route, departureUtc);
   const derivedStart = toIso(parseUtc(departureUtc)).slice(0, 10);
   const derivedEnd = toIso(
@@ -86,7 +76,7 @@ export function auditSamplePlan(
   const startDate = dateWindow && dateWindow.startDate < derivedStart ? dateWindow.startDate : derivedStart;
   const endDate = dateWindow && dateWindow.endDate > derivedEnd ? dateWindow.endDate : derivedEnd;
   return {
-    points: midpoints.map((p) => ({ lat: snapToAuditCell(p.lat), lon: snapToAuditCell(p.lon) })),
+    points,
     startMs: parseUtc(`${startDate}T00:00Z`),
     endMs: parseUtc(`${endDate}T00:00Z`) + 24 * 3600_000,
   };
@@ -109,7 +99,10 @@ export async function runAnalysis(options: AnalyzeOptions): Promise<AnalyzeResul
   if (!route.speeds_kt) throw new Error('Route needs speeds_kt (polar ETAs land with routing)');
   const progress = options.onProgress ?? (() => {});
 
-  const { points, startMs, endMs } = auditSamplePlan(route, departureUtc, options.dateWindow);
+  const plan = auditSamplePlan(route, departureUtc, options.dateWindow);
+  const { startMs, endMs } = plan;
+  // what each store reads: the exact position, and the leg (a fixture store has one value per leg)
+  const points = plan.points.map(({ lat, lon, leg_index }) => ({ lat, lon, leg_index }));
 
   progress('reading forecast run manifest');
   await store.init();
@@ -146,11 +139,11 @@ export async function runAnalysis(options: AnalyzeOptions): Promise<AnalyzeResul
     route,
     profile,
     departureUtc,
-    legForecasts: det.forecasts,
+    pointForecasts: det.forecasts,
     requestMeta: [det.meta],
     forecastRuns: layers,
-    ...(ens ? { legEnsembles: ens.forecasts, ensembleMeta: ens.meta } : {}),
-    ...(marine ? { legMarine: marine.forecasts, marineMeta: marine.meta } : {}),
+    ...(ens ? { pointEnsembles: ens.forecasts, ensembleMeta: ens.meta } : {}),
+    ...(marine ? { pointMarine: marine.forecasts, marineMeta: marine.meta } : {}),
     ...(multi ? { multiModel: multi } : {}),
     ...(options.warnings ? { warnings: options.warnings } : {}),
     ...(currentGrid ? { currentGrid } : {}),

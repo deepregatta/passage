@@ -13,6 +13,7 @@ import { decisionInputs, routeRevision, IDENTITY_VERSION } from './identity.js';
 import { assessGates } from './hazards/tides.js';
 import { approachingRatio } from './limits.js';
 import { deriveLegs, legMidpoints } from './route.js';
+import { auditSamplePoints } from './auditSampling.js';
 import { decideVerdict, worstEvidence } from './verdict.js';
 import { assignEventKeys } from './events.js';
 import type { Evidence, Findings, FindingsEvent, LegFinding } from './types.js';
@@ -45,11 +46,11 @@ export function assembleAudit(options: AssembleOptions, { savedIdentity }: { sav
     route,
     profile,
     departureUtc,
-    legForecasts,
+    pointForecasts,
     requestMeta,
-    legEnsembles,
+    pointEnsembles,
     ensembleMeta,
-    legMarine,
+    pointMarine,
     marineMeta,
     multiModel,
   } = options;
@@ -58,11 +59,12 @@ export function assembleAudit(options: AssembleOptions, { savedIdentity }: { sav
   }
 
   const legs = deriveLegs(route);
-  if (legForecasts.length !== legs.length) {
-    throw new Error(`Expected ${legs.length} leg forecasts, got ${legForecasts.length}`);
-  }
-  if (legEnsembles && legEnsembles.length !== legs.length) {
-    throw new Error(`Expected ${legs.length} leg ensembles, got ${legEnsembles.length}`);
+  const points = auditSamplePoints(legs);
+  for (const [name, series] of [['forecasts', pointForecasts], ['ensembles', pointEnsembles], ['wave forecasts', pointMarine],
+    ...Object.entries(multiModel?.byModel ?? {}).map(([m, s]) => [`${m} forecasts`, s] as const)] as const) {
+    if (series && series.length !== points.length) {
+      throw new Error(`Expected ${points.length} sample-point ${name} (auditSamplePoints), got ${series.length}`);
+    }
   }
   const midpoints = legMidpoints(legs);
   const grid = options.currentGrid;
@@ -83,8 +85,10 @@ export function assembleAudit(options: AssembleOptions, { savedIdentity }: { sav
   let insufficientConfidence = false;
 
   const legFindings: LegFinding[] = legs.map((leg, i) => {
+    const pointOffset = points.findIndex((p) => p.leg_index === i);
     const result = assembleLeg({
       options, leg, schedule: schedules[i]!, midpoint: midpoints[i]!, index: i,
+      points: points.filter((p) => p.leg_index === i), pointOffset,
       gridSampler, ratio, scenarioFloor, evidenceOffset: evidence.length,
     });
     evidence.push(...result.evidence);
@@ -236,8 +240,8 @@ export function assembleAudit(options: AssembleOptions, { savedIdentity }: { sav
   );
   const coverage = deriveCoverage({
     evidence,
-    hasEnsemble: Boolean(legEnsembles),
-    hasMarine: Boolean(legMarine),
+    hasEnsemble: Boolean(pointEnsembles),
+    hasMarine: Boolean(pointMarine),
     hasMultiModel: Boolean(multiModel),
     deterministicModelCount: multiModel ? Object.keys(multiModel.byModel).length : 0,
     warnings: options.warnings,

@@ -8,18 +8,24 @@ export interface AssembleOptions {
   route: Route;
   profile: LimitsProfile;
   departureUtc: string;
-  /** one forecast per leg (midpoint), index-aligned with derived legs */
-  legForecasts: PointForecast[];
+  /**
+   * One forecast per audit sample point, index-aligned with
+   * auditSamplePoints(deriveLegs(route)) (auditSampling.ts): every point of
+   * every leg, in order. Engine semantics `passage-audit-4`; checks saved
+   * earlier archived one forecast per leg as `legForecasts` and are never
+   * recomputed.
+   */
+  pointForecasts: PointForecast[];
   requestMeta: TileRequestMeta[];
   /** Pinned run descriptions also control the briefing's next-run schedule. */
   forecastRuns?: ReturnType<ForecastStore['describe']>;
-  /** ensemble forecasts per leg midpoint; index-aligned with legs */
-  legEnsembles?: EnsemblePointForecast[];
+  /** ensemble forecasts per audit sample point, index-aligned as `pointForecasts` */
+  pointEnsembles?: EnsemblePointForecast[];
   ensembleMeta?: TileRequestMeta;
-  /** wave forecasts per leg midpoint */
-  legMarine?: WavePointForecast[];
+  /** wave forecasts per audit sample point, index-aligned as `pointForecasts` */
+  pointMarine?: WavePointForecast[];
   marineMeta?: TileRequestMeta;
-  /** per-model deterministic forecasts for hazards + disagreement (GFS + ECMWF layers) */
+  /** per-model deterministic forecasts for hazards + disagreement (GFS + ECMWF layers), per audit sample point */
   multiModel?: { byModel: Record<string, HazardPointForecast[]>; meta: TileRequestMeta[] };
   /** official marine warnings (live or emulated inputs) */
   warnings?: WarningsInput;

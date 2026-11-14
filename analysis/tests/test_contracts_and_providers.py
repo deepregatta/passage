@@ -1,5 +1,6 @@
 """Repository contracts, configuration, and provider-mode validation."""
 
+import copy
 import json
 
 import pytest
@@ -113,6 +114,39 @@ def test_findings_current_time_step_is_optional_and_additive():
     for bad in [0, -1, "1"]:
         current["time_step_h"] = bad
         assert not validator.is_valid(legacy)
+
+
+def test_findings_sample_points_are_optional_and_additive():
+    """Engine semantics passage-audit-4: where the forecast was read, the expected-timing
+    reading and the point a value came from are optional; checks saved earlier have none."""
+    repo = contracts_dir().parent
+    validator = Draft202012Validator(_load(contracts_dir() / "findings.schema.json"))
+    legacy = _load(repo / "engine/test/fixtures/legacy-current-snapshot/findings.json")
+    assert all("sample_points" not in leg for leg in legacy["legs"])
+    assert all("expected" not in hour for leg in legacy["legs"] for hour in leg["hours"])
+    assert all("sample_point_id" not in item for item in legacy["evidence"])
+    validator.validate(legacy)
+    golden = _load(repo / "engine/test/golden/findings-cherbourg-plymouth.json")
+    assert all(len(leg["sample_points"]) >= 1 for leg in golden["legs"])
+    assert any("expected" in hour for leg in golden["legs"] for hour in leg["hours"])
+    assert any("sample_point_id" in item for item in golden["evidence"])
+    validator.validate(golden)
+    for path, bad in [
+        (("legs", 0, "sample_points"), []),
+        (("legs", 0, "sample_points", 0, "lat"), "49.5"),
+        (("legs", 0, "sample_points", 0, "point_id"), ""),
+        (("evidence", 0, "sample_point_id"), 3),
+    ]:
+        doc = copy.deepcopy(golden)
+        target = doc
+        for key in path[:-1]:
+            target = target[key]
+        target[path[-1]] = bad
+        assert not validator.is_valid(doc), path
+    doc = copy.deepcopy(golden)
+    hour = next(hour for leg in doc["legs"] for hour in leg["hours"] if "expected" in hour)
+    del hour["expected"]["limit_status"]
+    assert not validator.is_valid(doc)
 
 
 def test_decision_message_writer_and_tolerant_reader_contracts():

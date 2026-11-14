@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { scenarioSpread } from '@deepweather/engine';
 import { useApp } from '../../stores/appStore.js';
-import EnsemblePlume from '../../components/EnsemblePlume.jsx';
+import EnsemblePlume, { auditedCount, readAtSeveralPoints } from '../../components/EnsemblePlume.jsx';
 import ModelComparison from '../../components/ModelComparison.jsx';
 import ModelsUsed from '../../components/ModelsUsed.jsx';
 import { EvidenceLink } from '../../components/common.jsx';
@@ -66,6 +66,7 @@ export default function EvidenceSection() {
   const pct = Math.round((evidence.member_fraction.exceed / evidence.member_fraction.total) * 100);
   const variable = evidenceVariable(evidence);
   const plumeLeg = plume?.legs.find((item) => item.leg_id === evidence.leg_id);
+  const legFindings = findings.legs.find((item) => item.leg_id === evidence.leg_id);
 
   const choose = (claim) => {
     setClaimId(claim.evidence_id);
@@ -109,7 +110,10 @@ export default function EvidenceSection() {
           <div className="chart-frame border border-ink/40 bg-white/25 p-2 sm:p-4">
             <EnsemblePlume evidence={evidence} variable={variable} />
           </div>
-          <EvidenceTable leg={plumeLeg} evidence={evidence} variable={variable} />
+          {readAtSeveralPoints(legFindings) && (
+            <p className="font-instrument text-xs text-ink-soft mt-2">The scenario lines follow your expected position along this leg. The shading and the counts are the check’s own: a scenario counts when it exceeds your limit at any point of the leg you can be at in that hour.</p>
+          )}
+          <EvidenceTable leg={plumeLeg} legFindings={legFindings} evidence={evidence} variable={variable} />
           <section className="mt-5 border-t border-ink/40 pt-4">
             <h3 className="font-instrument font-semibold uppercase tracking-wider mb-2">Model comparison · same interval</h3>
             <ModelComparison />
@@ -140,8 +144,10 @@ function ClaimPanel({ evidence }) {
   return <aside className="hidden 2xl:block border-l border-ink/40 pl-4 sticky top-28 self-start" aria-label="Selected evidence summary"><p className="eyebrow">Selected claim</p><dl className="mt-2 divide-y-legacy hairline text-sm"><div className="py-2"><dt className="eyebrow">Rule</dt><dd>{ruleLabel(evidence.rule_id)}</dd></div><div className="py-2"><dt className="eyebrow">Forecast hour</dt><dd>{fmtTextTime(evidence.valid_time)}</dd><dd className="font-mono text-xs text-ink-soft">{fmtUtcClock(evidence.valid_time)}</dd></div></dl><p className="mt-4 p-3 bg-shoal/50 border hairline text-xs">Agreement is not proof. This panel stays tied to the claim selected at left.</p></aside>;
 }
 
-function EvidenceTable({ leg, evidence, variable }) {
+function EvidenceTable({ leg, legFindings, evidence, variable }) {
   if (!leg) return null;
+  // On a leg the check read at several points the count is the check's own, as in the headline.
+  const audited = readAtSeveralPoints(legFindings);
   const members = variable === 'gust' ? leg.gust_members : leg.wind_members;
   return (
     <details className="mt-3 border-y hairline py-2">
@@ -154,8 +160,8 @@ function EvidenceTable({ leg, evidence, variable }) {
             const i = leg.times.indexOf(time);
             const values = members.map((series) => series[i]).filter(Number.isFinite).sort((a, b) => a - b);
             const median = values[Math.floor(values.length / 2)];
-            const over = values.filter((value) => value > evidence.limit).length;
-            return <tr key={time} className="border-t hairline"><td className="py-1">{fmtTextTime(time)}</td><td>{fmtHour(time)}</td><td>{median ?? 'n/a'}</td><td>{values.at(-1) ?? 'n/a'}</td><td>{over}/{values.length}</td></tr>;
+            const over = audited ? (auditedCount(legFindings, variable, time) ?? 'not audited') : `${values.filter((value) => value > evidence.limit).length}/${values.length}`;
+            return <tr key={time} className="border-t hairline"><td className="py-1">{fmtTextTime(time)}</td><td>{fmtHour(time)}</td><td>{median ?? 'n/a'}</td><td>{values.at(-1) ?? 'n/a'}</td><td>{over}</td></tr>;
           })}</tbody>
         </table>
       </div>

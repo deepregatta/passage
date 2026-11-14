@@ -184,6 +184,11 @@ export interface Evidence {
   limit: unknown;
   units: string | null;
   source_kind: SourceKind;
+  /**
+   * Ensemble rules: scenarios exceeding the limit, out of those with a value. Since engine semantics
+   * `passage-audit-4` a scenario counts when it exceeds the limit at any sample point the boat can be at
+   * in that hour (each point on its own point-of-sail limit; `limit` is the lowest of them).
+   */
   member_fraction?: { exceed: number; total: number };
   /**
    * D-DIVERGE-01: each compared model's own run at `valid_time`, in `model` order
@@ -191,6 +196,14 @@ export interface Evidence {
    * run was recorded (scenario bundles) and in findings before 2026-11-10.
    */
   model_runs?: Array<{ model: string; layer: string | null; run_id: string | null; cycle: string | null }>;
+  /**
+   * The audit sample point (`LegFinding.sample_points[].point_id`) the value
+   * was read at, for a rule read per point. Absent in findings before engine
+   * semantics `passage-audit-4` (2026-11-14), on rules with no point, and on
+   * ensemble counts, which count a scenario exceeding at any point the boat can
+   * be at in the hour.
+   */
+  sample_point_id?: string;
   bulletin_ref?: {
     source: string;
     issued_at: string;
@@ -241,6 +254,24 @@ export interface LegHour {
   fog_risk?: boolean;
   /** max-min sustained wind across deterministic models, kt */
   model_spread_kt?: number | null;
+  /**
+   * The reading at the boat's expected (nominal-timing) position at this hour,
+   * on a leg read at more than one sample point (passage-audit-4): the values
+   * of that one point, judged like the row. The row itself is the worst of every
+   * point the boat can be at in the hour. Absent on single-point legs (the row
+   * is that point) and in findings saved earlier; read through
+   * `expectedTimingHour`.
+   */
+  expected?: {
+    sample_point_id: string;
+    wind_kt: number | null;
+    gust_kt: number | null;
+    wind_dir_deg: number | null;
+    twa_deg: number | null;
+    point_of_sail: PointOfSail | null;
+    limit_status: LegHour['limit_status'];
+    waves?: WaveHour | null;
+  };
   /** surface current at the leg midpoint (CMEMS region grid) */
   current?: {
     u_kt: number;
@@ -262,8 +293,19 @@ export interface LegFinding {
   enter_range: { slow: string; nominal: string; fast: string };
   sog_kt: SpeedsKt;
   hours: LegHour[];
-  /** where conditions were sampled (leg midpoint) — traceability */
+  /**
+   * The leg's midpoint: a representative position (labels, synoptic
+   * attribution, observation matching). Until engine semantics
+   * `passage-audit-4` the forecast was read near it, at the nearest 0.25° grid
+   * point; since then it is read at `sample_points`.
+   */
   sample_point: { lat: number; lon: number };
+  /**
+   * Where the forecast was read on this leg (passage-audit-4, 2026-11-14): the
+   * audit sample points along it, each standing for the stretch `from_nm` to
+   * `to_nm` from the leg's start. Absent in findings saved earlier.
+   */
+  sample_points?: Array<{ point_id: string; lat: number; lon: number; from_nm: number; to_nm: number }>;
   /** hours where deterministic models diverge beyond tolerance */
   divergent_hours?: Array<{ valid_time: string; values: Record<string, number>; spread_kt: number }>;
 }

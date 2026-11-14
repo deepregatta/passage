@@ -16,7 +16,8 @@ import { decisionInputs } from '../src/identity.js';
 import { assembleFindings, type AssembleOptions } from '../src/findings.js';
 import { renderBriefing } from '../src/briefing.js';
 import { ScenarioBundleStore } from '../src/forecast/scenarioStore.js';
-import { deriveLegs, legMidpoints } from '../src/route.js';
+import { deriveLegs } from '../src/route.js';
+import { auditSamplePoints } from '../src/auditSampling.js';
 import { ENGINE_VERSION } from '../src/index.js';
 import type { LimitsProfile, Route, SynopticFeatures, WarningsInput } from '../src/types.js';
 
@@ -45,7 +46,7 @@ async function runScenario(name: string, visibilityM?: number) {
     readFileSync(join(REPO, 'config', 'profiles', 'default-limits.json'), 'utf8'),
   ) as LimitsProfile;
 
-  const points = legMidpoints(deriveLegs(route)).map((p) => ({ lat: p.lat, lon: p.lon }));
+  const points = auditSamplePoints(deriveLegs(route)).map(({ lat, lon, leg_index }) => ({ lat, lon, leg_index }));
   const store = new ScenarioBundleStore({
     loadBundle: async (name) => {
       const path = join(dir, `${name}.json`);
@@ -83,10 +84,10 @@ async function runScenario(name: string, visibilityM?: number) {
     route,
     profile,
     departureUtc: DEPARTURE,
-    legForecasts: det.forecasts,
+    pointForecasts: det.forecasts,
     requestMeta: [det.meta],
-    ...(ens ? { legEnsembles: ens.forecasts, ensembleMeta: ens.meta } : {}),
-    ...(marine ? { legMarine: marine.forecasts, marineMeta: marine.meta } : {}),
+    ...(ens ? { pointEnsembles: ens.forecasts, ensembleMeta: ens.meta } : {}),
+    ...(marine ? { pointMarine: marine.forecasts, marineMeta: marine.meta } : {}),
     ...(multi ? { multiModel: multi } : {}),
     warnings,
     synoptic,

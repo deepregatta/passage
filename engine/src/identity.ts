@@ -7,7 +7,8 @@ import type { Route } from './types.js';
 
 export const IDENTITY_VERSION = 2;
 // Bump alongside any change to evaluation/rendering semantics affecting saved results.
-export const ENGINE_SEMANTICS = 'passage-audit-3';
+// passage-audit-4 (2026-11-14): the forecast is read along each leg (auditSampling.ts), interpolated on each layer's own grid.
+export const ENGINE_SEMANTICS = 'passage-audit-4';
 
 export function routeRevision(route: Route, departureUtc: string): string {
   const { passage_id: _intent, ...content } = route;

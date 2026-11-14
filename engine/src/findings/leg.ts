@@ -6,7 +6,8 @@ import type { GridSampler } from '../grids.js';
 import { CAPE_HIGH_JKG, CAPE_ELEVATED_JKG } from '../hazards/convective.js';
 import { CROSS_SEA_ANGLE_DEG } from '../hazards/waves.js';
 import { parseUtc, toIso, type LegSchedule } from '../eta.js';
-import type { Evidence, FindingsEvent, Leg, LegFinding, SamplePoint } from '../types.js';
+import type { Evidence, FindingsEvent, Leg, LegFinding, LegHour, SamplePoint } from '../types.js';
+import { expectedPointIndex, legHourCandidates, type AuditSamplePoint } from '../auditSampling.js';
 import type { AssembleOptions } from './options.js';
 import { createEvidenceCollector } from './evidence.js';
 import { RULES } from './rules.js';
@@ -21,6 +22,10 @@ interface LegInputs {
   leg: Leg;
   schedule: LegSchedule;
   midpoint: SamplePoint;
+  /** this leg's audit sample points, along the leg */
+  points: readonly AuditSamplePoint[];
+  /** index of the leg's first point in the per-point forecast arrays */
+  pointOffset: number;
   index: number;
   gridSampler: GridSampler | null;
   ratio: number;
@@ -30,7 +35,7 @@ interface LegInputs {
 
 /** Domain evaluators return local accumulators; evidence is emitted in rule order. */
 export function assembleLeg({
-  options, leg, schedule, midpoint, index: i, gridSampler, ratio, scenarioFloor, evidenceOffset,
+  options, leg, schedule, midpoint, points, pointOffset, gridSampler, ratio, scenarioFloor, evidenceOffset,
 }: LegInputs) {
   const { profile, requestMeta, ensembleMeta, marineMeta } = options;
   const grid = options.currentGrid;
@@ -39,19 +44,26 @@ export function assembleLeg({
   const ensembleModel = ensembleMeta ? `${ensembleMeta.model} ensemble` : null;
   const ensembleRun = ensembleMeta?.cycle ?? null;
   const marineModel = marineMeta ? `marine ${marineMeta.model}` : null;
+  const hoursUtc = schedule.occupancy_hours;
+  // Each hour reads every sample point the boat can be at in it (auditSampling.ts).
+  const candidates = legHourCandidates(points, schedule);
+  const hourPoints = hoursUtc.map((h) => (candidates.get(h) ?? []).map((k) => pointOffset + k));
+  const pointId = (p: number | null | undefined) => (p === null || p === undefined ? undefined : points[p - pointOffset]?.point_id);
   // Each stage enriches fresh hour objects. This order preserves the serialized
   // field order; each accumulator retains the first hour on equal severity.
   const wind = evaluateWind(
-    schedule.occupancy_hours, options.legForecasts[i]!, leg.bearing_deg_true, profile, ratio,
+    hoursUtc, hourPoints, options.pointForecasts, leg.bearing_deg_true, profile, ratio,
   );
+  // Currents stay one value per leg, at its midpoint (timing and the wind-against-current check alike).
   const current = evaluateCurrents(
     wind.hours, gridSampler, interpolatePosition(leg.from, leg.to, 0.5), leg.bearing_deg_true,
   );
-  const sea = evaluateSeaState(current.hours, options.legMarine?.[i] ?? null, profile, ratio);
-  const hazards = evaluateHazards(sea.hours, wind.sustainedLimits, options.multiModel, i, model, profile);
+  const sea = evaluateSeaState(current.hours, hourPoints, options.pointMarine ?? null, wind.pointWinds, profile, ratio);
+  const hazards = evaluateHazards(sea.hours, hourPoints, wind.pointWinds, options.multiModel, model, profile);
   const ensemble = evaluateEnsemble(
-    hazards.hours, wind.sustainedLimits, options.legEnsembles?.[i] ?? null, profile, scenarioFloor,
+    hazards.hours, hourPoints, wind.pointWinds, wind.sustainedLimits, options.pointEnsembles ?? null, profile, scenarioFloor,
   );
+  if (points.length > 1) attachExpected(ensemble.hours, options, leg, schedule, points, pointOffset, ratio);
   const { worstSustained, worstGust, exceededWindows } = wind;
   const { worstWac } = current;
   const { worstWave, worstSteepness, crossSeaHour, windAgainstSwellHour } = sea;
@@ -76,6 +88,7 @@ export function assembleLeg({
       limit: worstSustained.limit,
       units: 'kt',
       source_kind: 'deterministic',
+      ...samplePoint(pointId(wind.drivers[worstSustained.index]?.sustained)),
     });
     verdictCandidates.push({ evidence: e, ratio: worstSustained.ratio });
   }
@@ -90,6 +103,7 @@ export function assembleLeg({
       limit: profile.max_gust_kt,
       units: 'kt',
       source_kind: 'deterministic',
+      ...samplePoint(pointId(wind.drivers[worstGust.index]?.gust)),
     });
     verdictCandidates.push({ evidence: e, ratio: worstGust.ratio });
   }
@@ -164,6 +178,7 @@ export function assembleLeg({
       limit: profile.max_wave_height_m ?? null,
       units: 'm',
       source_kind: 'deterministic',
+      ...samplePoint(pointId(sea.drivers[worstWave.index]?.wave)),
     });
     verdictCandidates.push({ evidence: e, ratio: worstWave.ratio });
   }
@@ -178,44 +193,49 @@ export function assembleLeg({
       limit: profile.max_steepness ?? null,
       units: 'H/L',
       source_kind: 'deterministic',
+      ...samplePoint(pointId(sea.drivers[worstSteepness.index]?.steepness)),
     });
     verdictCandidates.push({ evidence: e, ratio: worstSteepness.ratio });
   }
   if (crossSeaHour) {
+    const { hour } = crossSeaHour;
     const e = nextEvidence({
       rule_id: RULES.CROSS_SEA,
       model: marineModel,
       run: null,
       leg_id: leg.leg_id,
-      valid_time: crossSeaHour.valid_time,
-      value: crossSeaHour.waves?.cross_sea_deg ?? null,
+      valid_time: hour.valid_time,
+      value: hour.waves?.cross_sea_deg ?? null,
       limit: CROSS_SEA_ANGLE_DEG,
       units: 'deg',
       source_kind: 'deterministic',
+      ...samplePoint(pointId(sea.drivers[crossSeaHour.index]?.crossSea ?? sea.drivers[crossSeaHour.index]?.wave)),
     });
     events.push({
       kind: 'cross_sea',
       leg_id: leg.leg_id,
-      window: legWindow(crossSeaHour.valid_time, crossSeaHour.valid_time),
+      window: legWindow(hour.valid_time, hour.valid_time),
       refs: [e.evidence_id],
     });
   }
   if (windAgainstSwellHour) {
+    const { hour } = windAgainstSwellHour;
     const e = nextEvidence({
       rule_id: RULES.WIND_AGAINST_SWELL,
       model: marineModel,
       run: null,
       leg_id: leg.leg_id,
-      valid_time: windAgainstSwellHour.valid_time,
-      value: windAgainstSwellHour.waves?.swell_h_m ?? null,
+      valid_time: hour.valid_time,
+      value: hour.waves?.swell_h_m ?? null,
       limit: null,
       units: 'm',
       source_kind: 'deterministic',
+      ...samplePoint(pointId(sea.drivers[windAgainstSwellHour.index]?.windAgainstSwell)),
     });
     events.push({
       kind: 'wind_against_swell',
       leg_id: leg.leg_id,
-      window: legWindow(windAgainstSwellHour.valid_time, windAgainstSwellHour.valid_time),
+      window: legWindow(hour.valid_time, hour.valid_time),
       refs: [e.evidence_id],
     });
   }
@@ -230,6 +250,7 @@ export function assembleLeg({
       limit: maxCape.level === 'high' ? CAPE_HIGH_JKG : CAPE_ELEVATED_JKG,
       units: 'J/kg',
       source_kind: 'deterministic',
+      ...samplePoint(pointId(hazards.drivers[maxCape.index]?.cape)),
     });
     events.push({
       kind: 'squall_potential',
@@ -249,6 +270,7 @@ export function assembleLeg({
       limit: profile.min_visibility_nm ?? null,
       units: 'nm (minimum)',
       source_kind: 'deterministic',
+      ...samplePoint(pointId(hazards.drivers[worstVisibility.index]?.visibility)),
     });
   }
 
@@ -258,9 +280,14 @@ export function assembleLeg({
     const result = assessDisagreement(disagreementInput);
     if (result.divergent_hours.length > 0) {
       divergentHours = result.divergent_hours;
-      const worstDivergence = result.divergent_hours.reduce((a, b) =>
+      // The evidence shows the widest divergence among the hours where the models split near the
+      // limit (what makes the verdict insufficient), or among all divergent hours when none does.
+      const rowOf = (validTime: string) => hours.findIndex((h) => h.valid_time === validTime);
+      const nearLimit = result.divergent_hours.filter((h) => hazards.drivers[rowOf(h.valid_time)]?.divergenceNearLimit);
+      const worstDivergence = (nearLimit.length ? nearLimit : result.divergent_hours).reduce((a, b) =>
         b.spread_kt > a.spread_kt ? b : a,
       );
+      const divergenceRow = rowOf(worstDivergence.valid_time);
       // Each model's own run at that hour, not the primary GFS cycle for all of them.
       const compared = Object.keys(worstDivergence.values);
       const modelRuns = compared.map((m) => modelRunAt(options.multiModel?.meta ?? [], m, worstDivergence.valid_time));
@@ -276,6 +303,7 @@ export function assembleLeg({
         units: 'kt spread',
         source_kind: 'deterministic',
         ...(recordedRuns ? { model_runs: modelRuns } : {}),
+        ...samplePoint(pointId(hazards.drivers[divergenceRow]?.divergence)),
       });
       events.push({
         kind: 'model_divergence',
@@ -309,6 +337,10 @@ export function assembleLeg({
     sog_kt: schedule.sog_kt,
     hours,
     sample_point: { lat: midpoint.lat, lon: midpoint.lon },
+    sample_points: points.map((p) => ({
+      point_id: p.point_id, lat: p.lat, lon: p.lon,
+      from_nm: round2(leg.distance_nm * p.from_fraction), to_nm: round2(leg.distance_nm * p.to_fraction),
+    })),
     ...(divergentHours ? { divergent_hours: divergentHours } : {}),
   };
   return {
@@ -316,6 +348,51 @@ export function assembleLeg({
     anyExceeded, anyApproaching, scenarioFractionAboveFloor, insufficientConfidence,
   };
 }
+
+/** The evidence field naming the sample point a value was read at, when there is one. */
+function samplePoint(id: string | undefined): { sample_point_id?: string } {
+  return id ? { sample_point_id: id } : {};
+}
+
+/**
+ * The reading at the boat's expected position, for a leg read at more than
+ * one point: each hour row gets `expected`, the values at the one sample point
+ * the boat is in on the nominal timing at that hour (clamped to the leg;
+ * auditSampling.expectedPointIndex), judged as the rows are. Whatever reads the
+ * expected timing (the route summary, the expected hours over a limit, the
+ * route timeline) uses it, so it does not take the worst of the stretch the
+ * boat can be in. The verdict, evidence and arrival-range figures never read
+ * it.
+ */
+function attachExpected(
+  rows: LegHour[], options: AssembleOptions, leg: Leg, schedule: LegSchedule,
+  points: readonly AuditSamplePoint[], pointOffset: number, ratio: number,
+): void {
+  const nominal = { enterMs: parseUtc(schedule.enter.nominal), exitMs: parseUtc(schedule.exit.nominal) };
+  const at = rows.map((row) => expectedPointIndex(points.length, nominal, parseUtc(row.valid_time)));
+  const hourPoints = at.map((k) => [pointOffset + k]);
+  const hoursUtc = rows.map((row) => row.valid_time);
+  const { profile } = options;
+  const wind = evaluateWind(hoursUtc, hourPoints, options.pointForecasts, leg.bearing_deg_true, profile, ratio);
+  const sea = evaluateSeaState(wind.hours, hourPoints, options.pointMarine ?? null, wind.pointWinds, profile, ratio);
+  const model = options.requestMeta[0]?.model ?? null;
+  const hazards = evaluateHazards(sea.hours, hourPoints, wind.pointWinds, options.multiModel, model, profile);
+  rows.forEach((row, i) => {
+    const e = hazards.hours[i]!;
+    row.expected = {
+      sample_point_id: points[at[i]!]!.point_id,
+      wind_kt: e.wind_kt,
+      gust_kt: e.gust_kt,
+      wind_dir_deg: e.wind_dir_deg,
+      twa_deg: e.twa_deg,
+      point_of_sail: e.point_of_sail,
+      limit_status: e.limit_status,
+      ...(e.waves !== undefined ? { waves: e.waves } : {}),
+    };
+  });
+}
+
+const round2 = (x: number) => Math.round(x * 100) / 100;
 
 /**
  * Occupancy hours are whole UTC hours (floor(enter.fast) .. ceil(exit.slow)), so a

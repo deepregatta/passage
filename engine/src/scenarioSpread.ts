@@ -31,6 +31,14 @@ export interface ScenarioSpread {
   wind: ScenarioSpreadValues | null;
   /** strongest gust per scenario over the passage; null below the minimum member count */
   gust: ScenarioSpreadValues | null;
+  /**
+   * Present on checks that read a leg at several points (engine semantics
+   * `passage-audit-4`): the plume, and so this spread, is the reading at the
+   * boat's expected position along each leg, not the worst of the points the
+   * check judged. Absent when every leg was read at one point (older checks):
+   * the plume is then that point's reading.
+   */
+  basis?: 'expected_position';
 }
 
 function utcMs(iso: string): number {
@@ -88,5 +96,7 @@ export function scenarioSpread(findings: Findings, plume: Plume | null | undefin
   if (!anyAuditedEnsembleHour) return null;
   const wind = summarise(windMax);
   const gust = summarise(gustMax);
-  return wind || gust ? { wind, gust } : null;
+  if (!wind && !gust) return null;
+  const expected = findings.legs.some((leg) => (leg.sample_points?.length ?? 0) > 1);
+  return expected ? { wind, gust, basis: 'expected_position' } : { wind, gust };
 }

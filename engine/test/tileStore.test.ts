@@ -289,7 +289,9 @@ describe('TileForecastStore grids', () => {
 describe('TileForecastStore tile edges', () => {
   // Tiles slice the provider grid half-open, so the grid point on a 10° line
   // is the first row/column of the northern/eastern tile. Wind speed reads
-  // back the sampled grid point's latitude and gust its longitude.
+  // back the latitude of the grid points read and gust their longitude, so a
+  // read interpolated between them (passage-audit-4) gives back the query
+  // point itself, and a nearest-grid-point fallback gives that grid point.
   const at = (_m: number, _t: number, i: number, _j: number, g: FixtureTileGrid) => g.lat0 + i * g.dlat;
   const atLon = (_m: number, _t: number, _i: number, j: number, g: FixtureTileGrid) => g.lon0 + j * g.dlon;
   const QUAD: Array<[number, number]> = [[30, -20], [30, -10], [40, -20], [40, -10]];
@@ -297,6 +299,7 @@ describe('TileForecastStore tile edges', () => {
     resolution_deg: number,
     tiles: Array<[number, number]> = QUAD,
     nativeGrid?: FixtureLayerSpec['nativeGrid'],
+    lonValue = atLon,
   ): FixtureLayerSpec {
     return weatherSpec({
       resolution_deg,
@@ -306,10 +309,15 @@ describe('TileForecastStore tile edges', () => {
       variables: [
         { name: 'wind_u_kt', axis: 'hourly', dtype: 'i16', scale: 0.01, value: at },
         { name: 'wind_v_kt', axis: 'hourly', dtype: 'i16', scale: 0.01, value: () => 0 },
-        { name: 'gust_kt', axis: 'hourly', dtype: 'i16', scale: 0.01, value: atLon },
+        { name: 'gust_kt', axis: 'hourly', dtype: 'i16', scale: 0.01, value: lonValue },
       ],
     });
   }
+  // wind and gust are kept at 0.01 kt rounded up (never less hazardous): a read is within 0.01 above the value
+  const expectRead = (value: number | null | undefined, expected: number) => {
+    expect(value).toBeGreaterThanOrEqual(expected - 1e-9);
+    expect(value!).toBeLessThan(expected + 0.01 + 1e-9);
+  };
   async function sampled(spec: FixtureLayerSpec, point: { lat: number; lon: number }) {
     const store = new TileForecastStore({ transport: buildFixtureRun([spec]) });
     const { forecasts, meta } = await store.getPointForecasts([point], START, END);
@@ -319,65 +327,76 @@ describe('TileForecastStore tile edges', () => {
   it.each([
     ['0.25°', 0.25, 0.1],
     ['1/12°', 1 / 12, 0.03],
-  ])('samples the neighbour tile in the last half cell below a 10° line (%s)', async (_label, res, gap) => {
+  ])('interpolates across a 10° line with the neighbour tile\'s first row or column (%s)', async (_label, res, gap) => {
     const spec = edgeWeather(res);
     const west = await sampled(spec, { lat: 45, lon: -10 - gap });
-    expect(west.lat).toBeCloseTo(45, 1);
-    expect(west.lon).toBeCloseTo(-10, 1);
+    expectRead(west.lat, 45);
+    expectRead(west.lon, -10 - gap);
     expect(west.tiles).toEqual(['N40W010', 'N40W020']);
 
     const south = await sampled(spec, { lat: 40 - gap, lon: -5 });
-    expect(south.lat).toBeCloseTo(40, 1);
-    expect(south.lon).toBeCloseTo(-5, 1);
+    expectRead(south.lat, 40 - gap);
+    expectRead(south.lon, -5);
     expect(south.tiles).toEqual(['N30W010', 'N40W010']);
 
+    // near the corner of four tiles the four grid points around it are in four tiles
     const corner = await sampled(spec, { lat: 40 - gap, lon: -10 - gap });
-    expect(corner.lat).toBeCloseTo(40, 1);
-    expect(corner.lon).toBeCloseTo(-10, 1);
-    expect(corner.tiles).toEqual(['N30W020', 'N40W010']);
+    expectRead(corner.lat, 40 - gap);
+    expectRead(corner.lon, -10 - gap);
+    expect(corner.tiles).toEqual(['N30W010', 'N30W020', 'N40W010', 'N40W020']);
 
-    // past the half cell the home tile's own last row/column is nearest
-    const inside = await sampled(spec, { lat: 40 - 0.6 * res, lon: -10 - 0.6 * res });
-    expect(inside.lat).toBeCloseTo(40 - res, 1);
-    expect(inside.lon).toBeCloseTo(-10 - res, 1);
-    expect(inside.tiles).toEqual(['N30W020']);
+    // a point on the home tile's own grid point reads it alone, opening no neighbour
+    const node = await sampled(spec, { lat: 40 - res, lon: -10 - res });
+    expectRead(node.lat, 40 - res);
+    expectRead(node.lon, -10 - res);
+    expect(node.tiles).toEqual(['N30W020']);
   });
 
-  it('crosses out of an unpublished tile only when the neighbour holds the nearest point', async () => {
+  it('beside an unpublished tile, reads the published grid point when it is the nearest, and nothing when the nearest is unpublished', async () => {
     const spec = edgeWeather(0.25, [[40, -10]]); // N40W020 unpublished, e.g. all land
+    // −10.0 is nearer than the grid points at −10.25, in the missing tile: −10.0 stands in for them
     const near = await sampled(spec, { lat: 45, lon: -10.1 });
-    expect(near.lat).toBeCloseTo(45, 1);
-    expect(near.lon).toBeCloseTo(-10, 1);
+    expectRead(near.lat, 45);
+    expectRead(near.lon, -10);
     expect(near.tiles).toEqual(['N40W010', 'N40W020']);
-    // −10.25, in the missing tile, is nearer than −10.0
-    expect((await sampled(spec, { lat: 45, lon: -10.2 })).lat).toBeUndefined();
-    expect((await sampled(spec, { lat: 45, lon: -15 })).tiles).toEqual(['N40W020']);
+    // −10.25, in the missing tile, is nearer than −10.0: missing, as before the reading changed
+    // (a land-masked grid point inside a published tile is replaced instead: auditReading.test.ts (g))
+    const outside = await sampled(spec, { lat: 45, lon: -10.2 });
+    expect(outside.lat).toBeUndefined();
+    expect(outside.lon).toBeUndefined();
+    // more than a cell from any published tile: missing, as before
+    const far = await sampled(spec, { lat: 45, lon: -15 });
+    expect(far.lat).toBeUndefined();
+    expect(far.tiles).toEqual(['N40W020']);
   });
 
   it('follows header geometry for grids offset from the 10° lines', async () => {
     // Like IBI and GLO12 runs before 2026-09-24, the lattice misses the lines:
-    // rows sit at …39.95 | 40.2… so the row nearest 40.05 is the tile below's last.
+    // rows sit at …39.95 | 40.2… so a point at 40.05 lies between the tile below's last row and the home tile's first.
     const spec = edgeWeather(0.25, QUAD, (lat0, lon0) => ({ lat0: lat0 + 0.2, lon0: lon0 + 0.2, dlat: 0.25, dlon: 0.25 }));
     const south = await sampled(spec, { lat: 40.05, lon: -5 });
-    expect(south.lat).toBeCloseTo(39.95, 2);
-    expect(south.lon).toBeCloseTo(-5.05, 2);
+    expectRead(south.lat, 40.05);
+    expectRead(south.lon, -5);
     expect(south.tiles).toEqual(['N30W010', 'N40W010']);
 
     const corner = await sampled(spec, { lat: 40.05, lon: -9.95 });
-    expect(corner.lat).toBeCloseTo(39.95, 2);
-    expect(corner.lon).toBeCloseTo(-10.05, 2);
-    expect(corner.tiles).toEqual(['N30W020', 'N40W010']);
+    expectRead(corner.lat, 40.05);
+    expectRead(corner.lon, -9.95);
+    expect(corner.tiles).toEqual(['N30W010', 'N30W020', 'N40W010', 'N40W020']);
 
-    const home = await sampled(spec, { lat: 40.1, lon: -9.9 });
-    expect(home.lat).toBeCloseTo(40.2, 2);
-    expect(home.lon).toBeCloseTo(-9.8, 2);
+    // on the home tile's own grid point
+    const home = await sampled(spec, { lat: 40.2, lon: -9.8 });
+    expectRead(home.lat, 40.2);
+    expectRead(home.lon, -9.8);
     expect(home.tiles).toEqual(['N40W010']);
   });
 
   it('crosses the antimeridian into W180', async () => {
-    const east = await sampled(edgeWeather(0.25, [[40, 170], [40, -180]]), { lat: 45, lon: 179.9 });
-    expect(east.lat).toBeCloseTo(45, 1);
-    expect(east.lon).toBeCloseTo(-180, 1);
+    // gust reads the grid point's longitude in [0, 360) so it is continuous across 180°
+    const lon360 = (m: number, t: number, i: number, j: number, g: FixtureTileGrid) => (atLon(m, t, i, j, g) + 360) % 360;
+    const east = await sampled(edgeWeather(0.25, [[40, 170], [40, -180]], undefined, lon360), { lat: 45, lon: 179.9 });
+    expectRead(east.lat, 45);
+    expectRead(east.lon, 179.9);
     expect(east.tiles).toEqual(['N40E170', 'N40W180']);
   });
 

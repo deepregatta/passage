@@ -17,7 +17,7 @@ function inputs(): AssembleOptions {
   route.passage_id = 'fixed-intent';
   const profile = JSON.parse(readFileSync(new URL('../../config/profiles/default-limits.json', import.meta.url), 'utf8'));
   return { route, profile, departureUtc: '2026-07-20T06:00:00Z', nowMs: 1, engineVersion: 'test',
-    requestMeta: [], legForecasts: [{ lat: 49, lon: -2, times: ['2026-07-20T06:00:00Z'], wind_kt: [5], gust_kt: [8], wind_dir_deg: [0] }],
+    requestMeta: [], pointForecasts: [{ lat: 49, lon: -2, times: ['2026-07-20T06:00:00Z'], wind_kt: [5], gust_kt: [8], wind_dir_deg: [0] }],
     currentGrid: { schema_version: 1, kind: 'surface_current', run_id: 'same', generated_at: '2026-07-20T06:00:00Z',
       lat0: 40, lon0: -10, dlat: 20, dlon: 20, nlat: 2, nlon: 2, time_axis: ['2026-07-19T00:00Z', '2026-07-25T00:00Z'],
       u_kt: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7], v_kt: [0, -0.1, -0.2, -0.3, -0.4, -0.5, -0.6, -0.7],
@@ -69,8 +69,10 @@ const quota = () => Object.assign(new Error('The quota has been exceeded.'), { n
 describe('saved check identity does not depend on the stored text', () => {
   it('keeps decision_hash and snapshot_id for a fixed input (values from the engine before this change)', () => {
     const { findings } = check();
-    expect(findings.decision_hash).toBe('27c1a1b3dbe6717d');
-    expect(findings.snapshot_id).toBe('snapshot_v2_27c1a1b3dbe6717d');
+    // Pinned again on 2026-11-14 for engine semantics passage-audit-4 (per-sample-point inputs);
+    // the stored-text changes this test was written for left it unchanged before that.
+    expect(findings.decision_hash).toBe('ac173cf39926a430');
+    expect(findings.snapshot_id).toBe('snapshot_v2_ac173cf39926a430');
   });
 
   it('writes decision-inputs.json compactly; the other files keep their indentation', async () => {

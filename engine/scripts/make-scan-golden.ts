@@ -13,6 +13,9 @@
  * (no --root), and review the diff.
  * Regenerated so on 2026-11-13: checks record the current grid's time step
  * (`time_step_h`, 6 on this scan's tile grid), the golden's only change.
+ * Regenerated so on 2026-11-14 for engine semantics passage-audit-4: the
+ * fixture input records count 13 sample points instead of 6 legs, the
+ * golden's only change (the bundles hold one series per leg).
  */
 import { writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';

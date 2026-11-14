@@ -13,11 +13,13 @@ import { BASEMAP } from '../lib/basemap.js';
 import MapTouchScroll from './MapTouchScroll.jsx';
 import { windArrowHtml } from '../lib/windArrowHtml.js';
 import { ECMWF_MAP_CREDIT } from '../lib/credits.js';
+import { legWindArrow } from '../lib/legWindArrow.js';
 
 /**
  * The passage on a chart (mockup 1): marine-styled Leaflet; light base +
  * OpenSeaMap seamarks; with the route polyline, leg markers colored by their
- * worst limit status, wind arrows at each leg midpoint, and tidal-gate marks.
+ * worst limit status, a wind arrow on each leg (at the leg's middle hour, where
+ * the boat is expected then: legWindArrow), and tidal-gate marks.
  */
 
 const seaStyle = { height: '100%', width: '100%', background: palette.sea };
@@ -187,20 +189,9 @@ export default function RouteMap({ height = 420 }) {
 
   const legArrows = useMemo(() => {
     if (!findings) return [];
+    // the wind at each leg's middle hour where the boat is expected then (legWindArrow)
     return findings.legs
-      .map((leg) => {
-        // wind at the mid-occupancy hour, drawn at the leg's sample point
-        const mid = leg.hours[Math.floor(leg.hours.length / 2)];
-        if (!mid || mid.wind_dir_deg === null || mid.wind_kt === null) return null;
-        return {
-          leg_id: leg.leg_id,
-          lat: leg.sample_point.lat,
-          lon: leg.sample_point.lon,
-          dir: mid.wind_dir_deg,
-          kt: mid.wind_kt,
-          time: mid.valid_time,
-        };
-      })
+      .map(legWindArrow)
       .filter(Boolean);
   }, [findings]);
 

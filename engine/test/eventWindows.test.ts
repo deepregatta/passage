@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { assembleFindings, type AssembleOptions } from '../src/findings.js';
 import type { HazardPointForecast } from '../src/forecast/types.js';
 import type { RegionGrid } from '../src/grids.js';
+import type { Route } from '../src/types.js';
+import { alongEachLeg } from './helpers/samplePoints.js';
 
 // Live case (Finding C): departure 19:32 UTC, the leg of interest starts at
 // 19:38 UTC, and the strongest opposing current sits on the 19:00 grid hour
@@ -35,22 +37,23 @@ function inputs(): AssembleOptions {
   const marine = { ...point, hs_m: Array(n).fill(3), period_s: Array(n).fill(5), dir_deg: Array(n).fill(180),
     wind_wave_h_m: Array(n).fill(1), wind_wave_period_s: Array(n).fill(5), wind_wave_dir_deg: Array(n).fill(90),
     swell_h_m: Array(n).fill(2), swell_period_s: Array(n).fill(8), swell_dir_deg: Array(n).fill(180) };
-  return {
-    // Computed (speed-over-ground) basis keeps the schedule independent of the current grid.
-    route: { schema_version: 1, route_id: 'late-start', name: 'Late start', mode: 'computed',
+  // Computed (speed-over-ground) basis keeps the schedule independent of the current grid.
+  const route = { schema_version: 1, route_id: 'late-start', name: 'Late start', mode: 'computed',
       waypoints: [
         { id: 'a', lat: 50, lon: -2 },
         { id: 'b', lat: 50 + 0.5 / 60, lon: -2 }, // 0.5 nm at 5 kt: 6 minutes
         { id: 'c', lat: 50 + 10.5 / 60, lon: -2 },
       ],
-      speeds_kt: { slow: 5, nominal: 5, fast: 5 } },
+      speeds_kt: { slow: 5, nominal: 5, fast: 5 } } as Route;
+  return {
+    route,
     profile: { schema_version: 1, profile_id: 'test', label: 'Test', declared: true,
       max_sustained_kt: { default: 22, upwind: 18 }, max_gust_kt: 28,
       max_wave_height_m: 2.5, max_steepness: 0.045, cross_sea_flag: true, min_visibility_nm: 2 },
     departureUtc: DEPARTURE, nowMs: Date.parse(DEPARTURE), engineVersion: 'test',
-    legForecasts: [det, det], requestMeta: [],
-    legMarine: [marine, marine],
-    multiModel: { byModel: { gfs_0p25: [hazard, hazard], icon_eu: [{ ...hazard, wind_kt: Array(n).fill(10) }, { ...hazard, wind_kt: Array(n).fill(10) }] }, meta: [] },
+    pointForecasts: alongEachLeg(route, [det, det]), requestMeta: [],
+    pointMarine: alongEachLeg(route, [marine, marine]),
+    multiModel: { byModel: { gfs_0p25: alongEachLeg(route, [hazard, hazard]), icon_eu: alongEachLeg(route, [{ ...hazard, wind_kt: Array(n).fill(10) }, { ...hazard, wind_kt: Array(n).fill(10) }]) }, meta: [] },
     currentGrid: grid(),
   };
 }

@@ -20,10 +20,10 @@ function inputs(): AssembleOptions {
       max_sustained_kt: { default: 22, upwind: 18 }, max_gust_kt: 28,
       max_wave_height_m: 2.5, max_steepness: 0.045, cross_sea_flag: true, min_visibility_nm: 2 },
     departureUtc: times[0]!, nowMs: Date.parse(times[0]!), engineVersion: 'test',
-    legForecasts: [det], requestMeta: [],
-    legEnsembles: [{ ...point, wind_kt_members: [[25, 25, 25], [10, 10, 10]],
+    pointForecasts: [det], requestMeta: [],
+    pointEnsembles: [{ ...point, wind_kt_members: [[25, 25, 25], [10, 10, 10]],
       gust_kt_members: [[35, 35, 35], [10, 10, 10]] }],
-    legMarine: [{ ...point, hs_m: [3, 3, 3], period_s: [5, 5, 5], dir_deg: [180, 180, 180],
+    pointMarine: [{ ...point, hs_m: [3, 3, 3], period_s: [5, 5, 5], dir_deg: [180, 180, 180],
       wind_wave_h_m: [1, 1, 1], wind_wave_period_s: [5, 5, 5], wind_wave_dir_deg: [90, 90, 90],
       swell_h_m: [2, 2, 2], swell_period_s: [8, 8, 8], swell_dir_deg: [180, 180, 180] }],
     multiModel: { byModel: { gfs_0p25: [hazard], icon_eu: [{ ...hazard, wind_kt: [10, 10, 10] }] }, meta: [] },
@@ -71,9 +71,9 @@ describe('findings assembly compatibility', () => {
 
   it('retains missing optional fields and unknown wind when timestamps are absent', () => {
     const options = inputs();
-    options.legForecasts[0]!.times = [];
-    options.legMarine![0]!.times = [];
-    options.legEnsembles![0]!.times = [];
+    options.pointForecasts[0]!.times = [];
+    options.pointMarine![0]!.times = [];
+    options.pointEnsembles![0]!.times = [];
     delete options.multiModel;
     const findings = assembleFindings(options);
     expect(findings.evidence).toEqual([]);
@@ -86,7 +86,7 @@ describe('findings assembly compatibility', () => {
 
   it('counts only available ensemble members and retains an all-null hour', () => {
     const options = inputs();
-    options.legEnsembles![0]!.gust_kt_members = [[35, null, 35], [null, null, 10]];
+    options.pointEnsembles![0]!.gust_kt_members = [[35, null, 35], [null, null, 10]];
     const findings = assembleFindings(options);
     expect(findings.legs[0]!.hours.map(h => h.exceedance?.gust)).toEqual([
       { exceed: 1, total: 1 }, null, { exceed: 1, total: 2 },
@@ -97,7 +97,7 @@ describe('findings assembly compatibility', () => {
 
   it('ranks steepness before rounding its displayed value', () => {
     const options = inputs();
-    options.legMarine![0]!.hs_m = [3, 3.0001, 3];
+    options.pointMarine![0]!.hs_m = [3, 3.0001, 3];
     const findings = assembleFindings(options);
     expect(findings.legs[0]!.hours[0]!.waves!.steepness).toBe(findings.legs[0]!.hours[1]!.waves!.steepness);
     expect(findings.evidence.find(e => e.rule_id === RULES.STEEPNESS)?.valid_time).toBe(times[1]);
@@ -116,9 +116,9 @@ describe('findings assembly compatibility', () => {
   it('continues evidence IDs across legs and passage-wide warnings', () => {
     const options = inputs();
     options.route.waypoints.push({ id: 'c', lat: 50.2, lon: -2 });
-    options.legForecasts.push(structuredClone(options.legForecasts[0]!));
-    options.legMarine!.push(structuredClone(options.legMarine![0]!));
-    options.legEnsembles!.push(structuredClone(options.legEnsembles![0]!));
+    options.pointForecasts.push(structuredClone(options.pointForecasts[0]!));
+    options.pointMarine!.push(structuredClone(options.pointMarine![0]!));
+    options.pointEnsembles!.push(structuredClone(options.pointEnsembles![0]!));
     for (const forecasts of Object.values(options.multiModel!.byModel)) {
       forecasts.push(structuredClone(forecasts[0]!));
     }

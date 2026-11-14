@@ -1,11 +1,14 @@
 /**
  * TileForecastStore: assembles point forecasts and region grids from
- * precomputed PFT1 tile runs. Point sampling is a nearest-grid-point lookup
- * (leg midpoints are snapped to the 0.25° audit cell, which matches the
- * weather layer's native grid) that crosses into the neighbouring tile when
- * the nearest point is its edge row/column, resampled to whole hours for the
- * findings assembler. Region grids keep the tiles' native time axis —
- * GridSampler interpolates in time.
+ * precomputed PFT1 tile runs. A point read interpolates between the grid
+ * points around the exact query point on each layer's own grid (bilinear;
+ * wind as u/v components; directions as unit vectors), crossing into the
+ * neighbouring tile for a grid point beyond a 10° line, with one rule for
+ * missing grid points (interpolateAtPoint), then resamples to whole hours for
+ * the findings assembler (engine semantics `passage-audit-4`; until then the
+ * audit read the nearest grid point of a point rounded to 0.25°). Region
+ * grids keep the tiles' native lattice and time axis — GridSampler
+ * interpolates in time.
  */
 
 import { REGIONAL_LAYERS, REGIONAL_TRANSFER_BYTES, REGIONAL_WORKING_BYTES, regionalResources, regionalAdmission, regionalTileBudget, RegionalUnavailableError } from './regional.js';
@@ -69,6 +72,129 @@ interface GridHit {
 interface SampledSeries {
   timesMs: number[];
   values: Array<number | null>;
+}
+
+/** The read window of a point forecast, ms (resampled to whole hours, start floored, end ceiled). */
+interface TimeWindow {
+  startMs: number;
+  endMs: number;
+}
+
+/** The grid points a point read interpolates between, nearest first; `hit` null when no published tile holds one. */
+interface Neighbourhood {
+  corners: Array<{ hit: GridHit | null; weight: number }>;
+}
+
+/**
+ * The published precision of variables read together: the finest `scale` any
+ * of them has in the tiles around the point (an ensemble member is mean plus
+ * anomaly). Null when no tile there carries them.
+ */
+function precisionOf(nb: Neighbourhood, names: readonly string[]): number | null {
+  let step: number | null = null;
+  for (const { hit } of nb.corners) {
+    for (const v of hit?.tile.header.variables ?? []) {
+      if (names.includes(v.name) && v.scale > 0 && (step === null || v.scale < step)) step = v.scale;
+    }
+  }
+  return step;
+}
+
+/**
+ * Values rounded to `step`, arithmetically (no strings), in the direction a
+ * limit check would find more hazardous (engine semantics `passage-audit-4`):
+ * 'up' for quantities compared with a maximum (wind speed, gust, ensemble
+ * members, wave heights, CAPE), 'down' for one compared with a minimum
+ * (visibility) and for the wave period the steepness is computed from (a
+ * shorter period is a steeper sea), 'nearest' for the rest (directions, other
+ * periods, temperatures, precipitation). Property: for every comparison of a
+ * single value with a limit (`>` a limit and `>=` the approaching threshold for
+ * maxima, `<` for visibility) the rounded value is never less hazardous than
+ * the value read, and differs from it by less than one step. Two tests combine
+ * values and are outside the property: the relative model spread in
+ * `hourDivergence` and the wind-under-10-kt fog screen can move either way
+ * within one step of their threshold. A value already on the
+ * lattice within float noise (a thousandth of a step: 1e-5 kt at 0.01, which
+ * covers float32 tile values and e.g. 17.800000000000001) stays on it. The archived inputs are these rounded values, exactly
+ * what was evaluated.
+ */
+export function roundToward(values: Array<number | null>, step: number | null, mode: 'up' | 'down' | 'nearest'): Array<number | null> {
+  if (step === null) return values;
+  const f = 10 ** Math.max(0, Math.ceil(-Math.log10(step) - 1e-9));
+  // float noise: tile values are float32, off their lattice by up to ~1e-6 kt at 20 kt (1e-4 of 0.01)
+  const EPS = 1e-3;
+  const lattice = mode === 'up'
+    ? (x: number) => Math.ceil(x / step - EPS)
+    : mode === 'down' ? (x: number) => Math.floor(x / step + EPS) : (x: number) => Math.round(x / step);
+  return values.map((v) => (v === null ? null : Math.round(lattice(v) * step * f) / f));
+}
+
+/** The step compared quantities are kept at: 0.01 (kt, m), finer than any limit is stated in. */
+const COMPARED_STEP = 0.01;
+
+/** Fractional grid positions within 1e-9 of a node are on it (no weight for a neighbour). */
+function snapToNode(f: number): number {
+  const r = Math.round(f);
+  return Math.abs(f - r) < 1e-9 ? r : f;
+}
+
+/** The native steps resampleToHourly reads for a window: the last at or before its first hour to the first at or after its last. */
+function windowSteps(axis: number[], window: TimeWindow): [number, number] {
+  if (!axis.length) return [0, -1];
+  const first = Math.floor(window.startMs / MS_PER_HOUR) * MS_PER_HOUR;
+  const last = Math.ceil(window.endMs / MS_PER_HOUR) * MS_PER_HOUR;
+  let k0 = 0;
+  while (k0 + 1 < axis.length && axis[k0 + 1]! <= first) k0++;
+  let k1 = axis.length - 1;
+  while (k1 - 1 >= 0 && axis[k1 - 1]! >= last) k1--;
+  return [k0, Math.max(k0, k1)];
+}
+
+/**
+ * Bilinear interpolation between a point's surrounding grid points, with the
+ * audit's missing-neighbour rule (engine semantics `passage-audit-4`):
+ * `perCorner[c][v]` is grid point c's series of variable v (nearest grid point
+ * first; null when the grid point is missing altogether) and `weights[c]` its
+ * bilinear weight. At each time, when every grid point has every variable,
+ * each variable is the weighted mean; when any of them misses one (a
+ * land-masked wave cell, a grid point outside the published tiles), every
+ * variable is the nearest grid point's that has them all; when none has, the
+ * value is missing. Variables read together (wind u and v, a direction's sine
+ * and cosine) therefore always come from the same grid points.
+ */
+export function interpolateAtPoint(
+  perCorner: ReadonlyArray<ReadonlyArray<ReadonlyArray<number | null> | null>>,
+  weights: readonly number[],
+): Array<Array<number | null>> {
+  const nVars = perCorner[0]?.length ?? 0;
+  const n = perCorner.flat().find((s) => s)?.length ?? 0;
+  const out: Array<Array<number | null>> = Array.from({ length: nVars }, () => new Array<number | null>(n).fill(null));
+  for (let t = 0; t < n; t++) {
+    let nearestValid = -1;
+    let allValid = true;
+    for (let c = 0; c < perCorner.length; c++) {
+      let valid = true;
+      for (let v = 0; v < nVars; v++) {
+        const x = perCorner[c]![v]?.[t];
+        if (x === null || x === undefined || !Number.isFinite(x)) { valid = false; break; }
+      }
+      if (valid) { if (nearestValid < 0) nearestValid = c; } else allValid = false;
+    }
+    if (nearestValid < 0) continue;
+    for (let v = 0; v < nVars; v++) {
+      if (allValid) {
+        let sum = 0, wsum = 0;
+        for (let c = 0; c < perCorner.length; c++) {
+          sum += weights[c]! * perCorner[c]![v]![t]!;
+          wsum += weights[c]!;
+        }
+        out[v]![t] = sum / wsum;
+      } else {
+        out[v]![t] = perCorner[nearestValid]![v]![t]!;
+      }
+    }
+  }
+  return out;
 }
 
 const MS_PER_HOUR = 3_600_000;
@@ -532,16 +658,23 @@ export class TileForecastStore implements ForecastStore {
     };
   }
 
-  /** raw series at a located grid point, on the variable's native axis */
-  private seriesAt({ tile, idx }: GridHit, name: string): SampledSeries | null {
+  /**
+   * Raw series at a located grid point, on the variable's native axis. With a
+   * window, only the steps from the last one at or before the window's first
+   * whole hour to the first one at or after its last (what resampleToHourly
+   * reads); without one, the whole axis.
+   */
+  private seriesAt({ tile, idx }: GridHit, name: string, window?: TimeWindow): SampledSeries | null {
     const variable = tile.header.variables.find((v) => v.name === name);
     if (!variable) return null;
-    const timesMs = axisTimesMs(tile.header, variable.axis);
+    const axis = axisTimesMs(tile.header, variable.axis);
+    const [k0, k1] = window ? windowSteps(axis, window) : [0, axis.length - 1];
+    const timesMs = axis.slice(k0, k1 + 1);
     const arr = tile.arrays[name]!;
     const stride = tile.header.nlat * tile.header.nlon;
     const values: Array<number | null> = new Array(timesMs.length);
     for (let t = 0; t < timesMs.length; t++) {
-      const v = arr[t * stride + idx.flat]!;
+      const v = arr[(k0 + t) * stride + idx.flat]!;
       values[t] = Number.isNaN(v) ? null : v;
     }
     return { timesMs, values };
@@ -552,26 +685,156 @@ export class TileForecastStore implements ForecastStore {
     hit: GridHit,
     meanName: string,
     anomName: string,
+    window?: TimeWindow,
   ): { timesMs: number[]; members: Array<Array<number | null>> } | null {
     const { tile, idx } = hit;
-    const mean = this.seriesAt(hit, meanName);
+    const meanVar = tile.header.variables.find((v) => v.name === meanName);
+    const mean = this.seriesAt(hit, meanName, window);
     const anomVar = tile.header.variables.find((v) => v.name === anomName);
-    if (!mean || !anomVar) return null;
+    if (!meanVar || !mean || !anomVar) return null;
+    const axis = axisTimesMs(tile.header, meanVar.axis);
+    const [k0] = window ? windowSteps(axis, window) : [0];
     const arr = tile.arrays[anomName]!;
     const stride = tile.header.nlat * tile.header.nlon;
     const nTime = mean.timesMs.length;
-    const memberStride = nTime * stride;
+    const memberStride = axis.length * stride;
     const members: Array<Array<number | null>> = [];
     for (let m = 0; m < tile.header.member_count; m++) {
       const series: Array<number | null> = new Array(nTime);
       for (let t = 0; t < nTime; t++) {
-        const anom = arr[m * memberStride + t * stride + idx.flat]!;
+        const anom = arr[m * memberStride + (k0 + t) * stride + idx.flat]!;
         const base = mean.values[t] ?? null;
         series[t] = base === null || Number.isNaN(anom) ? null : base + anom;
       }
       members.push(series);
     }
     return { timesMs: mean.timesMs, members };
+  }
+
+  /**
+   * The grid points of the layer's own grid around (lat, lon) that a point
+   * read interpolates between, nearest first, with their bilinear weights
+   * (only those with a weight above zero: a point on a grid line or node
+   * needs two or one). The lattice comes from the tile holding the point or,
+   * when that tile is unpublished, from a published neighbour within one cell
+   * (edgeNeighbourProbes). A grid point in the neighbouring tile across a 10°
+   * line is found the way `locate` finds an edge row or column. A grid point
+   * that no published tile holds is kept with `hit: null` (missing), unless it
+   * is the nearest one: then, and when no published tile gives a lattice, the
+   * result is null and the read is missing, as before.
+   */
+  private async neighbourhood(
+    state: LayerState,
+    lat: number,
+    lon: number,
+    stats: { tiles: Set<string>; cached: number },
+  ): Promise<Neighbourhood | null> {
+    const manifest = state.manifest;
+    const deg = manifest.tiling.tile_deg;
+    const x = normalizeLon(lon);
+    let ref: { tile: DecodedTile; lat: number; lon: number } | null = null;
+    const home = await this.tileFor(state, tileIdFor(lat, x, deg), stats);
+    if (home) ref = { tile: home, lat, lon: x };
+    else {
+      for (const probe of edgeNeighbourProbes(null, lat, x, manifest.resolution_deg, deg)) {
+        if (!manifest.tiles[probe.tileId]) continue;
+        const tile = await this.tileFor(state, probe.tileId, stats);
+        if (tile) {
+          ref = { tile, lat: probe.lat, lon: probe.lon };
+          break;
+        }
+      }
+    }
+    if (!ref) return null;
+    const h = ref.tile.header;
+    const fi = snapToNode((ref.lat - h.lat0) / h.dlat);
+    const fj = snapToNode((ref.lon - h.lon0) / h.dlon);
+    const i0 = Math.floor(fi);
+    const j0 = Math.floor(fj);
+    const wi = fi - i0;
+    const wj = fj - j0;
+    const candidates = ([[0, 0], [1, 0], [0, 1], [1, 1]] as const).map(([a, b], order) => ({
+      a, b, order,
+      weight: (a ? wi : 1 - wi) * (b ? wj : 1 - wj),
+      distance: Math.hypot(a ? 1 - wi : wi, b ? 1 - wj : wj),
+    })).filter((c) => c.weight > 0).sort((p, q) => p.distance - q.distance || p.order - q.order);
+    const corners: Neighbourhood['corners'] = [];
+    for (const c of candidates) {
+      const i = i0 + c.a;
+      const j = j0 + c.b;
+      const hit: GridHit | null = i >= 0 && i < h.nlat && j >= 0 && j < h.nlon
+        ? { tile: ref.tile, idx: { i, j, flat: i * h.nlon + j } }
+        : await this.locateNode(state, h.lat0 + i * h.dlat, h.lon0 + j * h.dlon, stats);
+      // The nearest grid point outside every published tile: the read is missing, as when the
+      // audit read the nearest grid point. Only values missing inside published tiles
+      // (land-masked cells) are replaced by the nearest valid neighbour (interpolateAtPoint).
+      if (!hit && !corners.length) return null;
+      corners.push({ hit, weight: c.weight });
+    }
+    return { corners };
+  }
+
+  /**
+   * The grid point at (lat, lon), a node of the layer's lattice outside the
+   * tile it was computed from: in the tile holding it, or across a 10° line
+   * (`locate`'s edge probes). Unpublished tiles are skipped without being
+   * recorded. Null when no published tile holds it.
+   */
+  private async locateNode(
+    state: LayerState,
+    lat: number,
+    lon: number,
+    stats: { tiles: Set<string>; cached: number },
+  ): Promise<GridHit | null> {
+    const manifest = state.manifest;
+    const x = normalizeLon(lon);
+    const id = tileIdFor(lat, x, manifest.tiling.tile_deg);
+    const tile = manifest.tiles[id] ? await this.tileFor(state, id, stats) : null;
+    if (tile) {
+      const idx = nearestGridIndex(tile.header, lat, x);
+      if (idx) return { tile, idx };
+    }
+    for (const probe of edgeNeighbourProbes(tile?.header ?? null, lat, x, manifest.resolution_deg, manifest.tiling.tile_deg)) {
+      if (!manifest.tiles[probe.tileId]) continue;
+      const neighbour = await this.tileFor(state, probe.tileId, stats);
+      const idx = neighbour && nearestGridIndex(neighbour.header, probe.lat, probe.lon);
+      if (neighbour && idx) return { tile: neighbour, idx };
+    }
+    return null;
+  }
+
+  /**
+   * Variables read together at one query point: each grid point's series of
+   * every name (null where that grid point is missing or lacks the variable),
+   * combined by `interpolateAtPoint`. All tiles of a run share its time axes.
+   */
+  private interpolatedSeries(
+    nb: Neighbourhood, names: readonly string[], window: TimeWindow,
+    transforms?: ReadonlyArray<(v: number) => number>,
+  ) {
+    const perCorner = nb.corners.map(({ hit }) => names.map((name) => (hit ? this.seriesAt(hit, name, window) : null)));
+    const reference = perCorner.flat().find((s): s is SampledSeries => s !== null);
+    if (!reference) return null;
+    const n = reference.timesMs.length;
+    const aligned = perCorner.map((series) => series.map((s, k) => {
+      if (!s || s.timesMs.length !== n) return null;
+      const transform = transforms?.[k];
+      return transform ? s.values.map((v) => (v === null ? null : transform(v))) : s.values;
+    }));
+    return { timesMs: reference.timesMs, values: interpolateAtPoint(aligned, nb.corners.map((c) => c.weight)) };
+  }
+
+  /** Every ensemble member's series at one query point, each combined by `interpolateAtPoint`. */
+  private interpolatedMembers(nb: Neighbourhood, meanName: string, anomName: string, window: TimeWindow) {
+    const perCorner = nb.corners.map(({ hit }) => (hit ? this.memberSeriesAt(hit, meanName, anomName, window) : null));
+    const reference = perCorner.find((s) => s !== null);
+    if (!reference) return null;
+    const n = reference.timesMs.length;
+    const weights = nb.corners.map((c) => c.weight);
+    const members = reference.members.map((_, m) => interpolateAtPoint(
+      perCorner.map((s) => [s && s.timesMs.length === n ? s.members[m] ?? null : null]), weights,
+    )[0]!);
+    return { timesMs: reference.timesMs, members };
   }
 
   // ------------------------------------------------------- point forecasts
@@ -585,26 +848,27 @@ export class TileForecastStore implements ForecastStore {
     // one run for the whole call, even if refresh() swaps the layer meanwhile
     const state = this.layers.get(WEATHER_LAYER)!;
     const stats = this.newStats();
+    const window = { startMs, endMs };
     const forecasts: PointForecast[] = [];
     for (const p of points) {
-      const hit = await this.locate(state, p.lat, p.lon, stats);
-      const u = hit && this.seriesAt(hit, 'wind_u_kt');
-      const v = hit && this.seriesAt(hit, 'wind_v_kt');
-      const gust = hit && this.seriesAt(hit, 'gust_kt');
-      if (!hit || !u || !v || !gust) {
+      const nb = await this.neighbourhood(state, p.lat, p.lon, stats);
+      const uv = nb && this.interpolatedSeries(nb, ['wind_u_kt', 'wind_v_kt'], window);
+      const gust = nb && this.interpolatedSeries(nb, ['gust_kt'], window);
+      if (!nb || !uv || !gust) {
         forecasts.push({ lat: p.lat, lon: p.lon, times: [], wind_kt: [], gust_kt: [], wind_dir_deg: [] });
         continue;
       }
-      const uH = resampleToHourly(u.timesMs, u.values, startMs, endMs);
-      const vH = resampleToHourly(v.timesMs, v.values, startMs, endMs);
-      const gustH = resampleToHourly(gust.timesMs, gust.values, startMs, endMs);
+      // wind is interpolated as u/v components, then turned into speed and direction
+      const uH = resampleToHourly(uv.timesMs, uv.values[0]!, startMs, endMs);
+      const vH = resampleToHourly(uv.timesMs, uv.values[1]!, startMs, endMs);
+      const gustH = resampleToHourly(gust.timesMs, gust.values[0]!, startMs, endMs);
       const { speed, direction } = windFromUv(uH.values, vH.values);
       forecasts.push({
         lat: p.lat,
         lon: p.lon,
         times: uH.times,
         wind_kt: speed,
-        gust_kt: gustH.values,
+        gust_kt: roundToward(gustH.values, COMPARED_STEP, 'up'),
         wind_dir_deg: direction,
       });
     }
@@ -620,17 +884,19 @@ export class TileForecastStore implements ForecastStore {
     const state = this.layers.get(ENSEMBLE_LAYER);
     if (!state) return null;
     const stats = this.newStats();
+    const window = { startMs, endMs };
     const forecasts: EnsemblePointForecast[] = [];
     for (const p of points) {
-      const hit = await this.locate(state, p.lat, p.lon, stats);
-      const wind = hit && this.memberSeriesAt(hit, 'wind_kt_mean', 'wind_kt_anom');
-      if (!hit || !wind) {
+      // the ensemble's own (0.5°) grid around the exact point, never a point already rounded to another grid
+      const nb = await this.neighbourhood(state, p.lat, p.lon, stats);
+      const wind = nb && this.interpolatedMembers(nb, 'wind_kt_mean', 'wind_kt_anom', window);
+      if (!nb || !wind) {
         forecasts.push({ lat: p.lat, lon: p.lon, times: [], wind_kt_members: [], gust_kt_members: [] });
         continue;
       }
-      const gust = this.memberSeriesAt(hit, 'gust_kt_mean', 'gust_kt_anom');
+      const gust = this.interpolatedMembers(nb, 'gust_kt_mean', 'gust_kt_anom', window);
       const resampled = wind.members.map(
-        (series) => resampleToHourly(wind.timesMs, series, startMs, endMs).values,
+        (series) => roundToward(resampleToHourly(wind.timesMs, series, startMs, endMs).values, COMPARED_STEP, 'up'),
       );
       const times = resampleToHourly(wind.timesMs, wind.members[0] ?? [], startMs, endMs).times;
       forecasts.push({
@@ -639,7 +905,7 @@ export class TileForecastStore implements ForecastStore {
         times,
         wind_kt_members: resampled,
         gust_kt_members: gust
-          ? gust.members.map((series) => resampleToHourly(gust.timesMs, series, startMs, endMs).values)
+          ? gust.members.map((series) => roundToward(resampleToHourly(gust.timesMs, series, startMs, endMs).values, COMPARED_STEP, 'up'))
           : [],
       });
     }
@@ -668,9 +934,10 @@ export class TileForecastStore implements ForecastStore {
       ['wind_wave_dir_deg', 'wind_wave_dir_deg'],
       ['swell_dir_deg', 'swell_dir_deg'],
     ] as const;
+    const window = { startMs, endMs };
     const forecasts: WavePointForecast[] = [];
     for (const p of points) {
-      const hit = await this.locate(state, p.lat, p.lon, stats);
+      const nb = await this.neighbourhood(state, p.lat, p.lon, stats);
       const out: WavePointForecast = {
         lat: p.lat,
         lon: p.lon,
@@ -685,18 +952,25 @@ export class TileForecastStore implements ForecastStore {
         swell_period_s: [],
         swell_dir_deg: [],
       };
-      if (hit) {
+      if (nb) {
+        // land-masked wave cells are missing neighbours: the nearest valid one stands in (interpolateAtPoint)
         for (const [field, varName] of scalarVars) {
-          const series = this.seriesAt(hit, varName);
+          const series = this.interpolatedSeries(nb, [varName], window);
           if (!series) continue;
-          const h = resampleToHourly(series.timesMs, series.values, startMs, endMs);
-          out[field] = h.values;
+          const h = resampleToHourly(series.timesMs, series.values[0]!, startMs, endMs);
+          out[field] = WAVE_HEIGHTS.has(varName) ? roundToward(h.values, COMPARED_STEP, 'up')
+            : roundToward(h.values, precisionOf(nb, [varName]), varName === 'period_s' ? 'down' : 'nearest');
           if (!out.times.length) out.times = h.times;
         }
         for (const [field, varName] of dirVars) {
-          const series = this.seriesAt(hit, varName);
-          if (!series) continue;
-          out[field] = resampleDirectionToHourly(series.timesMs, series.values, startMs, endMs);
+          // directions are interpolated as unit vectors (sine and cosine together)
+          const unit = this.interpolatedSeries(nb, [varName, varName], window, [sinDeg, cosDeg]);
+          if (!unit) continue;
+          const degrees = unit.values[0]!.map((sin, t) => {
+            const cos = unit.values[1]![t] ?? null;
+            return sin === null || cos === null ? null : ((Math.atan2(sin, cos) * 180) / Math.PI + 360) % 360;
+          });
+          out[field] = resampleDirectionToHourly(unit.timesMs, degrees, startMs, endMs);
         }
       }
       forecasts.push(out);
@@ -772,26 +1046,28 @@ export class TileForecastStore implements ForecastStore {
     endMs: number,
   ): Promise<{ forecasts: HazardPointForecast[]; meta: TileRequestMeta }> {
     const stats = this.newStats();
+    const window = { startMs, endMs };
     const forecasts: HazardPointForecast[] = [];
     for (const p of points) {
-      const hit = await this.locate(state, p.lat, p.lon, stats);
+      // each model on its own grid around the exact point, so every model describes the same place
+      const nb = await this.neighbourhood(state, p.lat, p.lon, stats);
       const out = emptyHazard(p);
-      if (hit) {
-        const u = this.seriesAt(hit, 'wind_u_kt');
-        const v = this.seriesAt(hit, 'wind_v_kt');
-        if (u && v) {
-          const uH = resampleToHourly(u.timesMs, u.values, startMs, endMs);
-          const vH = resampleToHourly(v.timesMs, v.values, startMs, endMs);
+      if (nb) {
+        const uv = this.interpolatedSeries(nb, ['wind_u_kt', 'wind_v_kt'], window);
+        if (uv) {
+          const uH = resampleToHourly(uv.timesMs, uv.values[0]!, startMs, endMs);
+          const vH = resampleToHourly(uv.timesMs, uv.values[1]!, startMs, endMs);
           const { speed, direction } = windFromUv(uH.values, vH.values);
           out.times = uH.times;
           out.wind_kt = speed;
           out.wind_dir_deg = direction;
         }
         for (const field of HAZARD_SCALARS) {
-          const series = this.seriesAt(hit, field);
+          const series = this.interpolatedSeries(nb, [field], window);
           if (!series) continue;
-          const h = resampleToHourly(series.timesMs, series.values, startMs, endMs);
-          out[field] = h.values;
+          const h = resampleToHourly(series.timesMs, series.values[0]!, startMs, endMs);
+          out[field] = field === 'gust_kt' ? roundToward(h.values, COMPARED_STEP, 'up')
+            : roundToward(h.values, precisionOf(nb, [field]), field === 'visibility_m' ? 'down' : field === 'cape_jkg' ? 'up' : 'nearest');
           if (!out.times.length) out.times = h.times;
         }
       }
@@ -1020,7 +1296,7 @@ function windFromUv(
       direction[k] = null;
       continue;
     }
-    speed[k] = round2(Math.hypot(uk, vk));
+    speed[k] = roundToward([Math.hypot(uk, vk)], COMPARED_STEP, 'up')[0]!;
     direction[k] = round1(windFromDeg(uk, vk));
   }
   return { speed, direction };
@@ -1043,6 +1319,10 @@ function resampleDirectionToHourly(
     return round1(((Math.atan2(s, c) * 180) / Math.PI + 360) % 360);
   });
 }
+
+const WAVE_HEIGHTS = new Set(['hs_m', 'wind_wave_h_m', 'swell_h_m']);
+const sinDeg = (d: number) => Math.sin((d * Math.PI) / 180);
+const cosDeg = (d: number) => Math.cos((d * Math.PI) / 180);
 
 function round1(x: number): number {
   return Math.round(x * 10) / 10;

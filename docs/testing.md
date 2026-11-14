@@ -144,10 +144,12 @@ not contain it and two checks of the same inputs keep one identity, and the
 findings schema with and without it. `engine/test/legacySnapshot.test.ts` opens
 `engine/test/fixtures/legacy-current-snapshot/`, a complete check on an hourly
 prepared grid saved by the engine before the step was recorded: it validates,
-its saved decision inputs hash to its `decision_hash`, the same inputs checked
-now give the same `decision_hash`, `snapshot_id` and `route_revision` and findings
-that differ only by the step, an exact retry reopens it with every file
-byte-identical, and its block has every figure and no hours with and against.
+its saved decision inputs hash to its `decision_hash`, and its block has every
+figure and no hours with and against. Since engine semantics `passage-audit-4`
+(2026-11-14) the same inputs checked now (each leg's series copied to its sample
+points) give a new `decision_hash` and `snapshot_id` with the same
+`route_revision`, and a retry is saved as a new check beside it while every file
+of the saved one stays byte-identical and still verifies.
 `viewer/test/currentWithAgainst.test.jsx` renders that line for an hourly IBI
 record against an independent count, the block unchanged for every other source
 and for the legacy fixture, emulated values with the heading stamp and no with/against or credit line, and the French
@@ -497,6 +499,96 @@ hour with an unknown or absent recorded limit as missing unless exceeded or appr
 `coverageHours.test.jsx` covers the coverage panel's wind/gust/wave/visibility hour counts
 (English and French). All edit in-memory clones; nothing saved changes.
 
+## The audit's forecast reading (passage-audit-4)
+
+Since 2026-11-14 a Check reads the forecast along each leg
+(`engine/src/auditSampling.ts`, the store's interpolated point reads; see
+[saved identities](saved-identities.md)). These tests cover it:
+
+- `engine/test/auditReading.test.ts` runs the real audit (`runAnalysis`) on a
+  real `TileForecastStore` over invented analytic PFT1 fields, using only entry
+  points the earlier engine had, so it can be run against that engine
+  (`git archive <commit> engine config contracts package.json`, the repository's
+  `node_modules` linked in): (a) wind rising past the limit along one long leg
+  is "exceeds" although the midpoint was not; (b) a strong patch at a turn
+  between two old midpoints is found on both legs; (c) a route 1.4 nm inside the
+  weak half of a cell next to a sharp band is not flagged, and reads exactly
+  what interpolation between the rows gives; (d) one track drawn as 1 and as 6
+  legs gives the same hours over and peak, and as 4 legs within one hour;
+  (e) the 0.5° ensemble is read on its own grid at 49.13 N, not at the 49.5 N
+  row a doubly rounded point gave; (f) a point is not judged before the boat can
+  reach its stretch (strong wind there earlier is ignored; later it is found,
+  from 10:00 to the ceiled slow arrival); (g) a wave point with a land-masked
+  neighbour reads the nearest sea grid point, and none when all four are land;
+  (i) a departure comparison and the Check of each of its departures give the
+  same verdict, hours over and expected hours over; (j) the download estimate's
+  points are the points the store is asked for, and its weather tiles are
+  exactly the fetched ones for a leg whose last point interpolates across the
+  50 N tile line. Against the engine before the change all nine failed; (i)
+  only on its guard that the departures differ (the comparison and the Check
+  already agreed).
+- `engine/test/auditSampling.test.ts`: placement (stretches of at most 10 nm, a
+  short leg keeps its midpoint, ends within 5 nm, deterministic, never on a
+  lattice, the same points for a track cut on stretch boundaries), each point's
+  hours (earliest entry to latest exit of its stretch; every leg hour has a
+  point), the expected position (clamped), the missing-neighbour rule
+  (`interpolateAtPoint`: weighted mean, nearest valid neighbour, missing; u and
+  v from the same neighbours), and the expected timing: each row's `expected`
+  is the reading at the boat's nominal position and never above the row, the
+  route summary and the expected hours over a limit use it while the arrival
+  range uses the rows, the ensemble plume follows the expected position, and a
+  row without `expected` (single-point legs, older findings) is read as it is.
+- `engine/test/tileStore.test.ts` (tile edges): interpolation across a 10° line
+  with the neighbour's first row or column at 0.25° and 1/12°, four tiles near
+  a corner, a point on a grid point opening no neighbour, beside an unpublished
+  tile the published grid point read when it is the nearest and nothing when the
+  nearest is unpublished (a land-masked grid point inside a published tile is
+  replaced by the nearest valid one: `auditReading.test.ts` (g)), offset grids
+  and the antimeridian.
+- `engine/test/auditSampling.test.ts` (every sample point of an hour counts):
+  models splitting near the limit at one point make the verdict insufficient
+  although another point spreads more in light wind, and the evidence shows that
+  point; 15 of 51 scenarios exceeding only at one point and another 15 only at
+  the other count as 30 of 51 (the largest single-point count, 15, is under the
+  0.3 floor), and that evidence names no point; rounding: over 20,000 values a
+  compared quantity rounded up (or visibility down) never turns a comparison
+  with a limit or the approaching threshold off and moves by less than one step,
+  and an interpolated 17.808 kt gust still exceeds a 17.8 kt limit.
+- `engine/test/legacySnapshot.test.ts`: a check saved under `passage-audit-3`
+  still verifies and opens; the same inputs checked now evaluate to the same
+  findings once the new fields are left out, apart from the identity and the
+  current time step that checks record since 2026-11-13; a retry is a new check
+  beside it (above).
+- `viewer/test/expectedPositionDisplays.test.jsx`: on a leg read at several
+  points, the plume's shading comes from the check's counts and never from its
+  lines, a caption says what each is (English and French), the plume table
+  lists the check's count or "not audited", the scenario spread says "at your
+  expected position along your route" (both languages), the route timeline's
+  table lists the chart's own rows and values, and a leg's map arrow reads the
+  expected reading at the leg's middle hour, drawn at that sample point; a check
+  read at one point per leg shows them as before.
+
+Known limit: an hour's wind row is the wind of the point with the highest wind
+against its own point-of-sail limit, which is not always the strongest wind read
+that hour when the point of sail differs between points, so peak-wind figures in
+the briefing and the comparison can read slightly under the strongest wind read.
+- `viewer/test/routeTimelineExpected.test.jsx`: the route timeline draws an
+  hour's `expected` reading, and an hour without one from its row.
+- `analysis/tests/test_contracts_and_providers.py::test_findings_sample_points_are_optional_and_additive`:
+  the findings schema accepts the legacy fixture without the new fields and the
+  regenerated golden with them, and rejects malformed ones.
+
+Tests that build audit options by hand copy each leg's series to every sample
+point of that leg (`engine/test/helpers/samplePoints.ts`); the scenario fixture
+store does the same from a bundle's one location per leg. The engine goldens
+(`findings-cherbourg-plymouth.json`, its briefing, `scan-cherbourg-plymouth.json`)
+were regenerated with `UPDATE_GOLDEN=1 npm -w engine test` and
+`npx tsx engine/scripts/make-scan-golden.ts`: verdicts, hours and peaks are
+unchanged (one series per leg), the findings gain `sample_points`, `expected`
+on the three multi-point legs and `sample_point_id` (not on ensemble evidence,
+whose count spans the points), and the identity and the input point counts
+(6 to 13) change.
+
 ## Saved identity and history regressions
 
 `engine/test/snapshotIdentity.test.ts` covers changed authority/tide/gate/prepared,
@@ -519,7 +611,8 @@ POST/DELETE and block telemetry/external transport. No production data proof
 is implied.
 
 All-or-nothing saves: `engine/test/snapshotAtomic.test.ts` pins `decision_hash`
-and `snapshot_id` for a fixed input to values from the engine before the change,
+and `snapshot_id` for a fixed input to values from the engine before the change
+(pinned again on 2026-11-14 for engine semantics `passage-audit-4`),
 the compact `decision-inputs.json`, exact retries of compact and indented files,
 one `writeAll` call with the manifest last, a failure part-way that leaves
 nothing, and the sequential path of a store without `writeAll`.
@@ -556,6 +649,10 @@ with the browser's text only under Technical detail.
   `npx tsx engine/scripts/make-scan-golden.ts` and review the diff. It was
   regenerated so on 2026-11-13, when checks began recording the current grid's
   time step: the only change is `"time_step_h": 6` on its tile currents record.
+  Regenerated again on 2026-11-14 for engine semantics `passage-audit-4`: the
+  only change is the point count of the four fixture input records (6 legs, 13
+  sample points); the candidates are unchanged, because the fixture bundles
+  hold one series per leg, which every sample point of that leg reads.
 - `engine/test/fixtures/legacy-current-snapshot/` is a complete saved check on an
   hourly prepared current grid written by the engine before checks recorded the
   time step: `git archive f75248e engine config | tar -x -C <dir>` and

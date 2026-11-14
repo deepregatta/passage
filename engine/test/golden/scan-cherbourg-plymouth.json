@@ -99,7 +99,7 @@
         "tiles": [],
         "fetched_at": "2026-07-11T18:00:00.000Z",
         "cached_tiles": 0,
-        "points": 6
+        "points": 13
       },
       {
         "source": "fixture",
@@ -112,7 +112,7 @@
         "tiles": [],
         "fetched_at": "2026-07-11T18:00:00.000Z",
         "cached_tiles": 0,
-        "points": 6
+        "points": 13
       },
       {
         "source": "fixture",
@@ -124,7 +124,7 @@
         "tiles": [],
         "fetched_at": "2026-07-11T18:00:00.000Z",
         "cached_tiles": 0,
-        "points": 6
+        "points": 13
       },
       {
         "source": "fixture",
@@ -136,7 +136,7 @@
         "tiles": [],
         "fetched_at": "2026-07-11T18:00:00.000Z",
         "cached_tiles": 0,
-        "points": 6
+        "points": 13
       },
       {
         "source": "tiles",

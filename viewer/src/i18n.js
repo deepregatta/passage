@@ -560,6 +560,8 @@ const FR = {
   'agreement is not proof': 'l’accord ne constitue pas une preuve',
   'Agreement is not proof. This panel stays tied to the claim selected at left.': 'L’accord ne constitue pas une preuve. Ce panneau reste lié à l’affirmation sélectionnée à gauche.',
   'Text/table alternative for the plume': 'Version texte et tableau du panache',
+  'The scenario lines follow your expected position along this leg. The shading and the counts are the check’s own: a scenario counts when it exceeds your limit at any point of the leg you can be at in that hour.': 'Les lignes des scénarios suivent votre position prévue le long de ce tronçon. L’ombrage et les décomptes sont ceux de la vérification\u00A0: un scénario compte dès qu’il dépasse votre limite en un point du tronçon où vous pouvez être à cette heure.',
+  'not audited': 'non vérifié',
   'median': 'médiane',
   'maximum': 'maximum',
   'your limit': 'votre limite',
@@ -1156,6 +1158,7 @@ const FR_PATTERNS = [
   [/^(\d+) waypoints · ([\d.]+) nm$/, '$1 points de route · $2 M'],
   // Scenario spread over the passage (EvidenceSection): a count of scenarios, never a probability.
   [/^In half of the (\d+) (emulated )?forecast scenarios the strongest (wind|gust) at the points checked along your route stays at or under (\d+) kt; in nine out of ten, at or under (\d+) kt\.$/, (_match, count, emulated, variable, median, p90) => `Dans la moitié des ${count} scénarios de prévision${emulated ? ' simulés' : ''}, ${variable === 'gust' ? 'la rafale la plus forte' : 'le vent le plus fort'} aux points vérifiés le long de votre route reste à ${median} nd ou moins\u00A0; dans neuf scénarios sur dix, à ${p90} nd ou moins.`],
+  [/^In half of the (\d+) (emulated )?forecast scenarios the strongest (wind|gust) at your expected position along your route stays at or under (\d+) kt; in nine out of ten, at or under (\d+) kt\.$/, (_match, count, emulated, variable, median, p90) => `Dans la moitié des ${count} scénarios de prévision${emulated ? ' simulés' : ''}, ${variable === 'gust' ? 'la rafale la plus forte' : 'le vent le plus fort'} à votre position prévue le long de votre route reste à ${median} nd ou moins\u00A0; dans neuf scénarios sur dix, à ${p90} nd ou moins.`],
   // Route summary (RouteSummary.jsx, lib/routeSummaryLines.js): hours by point of sail and by wind band.
   [/^(Point of sail|Wind): (.+)$/, (_match, kind, list) => {
     const labels = {

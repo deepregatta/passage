@@ -1,35 +1,40 @@
 import type { LegHour, LimitsProfile } from '../types.js';
-import type { HazardPointForecast } from '../forecast/types.js';
 import type { AssembleOptions } from './options.js';
 import { parseUtc } from '../eta.js';
 import { squallPotential } from '../hazards/convective.js';
 import { fogRisk, visibilityNm, evaluateMinVisibility } from '../hazards/visibility.js';
+import { pointTimeIndex, type HourPoints } from './points.js';
+import { hourDivergence } from '../disagreement.js';
+import type { PointWind } from './wind.js';
 
 /** Visibility source order: GFS tiles first (the ECMWF open-data layer carries no
  *  visibility). ScenarioBundleStore preserves icon_eu/gfs_global fixture keys;
  *  these fallbacks are required for scenario and golden visibility assessments. */
 export const VIS_MODELS = ['gfs_0p25', 'icon_eu', 'gfs_global'];
 
+/**
+ * Convective screening, visibility, fog and model disagreement per hour, from
+ * every sample point the hour reads (`hourPoints`), each the worst among them:
+ * the highest CAPE, the lowest visibility, fog when any point screens for it
+ * (with its own wind), and the models compared at every point (each against
+ * its own sustained limit): the hour diverges, or is insufficient, when it does
+ * at any point, and shows such a point (see below). Ties keep the first point
+ * along the leg. Every model is read at the same sample points.
+ */
 export function evaluateHazards(
-  inputHours: LegHour[], sustainedLimits: number[],
-  multiModel: AssembleOptions['multiModel'], legIndex: number, model: string | null,
+  inputHours: LegHour[], hourPoints: HourPoints,
+  pointWinds: ReadonlyArray<ReadonlyMap<number, PointWind>>,
+  multiModel: AssembleOptions['multiModel'], model: string | null,
   profile: LimitsProfile,
 ) {
-  const modelIndexes: Array<{ model: string; fc: HazardPointForecast; index: Map<number, number> }> =
-    [];
-  if (multiModel) {
-    for (const [m, forecasts] of Object.entries(multiModel.byModel)) {
-      const fc = forecasts[legIndex];
-      if (!fc) continue;
-      const index = new Map<number, number>();
-      fc.times.forEach((t, idx) => index.set(parseUtc(t), idx));
-      modelIndexes.push({ model: m, fc, index });
-    }
-  }
-
+  const models = multiModel
+    ? Object.entries(multiModel.byModel).map(([m, forecasts]) => ({ model: m, forecasts, index: pointTimeIndex(forecasts) }))
+    : [];
   const hours: LegHour[] = [];
-  let worstVisibility: { hour: LegHour } | null = null;
-  let maxCape: { hour: LegHour; level: 'elevated' | 'high' } | null = null;
+  /** per hour: the point the CAPE, the visibility and the compared models came from */
+  const drivers: Array<{ cape: number | null; visibility: number | null; divergence: number | null; divergenceNearLimit: boolean }> = [];
+  let worstVisibility: { hour: LegHour; index: number } | null = null;
+  let maxCape: { hour: LegHour; index: number; level: 'elevated' | 'high' } | null = null;
   const disagreementInput: Array<{
     valid_time: string;
     byModel: Record<string, number | null>;
@@ -39,37 +44,51 @@ export function evaluateHazards(
   let anyApproaching = false;
   for (const [i, input] of inputHours.entries()) {
     const hour = { ...input, limit_status: { ...input.limit_status } };
-    const { valid_time: validTime, wind_kt: wind } = hour;
-    const sustainedLimit = sustainedLimits[i]!;
+    const { valid_time: validTime } = hour;
+    const tMs = parseUtc(validTime);
+    const points = (hourPoints[i] ?? []).filter((p) => models.some((m) => m.forecasts[p]));
+    const driver = { cape: null as number | null, visibility: null as number | null, divergence: null as number | null, divergenceNearLimit: false };
     // ---- convective screening + visibility/fog + model disagreement ----
-    if (modelIndexes.length > 0) {
-      const primary = modelIndexes.find((m) => m.model === model) ?? modelIndexes[0]!;
-      const pIdx = primary.index.get(parseUtc(validTime));
-      if (pIdx !== undefined) {
-        const cape = primary.fc.cape_jkg[pIdx] ?? null;
+    if (points.length > 0) {
+      const primary = models.find((m) => m.model === model) ?? models[0]!;
+      let capeRead = false;
+      let cape: number | null = null;
+      let fog = false;
+      for (const p of points) {
+        const fc = primary.forecasts[p];
+        const pIdx = fc ? primary.index(p, tMs) : undefined;
+        if (!fc || pIdx === undefined) continue;
+        capeRead = true;
+        const value = fc.cape_jkg[pIdx] ?? null;
+        if (value !== null && (cape === null || value > cape)) { cape = value; driver.cape = p; }
+        fog ||= fogRisk(fc.temp_c[pIdx] ?? null, fc.dew_point_c[pIdx] ?? null, pointWinds[i]?.get(p)?.wind ?? null);
+      }
+      if (capeRead) {
         hour.cape_jkg = cape;
         hour.squall_potential = squallPotential(cape);
         if (hour.squall_potential === 'high') {
           anyApproaching = true;
           if (!maxCape || (cape ?? 0) > (maxCape.hour.cape_jkg ?? 0)) {
-            maxCape = { hour, level: 'high' };
+            maxCape = { hour, index: i, level: 'high' };
           }
         } else if (hour.squall_potential === 'elevated' && !maxCape) {
-          maxCape = { hour, level: 'elevated' };
+          maxCape = { hour, index: i, level: 'elevated' };
         }
-        hour.fog_risk = fogRisk(
-          primary.fc.temp_c[pIdx] ?? null,
-          primary.fc.dew_point_c[pIdx] ?? null,
-          wind,
-        );
+        hour.fog_risk = fog;
       }
-      for (const vm of VIS_MODELS) {
-        const src = modelIndexes.find((m) => m.model === vm);
-        const vIdx = src?.index.get(parseUtc(validTime));
-        const visM = vIdx !== undefined ? (src!.fc.visibility_m[vIdx] ?? null) : null;
-        if (visM !== null) {
-          hour.visibility_nm = visibilityNm(visM);
-          break;
+      for (const p of points) {
+        for (const vm of VIS_MODELS) {
+          const src = models.find((m) => m.model === vm);
+          const vIdx = src?.forecasts[p] ? src.index(p, tMs) : undefined;
+          const visM = vIdx !== undefined ? (src!.forecasts[p]!.visibility_m[vIdx] ?? null) : null;
+          if (visM !== null) {
+            const nm = visibilityNm(visM);
+            if (nm !== null && (hour.visibility_nm === undefined || hour.visibility_nm === null || nm < hour.visibility_nm)) {
+              hour.visibility_nm = nm;
+              driver.visibility = p;
+            }
+            break;
+          }
         }
       }
       const visStatus = evaluateMinVisibility(
@@ -80,29 +99,41 @@ export function evaluateHazards(
       if (visStatus === 'exceeded') {
         anyExceeded = true;
         if (!worstVisibility || (hour.visibility_nm ?? 99) < (worstVisibility.hour.visibility_nm ?? 99)) {
-          worstVisibility = { hour };
+          worstVisibility = { hour, index: i };
         }
       }
       if (visStatus === 'approaching') anyApproaching = true;
 
-      const byModelWind: Record<string, number | null> = {};
-      for (const m of modelIndexes) {
-        const idx2 = m.index.get(parseUtc(validTime));
-        byModelWind[m.model] = idx2 !== undefined ? (m.fc.wind_kt[idx2] ?? null) : null;
+      // The divergence rule is judged at every point the hour reads: the hour is divergent, and
+      // insufficient, when it is so at any of them. The point shown is one that triggers near the
+      // limit (the highest wind-to-limit ratio), else a divergent one (the widest spread), else the
+      // widest spread.
+      let compared: { byModel: Record<string, number | null>; spread: number; limit: number; rank: [number, number] } | null = null;
+      for (const p of points) {
+        const byModelWind: Record<string, number | null> = {};
+        for (const m of models) {
+          const idx2 = m.forecasts[p] ? m.index(p, tMs) : undefined;
+          byModelWind[m.model] = idx2 !== undefined ? (m.forecasts[p]!.wind_kt[idx2] ?? null) : null;
+        }
+        const limit = pointWinds[i]?.get(p)?.limit ?? profile.max_sustained_kt.default;
+        const at = hourDivergence(byModelWind, limit);
+        const rank: [number, number] = at.nearLimit ? [2, at.max / limit] : at.divergent ? [1, at.spread] : [0, at.spread];
+        if (!compared || rank[0] > compared.rank[0] || (rank[0] === compared.rank[0] && rank[1] > compared.rank[1])) {
+          compared = { byModel: byModelWind, spread: at.spread, limit, rank };
+          driver.divergence = p;
+        }
       }
-      const windVals = Object.values(byModelWind).filter((v): v is number => v !== null);
-      hour.model_spread_kt =
-        windVals.length >= 2
-          ? Math.round((Math.max(...windVals) - Math.min(...windVals)) * 10) / 10
-          : null;
+      driver.divergenceNearLimit = compared!.rank[0] === 2;
+      hour.model_spread_kt = Number.isFinite(compared!.spread) ? Math.round(compared!.spread * 10) / 10 : null;
       disagreementInput.push({
         valid_time: validTime,
-        byModel: byModelWind,
-        sustained_limit_kt: sustainedLimit,
+        byModel: compared!.byModel,
+        sustained_limit_kt: compared!.limit,
       });
     }
 
     hours.push(hour);
+    drivers.push(driver);
   }
-  return { hours, worstVisibility, maxCape, disagreementInput, anyExceeded, anyApproaching };
+  return { hours, drivers, worstVisibility, maxCape, disagreementInput, anyExceeded, anyApproaching };
 }

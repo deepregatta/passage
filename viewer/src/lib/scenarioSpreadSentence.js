@@ -21,10 +21,12 @@ export function wholeKnotsUp(kt) {
 export function scenarioSpreadSentences(spread, { emulated = false } = {}) {
   if (!spread) return [];
   const scenarios = emulated ? 'emulated forecast scenarios' : 'forecast scenarios';
+  // a check read at several points per leg saves the plume at the boat's expected position (passage-audit-4)
+  const where = spread.basis === 'expected_position' ? 'at your expected position along your route' : 'at the points checked along your route';
   return [['wind', 'wind', spread.wind], ['gust', 'gust', spread.gust]]
     .filter(([, , values]) => values)
     .map(([variable, noun, values]) => ({
       variable,
-      text: `In half of the ${values.members} ${scenarios} the strongest ${noun} at the points checked along your route stays at or under ${wholeKnotsUp(values.median)} kt; in nine out of ten, at or under ${wholeKnotsUp(values.p90)} kt.`,
+      text: `In half of the ${values.members} ${scenarios} the strongest ${noun} ${where} stays at or under ${wholeKnotsUp(values.median)} kt; in nine out of ten, at or under ${wholeKnotsUp(values.p90)} kt.`,
     }));
 }

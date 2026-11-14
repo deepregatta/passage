@@ -145,10 +145,12 @@ export function edgeNeighbourProbes(
 
 /**
  * The published tiles a read at (lat, lon) can open: the tile containing the
- * point and, since there is no tile header to say which side the nearest grid
- * point lies on, every edge neighbour within one cell (`locate` in the store
- * opens one of them only when the point's nearest grid point is not in the
- * home tile). An upper bound, never an under-count.
+ * point and, since there is no tile header to say which side the grid points
+ * around it lie on, every edge neighbour within one cell. A point read
+ * interpolates between grid points less than one cell away (the store's
+ * `neighbourhood`), opening a neighbour only for those beyond a 10° line; a
+ * region grid's lattice point opens one only when its nearest grid point is
+ * not in the home tile (`locate`). An upper bound, never an under-count.
  */
 export function pointTileIds(
   manifest: { tiles: Record<string, unknown>; tiling: { tile_deg: number }; resolution_deg: number },
@@ -174,6 +176,19 @@ export function hourlyTimesMs(startMs: number, endMs: number): number[] {
   return times;
 }
 
+/** The ISO strings of the whole hours of a window, built once per window (each call gets its own copy). */
+const isoTimesByWindow = new Map<string, readonly string[]>();
+function hourlyIsoTimes(startMs: number, endMs: number): string[] {
+  const key = `${startMs}|${endMs}`;
+  let times = isoTimesByWindow.get(key);
+  if (!times) {
+    if (isoTimesByWindow.size >= 64) isoTimesByWindow.clear();
+    times = hourlyTimesMs(startMs, endMs).map((t) => toIso(t));
+    isoTimesByWindow.set(key, times);
+  }
+  return times.slice();
+}
+
 /**
  * Linearly resample a (possibly non-hourly) series onto whole UTC hours
  * covering [startMs, endMs]. Null propagates: an output hour is null unless
@@ -186,11 +201,10 @@ export function resampleToHourly(
   startMs: number,
   endMs: number,
 ): { times: string[]; values: Array<number | null> } {
-  const outTimes: string[] = [];
+  const outTimes = hourlyIsoTimes(startMs, endMs);
   const outValues: Array<number | null> = [];
   let k = 1;
   for (const t of hourlyTimesMs(startMs, endMs)) {
-    outTimes.push(toIso(t));
     if (!timesMs.length || t < timesMs[0]! || t > timesMs[timesMs.length - 1]!) {
       outValues.push(null);
       continue;

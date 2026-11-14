@@ -52,12 +52,14 @@ export interface TilePlan {
  * How far past an `area` a read can open a tile. A computed scan routes every
  * candidate inside the routing lattice, which `mosaicLattice` snaps with
  * `Math.round`: its first row can lie up to half a routing cell (0.125° on the
- * 0.25° wind layer; 0.25° if that layer were 0.5°) outside the box. The leg
- * midpoints are then snapped to the 0.25° audit cell (up to 0.125° more). From
- * its point a read reaches the neighbour across a 10° line within one cell of
- * the audited layer (`resolution_deg`, 0.5° at most today). So the margin is
- * the layer's cell plus 0.25° + 0.125°, rounded up generously to
- * `AREA_SNAP_MARGIN_DEG`.
+ * 0.25° wind layer; 0.25° if that layer were 0.5°) outside the box. The audit
+ * sample points lie on the route itself (auditSampling.ts; until engine
+ * semantics `passage-audit-4` the leg midpoints were also snapped to a 0.25°
+ * cell, up to 0.125° more, which this margin still allows for). From its
+ * point a read interpolates between grid points of the audited layer less
+ * than one cell (`resolution_deg`, 0.5° at most today) away, across a 10°
+ * line when they lie beyond it. So the margin is the layer's cell plus at
+ * most 0.25° + 0.125°, rounded up generously to `AREA_SNAP_MARGIN_DEG`.
  */
 export const AREA_SNAP_MARGIN_DEG = 0.375;
 

@@ -92,7 +92,7 @@ function assemble(windKt: number[], gustKt: number[]): Findings {
       waypoints: [{ id: 'a', name: 'Start', lat: 50, lon: -2 }, { id: 'b', name: 'Finish, north', lat: 50.1, lon: -2 }],
       speeds_kt: { slow: 5, nominal: 5, fast: 5 } },
     profile: PROFILE, departureUtc: '2026-07-20T06:30:00Z', nowMs: Date.parse(times[0]!), engineVersion: 'test',
-    legForecasts: [det], requestMeta: [{ source: 'tiles', layer: 'weather', model: 'gfs_0p25', run_id: 'weather-20260720T00Z',
+    pointForecasts: [det], requestMeta: [{ source: 'tiles', layer: 'weather', model: 'gfs_0p25', run_id: 'weather-20260720T00Z',
       cycle: '2026-07-20T00:00Z', resolution_deg: 0.25, tiles: [], fetched_at: times[0]!, cached_tiles: 0, points: 1 }],
   };
   return assembleFindings(options);

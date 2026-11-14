@@ -30,7 +30,12 @@ export function totalDistanceNm(legs: Leg[]): number {
   return legs.length ? legs[legs.length - 1]!.dist_end_nm : 0;
 }
 
-/** Representative point per leg (midpoint sample) for per-leg condition evaluation. */
+/**
+ * Representative point per leg (its midpoint): labels, synoptic attribution,
+ * the current read and observation matching. The forecast itself is read at
+ * the audit sample points along each leg (auditSampling.ts) since engine
+ * semantics `passage-audit-4`.
+ */
 export function legMidpoints(legs: Leg[]): SamplePoint[] {
   return legs.map((leg, i) => {
     const pos = interpolatePosition(leg.from, leg.to, 0.5);
