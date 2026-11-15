@@ -2,6 +2,7 @@ import { evidenceById } from '../lib/evidenceSelectors.js';
 import { create } from 'zustand';
 import { initialPage, pageHash, standalonePage, validSnapshotId } from '../lib/routes.js';
 import { localSnapshots, fetchSnapshotJson, snapshotTombstones } from '../lib/localSnapshots.js';
+import { openCheckMemory } from '../lib/openCheckMemory.js';
 import { preparedRun } from '../lib/preparedRun.js';
 import { getInitialLanguage, getLanguageFromPath, LANGUAGE_STORAGE_KEY } from '../i18n.js';
 import { usePlayback } from './playbackStore.js';
@@ -178,6 +179,8 @@ export const useApp = create((set, get) => ({
     }
   },
 
+  // source: 'served' (a link or the example: read from /data/snapshots/),
+  // 'local' (known to be saved in this browser) or null (saved here if it exists)
   openSnapshot: async (snapshotId, measurementAttempt = null, targetPage = 'briefing', source = null) => {
     const sequence = ++openSequence;
     usePlayback.getState().reset();
@@ -185,7 +188,7 @@ export const useApp = create((set, get) => ({
     try {
       if (!validSnapshotId(snapshotId)) throw new Error('Invalid snapshot identifier');
       const snapshotSource = source === 'served' || targetPage === 'example'
-        ? 'served' : await localSnapshots.exists(snapshotId) ? 'local' : 'served';
+        ? 'served' : source === 'local' || await localSnapshots.exists(snapshotId) ? 'local' : 'served';
       if (targetPage !== 'example') await preparedRun(); // live/saved runs only
       if (sequence !== openSequence) return;
       const file = source === 'served' || targetPage === 'example'
@@ -222,14 +225,37 @@ export const useApp = create((set, get) => ({
         const hash = pageHash(targetPage, snapshotSource === 'served' ? snapshotId : null);
         history.replaceState(null, '', `${location.pathname}${location.search}#${hash}`);
       }
+      // a served check is named by the URL; a browser-saved one is remembered per tab
+      if (snapshotSource === 'local' && targetPage === 'briefing') openCheckMemory.remember(snapshotId);
+      else openCheckMemory.forget();
     } catch (error) {
       if (sequence !== openSequence) return;
+      openCheckMemory.forget(snapshotId);
       set({ loadError: source === 'served' ? 'This shared analysis is unavailable.' : error.message, loading: false });
     }
   },
 
+  // A reload (or a restored tab) on the passage page reopens the browser-saved
+  // check this tab had open, from its saved copy: never a recompute or a newer
+  // check. Gone from this browser: the page stays empty, without an error.
+  restoreOpenCheck: async () => {
+    const snapshotId = openCheckMemory.read();
+    if (!validSnapshotId(snapshotId) || get().snapshotId || get().loading) return;
+    const sequence = ++openSequence;
+    set({ loading: true, loadError: null });
+    const saved = await localSnapshots.exists(snapshotId);
+    if (sequence !== openSequence) return;
+    if (!saved) {
+      openCheckMemory.forget(snapshotId);
+      set({ loading: false });
+      return;
+    }
+    await get().openSnapshot(snapshotId, null, 'briefing', 'local');
+  },
+
   deleteSnapshot: async (snapshotId) => {
     const deletedLocally = await localSnapshots.remove(snapshotId);
+    openCheckMemory.forget(snapshotId);
     if (!deletedLocally) {
       if (import.meta.env.DEV) {
         // dev middleware deletes the repo files (fixture mode refuses: read-only)

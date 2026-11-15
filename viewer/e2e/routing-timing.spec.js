@@ -93,7 +93,10 @@ for (const along of [2, -2, 0]) {
     expect(await arrival()).toBe((await computed(page)).arrival_utc);
     const snapshotId = await page.evaluate(async () => (await import('/src/stores/appStore.js')).useApp.getState().snapshotId);
     await page.reload();
-    await expect(page.getByRole('button', { name: 'Choose a passage' })).toBeVisible();
+    // The reload reopens the same browser-saved check (2026-11-15), from its saved copy.
+    await expect(page.getByTestId('decision-band')).toBeVisible();
+    expect(await page.evaluate(async () => (await import('/src/stores/appStore.js')).useApp.getState().snapshotId)).toBe(snapshotId);
+    expect(await arrival()).toBe((await computed(page)).arrival_utc);
     // A local briefing is restored by saved identity, using the real read path.
     await page.evaluate(async id => (await import('/src/stores/appStore.js')).useApp.getState().openSnapshot(id), snapshotId);
     await expect(page.getByTestId('decision-band')).toBeVisible();

@@ -143,10 +143,32 @@ for (const language of ['en', 'fr']) {
     expect(decisionRecord).toMatchObject({ encoding: 'gzip', binary: true });
     expect(decisionRecord.stored).toBeLessThan(decisionRecord.text);
     expect(stored.find(item => item.filename === 'snapshot.json')).toMatchObject({ encoding: null, binary: false });
+    // A reload reopens the check that was open, from this browser's copy (2026-11-15):
+    // same id, same findings and briefing sections, and no check id in the URL. (The band's
+    // closest-limit line follows the limits draft, which a fresh page has not loaded yet, and
+    // the init script restores the French setting, so its text is not compared.)
+    const openCheck = () => page.evaluate(async () => {
+      const app = (await import('/src/stores/appStore.js')).useApp.getState();
+      return { id: app.snapshotId, source: app.snapshotSource, findings: app.findings, briefing: app.briefing };
+    });
+    const sections = () => page.locator('[data-section]').evaluateAll(nodes => nodes.map(node => node.dataset.section));
+    const before = await openCheck();
+    expect(before).toMatchObject({ id: saved.id, source: 'local', findings: saved.findings });
+    const sectionsBefore = await sections();
+    await expect(page).toHaveURL(/#passage$/);
     await page.reload();
-    await page.evaluate(async id => (await import('/src/stores/appStore.js')).useApp.getState().openSnapshot(id), saved.id);
     await expect(page.getByTestId('decision-band')).toBeVisible();
-    expect(await page.evaluate(async () => (await import('/src/stores/appStore.js')).useApp.getState().findings)).toEqual(saved.findings);
+    await expect(page).toHaveURL(/#passage$/);
+    expect(await openCheck()).toEqual(before);
+    expect(await sections()).toEqual(sectionsBefore);
+    // Opened from My passages, it reopens after a reload too.
+    await page.getByRole('link', { name: /^(My passages|Mes traversées)$/ }).first().click();
+    await expect(page).toHaveURL(/#passages$/);
+    await page.locator(`button[data-snapshot-id="${saved.id}"]`).click({ position: { x: 8, y: 8 } });
+    await expect(page.getByTestId('decision-band')).toBeVisible();
+    await page.reload();
+    await expect(page.getByTestId('decision-band')).toBeVisible();
+    expect(await openCheck()).toEqual(before);
     await page.evaluate(async id => (await import('/src/stores/appStore.js')).useApp.getState().deleteSnapshot(id), saved.id);
     expect(await page.evaluate(async id => (await import('/src/lib/localSnapshots.js')).localSnapshots.exists(id), saved.id)).toBe(false);
     expect(digest(scratch)).toEqual(scratchBytes);

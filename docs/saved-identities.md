@@ -164,6 +164,23 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   0.3 s and decoding it about 0.06 s. The check reopened from My passages
   after a reload, the seven earlier checks stayed plain, an earlier check
   still opened, and the console logged no error.
+- Reopening after a reload (2026-11-15): a check saved in this browser that
+  is open on the passage page (just made by Check, or opened from My
+  passages) is reopened when the page is reloaded or the browser restores the
+  tab, from the copy saved in this browser: the same check id and files,
+  never a recompute, a newer check of the passage or latest data. The tab
+  remembers only the check's opaque id, in `sessionStorage` under
+  `deepweather.open-check` (`viewer/src/lib/openCheckMemory.js`), so each tab
+  reopens its own check and the URL stays `#passage`: a browser-saved check is
+  still not shareable by link, and `#passage?snapshot=<id>` still always names
+  a served check read from `/data/snapshots/`. Opening a served check or the
+  example in the tab, a failed open, or deleting the check forgets it. If the
+  check is no longer saved here (deleted, storage cleared), the page shows
+  "No briefing open. Choose a passage." without an error. Served deep links,
+  `#example`, Back/Forward and the other pages are unchanged; Back to
+  `#passage` after a reload elsewhere also reopens the remembered check.
+  Rejected: the id in the hash, which would make a browser-saved check look
+  like a link and give `snapshot=` two meanings.
 - Modern histories group only by explicit passage ID and persistence source.
   Legacy checks without explicit identity remain individually accessible and
   deletable. No inferred grouping from route names/counts/departure is permitted.

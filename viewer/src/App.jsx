@@ -35,6 +35,8 @@ export default function App() {
         if (limits) state.openLimits();
         if (snapshotId !== null && (state.snapshotId !== snapshotId || state.snapshotSource !== 'served')) {
           void state.openSnapshot(snapshotId, null, 'briefing', 'served');
+        } else if (target === 'briefing' && snapshotId === null) {
+          void state.restoreOpenCheck();
         }
       } else {
         history.replaceState(null, '', `${location.pathname}${location.search}#${pageHash(useApp.getState().page)}`);

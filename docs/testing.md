@@ -668,6 +668,24 @@ of its JSON text, that an exact retry reopens a compressed and a plain Check
 without an `add`, that an undecodable decision-inputs record is a blocked
 save keeping its bytes, that an abort or throwing `add` with compressed
 records is a plain failure leaving nothing, and that delete removes it all.
+Reopening after a reload (2026-11-15): `viewer/test/openCheckReload.test.jsx`
+remounts the app on the same URL and tab after opening a browser-saved check
+(the demo files served through a mocked local store) and finds the same check
+open from the local copy, the URL still `#passage` and no request for it to
+`/data/snapshots/`; the same at `#passage/evidence` after opening from My
+passages; the empty state, without an alert, when the check is gone; nothing
+reopened after the check is deleted, after a served check was opened in the
+tab, or on another page. The first two failed before the change.
+`viewer/e2e/fixture-persistence.spec.js` reloads after the real Check and
+again after reopening it from My passages, comparing the check id, findings,
+briefing and page sections. `viewer/e2e/sharing.spec.js` opens two
+browser-saved checks in two tabs of one context and reloads each to its own
+check, keeps Share disabled, goes My passages → reload → Back → Forward → Back,
+reloads a served deep link (still served), and reloads the second tab after the
+first deletes its check (empty state, no alert). Both browser steps failed
+before the change, on the decision band after the reload.
+`viewer/e2e/routing-timing.spec.js` now expects its reload after the rerouted
+Check to reopen that check (same id and arrival) instead of the empty page.
 `plannerFeedback.test.jsx` and `plannerFeedback.copy.test.js` cover the three
 save-failure sentences (storage full, blocked, any other) in English and French,
 with the browser's text only under Technical detail.
