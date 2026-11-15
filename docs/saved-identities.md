@@ -278,7 +278,8 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   `InspectorErrorBoundary.jsx`), and check-provided strings are never used as
   object keys without an own-property test (`viewer/src/lib/own.js`), with
   nothing stored for a check changed.
-- Check file, version 1 (2026-11-15, export only; import is the next stage):
+- Check file, version 1 (2026-11-15; the export, with the import described
+  further down):
   "Save a copy to a file" on the passage page of a check saved in this
   browser with identity version 2 writes one gzip file,
   `passage-check-<departure date, UTC, from the check's decision inputs>-<the
@@ -444,6 +445,21 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   decision inputs (the same id), the exact-retry path reopens the stored,
   imported check instead of saving a new one, so the page shows the imported
   result, labelled as imported; nothing is recomputed or replaced.
+- Live test of the check file (2026-11-15, passage.deepregatta.com, the
+  desktop app's built-in Chromium, the owner's own data, counts only): "Save a
+  copy to a file" on a browser-saved check made a 1.63 MB gzip file in 1.8 s
+  (9.97 M characters of text: format `passage-checks`, version 1, one check,
+  seven files, no marker); the button showed its busy label, kept focus, and
+  the live region read "Copy made…". That browser pane did not write the
+  download to disk, so the file on disk is not verified; this is the case the
+  wording "Copy made", not "saved", allows for. The same bytes given to
+  "Import a check" answered "This check is already in My passages" with the
+  "Open the check" button; the store was unchanged (8 checks, 56 records, no
+  marker) and the only request was the importer's own script chunk. Both
+  controls read correctly in French and fit a 375 px viewport with no
+  horizontal overflow and no console error. Not tested live: an import that
+  stores a check (it needs a browser without the check), a refusal, Safari,
+  Firefox, a phone.
 - Modern histories group only by explicit passage ID and persistence source.
   Legacy checks without explicit identity remain individually accessible and
   deletable. No inferred grouping from route names/counts/departure is permitted.
