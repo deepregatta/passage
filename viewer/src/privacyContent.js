@@ -19,7 +19,7 @@ export const fullPolicyUrl = (language) => FULL_POLICY_URL[language === 'fr' ? '
 export const PRIVACY_BLOCKS = [
   { type: 'h1', text: 'Privacy policy' },
   { type: 'p', text: 'This page describes what Passage (passage.deepregatta.com) does with personal data. It is read together with the full DeepRegatta privacy policy, which covers all our products.' },
-  { type: 'p', text: 'Last updated: 11 November 2026' },
+  { type: 'p', text: 'Last updated: 15 November 2026' },
 
   { type: 'h2', text: 'In short' },
   { type: 'ul', items: [
@@ -58,7 +58,7 @@ export const PRIVACY_BLOCKS = [
   { type: 'p', text: 'Messages are stored in our database (Supabase), and the same IP-hash limit as above applies. Legal basis: our legitimate interest in handling feedback and fixing data issues (GDPR Article 6(1)(f)).' },
 
   { type: 'h2', text: 'What stays in your browser' },
-  { type: 'p', text: 'Passage sets no cookies. It uses your browser’s local storage, session storage and IndexedDB for the items below. This data stays on your device until you delete it or clear this site’s data.' },
+  { type: 'p', text: 'Passage sets no cookies. It uses your browser’s local storage, session storage and IndexedDB for the items below. This data stays on your device. It remains there until you delete it or clear this site’s data, or until your browser removes it on its own: some browsers do so when the device is short of space, or after a period without visiting Passage.' },
   { type: 'ul', items: [
     'Language choice, saved only if you use the language switcher.',
     'Planner draft: route, boat, speeds and departure time.',

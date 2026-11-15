@@ -699,6 +699,33 @@ resolves, a second read after a delete and none after a failed one, no call to
 matches the sentence in real Chromium with a number pattern, never a fixed
 size; My passages is in no screenshot baseline, and the line must stay out of
 any future one because its size differs on every machine and run.
+Asking the browser to keep saved checks (2026-11-15):
+`viewer/test/storagePersistence.test.js` returns true, false and null (missing
+API, missing `persisted()`, a throwing or rejecting call, a non-boolean
+answer); asks nothing when `persist()` is missing or `persisted()` is already
+true; asks once and remembers the time under `deepweather.persist-asked-at`;
+does not ask again until 30 days later (29 days and 30 days less a
+millisecond: no; 30 days: yes); ignores a remembered time in the future and a
+garbage value; asks when `persisted()` throws, rejects or is missing; swallows
+a rejecting or throwing `persist()`; asks every time with blocked
+`localStorage`; and does not repeat a request that never answers.
+`viewer/test/browserSnapshotSave.test.js` asks exactly once after a real
+browser save (and not again for the exact retry), returns the save's result
+while `persist()` never resolves, shows no unhandled rejection when it rejects,
+does not ask after a 'storage-full', 'blocked' or 'failed' save, and does not
+ask for a check the dev middleware wrote. `viewer/test/passagesPage.test.jsx`
+finds the exact English and French "not kept" sentence when a local check
+exists and `persisted()` is false, also without the API or when it throws and
+without a usage estimate, none when `persisted()` is true, with no check or
+with only the served example, the line after the list and the usage line, the
+list unchanged when the answer arrives, and a second read after a delete.
+`viewer/test/privacyPage.test.jsx` pins the new privacy sentence and the
+"15 November 2026" date in English and French and in the prerender source.
+`viewer/e2e/fixture-persistence.spec.js` counts calls to
+`navigator.storage.persist` with an init script: none at load, one after the
+real Check, still one after reloads and My passages, where the line shows
+(headless Chromium reports `persisted()` false). My passages and the privacy
+page are in no screenshot baseline.
 The closest-limit line from the check's own record (2026-11-15):
 `viewer/test/closestLimitLine.test.jsx` opens a calm Check made through the real
 engine (verdict within) on a fresh store with no limits draft and finds the

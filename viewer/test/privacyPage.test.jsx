@@ -83,6 +83,18 @@ describe('privacy copy', () => {
     for (const english of privacyTexts()) expect(translateText(english, 'fr'), english).not.toBe(english);
   });
 
+  it('says a browser may remove the data on its own, and dates that change, in both languages', () => {
+    const english = 'This data stays on your device. It remains there until you delete it or clear this site’s data, or until your browser removes it on its own: some browsers do so when the device is short of space, or after a period without visiting Passage.';
+    const french = 'Ces données restent sur votre appareil. Elles y restent jusqu’à ce que vous les supprimiez ou effaciez les données de ce site, ou jusqu’à ce que votre navigateur les supprime de lui-même\u00A0: certains navigateurs le font lorsque l’appareil manque d’espace, ou après une période sans visite sur Passage.';
+    expect(text()).toContain(english);
+    expect(text()).not.toContain('stays on your device until you delete it');
+    expect(text()).toContain('Last updated: 15 November 2026');
+    const frenchPage = privacyTexts().map((item) => translateText(item, 'fr')).join('\n');
+    expect(frenchPage).toContain(french);
+    expect(frenchPage).toContain('Dernière mise à jour : 15 novembre 2026');
+    for (const language of ['en', 'fr']) expect(privacyHtml(language, translateText)).toContain(language === 'fr' ? 'Dernière mise à jour : 15 novembre 2026' : 'Last updated: 15 November 2026');
+  });
+
   it('stays free of the internal codename and of storage the app does not use', () => {
     expect(text().toLowerCase()).not.toContain('deepweather');
     expect(text()).not.toMatch(/cookie banner|google analytics|advertis\w+ cookie/i);

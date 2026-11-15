@@ -4,7 +4,7 @@
 // and tells the planner which kind of failure it was.
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { IDBFactory, IDBObjectStore } from 'fake-indexeddb';
 import { runAnalysis } from '@deepweather/engine';
 
@@ -202,4 +202,73 @@ it('deleting a compressed Check removes every record', async () => {
   const { snapshotId } = await check();
   expect(await localSnapshots.remove(snapshotId)).toBe(true);
   expect(await recordKeys()).toEqual([]);
+});
+
+// Ask the browser to keep saved checks (2026-11-15): once, after a check saved in this browser, never awaited.
+describe('asking the browser to keep the saved check', () => {
+  let persist;
+  const storing = (answer) => {
+    persist = vi.fn(answer ?? (async () => false));
+    vi.stubGlobal('navigator', Object.assign(Object.create(navigator), { storage: { persist, persisted: async () => false } }));
+  };
+  beforeEach(() => localStorage.clear());
+
+  it('asks exactly once after a successful browser save', async () => {
+    storing();
+    await check();
+    await vi.waitFor(() => expect(persist).toHaveBeenCalledTimes(1));
+    // an exact retry reopens the same check; within 30 days the browser is not asked again
+    await check();
+    await new Promise(resolve => setTimeout(resolve, 20));
+    expect(persist).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not make the save wait for a request that never answers', async () => {
+    storing(() => new Promise(() => {}));
+    const saved = await check();
+    expect(saved.snapshotId).toMatch(/^snapshot_v2_[0-9a-f]{16}$/);
+    await vi.waitFor(() => expect(persist).toHaveBeenCalledTimes(1));
+    expect(await localSnapshots.exists(saved.snapshotId)).toBe(true);
+  });
+
+  it('a rejecting request breaks nothing and surfaces no unhandled rejection', async () => {
+    const unhandled = vi.fn();
+    process.on('unhandledRejection', unhandled);
+    try {
+      storing(async () => { throw new Error('refused'); });
+      await expect(check()).resolves.toMatchObject({ snapshotId: expect.any(String) });
+      await vi.waitFor(() => expect(persist).toHaveBeenCalledTimes(1));
+      await new Promise(resolve => setTimeout(resolve, 20));
+      expect(unhandled).not.toHaveBeenCalled();
+    } finally { process.off('unhandledRejection', unhandled); }
+  });
+
+  it.each([
+    ['storage-full', () => storageFullOnRoute()],
+    ['blocked', () => fetch.mockImplementation(async (url, init) => (init?.method === 'POST' ? { ok: false, status: 409 }
+      : url === '/data/snapshots/manifest.json' ? { ok: true, status: 200, json: async () => ({ snapshots: [] }) } : { ok: false, status: 404 }))],
+    ['failed', () => vi.stubGlobal('indexedDB', undefined)],
+  ])('does not ask after a failed save (%s)', async (kind, arrange) => {
+    storing();
+    arrange();
+    const failure = await check().catch(error => error);
+    expect(failure).toMatchObject({ saveFailure: kind });
+    await new Promise(resolve => setTimeout(resolve, 20));
+    expect(persist).not.toHaveBeenCalled();
+  });
+
+  it('does not ask for a check the dev middleware wrote to disk', async () => {
+    storing();
+    const written = [];
+    fetch.mockImplementation(async (url, init) => {
+      if (init?.method === 'POST') { written.push(url); return { ok: true, status: 200 }; }
+      if (url === '/data/snapshots/manifest.json') return { ok: true, status: 200, json: async () => ({ snapshots: [] }) };
+      return { ok: false, status: 404, json: async () => undefined };
+    });
+    await check();
+    expect(written.length).toBeGreaterThan(0);
+    expect(await recordKeys()).toEqual([]);
+    await new Promise(resolve => setTimeout(resolve, 20));
+    expect(persist).not.toHaveBeenCalled();
+  });
 });

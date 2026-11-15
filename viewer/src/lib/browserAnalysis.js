@@ -10,6 +10,7 @@ import { forecastStore } from './forecastStore.js';
 import { localSnapshots } from './localSnapshots.js';
 import { preparedRun, artifactUrl } from './preparedRun.js';
 import { artifactRecord, loadJson, loadPreparedCurrent } from './preparedCurrent.js';
+import { requestPersistence } from './storagePersistence.js';
 import { captureActionDraft, freezeActionInputs, pinForecastInputs } from './actionInputs.js';
 
 // statuses that mean "no write endpoint here", not "this write failed"
@@ -182,12 +183,16 @@ export async function analyzeInBrowser(inputs) {
   const action = inputs.tileRuns ? inputs : await prepareAnalysisInputs(captureActionDraft(inputs), onProgress);
   const result = await runAnalysis({ ...action, onProgress });
   onProgress?.('saving immutable snapshot');
+  const store = new FallbackSnapshotStore();
   let snapshotId;
   try {
-    snapshotId = await persistSnapshot(new FallbackSnapshotStore(), result, action.route, Date.now());
+    snapshotId = await persistSnapshot(store, result, action.route, Date.now());
   } catch (error) {
     throw saveError(error);
   }
+  // A check now held in this browser: ask the browser to keep it. Fire-and-forget (never awaited,
+  // never rejects); a check the dev middleware wrote to disk is not in the browser.
+  if (store.useLocal) requestPersistence();
   return { snapshotId, result };
 }
 

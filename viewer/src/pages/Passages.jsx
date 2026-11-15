@@ -12,6 +12,7 @@ import { OWNED, groupPassages, localTime, passageText, routeChanges, routeName }
 import { MAX_LABEL_LENGTH, passageLabels } from '../lib/passageLabels.js';
 import { loadJson } from '../lib/verification.js';
 import { STORAGE_LEVEL, formatStorageSize, readStorageUsage, storagePercent } from '../lib/storageUsage.js';
+import { readPersisted } from '../lib/storagePersistence.js';
 
 /** Every passage you have checked: its latest verdict, what changed since the
  * previous check, and where it is between planning and verification. */
@@ -26,15 +27,21 @@ export default function Passages() {
   const [labels, setLabels] = useState(() => passageLabels.all());
   const [note, setNote] = useState('');
   const [storage, setStorage] = useState(null); // null until the browser's estimate arrives, or when it gives none
+  const [persisted, setPersisted] = useState(undefined); // undefined until the browser answers; then true, false or null (cannot say)
   const heading = useRef(null);
   const storageRead = useRef(0);
+  const persistedRead = useRef(0);
   const mounted = useRef(true);
 
-  // Asynchronous and display-only: the list never waits for it. Only the latest read counts.
+  // Asynchronous and display-only: the list never waits for either. Only the latest read counts.
   const refreshStorage = useCallback(() => {
     const read = ++storageRead.current;
     readStorageUsage().then((usage) => {
       if (mounted.current && read === storageRead.current) setStorage(usage);
+    });
+    const asked = ++persistedRead.current;
+    readPersisted().then((answer) => {
+      if (mounted.current && asked === persistedRead.current) setPersisted(answer);
     });
   }, []);
   useEffect(() => {
@@ -56,6 +63,9 @@ export default function Passages() {
 
   const passages = useMemo(() => groupPassages(manifest?.snapshots), [manifest]);
   const hasExample = passages.some((passage) => passage.demo);
+  // Only a check saved in this browser can be deleted by it; the served example cannot.
+  const hasLocalCheck = Boolean(manifest?.snapshots?.some((snapshot) => snapshot.local));
+  const notKept = hasLocalCheck && (persisted === false || persisted === null);
 
   // Renaming sets a display label for this browser; no saved check is rewritten.
   const rename = (key, name, defaultTitle) => {
@@ -120,7 +130,12 @@ export default function Passages() {
         </button>
       )}
 
-      {storage && <StorageUsage usage={storage} language={language} />}
+      {(storage || notKept) && (
+        <div className="mt-6 max-w-3xl space-y-2">
+          {storage && <StorageUsage usage={storage} language={language} />}
+          {notKept && <StorageNotKept language={language} />}
+        </div>
+      )}
     </div>
   );
 }
@@ -131,7 +146,7 @@ function StorageUsage({ usage, language }) {
   const under = usage.usageBytes < 1e6; // "about less than 1 MB" would not parse: this case has its own sentence
   const size = translateText(formatStorageSize(usage.usageBytes), language);
   return (
-    <div data-testid="storage-usage" data-level={usage.level} className="mt-6 max-w-3xl space-y-1">
+    <div data-testid="storage-usage" data-level={usage.level} className="space-y-1">
       <p className="font-sans text-sm text-ink-soft" {...OWNED}>
         {under
           ? passageText('Passage uses {size} of this browser’s storage, counting saved checks and downloaded forecasts.', { size }, language)
@@ -144,6 +159,15 @@ function StorageUsage({ usage, language }) {
         </p>
       )}
     </div>
+  );
+}
+
+/** Saved checks live only in this browser, and a browser may delete them on its own. Said plainly, in the page's calm note style. */
+function StorageNotKept({ language }) {
+  return (
+    <p data-testid="storage-not-kept" className="font-sans text-sm text-ink-soft" {...OWNED}>
+      {passageText('This browser can delete saved checks on its own, for example when the device is short of space or after a while without using Passage. Passage keeps no other copy.', {}, language)}
+    </p>
   );
 }
 

@@ -60,6 +60,15 @@ for (const language of ['en', 'fr']) {
       // below for the Check: the reloaded check must still show what it recorded
       localStorage.setItem('deepweather.profile-draft', JSON.stringify({ ...defaults, night_ok: false }));
     }, { defaults, language });
+    // Counts the calls to navigator.storage.persist() (kept in sessionStorage, so a reload keeps the count) and passes them on.
+    await page.addInitScript(() => {
+      const storage = navigator.storage;
+      const persist = storage?.persist?.bind(storage);
+      if (persist) storage.persist = (...args) => {
+        sessionStorage.setItem('e2e-persist-calls', String(Number(sessionStorage.getItem('e2e-persist-calls') ?? 0) + 1));
+        return persist(...args);
+      };
+    });
     await page.route(/^https:\/\//, route => route.abort());
     await page.route('**/api/event', route => route.fulfill({ status: 204 }));
     await page.route('**/data/runs/latest.json', route => route.fulfill({ json: null }));
@@ -121,6 +130,9 @@ for (const language of ['en', 'fr']) {
         manifest: JSON.parse(await local.read(app.snapshotId, 'snapshot.json')) };
     });
     expect(saved.source).toBe('local');
+    // Asked once to keep the saved check (2026-11-15): not at page load, once after the real Check.
+    const persistCalls = () => page.evaluate(() => Number(sessionStorage.getItem('e2e-persist-calls') ?? 0));
+    await expect.poll(persistCalls).toBe(1);
     expect(saved.manifest.snapshot_id).toBe(saved.id);
     expect(mutations.length).toBeGreaterThan(0);
     expect(mutations.every(item => item.status === 403 && item.body === 'Fixture data is read-only')).toBe(true);
@@ -177,6 +189,11 @@ for (const language of ['en', 'fr']) {
     // The storage line (2026-11-15): this origin's usage as the browser estimates it, whatever its size.
     await expect(page.getByTestId('storage-usage')).toContainText(
       /^Passage uses (?:less than 1 MB|about (?:\d+ MB|\d+\.\d GB)) of this browser’s storage, counting saved checks and downloaded forecasts\./);
+    // The saved check lives only in this browser, which has not agreed to keep it (headless Chromium reports persisted() false).
+    expect(await page.evaluate(() => navigator.storage.persisted())).toBe(false);
+    await expect(page.getByTestId('storage-not-kept')).toHaveText(
+      'This browser can delete saved checks on its own, for example when the device is short of space or after a while without using Passage. Passage keeps no other copy.');
+    expect(await persistCalls()).toBe(1); // reloads and visits do not ask again
     await page.locator(`button[data-snapshot-id="${saved.id}"]`).click({ position: { x: 8, y: 8 } });
     await expect(page.getByTestId('decision-band')).toBeVisible();
     expect(await band()).toBe(bandBefore);

@@ -5,7 +5,8 @@
  * (IndexedDB) and the downloaded forecast tiles (tileCache.js) together. A
  * browser cannot always tell them apart, and Safari's figures are coarse on
  * purpose, so nothing here claims to be the size of the saved checks. Nothing
- * leaves the browser, and this never asks for persistent storage.
+ * leaves the browser, and this module never asks for persistent storage: that
+ * request is made once after a saved check (storagePersistence.js).
  */
 
 /** From this share of the quota the page also says what share is used. */

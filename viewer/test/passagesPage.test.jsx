@@ -412,3 +412,113 @@ describe('storage usage line', () => {
     }
   });
 });
+
+describe('storage not-kept line', () => {
+  const LINE = 'This browser can delete saved checks on its own, for example when the device is short of space or after a while without using Passage. Passage keeps no other copy.';
+  const LINE_FR = 'Ce navigateur peut supprimer de lui-même les vérifications enregistrées, par exemple lorsque l’appareil manque d’espace ou après un certain temps sans utiliser Passage. Passage n’en conserve aucune autre copie.';
+  let persisted;
+  const stubStorage = (storage) => vi.stubGlobal('navigator', Object.assign(Object.create(navigator), { storage }));
+  const stubPersisted = (...answers) => {
+    persisted = vi.fn();
+    for (const answer of answers) persisted.mockImplementationOnce(async () => answer);
+    persisted.mockImplementation(async () => answers.at(-1));
+    stubStorage({ persisted });
+  };
+  const settle = async () => { await screen.findByRole('button', { name: /^Open Cherbourg/ }); await act(async () => {}); };
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('says it, exactly, when a check is saved in this browser and the browser has not agreed to keep it', async () => {
+    stubPersisted(false);
+    show(oneCheck());
+    const line = await screen.findByTestId('storage-not-kept');
+    expect(line.textContent).toBe(LINE);
+    // a calm note like the usage line, never a warning colour
+    expect(line.className).toContain('text-ink-soft');
+    expect(line.className).not.toMatch(/verdict|red|amber/);
+    expect(line).not.toHaveAttribute('role');
+  });
+
+  it('also says it when the browser cannot say (no API, no persisted(), a throwing call)', async () => {
+    for (const make of [
+      () => stubStorage(undefined),
+      () => stubStorage({}),
+      () => stubStorage({ persisted: async () => { throw new Error('no'); } }),
+    ]) {
+      make();
+      show(oneCheck());
+      expect((await screen.findByTestId('storage-not-kept')).textContent).toBe(LINE);
+      cleanup();
+    }
+  });
+
+  it('is absent when the browser keeps the data', async () => {
+    stubPersisted(true);
+    show(oneCheck());
+    await settle();
+    expect(screen.queryByTestId('storage-not-kept')).toBeNull();
+    expect(persisted).toHaveBeenCalledTimes(1);
+  });
+
+  it('is absent when no check is saved in this browser: none at all, or only the served example', async () => {
+    stubPersisted(false);
+    show([]);
+    await act(async () => {});
+    expect(persisted).toHaveBeenCalled();
+    expect(screen.queryByTestId('storage-not-kept')).toBeNull();
+    cleanup();
+    show([entry('snapshot_v2_24c92bf9d8b75610', '2026-07-19T18:00:00Z', { check_sequence: 1, local: false, demo: true })]);
+    await settle();
+    expect(screen.queryByTestId('storage-not-kept')).toBeNull();
+  });
+
+  it('shows on its own when the browser gives no storage estimate, and under the usage line when it does', async () => {
+    stubStorage({ persisted: async () => false });
+    show(oneCheck());
+    await screen.findByTestId('storage-not-kept');
+    expect(screen.queryByTestId('storage-usage')).toBeNull();
+    cleanup();
+    stubStorage({ persisted: async () => false, estimate: async () => ({ usage: 29_000_000, quota: 100_000_000 }) });
+    show(oneCheck());
+    const usage = await screen.findByTestId('storage-usage');
+    const notKept = await screen.findByTestId('storage-not-kept');
+    expect(usage.compareDocumentPosition(notKept) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('shows without a usage estimate that fails, and does not ask for persistence itself', async () => {
+    const persist = vi.fn();
+    stubStorage({ persist, persisted: async () => false, estimate: async () => { throw new Error('no'); } });
+    show(oneCheck());
+    await screen.findByTestId('storage-not-kept');
+    expect(persist).not.toHaveBeenCalled();
+  });
+
+  it('is in French', async () => {
+    stubPersisted(false);
+    show(oneCheck(), { language: 'fr' });
+    expect((await screen.findByTestId('storage-not-kept')).textContent).toBe(LINE_FR);
+  });
+
+  it('sits below the list, which renders before the answer arrives and does not move', async () => {
+    let resolve;
+    stubStorage({ persisted: () => new Promise((done) => { resolve = done; }) });
+    const view = show(oneCheck());
+    await screen.findByRole('button', { name: /^Open Cherbourg/ });
+    expect(screen.queryByTestId('storage-not-kept')).toBeNull();
+    const before = view.container.querySelector('ul').outerHTML;
+    await act(async () => resolve(false));
+    const line = await screen.findByTestId('storage-not-kept');
+    expect(view.container.querySelector('ul').outerHTML).toBe(before);
+    expect(view.container.querySelector('ul').compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('reads again after a passage is deleted, and not before', async () => {
+    stubPersisted(false, true);
+    show(oneCheck());
+    await screen.findByTestId('storage-not-kept');
+    expect(persisted).toHaveBeenCalledTimes(1);
+    await userEvent.click(await screen.findByRole('button', { name: /^Delete Cherbourg/ }));
+    await userEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Delete briefing' }));
+    await waitFor(() => expect(screen.queryByTestId('storage-not-kept')).toBeNull());
+    expect(persisted).toHaveBeenCalledTimes(2);
+  });
+});

@@ -169,14 +169,60 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   forecast tile cache together (so it is not the size of the saved checks) and
   is coarse in Safari; the size is always shown, the share of the quota is
   added from 50 % and a caution to delete checks from 80 %, it is read on
-  mount and after a delete only, and Passage makes no request for persistent
-  storage. Seen once on the live site the same day (deployed build `60a942d`,
+  mount and after a delete only (that page does not ask for persistent
+  storage itself; the request is made after a saved check, see "Browser
+  deletion of saved checks" below). Seen once on the live site the same day (deployed build `60a942d`,
   a Chromium-based browser, read-only): with eight saved checks the line read
   "Passage uses about 29 MB of this browser's storage, counting saved checks
   and downloaded forecasts." at level `ok` (the browser's estimate was
   29.2 MB of a 252 GB quota), last on the page, fitting a 375 px width, with
   no console error. The French text and the 50 % and 80 % states were not
   seen live.
+- Browser deletion of saved checks (2026-11-15): a check is saved only in this
+  browser (IndexedDB) and Passage keeps no other copy. A study (2026-11-15)
+  found four ways saved checks are lost, from the sources below: (1) every
+  browser may delete a whole site's stored data when the device is short of
+  space, least recently used sites first; (2) Safari, and probably every
+  browser on iPhone and iPad, also deletes it after a number of days of
+  browser use without interaction with the site; (3) everything saved in a
+  private window is deleted when private browsing ends; (4) the sailor
+  clearing the site's data or the browser's history and website data. None
+  of this was measured on a device.
+  `navigator.storage.persist()` protects only against the first cause (low
+  space), never against the second, and a user can always clear the data
+  themselves. Chrome grants it silently when it judges the site
+  important, Firefox shows its own question, and in a Safari tab the answer is
+  always no by WebKit's code (a code reading, not verified on a device). So
+  Passage now asks once, after a check has been saved in this browser
+  (`requestPersistence` in `viewer/src/lib/storagePersistence.js`, called from
+  `analyzeInBrowser` in `viewer/src/lib/browserAnalysis.js`), fire-and-forget:
+  never at page load, never after a failed save, never for a check the dev
+  middleware wrote to disk, never awaited by the save or by opening the
+  briefing, and a failing or never-answering request breaks nothing. It does
+  nothing when `persist()` is missing or `persisted()` is already true,
+  otherwise asks at most once every 30 days per browser (the time is kept in
+  `localStorage` under `deepweather.persist-asked-at`, written before the ask;
+  with `localStorage` blocked it asks this time and remembers nothing). It
+  shows no text of its own (Firefox shows its question) and sends no
+  analytics event. My passages says plainly, in a note under the storage line,
+  when this browser holds a saved check and `persisted()` is false or cannot
+  be read: "This browser can delete saved checks on its own, for example when
+  the device is short of space or after a while without using Passage.
+  Passage keeps no other copy." It does not depend on the storage estimate.
+  The privacy page no longer says the data stays on the device until the
+  sailor deletes it: it says the browser may also remove it on its own.
+  Whether Safari's idle limit is 7 days (Apple's texts) or 30 days (WebKit's
+  public code since about Safari 18) is unconfirmed: which ships is not known.
+  A web app added to the Home Screen on iPhone has storage separate from
+  Safari's, so a check saved in Safari is not in it. Exporting and importing a
+  check does not exist yet and is the only protection that works in every
+  browser. Nothing was measured on an iPhone, and nothing here was seen live.
+  Sources: <https://webkit.org/blog/10218/full-third-party-cookie-blocking-and-more/>
+  (24 Mar 2020), <https://webkit.org/tracking-prevention/>,
+  <https://webkit.org/blog/14403/updates-to-storage-policy/> (10 Aug 2023),
+  <https://developer.mozilla.org/en-US/docs/Web/API/Storage_API/Storage_quotas_and_eviction_criteria>,
+  <https://web.dev/articles/persistent-storage>,
+  <https://bugs.webkit.org/show_bug.cgi?id=271401>.
 - Reopening after a reload (2026-11-15): a check saved in this browser that
   is open on the passage page (just made by Check, or opened from My
   passages) is reopened when the page is reloaded or the browser restores the
