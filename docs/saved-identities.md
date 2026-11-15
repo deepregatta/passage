@@ -216,7 +216,14 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   A web app added to the Home Screen on iPhone has storage separate from
   Safari's, so a check saved in Safari is not in it. Exporting and importing a
   check does not exist yet and is the only protection that works in every
-  browser. Nothing was measured on an iPhone, and nothing here was seen live.
+  browser. Nothing was measured on an iPhone. Seen once on the live site the
+  same day (deployed build `39622aa`, a Chromium-based browser, read-only):
+  My passages showed the note under the storage line, in the same small-note
+  colour, with eight saved checks and `persisted()` false; the privacy page
+  carried the new sentence and "Last updated: 15 November 2026" in English
+  and in French, without the old sentence; no console error. The request to
+  the browser was not seen live: it is made only after a check is saved, and
+  no Check was run for this look.
   Sources: <https://webkit.org/blog/10218/full-third-party-cookie-blocking-and-more/>
   (24 Mar 2020), <https://webkit.org/tracking-prevention/>,
   <https://webkit.org/blog/14403/updates-to-storage-policy/> (10 Aug 2023),
