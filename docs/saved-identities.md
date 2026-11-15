@@ -467,6 +467,42 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   horizontal overflow and no console error. Not tested live: an import that
   stores a check (it needs a browser without the check), a refusal, Safari,
   Firefox, a phone.
+- Check file, version 2 (format; not yet offered in the app; 2026-11-15):
+  one file meant to hold all of a sailor's checks, read and stored one check
+  at a time. Nothing in the app writes or reads it yet: "Save a copy to a
+  file" still writes version 1 and "Import a check" still reads only version
+  1 (to which a version-2 file is "not a check file"). The format and its
+  pure functions live in `engine/src/checkFile.ts`. The file,
+  `passage-all-checks-<UTC date YYYY-MM-DD>-<HHMM>Z.json.gz`
+  (`allChecksFileName`, the UTC minute it is made), is JSON lines inside one
+  gzip member, each line compact JSON (`JSON.stringify` never writes a raw
+  newline) ended by `\n`: first the header
+  `{"format":"passage-checks","format_version":2,"exported_at":<ISO UTC>,"exported_by":<1 to 200 characters>}`
+  (`checkFileHeaderLine`); then one line per check,
+  `{"snapshot_id":…,"files":{…},"files_digest":<16 hex>}`
+  (`checkFileEntryLine`), whose `snapshot_id` and `files` are exactly a
+  version-1 entry; last the trailer `{"end":"passage-checks","checks":<N>}`
+  (`checkFileTrailerLine`), followed by nothing but its own newline. Each
+  line has exactly those keys in that order; the readers
+  (`parseCheckFileHeader`, `parseCheckFileEntryLine`,
+  `parseCheckFileTrailer`) also refuse anything around the object (a space,
+  a carriage return) and, for the header and trailer, any text other than
+  what the writer writes. `files_digest` (`checkFilesDigest`) is FNV-1a 64,
+  the engine's hash primitive, over each file present in `CHECK_FILE_NAMES`
+  order as its name, a newline, its length in UTF-16 code units, a newline
+  and its text, so no two file sets give the same input. It catches
+  accidental damage to one check before anything is stored and is not a
+  security measure: anyone can recompute it, and a check is proven, as in
+  version 1, by `parseCheckEntry` (the same options: contracts, the time
+  bound). Caps: at most 1 GiB compressed, 64 MiB per line, 4 KiB for the
+  header and for the trailer, 1,000 checks and 8 GiB inflated in all
+  (`CHECK_FILE_V2_MAX_*`); version 1 keeps its own (16 MB, 64 MB). Problems
+  are told apart for later reporting and never quote content or key names:
+  not a check file; newer (a header of format version 3 or above); a damaged
+  line, with its reason (not a check line, a bad digest, or the version-1
+  proof's own "damaged" or "future-time"); a wrong trailer (another count,
+  other keys); more than 1,000 checks. Reading the gzip stream, the import of
+  many checks and the export of all of them are not built yet.
 - Modern histories group only by explicit passage ID and persistence source.
   Legacy checks without explicit identity remain individually accessible and
   deletable. No inferred grouping from route names/counts/departure is permitted.

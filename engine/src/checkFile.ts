@@ -13,7 +13,7 @@
  * document here, and the import will read the same constants.
  */
 import { parseUtc, toIso } from './eta.js';
-import { canonicalJson, contentHash, fnv1a64Hex } from './hash.js';
+import { canonicalJson, contentHash, fnv1a64Hex, fnv1a64HexParts } from './hash.js';
 import { routeRevision } from './identity.js';
 import { SNAPSHOT_ARTIFACT_FILES, SNAPSHOT_MANIFEST_KEYS } from './snapshot.js';
 import type { Route } from './types.js';
@@ -83,6 +83,18 @@ export function buildCheckFile({ snapshotId, files, exportedAt, exportedBy }: Ch
   if (typeof exportedBy !== 'string' || !exportedBy.trim()) throw new Error('A check file names the version that made it.');
   const at = Date.parse(exportedAt);
   if (typeof exportedAt !== 'string' || !Number.isFinite(at)) throw new Error('A check file needs the time it was made.');
+  const ordered = orderedCheckFiles(files);
+  return {
+    format: CHECK_FILE_FORMAT,
+    format_version: CHECK_FILE_VERSION,
+    exported_at: new Date(at).toISOString(),
+    exported_by: exportedBy,
+    checks: [{ snapshot_id: snapshotId, files: ordered }],
+  };
+}
+
+/** A check's files in CHECK_FILE_NAMES order; throws on a name outside it, a file that is not text or a missing required file. */
+function orderedCheckFiles(files: Record<string, string>): Partial<Record<CheckFileName, string>> {
   if (!files || typeof files !== 'object') throw new Error('A check file needs the check\'s files.');
   for (const name of Object.keys(files)) {
     if (!(CHECK_FILE_NAMES as readonly string[]).includes(name)) throw new Error(`${name} is not a file of a check.`);
@@ -93,13 +105,7 @@ export function buildCheckFile({ snapshotId, files, exportedAt, exportedBy }: Ch
   }
   const ordered: Partial<Record<CheckFileName, string>> = {};
   for (const name of CHECK_FILE_NAMES) if (Object.hasOwn(files, name)) ordered[name] = files[name];
-  return {
-    format: CHECK_FILE_FORMAT,
-    format_version: CHECK_FILE_VERSION,
-    exported_at: new Date(at).toISOString(),
-    exported_by: exportedBy,
-    checks: [{ snapshot_id: snapshotId, files: ordered }],
-  };
+  return ordered;
 }
 
 /** The document's text: compact JSON in the document's own key order. */
@@ -266,7 +272,7 @@ export function jsonKeyProblem(text: string, { maxDepth = CHECK_FILE_MAX_DEPTH, 
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value);
-const fail = <P extends CheckFileProblem>(problem: P, detail: string) => ({ ok: false as const, problem, detail });
+const fail = <P extends CheckFileProblem | CheckFileV2Problem>(problem: P, detail: string) => ({ ok: false as const, problem, detail });
 const DOCUMENT_KEYS = ['format', 'format_version', 'exported_at', 'exported_by', 'checks'];
 const sameInstant = (a: unknown, b: unknown) => typeof a === 'string' && typeof b === 'string' && Date.parse(a) === Date.parse(b) && Number.isFinite(Date.parse(a));
 
@@ -503,4 +509,214 @@ function identityProblem(
   const plume = parsed['plume.json'];
   if (plume && plume.snapshot_id !== id) return 'a plume for another check';
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// The check file, version 2 (2026-11-15; a format only: nothing in the app
+// writes or reads it yet). One file holding all of a sailor's checks, read and
+// stored one check at a time: JSON lines inside one gzip member, each line
+// compact JSON (JSON.stringify never writes a raw newline) ended by "\n":
+//   1. the header  {"format":"passage-checks","format_version":2,"exported_at":…,"exported_by":…}
+//   2. one line per check  {"snapshot_id":…,"files":{…},"files_digest":<16 hex>}
+//      (`snapshot_id` and `files` exactly as a version-1 entry)
+//   3. the trailer  {"end":"passage-checks","checks":<N>}, then nothing but
+//      that line's own newline.
+// Each line is parsed alone, so a reader never holds more than one line. The
+// viewer reads the gzip stream and enforces the byte caps below while bytes
+// buffer (viewer/src/lib/checkFileLines.js); these functions are pure.
+
+export const CHECK_FILE_V2_VERSION = 2;
+/** A version-2 file's caps: compressed, each line in UTF-8, the header and trailer each, checks, and all lines inflated. */
+export const CHECK_FILE_V2_MAX_COMPRESSED_BYTES = 1024 ** 3;
+export const CHECK_FILE_V2_MAX_LINE_BYTES = 64 * 1024 ** 2;
+export const CHECK_FILE_V2_MAX_EDGE_BYTES = 4 * 1024;
+export const CHECK_FILE_V2_MAX_CHECKS = 1000;
+export const CHECK_FILE_V2_MAX_INFLATED_BYTES = 8 * 1024 ** 3;
+/** How every trailer line starts (the writer's key order), so a reader knows the trailer before it is whole. */
+export const CHECK_FILE_V2_TRAILER_PREFIX = '{"end":';
+
+/** The longest `exported_by` a check file may carry (version 1's import bound, which version 2 shares). */
+const MAX_EXPORTED_BY = 200;
+const HEADER_KEYS = ['format', 'format_version', 'exported_at', 'exported_by'];
+const ENTRY_KEYS = ['snapshot_id', 'files', 'files_digest'];
+const TRAILER_KEYS = ['end', 'checks'];
+const DIGEST = /^[0-9a-f]{16}$/;
+const sameKeys = (value: Record<string, unknown>, keys: readonly string[]) => {
+  const own = Object.keys(value);
+  return own.length === keys.length && own.every((key, i) => key === keys[i]);
+};
+
+/**
+ * The digest of a check's files, for a version-2 line: FNV-1a 64 (the engine's
+ * hash primitive, over UTF-16 code units, as contentHash) of each file present,
+ * in CHECK_FILE_NAMES order, as its name, "\n", its length in code units in
+ * decimal, "\n" and its text. Names come from a fixed list without newlines and
+ * each text is length-prefixed, so two different file sets never give the same
+ * input. It catches accidental damage to one check before anything is stored;
+ * it is NOT a security measure (anyone can recompute it: the check's own proof
+ * is parseCheckEntry's). Null when `files` is not an object of check file
+ * names to texts, which no digest can cover.
+ */
+export function checkFilesDigest(files: unknown): string | null {
+  if (!isRecord(files)) return null;
+  const parts: string[] = [];
+  for (const name of Object.keys(files)) if (!(CHECK_FILE_NAMES as readonly string[]).includes(name)) return null;
+  for (const name of CHECK_FILE_NAMES) {
+    if (!Object.hasOwn(files, name)) continue;
+    const text = files[name];
+    if (typeof text !== 'string') return null;
+    parts.push(`${name}\n${text.length}\n`, text);
+  }
+  return fnv1a64HexParts(parts);
+}
+
+/** The header line of a version-2 file, its newline included. Throws on a bad clock or no exporting version. */
+export function checkFileHeaderLine({ exportedAt, exportedBy }: { exportedAt: string; exportedBy: string }): string {
+  const at = Date.parse(exportedAt);
+  if (typeof exportedAt !== 'string' || !Number.isFinite(at)) throw new Error('A check file needs the time it was made.');
+  if (typeof exportedBy !== 'string' || !exportedBy.trim() || exportedBy.length > MAX_EXPORTED_BY) throw new Error('A check file names the version that made it.');
+  return `${JSON.stringify({ format: CHECK_FILE_FORMAT, format_version: CHECK_FILE_V2_VERSION, exported_at: new Date(at).toISOString(), exported_by: exportedBy })}\n`;
+}
+
+/**
+ * The line of one check in a version-2 file, its newline included: the
+ * version-1 entry (files in CHECK_FILE_NAMES order, texts exactly as given)
+ * and its files_digest. Throws as buildCheckFile does. The caller holds the
+ * line to CHECK_FILE_V2_MAX_LINE_BYTES.
+ */
+export function checkFileEntryLine({ snapshotId, files }: { snapshotId: string; files: Record<string, string> }): string {
+  if (checkHex(snapshotId) === null) throw new Error('Only a v2 check can be written to a check file.');
+  const ordered = orderedCheckFiles(files);
+  return `${JSON.stringify({ snapshot_id: snapshotId, files: ordered, files_digest: checkFilesDigest(ordered) })}\n`;
+}
+
+/** The trailer line of a version-2 file holding `checks` checks, its newline included. */
+export function checkFileTrailerLine(checks: number): string {
+  if (!Number.isSafeInteger(checks) || checks < 0 || checks > CHECK_FILE_V2_MAX_CHECKS) throw new Error('A check file holds 0 to 1,000 checks.');
+  return `${JSON.stringify({ end: CHECK_FILE_FORMAT, checks })}\n`;
+}
+
+/** `passage-all-checks-<UTC date YYYY-MM-DD>-<HHMM>Z.json.gz`, from when the file is made. */
+export function allChecksFileName(exportedAt: string): string {
+  const at = Date.parse(exportedAt);
+  if (typeof exportedAt !== 'string' || !Number.isFinite(at)) throw new Error('A check file needs the time it was made.');
+  const iso = new Date(at).toISOString();
+  return `passage-all-checks-${iso.slice(0, 10)}-${iso.slice(11, 13)}${iso.slice(14, 16)}Z.json.gz`;
+}
+
+/** Why a version-2 file, or one of its lines, was refused; the viewer says each in plain words. */
+export type CheckFileV2Problem =
+  | 'not-check-file' // the header is not a version-2 header (the caller may read the file as version 1)
+  | 'newer-version' // a header of a format version above 2
+  | 'damaged-line' // one check's line (see DamagedLineReason)
+  | 'trailer' // a trailer that is not one, or counts other than the checks read
+  | 'check-count'; // more than CHECK_FILE_V2_MAX_CHECKS checks
+
+/**
+ * Why one check's line was refused: 'line', not a check line (not one compact
+ * JSON object, other keys, the key policy, a bad digest field); 'digest', its
+ * files do not give its files_digest; or the version-1 proof's own reason for
+ * the check ('damaged', 'future-time').
+ */
+export type DamagedLineReason = 'line' | 'digest' | CheckEntryProblem;
+
+export interface CheckFileHeader {
+  exportedAt: string;
+  exportedBy: string;
+}
+
+export type CheckFileHeaderParse =
+  | { ok: true; header: CheckFileHeader }
+  | { ok: false; problem: Extract<CheckFileV2Problem, 'not-check-file' | 'newer-version'>; detail: string };
+
+export type CheckFileLineParse =
+  | { ok: true; check: ParsedCheckEntry }
+  | { ok: false; problem: 'damaged-line'; reason: DamagedLineReason; detail: string };
+
+export type CheckFileTrailerParse =
+  | { ok: true; checks: number }
+  | { ok: false; problem: Extract<CheckFileV2Problem, 'trailer' | 'check-count'>; detail: string };
+
+/** A line's JSON object, or why not: the key policy, JSON, an object. The reason never quotes the line. */
+function lineObject(line: unknown, maxLength: number): Record<string, unknown> | string {
+  if (typeof line !== 'string') return 'not text';
+  if (line.length > maxLength) return 'longer than allowed';
+  // no space, carriage return or other text around the object: the writer never writes any
+  if (line.charCodeAt(0) !== 0x7b || line.charCodeAt(line.length - 1) !== 0x7d) return 'not one compact JSON object';
+  const keys = jsonKeyProblem(line);
+  if (keys) return `a line with ${keys}`;
+  let value: unknown;
+  try {
+    value = JSON.parse(line);
+  } catch {
+    return 'not JSON';
+  }
+  return isRecord(value) ? value : 'not one compact JSON object';
+}
+
+/**
+ * Read a version-2 file's first line (without its newline) as its header, or
+ * say why not. 'newer-version' for a passage-checks header of a format version
+ * above 2; 'not-check-file' for anything else that is not exactly the header
+ * checkFileHeaderLine writes (keys, their order, compact JSON, exported_at as
+ * ISO UTC, exported_by of 1 to 200 characters). A first line of version 1 is
+ * 'not-check-file' here: a version-1 document is one line, read whole by
+ * parseCheckFile.
+ */
+export function parseCheckFileHeader(line: string): CheckFileHeaderParse {
+  const header = lineObject(line, CHECK_FILE_V2_MAX_EDGE_BYTES);
+  if (typeof header === 'string') return fail('not-check-file', header);
+  if (header.format !== CHECK_FILE_FORMAT) return fail('not-check-file', 'not the passage-checks format');
+  const version = header.format_version;
+  if (typeof version === 'number' && Number.isInteger(version) && version > CHECK_FILE_V2_VERSION) return fail('newer-version', `format version ${version}`);
+  if (version !== CHECK_FILE_V2_VERSION) return fail('not-check-file', 'not format version 2');
+  if (!sameKeys(header, HEADER_KEYS)) return fail('not-check-file', 'not the fields of a header');
+  const { exported_at: exportedAt, exported_by: exportedBy } = header;
+  const at = typeof exportedAt === 'string' ? Date.parse(exportedAt) : NaN;
+  if (!Number.isFinite(at) || new Date(at).toISOString() !== exportedAt) return fail('not-check-file', 'no export time');
+  if (typeof exportedBy !== 'string' || !exportedBy.trim() || exportedBy.length > MAX_EXPORTED_BY) return fail('not-check-file', 'no exporting version');
+  if (`${line}\n` !== checkFileHeaderLine({ exportedAt, exportedBy })) return fail('not-check-file', 'not one compact JSON object');
+  return { ok: true, header: { exportedAt, exportedBy } };
+}
+
+/**
+ * Read one check's line of a version-2 file (without its newline), or say why
+ * not: a check line with exactly snapshot_id, files and files_digest in that
+ * order; then its files_digest; then the version-1 proof of the check
+ * (parseCheckEntry, with the same options: validateFile, nowMs, boundTime).
+ * The caller holds the line to CHECK_FILE_V2_MAX_LINE_BYTES before it gets here.
+ */
+export function parseCheckFileEntryLine(line: string, options: ParseCheckFileOptions = {}): CheckFileLineParse {
+  const damagedLine = (reason: DamagedLineReason, detail: string) => ({ ok: false as const, problem: 'damaged-line' as const, reason, detail });
+  const value = lineObject(line, Infinity);
+  if (typeof value === 'string') return damagedLine('line', value);
+  if (!sameKeys(value, ENTRY_KEYS)) return damagedLine('line', 'not the fields of a check line');
+  if (typeof value.files_digest !== 'string' || !DIGEST.test(value.files_digest)) return damagedLine('line', 'no files digest');
+  const entry = { snapshot_id: value.snapshot_id, files: value.files };
+  const digest = checkFilesDigest(value.files);
+  // files no digest can cover are refused by the proof, with its own reason
+  if (digest !== null && digest !== value.files_digest) return damagedLine('digest', 'files that do not give their digest');
+  const proven = parseCheckEntry(entry, options);
+  if (!proven.ok) return damagedLine(proven.problem, proven.detail);
+  if (digest === null) return damagedLine('digest', 'files that do not give their digest');
+  return proven;
+}
+
+/**
+ * Read a version-2 file's last line (without its final newline) as its
+ * trailer, after `checksRead` check lines: exactly {"end":"passage-checks",
+ * "checks":N} as checkFileTrailerLine writes it, with N no more than
+ * CHECK_FILE_V2_MAX_CHECKS ('check-count') and equal to `checksRead`
+ * ('trailer' otherwise, as for anything that is not that trailer).
+ */
+export function parseCheckFileTrailer(line: string, checksRead: number): CheckFileTrailerParse {
+  const trailer = lineObject(line, CHECK_FILE_V2_MAX_EDGE_BYTES);
+  if (typeof trailer === 'string') return fail('trailer', trailer);
+  if (!sameKeys(trailer, TRAILER_KEYS) || trailer.end !== CHECK_FILE_FORMAT) return fail('trailer', 'not the fields of a trailer');
+  const { checks } = trailer;
+  if (!Number.isSafeInteger(checks) || (checks as number) < 0) return fail('trailer', 'no number of checks');
+  if ((checks as number) > CHECK_FILE_V2_MAX_CHECKS) return fail('check-count', 'more checks than a check file may hold');
+  if (`${line}\n` !== checkFileTrailerLine(checks as number)) return fail('trailer', 'not one compact JSON object');
+  if (checks !== checksRead) return fail('trailer', 'a number of checks other than the checks read');
+  return { ok: true, checks: checks as number };
 }

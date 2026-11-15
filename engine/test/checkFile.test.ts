@@ -1,7 +1,11 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import {
+  CHECK_FILE_V2_MAX_CHECKS, CHECK_FILE_V2_MAX_COMPRESSED_BYTES, CHECK_FILE_V2_MAX_EDGE_BYTES, CHECK_FILE_V2_MAX_INFLATED_BYTES, CHECK_FILE_V2_MAX_LINE_BYTES,
+  CHECK_FILE_V2_TRAILER_PREFIX, CHECK_FILE_V2_VERSION, CHECK_FILE_MAX_COMPRESSED_BYTES, CHECK_FILE_MAX_TEXT_BYTES, ScenarioBundleStore,
+  allChecksFileName, checkFileEntryLine, checkFileHeaderLine, checkFileTrailerLine, checkFilesDigest, parseCheckFileEntryLine, parseCheckFileHeader,
+  parseCheckFileTrailer, persistSnapshot, runAnalysis,
   CHECK_FILE_FORMAT, CHECK_FILE_NAMES, CHECK_FILE_REQUIRED, CHECK_FILE_VERSION, buildCheckFile, checkFileName, checkFileText, checkHex, contentHash,
   canonicalJson, jsonKeyProblem, parseCheckEntry, parseCheckFile, SNAPSHOT_ARTIFACT_FILES, SNAPSHOT_MANIFEST_KEYS, CHECK_FILE_MAX_SEQUENCE,
 } from '../src/index.js';
@@ -318,5 +322,256 @@ describe('the manifest writeSnapshot writes', () => {
       expect(Object.keys(manifest).every((key) => (SNAPSHOT_MANIFEST_KEYS as readonly string[]).includes(key))).toBe(true);
       for (const [key, file] of Object.entries(manifest.artifacts)) expect(SNAPSHOT_ARTIFACT_FILES[key as keyof typeof SNAPSHOT_ARTIFACT_FILES]).toBe(file);
     }
+  });
+});
+
+// The check file, version 2: JSON lines in one gzip member (the gzip and the byte caps
+// are the viewer's). Each line is read alone; hostile lines are refused with a reason
+// that says which kind of damage, never what the line holds.
+describe('check file, version 2', () => {
+  const earlierDir = resolve(import.meta.dirname, '../../viewer/test/fixtures/demo/snapshots/snapshot_v2_8ca29e5bd5a065f3');
+  const earlier = () => ({
+    snapshotId: 'snapshot_v2_8ca29e5bd5a065f3',
+    files: Object.fromEntries(readdirSync(earlierDir)
+      .filter((name) => (CHECK_FILE_NAMES as readonly string[]).includes(name))
+      .map((name) => [name, readFileSync(join(earlierDir, name), 'utf8')])) as Record<string, string>,
+  });
+  // a check the engine makes now, saved by persistSnapshot into memory, as the viewer's test helper does
+  let made: { snapshotId: string; files: Record<string, string> };
+  beforeAll(async () => {
+    const read = (path: string) => JSON.parse(readFileSync(resolve(import.meta.dirname, path), 'utf8'));
+    const route = { ...read('../../config/routes/newport-newyork.json'), passage_id: 'passage-lines-test', name: 'Île d’Yeu → Brest 🌊 <b>bold</b>' };
+    const store = new ScenarioBundleStore({ loadBundle: async (bundle: string) => read(`fixtures/scenarios/calm/${bundle}.json`) });
+    const nowMs = Date.parse('2026-07-19T18:00:00Z');
+    const result = await runAnalysis({ route, profile: read('../../config/profiles/default-limits.json'), departureUtc: '2026-07-20T06:00:00Z', store, now: () => nowMs });
+    const files: Record<string, string> = {};
+    const memory = {
+      exists: async () => false,
+      read: async (_id: string, name: string) => files[name] ?? null,
+      list: async () => [],
+      write: async (_id: string, name: string, content: string) => { files[name] = content; },
+    };
+    made = { snapshotId: await persistSnapshot(memory, result, route, nowMs), files };
+  });
+  const header = { exportedAt, exportedBy };
+  const lineOf = (check = earlier()) => checkFileEntryLine(check).slice(0, -1);
+  const entryOf = (line: string) => JSON.parse(line) as J;
+  const rewritten = (change: (entry: J) => void, check = earlier()) => {
+    const entry = entryOf(lineOf(check));
+    change(entry);
+    return JSON.stringify(entry);
+  };
+  const lineRefused = (line: string, reason: string, options: Parameters<typeof parseCheckFileEntryLine>[1] = { nowMs: NOW_MS }) => {
+    const result = parseCheckFileEntryLine(line, options);
+    expect(result, JSON.stringify(result).slice(0, 300)).toMatchObject({ ok: false, problem: 'damaged-line', reason });
+    return result;
+  };
+
+  it('writes header, one line per check and trailer, each compact JSON ended by one newline, and reads every line back', () => {
+    const checks = [earlier(), made];
+    const text = checkFileHeaderLine(header) + checks.map((check) => checkFileEntryLine(check)).join('') + checkFileTrailerLine(checks.length);
+    expect(text.endsWith('}\n')).toBe(true);
+    const lines = text.split('\n');
+    expect(lines.pop()).toBe('');
+    expect(lines).toHaveLength(4);
+    expect(Object.keys(JSON.parse(lines[0]!))).toEqual(['format', 'format_version', 'exported_at', 'exported_by']);
+    expect(parseCheckFileHeader(lines[0]!)).toEqual({ ok: true, header });
+    lines.slice(1, -1).forEach((line, i) => {
+      const check = checks[i]!;
+      expect(Object.keys(JSON.parse(line))).toEqual(['snapshot_id', 'files', 'files_digest']);
+      const result = parseCheckFileEntryLine(line, { nowMs: NOW_MS, boundTime: true });
+      expect(result.ok, JSON.stringify(result).slice(0, 300)).toBe(true);
+      if (!result.ok) return;
+      // the version-1 proof of the same entry, and the texts exactly as given
+      const { files_digest: digest, ...entry } = JSON.parse(line);
+      expect(digest).toBe(checkFilesDigest(check.files));
+      expect(result.check).toEqual((parseCheckEntry(entry, { nowMs: NOW_MS }) as { check: unknown }).check);
+      expect(result.check.snapshotId).toBe(check.snapshotId);
+      for (const [name, fileText] of Object.entries(check.files)) expect(result.check.files[name as keyof typeof result.check.files]).toBe(fileText);
+      expect(Object.keys(result.check.files)).toEqual(CHECK_FILE_NAMES.filter((name) => name in check.files));
+      // the entry is exactly a version-1 entry
+      expect(JSON.parse(checkFileText(buildCheckFile({ ...check, ...header }))).checks[0]).toEqual(entry);
+    });
+    expect(lines[3]!.startsWith(CHECK_FILE_V2_TRAILER_PREFIX)).toBe(true);
+    expect(parseCheckFileTrailer(lines[3]!, 2)).toEqual({ ok: true, checks: 2 });
+  });
+
+  it('gives the same text whatever order the files and clock arrive in', () => {
+    const { snapshotId, files } = made;
+    const reversed = Object.fromEntries(Object.entries(files).reverse());
+    expect(checkFileEntryLine({ snapshotId, files: reversed })).toBe(checkFileEntryLine({ snapshotId, files }));
+    expect(checkFileHeaderLine({ exportedAt: '2026-11-15T13:00:00+01:00', exportedBy })).toBe(checkFileHeaderLine(header));
+    expect(checkFileHeaderLine(header)).toBe(`{"format":"passage-checks","format_version":2,"exported_at":"${exportedAt}","exported_by":"${exportedBy}"}\n`);
+    expect(checkFileTrailerLine(0)).toBe('{"end":"passage-checks","checks":0}\n');
+  });
+
+  it('digests the files by name and length-prefixed text, so no two file sets give the same input', () => {
+    const base = { 'findings.json': 'ab', 'briefing.json': 'c' };
+    const digest = checkFilesDigest(base)!;
+    expect(digest).toMatch(/^[0-9a-f]{16}$/);
+    expect(checkFilesDigest({ 'briefing.json': 'c', 'findings.json': 'ab' })).toBe(digest);
+    for (const other of [
+      { 'findings.json': 'a', 'briefing.json': 'bc' },
+      { 'findings.json': 'abc' },
+      { 'findings.json': 'ab', 'briefing.json': 'c', 'plume.json': '' },
+      { 'findings.json': 'ab', 'route.json': 'c' },
+      { 'findings.json': 'ab', 'briefing.json': 'd' },
+      { 'findings.json': 'findings.json\n2\nab', 'briefing.json': 'c' },
+    ]) expect(checkFilesDigest(other)).not.toBe(digest);
+    expect(checkFilesDigest({ 'notes.json': '{}' })).toBeNull();
+    expect(checkFilesDigest({ 'plume.json': { a: 1 } })).toBeNull();
+    expect(checkFilesDigest('files')).toBeNull();
+  });
+
+  it.each([
+    ['an extra key', (e: J) => { e.note = 'x'; }],
+    ['no files_digest', (e: J) => { delete e.files_digest; }],
+    ['no snapshot_id', (e: J) => { delete e.snapshot_id; }],
+    ['its keys in another order', (e: J) => { const { snapshot_id: s, ...rest } = e; for (const key of Object.keys(e)) delete e[key]; Object.assign(e, rest, { snapshot_id: s }); }],
+    ['a digest in capitals', (e: J) => { e.files_digest = e.files_digest.toUpperCase(); }],
+    ['a digest that is a number', (e: J) => { e.files_digest = 12; }],
+  ])('refuses a line with %s as not a check line', (_case, change) => { lineRefused(rewritten(change), 'line'); });
+
+  it.each([
+    ['a version-1 document', () => checkFileText(buildCheckFile({ ...earlier(), ...header }))],
+    ['a header', () => checkFileHeaderLine(header).slice(0, -1)],
+    ['a carriage return before the newline', () => `${lineOf()}\r`],
+    ['a space before it', () => ` ${lineOf()}`],
+    ['not JSON', () => '{"snapshot_id":'],
+    ['a JSON array that ends like an object', () => '[{}]'],
+    ['the key __proto__', () => lineOf().replace('{', '{"__proto__":{"polluted":true},')],
+    ['a repeated key', () => lineOf().replace('{', '{"files_digest":"0123456789abcdef",')],
+    ['nesting deeper than 64 levels', () => rewritten((e) => { e.files = JSON.parse(`${'{"a":'.repeat(70)}1${'}'.repeat(70)}`); })],
+  ])('refuses %s as not a check line', (_case, make) => {
+    lineRefused(make(), 'line');
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+  });
+
+  it('refuses a line whose files do not give their digest, before proving the check', () => {
+    // a digest one hex off; then one file changed by one character, the digest kept
+    lineRefused(rewritten((e) => { e.files_digest = `${e.files_digest.slice(0, -1)}${e.files_digest.endsWith('0') ? '1' : '0'}`; }), 'digest');
+    const changed = lineRefused(rewritten((e) => { e.files['briefing.json'] = e.files['briefing.json'].replace('"', ' "'); }), 'digest');
+    expect(changed.ok || changed.detail).toBe('files that do not give their digest');
+    // a file dropped from the line, the digest kept
+    lineRefused(rewritten((e) => { delete e.files['plume.json']; }), 'digest');
+  });
+
+  it('keeps the version-1 proof\'s reason for a line whose digest holds', () => {
+    const redigested = (change: (files: J) => void) => rewritten((e) => { change(e.files); e.files_digest = checkFilesDigest(e.files); });
+    const manifest = (change: (m: J) => J) => redigested((files) => { files['snapshot.json'] = JSON.stringify(change(JSON.parse(files['snapshot.json'])), null, 2); });
+    lineRefused(manifest((m) => ({ ...m, verdict_state: 'within' })), 'damaged');
+    lineRefused(redigested((files) => { files['plume.json'] = files['plume.json'].replace('{', '{"model": "x", "\\u006dodel": "y",'); }), 'damaged');
+    lineRefused(redigested((files) => { files['decision-inputs.json'] = files['decision-inputs.json'].replace('{', '{"extra":1,'); }), 'damaged');
+    lineRefused(manifest((m) => ({ ...m, created_at: '2099-01-01T00:00:00.000Z' })), 'future-time', { nowMs: NOW_MS, boundTime: true });
+    // without the bound (an export) the same line is a check
+    expect(parseCheckFileEntryLine(manifest((m) => ({ ...m, created_at: '2099-01-01T00:00:00.000Z' })), { nowMs: NOW_MS }).ok).toBe(true);
+    // the contract callback runs as in version 1
+    expect(parseCheckFileEntryLine(lineOf(), { nowMs: NOW_MS, validateFile: (name) => name !== 'plume.json' }))
+      .toMatchObject({ ok: false, problem: 'damaged-line', reason: 'damaged', detail: 'plume.json does not match its contract' });
+    // files no digest can cover: the proof says why
+    lineRefused(rewritten((e) => { e.files['imported.json'] = '{}'; }), 'damaged');
+    lineRefused(rewritten((e) => { e.files['plume.json'] = { a: 1 }; }), 'damaged');
+    lineRefused(rewritten((e) => { e.files = 'files'; }), 'damaged');
+  });
+
+  it('never quotes a key or other content in its reasons', () => {
+    const lines = [
+      lineOf().replace('{', '{"secret-key-name":1,"secret-key-name":2,'),
+      rewritten((e) => { e['secret-key-name'] = 1; }),
+      rewritten((e) => { e.files['plume.json'] = e.files['plume.json'].replace('{', '{"secret-key-name": 1, "secret-key-name": 2,'); e.files_digest = checkFilesDigest(e.files); }),
+    ];
+    for (const line of lines) expect(JSON.stringify(parseCheckFileEntryLine(line, { nowMs: NOW_MS }))).not.toContain('secret');
+    expect(JSON.stringify(parseCheckFileHeader('{"format":"passage-checks","secret-key-name":1,"secret-key-name":2}'))).not.toContain('secret');
+    expect(JSON.stringify(parseCheckFileTrailer('{"end":"passage-checks","secret-key-name":1}', 0))).not.toContain('secret');
+  });
+
+  describe('the header', () => {
+    const line = (value: Record<string, unknown>) => JSON.stringify(value);
+    const valid = { format: 'passage-checks', format_version: 2, exported_at: exportedAt, exported_by: exportedBy };
+    it('tells a newer format version apart', () => {
+      expect(parseCheckFileHeader(line({ ...valid, format_version: 3 }))).toMatchObject({ ok: false, problem: 'newer-version' });
+      expect(parseCheckFileHeader(line({ ...valid, format_version: 3, more: true }))).toMatchObject({ ok: false, problem: 'newer-version' });
+    });
+    it.each([
+      ['version 1', line({ ...valid, format_version: 1 })],
+      ['a version-1 document', checkFileText(buildCheckFile({ ...earlier(), ...header }))],
+      ['a version-1 document of version 2', line({ ...valid, checks: [] })],
+      ['a version that is text', line({ ...valid, format_version: '2' })],
+      ['another format', line({ ...valid, format: 'passage-routes' })],
+      ['an extra key', line({ ...valid, note: 'x' })],
+      ['no exporting version', line({ format: 'passage-checks', format_version: 2, exported_at: exportedAt })],
+      ['its keys in another order', line({ format_version: 2, format: 'passage-checks', exported_at: exportedAt, exported_by: exportedBy })],
+      ['a time that is not ISO UTC as written', line({ ...valid, exported_at: '2026-11-15T12:00:00Z' })],
+      ['no time', line({ ...valid, exported_at: 'later' })],
+      ['an exporting version of 201 characters', line({ ...valid, exported_by: 'x'.repeat(201) })],
+      ['a blank exporting version', line({ ...valid, exported_by: '  ' })],
+      ['spaces between its tokens', JSON.stringify(valid, null, 1).replace(/\n/g, '')],
+      ['a carriage return', `${line(valid)}\r`],
+      ['an escape the writer never writes', line(valid).replace('Passage', '\\u0050assage')],
+      ['a repeated key', line(valid).replace('{', '{"format":"passage-checks",')],
+      ['more than 4 KiB', line({ ...valid, exported_by: 'x'.repeat(5000) })],
+      ['not JSON', 'passage-checks'],
+    ])('refuses %s as not a version-2 header', (_case, text) => {
+      expect(parseCheckFileHeader(text)).toMatchObject({ ok: false, problem: 'not-check-file' });
+    });
+    it('reads an exporting version outside Latin-1', () => {
+      const by = 'Passage engine 0.2.0 · Île 🌊';
+      expect(parseCheckFileHeader(checkFileHeaderLine({ exportedAt, exportedBy: by }).slice(0, -1))).toEqual({ ok: true, header: { exportedAt, exportedBy: by } });
+    });
+  });
+
+  describe('the trailer', () => {
+    it.each([
+      ['a count other than the checks read', '{"end":"passage-checks","checks":3}', 2, 'trailer'],
+      ['a missing count', '{"end":"passage-checks"}', 0, 'trailer'],
+      ['a count that is text', '{"end":"passage-checks","checks":"2"}', 2, 'trailer'],
+      ['a negative count', '{"end":"passage-checks","checks":-1}', -1, 'trailer'],
+      ['a fractional count', '{"end":"passage-checks","checks":1.5}', 1.5, 'trailer'],
+      ['another end', '{"end":"passage-routes","checks":2}', 2, 'trailer'],
+      ['an extra key', '{"end":"passage-checks","checks":2,"more":true}', 2, 'trailer'],
+      ['its keys in another order', '{"checks":2,"end":"passage-checks"}', 2, 'trailer'],
+      ['a carriage return', '{"end":"passage-checks","checks":2}\r', 2, 'trailer'],
+      ['a count written 2.0', '{"end":"passage-checks","checks":2.0}', 2, 'trailer'],
+      ['a check line', null, 1, 'trailer'],
+      ['more than 1,000 checks', '{"end":"passage-checks","checks":1001}', 1001, 'check-count'],
+    ])('refuses %s', (_case, text, read, problem) => {
+      expect(parseCheckFileTrailer(text ?? lineOf(), read as number)).toMatchObject({ ok: false, problem });
+    });
+    it('reads 0 and 1,000 checks', () => {
+      expect(parseCheckFileTrailer(checkFileTrailerLine(0).slice(0, -1), 0)).toEqual({ ok: true, checks: 0 });
+      expect(parseCheckFileTrailer(checkFileTrailerLine(1000).slice(0, -1), 1000)).toEqual({ ok: true, checks: 1000 });
+    });
+  });
+
+  it('refuses to write what it would not read', () => {
+    expect(() => checkFileTrailerLine(1001)).toThrow();
+    expect(() => checkFileTrailerLine(-1)).toThrow();
+    expect(() => checkFileTrailerLine(1.5)).toThrow();
+    expect(() => checkFileHeaderLine({ exportedAt, exportedBy: ' ' })).toThrow(/version/);
+    expect(() => checkFileHeaderLine({ exportedAt, exportedBy: 'x'.repeat(201) })).toThrow(/version/);
+    expect(() => checkFileHeaderLine({ exportedAt: 'soon', exportedBy })).toThrow(/time/);
+    expect(() => checkFileEntryLine({ snapshotId: '20260720T060000Z_44d2cd5f_64ea971e', files: earlier().files })).toThrow(/v2 check/);
+    expect(() => checkFileEntryLine({ snapshotId: earlier().snapshotId, files: { ...earlier().files, 'imported.json': '{}' } })).toThrow(/imported\.json/);
+  });
+
+  it('names the file by the UTC date and minute it is made, across midnight', () => {
+    expect(allChecksFileName('2026-11-15T23:59:59.999Z')).toBe('passage-all-checks-2026-11-15-2359Z.json.gz');
+    expect(allChecksFileName('2026-11-16T00:00:00.000Z')).toBe('passage-all-checks-2026-11-16-0000Z.json.gz');
+    expect(allChecksFileName('2026-11-16T00:30:00+01:00')).toBe('passage-all-checks-2026-11-15-2330Z.json.gz');
+    expect(allChecksFileName('2026-11-15T23:45:00-02:00')).toBe('passage-all-checks-2026-11-16-0145Z.json.gz');
+    expect(() => allChecksFileName('tomorrow')).toThrow();
+  });
+
+  it('keeps version 1 as it was and sets the version-2 caps', () => {
+    expect(CHECK_FILE_VERSION).toBe(1);
+    expect(CHECK_FILE_V2_VERSION).toBe(2);
+    expect([CHECK_FILE_MAX_COMPRESSED_BYTES, CHECK_FILE_MAX_TEXT_BYTES]).toEqual([16 * 1024 * 1024, 64 * 1024 * 1024]);
+    expect(CHECK_FILE_V2_MAX_COMPRESSED_BYTES).toBe(2 ** 30);
+    expect(CHECK_FILE_V2_MAX_LINE_BYTES).toBe(64 * 2 ** 20);
+    expect(CHECK_FILE_V2_MAX_EDGE_BYTES).toBe(4096);
+    expect(CHECK_FILE_V2_MAX_CHECKS).toBe(1000);
+    expect(CHECK_FILE_V2_MAX_INFLATED_BYTES).toBe(8 * 2 ** 30);
+    // a version-2 header is not a version-1 document
+    expect(parseCheckFile(checkFileHeaderLine(header), { nowMs: NOW_MS })).toMatchObject({ ok: false, problem: 'newer-version' });
   });
 });

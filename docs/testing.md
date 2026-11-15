@@ -911,7 +911,32 @@ canonical JSON it hashed, and "damaged" and "future-time" for one entry;
 damaged when polar data is also in the check; `viewer/test/polarSafetyNet.test.js`
 finds a given canonical text read in place of its own value's only (an equal
 copy gets its own), the other values' canonical JSON still built, long strings
-still walked and the raw texts still read. `scripts/check-no-polar-data.test.mjs` finds a
+still walked and the raw texts still read. Check file, version 2 (format only):
+`engine/test/checkFile.test.ts` writes a header, the lines of the committed
+earlier demo check and of a check the engine makes now (a name outside
+Latin-1 with markup) and a trailer, each compact JSON ended by one newline, and
+reads each back (the entry proven as `parseCheckEntry` proves it, texts exact,
+exactly a version-1 entry); finds the same text whatever order the files and
+clock arrive in; a digest that tells apart file sets whose texts concatenate
+alike, an empty file from none and a file under another name, and none for
+files no digest covers; refuses as not a check line an extra or missing key,
+keys in another order, a digest in capitals or as a number, a version-1
+document, a header, a carriage return, a leading space, not JSON, an array,
+`__proto__`, a repeated key and nesting past 64 levels; as a bad digest one
+hex off, one file changed by a character and a file dropped; keeps the proof's
+own reason ("damaged" for another verdict, a repeated key in a file, decision
+inputs that no longer hash, a marker, a file that is not text, files that are
+not an object; "future-time" with the bound, a check without it; the contract
+callback's refusal); never quotes a key; tells a header of version 3 apart and
+refuses 18 other headers (version 1 or as text, another format, a version-1
+document of version 1 or 2, an extra or missing key, another key order, a
+non-canonical or missing time, an exporting version of 201 characters or
+blank, spaces, a carriage return, an escape, a repeated key, over 4 KiB, not
+JSON); refuses 11 trailers (another count, none, as text, negative,
+fractional, written 2.0, another end, an extra key, another order, a carriage
+return, a check line) and 1,001 as too many checks while reading 0 and 1,000;
+refuses to write what it would not read; names the file by the UTC minute
+across midnight; and keeps the version-1 constants. `scripts/check-no-polar-data.test.mjs` finds a
 `.pol` header after blank lines and 200,000 blank lines read without
 rescanning. `viewer/e2e/check-import.spec.js` (desktop and mobile) makes a real
 Check in fixture mode, saves a copy, refuses a hostile file in a second, empty

@@ -154,9 +154,13 @@ export {
   CHECK_FILE_FORMAT, CHECK_FILE_VERSION, CHECK_FILE_NAMES, CHECK_FILE_REQUIRED, SNAPSHOT_V2_ID,
   buildCheckFile, checkFileName, checkFileText, checkHex, jsonKeyProblem, parseCheckEntry, parseCheckFile,
   CHECK_FILE_FUTURE_MS, CHECK_FILE_MAX_COMPRESSED_BYTES, CHECK_FILE_MAX_DEPTH, CHECK_FILE_MAX_SEQUENCE, CHECK_FILE_MAX_STRING, CHECK_FILE_MAX_TEXT_BYTES,
+  CHECK_FILE_V2_VERSION, CHECK_FILE_V2_MAX_COMPRESSED_BYTES, CHECK_FILE_V2_MAX_LINE_BYTES, CHECK_FILE_V2_MAX_EDGE_BYTES, CHECK_FILE_V2_MAX_CHECKS,
+  CHECK_FILE_V2_MAX_INFLATED_BYTES, CHECK_FILE_V2_TRAILER_PREFIX,
+  allChecksFileName, checkFileEntryLine, checkFileHeaderLine, checkFileTrailerLine, checkFilesDigest, parseCheckFileEntryLine, parseCheckFileHeader, parseCheckFileTrailer,
 } from './checkFile.js';
 export type {
   CheckEntryParse, CheckEntryProblem, CheckFileDocument, CheckFileEntry, CheckFileInput, CheckFileName, CheckFileParse, CheckFileProblem, JsonKeyLimits, ParseCheckFileOptions, ParsedCheck, ParsedCheckEntry,
+  CheckFileHeader, CheckFileHeaderParse, CheckFileLineParse, CheckFileTrailerParse, CheckFileV2Problem, DamagedLineReason,
 } from './checkFile.js';
 
 export { DECISION_MESSAGE_REGISTRY, EN_DECISION_MESSAGES, formatMessageTime, isDecisionMessageRef, renderDecisionMessage, renderDecisionRegister } from './briefingMessages.js';
