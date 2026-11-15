@@ -180,7 +180,14 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   `#example`, Back/Forward and the other pages are unchanged; Back to
   `#passage` after a reload elsewhere also reopens the remembered check.
   Rejected: the id in the hash, which would make a browser-saved check look
-  like a link and give `snapshot=` two meanings.
+  like a link and give `snapshot=` two meanings. Checked once on the live
+  site the same day (deployed build `6a59537`, a Chromium-based browser,
+  read-only): a browser-saved check opened from My passages was open again
+  after a full reload, with the same five sections, the URL still `#passage`
+  and no console error. Known and not fixed here: after any fresh page load
+  the decision band's "Closest to your limits" line is missing until the
+  limits draft has loaded, so the reloaded briefing is about 275 characters
+  shorter than the one shown before the reload; the saved check is the same.
 - Modern histories group only by explicit passage ID and persistence source.
   Legacy checks without explicit identity remain individually accessible and
   deletable. No inferred grouping from route names/counts/departure is permitted.
