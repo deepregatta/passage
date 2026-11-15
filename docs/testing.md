@@ -1023,7 +1023,23 @@ with its own outcomes; calls a non-gzip file over 16 MB not a check file
 (stage 1: too large); finds export-all, import-many into a clean store and
 export-all again giving the same lines for two saved checks (one with a name
 outside Latin-1) and one imported; and removes only checks with an import
-marker. `scripts/check-no-polar-data.test.mjs` finds a
+marker. Review round (stage 2, part L): `checkImportMany.test.js` proves a valid
+copy of an id after a damaged copy and after a line whose prefix names the id
+but repeats the key, still counts a copy after an imported one as repeated,
+counts one stored check joining a passage that held a check made here (not
+one joining a passage that held only an imported check) from one listing,
+tells 0 lines not settled from an unknown number with the lines read, runs two
+imports of the same file side by side (ids disjoint, their union the store),
+and finishes a write an abort lands in (stored exactly the imported ids).
+`allChecksFile.test.js` counts a check saved in 2099 as future-dated and the
+import refuses it; with a compressor that hands its output over only at the
+end, drops the oldest checks so the file fits a cap each check fits alone,
+and fails as too large only when not even one fits; and counts a check
+deleted during the export as unreadable while leaving out one saved during
+it. A test of flat memory retention was not added: garbage collection timing
+in the test runner does not make it deterministic; it was measured instead
+in Node with forced collection (about one large check's line held while a
+check is in hand, 2 MB at the end of eight). `scripts/check-no-polar-data.test.mjs` finds a
 `.pol` header after blank lines and 200,000 blank lines read without
 rescanning. `viewer/e2e/check-import.spec.js` (desktop and mobile) makes a real
 Check in fixture mode, saves a copy, refuses a hostile file in a second, empty

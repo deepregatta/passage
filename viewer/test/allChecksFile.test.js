@@ -70,7 +70,7 @@ describe('a backup of every check', () => {
     expect(result.outcome).toBe(lib.ALL_CHECKS.made);
     const sameTime = ids(checks.slice(2)).sort();
     expect(result.included).toEqual([...sameTime, checks[1].snapshotId, checks[0].snapshotId]);
-    expect(result.counts).toEqual({ included: 4, legacy: 0, damaged: 0, unreadable: 0, polar: 0, tooLarge: 0, overCap: 0 });
+    expect(result.counts).toEqual({ included: 4, legacy: 0, damaged: 0, unreadable: 0, polar: 0, tooLarge: 0, overCap: 0, futureDated: 0 });
     expect(result.name).toBe('passage-all-checks-2026-11-16-0900Z.json.gz');
     expect(progress).toEqual([1, 2, 3, 4].map((index) => ({ index, total: 4 })));
     const back = await readBack(result.blob);
@@ -112,7 +112,7 @@ describe('a backup of every check', () => {
     expect(new TextEncoder().encode(checkFileEntryLine(good)).byteLength).toBeLessThan(lineBytes);
     const result = await make({ caps: { lineBytes } });
     expect(result.outcome).toBe(lib.ALL_CHECKS.made);
-    expect(result.counts).toEqual({ included: 2, legacy: 1, damaged: 1, unreadable: 1, polar: 1, tooLarge: 1, overCap: 0 });
+    expect(result.counts).toEqual({ included: 2, legacy: 1, damaged: 1, unreadable: 1, polar: 1, tooLarge: 1, overCap: 0, futureDated: 0 });
     expect(result.included).toEqual([other.snapshotId, good.snapshotId]);
     const back = await readBack(result.blob);
     expect(back.proven.map((line) => line.ok && line.check.snapshotId)).toEqual(result.included);
@@ -245,7 +245,7 @@ describe('stopping and failing', () => {
 
 describe('nothing to save', () => {
   it('says so for an empty store, only legacy checks and only damaged ones', async () => {
-    expect(await make()).toEqual({ outcome: lib.ALL_CHECKS.empty, counts: { included: 0, legacy: 0, damaged: 0, unreadable: 0, polar: 0, tooLarge: 0, overCap: 0 } });
+    expect(await make()).toEqual({ outcome: lib.ALL_CHECKS.empty, counts: { included: 0, legacy: 0, damaged: 0, unreadable: 0, polar: 0, tooLarge: 0, overCap: 0, futureDated: 0 } });
     const legacyId = '20260720T060000Z_44d2cd5f_64ea971e';
     await localSnapshots.writeAll(legacyId, [{ filename: 'snapshot.json', content: JSON.stringify({ snapshot_id: legacyId }) }]);
     expect(await make()).toMatchObject({ outcome: lib.ALL_CHECKS.empty, counts: { legacy: 1, included: 0 } });
@@ -260,4 +260,83 @@ it('prepareAllChecksFile makes the file with the page\'s own Blob, store and com
   const result = await lib.prepareAllChecksFile({ nowMs: NOW });
   expect(result).toMatchObject({ outcome: lib.ALL_CHECKS.made, included: [checks[0].snapshotId] });
   expect((await readBack(result.blob)).proven[0].ok).toBe(true);
+});
+
+describe('review round', () => {
+  /** Letters gzip cannot shrink much (a fixed pseudo-random sequence per seed). */
+  const noise = (n, seed) => {
+    let state = seed;
+    return Array.from({ length: n }, () => { state ^= state << 13; state ^= state >>> 17; state ^= state << 5; return String.fromCharCode(97 + ((state >>> 0) % 26)); }).join('');
+  };
+  /** A gzip compressor that hands over nothing until it is closed, then everything (and `pad` extra bytes). */
+  const lateCompressor = (pad = 0) => () => {
+    const gzip = new CompressionStream('gzip');
+    const held = [];
+    const late = new TransformStream({
+      transform(chunk) { held.push(chunk); },
+      flush(controller) { for (const chunk of held) controller.enqueue(chunk); if (pad) controller.enqueue(new Uint8Array(pad)); },
+    });
+    return { writable: gzip.writable, readable: gzip.readable.pipeThrough(late) };
+  };
+
+  it('counts checks saved after the export time as future-dated: written, and refused by the import until then', async () => {
+    const ahead = await makeCheck({ passageId: 'passage-ahead', nowMs: Date.parse('2099-01-01T00:00:00Z') });
+    await store(ahead);
+    await store(checks[0]);
+    const result = await make();
+    expect(result.counts).toMatchObject({ included: 2, futureDated: 1 });
+    vi.stubGlobal('indexedDB', new IDBFactory());
+    vi.resetModules();
+    const { importChecksFile } = await import('../src/lib/checkImportMany.js');
+    const imported = await importChecksFile(result.blob, { servedIds: new Set(), nowMs: NOW });
+    expect(imported.outcomes).toMatchObject({ imported: 1, futureTime: 1 });
+  });
+
+  it('drops the oldest checks instead of failing when a late compressor makes the file pass the cap', async () => {
+    const heavy = [];
+    // about 0.5 MB of noise each (strings under the 64 KiB a route string may hold), in the route and the decision inputs
+    const notes = (i) => Array.from({ length: 9 }, (_, j) => noise(60_000, 2463534242 + i * 31 + j));
+    for (let i = 0; i < 4; i++) heavy.push(await makeCheck({ passageId: `passage-heavy-${i}`, nowMs: Date.parse(`2026-07-19T1${i}:00:00Z`), routeExtras: { notes: notes(i) } }));
+    for (const check of heavy) await store(check);
+    const sizes = heavy.map((check) => new TextEncoder().encode(checkFileEntryLine(check)).byteLength);
+    const cap = Math.max(...sizes) + Math.ceil(Math.max(...sizes) / 16_000) * 5 + 2000;
+    const whole = await make({ caps: { compressedBytes: 1e9 } });
+    // the four together are larger than the cap, which each one alone fits
+    expect(whole.blob.size).toBeGreaterThan(cap);
+    const result = await make({ caps: { compressedBytes: cap, compressorMargin: 0 } }, { compressor: lateCompressor() });
+    expect(result.outcome).toBe(lib.ALL_CHECKS.made);
+    expect(result.blob.size).toBeLessThanOrEqual(cap);
+    expect(result.counts.included).toBeGreaterThanOrEqual(1);
+    expect(result.counts.included + result.counts.overCap).toBe(4);
+    expect(result.included).toEqual(whole.included.slice(0, result.counts.included));
+    expect((await readBack(result.blob)).proven.every((line) => line.ok)).toBe(true);
+  });
+
+  it('fails as too large only when not even one check fits', async () => {
+    for (const check of checks) await store(check);
+    const line = Math.max(...checks.map((check) => new TextEncoder().encode(checkFileEntryLine(check)).byteLength));
+    const cap = line + Math.ceil(line / 16_000) * 5 + 2000;
+    const result = await make({ caps: { compressedBytes: cap, compressorMargin: 0 } }, { compressor: lateCompressor(2 * cap) });
+    expect(result).toEqual({ outcome: lib.ALL_CHECKS.failed, reason: 'tooLarge' });
+  });
+
+  it('counts a check deleted during the export as unreadable, and leaves out one saved during it', async () => {
+    for (const check of checks.slice(0, 3)) await store(check);
+    const [newest] = lib.backupOrder(await localSnapshots.list());
+    let saved = false;
+    const spyStore = {
+      list: () => localSnapshots.list(),
+      read: async (id, name) => {
+        const text = await localSnapshots.read(id, name);
+        if (!saved) { saved = true; await store(checks[3]); }
+        if (id === newest.snapshot_id && name === 'snapshot.json') await localSnapshots.remove(id);
+        return text;
+      },
+    };
+    const result = await make({}, { store: spyStore });
+    expect(result.counts).toMatchObject({ included: 2, unreadable: 1 });
+    expect(result.included).not.toContain(newest.snapshot_id);
+    expect(result.included).not.toContain(checks[3].snapshotId);
+    expect(await localSnapshots.exists(checks[3].snapshotId)).toBe(true);
+  });
 });

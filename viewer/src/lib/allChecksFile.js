@@ -1,5 +1,5 @@
 import {
-  CHECK_FILE_NAMES, allChecksFileName, checkFileEntryLine, checkFileHeaderLine, checkFileTrailerLine, checkHex, fnv1a64Hex, parseCheckEntry,
+  CHECK_FILE_FUTURE_MS, CHECK_FILE_NAMES, allChecksFileName, checkFileEntryLine, checkFileHeaderLine, checkFileTrailerLine, checkHex, fnv1a64Hex, parseCheckEntry,
 } from '@deepweather/engine';
 import { CHECK_FILE_EXPORTED_BY } from './checkFile.js';
 import { LINE_CAPS, readCheckFileLines } from './checkFileLines.js';
@@ -28,16 +28,20 @@ export const ALL_CHECKS = Object.freeze({
   failed: 'failed', // the file could not be made or did not read back as written ({ reason })
 });
 
-/** Why a check was left out (counts), besides `included`. */
+/** Why a check was left out (counts), besides `included`; futureDated counts included checks the import will refuse until their time. */
 const SKIPS = ['legacy', 'damaged', 'unreadable', 'polar', 'tooLarge', 'overCap'];
+const COUNTS = ['included', ...SKIPS, 'futureDated'];
 
 /**
  * How much room to keep under the compressed cap: what the compressor may
  * still hold of the lines written so far, and the gzip footer. A check is
  * written only when the bytes the compressor has handed over, this margin and
  * the check's whole line (a deflate stream never grows a line by more than
- * about 0.03 % plus a few bytes) all fit under the cap, so the file never
- * passes it; the finished size is checked again.
+ * about 0.03 % plus a few bytes) all fit under the cap. The estimate can still
+ * fall short when a compressor hands its output over late, so the finished
+ * size is checked again: past the cap, the file is made again without its
+ * oldest checks (counted as over the cap), and only when not even one check
+ * fits is it refused. `caps.compressorMargin` replaces the margin in tests.
  */
 const COMPRESSOR_MARGIN = 1024 * 1024;
 const deflateBound = (bytes) => bytes + Math.ceil(bytes / 16_000) * 5 + 64;
@@ -94,7 +98,7 @@ function lineOf(snapshotId, files, { validateFile, nowMs, lineBytes }) {
   const bytes = new TextEncoder().encode(line);
   // the cap counts the line without its newline
   if (bytes.byteLength - 1 > lineBytes) return { skip: 'tooLarge' };
-  return { bytes, digest: fnv1a64Hex(line.slice(0, -1)) };
+  return { bytes, digest: fnv1a64Hex(line.slice(0, -1)), futureDated: Date.parse(check.createdAt) > nowMs + CHECK_FILE_FUTURE_MS };
 }
 
 /**
@@ -103,10 +107,30 @@ function lineOf(snapshotId, files, { validateFile, nowMs, lineBytes }) {
  * compressor: () => { writable, readable } (a gzip transform), Blob, pause:
  * () => Promise (a turn of the event loop) }. Options as prepareAllChecksFile.
  */
-export async function makeAllChecksFile(deps, { signal, onProgress, caps, nowMs = Date.now() } = {}) {
+export async function makeAllChecksFile(deps, options = {}) {
+  const cap = { ...LINE_CAPS, ...options.caps }.compressedBytes;
+  let maxIncluded = Infinity;
+  for (;;) {
+    const pass = await makePass(deps, options, maxIncluded);
+    if (!pass.overshoot) return pass;
+    const { lineSizes, size } = pass.overshoot;
+    if (lineSizes.length <= 1) return { outcome: ALL_CHECKS.failed, reason: 'tooLarge' };
+    // the newest checks that should fit, estimated from this pass's own ratio; always at least one fewer
+    const ratio = size / lineSizes.reduce((sum, bytes) => sum + bytes, 1);
+    let fits = 0;
+    let estimate = 1024;
+    while (fits < lineSizes.length - 1 && estimate + lineSizes[fits] * ratio <= cap * 0.98) estimate += lineSizes[fits++] * ratio;
+    maxIncluded = Math.max(1, Math.min(fits, lineSizes.length - 1));
+  }
+}
+
+/** One pass at the file, holding at most `maxIncluded` checks; { overshoot } when the finished file passes the compressed cap. */
+async function makePass(deps, { signal, onProgress, caps, nowMs = Date.now() }, maxIncluded) {
   const limits = { ...LINE_CAPS, ...caps };
+  const margin = limits.compressorMargin ?? COMPRESSOR_MARGIN;
   const { store, loadValidators, compressor, Blob: BlobOf, pause } = deps;
-  const counts = Object.fromEntries(['included', ...SKIPS].map((key) => [key, 0]));
+  const counts = Object.fromEntries(COUNTS.map((key) => [key, 0]));
+  const lineSizes = [];
   const included = [];
   const aborted = () => signal?.aborted === true;
   if (aborted()) return { outcome: ALL_CHECKS.stopped };
@@ -171,10 +195,12 @@ export async function makeAllChecksFile(deps, { signal, onProgress, caps, nowMs 
       if (made.skip) {
         counts[made.skip] += 1;
       } else {
+        // what the compressor has ready is read first, so the estimate counts it
+        await pause();
         // stop before any cap: this check and every later one are left out
-        const over = included.length + 1 > limits.checks
+        const over = included.length + 1 > Math.min(limits.checks, maxIncluded)
           || inflated + made.bytes.byteLength + TRAILER_BYTES > limits.inflatedBytes
-          || handed + COMPRESSOR_MARGIN + deflateBound(made.bytes.byteLength) + TRAILER_BYTES > limits.compressedBytes;
+          || handed + margin + deflateBound(made.bytes.byteLength) + TRAILER_BYTES > limits.compressedBytes;
         if (over) {
           counts.overCap += total - index;
           onProgress?.({ index: total, total });
@@ -182,8 +208,10 @@ export async function makeAllChecksFile(deps, { signal, onProgress, caps, nowMs 
         }
         await write(made.bytes);
         digests.push(made.digest);
+        lineSizes.push(made.bytes.byteLength);
         included.push(snapshotId);
         counts.included += 1;
+        if (made.futureDated) counts.futureDated += 1;
       }
       onProgress?.({ index: index + 1, total });
       // a turn of the event loop: the page stays responsive and the compressor's output is read
@@ -210,7 +238,7 @@ export async function makeAllChecksFile(deps, { signal, onProgress, caps, nowMs 
   }
   const blob = new BlobOf([folded], { type: 'application/gzip' });
   folded = null;
-  if (blob.size > limits.compressedBytes) return { outcome: ALL_CHECKS.failed, reason: 'tooLarge' };
+  if (blob.size > limits.compressedBytes) return { overshoot: { lineSizes, size: blob.size } };
   const verified = await verify(blob, { exportedAt, digests, signal, caps: limits });
   if (verified !== true) return verified === 'stopped' ? { outcome: ALL_CHECKS.stopped } : { outcome: ALL_CHECKS.failed, reason: 'verify' };
   return { outcome: ALL_CHECKS.made, blob, name: allChecksFileName(exportedAt), included, counts };
@@ -259,8 +287,10 @@ const browserDeps = () => ({
  * `onProgress({ index, total })` after each check, `caps` (LINE_CAPS, smaller
  * in tests), `nowMs`. Resolves { outcome: made, blob, name, included (ids, in
  * file order), counts: { included, legacy, damaged, unreadable, polar,
- * tooLarge, overCap } }, { outcome: empty, counts }, { outcome: stopped } or
- * { outcome: failed, reason }. Legacy identity-1 checks cannot be written and
+ * tooLarge, overCap, futureDated } }, { outcome: empty, counts }, { outcome:
+ * stopped } or { outcome: failed, reason }. futureDated counts included checks
+ * saved more than a day after the export time (a device clock ahead): they
+ * are written, and an import refuses them until that time. Legacy identity-1 checks cannot be written and
  * are counted; a check that is damaged, unreadable, holds polar-shaped data
  * or is too large for a line is left out and counted; when the next check
  * would pass a cap, it and every later (older) one are counted as overCap.

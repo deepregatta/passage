@@ -532,7 +532,11 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   check line is read when the page never read the served ids (the stage 1
   offline outcome) or its header is newer; no request is made at any point.
   Each line is then settled in order, as stage 1 settles its one check: an id
-  that already appeared in the file is counted as repeated; a check whose
+  already settled in the file (imported, already here, a conflict or served)
+  is counted as repeated, while a later copy of an id whose earlier copy was
+  refused is proven on its own (a line naming its id with escapes is not
+  recognised as a repeat and is settled in full, as already here: nothing is
+  stored either way); a check whose
   stored `decision-inputs.json` text equals the line's exactly is already
   here (nothing is proven, since nothing is written); otherwise
   `parseCheckFileEntryLine` with the contracts and the time bound (damaged or
@@ -554,7 +558,14 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   stops between two checks, never inside one's storing. It resolves `{ kind:
   'v2', outcomes: { imported, already, repeated, damaged, futureTime, polar,
   served, conflict, tooLarge }, importedIds, end: complete | incomplete |
-  storage | stopped | refused, hint, notReached, refusal }`, asks for
+  storage | stopped | refused, hint, notReached, refusal, linesRead,
+  joinedOwn }`: `notReached` is 0 when every line was settled, a number after
+  a storage failure whose trailer could be read, and null whenever it is
+  unknown (a file that broke, a line over its cap, a stop); `linesRead` is the
+  number of check lines the reader handed over; `joinedOwn` counts the stored
+  checks whose passage already held a check made in this browser (not
+  imported) before the import began, from one listing before the first line.
+  It asks for
   persistent storage once at the end when it stored anything, and gives the
   event loop a turn between checks. `removeImportedChecks(ids)` removes
   exactly those ids that carry an import marker (files and marker, through
@@ -577,14 +588,21 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   damaged, unreadable, polar-shaped or too large for a line is left out and
   counted, and never stops the others. Before each check it stops if that
   check would pass a cap (1,000 checks, 8 GiB inflated, 1 GiB compressed:
-  for the last, what the compressor has handed over, a 1 MiB margin for what
-  it may still hold and the line's own deflate bound must fit), counting it
-  and every older one as over the cap; the finished size is checked again.
+  for the last, what the compressor has handed over (read first), a 1 MiB
+  margin for what it may still hold and the line's own deflate bound must
+  fit), counting it and every older one as over the cap. The finished size is
+  checked again: a file past the compressed cap (a compressor that hands its
+  output over late) is made again without its oldest checks, counted as over
+  the cap, and only when not even one check fits is the backup refused as too
+  large. Included checks saved more than 24 hours after the export time (a
+  device clock ahead) are written and counted as `futureDated`: an import
+  refuses them until that time.
   After the trailer it reads the finished Blob back through the stream
   reader and compares the header, the number of lines and each line's FNV-1a
   64 with what it wrote (not a second proof); any difference fails the whole
   backup. It resolves `made` with `{ blob, name, included, counts: {
-  included, legacy, damaged, unreadable, polar, tooLarge, overCap } }`,
+  included, legacy, damaged, unreadable, polar, tooLarge, overCap,
+  futureDated } }`,
   `empty` when no check could be written, `stopped` on an abort (nothing
   kept) or `failed` with a reason, reports `onProgress({ index, total })` after
   each check and gives the event loop a turn between checks. Its core

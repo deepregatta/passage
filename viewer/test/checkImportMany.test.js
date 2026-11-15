@@ -78,7 +78,7 @@ describe('a version-2 file', () => {
   it('stores each check exactly as given, marked, and says it is complete', async () => {
     const progress = [];
     const result = await importLines(fileFrom(backupOf([lineOf(a), lineOf(b)])), { onProgress: (step) => progress.push(step) });
-    expect(result).toEqual({ kind: 'v2', outcomes: { ...zero, imported: 2 }, importedIds: [a.snapshotId, b.snapshotId], end: 'complete', hint: null, notReached: null, refusal: null });
+    expect(result).toEqual({ kind: 'v2', outcomes: { ...zero, imported: 2 }, importedIds: [a.snapshotId, b.snapshotId], joinedOwn: 0, linesRead: 2, end: 'complete', hint: null, notReached: 0, refusal: null });
     expect(progress).toEqual([{ index: 1 }, { index: 2 }]);
     await expectStored(a);
     await expectStored(b);
@@ -330,5 +330,78 @@ describe('removeImportedChecks', () => {
     const after = await dump();
     expect(idsIn(after)).toEqual([b.snapshotId, pre.snapshotId].sort());
     expect(recordsOf(after, pre.snapshotId)).toBe(recordsOf(before, pre.snapshotId));
+  });
+});
+
+describe('review round: settling, passages, unknown counts, concurrency', () => {
+  it('proves a later copy of an id whose earlier copy was refused, instead of counting it repeated', async () => {
+    const damagedFirst = lineOf(edited(a, 'snapshot.json', (value) => ({ ...value, check_sequence: 0 })));
+    const first = await importLines(fileFrom(backupOf([damagedFirst, lineOf(a)])));
+    expect(first.outcomes).toEqual({ ...zero, damaged: 1, imported: 1 });
+    expect(first.importedIds).toEqual([a.snapshotId]);
+    await expectStored(a);
+    // a line whose prefix names b's id but that repeats the key: refused, then b itself is proven
+    vi.stubGlobal('indexedDB', new IDBFactory());
+    vi.resetModules();
+    ({ localSnapshots } = await import('../src/lib/localSnapshots.js'));
+    many = await import('../src/lib/checkImportMany.js');
+    const twice = lineOf(b).replace(`{"snapshot_id":"${b.snapshotId}",`, `{"snapshot_id":"${b.snapshotId}","snapshot_id":"${b.snapshotId}",`);
+    expect(twice.startsWith(`{"snapshot_id":"${b.snapshotId}"`)).toBe(true);
+    const second = await importLines(fileFrom(backupOf([twice, lineOf(b)])));
+    expect(second.outcomes).toEqual({ ...zero, damaged: 1, imported: 1 });
+    await expectStored(b);
+  });
+
+  it('still counts a copy after an imported, already-here, conflicting or served one as repeated', async () => {
+    const result = await importLines(fileFrom(backupOf([lineOf(a), lineOf(a)])));
+    expect(result.outcomes).toEqual({ ...zero, imported: 1, repeated: 1 });
+  });
+
+  it('counts the stored checks that joined a passage holding a check made in this browser before the import', async () => {
+    // pre is made here; c is imported (its passage holds no check made here)
+    await localSnapshots.writeAll(pre.snapshotId, savedFiles(pre));
+    expect((await checkImport.importCheckFile(fileOf((await checkFileOf(c)).bytes), { servedIds: SERVED, nowMs: NOW })).outcome).toBe('imported');
+    const samePre = await makeCheck({ passageId: 'passage-pre', departureUtc: '2026-07-24T06:00:00Z', nowMs: Date.parse('2026-07-19T20:00:00Z') });
+    const sameC = await makeCheck({ passageId: 'passage-c', departureUtc: '2026-07-24T06:00:00Z', nowMs: Date.parse('2026-07-19T20:00:00Z') });
+    const listed = vi.spyOn(localSnapshots, 'list');
+    const result = await importLines(fileFrom(backupOf([lineOf(samePre), lineOf(sameC), lineOf(a)])));
+    expect(result).toMatchObject({ end: 'complete', joinedOwn: 1, outcomes: { ...zero, imported: 3 } });
+    // one list, before the first line
+    expect(listed).toHaveBeenCalledTimes(1);
+  });
+
+  it('tells 0 lines not settled (complete) from an unknown number (a cut file, a line over its cap)', async () => {
+    expect((await importLines(fileFrom(backupOf([lineOf(a)])))).notReached).toBe(0);
+    const text = backupOf([lineOf(a), lineOf(b)]);
+    expect(await importLines(fileFrom(text.slice(0, text.lastIndexOf(lineOf(b)) + 50)))).toMatchObject({ end: 'incomplete', notReached: null, linesRead: 1 });
+    const small = new TextEncoder().encode(lineOf(a)).byteLength;
+    const large = await makeCheck({ passageId: 'passage-large-2', nowMs: Date.parse('2026-07-19T13:00:00Z'), routeExtras: { note: 'x'.repeat(60_000) } });
+    expect(await importLines(fileFrom(backupOf([lineOf(a), lineOf(large)])), { caps: { lineBytes: small + 1000 } })).toMatchObject({ end: 'incomplete', hint: 'too-large', notReached: null, linesRead: 1 });
+  });
+
+  it('runs two imports of the same file side by side: each check stored once, the ids disjoint, their union the store', async () => {
+    const text = backupOf([lineOf(a), lineOf(b), lineOf(c)]);
+    const [one, two] = await Promise.all([importLines(fileFrom(text)), importLines(fileFrom(text))]);
+    expect(one.importedIds.filter((id) => two.importedIds.includes(id))).toEqual([]);
+    expect([...one.importedIds, ...two.importedIds].sort()).toEqual([a.snapshotId, b.snapshotId, c.snapshotId].sort());
+    expect(idsIn(await dump())).toEqual([a.snapshotId, b.snapshotId, c.snapshotId].sort());
+    expect(one.outcomes.imported + two.outcomes.imported).toBe(3);
+    expect(one.outcomes.already + two.outcomes.already).toBe(3);
+    for (const check of [a, b, c]) await expectStored(check);
+  });
+
+  it('finishes a write an abort lands in, so what is stored is exactly importedIds', async () => {
+    const controller = new AbortController();
+    const writeAll = localSnapshots.writeAll.bind(localSnapshots);
+    let writes = 0;
+    vi.spyOn(localSnapshots, 'writeAll').mockImplementation(async (id, records) => {
+      writes += 1;
+      if (writes === 2) controller.abort();
+      return writeAll(id, records);
+    });
+    const result = await importLines(fileFrom(backupOf([lineOf(a), lineOf(b), lineOf(c)])), { signal: controller.signal });
+    expect(result.end).toBe('stopped');
+    expect(result.importedIds).toEqual([a.snapshotId, b.snapshotId]);
+    expect(idsIn(await dump())).toEqual([...result.importedIds].sort());
   });
 });

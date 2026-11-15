@@ -32,6 +32,8 @@ export const IMPORT_END = Object.freeze({
 });
 
 const OUTCOMES = ['imported', 'already', 'repeated', 'damaged', 'futureTime', 'polar', 'served', 'conflict', 'tooLarge'];
+/** The outcomes that settle an id for the rest of the file; a refusal of one copy does not. */
+const SETTLED = new Set(['imported', 'already', 'conflict', 'served']);
 const validateFile = (name, value) => checkFileValidators[name]?.(value) === true;
 // a check line as checkFileEntryLine writes it starts with its id: read before any parse, to tell a repeat
 const LINE_ID = /^\{"snapshot_id":"(snapshot_v2_[0-9a-f]{16})"/;
@@ -99,7 +101,7 @@ async function settleLine(line, { header, servedIds, nowMs, importedAt }) {
     console.error(`Passage could not store an imported check: ${storageFull(error) ? 'storage full' : error?.name ?? 'error'}`);
     return { stop: IMPORT_END.storage };
   }
-  return { outcome: 'imported', snapshotId: check.snapshotId };
+  return { outcome: 'imported', snapshotId: check.snapshotId, passageId: typeof check.decisionInputs.route?.passage_id === 'string' ? check.decisionInputs.route.passage_id : null };
 }
 
 /**
@@ -114,25 +116,33 @@ async function settleLine(line, { header, servedIds, nowMs, importedAt }) {
  * check file" whatever its size (stage 1 says "too large" past 16 MB). A
  * version-2 file resolves { kind: 'v2', outcomes: { imported, already,
  * repeated, damaged, futureTime, polar, served, conflict, tooLarge } (counts),
- * importedIds, end (IMPORT_END), hint (the reader's code when incomplete,
- * else null), notReached (after a storage failure: the check lines not
- * settled, the failed one included, from the trailer, or null when the
- * trailer could not be reached to say), refusal (an IMPORT outcome when end
+ * importedIds, linesRead (the check lines the reader handed over), joinedOwn (how many of the stored checks joined a passage
+ * that already held a check made in this browser, not imported, before the
+ * import began), end (IMPORT_END), hint (the reader's code when incomplete,
+ * else null), notReached (the check lines not settled: 0 when every line
+ * was; after a storage failure the failed one and every later one, from the
+ * trailer; null whenever that number is unknown, as when the file broke or
+ * the import stopped before its trailer), refusal (an IMPORT outcome when end
  * is refused) }. An abort before the header resolves { kind: 'unknown', end:
  * stopped }. Never rejects.
  */
 export async function importChecksFile(file, { servedIds = null, signal, onProgress, nowMs = Date.now(), caps } = {}) {
   const outcomes = Object.fromEntries(OUTCOMES.map((key) => [key, 0]));
   const importedIds = [];
+  // ids settled in this file (imported, already here, conflict, served): a later copy is a repeat.
+  // A refused copy is not settled, so a later copy of its id is proven on its own.
   const seen = new Set();
+  // passages that held a check made in this browser before the import began (one list, before the first line)
+  let ownPassages = null;
+  let joinedOwn = 0;
+  let index = 0;
   const result = (end, extra = {}) => {
     if (importedIds.length) requestPersistence();
-    return { kind: 'v2', outcomes, importedIds, end, hint: null, notReached: null, refusal: null, ...extra };
+    return { kind: 'v2', outcomes, importedIds, joinedOwn, linesRead: index, end, hint: null, notReached: null, refusal: null, ...extra };
   };
   const importedAt = new Date(nowMs).toISOString();
   const lines = readCheckFileLines(file, { signal, caps });
   let header = null;
-  let index = 0;
   try {
     for (;;) {
       const step = await lines.next();
@@ -151,25 +161,33 @@ export async function importChecksFile(file, { servedIds = null, signal, onProgr
         }
         continue;
       }
-      if (item?.trailer) return item.trailer.checks === index ? result(IMPORT_END.complete) : result(IMPORT_END.incomplete, { hint: LINES.trailer });
+      if (item?.trailer) return item.trailer.checks === index ? result(IMPORT_END.complete, { notReached: 0 }) : result(IMPORT_END.incomplete, { hint: LINES.trailer });
       // a check line
       index += 1;
+      ownPassages ??= new Set((await localSnapshots.list())
+        .filter((entry) => !entry.imported && typeof entry.passage_id === 'string')
+        .map((entry) => entry.passage_id));
+      // The id as the writer writes it, read before any parse. A line that names its id
+      // with escapes does not match: it is then settled in full, and a second copy of it
+      // is counted as already here rather than repeated, which stores nothing either way.
       const cut = LINE_ID.exec(item.slice(0, 64))?.[1];
       const id = cut === undefined ? null : ownCopy(cut);
       if (id !== null && seen.has(id)) {
         outcomes.repeated += 1;
+      } else if (id !== null && await storedTextMatches(id, item)) {
+        outcomes.already += 1;
+        seen.add(id);
       } else {
-        if (id !== null) seen.add(id);
-        if (id !== null && await storedTextMatches(id, item)) {
-          outcomes.already += 1;
-        } else {
-          const settled = await settleLine(item, { header, servedIds, nowMs, importedAt });
-          if (settled.stop) {
-            await lines.return();
-            return result(IMPORT_END.storage, { notReached: await linesLeft(file, caps, index) });
-          }
-          outcomes[settled.outcome] += 1;
-          if (settled.snapshotId) importedIds.push(ownCopy(settled.snapshotId));
+        const settled = await settleLine(item, { header, servedIds, nowMs, importedAt });
+        if (settled.stop) {
+          await lines.return();
+          return result(IMPORT_END.storage, { notReached: await linesLeft(file, caps, index) });
+        }
+        outcomes[settled.outcome] += 1;
+        if (id !== null && SETTLED.has(settled.outcome)) seen.add(id);
+        if (settled.snapshotId) {
+          importedIds.push(ownCopy(settled.snapshotId));
+          if (settled.passageId !== null && ownPassages.has(settled.passageId)) joinedOwn += 1;
         }
       }
       onProgress?.({ index });
