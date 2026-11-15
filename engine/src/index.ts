@@ -150,6 +150,11 @@ export type {
 } from './export/exportGrib.js';
 
 export { routeRevision, decisionInputs, IDENTITY_VERSION, ENGINE_SEMANTICS } from './identity.js';
+export {
+  CHECK_FILE_FORMAT, CHECK_FILE_VERSION, CHECK_FILE_NAMES, CHECK_FILE_REQUIRED, SNAPSHOT_V2_ID,
+  buildCheckFile, checkFileName, checkFileText, checkHex,
+} from './checkFile.js';
+export type { CheckFileDocument, CheckFileEntry, CheckFileInput, CheckFileName } from './checkFile.js';
 
 export { DECISION_MESSAGE_REGISTRY, EN_DECISION_MESSAGES, formatMessageTime, isDecisionMessageRef, renderDecisionMessage, renderDecisionRegister } from './briefingMessages.js';
 export type { DecisionMessageRef, DecisionMessageId, MessageParams, DecisionMessageCatalogue, DecisionMessages } from './briefingMessages.js';

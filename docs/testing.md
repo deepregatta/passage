@@ -773,7 +773,49 @@ button that does one full reload and navigation to a page that loads; and
 `isChunkLoadError` recognises the Chromium, Firefox, Safari, Vite CSS-preload
 and `ChunkLoadError` forms and none of the render errors, a bare
 "Failed to fetch", a string or a value that is not an error; before, a failed
-import showed the damaged-content message and forgot the remembered check. `viewer/test/checkContentHardening.test.jsx` renders the verdict
+import showed the damaged-content message and forgot the remembered check.
+Saving a copy of a check to a file (2026-11-15): `engine/test/checkFile.test.ts`
+builds the document from the demo check and finds the fixed key order, the
+format and version, every file text byte-identical after a JSON round trip
+(also texts outside Latin-1, with CRLF, escapes and a no-break space), the
+decision inputs hashing back to the id, the same text whatever order the files
+and clock arrive in, and refusals for an id that is not a v2 id, a missing
+required file, an unknown file such as an import marker, a file that is not
+text, a bad clock and an empty version; the file name takes the UTC date of the
+departure (also across midnight with an offset) and the id's hex, and refuses
+an id that is not a v2 id. `viewer/test/checkFileExport.test.js` saves the
+earlier demo check (its manifest names only the files a browser-saved check has)
+with `writeAll` in a fresh fake-indexeddb and finds the gzip bytes decoding to a
+document whose files equal the stored texts and whose decision inputs hash to
+the id; the same text from the check stored plain; the demo check and a route
+carrying a boat id, polar scaling and leg speeds passing the real no-polar-data
+rules; a polar-shaped table (invented and built at run time) in `route.json` and
+a `vpp` block in `findings.json` refused, with no Blob handed to a download; a
+damaged check, with no download, when the manifest names another `snapshot_id`
+or `decision_hash`, is not identity 2, is not JSON, names no files or leaves out
+a required one, when the decision inputs no longer hash to the id or are not
+JSON, when `findings.json` names another check or decision hash, and when a
+stored record's content is not text; a manifest naming a file a check file
+cannot hold refused rather than copied without it; a made copy handed to the
+download once; and plain outcomes for a file the manifest names but the store
+lacks, a check not saved here, no `CompressionStream`, an id that is not a v2
+id and an import marker never exported. `viewer/test/saveCheckCopy.test.jsx`
+offers the button only for a browser-saved v2 check (not served, the example, a
+legacy v1 check, nothing open, loading, a failed open or no
+`CompressionStream`); finds the empty live region before a save, focus kept on
+the button through the save (`aria-disabled`, never `disabled`), the busy
+label, a second press starting nothing, then "Copy made…" in the same live
+region in English and French with one gzip download and no request beyond the
+check's own reads; the four failure messages (unreadable, damaged, polar, any
+other) in English and French with no download; each check keeping its own
+outcome when a save of check A finishes after check B's save started (B stays
+busy, then shows its own outcome; A shows "Copy made" when reopened); no
+outcome shown for another check; and the button right after "Share this check"
+on the passage page of a browser-saved check and not on a served one.
+`viewer/e2e/check-file.spec.js` makes a real Check in fixture mode (desktop and
+mobile), saves a copy, reads the download and finds the file name, the format,
+version, key order and check id, the files equal to what the browser stored and
+the decision inputs hashing to the id, and no analytics event for it. `viewer/test/checkContentHardening.test.jsx` renders the verdict
 chip for "toString", "constructor", "__proto__", "hasOwnProperty" and "valueOf"
 as the existing insufficient chip, falls back for the same keys in the rule
 labels, model styles, section and check wording and the French catalogue,

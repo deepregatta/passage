@@ -278,6 +278,50 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   `InspectorErrorBoundary.jsx`), and check-provided strings are never used as
   object keys without an own-property test (`viewer/src/lib/own.js`), with
   nothing stored for a check changed.
+- Check file, version 1 (2026-11-15, export only; import is the next stage):
+  "Save a copy to a file" on the passage page of a check saved in this
+  browser with identity version 2 writes one gzip file,
+  `passage-check-<departure date, UTC, from the check's decision inputs>-<the
+  16 hex of the snapshot id>.json.gz`; the name carries no passage or route
+  name. Inside is one JSON document, keys in this order: `format`
+  (`"passage-checks"`), `format_version` (`1`), `exported_at` (ISO UTC),
+  `exported_by` (`"Passage engine <ENGINE_VERSION>"`) and `checks`, a list
+  holding exactly one `{ snapshot_id, files }`. `files` maps each file the
+  check's manifest names, and the manifest itself, to its original text as
+  `localSnapshots.read` returns it (decoded where it is stored as gzip), in
+  the order `snapshot.json`, `decision-inputs.json`, `findings.json`,
+  `briefing.json`, `route.json`, `plume.json`, `warnings.json`,
+  `synoptic.json`, `tides.json`; the first five are required. Nothing is
+  derived or re-serialised, so `contentHash(JSON.parse(files
+  ["decision-inputs.json"]))` gives the check's `decision_hash` and its
+  `snapshot_id` again from the file alone. The export checks exactly that
+  before it makes the file: the manifest is identity 2 with this
+  `snapshot_id` and `decision_hash`, the parsed decision inputs hash to that
+  `decision_hash`, and `findings.json` names the same `snapshot_id` (and
+  `decision_hash` when it has one); any mismatch, a stored file that is not
+  JSON or not text, or a manifest naming no files or leaving out a required
+  one is reported as a damaged check and no file is made. Only those file
+  names are written: any other record a store holds for the check (such as a
+  marker an import may add) never is, and a manifest that names a file
+  outside the list is refused rather than copied without it (the committed
+  latest demo check names the served-only `changes.json` and
+  `verification.json`, so it could not be copied; it is never offered, being
+  served). The format and its file name live in
+  `engine/src/checkFile.ts` (`buildCheckFile`, `checkFileText`,
+  `checkFileName`, `CHECK_FILE_NAMES`, `CHECK_FILE_REQUIRED`), the reading,
+  safety net and gzip in `viewer/src/lib/checkFile.js`. The file therefore
+  holds the route, the departure, the limits the check recorded, the boat
+  reference of a computed route (its boat id, the percent of its polar and
+  the per-leg speeds, which the owner chose to keep) and the forecast data
+  the check used; no polar table is in a check. As a safety net the export
+  runs the content rules of `scripts/check-no-polar-data.mjs` (shared in
+  `scripts/polar-content-rules.mjs`) over each file's own text and the whole
+  document, and refuses the file on any match with a plain message. A served
+  check, the example, a legacy identity-1 check and a browser without
+  `CompressionStream` are not offered a copy (never an uncompressed file).
+  Nothing is sent anywhere and no analytics event is sent; the saved check is
+  only read. "Copy made" means the browser accepted the download; the sailor
+  can still cancel it (iOS Safari, or a browser that asks where to save).
 - Modern histories group only by explicit passage ID and persistence source.
   Legacy checks without explicit identity remain individually accessible and
   deletable. No inferred grouping from route names/counts/departure is permitted.

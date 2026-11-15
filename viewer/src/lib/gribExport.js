@@ -15,6 +15,7 @@ import {
   runGribExport,
   toIso,
 } from '@deepweather/engine';
+import { saveFile } from './download.js';
 import { FORECAST_BASE_URL } from './forecastConfig.js';
 import { refreshForecastIfStale } from './forecastFreshness.js';
 import { fmtTime, localTimeZoneName } from './format.js';
@@ -374,16 +375,9 @@ export function revokeGribFile(file) {
   if (file?.url) URL.revokeObjectURL(file.url);
 }
 
-/** Start the browser download of a prepared file. */
+/** Start the browser download of a prepared file (lib/download.js). */
 export function saveGribFile(file) {
-  const link = document.createElement('a');
-  link.href = file.url;
-  link.download = file.name;
-  link.rel = 'noopener';
-  link.style.display = 'none';
-  document.body.append(link);
-  link.click();
-  link.remove();
+  saveFile(file);
 }
 
 /** Low-cardinality size bucket for analytics. */

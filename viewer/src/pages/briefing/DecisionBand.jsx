@@ -3,6 +3,7 @@ import clsx from 'clsx';
 import { EvidenceLink, VerdictChip } from '../../components/common.jsx';
 import { isEmulatedWarning } from '../../components/BulletinPanel.jsx';
 import { ShareAnalysisButton } from '../../components/FooterActions.jsx';
+import SaveCheckCopy from '../../components/SaveCheckCopy.jsx';
 import { fmtLocalTime, localTimeZoneName, toLocalDateTimeValue, VERDICT } from '../../lib/format.js';
 import { useApp } from '../../stores/appStore.js';
 import { newPassageId } from '../../lib/passageIdentity.js';
@@ -140,6 +141,7 @@ export default function DecisionBand({ findings, warningEvidence, onOpenBulletin
             <EvidenceLink evidenceId={warningEvidence.evidence_id} title={warningEvidence.evidence_id} className="inline-flex items-center min-h-11 px-1 text-[14px]">evidence</EvidenceLink>
           )}
           <ShareAnalysisButton onNavigate={setPage} className="font-instrument text-sm text-event underline underline-offset-4 min-h-11 disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline" />
+          <SaveCheckCopy className="font-instrument text-sm text-event underline underline-offset-4 min-h-11 aria-disabled:opacity-50 aria-disabled:cursor-wait aria-disabled:no-underline" />
           {state !== 'insufficient' && (
             <span className="font-mono text-[12px] text-ink-soft sm:ml-auto" data-testid="next-run" aria-live="polite">{nextRun.text}</span>
           )}

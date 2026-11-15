@@ -15,6 +15,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { gunzipSync } from 'node:zlib';
+import { POLAR_CONTENT_RULES } from './polar-content-rules.mjs';
 
 const repo = resolve(fileURLToPath(new URL('..', import.meta.url)));
 
@@ -29,17 +30,8 @@ const PATH_RULES = [
 // A built site has no reason to carry anything under a polars directory.
 const BUILT_PATH_RULES = [...PATH_RULES, ['polars directory in the build', /(^|\/)polars(\/|$)/i]];
 
-const CONTENT_RULES = [
-  // Passage's polar shape and a deep-polars table: a numeric speed matrix.
-  ['boat speed matrix', /speeds_kt["']?\s*:\s*\[\s*\[\s*(?:-?\d|null)/],
-  // ORC certificate VPP rows: best-VMG angles and speeds as numbers.
-  ['ORC best-VMG rows', /\b(?:beat|run)_(?:angle|vmg)["']?\s*:\s*\[\s*-?\d/],
-  ['ORC VPP block', /["']vpp["']\s*:\s*\{/],
-  // Every deep-polars entry and release carries its licence constraint.
-  ['deep-polars licence record', /["']constraint["']\s*:\s*["']no-public-download["']/],
-  // .pol text: a TWA\TWS header followed by a numeric row.
-  ['.pol table text', /^\s*twa\s*[\\/]\s*tws\b[^\n]*\r?\n\s*\d/im],
-];
+// Shared with the viewer's check-file export, which refuses a file that matches one.
+const CONTENT_RULES = POLAR_CONTENT_RULES;
 
 // Invented tables, never ORC, SailGrib or Meltemus data. Each entry is a
 // reviewed exception for repository files; the built site has none.
