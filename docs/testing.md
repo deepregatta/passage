@@ -684,6 +684,20 @@ check, keeps Share disabled, goes My passages → reload → Back → Forward �
 reloads a served deep link (still served), and reloads the second tab after the
 first deletes its check (empty state, no alert). Both browser steps failed
 before the change, on the decision band after the reload.
+The closest-limit line from the check's own record (2026-11-15):
+`viewer/test/closestLimitLine.test.jsx` opens a calm Check made through the real
+engine (verdict within) on a fresh store with no limits draft and finds the
+"Closest to your limits" sentence, the same band and the same initial selection
+as with the draft loaded; the band unchanged after the limits are edited and
+after a reopen with the edited draft; the same sentence on a served deep link
+and translated in French; no line for a check without `decision-inputs.json` or
+whose recorded profile does not match its hash; and the example and the three
+legacy compatibility checks unchanged with and without the draft. The first
+four, and the check without `decision-inputs.json` (which took the line from
+the draft), failed before the change. `viewer/e2e/fixture-persistence.spec.js` now
+compares the decision band text before and after both reloads (its init script
+brings back other limits on each load) and failed before the change on the
+first reload, without the line.
 `viewer/e2e/routing-timing.spec.js` now expects its reload after the rerouted
 Check to reopen that check (same id and arrival) instead of the empty page.
 `plannerFeedback.test.jsx` and `plannerFeedback.copy.test.js` cover the three

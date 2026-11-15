@@ -14,6 +14,17 @@ export function safeGoverningReason(findings, profile) {
   }
 }
 
+/**
+ * Whether the verdict sentence of these findings depends on the limits the check
+ * used (a `within` margin): within, or a warning/disagreement with no limit result
+ * from the claims. Exceeds and approaching read the claims alone.
+ */
+export function needsRecordedProfile(findings) {
+  const reason = safeGoverningReason(findings, null);
+  if (!reason || ['exceeds', 'approaching'].includes(reason.state)) return false;
+  return ['warning_active', 'insufficient'].includes(reason.state) ? reason.result === null : true;
+}
+
 /** The ensemble claim the top sentence quotes (same leg, limit kind and hour), for the Evidence headline. */
 export function governingClaim(findings, reason) {
   const result = reason?.result;

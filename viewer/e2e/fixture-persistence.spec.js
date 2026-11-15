@@ -51,7 +51,13 @@ for (const language of ['en', 'fr']) {
     const errors = [], mutations = [];
     page.on('pageerror', error => errors.push(error.message));
     await page.addInitScript(({ defaults, language }) => {
-      localStorage.setItem('passage-language', language);
+      // the language only on the first load: a reload keeps the language switched to below
+      if (!sessionStorage.getItem('e2e-language-set')) {
+        localStorage.setItem('passage-language', language);
+        sessionStorage.setItem('e2e-language-set', '1');
+      }
+      // every load, a reload included, brings back these limits, not the ones edited
+      // below for the Check: the reloaded check must still show what it recorded
       localStorage.setItem('deepweather.profile-draft', JSON.stringify({ ...defaults, night_ok: false }));
     }, { defaults, language });
     await page.route(/^https:\/\//, route => route.abort());
@@ -144,31 +150,37 @@ for (const language of ['en', 'fr']) {
     expect(decisionRecord.stored).toBeLessThan(decisionRecord.text);
     expect(stored.find(item => item.filename === 'snapshot.json')).toMatchObject({ encoding: null, binary: false });
     // A reload reopens the check that was open, from this browser's copy (2026-11-15):
-    // same id, same findings and briefing sections, and no check id in the URL. (The band's
-    // closest-limit line follows the limits draft, which a fresh page has not loaded yet, and
-    // the init script restores the French setting, so its text is not compared.)
+    // same id, same findings and briefing sections, the same decision band (its
+    // closest-limit line included, from the limits the check recorded, although the
+    // reload brings back other limits) and no check id in the URL.
     const openCheck = () => page.evaluate(async () => {
       const app = (await import('/src/stores/appStore.js')).useApp.getState();
       return { id: app.snapshotId, source: app.snapshotSource, findings: app.findings, briefing: app.briefing };
     });
     const sections = () => page.locator('[data-section]').evaluateAll(nodes => nodes.map(node => node.dataset.section));
+    const band = () => page.getByTestId('decision-band').innerText();
     const before = await openCheck();
     expect(before).toMatchObject({ id: saved.id, source: 'local', findings: saved.findings });
     const sectionsBefore = await sections();
+    const bandBefore = await band();
+    expect(bandBefore).toContain('Closest to your limits:');
     await expect(page).toHaveURL(/#passage$/);
     await page.reload();
     await expect(page.getByTestId('decision-band')).toBeVisible();
     await expect(page).toHaveURL(/#passage$/);
     expect(await openCheck()).toEqual(before);
     expect(await sections()).toEqual(sectionsBefore);
+    expect(await band()).toBe(bandBefore);
     // Opened from My passages, it reopens after a reload too.
     await page.getByRole('link', { name: /^(My passages|Mes traversées)$/ }).first().click();
     await expect(page).toHaveURL(/#passages$/);
     await page.locator(`button[data-snapshot-id="${saved.id}"]`).click({ position: { x: 8, y: 8 } });
     await expect(page.getByTestId('decision-band')).toBeVisible();
+    expect(await band()).toBe(bandBefore);
     await page.reload();
     await expect(page.getByTestId('decision-band')).toBeVisible();
     expect(await openCheck()).toEqual(before);
+    expect(await band()).toBe(bandBefore);
     await page.evaluate(async id => (await import('/src/stores/appStore.js')).useApp.getState().deleteSnapshot(id), saved.id);
     expect(await page.evaluate(async id => (await import('/src/lib/localSnapshots.js')).localSnapshots.exists(id), saved.id)).toBe(false);
     expect(digest(scratch)).toEqual(scratchBytes);

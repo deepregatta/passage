@@ -14,14 +14,15 @@ import { legLabel } from './routeLabels.jsx';
 
 /**
  * governingReason for the open check. The limits profile the check used is
- * only needed for a `within` margin; the engine ignores a profile whose hash
- * differs from findings.inputs.profile_hash, so the current draft is safe to pass.
+ * only needed for a `within` margin: it is the profile the check recorded
+ * (checkProfile, read when the check opens), never the sailor's limits draft,
+ * which a fresh page has not loaded and which may have been edited since. The
+ * engine also ignores a profile whose hash differs from findings.inputs.profile_hash.
  * Old findings the engine cannot read give null (the page falls back to the chip).
  */
 export function useGoverningReason(findings) {
-  const limits = useApp((s) => s.limits);
-  const defaults = useApp((s) => s.profileDefaults);
-  return useMemo(() => safeGoverningReason(findings, limits ?? defaults), [findings, limits, defaults]);
+  const profile = useApp((s) => s.checkProfile);
+  return useMemo(() => safeGoverningReason(findings, profile), [findings, profile]);
 }
 
 export { governingClaim };

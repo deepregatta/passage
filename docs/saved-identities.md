@@ -184,10 +184,24 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   site the same day (deployed build `6a59537`, a Chromium-based browser,
   read-only): a browser-saved check opened from My passages was open again
   after a full reload, with the same five sections, the URL still `#passage`
-  and no console error. Known and not fixed here: after any fresh page load
-  the decision band's "Closest to your limits" line is missing until the
-  limits draft has loaded, so the reloaded briefing is about 275 characters
-  shorter than the one shown before the reload; the saved check is the same.
+  and no console error. Since 2026-11-15 the decision band's "Closest to your
+  limits" line (a `within` margin) is read from the limits the check itself
+  recorded in its `decision-inputs.json`, verified against
+  `findings.inputs.profile_hash`, and no longer from the sailor's limits
+  draft: it is the same right after the Check, from My passages, after a
+  reload, on a served deep link and in French, before or without the draft
+  loading and after the limits are edited. Before, the line was computed from
+  the draft and dropped whenever the draft was not loaded yet or no longer
+  hashed to the check's limits. The file is read when the check opens and
+  only when its verdict sentence needs the margin (within, or a warning or
+  disagreement without a limit result); a check without that record, such as
+  a legacy check, has no margin line and the draft never stands in. Nothing
+  stored for a check changed. Cost: for a check on the regional current grid
+  that file is about 10 M characters; decoding and parsing it took 0.1 to
+  0.2 s in Node on a desktop, and was not measured on a phone. An earlier note
+  here blamed this line for a 275-character difference seen on the live site
+  after a reload of an "exceeds" check; that difference was chart axis labels
+  counted in the page text, not a missing line, and the charts were drawn.
 - Modern histories group only by explicit passage ID and persistence source.
   Legacy checks without explicit identity remain individually accessible and
   deletable. No inferred grouping from route names/counts/departure is permitted.

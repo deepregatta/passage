@@ -7,14 +7,14 @@ import { preparedRun } from '../lib/preparedRun.js';
 import { getInitialLanguage, getLanguageFromPath, LANGUAGE_STORAGE_KEY } from '../i18n.js';
 import { usePlayback } from './playbackStore.js';
 import { recoverProfileDraft, saveProfileDraft } from '../lib/profileDraft.js';
-import { initialSelection } from '../lib/governing.js';
+import { initialSelection, needsRecordedProfile } from '../lib/governing.js';
 
 // IndexedDB and shared prepared-run reads may finish after navigation. Only the
 // current open (including example manifest discovery) may publish its result.
 let openSequence = 0;
 const emptySnapshot = {
   snapshotId: null, snapshotSource: null, findings: null, briefing: null, plume: null, snapshot: null,
-  warnings: null, synoptic: null, route: null, measurementAttempt: null,
+  warnings: null, synoptic: null, route: null, measurementAttempt: null, checkProfile: null,
   selectedEvidenceId: null, selectedLegId: null, inspectorOpen: false,
 };
 
@@ -44,6 +44,9 @@ export const useApp = create((set, get) => ({
   warnings: null,
   synoptic: null,
   route: null,
+  // the limits the open check recorded (its decision-inputs.json), when its verdict
+  // sentence needs them; never the sailor's draft, which may have changed since
+  checkProfile: null,
   loadError: null,
   loading: false,
 
@@ -204,11 +207,19 @@ export const useApp = create((set, get) => ({
         file('route.json').catch(() => null),
       ]);
       if (sequence !== openSequence) return;
+      // A `within` margin ("Closest to your limits") needs the limits this check used:
+      // read them from the check's own record, only when the sentence needs them. A check
+      // without that record (a legacy check) has no margin line; the draft never stands in.
+      const checkProfile = needsRecordedProfile(findings)
+        ? await file('decision-inputs.json').then((inputs) => inputs?.profile ?? null).catch(() => null)
+        : null;
+      if (sequence !== openSequence) return;
       // start on the claim and leg the verdict sentence names, not the verdict driver
       // (the driver ranks by ratio and can be another leg, hour and count)
-      const selection = initialSelection(findings, get().limits ?? get().profileDefaults);
+      const selection = initialSelection(findings, checkProfile);
       set({
         snapshotSource,
+        checkProfile,
         findings,
         briefing,
         plume,
