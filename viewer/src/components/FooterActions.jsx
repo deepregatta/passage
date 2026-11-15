@@ -232,7 +232,7 @@ export function ShareAnalysisButton({ onNavigate, className }) {
       </button>
       {ready && snapshotSource === 'local' && (
         <span id="local-sharing-note" className="font-instrument text-xs text-ink-soft">
-          This briefing is stored only in this browser and cannot be shared by link.
+          This check is stored only in this browser and cannot be shared by link.
         </span>
       )}
       {shareUrl && failedUrl === shareUrl && (

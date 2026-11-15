@@ -95,6 +95,14 @@ describe('privacy copy', () => {
     for (const language of ['en', 'fr']) expect(privacyHtml(language, translateText)).toContain(language === 'fr' ? 'Dernière mise à jour : 15 novembre 2026' : 'Last updated: 15 November 2026');
   });
 
+  it('describes check files that stay on the device, in both languages', () => {
+    const english = 'Check files: if you save a copy of a check to a file, or import one, the file is written and read on your device only. It holds the route, the departure time, your limits, the boat reference and the forecast data that check used. Passage does not send it anywhere; who sees it is up to you.';
+    const french = 'Fichiers de vérification\u00A0: si vous enregistrez une copie d’une vérification dans un fichier, ou si vous en importez une, le fichier est écrit et lu uniquement sur votre appareil. Il contient la route, l’heure de départ, vos limites, la référence du bateau et les données de prévision utilisées par cette vérification. Passage ne l’envoie nulle part\u00A0; vous décidez qui le voit.';
+    expect(text()).toContain(english);
+    expect(translateText(english, 'fr')).toBe(french);
+    for (const language of ['en', 'fr']) expect(privacyHtml(language, translateText)).toContain(language === 'fr' ? french : english);
+  });
+
   it('stays free of the internal codename and of storage the app does not use', () => {
     expect(text().toLowerCase()).not.toContain('deepweather');
     expect(text()).not.toMatch(/cookie banner|google analytics|advertis\w+ cookie/i);

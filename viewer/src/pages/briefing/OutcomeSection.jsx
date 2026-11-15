@@ -72,7 +72,7 @@ export default function OutcomeSection() {
               : 'No published observation comparison is available for this briefing.'}
         </p>
         {snapshotSource === 'local' && <p className="font-instrument text-ink-soft mt-2 max-w-3xl">
-          Your route stays private. A future opt-in comparison could use shared observations in your browser, or an explicit export and import. This is not available yet.
+          Your route stays private. A future opt-in comparison with observations could run in your browser. This is not available yet.
         </p>}
         {trackRecord}
       </div>

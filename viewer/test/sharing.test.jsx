@@ -43,7 +43,7 @@ it('disables sharing for a local briefing even if its ID also exists on the serv
   vi.spyOn(navigator.clipboard, 'writeText');
   render(<ShareAnalysisButton onNavigate={vi.fn()} />);
   expect(screen.getByRole('button', { name: 'Share this check' })).toBeDisabled();
-  expect(screen.getByText('This briefing is stored only in this browser and cannot be shared by link.')).toBeTruthy();
+  expect(screen.getByText('This check is stored only in this browser and cannot be shared by link.')).toBeTruthy();
   await user.click(screen.getByRole('button', { name: 'Share this check' }));
   expect(navigator.clipboard.writeText).not.toHaveBeenCalled();
 });

@@ -79,7 +79,7 @@ test('local briefings cannot be shared by link', async ({ page }) => {
   await page.locator('button[data-snapshot-id="local-analysis"]').click({ position: { x: 8, y: 8 } });
   await expect(page.getByTestId('decision-band')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Share this check' })).toBeDisabled();
-  await expect(page.getByText('This briefing is stored only in this browser and cannot be shared by link.')).toBeVisible();
+  await expect(page.getByText('This check is stored only in this browser and cannot be shared by link.')).toBeVisible();
 });
 
 test('a browser-saved check reopens after a reload in its own tab, through history, until it is deleted', async ({ page, context }) => {
