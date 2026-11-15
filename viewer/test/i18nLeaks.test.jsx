@@ -42,7 +42,7 @@ it.each([
 it('localises real split React nodes, attributes and bulletin age, and restores English', async () => {
   const evidence = { evidence_id: 'E1', source_kind: 'ensemble', member_fraction: { exceed: 3, total: 10 }, limit: 18, units: 'kt', model: 'GEFS', bulletin_ref: { issued_at: new Date(Date.now() - 12 * 3600_000).toISOString(), zone_ids: [] } };
   useApp.setState({ selectedEvidenceId: 'E1', inspectorOpen: true, evidenceById: () => evidence, findings: { legs: [], inputs: { forecast_tiles: [] } }, warnings: { source: { mode: 'synthetic' }, bulletins: [{ raw_text: 'Original bulletin text must stay unchanged.', zone_id: 'casquets' }] } });
-  const synoptic = { systems: [{ kind: 'low', system_id: 'L1', track: [{ center_hpa: 996 }] }], chart_captions: [{ file: 'chart.svg', caption: 'Previous run keeps the low west of the route longer.' }] };
+  const synoptic = { systems: [{ kind: 'low', system_id: 'L1', track: [{ center_hpa: 996 }] }], chart_captions: [{ file: 'runs/example/synoptic/charts/t000.png', caption: 'Previous run keeps the low west of the route longer.' }] };
   const content = <><EvidenceInspector /><BulletinPanel evidence={evidence} onClose={() => {}} /><SynopticCompare previous={synoptic} latest={synoptic} /></>;
   const view = render(<div id="root">{content}{createElement(LocalizedDocument, { language: 'fr' })}</div>);
   await waitFor(() => expect(view.container.textContent).toContain('il y a 12 h'));

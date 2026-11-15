@@ -202,6 +202,9 @@
         "prepared-artifact",
         "region-grid"
       ],
+      "viewer/src/components/PageErrorBoundary.jsx": [
+        "passages"
+      ],
       "viewer/src/components/RouteMap.jsx": [
         "\"\n        stroke=\"",
         "\" fill-opacity=\".25\" stroke=\"",

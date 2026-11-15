@@ -8,6 +8,7 @@ import { deriveChangeStory, governedStory, kindLabels, ledgerText, ruleLabels } 
 import { governingClaim, useGoverningReason } from './verdictSentence.js';
 import { fmtTextTime } from '../../lib/format.js';
 import { fetchSnapshotJson } from '../../lib/localSnapshots.js';
+import { own } from '../../lib/own.js';
 
 async function fetchServedJson(snapshotId, filename) {
   const url = `/data/snapshots/${snapshotId}/${filename}`;
@@ -62,7 +63,7 @@ export default function ChangesSection() {
     <section className="py-5"><SynopticCompare previous={state.previousSynoptic} latest={latestSynoptic} previousId={state.previousId} latestId={findings.snapshot_id}/></section>
     <OnsetShift previous={state.previous} latest={findings} />
     <section className="grid lg:grid-cols-3 border-y border-ink/40 divide-y-legacy lg:divide-y-legacy-0 lg:divide-x-legacy divide-ink/30">
-      {story.material.length ? story.material.map((item, index) => { const entry = state.changes.entries[item.change_ref]; return <article key={item.change_ref} className="p-4"><p className="eyebrow">material change {index + 1} · {ruleLabels[entry?.rule_id] ?? kindLabels[entry?.kind] ?? 'change'}</p><p className="font-story text-xl mt-2">{ledgerText(entry?.description, findings.departure_utc)}</p>{item.why_it_matters !== entry?.description && <p className="font-instrument text-sm text-ink-soft mt-3">{ledgerText(item.why_it_matters, findings.departure_utc)}</p>}<LatestEvidence ids={item.evidence_ids} /></article>; }) : <p className="p-5 text-ink-soft">No material change. The forecast held steady.</p>}
+      {story.material.length ? story.material.map((item, index) => { const entry = own(state.changes.entries, item.change_ref); return <article key={item.change_ref} className="p-4"><p className="eyebrow">material change {index + 1} · {own(ruleLabels, entry?.rule_id) ?? own(kindLabels, entry?.kind) ?? 'change'}</p><p className="font-story text-xl mt-2">{ledgerText(entry?.description, findings.departure_utc)}</p>{item.why_it_matters !== entry?.description && <p className="font-instrument text-sm text-ink-soft mt-3">{ledgerText(item.why_it_matters, findings.departure_utc)}</p>}<LatestEvidence ids={item.evidence_ids} /></article>; }) : <p className="p-5 text-ink-soft">No material change. The forecast held steady.</p>}
     </section>
     <details className="py-4 border-b border-ink/40"><summary className="font-instrument cursor-pointer py-2.5">Full change ledger · {state.changes.entries.length} entries</summary><ul className="mt-3 max-w-3xl divide-y-legacy hairline">{state.changes.entries.map((entry, index) => <li key={index} className="py-2 font-instrument text-sm">{ledgerText(entry.description, findings.departure_utc)}</li>)}</ul></details>
   </div>;

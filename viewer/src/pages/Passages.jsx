@@ -8,11 +8,12 @@ import { fmtLocalTime, localTimeZoneName } from '../lib/format.js';
 import { palette } from '../lib/palette.js';
 import { translateText } from '../i18n.js';
 import { fetchSnapshotJson } from '../lib/localSnapshots.js';
-import { OWNED, groupPassages, localTime, passageText, routeChanges, routeName } from '../lib/passages.js';
+import { OWNED, groupPassages, localTime, passageDefaultName, passageText, routeChanges } from '../lib/passages.js';
 import { MAX_LABEL_LENGTH, passageLabels } from '../lib/passageLabels.js';
 import { loadJson } from '../lib/verification.js';
 import { STORAGE_LEVEL, formatStorageSize, readStorageUsage, storagePercent } from '../lib/storageUsage.js';
 import { readPersisted } from '../lib/storagePersistence.js';
+import { minOf, maxOf } from '../lib/extent.js';
 
 /** Every passage you have checked: its latest verdict, what changed since the
  * previous check, and where it is between planning and verification. */
@@ -193,7 +194,7 @@ function PassageRow({ passage, publishedCases, label, language, onRename, onDele
   }, [draft]);
 
   // The label is display only; the name inside the saved check is never touched.
-  const defaultTitle = translateText(route?.name ?? routeName(passage.route_id), language);
+  const defaultTitle = translateText(passageDefaultName(route, passage.route_id, language), language);
   const title = label ?? defaultTitle;
   const departed = Date.parse(passage.departure_utc) < Date.now();
   const hasPublishedCase = !latest.local && publishedCases.has(latest.snapshot_id);
@@ -413,11 +414,12 @@ function Station({ filled, current, last, children }) {
 /** A thumbnail of the route on sea-wash: start filled, finish open. */
 function RouteSketch({ route }) {
   const box = 'w-16 h-10 sm:w-40 sm:h-24 sm:row-span-2 shrink-0 border hairline rounded-sm';
-  const points = route?.waypoints?.filter((wp) => Number.isFinite(wp.lat) && Number.isFinite(wp.lon)) ?? [];
+  // a saved route.json is check content: anything but a list of numeric points draws the empty sketch
+  const points = Array.isArray(route?.waypoints) ? route.waypoints.filter((wp) => Number.isFinite(wp?.lat) && Number.isFinite(wp?.lon)) : [];
   if (points.length < 2) return <span className={clsx(box, 'bg-shoal/60')} aria-hidden />;
   const W = 160, H = 96, pad = 14;
   const lats = points.map((p) => p.lat), lons = points.map((p) => p.lon);
-  const minLat = Math.min(...lats), maxLat = Math.max(...lats), minLon = Math.min(...lons), maxLon = Math.max(...lons);
+  const minLat = minOf(lats), maxLat = maxOf(lats), minLon = minOf(lons), maxLon = maxOf(lons);
   const kx = Math.cos((((minLat + maxLat) / 2) * Math.PI) / 180);
   const w = Math.max((maxLon - minLon) * kx, 1e-3), h = Math.max(maxLat - minLat, 1e-3);
   const scale = Math.min((W - 2 * pad) / w, (H - 2 * pad) / h);

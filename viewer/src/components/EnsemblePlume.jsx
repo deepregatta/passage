@@ -3,6 +3,7 @@ import ReactECharts from './lazy/EChartsLazy.jsx';
 import { useMemo } from 'react';
 import { quantile } from '@deepweather/engine';
 import { useApp } from '../stores/appStore.js';
+import { maxOf } from '../lib/extent.js';
 import useViewport from '../hooks/useViewport.js';
 import { createAxisLabelFormatter, createTimeTooltipFormatter, plumeAriaLabel, timeZoneAxisProps } from '../lib/chartTime.js';
 
@@ -91,7 +92,7 @@ function buildOption(leg, legFindings, evidence, variable, mobile = false) {
   }
 
   const finite = members.flat().filter((value) => Number.isFinite(value));
-  const dataMax = finite.length ? Math.max(...finite) : limit;
+  const dataMax = finite.length ? maxOf(finite) : limit;
 
   const ink = palette.ink.DEFAULT;
   const soft = palette.ink.soft;

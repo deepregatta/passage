@@ -8,12 +8,14 @@ import { useApp } from '../stores/appStore.js';
 import { frameForCursor, usePlayback } from '../stores/playbackStore.js';
 import { recordedLimits } from '../lib/missingForecastHours.js';
 import { STATUS_HEX, STATUS_RANK, hourStatus, fmtTime } from '../lib/format.js';
+import { minOf, maxOf } from '../lib/extent.js';
 import { preparedRun, artifactUrl } from '../lib/preparedRun.js';
 import { BASEMAP } from '../lib/basemap.js';
 import MapTouchScroll from './MapTouchScroll.jsx';
 import { windArrowHtml } from '../lib/windArrowHtml.js';
 import { ECMWF_MAP_CREDIT } from '../lib/credits.js';
 import { legWindArrow } from '../lib/legWindArrow.js';
+import { own } from '../lib/own.js';
 
 /**
  * The passage on a chart (mockup 1): marine-styled Leaflet; light base +
@@ -158,8 +160,8 @@ export default function RouteMap({ height = 420 }) {
     const lats = routeDoc.waypoints.map((w) => w.lat);
     const lons = routeDoc.waypoints.map((w) => w.lon);
     return [
-      [Math.min(...lats) - 0.15, Math.min(...lons) - 0.25],
-      [Math.max(...lats) + 0.15, Math.max(...lons) + 0.25],
+      [minOf(lats) - 0.15, minOf(lons) - 0.25],
+      [maxOf(lats) + 0.15, maxOf(lons) + 0.25],
     ];
   }, [routeDoc]);
 
@@ -247,7 +249,7 @@ export default function RouteMap({ height = 420 }) {
         ))}
         <BoatMarker findings={findings} route={routeDoc} />
         {(findings.gates ?? []).map((g) => {
-          const pos = gatePositions[g.gate_id];
+          const pos = own(gatePositions, g.gate_id);
           if (!pos) return null;
           return (
             <Marker key={g.gate_id} position={[pos.lat, pos.lon]} icon={gateIcon(g.status)}>

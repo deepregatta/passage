@@ -745,6 +745,63 @@ Check to reopen that check (same id and arrival) instead of the empty page.
 `plannerFeedback.test.jsx` and `plannerFeedback.copy.test.js` cover the three
 save-failure sentences (storage full, blocked, any other) in English and French,
 with the browser's text only under Technical detail.
+Damaged or hostile check content (2026-11-15):
+`viewer/test/pageErrorBoundary.test.jsx` opens a browser-saved check (the demo
+files through a mocked local store) whose first leg's hours are not a list, so
+the passage page's sections throw while rendering, and finds the exact English
+and French fallback ("This page could not be shown.") in the page area with the
+header and both navigations still there, the error logged with
+`console.error` and not again later, the tab's remembered open check forgotten
+and a remount on `#passage` showing the empty state, recovery through the
+header's My passages, a `hashchange` and the fallback's own button, a second,
+different check opening normally (and remembered), no analytics request about
+the error, a fallback that fails itself leaving the page area empty without
+re-rendering, keyboard focus on the fallback's heading inside the alert, and a
+single reset (one log line) when the fallback's button leads back to My
+passages after My passages itself failed (two before). `viewer/test/inspectorErrorBoundary.test.jsx`
+opens the inspector of a browser-saved check on an evidence record whose units
+are an object: the page stays, the inspector closes with nothing selected, one
+note "This evidence detail could not be shown." (and in French) appears and
+nothing more is logged, the remembered open check stays, the header's My
+passages and Plan then navigate, the page fallback's button navigates when the
+page and the inspector both fail, and another evidence record then opens
+normally; before, the page fallback replaced every page until a reload.
+`viewer/test/pageChunkError.test.jsx` makes a page's code fail to load with
+Chromium's message and finds "This page could not be loaded." (and in French)
+with focus on its heading, the remembered open check kept, a "Reload the page"
+button that does one full reload and navigation to a page that loads; and
+`isChunkLoadError` recognises the Chromium, Firefox, Safari, Vite CSS-preload
+and `ChunkLoadError` forms and none of the render errors, a bare
+"Failed to fetch", a string or a value that is not an error; before, a failed
+import showed the damaged-content message and forgot the remembered check. `viewer/test/checkContentHardening.test.jsx` renders the verdict
+chip for "toString", "constructor", "__proto__", "hasOwnProperty" and "valueOf"
+as the existing insufficient chip, falls back for the same keys in the rule
+labels, model styles, section and check wording and the French catalogue,
+draws the route map, the synoptic schematic and the scenario plume of a check
+with 200,000 points and frames, spans and ranks 200,000 chart points, legs and
+hours, accepts every chart path the committed fixtures and prepared runs use
+and gives no image for `..` segments, absolute and outside addresses, other
+extensions, odd characters, values that are not text and a snapshot-local chart
+of an id that is not a check id. `viewer/test/damagedManifest.test.jsx` stores,
+in a fresh fake-indexeddb, a good check next to a manifest holding verdict
+"toString", wrong types, inherited-property names, no fields, a JSON array or
+number, invalid JSON, JSON null, a content that is a number, an object, null or
+bytes, and an id the record is not stored under: `list()` keeps the good check
+each time, lists the damaged ones it listed before (the last under its record's
+id) with every field the type My passages reads or absent, and leaves out the
+rest as before; My passages renders all of them at once beside the example,
+shows the insufficient chip for "toString", deletes each listed damaged check
+from the page and keeps the others, and draws passages whose saved route has a
+name that is not text or waypoints that are not a list of points. All of these
+except the chart paths the fixtures use, the known translations and the shapes
+`list()` already handled failed before the change (TypeError on `split`,
+RangeError: Maximum call stack size exceeded, the app unmounted with no header).
+`viewer/e2e/render-error.spec.js` copies the demo check into the test's own
+IndexedDB under a new id with the same broken hours, opens it from My passages
+in real Chromium (desktop and mobile) and finds the fallback with the header and
+navigation usable, then reloads to the passage page's empty state and the check
+still listed on My passages; it failed before the change (no fallback, the app
+blank).
 
 ## Fixture policy
 

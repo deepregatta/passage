@@ -1,6 +1,7 @@
 import clsx from 'clsx';
 import { useApp } from '../stores/appStore.js';
 import { VERDICT } from '../lib/format.js';
+import { own } from '../lib/own.js';
 
 /** Inline provenance link; the evidence chain. Dotted underline = has evidence. */
 export function EvidenceLink({ evidenceId, children, className, title }) {
@@ -13,7 +14,8 @@ export function EvidenceLink({ evidenceId, children, className, title }) {
 }
 
 export function VerdictChip({ state, small, large }) {
-  const v = VERDICT[state] ?? VERDICT.insufficient;
+  // the state comes from a check: an unknown one, inherited names included, reads as insufficient
+  const v = own(VERDICT, state) ?? VERDICT.insufficient;
   return (
     <span
       className={clsx(

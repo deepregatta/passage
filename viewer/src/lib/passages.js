@@ -1,13 +1,25 @@
 import { capitalize, fmtLocalTime } from './format.js';
 import { translateText } from '../i18n.js';
+import { GENERIC_NAME } from '../pages/planner/passageName.js';
 
-/** "cherbourg-plymouth-v1" / "my-passage-5wp" → "Cherbourg plymouth" / "My passage" */
+/** "cherbourg-plymouth-v1" / "my-passage-5wp" → "Cherbourg plymouth" / "My passage";
+ * null when the check holds no route id text (a damaged manifest). */
 export function routeName(routeId) {
+  if (typeof routeId !== 'string') return null;
   const words = routeId
     .replace(/-(v\d+|\d+wp)$/i, '')
     .split('-')
     .filter(Boolean);
   return capitalize(words.join(' ')) || routeId;
+}
+
+/** The name a passage's card shows before any rename: its saved route's name,
+ * else one made from its route id, else (a damaged check with neither) the
+ * planner's default name. The saved route is check content, so a name that is
+ * not text is ignored. */
+export function passageDefaultName(route, routeId, language) {
+  const saved = typeof route?.name === 'string' ? route.name : null;
+  return saved ?? routeName(routeId) ?? GENERIC_NAME[language] ?? GENERIC_NAME.en;
 }
 
 /** The title the sailor gave a drawn or computed passage, or null when the

@@ -1,4 +1,5 @@
 import { fmtTextTime } from './format.js';
+import { own } from './own.js';
 
 export { ruleLabels } from './ruleLabels.js';
 
@@ -22,7 +23,7 @@ export function deriveChangeStory(changes, briefing) {
   };
 }
 
-const label = (state) => ({ within: 'within your limits', approaching: 'close to your limits', exceeds: 'beyond your limits', insufficient: 'too uncertain to assess', warning_active: 'official warning active' })[state] ?? String(state).replaceAll('_', ' ');
+const label = (state) => own({ within: 'within your limits', approaching: 'close to your limits', exceeds: 'beyond your limits', insufficient: 'too uncertain to assess', warning_active: 'official warning active' }, state) ?? String(state).replaceAll('_', ' ');
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -65,7 +66,7 @@ const LEDGER_SENTENCE = 'This remains in the full ledger because it may matter t
 export function governedStory(story, changes, claim) {
   if (!claim || !story?.material) return story;
   const entries = changes?.entries ?? [];
-  const isGoverning = (ref) => entries[ref]?.rule_id === claim.rule_id && entries[ref]?.leg_id === claim.leg_id;
+  const isGoverning = (ref) => own(entries, ref)?.rule_id === claim.rule_id && own(entries, ref)?.leg_id === claim.leg_id;
   const kept = story.material.filter((item) => item.why_it_matters !== ENGINE_DRIVER_SENTENCE || isGoverning(item.change_ref));
   if (!kept.some((item) => isGoverning(item.change_ref))) {
     const ref = entries.findIndex((_entry, index) => isGoverning(index));

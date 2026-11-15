@@ -11,6 +11,7 @@ import { fmtTextTime } from './format.js';
 import { routeSummaryEmulated } from './routeSummaryLines.js';
 import { currentCreditLine } from './credits.js';
 import { currentModelFamily, isScenarioId, tileModelId } from './sourceNames.js';
+import { own } from './own.js';
 
 /**
  * Fixed caveats by recorded source and model family, reusing the GRIB page's
@@ -113,7 +114,7 @@ function gainLines(gain) {
   const tenths = Math.round(Math.abs(gain.nm) * 10) / 10;
   const text = tenths < 0.1 ? 'Distance gained or lost to the current: under 0.1 nm'
     : `Distance ${gain.nm > 0 ? 'gained from' : 'lost to'} the current: ${tenths.toFixed(1)} nm`;
-  return [{ key: 'gain', text }, { key: 'basis', text: BASIS[gain.basis] }];
+  return [{ key: 'gain', text }, { key: 'basis', text: own(BASIS, gain.basis) }];
 }
 
 /**

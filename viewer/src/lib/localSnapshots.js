@@ -121,6 +121,43 @@ async function contentOf(record) {
   }
 }
 
+// A saved manifest is data from storage, which a damaged store, an old build or
+// a hand edit can leave in any shape. Listing reads each field as the type My
+// passages uses it as, and a value of another type reads as absent, so one
+// damaged manifest cannot break the page or the list of the other checks
+// (2026-11-15). Which manifests are listed is unchanged.
+const text = (value) => (typeof value === 'string' ? value : undefined);
+const IDENTITY_TYPES = { identity_version: 'number', passage_id: 'string', route_revision: 'string', decision_hash: 'string', check_sequence: 'number' };
+
+function listEntry(record) {
+  let doc;
+  try {
+    doc = JSON.parse(record.content);
+    if (doc === null) return null;
+  } catch {
+    return null;
+  }
+  const fields = typeof doc === 'object' ? doc : {};
+  // The id every file of the check is stored, read and deleted under; the
+  // manifest's own copy only when the record has none (they match for every
+  // check this app saves).
+  const snapshotId = text(record.snapshot_id) || text(fields.snapshot_id);
+  if (!snapshotId) return null;
+  const identity = Object.fromEntries(Object.entries(identityFields(fields))
+    .filter(([key, value]) => typeof value === IDENTITY_TYPES[key]));
+  return {
+    ...identity,
+    snapshot_id: snapshotId,
+    created_at: text(fields.created_at),
+    route_id: text(fields.route_id),
+    profile_id: text(fields.profile_id),
+    departure_utc: text(fields.departure_utc),
+    verdict_state: text(fields.verdict_state) ?? null,
+    demo: false,
+    local: true,
+  };
+}
+
 const available = () => typeof indexedDB !== 'undefined';
 const NO_INDEXEDDB = 'This browser cannot store briefings (no IndexedDB)';
 
@@ -175,24 +212,7 @@ export const localSnapshots = {
         s.index('filename').getAll('snapshot.json'),
       )) ?? [];
       return records
-        .map((r) => {
-          try {
-            const doc = JSON.parse(r.content);
-            return {
-              ...identityFields(doc),
-              snapshot_id: doc.snapshot_id ?? r.snapshot_id,
-              created_at: doc.created_at,
-              route_id: doc.route_id,
-              profile_id: doc.profile_id,
-              departure_utc: doc.departure_utc,
-              verdict_state: doc.verdict_state ?? null,
-              demo: false,
-              local: true,
-            };
-          } catch {
-            return null;
-          }
-        })
+        .map(listEntry)
         .filter(Boolean)
         .sort((a, b) => b.snapshot_id.localeCompare(a.snapshot_id));
     } catch {

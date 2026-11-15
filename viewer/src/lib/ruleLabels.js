@@ -1,4 +1,5 @@
 import { hazardNoun } from './format.js';
+import { own } from './own.js';
 
 // Short UI labels and longer archived-ledger subjects intentionally differ.
 // Keep both forms and their French translations together for each rule.
@@ -25,4 +26,4 @@ export const ruleLabelTranslations = Object.fromEntries(Object.values(rules).map
 export const ruleSubjectTranslations = Object.fromEntries(Object.values(rules).map(({ subject, subjectFr }) => [subject, subjectFr]));
 
 /** A claim code ("W-SUST-03") as the friendly label shown on pages; codes without a label fall back to their hazard noun. */
-export const ruleLabel = (ruleId) => ruleLabels[ruleId] ?? hazardNoun(ruleId);
+export const ruleLabel = (ruleId) => own(ruleLabels, ruleId) ?? hazardNoun(ruleId);

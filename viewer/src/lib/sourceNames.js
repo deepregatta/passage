@@ -6,6 +6,7 @@
 // Unknown ids fall back to a cleaned-up form, never to the raw id.
 
 import { currentProduct, tileModelId } from '@deepweather/engine';
+import { own } from './own.js';
 
 const EMULATED = 'Scenario set (emulated)';
 
@@ -173,7 +174,7 @@ export function runLabel(runId, context = {}) {
   const match = iso ? ['', '', iso[1], iso[2], iso[3], iso[4]] : /^(.*?)-?(\d{4})(\d{2})(\d{2})T(\d{2})Z$/.exec(id);
   if (!match) return cleanId(id);
   const [, prefix, , month, day, hour] = match;
-  const family = LAYER_RUN_FAMILY[prefix] ?? LAYER_RUN_FAMILY[context.layer ?? '']
+  const family = own(LAYER_RUN_FAMILY, prefix) ?? own(LAYER_RUN_FAMILY, context.layer ?? '')
     ?? (prefix ? cleanId(prefix) : context.model ? modelName(context.model) : '');
   const when = `${Number(day)} ${MONTHS[Number(month) - 1] ?? month} ${hour}Z`;
   return family ? `${family} run ${when}` : `Run ${when}`;

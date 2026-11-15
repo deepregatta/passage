@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../stores/appStore.js';
 import { frameForCursor, playbackHours, usePlayback } from '../stores/playbackStore.js';
 import { chartUrl, chartProjector, nearestCaption } from '../lib/synopticCharts.js';
+import { minOf, maxOf } from '../lib/extent.js';
 import { chartFocusPoints, chartStageStyle, PHASE_PLAIN, passageWindowMs, phaseCaption } from '../lib/synopticView.js';
 import { governingCausalEvent } from '../lib/governing.js';
 import { useElementSize } from '../lib/useElementSize.js';
@@ -121,10 +122,10 @@ function ChartCanvas({ url, projector, route, system, frame, event, passageWindo
 /** fallback when a chart image or its geometry is missing: bounds-fit schematic */
 function SchematicCanvas({ route, system, frame, event, standalone }) {
   const points = [...route.waypoints, ...(system?.track ?? [])];
-  const lonMin = Math.min(...points.map((point) => point.lon)) - 1;
-  const lonMax = Math.max(...points.map((point) => point.lon)) + 1;
-  const latMin = Math.min(...points.map((point) => point.lat)) - .5;
-  const latMax = Math.max(...points.map((point) => point.lat)) + .5;
+  const lonMin = minOf(points.map((point) => point.lon)) - 1;
+  const lonMax = maxOf(points.map((point) => point.lon)) + 1;
+  const latMin = minOf(points.map((point) => point.lat)) - .5;
+  const latMax = maxOf(points.map((point) => point.lat)) + .5;
   const xy = (point) => ({ x: 6 + ((point.lon - lonMin) / (lonMax - lonMin)) * 88, y: 7 + ((latMax - point.lat) / (latMax - latMin)) * 76 });
   return <div className={`relative overflow-hidden border border-ink/25 ${standalone ? 'flex-1 min-h-[240px]' : 'min-h-[360px]'}`} style={{ background: palette.sea }}>
     <svg viewBox="0 0 100 90" className="absolute inset-0 w-full h-full" role="img" aria-label={`${event?.name ?? 'Synoptic'} track and route occupancy`}>

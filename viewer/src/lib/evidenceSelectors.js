@@ -1,4 +1,5 @@
 import { preparedSynopticCoverage } from '@deepweather/engine';
+import { own } from './own.js';
 
 const CAPABILITY_RULES = {
   sustained_wind: ['W-SUST-01', 'W-SUST-03'],
@@ -35,7 +36,7 @@ export function deriveCoverage(findings) {
         ...item, status: 'partially_assessed', detail: `current samples available for ${currentCount}/${hours.length} route hours`,
       };
     }
-    const layer = HOUR_COVERAGE[item.capability];
+    const layer = own(HOUR_COVERAGE, item.capability);
     if (layer && item.status !== 'not_assessed' && hours.some(hour => layer.key in (hour.limit_status ?? {}))) {
       // The verdict ignores hours without a value; say how many the layer covers.
       const known = hours.filter(hour => KNOWN.has(hour.limit_status?.[layer.key])).length;

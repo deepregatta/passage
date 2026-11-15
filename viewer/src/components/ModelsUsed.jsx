@@ -4,6 +4,7 @@ import { useApp } from '../stores/appStore.js';
 import { palette } from '../lib/palette.js';
 import { runAge } from '../lib/format.js';
 import { isScenarioId, layerName, modelName, runLabel } from '../lib/sourceNames.js';
+import { own } from '../lib/own.js';
 
 const SOURCES = { tiles: 'Forecast tiles', fixture: 'Fixture data', synthetic: 'emulated', 'prepared-artifact': 'Prepared data', 'region-grid': 'Current grid' };
 
@@ -52,7 +53,7 @@ export default function ModelsUsed() {
                 {!isScenarioId(input.run_id) && <p className="text-xs">{runLabel(input.run_id, { layer: input.layer, model: input.model })}</p>}
                 <p className="mt-1 flex flex-wrap gap-2 text-xs">
                   <span className={input.source === 'fixture' || input.source === 'synthetic' || input.source_kind === 'emulated' ? 'stamp-emulated' : 'text-ink-soft'}>
-                    {input.source_kind === 'emulated' ? 'emulated' : SOURCES[input.source] ?? 'Source not recorded'}
+                    {input.source_kind === 'emulated' ? 'emulated' : own(SOURCES, input.source) ?? 'Source not recorded'}
                   </span>
                   {input.member_count != null && <span>{`${input.member_count} members`}</span>}
                   {input.resolution_deg ? <span className="text-ink-soft">{input.resolution_deg}°</span> : null}

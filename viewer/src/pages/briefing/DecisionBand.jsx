@@ -14,6 +14,7 @@ import { nextRunText } from './nextRunText.js';
 import { useGoverningReason, verdictSentences } from './verdictSentence.js';
 import useNowMs from '../../hooks/useNowMs.js';
 import { missingForecastHours } from '../../lib/missingForecastHours.js';
+import { own } from '../../lib/own.js';
 
 /** the action line: what each verdict state means for what you DO next. The numbers are in the
  * verdict sentence above it, never repeated here. */
@@ -90,7 +91,7 @@ export default function DecisionBand({ findings, warningEvidence, onOpenBulletin
             {emulated && <span className="stamp-emulated">EMULATED WARNING SCENARIO</span>}
           </div>
           {/* an older check with nothing structured to quote: the chip label is the answer, no invented numbers */}
-          {sentences.length === 0 && <h1 className="sr-only">{VERDICT[state]?.label}</h1>}
+          {sentences.length === 0 && <h1 className="sr-only">{own(VERDICT, state)?.label}</h1>}
           {sentences.length > 0 && (
             <div className={clsx('min-w-0 max-w-[62ch]', warningActive && (emulated ? 'border-l-4 border-dashed border-ink/60 pl-3' : 'border-l-4 border-authority pl-3'))}>
               {/* one sentence: the governing reason; its support directly below, still stated once */}
@@ -119,7 +120,7 @@ export default function DecisionBand({ findings, warningEvidence, onOpenBulletin
                   : 'Read the official bulletin before anything else.'}
               </span>
             )
-            : <span>{state === 'within' && missingHours > 0 ? WITHIN_PARTIAL_STEP : NEXT_STEP[state]}</span>}
+            : <span>{state === 'within' && missingHours > 0 ? WITHIN_PARTIAL_STEP : own(NEXT_STEP, state)}</span>}
           {/* models disagree: the action is the next run, so it is stated right here */}
           {state === 'insufficient' && <>{' '}<span data-testid="next-run" aria-live="polite">{nextRun.text}</span></>}
         </p>

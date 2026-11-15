@@ -1,3 +1,5 @@
+import { own } from '../../lib/own.js';
+
 // Saved briefing sections predate "check" as the one name for a result. The page shows the
 // current wording for old and new checks alike; saved files stay as they are.
 
@@ -12,7 +14,7 @@ const TEXTS = {
 };
 
 /** @param {{ title?: string }} section */
-export const sectionTitle = (section) => TITLES[section.title] ?? section.title;
+export const sectionTitle = (section) => own(TITLES, section.title) ?? section.title;
 
 /** @param {unknown} text */
-export const checkWording = (text) => TEXTS[text] ?? text;
+export const checkWording = (text) => own(TEXTS, text) ?? text;

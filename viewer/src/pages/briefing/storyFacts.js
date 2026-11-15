@@ -1,5 +1,6 @@
 import { forecastName } from './verdictSentence.js';
 import { legLabel } from './routeLabels.jsx';
+import { maxOf as largest } from '../../lib/extent.js';
 
 // Quick facts for the weather story card, kept in plain JS so each sentence is
 // one text node with its own French pattern (i18n.js, "Strongest").
@@ -18,7 +19,7 @@ export function occupiedHours(findings, leg) {
 
 const maxOf = (hours, fn) => {
   const vals = hours.map(fn).filter((v) => v !== null && v !== undefined && Number.isFinite(v));
-  return vals.length ? Math.max(...vals) : null;
+  return vals.length ? largest(vals) : null;
 };
 
 /** The leg with the strongest gust while the boat is on it, with its occupied-hour maxima. */

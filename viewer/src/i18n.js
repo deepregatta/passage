@@ -1,6 +1,7 @@
 import { CHANNEL_PREPARED_COVERAGE } from '@deepweather/engine';
 import { ruleLabelTranslations, ruleSubjectTranslations } from './lib/ruleLabels.js';
 import { useLayoutEffect, useRef } from 'react';
+import { own } from './lib/own.js';
 
 export const LANGUAGE_STORAGE_KEY = 'passage-language';
 
@@ -273,6 +274,15 @@ const FR = {
   "Loading example passage…": "Chargement de l’exemple de traversée…",
 
   'Loading your passage…': 'Chargement de votre traversée…',
+  // A render error contained to the page area (components/PageErrorBoundary.jsx).
+  'This page could not be shown.': 'Cette page n’a pas pu être affichée.',
+  'Something in it could not be displayed. Your saved checks have not been changed.': 'Une partie de son contenu n’a pas pu être affichée. Vos vérifications enregistrées n’ont pas été modifiées.',
+  'Go to My passages': 'Aller à Mes traversées',
+  // A page whose code could not be loaded, and an Evidence inspector that could not be shown (components/InspectorErrorBoundary.jsx).
+  'This page could not be loaded.': 'Cette page n’a pas pu être chargée.',
+  'Check your connection, then reload the page.': 'Vérifiez votre connexion, puis rechargez la page.',
+  'Reload the page': 'Recharger la page',
+  'This evidence detail could not be shown.': 'Le détail de cet élément probant n’a pas pu être affiché.',
   'Previous check order is unavailable.': 'L’ordre des analyses précédentes est indisponible.',
   'These saved checks have been kept.': 'Ces analyses enregistrées ont été conservées.',
   'Previous check order is unavailable. These saved checks have been kept.': 'L’ordre des analyses précédentes est indisponible. Ces analyses enregistrées ont été conservées.',
@@ -1141,7 +1151,7 @@ const FR_PATTERNS = [
       'not yet confirmed': 'pas encore confirmée',
       confirmed: 'confirmée',
     }[status] ?? `${pendingCount} pas encore confirmée${Number(pendingCount) > 1 ? 's' : ''}`;
-    return `${FR[group] ?? group} · ${count} source${Number(count) > 1 ? 's' : ''} · ${french}`;
+    return `${own(FR, group) ?? group} · ${count} source${Number(count) > 1 ? 's' : ''} · ${french}`;
   }, true],
   [/^Wind ([\d.]+) · Gusts ([\d.]+) kt$/, 'Vent $1 · Rafales $2 kt'],
   [/^· Waves ([\d.]+) m$/, '· Vagues $1 m'],
@@ -1176,7 +1186,7 @@ const FR_PATTERNS = [
     };
     const items = list.split(' · ').map((item) => {
       const [, label, hours] = /^(.+) (\d+) h$/.exec(item) ?? [];
-      return label && labels[label] ? `${labels[label]} ${hours} h` : item;
+      return label && own(labels, label) ? `${labels[label]} ${hours} h` : item;
     });
     return `${kind === 'Wind' ? 'Vent' : 'Allure'}\u00A0: ${items.join(' · ')}`;
   }],
@@ -1241,7 +1251,7 @@ const FR_PATTERNS = [
   [/^Closest to your limits: (wind|gust|wave height|wave steepness|visibility) (.+?) ((?:around|as you leave it, about|as you reach it, about) .+), where (the .+? forecast|the forecast) (reaches|drops to) (.+) against your (\S+(?: (?:kt|m|nm))?) (limit|minimum)\.$/, (_m, noun, where, when, forecast, verb, value, limit, word) => `Au plus près de vos limites : ${FR_LIMIT_NOUN[noun]} ${translateLegLabel(where)} ${translateWhen(when)}, où ${translateForecastName(forecast)} ${verb === 'reaches' ? 'atteint' : 'descend à'} ${frNumber(value)} pour ${word === 'minimum' ? 'un minimum' : 'une limite'} de ${frNumber(limit)}.`],
   [/^(\d+ of \d+ .+? forecast scenarios|Some forecast scenarios) exceed your (\S+(?: (?:kt|m|nm))?) (wind|gust|wave height|wave steepness|visibility) (limit|minimum) (.+?) ((?:around|as you leave it, about|as you reach it, about) .+)\.$/, (_m, count, limit, noun, _word, where, when) => `${translateScenarioCount(count)} dépassent votre limite de ${FR_LIMIT_NOUN[noun]} de ${frNumber(limit)} ${translateLegLabel(where)} ${translateWhen(when)}.`],
   [/^(\d+ of \d+ .+? forecast scenarios) exceed that limit\.$/, (_m, count) => `${translateScenarioCount(count)} dépassent cette limite.`],
-  [/^(Official warning|Synthetic warning scenario): (.+) for (.+?) from (.+)\.$/, (_m, lead, kind, area, issuer) => `${lead === 'Official warning' ? 'Alerte officielle' : 'Scénario d’alerte synthétique'} : ${FR_WARNING_KIND[kind] ?? kind} pour ${area}, émis par ${issuer.replace(/\(synthetic\)/, '(synthétique)')}.`],
+  [/^(Official warning|Synthetic warning scenario): (.+) for (.+?) from (.+)\.$/, (_m, lead, kind, area, issuer) => `${lead === 'Official warning' ? 'Alerte officielle' : 'Scénario d’alerte synthétique'} : ${own(FR_WARNING_KIND, kind) ?? kind} pour ${area}, émis par ${issuer.replace(/\(synthetic\)/, '(synthétique)')}.`],
   [/^The models disagree about the wind (.+) around (.+?): (.+)\.$/, (_m, where, when, values) => `Les modèles divergent sur le vent ${translateLegLabel(where)} vers ${when} : ${values.replace(/ \((\d+ \w+ \d{2}Z) run\)/g, ' (cycle $1)').replaceAll(' vs ', ' contre ').replaceAll('emulated scenario', 'scénario simulé')}.`],
   [/^These runs are ([\d.]+) h apart in age, so part of the difference may come from that\.$/, (_m, gap) => `Ces cycles ont ${frNumber(gap)} h d’écart d’âge : une partie de la différence peut en venir.`],
   [/^Wind against the current (.+) around (.+) brings this passage close to your limits\.$/, (_m, where, when) => `Le vent contre le courant ${translateLegLabel(where)} vers ${when} rapproche cette traversée de vos limites.`],
@@ -1486,7 +1496,7 @@ function frPlace(name) {
   if (FR_LOCATIVE_START.test(place)) return { locative: place };
   const waypoint = place.match(/^waypoint (\d+)$/i);
   if (waypoint) return { phrase: `le point de route ${waypoint[1]}` };
-  return { phrase: FR_WAYPOINT_NOUNS[place] ?? FR_PLACES[place] ?? place };
+  return { phrase: own(FR_WAYPOINT_NOUNS, place) ?? own(FR_PLACES, place) ?? place };
 }
 
 /** "near <place>": "près de" + contraction, or the place's own locative. */
@@ -1502,9 +1512,9 @@ function frPlaceStandalone(name) {
 
 function translateCaptionPlace(place) {
   let match = place.match(/^over (.+)$/);
-  if (match) return `sur ${FR_PLACES[match[1]] ?? match[1]}`;
+  if (match) return `sur ${own(FR_PLACES, match[1]) ?? match[1]}`;
   match = place.match(/^(north|north-east|east|south-east|south|south-west|west|north-west) of (.+)$/);
-  if (match) return `${FR_COMPASS8[match[1]]} ${frDe(FR_PLACES[match[2]] ?? match[2])}`;
+  if (match) return `${FR_COMPASS8[match[1]]} ${frDe(own(FR_PLACES, match[2]) ?? match[2])}`;
   match = place.match(/^near (.+)$/);
   if (match) return frNear(match[1]);
   return place;
@@ -1530,16 +1540,16 @@ function translateSynopticCaption(step, body, gradientRegion) {
     ? 'aucun centre de pression fermé dans la fenêtre'
     : body.split('; ').map(translateCaptionSystem).join(' ; ');
   const tail = gradientRegion
-    ? ` Le resserrement des isobares sur ${FR_PLACES[gradientRegion] ?? gradientRegion} y indique un vent plus fort.`
+    ? ` Le resserrement des isobares sur ${own(FR_PLACES, gradientRegion) ?? gradientRegion} y indique un vent plus fort.`
     : '';
   return `T+${step} : ${bodyFr}.${tail}`;
 }
 
 function translateAttributionReason(reason) {
-  return {
+  return own({
     'the prepared synoptic run contains no tracked systems': 'le cycle synoptique préparé ne contient aucun système suivi',
     'no prepared synoptic run was supplied': 'aucun cycle synoptique préparé n’a été fourni',
-  }[reason] ?? reason;
+  }, reason) ?? reason;
 }
 
 function translateChangePhrase(phrase) {
@@ -1558,13 +1568,13 @@ function translateChangePhrase(phrase) {
 }
 
 function translateVerdictLabel(label) {
-  return {
+  return own({
     'within your limits': 'dans vos limites',
     'close to your limits': 'proche de vos limites',
     'beyond your limits': 'au-delà de vos limites',
     'too uncertain to assess': 'trop incertain pour être évalué',
     'official warning active': 'alerte officielle active',
-  }[label] ?? label;
+  }, label) ?? label;
 }
 
 // Decision-band cause sentence (viewer pages/Briefing.jsx DecisionBand).
@@ -1653,12 +1663,12 @@ function translateScenarioCount(count) {
 }
 
 function translateDriverClause(prefix, hazard, value, units, where, relation, limit, limitUnits) {
-  const subject = FR_HAZARD_REACH[hazard.toLowerCase()] ?? `${hazard} atteint`;
+  const subject = own(FR_HAZARD_REACH, hazard.toLowerCase()) ?? `${hazard} atteint`;
   const plural = hazard.toLowerCase() === 'gusts' || hazard.toLowerCase() === 'conditions';
   const relationFr = relation === 'over'
-    ? `au-dessus de votre limite de ${limit} ${FR_UNITS[limitUnits] ?? limitUnits}`
-    : `${plural ? 'proches' : 'proche'} de votre limite de ${limit} ${FR_UNITS[limitUnits] ?? limitUnits}`;
-  const sentence = `${subject} ${value} ${FR_UNITS[units] ?? units} ${translateDriverPlace(where)}, ${relationFr}.`;
+    ? `au-dessus de votre limite de ${limit} ${own(FR_UNITS, limitUnits) ?? limitUnits}`
+    : `${plural ? 'proches' : 'proche'} de votre limite de ${limit} ${own(FR_UNITS, limitUnits) ?? limitUnits}`;
+  const sentence = `${subject} ${value} ${own(FR_UNITS, units) ?? units} ${translateDriverPlace(where)}, ${relationFr}.`;
   return `${translateEventPrefix(prefix)}${sentence}`;
 }
 
@@ -1669,7 +1679,7 @@ function translateScenarioClause(prefix, share, hazard, limit, where) {
     : /^every/i.test(share)
       ? 'Tous les scénarios de prévision montrent'
       : 'La plupart des scénarios de prévision montrent';
-  const sentence = `${shareFr} ${FR_HAZARD_NOUN[hazard.toLowerCase()] ?? hazard} au-dessus de votre limite de ${limit} nd ${translateDriverPlace(where)}.`;
+  const sentence = `${shareFr} ${own(FR_HAZARD_NOUN, hazard.toLowerCase()) ?? hazard} au-dessus de votre limite de ${limit} nd ${translateDriverPlace(where)}.`;
   return `${translateEventPrefix(prefix)}${sentence}`;
 }
 
@@ -1692,7 +1702,7 @@ function translateSynopticPosition(position) {
     'near your waters, to the south': 'près de votre zone de navigation, au sud',
     'near your waters, at your latitude': 'près de votre zone de navigation, à votre latitude',
   };
-  return positions[position] ?? position;
+  return own(positions, position) ?? position;
 }
 
 function translateDetectedSystems(systems) {
@@ -1717,14 +1727,14 @@ function translateRouteName(name) {
 }
 
 function translateWindStrength(strength) {
-  return {
+  return own({
     light: 'vents faibles',
     moderate: 'vents modérés',
     fresh: 'vents frais',
     strong: 'vents forts',
     'near-gale': 'vents de grand frais',
     'gale-force': 'vents de force coup de vent',
-  }[strength];
+  }, strength);
 }
 
 function translateExceedanceSuffix(suffix) {
@@ -1754,13 +1764,13 @@ function translateProfessionalLegSuffix(suffix) {
 }
 
 function translateProfessionalAssessment(assessment) {
-  return {
+  return own({
     'All evaluated condition-hours remain below declared thresholds': 'Toutes les conditions horaires évaluées restent sous les seuils déclarés',
     'One or more condition-hours reach ≥75% of a declared limit, or the ensemble scenario fraction is above your declared floor': 'Une ou plusieurs conditions horaires atteignent au moins 75 % d’une limite déclarée, ou la fraction de scénarios d’ensemble dépasse votre seuil déclaré',
     'At least one condition-hour exceeds a declared threshold in the deterministic run': 'Au moins une condition horaire dépasse un seuil déclaré dans le cycle déterministe',
     'Deterministic model divergence exceeds assessment tolerance within the passage window': 'La divergence des modèles déterministes dépasse la tolérance d’évaluation pendant la fenêtre de traversée',
     'Authority override active: an official bulletin covers route zones during the passage window': 'Priorité active à l’autorité : un bulletin officiel couvre des zones de la route pendant la fenêtre de traversée',
-  }[assessment];
+  }, assessment);
 }
 
 function translateProfessionalDecisionSuffix(suffix) {
@@ -1794,7 +1804,7 @@ const FR_CAUSAL_RELATION = { over: 'au-dessus de', under: 'sous', below: 'sous',
 
 /** engine plainValueVsLimit / phraseExceedance claims, capitalised, as the causal note starts with them. */
 function translateCausalClaim(claim) {
-  const unit = (u) => (u ? ` ${FR_UNITS[u] ?? u}` : '');
+  const unit = (u) => (u ? ` ${own(FR_UNITS, u) ?? u}` : '');
   const cap = (text) => text.charAt(0).toUpperCase() + text.slice(1);
   const hazards = Object.keys(FR_CAUSAL_HAZARD).join('|');
   let m = claim.match(new RegExp(`^(${hazards}) just over your ([\\d.]+)(?: (kt|m|nm))? limit$`, 'i'));
@@ -2068,12 +2078,14 @@ export function localizeNotationFr(text) {
 }
 
 export function translateText(value, language) {
-  if (language !== 'fr' || !value) return value;
+  // check content can hand over a value that is not text: it stays as it is
+  if (language !== 'fr' || typeof value !== 'string' || !value) return value;
   const leading = value.match(/^\s*/)?.[0] ?? '';
   const trailing = value.match(/\s*$/)?.[0] ?? '';
   const key = value.trim();
   if (!key) return value;
-  let translated = FR[key] ?? ruleLabelTranslations[key];
+  // the key is page text, check content included: only the catalogue's own entries count
+  let translated = own(FR, key) ?? own(ruleLabelTranslations, key);
   if (!translated) {
     for (const [pattern, replacement, complete = false] of FR_PATTERNS) {
       if (pattern.test(key)) {

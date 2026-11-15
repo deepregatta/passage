@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../stores/appStore.js';
 import { recordedLimits } from '../lib/missingForecastHours.js';
 import { STATUS_HEX, hourStatus, fmtHour, fmtLocalTime } from '../lib/format.js';
+import { own } from '../lib/own.js';
 import { usePlayback } from '../stores/playbackStore.js';
 import useViewport from '../hooks/useViewport.js';
 import { edgeShift, fmtLocalClock, rulerTicks } from '../lib/ruler.js';
@@ -134,7 +135,7 @@ function ConditionStrip({ findings }) {
   const seen = new Set();
   const flags = [];
   for (const ev of findings.events ?? []) {
-    const label = EVENT_LABEL[ev.kind];
+    const label = own(EVENT_LABEL, ev.kind);
     if (!label || seen.has(ev.kind) || !ev.window?.from) continue;
     seen.add(ev.kind);
     if (flags.length >= 3) break;
@@ -339,7 +340,7 @@ function buildOption(findings, mobile = false) {
   const seenKinds = new Set();
   const flags = [];
   for (const ev of findings.events ?? []) {
-    const label = EVENT_LABEL[ev.kind];
+    const label = own(EVENT_LABEL, ev.kind);
     if (!label || seenKinds.has(ev.kind) || !ev.window?.from) continue;
     seenKinds.add(ev.kind);
     if (flags.length >= 3) break;

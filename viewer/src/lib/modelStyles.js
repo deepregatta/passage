@@ -1,4 +1,5 @@
 import { palette } from './palette.js';
+import { own } from './own.js';
 
 // Deterministic-model catalogue for the comparison chart: a human name plus a line
 // style that survives colour-blindness and grayscale (hue AND dash differ per model).
@@ -22,7 +23,7 @@ const OTHER = { color: palette.authority, dash: [8, 3, 2, 3], width: 2.2 };
 
 /** Name, colour and dash for one model id. Unknown ids keep their raw id as the label. */
 export function modelStyle(model) {
-  return MODEL_STYLES[model] ?? { ...OTHER, label: model };
+  return own(MODEL_STYLES, model) ?? { ...OTHER, label: model };
 }
 
 /** SVG stroke-dasharray for the legend swatch matching an ECharts line dash. */

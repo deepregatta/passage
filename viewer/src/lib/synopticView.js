@@ -2,6 +2,8 @@
 // points the first view must contain, how a viewport of any shape frames them,
 // and the one-line phase caption.
 
+import { minOf, maxOf } from './extent.js';
+
 const HOUR = 3600_000;
 
 /** The caption under the chart. Every line describes the chart as drawn at the
@@ -44,7 +46,7 @@ export function passageWindowMs(findings) {
   if (!Number.isFinite(start)) return null;
   const legs = findings.legs ?? [];
   const ends = legs.map((leg) => Date.parse(leg.eta_range?.nominal)).filter(Number.isFinite);
-  return { start, end: ends.length ? Math.max(...ends) : start };
+  return { start, end: ends.length ? maxOf(ends) : start };
 }
 
 /** Lat/lon points the first view must contain: the whole route plus the
@@ -92,10 +94,10 @@ export function fitChartView({ container, image, points = [], mode = 'framed', m
   if (mode === 'framed' && points.length) {
     const xs = points.map((p) => p.x);
     const ys = points.map((p) => p.y);
-    const boxW = Math.max((Math.max(...xs) - Math.min(...xs)) * (1 + 2 * margin), minSpan * image.w);
-    const boxH = Math.max((Math.max(...ys) - Math.min(...ys)) * (1 + 2 * margin), minSpan * image.w);
-    cx = (Math.max(...xs) + Math.min(...xs)) / 2;
-    cy = (Math.max(...ys) + Math.min(...ys)) / 2;
+    const boxW = Math.max((maxOf(xs) - minOf(xs)) * (1 + 2 * margin), minSpan * image.w);
+    const boxH = Math.max((maxOf(ys) - minOf(ys)) * (1 + 2 * margin), minSpan * image.w);
+    cx = (maxOf(xs) + minOf(xs)) / 2;
+    cy = (maxOf(ys) + minOf(ys)) / 2;
     scale = Math.min(whole * maxZoom, Math.max(whole, Math.min(container.w / boxW, container.h / boxH)));
   }
   return {

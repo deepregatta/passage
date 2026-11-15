@@ -1,12 +1,22 @@
 import { runsBase } from './preparedRun.js';
+import { validSnapshotId } from './routes.js';
+
+// A chart path from a check: relative, under runs/ or charts/, a PNG, no `..`
+// segment. Every committed fixture and prepared run uses this shape
+// (charts/t000.png, runs/<run>/synoptic/charts/t024[.<digest>].png).
+const CHART_PATH = /^(runs|charts)\/[A-Za-z0-9._/-]+\.png$/;
 
 /** Chart images live in two places: prepared runs (repo-relative `runs/...`
  * paths, served at /data/... in dev and from the forecast host's prepared/
  * prefix in production) and snapshot-local copies (`charts/...`, demo
- * fixtures). */
+ * fixtures). The path comes from the check, so anything else (another
+ * extension, an absolute or outside address, a `..` segment, a snapshot-local
+ * chart of an id that is not a check id) gives no image rather than an error
+ * (2026-11-15). */
 export function chartUrl(file, snapshotId) {
-  if (!file) return null;
-  return file.startsWith('runs/') ? `${runsBase()}${file}` : `/data/snapshots/${snapshotId}/${file}`;
+  if (typeof file !== 'string' || !CHART_PATH.test(file) || file.split('/').includes('..')) return null;
+  if (file.startsWith('runs/')) return `${runsBase()}${file}`;
+  return validSnapshotId(snapshotId) ? `/data/snapshots/${snapshotId}/${file}` : null;
 }
 
 export function nearestCaption(captions, cursorHours) {

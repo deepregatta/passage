@@ -4,6 +4,7 @@ import { EmulatedStamp } from '../../components/common.jsx';
 import { fmtTextTime, fmtUtcClock } from '../../lib/format.js';
 import { legLabel } from './routeLabels.jsx';
 import { loadJson, readVerificationCase } from '../../lib/verification.js';
+import { own } from '../../lib/own.js';
 
 const CLASS_LABEL = {
   verified_near_observation: 'verified near observation',
@@ -92,7 +93,7 @@ export default function OutcomeSection() {
           {doc.observation_provenance && <span className="font-mono text-xs text-ink-soft"><span>Observation mode</span>: {doc.observation_provenance.mode}</span>}
           {Object.entries(doc.coverage_summary ?? {}).map(([klass, count]) => (
             <span key={klass} className="font-sans text-[12px] border hairline rounded-sm px-2 py-0.5 flex items-center gap-1.5">
-              {klass === 'emulated' ? <EmulatedStamp /> : CLASS_LABEL[klass] ?? klass}
+              {klass === 'emulated' ? <EmulatedStamp /> : own(CLASS_LABEL, klass) ?? klass}
               <span className="font-mono">{count}</span>
             </span>
           ))}
@@ -113,7 +114,7 @@ export default function OutcomeSection() {
                 <div><span>Since check</span>: {pair.check_lead_h ?? 'n/a'} h</div>
                 <div><span>Model lead</span>: {pair.model_lead_h ?? 'n/a'} h</div>
               </div>}
-            </td><td>{VARIABLE_LABEL[pair.variable] ?? pair.variable}</td><td className="font-mono">{pair.forecast}</td><td className="font-mono">{pair.observed}</td><td className="font-mono">{pair.error > 0 ? '+' : ''}{pair.error}</td><td>{pair.error > 0 ? 'Forecast above observation' : pair.error < 0 ? 'Forecast below observation' : 'Equal at displayed precision'}</td></tr>)}</tbody>
+            </td><td>{own(VARIABLE_LABEL, pair.variable) ?? pair.variable}</td><td className="font-mono">{pair.forecast}</td><td className="font-mono">{pair.observed}</td><td className="font-mono">{pair.error > 0 ? '+' : ''}{pair.error}</td><td>{pair.error > 0 ? 'Forecast above observation' : pair.error < 0 ? 'Forecast below observation' : 'Equal at displayed precision'}</td></tr>)}</tbody>
           </table>
         </div>
       </section>

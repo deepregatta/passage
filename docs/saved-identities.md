@@ -268,6 +268,16 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   here blamed this line for a 275-character difference seen on the live site
   after a reload of an "exceeds" check; that difference was chart axis labels
   counted in the page text, not a missing line, and the charts were drawn.
+- Damaged check content (2026-11-15): an error while rendering a check is
+  contained to the page area (`viewer/src/components/PageErrorBoundary.jsx`:
+  the header and navigation stay usable, and the tab forgets the check it
+  remembers having open, so a reload does not reopen the check that failed;
+  a page whose code could not be loaded keeps the remembered check and offers
+  a reload, and an Evidence inspector that cannot be shown closes on its own
+  with a short note, keeping the page and the remembered check,
+  `InspectorErrorBoundary.jsx`), and check-provided strings are never used as
+  object keys without an own-property test (`viewer/src/lib/own.js`), with
+  nothing stored for a check changed.
 - Modern histories group only by explicit passage ID and persistence source.
   Legacy checks without explicit identity remain individually accessible and
   deletable. No inferred grouping from route names/counts/departure is permitted.

@@ -7,6 +7,7 @@ import { ruleLabel, ruleLabelTranslations } from '../../lib/ruleLabels.js';
 import { isScenarioId } from '../../lib/sourceNames.js';
 import { useApp } from '../../stores/appStore.js';
 import { legLabel } from './routeLabels.jsx';
+import { own } from '../../lib/own.js';
 
 // The one answer at the top of the result page, built from the engine's
 // governingReason. Each sentence is its own text node; French lives in
@@ -60,7 +61,7 @@ export function limitSentences(findings, result) {
   if (!result) return [];
   const where = legLabel(findings, result.leg.leg_id);
   const when = whenOnLeg(findings, result.leg.leg_id, result.window);
-  const noun = NOUN[result.limit.kind] ?? result.limit.kind;
+  const noun = own(NOUN, result.limit.kind) ?? result.limit.kind;
   const min = result.limit.bound === 'min';
   const word = min ? 'minimum' : 'limit';
   const L = limitText(result.limit);
@@ -182,7 +183,7 @@ export function driverSignalText(findings, p, language) {
   const units = typeof p.units === 'string' ? p.units : '';
   if (language === 'fr') {
     const u = units === 'kt' ? 'nd' : units;
-    const head = `Signal individuel le plus fort : ${ruleLabelTranslations[rule] ?? rule} ${translateText(where, 'fr')} vers ${translateText(when, 'fr')}`;
+    const head = `Signal individuel le plus fort : ${own(ruleLabelTranslations, rule) ?? rule} ${translateText(where, 'fr')} vers ${translateText(when, 'fr')}`;
     return ensemble
       ? `${head}, ${p.exceed} membres d’ensemble sur ${p.total} au-dessus de ${p.limit} ${u}.`
       : `${head}, ${p.value} ${u} pour une limite déclarée de ${p.limit} ${u}.`;
