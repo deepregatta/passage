@@ -521,8 +521,39 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   not a check file; newer (a header of format version 3 or above); a damaged
   line, with its reason (not a check line, a bad digest, or the version-1
   proof's own "damaged" or "future-time"); a wrong trailer (another count,
-  other keys); more than 1,000 checks. The import of many checks and the
-  export of all of them are not built yet.
+  other keys); more than 1,000 checks. The import of many checks is not
+  built yet.
+  The export of all checks (`prepareAllChecksFile` in
+  `viewer/src/lib/allChecksFile.js`, 2026-11-15; a library only, no control
+  calls it yet) lists this browser's checks (`localSnapshots.list()`): every
+  check saved or imported here with a v2 id is a candidate, an imported one
+  without its `imported.json` marker (only the files its manifest names are
+  read); a legacy identity-1 check is counted as legacy and left out. It
+  writes them newest first (the check's own `created_at` descending, then
+  the id), so a file cut short by a cap or a failure holds the checks most
+  likely needed, one at a time: read its files, prove them as the import will
+  (`parseCheckEntry` with the contracts and no time bound, as the single-check
+  export after its re-read), the polar safety net over the texts, the line and
+  the parsed values, then `checkFileEntryLine` into one
+  `CompressionStream('gzip')`, whose output is folded into a Blob after each
+  check; no two checks' texts are in memory together. A check that is
+  damaged, unreadable, polar-shaped or too large for a line is left out and
+  counted, and never stops the others. Before each check it stops if that
+  check would pass a cap (1,000 checks, 8 GiB inflated, 1 GiB compressed:
+  for the last, what the compressor has handed over, a 1 MiB margin for what
+  it may still hold and the line's own deflate bound must fit), counting it
+  and every older one as over the cap; the finished size is checked again.
+  After the trailer it reads the finished Blob back through the stream
+  reader and compares the header, the number of lines and each line's FNV-1a
+  64 with what it wrote (not a second proof); any difference fails the whole
+  backup. It resolves `made` with `{ blob, name, included, counts: {
+  included, legacy, damaged, unreadable, polar, tooLarge, overCap } }`,
+  `empty` when no check could be written, `stopped` on an abort (nothing
+  kept) or `failed` with a reason, reports `onProgress({ index, total })` after
+  each check and gives the event loop a turn between checks. Its core
+  (`makeAllChecksFile`) takes the store, the validators' loader, the
+  compressor, `Blob` and the pause as dependencies, so it could run in a
+  Worker; it runs on the main thread for now.
   The stream reader (`readCheckFileLines`, 2026-11-15; nothing calls it yet)
   reads a `File` through `file.stream()` and `DecompressionStream('gzip')`,
   never holding more than one line: it splits on byte 0x0A before decoding

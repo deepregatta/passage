@@ -986,7 +986,23 @@ characters as text with never more than seven bytes kept; reads gzip whose
 header carries FEXTRA, FNAME, FCOMMENT and FHCRC; writes member sizes modulo
 2^32 and checks the file's end and a second member alike with sizes injected
 past 4 and 8 GiB; says aborted for an abort during the second-member scan; and
-says unreadable when the file's first or last bytes cannot be read. `scripts/check-no-polar-data.test.mjs` finds a
+says unreadable when the file's first or last bytes cannot be read.
+Export of all checks (stage 2, part 3): `viewer/test/allChecksFile.test.js`
+(fresh fake-indexeddb, checks the engine makes; the core is given Node's
+`Blob`, since jsdom's has no `stream()`) finds four checks stored in shuffled
+order written newest first and by id at the same time, each line proving
+with its texts exactly as stored and equal to `checkFileEntryLine`, the
+header, trailer, name and progress; a legacy, a damaged, an unreadable, a
+polar-shaped and a too-large check each left out and counted while the other
+two are written and nothing is logged; an imported check included without
+its marker; every file of one check read only after the previous check's line
+was written; the check cap, the inflated cap and the compressed cap each
+stopping with the newest checks, the rest counted, the file whole and within
+the cap; nothing when not even the newest fits; an abort mid-way and before
+the start keeping nothing; a compressor that alters a byte of a line, and one
+that damages the gzip, each failing the whole backup at the read-back; nothing
+to save for an empty store, only a legacy check or only a damaged one; and the
+public entry point with the page's own store and compressor. `scripts/check-no-polar-data.test.mjs` finds a
 `.pol` header after blank lines and 200,000 blank lines read without
 rescanning. `viewer/e2e/check-import.spec.js` (desktop and mobile) makes a real
 Check in fixture mode, saves a copy, refuses a hostile file in a second, empty
