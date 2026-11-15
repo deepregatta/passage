@@ -524,6 +524,11 @@ function identityProblem(
 // Each line is parsed alone, so a reader never holds more than one line. The
 // viewer reads the gzip stream and enforces the byte caps below while bytes
 // buffer (viewer/src/lib/checkFileLines.js); these functions are pure.
+//
+// The format is fixed. ANY change to the shape of any line (a key added,
+// removed, renamed or reordered, another value type, another digest encoding,
+// another framing) is a new format_version, never a change to version 2:
+// engine/test/checkFile.test.ts pins the exact texts and a digest vector.
 
 export const CHECK_FILE_V2_VERSION = 2;
 /** A version-2 file's caps: compressed, each line in UTF-8 (its newline not counted), the header and trailer each (likewise), checks, and all lines inflated. */
@@ -535,8 +540,14 @@ export const CHECK_FILE_V2_MAX_INFLATED_BYTES = 8 * 1024 ** 3;
 /** How every trailer line starts (the writer's key order), so a reader knows the trailer before it is whole. */
 export const CHECK_FILE_V2_TRAILER_PREFIX = '{"end":';
 
-/** The longest `exported_by` a check file may carry (version 1's import bound, which version 2 shares). */
-const MAX_EXPORTED_BY = 200;
+/**
+ * A version-2 `exported_by`: 1 to 200 printable ASCII characters (0x20 to
+ * 0x7e), not all spaces, since a page may show it one day. The app writes
+ * "Passage engine <version>". (Version 1 keeps its own bound: any text of 1
+ * to 200 characters.)
+ */
+const EXPORTED_BY = /^[\x20-\x7e]{1,200}$/;
+const exportedByHolds = (value: unknown): value is string => typeof value === 'string' && EXPORTED_BY.test(value) && value.trim() !== '';
 const HEADER_KEYS = ['format', 'format_version', 'exported_at', 'exported_by'];
 const ENTRY_KEYS = ['snapshot_id', 'files', 'files_digest'];
 const TRAILER_KEYS = ['end', 'checks'];
@@ -547,10 +558,16 @@ const sameKeys = (value: Record<string, unknown>, keys: readonly string[]) => {
 };
 
 /**
- * The digest of a check's files, for a version-2 line: FNV-1a 64 (the engine's
- * hash primitive, over UTF-16 code units, as contentHash) of each file present,
- * in CHECK_FILE_NAMES order, as its name, "\n", its length in code units in
- * decimal, "\n" and its text. Names come from a fixed list without newlines and
+ * The digest of a check's files, for a version-2 line, defined precisely so a
+ * reader in another language can compute it. The input is a sequence of UTF-16
+ * code units (a JavaScript string's own units: a character outside the Basic
+ * Multilingual Plane is two units, its surrogate pair): for each file present,
+ * in CHECK_FILE_NAMES order, its name, U+000A, its length in UTF-16 code units
+ * written in decimal ASCII digits without leading zeros, U+000A, then its text.
+ * The hash is FNV-1a 64 over those units, one unit per step (offset basis
+ * 0xcbf29ce484222325, prime 0x100000001b3, h = (h XOR unit) * prime modulo
+ * 2^64), written as 16 lowercase hex digits: the engine's hash primitive, as
+ * contentHash uses it. Names come from a fixed list without newlines and
  * each text is length-prefixed, so two different file sets never give the same
  * input. It catches accidental damage to one check before anything is stored;
  * it is NOT a security measure (anyone can recompute it: the check's own proof
@@ -574,7 +591,7 @@ export function checkFilesDigest(files: unknown): string | null {
 export function checkFileHeaderLine({ exportedAt, exportedBy }: { exportedAt: string; exportedBy: string }): string {
   const at = Date.parse(exportedAt);
   if (typeof exportedAt !== 'string' || !Number.isFinite(at)) throw new Error('A check file needs the time it was made.');
-  if (typeof exportedBy !== 'string' || !exportedBy.trim() || exportedBy.length > MAX_EXPORTED_BY) throw new Error('A check file names the version that made it.');
+  if (!exportedByHolds(exportedBy)) throw new Error('A check file names the version that made it, in printable ASCII.');
   return `${JSON.stringify({ format: CHECK_FILE_FORMAT, format_version: CHECK_FILE_V2_VERSION, exported_at: new Date(at).toISOString(), exported_by: exportedBy })}\n`;
 }
 
@@ -659,7 +676,7 @@ function lineObject(line: unknown, maxLength: number): Record<string, unknown> |
  * say why not. 'newer-version' for a passage-checks header of a format version
  * above 2; 'not-check-file' for anything else that is not exactly the header
  * checkFileHeaderLine writes (keys, their order, compact JSON, exported_at as
- * ISO UTC, exported_by of 1 to 200 characters). A first line of version 1 is
+ * ISO UTC, exported_by of 1 to 200 printable ASCII characters). A first line of version 1 is
  * 'not-check-file' here: a version-1 document is one line, read whole by
  * parseCheckFile.
  */
@@ -674,7 +691,7 @@ export function parseCheckFileHeader(line: string): CheckFileHeaderParse {
   const { exported_at: exportedAt, exported_by: exportedBy } = header;
   const at = typeof exportedAt === 'string' ? Date.parse(exportedAt) : NaN;
   if (!Number.isFinite(at) || new Date(at).toISOString() !== exportedAt) return fail('not-check-file', 'no export time');
-  if (typeof exportedBy !== 'string' || !exportedBy.trim() || exportedBy.length > MAX_EXPORTED_BY) return fail('not-check-file', 'no exporting version');
+  if (!exportedByHolds(exportedBy)) return fail('not-check-file', 'no exporting version');
   if (`${line}\n` !== checkFileHeaderLine({ exportedAt, exportedBy })) return fail('not-check-file', 'not one compact JSON object');
   return { ok: true, header: { exportedAt, exportedBy } };
 }

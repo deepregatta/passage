@@ -478,7 +478,7 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   (`allChecksFileName`, the UTC minute it is made), is JSON lines inside one
   gzip member, each line compact JSON (`JSON.stringify` never writes a raw
   newline) ended by `\n`: first the header
-  `{"format":"passage-checks","format_version":2,"exported_at":<ISO UTC>,"exported_by":<1 to 200 characters>}`
+  `{"format":"passage-checks","format_version":2,"exported_at":<ISO UTC>,"exported_by":<1 to 200 printable ASCII characters>}`
   (`checkFileHeaderLine`); then one line per check,
   `{"snapshot_id":…,"files":{…},"files_digest":<16 hex>}`
   (`checkFileEntryLine`), whose `snapshot_id` and `files` are exactly a
@@ -488,16 +488,35 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   (`parseCheckFileHeader`, `parseCheckFileEntryLine`,
   `parseCheckFileTrailer`) also refuse anything around the object (a space,
   a carriage return) and, for the header and trailer, any text other than
-  what the writer writes. `files_digest` (`checkFilesDigest`) is FNV-1a 64,
-  the engine's hash primitive, over each file present in `CHECK_FILE_NAMES`
-  order as its name, a newline, its length in UTF-16 code units, a newline
-  and its text, so no two file sets give the same input. It catches
+  what the writer writes. The format is fixed: any change to the shape of
+  any line (a key added, removed, renamed or reordered, another value type,
+  another digest encoding or framing) is a new `format_version`, never a
+  change to version 2; `engine/test/checkFile.test.ts` pins the exact header,
+  check line and trailer of a small check and a digest vector. `exported_by`
+  is 1 to 200 printable ASCII characters (0x20 to 0x7e, not all spaces), in
+  the writer and the reader, since a page may show it; the app will write
+  `Passage engine <version>`. `files_digest` (`checkFilesDigest`) is FNV-1a
+  64, the engine's hash primitive, defined so a reader in another language
+  can compute it: its input is a sequence of UTF-16 code units (a character
+  outside the Basic Multilingual Plane counts as two, its surrogate pair),
+  for each file present in `CHECK_FILE_NAMES` order its name, U+000A, its
+  length in UTF-16 code units in decimal ASCII digits without leading
+  zeros, U+000A and its text; each unit is one FNV step (offset basis
+  0xcbf29ce484222325, prime 0x100000001b3, `h = (h XOR unit) × prime` modulo
+  2^64), written as 16 lowercase hex digits. Names come from a fixed list
+  without newlines and texts are length-prefixed, so no two file sets give
+  the same input. It catches
   accidental damage to one check before anything is stored and is not a
   security measure: anyone can recompute it, and a check is proven, as in
   version 1, by `parseCheckEntry` (the same options: contracts, the time
   bound). Caps: at most 1 GiB compressed, 64 MiB per line, 4 KiB for the
   header and for the trailer, 1,000 checks and 8 GiB inflated in all
-  (`CHECK_FILE_V2_MAX_*`); version 1 keeps its own (16 MB, 64 MB). Problems
+  (`CHECK_FILE_V2_MAX_*`); version 1 keeps its own (16 MB, 64 MB). The line
+  cap mirrors version 1's text cap, so any check stage 1 can export fits one
+  line. For large checks the compressed cap binds first: a large check is
+  about 10 M characters and 1.7 MB compressed, so 1 GiB holds roughly 600 of
+  them, well under 1,000 checks or 8 GiB inflated; the writer must stop
+  before any cap and say how many checks it left out. Problems
   are told apart for later reporting and never quote content or key names:
   not a check file; newer (a header of format version 3 or above); a damaged
   line, with its reason (not a check line, a bad digest, or the version-1
@@ -507,14 +526,23 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   The stream reader (`readCheckFileLines`, 2026-11-15; nothing calls it yet)
   reads a `File` through `file.stream()` and `DecompressionStream('gzip')`,
   never holding more than one line: it splits on byte 0x0A before decoding
-  and decodes each line alone with a fatal UTF-8 decoder that keeps a byte
-  order mark. It refuses a file over 1 GiB from its size and one that is not
+  and decodes each line piece by piece with a fatal UTF-8 decoder that keeps
+  a byte order mark, dropping each piece once decoded, so it holds a line's
+  text and the chunk in hand, never the line's bytes too (an earlier draft
+  held about seven times the line at its peak). It refuses a file over 1 GiB from its size and one that is not
   gzip from its first two bytes, then holds each line to its cap while its
   bytes still buffer (a check line past 64 MiB, a trailer past 4 KiB, all
   lines past 8 GiB inflated, a 1,001st check line: the read stops there). It
-  yields the parsed header, each check line's text (proving it stays with the
-  caller, through `parseCheckFileEntryLine`) and, once the file has ended
-  cleanly, the trailer's parse. When the first line is not a version-2
+  yields the parsed header, each check line's text and, once the trailer
+  holds and the file has ended cleanly after it, `{ trailer: { ok: true,
+  checks } }`; a trailer that does not hold (another count, other text, more
+  than 1,000) is thrown, never yielded. Lines are provisional: each is
+  yielded as soon as it is whole, before the rest of the file and its gzip
+  footer are read, so a damaged or cut-short file gives the lines before
+  the damage and then a refusal. That is the design (a backup cut short must
+  still restore the checks before the break): the caller proves each line
+  alone (`parseCheckFileEntryLine`), and the file is whole only when the
+  trailer arrives. When the first line is not a version-2
   header (longer than 4 KiB, not UTF-8, cut short, or any other text) it
   yields only "version 1" and stops: the caller hands the same file to the
   stage 1 import, which reads it afresh with its own caps (16 MB compressed,
@@ -527,8 +555,16 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   from the first member's size before gzip's magic in the compressed bytes,
   or, where the decompressor ends cleanly, from the file's last four bytes
   not being the size of all it inflated); a member failing its own check
-  after the trailer; invalid UTF-8; an abort through an `AbortSignal`. The
-  stream is released on every end, error, abort and early stop. Decided: a
+  after the trailer; invalid UTF-8; the file's bytes failing to read
+  (unreadable); an abort through an `AbortSignal`, also during the
+  second-member scan. Truncated, corrupt, trailing data and second member
+  are hints about how a file is broken, while the refusal itself is
+  certain: a file missing only its gzip footer reads as trailing data, a
+  hostile file can make a corrupt member read as a second member, and a
+  decompressor that read on into a second member whose first member
+  inflates to a multiple of 4 GiB (gzip records sizes modulo 2^32) would
+  pass the end check, with each line still proven alone. The stream is
+  released on every end, error, abort and early stop. Decided: a
   carriage return before a newline is part of the line, and the engine
   refuses it (Passage never writes one and gzip keeps text tools from adding
   one, so it means the text was rewritten by something else); the trailer

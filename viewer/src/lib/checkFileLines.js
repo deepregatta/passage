@@ -13,34 +13,56 @@ import {
 // itself, since it needs them to know where the file starts and ends.
 //
 // Yields, in order: { kind: 'v2', header } (the header parsed); each check
-// line's text (a string, without its newline); then { trailer }, the engine's
-// parseCheckFileTrailer result, once the file has ended cleanly after it. Or
-// yields only { kind: 'v1' } and stops when the first line is not a version-2
-// header: the file may be a version-1 document (one line, with or without one
-// final newline), and the caller hands the same File to the stage 1 path
-// (lib/checkImport.js readCheckFile), which reads it afresh with its own caps
-// (16 MB compressed, 64 MB inflated) and gives exactly its own outcomes. Every
-// other problem throws a CheckFileLinesError whose code is one of LINES.
+// line's text (a string, without its newline); then { trailer: { ok: true,
+// checks } } once the trailer holds and the file has ended cleanly after it.
+// Or yields only { kind: 'v1' } and stops when the first line is not a
+// version-2 header: the file may be a version-1 document (one line, with or
+// without one final newline), and the caller hands the same File to the stage
+// 1 path (lib/checkImport.js readCheckFile), which reads it afresh with its own
+// caps (16 MB compressed, 64 MB inflated) and gives exactly its own outcomes.
+// Every other problem, a trailer that does not hold included, throws a
+// CheckFileLinesError whose code is one of LINES.
+//
+// Lines are provisional. Each check line is yielded as soon as it is whole,
+// before the rest of the file, its gzip footer included, has been read: a
+// damaged or cut-short file yields the lines before the damage and then
+// throws. That is the design (a backup cut short must still restore the
+// checks before the break), so each line must be proven alone by the caller,
+// and the file is whole only when { trailer } arrives.
+//
+// The codes for a broken file (truncated, corrupt, trailing-data,
+// second-member) are hints about how it is broken, read from what the
+// decompressor handed over before it failed and from the file's bytes; the
+// refusal itself is certain, the hint is not. A file missing only its gzip
+// footer reads as trailing-data, a hostile file can make a corrupt member read
+// as second-member, and a decompressor that read on into a second member whose
+// first member inflates to a multiple of 4 GiB would pass the end check (each
+// line is still proven alone).
 //
 // Framing decisions: a line is split on byte 0x0A before it is decoded (0x0A
-// never occurs inside a UTF-8 sequence), then decoded alone with a fatal
-// decoder that keeps a byte order mark (which no JSON line may start with). A
-// carriage return before the newline is part of the line: the engine refuses
-// it, since Passage never writes one and gzip keeps text tools from adding
-// one, so a carriage return means the text was rewritten by something else.
-// The trailer may end with or without its newline; nothing else may follow.
+// never occurs inside a UTF-8 sequence), and decoded piece by piece, each
+// piece dropped once decoded, with a fatal decoder that keeps a byte order mark
+// (which no JSON line may start with); a sequence the newline cuts is invalid.
+// The reader thus holds a line's text and the chunk in hand, never the line's
+// bytes as well. A carriage return before the newline is part of the line: the
+// engine refuses it, since Passage never writes one and gzip keeps text tools
+// from adding one, so a carriage return means the text was rewritten by
+// something else. The trailer may end with or without its newline; nothing
+// else may follow.
 
 /** Why a version-2 file was not read to its end; the caller says each in plain words. */
 export const LINES = Object.freeze({
   notCheckFile: 'not-check-file', // no file
+  unreadable: 'unreadable', // this browser could not read the file's bytes
   notGzip: 'not-gzip', // the first bytes are not gzip's
   tooLarge: 'too-large', // the file, a line, the trailer or all lines inflated over a cap
-  truncated: 'truncated', // the gzip stream failed or ended before the trailer
-  corrupt: 'corrupt', // the gzip stream failed its own check after the trailer
-  trailingData: 'trailing-data', // bytes after the trailer, or after the gzip member that are not a member
-  secondMember: 'second-member', // a second gzip member
+  truncated: 'truncated', // hint: the gzip stream failed or ended before the trailer
+  corrupt: 'corrupt', // hint: the gzip stream failed its own check after the trailer
+  trailingData: 'trailing-data', // hint: bytes after the trailer, or after the gzip member that are not a member
+  secondMember: 'second-member', // hint: a second gzip member
   invalidUtf8: 'invalid-utf8', // a line that is not strict UTF-8
   newerVersion: 'newer-version', // a header of a format version above 2
+  trailer: 'trailer', // a trailer that is not one, or counts other than the check lines read
   checkCount: 'check-count', // more check lines than a file may hold
   aborted: 'aborted', // the caller's AbortSignal
 });
@@ -82,7 +104,12 @@ export async function* readCheckFileLines(file, { signal, caps } = {}) {
   throwIfAborted(signal);
   if (!file || typeof file.size !== 'number' || typeof file.slice !== 'function' || typeof file.stream !== 'function') throw refuse(LINES.notCheckFile, 'no file');
   if (file.size > limits.compressedBytes) throw refuse(LINES.tooLarge, 'over the file cap');
-  const magic = new Uint8Array(await file.slice(0, 2).arrayBuffer());
+  let magic;
+  try {
+    magic = new Uint8Array(await file.slice(0, 2).arrayBuffer());
+  } catch {
+    throw refuse(LINES.unreadable, 'the file could not be read');
+  }
   throwIfAborted(signal);
   if (magic[0] !== 0x1f || magic[1] !== 0x8b) throw refuse(LINES.notGzip, 'not gzip');
   const reader = file.stream().pipeThrough(new DecompressionStream('gzip')).getReader();
@@ -121,70 +148,91 @@ function throwIfAborted(signal) {
  * afterTrailer)` names the problem when the chunks fail (anything they throw
  * but a CheckFileLinesError; LINES.truncated by default); `ended(inflatedBytes)`
  * may name one when they end cleanly after the trailer (none by default).
+ * `probe`, for tests, is told after each piece what the reader holds: the
+ * bytes it keeps (at most the first seven of a line, to know a trailer) and
+ * the characters of the line decoded so far.
  * @param {AsyncIterable<Uint8Array>} chunks
  */
 export async function* checkFileLinesOf(chunks, {
-  caps, signal, failed = async () => LINES.truncated, ended = async () => null,
+  caps, signal, failed = async () => LINES.truncated, ended = async () => null, probe = null,
 } = {}) {
   const limits = { ...LINE_CAPS, ...caps };
   const decoder = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
-  // the line being buffered: its pieces, their length, and (after the header) what it is
-  let parts = [];
+  // the line being read: its byte count, its first bytes, its text so far, and (after the header) what it is
   let length = 0;
+  const prefix = new Uint8Array(TRAILER_PREFIX.length);
+  let prefixLength = 0;
+  let text = '';
   let kind = null; // null until known, then 'trailer' or 'check'
   let phase = 'header'; // then 'body', then 'ended' once the trailer is whole
   let checks = 0;
   let inflated = 0;
   let trailer = null;
 
-  const take = () => {
-    const bytes = new Uint8Array(length);
-    let offset = 0;
-    for (const part of parts) { bytes.set(part, offset); offset += part.byteLength; }
-    parts = [];
-    length = 0;
-    return bytes;
-  };
-  const decoded = (bytes) => {
-    try {
-      return decoder.decode(bytes);
-    } catch {
-      return null;
-    }
-  };
-  const startsAsTrailer = () => {
-    let i = 0;
-    for (const part of parts) {
-      for (let j = 0; j < part.byteLength && i < TRAILER_PREFIX.length; j++, i++) if (part[j] !== TRAILER_PREFIX[i]) return false;
-      if (i === TRAILER_PREFIX.length) return true;
-    }
-    return i === TRAILER_PREFIX.length;
-  };
+  const startsAsTrailer = () => prefixLength === TRAILER_PREFIX.length && prefix.every((byte, i) => byte === TRAILER_PREFIX[i]);
   // what a body line is, as soon as its first bytes (or its end) say so
   const settle = (whole) => {
-    if (kind !== null || (!whole && length < TRAILER_PREFIX.length)) return;
-    kind = length >= TRAILER_PREFIX.length && startsAsTrailer() ? 'trailer' : 'check';
+    if (kind !== null || (!whole && prefixLength < TRAILER_PREFIX.length)) return;
+    kind = startsAsTrailer() ? 'trailer' : 'check';
     if (kind === 'check' && checks + 1 > limits.checks) throw refuse(LINES.checkCount, 'more checks than a check file may hold');
   };
   // false when the first line can no longer be a version-2 header
   const add = (piece) => {
     if (!piece.byteLength) return true;
     length += piece.byteLength;
-    parts.push(piece);
-    if (phase === 'header') return length <= limits.edgeBytes;
-    settle(false);
-    if (kind === 'trailer' && length > limits.edgeBytes) throw refuse(LINES.tooLarge, 'a trailer over its cap');
-    if (length > limits.lineBytes) throw refuse(LINES.tooLarge, 'a line over its cap');
+    if (prefixLength < prefix.length) {
+      const n = Math.min(prefix.length - prefixLength, piece.byteLength);
+      prefix.set(piece.subarray(0, n), prefixLength);
+      prefixLength += n;
+    }
+    if (phase === 'header') {
+      if (length > limits.edgeBytes) return false;
+    } else {
+      settle(false);
+      if (kind === 'trailer' && length > limits.edgeBytes) throw refuse(LINES.tooLarge, 'a trailer over its cap');
+      if (length > limits.lineBytes) throw refuse(LINES.tooLarge, 'a line over its cap');
+    }
+    // decoded now and not kept: the line is held once, as text
+    try {
+      text += decoder.decode(piece, { stream: true });
+    } catch {
+      if (phase === 'header') return false;
+      throw refuse(LINES.invalidUtf8, 'a line that is not UTF-8');
+    }
+    probe?.({ heldBytes: prefixLength, heldChars: text.length });
     return true;
   };
+  // the whole line's text (a sequence its end cuts is invalid), or null; the reader then holds nothing of it
+  const take = () => {
+    let line = null;
+    try {
+      line = text + decoder.decode();
+    } catch {
+      // a fatal decoder starts afresh after an error
+    }
+    text = '';
+    length = 0;
+    prefixLength = 0;
+    return line;
+  };
+  const textOf = () => {
+    const line = take();
+    if (line === null) throw refuse(LINES.invalidUtf8, 'a line that is not UTF-8');
+    return line;
+  };
   // the header line, whole: its parse, or null when the file is to be read as version 1
-  const headerOf = (bytes) => {
-    const text = decoded(bytes);
-    if (text === null) return null;
-    const result = parseCheckFileHeader(text);
+  const headerOf = () => {
+    const line = take();
+    if (line === null) return null;
+    const result = parseCheckFileHeader(line);
     if (result.ok) return result.header;
     if (result.problem === 'newer-version') throw refuse(LINES.newerVersion, result.detail);
     return null;
+  };
+  const endOf = (line) => {
+    const result = parseCheckFileTrailer(line, checks);
+    if (!result.ok) throw refuse(result.problem === 'check-count' ? LINES.checkCount : LINES.trailer, result.detail);
+    return result;
   };
 
   try {
@@ -203,7 +251,7 @@ export async function* checkFileLinesOf(chunks, {
         if (newline === -1) break;
         start = newline + 1;
         if (phase === 'header') {
-          const header = headerOf(take());
+          const header = headerOf();
           if (header === null) {
             yield { kind: 'v1' };
             return;
@@ -214,15 +262,13 @@ export async function* checkFileLinesOf(chunks, {
           continue;
         }
         settle(true);
-        const text = decoded(take());
-        if (text === null) throw refuse(LINES.invalidUtf8, 'a line that is not UTF-8');
         if (kind === 'trailer') {
-          trailer = parseCheckFileTrailer(text, checks);
+          trailer = endOf(textOf());
           phase = 'ended';
         } else {
           checks += 1;
           kind = null;
-          yield text;
+          yield textOf();
           throwIfAborted(signal);
         }
       }
@@ -240,7 +286,7 @@ export async function* checkFileLinesOf(chunks, {
   }
   // the end of the inflated bytes: a last line without its newline
   if (phase === 'header') {
-    const header = length ? headerOf(take()) : null;
+    const header = length ? headerOf() : null;
     if (header === null) {
       yield { kind: 'v1' };
       return;
@@ -248,35 +294,40 @@ export async function* checkFileLinesOf(chunks, {
     throw refuse(LINES.truncated, 'no trailer');
   }
   if (phase === 'body') {
-    // a trailer without its newline ends the file; one cut short (its closing brace is its last byte) is a truncation
-    const isTrailer = kind === 'trailer' || (kind === null && length >= TRAILER_PREFIX.length && startsAsTrailer());
-    const last = parts.at(-1);
-    if (!isTrailer || last?.[last.byteLength - 1] !== 0x7d) throw refuse(LINES.truncated, 'no trailer');
-    const text = decoded(take());
-    if (text === null) throw refuse(LINES.invalidUtf8, 'a line that is not UTF-8');
-    trailer = parseCheckFileTrailer(text, checks);
+    // a trailer without its newline ends the file; one cut short (its closing brace is not its last character) is a truncation
+    const isTrailer = kind === 'trailer' || (kind === null && startsAsTrailer());
+    if (!isTrailer) throw refuse(LINES.truncated, 'no trailer');
+    const line = textOf();
+    if (!line.endsWith('}')) throw refuse(LINES.truncated, 'no trailer');
+    trailer = endOf(line);
   }
   const problem = await ended(inflated);
   if (problem) throw refuse(problem, 'the file goes on after its gzip member');
   yield { trailer };
 }
 
-/** The last bytes of the file: a gzip member ends with its inflated size modulo 2^32, little-endian. */
-async function endsWithSize(file, inflatedBytes) {
+/** The four bytes a gzip member ends with for `inflatedBytes` of content: the size modulo 2^32, little-endian. */
+export function memberSizeBytes(inflatedBytes) {
+  const size = inflatedBytes % 2 ** 32;
+  return [size & 0xff, (size >>> 8) & 0xff, (size >>> 16) & 0xff, (size >>> 24) & 0xff];
+}
+
+/** Whether the file's last four bytes are the member size of `inflatedBytes` (exported for tests). */
+export async function endsWithSize(file, inflatedBytes) {
   if (file.size < 4) return false;
-  const tail = new DataView(await file.slice(file.size - 4).arrayBuffer());
-  return tail.getUint32(0, true) === inflatedBytes % 2 ** 32;
+  const tail = new Uint8Array(await file.slice(file.size - 4).arrayBuffer());
+  return memberSizeBytes(inflatedBytes).every((byte, i) => tail[i] === byte);
 }
 
 /**
  * Whether the compressed file holds a second gzip member right after the
  * first: the first member's last four bytes (its inflated size) followed by
  * gzip's magic and deflate method. Read only when the stream failed, which
- * the decompressor does at the end of a first member followed by anything.
+ * the decompressor does at the end of a first member followed by anything
+ * (exported for tests).
  */
-async function holdsSecondMember(file, inflatedBytes, signal) {
-  const size = inflatedBytes % 2 ** 32;
-  const pattern = [size & 0xff, (size >>> 8) & 0xff, (size >>> 16) & 0xff, (size >>> 24) & 0xff, ...GZIP_MEMBER];
+export async function holdsSecondMember(file, inflatedBytes, signal) {
+  const pattern = [...memberSizeBytes(inflatedBytes), ...GZIP_MEMBER];
   const reader = file.stream().getReader();
   // the last bytes of the previous chunk, so a match across two chunks is found
   let carry = new Uint8Array(0);
@@ -300,7 +351,10 @@ async function holdsSecondMember(file, inflatedBytes, signal) {
 }
 
 async function streamProblem(file, inflatedBytes, afterTrailer, signal) {
-  if (await holdsSecondMember(file, inflatedBytes, signal).catch(() => false)) return LINES.secondMember;
+  const second = await holdsSecondMember(file, inflatedBytes, signal).catch(() => false);
+  // an abort during the scan is the caller's, not a property of the file
+  throwIfAborted(signal);
+  if (second) return LINES.secondMember;
   if (!afterTrailer) return LINES.truncated;
   // the member ends at the end of the file: its own check failed; otherwise something follows it
   return await endsWithSize(file, inflatedBytes).catch(() => false) ? LINES.corrupt : LINES.trailingData;
@@ -312,5 +366,11 @@ async function streamProblem(file, inflatedBytes, afterTrailer, signal) {
  * last four bytes are not the size of everything inflated holds another one.
  */
 async function endProblem(file, inflatedBytes) {
-  return await endsWithSize(file, inflatedBytes) ? null : LINES.secondMember;
+  let whole;
+  try {
+    whole = await endsWithSize(file, inflatedBytes);
+  } catch {
+    throw refuse(LINES.unreadable, 'the end of the file could not be read');
+  }
+  return whole ? null : LINES.secondMember;
 }

@@ -1,10 +1,12 @@
 import { Blob as NodeBlob, File as NodeFile } from 'node:buffer';
-import { gzipSync } from 'node:zlib';
+import { crc32, gzipSync } from 'node:zlib';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import {
   buildCheckFile, checkFileEntryLine, checkFileHeaderLine, checkFileText, checkFileTrailerLine, parseCheckFileEntryLine,
 } from '@deepweather/engine';
-import { CheckFileLinesError, LINES, LINE_CAPS, checkFileLinesOf, readCheckFileLines } from '../src/lib/checkFileLines.js';
+import {
+  CheckFileLinesError, LINES, LINE_CAPS, checkFileLinesOf, endsWithSize, holdsSecondMember, memberSizeBytes, readCheckFileLines,
+} from '../src/lib/checkFileLines.js';
 import { makeCheck } from './helpers/checkFiles.js';
 
 // The version-2 check file's stream reader (lib/checkFileLines.js), over crafted gzip.
@@ -145,11 +147,27 @@ describe('a version-2 file', () => {
     expect(await read(fileOf(gzip(HEADER + checkFileTrailerLine(0))))).toEqual({ items: [{ kind: 'v2', header }, { trailer: { ok: true, checks: 0 } }], code: null });
   });
 
-  it('yields a trailer that is not one for the caller to refuse', async () => {
+  it('throws a trailer that does not hold, never yielding it, after the lines before it', async () => {
     const counted = await read(fileOf(gzip(backup([fakeLine(40)], checkFileTrailerLine(2)))));
-    expect(counted.items.at(-1)).toEqual({ trailer: { ok: false, problem: 'trailer', detail: expect.any(String) } });
+    expect(counted).toEqual({ items: [{ kind: 'v2', header }, fakeLine(40)], code: LINES.trailer, detail: 'a number of checks other than the checks read' });
     const spaced = await read(fileOf(gzip(backup([], '{"end":"passage-checks", "checks":0}\n'))));
-    expect(spaced.items.at(-1)).toMatchObject({ trailer: { ok: false, problem: 'trailer' } });
+    expect(spaced).toMatchObject({ items: [{ kind: 'v2', header }], code: LINES.trailer });
+    const many = await read(fileOf(gzip(backup([], '{"end":"passage-checks","checks":1001}\n'))));
+    expect(many).toMatchObject({ items: [{ kind: 'v2', header }], code: LINES.checkCount });
+  });
+
+  it('yields each line before the file proves whole: a damaged file gives the lines before the damage, then throws', async () => {
+    const lines = Array.from({ length: 50 }, (_, i) => fakeLine(40 + i));
+    // a bad CRC, the gzip footer arriving alone: all 50 lines, then the refusal, and never { trailer }
+    const crc = gzip(backup(lines));
+    crc[crc.byteLength - 8] ^= 0xff;
+    const footer = await read(cutFile(crc, [crc.byteLength - 8]));
+    expect(footer.items).toEqual([{ kind: 'v2', header }, ...lines]);
+    expect(footer.code).toBe(LINES.corrupt);
+    // the text cut inside the last line: the 49 before it, then truncated
+    const cut = backup(lines);
+    const short = await read(fileOf(gzip(cut.slice(0, cut.lastIndexOf(lines[49]) + 10))));
+    expect(short).toMatchObject({ items: [{ kind: 'v2', header }, ...lines.slice(0, 49)], code: LINES.truncated });
   });
 
   it('stops at a header of a newer format version', async () => {
@@ -256,7 +274,8 @@ describe('the caps, while bytes are still buffering', () => {
     expect(await read(fileOf(gzip(backup([]))), { caps: { edgeBytes: headerLength - 1 } })).toEqual({ items: [{ kind: 'v1' }], code: null });
     const trailerOf = (n) => `{"end":"passage-checks","checks":0${' '.repeat(n - 35)}}`;
     expect(trailerOf(4096)).toHaveLength(4096);
-    expect((await read(fileOf(gzip(backup([], trailerOf(4096)))))).items.at(-1)).toMatchObject({ trailer: { ok: false, problem: 'trailer' } });
+    // read whole at exactly the cap (then refused for its spaces), refused as too large one byte over
+    expect(await read(fileOf(gzip(backup([], trailerOf(4096)))))).toMatchObject({ code: LINES.trailer, detail: 'not one compact JSON object' });
     expect(await read(fileOf(gzip(backup([], `${trailerOf(4097)}\n`))))).toMatchObject({ code: LINES.tooLarge, detail: 'a trailer over its cap' });
   });
 
@@ -394,7 +413,7 @@ describe('decoding', () => {
     expect(code).toBeNull();
     expect(items[1]).toBe(`${line}\r`);
     expect(parseCheckFileEntryLine(items[1])).toMatchObject({ ok: false, problem: 'damaged-line', reason: 'line' });
-    expect((await read(fileOf(gzip(backup([], '{"end":"passage-checks","checks":0}\r\n'))))).items.at(-1)).toMatchObject({ trailer: { ok: false, problem: 'trailer' } });
+    expect(await read(fileOf(gzip(backup([], '{"end":"passage-checks","checks":0}\r\n'))))).toMatchObject({ code: LINES.trailer });
   });
 
   it('keeps a byte order mark at the start of a line, which no JSON line may start with', async () => {
@@ -442,5 +461,89 @@ describe('stopping', () => {
     await new Promise((done) => setTimeout(done, 0));
     expect(refused.cancelled).toBe(true);
     expect(stopped.cancelled).toBe(true);
+  });
+});
+
+describe('review round', () => {
+  it('holds a line once, as text: never more than its first seven bytes, whatever its length and characters', async () => {
+    const line = `{"snapshot_id":"${'é🌊x'.repeat(150_000)}"}`;
+    const bytes = encoder.encode(backup([line, fakeLine(40)]));
+    const chunks = [];
+    for (let at = 0; at < bytes.byteLength; at += 65_536) chunks.push(bytes.slice(at, at + 65_536));
+    let heldBytes = 0;
+    let heldChars = 0;
+    const probe = (held) => { heldBytes = Math.max(heldBytes, held.heldBytes); heldChars = Math.max(heldChars, held.heldChars); };
+    const result = await readChunks(chunks, { probe });
+    expect(result.code).toBeNull();
+    expect(result.items[1]).toBe(line);
+    expect(heldBytes).toBeLessThanOrEqual(7);
+    expect(heldChars).toBeLessThanOrEqual(line.length);
+    expect(encoder.encode(line).byteLength).toBeGreaterThan(1_000_000);
+  });
+
+  it('reads gzip whose header carries FEXTRA, FNAME, FCOMMENT and FHCRC before the data', async () => {
+    const plain = gzip(backup([fakeLine(40)]));
+    const extra = encoder.encode('\x1f\x8b\x08 extra');
+    const head = concat(
+      new Uint8Array([0x1f, 0x8b, 0x08, 0x04 | 0x08 | 0x10 | 0x02, 0, 0, 0, 0, 0, 0xff]),
+      new Uint8Array([extra.byteLength & 0xff, extra.byteLength >> 8]), extra,
+      encoder.encode('passage-all-checks.json'), new Uint8Array([0]),
+      encoder.encode('a comment'), new Uint8Array([0]),
+    );
+    const headerCrc = crc32(head) & 0xffff;
+    const flagged = concat(head, new Uint8Array([headerCrc & 0xff, headerCrc >> 8]), plain.slice(10));
+    expect(await read(fileOf(flagged))).toEqual(await read(fileOf(plain)));
+    expect((await read(fileOf(flagged))).items.at(-1)).toEqual({ trailer: { ok: true, checks: 1 } });
+  });
+
+  it('writes a member size modulo 2^32, so files past 4 GiB compare as gzip records them', async () => {
+    expect(memberSizeBytes(5)).toEqual([5, 0, 0, 0]);
+    expect(memberSizeBytes(0x01020304)).toEqual([4, 3, 2, 1]);
+    expect(memberSizeBytes(2 ** 32 + 5)).toEqual([5, 0, 0, 0]);
+    expect(memberSizeBytes(2 ** 32 - 1)).toEqual([255, 255, 255, 255]);
+    expect(memberSizeBytes(2 ** 33)).toEqual([0, 0, 0, 0]);
+    // injected sizes: the checks read the same past a multiple of 4 GiB
+    const text = backup([fakeLine(40)]);
+    const size = encoder.encode(text).byteLength;
+    const one = fileOf(gzip(text));
+    for (const inflated of [size, size + 2 ** 32, size + 2 ** 33]) expect(await endsWithSize(one, inflated)).toBe(true);
+    expect(await endsWithSize(one, size + 1)).toBe(false);
+    const two = fileOf(concat(gzip(text), gzip('x')));
+    for (const inflated of [size, size + 2 ** 32]) expect(await holdsSecondMember(two, inflated)).toBe(true);
+    expect(await holdsSecondMember(two, size + 1)).toBe(false);
+    expect(await holdsSecondMember(one, size)).toBe(false);
+  });
+
+  it('says aborted for an abort during the second-member scan', async () => {
+    const bytes = concat(gzip(backup([fakeLine(40)])), gzip('x'));
+    const blob = new NodeBlob([bytes]);
+    const controller = new AbortController();
+    let streams = 0;
+    const file = {
+      size: bytes.byteLength,
+      slice: (start, end) => blob.slice(start, end),
+      stream() {
+        streams += 1;
+        if (streams === 1) return blob.stream();
+        // the scan: the abort lands while it reads
+        return new ReadableStream({ pull(stream) { controller.abort(); stream.enqueue(bytes.slice(0, 4)); } });
+      },
+    };
+    const result = await read(file, { signal: controller.signal });
+    expect(streams).toBe(2);
+    expect(result.code).toBe(LINES.aborted);
+  });
+
+  it('says unreadable when the file\'s bytes cannot be read at its start or its end', async () => {
+    const bytes = gzip(backup([fakeLine(40)]));
+    const blob = new NodeBlob([bytes]);
+    const failing = (at) => ({
+      size: bytes.byteLength,
+      slice: (start, end) => (start === at ? { arrayBuffer: () => Promise.reject(new DOMException('gone', 'NotReadableError')) } : blob.slice(start, end)),
+      stream: () => blob.stream(),
+    });
+    expect(await read(failing(0))).toMatchObject({ items: [], code: LINES.unreadable });
+    const end = await read(failing(bytes.byteLength - 4));
+    expect(end).toMatchObject({ items: [{ kind: 'v2', header }, fakeLine(40)], code: LINES.unreadable, detail: 'the end of the file could not be read' });
   });
 });

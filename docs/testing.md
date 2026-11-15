@@ -943,8 +943,7 @@ stand-in Blob that gives the compressed bytes in chunks of a chosen size or at
 chosen offsets and records a cancel, and `checkFileLinesOf` fed inflated chunks
 split exactly) yields the header, two real check lines that prove and the
 trailer, the same through compressed chunks of 1, 7 and 4096 bytes, a trailer
-without its newline, no checks, and a trailer with another count or spacing
-for the caller to refuse; stops at a header of version 3; hands 12 files to
+without its newline and no checks; stops at a header of version 3; hands 12 files to
 the stage 1 path as version 1 (a real check file with and without a final
 newline, small documents with and without, a document of version 2 with its
 checks, a CRLF ending, a version-2 header ended by a carriage return, GPX, no
@@ -972,7 +971,22 @@ two to four bytes split at every byte across two chunks and one byte per chunk;
 keeps a carriage return and a byte order mark in the line, which the engine
 refuses; and stops for an aborted signal (reading nothing) and an abort after
 the header, releasing the stream then, on a refusal and when the caller stops
-early. `scripts/check-no-polar-data.test.mjs` finds a
+early. Review round (stage 2, part 2b): `checkFile.test.ts` pins the exact
+header, check line and trailer of a small check (files given out of order, a
+character outside the Basic Multilingual Plane, an empty text, a newline) and
+its digest, computed in the test from the definition on BigInt and
+hard-coded; and takes `exported_by` of printable ASCII only (four accepted,
+nine refused in the writer and the reader: Latin-1, a tab, a newline, NUL,
+DEL, an emoji, 201 characters, empty, blank). `checkFileLines.test.js` throws
+a trailer with another count, spacing or 1,001 checks after yielding the
+lines before it; yields all 50 lines of a file whose CRC is bad (its footer
+arriving alone) before refusing it as corrupt, and 49 of 50 when the text is
+cut inside the last; holds a line of more than 1 MB of two- to four-byte
+characters as text with never more than seven bytes kept; reads gzip whose
+header carries FEXTRA, FNAME, FCOMMENT and FHCRC; writes member sizes modulo
+2^32 and checks the file's end and a second member alike with sizes injected
+past 4 and 8 GiB; says aborted for an abort during the second-member scan; and
+says unreadable when the file's first or last bytes cannot be read. `scripts/check-no-polar-data.test.mjs` finds a
 `.pol` header after blank lines and 200,000 blank lines read without
 rescanning. `viewer/e2e/check-import.spec.js` (desktop and mobile) makes a real
 Check in fixture mode, saves a copy, refuses a hostile file in a second, empty

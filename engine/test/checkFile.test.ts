@@ -514,9 +514,14 @@ describe('check file, version 2', () => {
     ])('refuses %s as not a version-2 header', (_case, text) => {
       expect(parseCheckFileHeader(text)).toMatchObject({ ok: false, problem: 'not-check-file' });
     });
-    it('reads an exporting version outside Latin-1', () => {
-      const by = 'Passage engine 0.2.0 · Île 🌊';
-      expect(parseCheckFileHeader(checkFileHeaderLine({ exportedAt, exportedBy: by }).slice(0, -1))).toEqual({ ok: true, header: { exportedAt, exportedBy: by } });
+    it('takes an exporting version of 1 to 200 printable ASCII characters only, writing and reading', () => {
+      for (const by of ['x', 'Passage engine 0.2.0 (test) ~!', ' '.repeat(10) + 'x', '~'.repeat(200)]) {
+        expect(parseCheckFileHeader(checkFileHeaderLine({ exportedAt, exportedBy: by }).slice(0, -1))).toEqual({ ok: true, header: { exportedAt, exportedBy: by } });
+      }
+      for (const by of ['Passage engine 0.2.0 · Île', 'tab\there', 'new\nline', 'nul\u0000', 'del\u007f', '🌊', '~'.repeat(201), '', '   ']) {
+        expect(() => checkFileHeaderLine({ exportedAt, exportedBy: by })).toThrow(/version/);
+        expect(parseCheckFileHeader(line({ ...valid, exported_by: by }))).toMatchObject({ ok: false, problem: 'not-check-file', detail: 'no exporting version' });
+      }
     });
   });
 
@@ -560,6 +565,26 @@ describe('check file, version 2', () => {
     expect(allChecksFileName('2026-11-16T00:30:00+01:00')).toBe('passage-all-checks-2026-11-15-2330Z.json.gz');
     expect(allChecksFileName('2026-11-15T23:45:00-02:00')).toBe('passage-all-checks-2026-11-16-0145Z.json.gz');
     expect(() => allChecksFileName('tomorrow')).toThrow();
+  });
+
+  it('is fixed: the exact texts of a small check, and the digest computed from its definition', () => {
+    // files given out of order, a text with a character outside the Basic Multilingual Plane, an empty text, a newline
+    const files = { 'route.json': 'line\nbreak', 'briefing.json': '', 'findings.json': '{}', 'decision-inputs.json': '{"name":"Île 🌊"}', 'snapshot.json': '{"k":1}' };
+    const ordered = ['snapshot.json', 'decision-inputs.json', 'findings.json', 'briefing.json', 'route.json'];
+    // FNV-1a 64 by its definition, on BigInt: name, U+000A, UTF-16 length in decimal, U+000A, text
+    let input = '';
+    for (const name of ordered) input += `${name}\n${files[name as keyof typeof files].length}\n${files[name as keyof typeof files]}`;
+    expect(input).toContain('decision-inputs.json\n17\n');
+    let h = 0xcbf29ce484222325n;
+    for (let i = 0; i < input.length; i++) h = ((h ^ BigInt(input.charCodeAt(i))) * 0x100000001b3n) & 0xffffffffffffffffn;
+    expect(h.toString(16).padStart(16, '0')).toBe('338e411f350e89c1');
+    expect(checkFilesDigest(files)).toBe('338e411f350e89c1');
+    expect(checkFileHeaderLine({ exportedAt: '2026-11-15T12:00:00Z', exportedBy: 'Passage engine 0.2.0' }))
+      .toBe('{"format":"passage-checks","format_version":2,"exported_at":"2026-11-15T12:00:00.000Z","exported_by":"Passage engine 0.2.0"}\n');
+    expect(checkFileEntryLine({ snapshotId: 'snapshot_v2_0123456789abcdef', files }))
+      .toBe('{"snapshot_id":"snapshot_v2_0123456789abcdef","files":{"snapshot.json":"{\\"k\\":1}","decision-inputs.json":"{\\"name\\":\\"Île 🌊\\"}","findings.json":"{}","briefing.json":"","route.json":"line\\nbreak"},"files_digest":"338e411f350e89c1"}\n');
+    expect(checkFileTrailerLine(7)).toBe('{"end":"passage-checks","checks":7}\n');
+    expect(CHECK_FILE_V2_TRAILER_PREFIX).toBe('{"end":');
   });
 
   it('keeps version 1 as it was and sets the version-2 caps', () => {
