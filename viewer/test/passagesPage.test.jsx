@@ -1,6 +1,6 @@
 import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Passages from '../src/pages/Passages.jsx';
 import { useApp } from '../src/stores/appStore.js';
 import { fetchSnapshotJson } from '../src/lib/localSnapshots.js';
@@ -241,4 +241,174 @@ it('renders the dialog and card names in French without translating the user lab
   expect(screen.getByRole('button', { name: /^Ouvrir Boat limit Start Finish, départ lun\. 20 juil\. 08:00$/ })).toBeVisible();
   expect(screen.getAllByRole('heading', { level: 2 })[0]).toHaveTextContent(/^Boat limit Start Finish$/);
   await act(async () => { await userEvent.click(within(dialog).getByRole('button', { name: 'Annuler' })); });
+});
+
+describe('storage usage line', () => {
+  const SENTENCE = 'Passage uses about {size} of this browser’s storage, counting saved checks and downloaded forecasts.';
+  const SHARE = (percent) => `That is ${percent} % of what this browser allows.`;
+  const NEARLY_FULL = 'This browser’s storage for Passage is nearly full. Delete checks you no longer need, so that new checks can still be saved.';
+  const sentence = (size) => SENTENCE.replace('{size}', size);
+  let estimate;
+  const stubEstimate = (...answers) => {
+    estimate = vi.fn();
+    for (const answer of answers) estimate.mockImplementationOnce(async () => answer);
+    estimate.mockImplementation(async () => answers.at(-1));
+    vi.stubGlobal('navigator', Object.assign(Object.create(navigator), { storage: { estimate } }));
+  };
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('says what Passage uses of this browser at the ok level, with no share and no caution', async () => {
+    stubEstimate({ usage: 29_400_000, quota: 100_000_000 });
+    show(oneCheck());
+    const line = await screen.findByTestId('storage-usage');
+    expect(line).toHaveAttribute('data-level', 'ok');
+    expect(line.textContent).toBe(sentence('29 MB'));
+    expect(screen.queryByTestId('storage-nearly-full')).toBeNull();
+  });
+
+  it('writes less than 1 MB and one-decimal gigabytes', async () => {
+    stubEstimate({ usage: 400_000, quota: 100_000_000 });
+    show(oneCheck());
+    // below 1 MB there is no "about": "about less than" would not parse
+    expect((await screen.findByTestId('storage-usage')).textContent)
+      .toBe('Passage uses less than 1 MB of this browser’s storage, counting saved checks and downloaded forecasts.');
+    cleanup();
+    stubEstimate({ usage: 1_200_000_000, quota: 10_000_000_000 });
+    show(oneCheck());
+    expect((await screen.findByTestId('storage-usage')).textContent).toBe(sentence('1.2 GB'));
+  });
+
+  it('adds the share from the high level, without the caution', async () => {
+    stubEstimate({ usage: 50_000_000, quota: 100_000_000 });
+    show(oneCheck());
+    const line = await screen.findByTestId('storage-usage');
+    expect(line).toHaveAttribute('data-level', 'high');
+    expect(line.textContent).toBe(`${sentence('50 MB')} ${SHARE(50)}`);
+    expect(screen.queryByTestId('storage-nearly-full')).toBeNull();
+  });
+
+  it('rounds the percent down, so a share below a threshold never reads as the threshold', async () => {
+    stubEstimate({ usage: 79_600_000, quota: 100_000_000 });
+    show(oneCheck());
+    const line = await screen.findByTestId('storage-usage');
+    expect(line).toHaveAttribute('data-level', 'high');
+    expect(line.textContent).toBe(`${sentence('80 MB')} ${SHARE(79)}`);
+    cleanup();
+    stubEstimate({ usage: 49_900_000, quota: 100_000_000 });
+    show(oneCheck());
+    expect((await screen.findByTestId('storage-usage')).textContent).toBe(sentence('50 MB'));
+    cleanup();
+    stubEstimate({ usage: 29_000_000, quota: 100_000_000 });
+    show(oneCheck());
+    await screen.findByTestId('storage-usage');
+    cleanup();
+    stubEstimate({ usage: 800_000_000, quota: 1_000_000_000 });
+    show(oneCheck());
+    expect((await screen.findByTestId('storage-usage')).textContent).toContain(SHARE(80));
+  });
+
+  it('shows 100 % at most when usage exceeds the quota', async () => {
+    stubEstimate({ usage: 130_000_000, quota: 100_000_000 });
+    show(oneCheck());
+    const line = await screen.findByTestId('storage-usage');
+    expect(line).toHaveAttribute('data-level', 'nearly-full');
+    expect(line.textContent).toContain(SHARE(100));
+    expect(line.textContent).not.toMatch(/130 %/);
+  });
+
+  it('adds the caution only at the nearly-full level, in the page’s warning colour', async () => {
+    stubEstimate({ usage: 80_000_000, quota: 100_000_000 });
+    show(oneCheck());
+    const line = await screen.findByTestId('storage-usage');
+    expect(line).toHaveAttribute('data-level', 'nearly-full');
+    const caution = screen.getByTestId('storage-nearly-full');
+    expect(caution.textContent).toBe(NEARLY_FULL);
+    expect(caution.className).toContain('text-verdict-exceeds');
+    expect(line.textContent).toBe(`${sentence('80 MB')} ${SHARE(80)}${NEARLY_FULL}`);
+    expect(caution).not.toHaveAttribute('role');
+  });
+
+  it('shows nothing when the browser gives no estimate, a broken one or no quota', async () => {
+    for (const make of [
+      () => vi.stubGlobal('navigator', Object.assign(Object.create(navigator), { storage: undefined })),
+      () => vi.stubGlobal('navigator', Object.assign(Object.create(navigator), { storage: { estimate: async () => { throw new Error('no'); } } })),
+      () => stubEstimate({ usage: 5, quota: 0 }),
+      () => stubEstimate({ quota: 100 }),
+    ]) {
+      make();
+      show(oneCheck());
+      await screen.findByRole('button', { name: /^Open Cherbourg/ });
+      await act(async () => {});
+      expect(screen.queryByTestId('storage-usage')).toBeNull();
+      cleanup();
+    }
+  });
+
+  it('sits after the example button, so it never moves the list or that button, and asks for nothing persistent', async () => {
+    const persist = vi.fn();
+    stubEstimate({ usage: 1_000_000, quota: 100_000_000 });
+    navigator.storage.persist = persist;
+    const view = show(oneCheck());
+    const line = await screen.findByTestId('storage-usage');
+    const example = screen.getByRole('button', { name: /See an example briefing/ });
+    expect(example.compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(view.container.querySelector('ul').compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(persist).not.toHaveBeenCalled();
+  });
+
+  it('shows the list before the estimate resolves, then the line, without moving the list', async () => {
+    let resolve;
+    estimate = vi.fn(() => new Promise((done) => { resolve = done; }));
+    vi.stubGlobal('navigator', Object.assign(Object.create(navigator), { storage: { estimate } }));
+    const view = show(oneCheck());
+    await screen.findByRole('button', { name: /^Open Cherbourg/ });
+    expect(screen.queryByTestId('storage-usage')).toBeNull();
+    const before = view.container.querySelector('ul').outerHTML;
+    await act(async () => resolve({ usage: 29_000_000, quota: 100_000_000 }));
+    expect((await screen.findByTestId('storage-usage')).textContent).toBe(sentence('29 MB'));
+    expect(view.container.querySelector('ul').outerHTML).toBe(before);
+  });
+
+  it('reads again after a passage is deleted, and not before', async () => {
+    stubEstimate({ usage: 90_000_000, quota: 100_000_000 }, { usage: 10_000_000, quota: 100_000_000 });
+    show(oneCheck());
+    expect(await screen.findByTestId('storage-nearly-full')).toBeTruthy();
+    expect(estimate).toHaveBeenCalledTimes(1);
+    await userEvent.click(await screen.findByRole('button', { name: /^Delete Cherbourg/ }));
+    await userEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Delete briefing' }));
+    await waitFor(() => expect(screen.getByTestId('storage-usage')).toHaveAttribute('data-level', 'ok'));
+    expect(screen.getByTestId('storage-usage').textContent).toBe(sentence('10 MB'));
+    expect(screen.queryByTestId('storage-nearly-full')).toBeNull();
+    expect(estimate).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not read again when a delete fails', async () => {
+    stubEstimate({ usage: 10_000_000, quota: 100_000_000 });
+    show(oneCheck());
+    await screen.findByTestId('storage-usage');
+    deleteSnapshot.mockRejectedValue(new Error('Could not delete: disk full'));
+    await userEvent.click(await screen.findByRole('button', { name: /^Delete Cherbourg/ }));
+    await userEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Delete briefing' }));
+    await screen.findByRole('alert');
+    expect(estimate).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['ok', { usage: 29_400_000, quota: 100_000_000 }, 'Passage utilise environ 29 Mo de l’espace de stockage de ce navigateur, vérifications enregistrées et prévisions téléchargées comprises.'],
+    ['ok', { usage: 400_000, quota: 100_000_000 }, 'Passage utilise moins de 1 Mo de l’espace de stockage de ce navigateur, vérifications enregistrées et prévisions téléchargées comprises.'],
+    ['high', { usage: 1_200_000_000, quota: 2_000_000_000 }, 'Passage utilise environ 1,2 Go de l’espace de stockage de ce navigateur, vérifications enregistrées et prévisions téléchargées comprises. Cela représente 60 % de ce que ce navigateur autorise.'],
+    ['nearly-full', { usage: 85_000_000, quota: 100_000_000 }, 'Passage utilise environ 85 Mo de l’espace de stockage de ce navigateur, vérifications enregistrées et prévisions téléchargées comprises. Cela représente 85 % de ce que ce navigateur autorise.'],
+  ])('is in French at the %s level', async (level, answer, text) => {
+    stubEstimate(answer);
+    show(oneCheck(), { language: 'fr' });
+    const line = await screen.findByTestId('storage-usage');
+    expect(line).toHaveAttribute('data-level', level);
+    const [first] = line.querySelectorAll('p');
+    expect(first.textContent).toBe(text);
+    if (level === 'nearly-full') {
+      expect(screen.getByTestId('storage-nearly-full').textContent).toBe('L’espace de stockage de ce navigateur pour Passage est presque plein. Supprimez les vérifications dont vous n’avez plus besoin, afin que de nouvelles vérifications puissent encore être enregistrées.');
+    } else {
+      expect(screen.queryByTestId('storage-nearly-full')).toBeNull();
+    }
+  });
 });

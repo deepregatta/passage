@@ -367,6 +367,11 @@ const FR = {
   'Passage renamed to {name}.': 'Traversée renommée en {name}.',
   'Passage renamed to {name}. This browser could not save the name, so it lasts only until you leave this page.': 'Traversée renommée en {name}. Ce navigateur n’a pas pu enregistrer le nom : il ne durera que jusqu’à votre départ de cette page.',
   'Original name restored.': 'Nom d’origine rétabli.',
+  // Storage line: the size replaces {size} after translation ("less than 1 MB" and "N GB" are FR_PATTERNS entries).
+  'Passage uses about {size} of this browser’s storage, counting saved checks and downloaded forecasts.': 'Passage utilise environ {size} de l’espace de stockage de ce navigateur, vérifications enregistrées et prévisions téléchargées comprises.',
+  'Passage uses {size} of this browser’s storage, counting saved checks and downloaded forecasts.': 'Passage utilise {size} de l’espace de stockage de ce navigateur, vérifications enregistrées et prévisions téléchargées comprises.',
+  'That is {percent} % of what this browser allows.': 'Cela représente {percent} % de ce que ce navigateur autorise.',
+  'This browser’s storage for Passage is nearly full. Delete checks you no longer need, so that new checks can still be saved.': 'L’espace de stockage de ce navigateur pour Passage est presque plein. Supprimez les vérifications dont vous n’avez plus besoin, afin que de nouvelles vérifications puissent encore être enregistrées.',
   'Verified': 'Vérifiée',
   'Route': 'Route',
   'Boat': 'Bateau',
@@ -1389,6 +1394,9 @@ const FR_PATTERNS = [
   // GRIB files page: step counts, file sizes, horizon and size notes, coordinates.
   [/^1 step$/, '1 échéance'],
   [/^(\d+) steps$/, '$1 échéances'],
+  // My passages storage line: sizes from formatStorageSize (decimal units; the decimal comma comes from localizeNumbers).
+  [/^less than 1 MB$/, 'moins de 1 Mo'],
+  [/^(\d+(?:\.\d+)?) GB$/, '$1 Go'],
   [/^(≈ )?(\d+(?:\.\d+)?) (kB|MB)$/, (_match, approx = '', value, unit) => `${approx}${value} ${unit === 'kB' ? 'ko' : 'Mo'}`],
   [/^Downloads (up to|at least) (\d+(?:\.\d+)?) (kB|MB) of forecast tiles$/, (_match, bound, value, unit) => `Téléchargement : ${bound === 'up to' ? 'jusqu’à' : 'au moins'} ${value} ${unit === 'kB' ? 'ko' : 'Mo'} de tuiles de prévision`],
   [/^This forecast ends (.+) UTC, before the end of your period\.$/, 'Cette prévision s’arrête le $1 UTC, avant la fin de votre période.'],
@@ -2026,7 +2034,7 @@ function localizeAges(text) {
 // "CC BY 4.0").
 const EN_DECIMAL = /(?<![\p{L}\p{N}_.,:/\\§#]|[\p{L}\p{N}_]-)(\d+)\.(\d+)(?![\p{N}_]|\.\p{N})/gu;
 const NAME_BEFORE = /(?:^|\s)\p{Lu}[\p{L}\p{N}-]* $/u;
-const UNIT_AFTER = /^\s?(?:°|%|×|–|(?:m|M|nm|NM|nd|kt|kn|h|min|s|hPa|km|ko|Mo|kB|MB|m\/s|knots|nœuds)(?![\p{L}]))/u;
+const UNIT_AFTER = /^\s?(?:°|%|×|–|(?:m|M|nm|NM|nd|kt|kn|h|min|s|hPa|km|ko|Mo|Go|kB|MB|GB|m\/s|knots|nœuds)(?![\p{L}]))/u;
 
 function localizeNumbers(text) {
   return text.replace(EN_DECIMAL, (match, whole, fraction, offset) => {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { usePlanner } from '../stores/plannerStore.js';
 import { useApp } from '../stores/appStore.js';
@@ -11,6 +11,7 @@ import { fetchSnapshotJson } from '../lib/localSnapshots.js';
 import { OWNED, groupPassages, localTime, passageText, routeChanges, routeName } from '../lib/passages.js';
 import { MAX_LABEL_LENGTH, passageLabels } from '../lib/passageLabels.js';
 import { loadJson } from '../lib/verification.js';
+import { STORAGE_LEVEL, formatStorageSize, readStorageUsage, storagePercent } from '../lib/storageUsage.js';
 
 /** Every passage you have checked: its latest verdict, what changed since the
  * previous check, and where it is between planning and verification. */
@@ -24,7 +25,23 @@ export default function Passages() {
   const [publishedCases, setPublishedCases] = useState(new Set());
   const [labels, setLabels] = useState(() => passageLabels.all());
   const [note, setNote] = useState('');
+  const [storage, setStorage] = useState(null); // null until the browser's estimate arrives, or when it gives none
   const heading = useRef(null);
+  const storageRead = useRef(0);
+  const mounted = useRef(true);
+
+  // Asynchronous and display-only: the list never waits for it. Only the latest read counts.
+  const refreshStorage = useCallback(() => {
+    const read = ++storageRead.current;
+    readStorageUsage().then((usage) => {
+      if (mounted.current && read === storageRead.current) setStorage(usage);
+    });
+  }, []);
+  useEffect(() => {
+    mounted.current = true;
+    refreshStorage();
+    return () => { mounted.current = false; };
+  }, [refreshStorage]);
 
   useEffect(() => {
     loadManifest();
@@ -56,6 +73,7 @@ export default function Passages() {
   const deleted = (key) => {
     setLabels(passageLabels.remove(key).labels);
     heading.current?.focus();
+    refreshStorage();
   };
 
   return (
@@ -100,6 +118,30 @@ export default function Passages() {
           <span className="font-story text-lg">See an example briefing</span>
           <span className="stamp-emulated text-xs!">emulated</span>
         </button>
+      )}
+
+      {storage && <StorageUsage usage={storage} language={language} />}
+    </div>
+  );
+}
+
+/** What Passage uses of this browser's storage: saved checks and downloaded forecasts together, as the browser counts it. */
+function StorageUsage({ usage, language }) {
+  const percent = storagePercent(usage);
+  const under = usage.usageBytes < 1e6; // "about less than 1 MB" would not parse: this case has its own sentence
+  const size = translateText(formatStorageSize(usage.usageBytes), language);
+  return (
+    <div data-testid="storage-usage" data-level={usage.level} className="mt-6 max-w-3xl space-y-1">
+      <p className="font-sans text-sm text-ink-soft" {...OWNED}>
+        {under
+          ? passageText('Passage uses {size} of this browser’s storage, counting saved checks and downloaded forecasts.', { size }, language)
+          : passageText('Passage uses about {size} of this browser’s storage, counting saved checks and downloaded forecasts.', { size }, language)}
+        {usage.level !== STORAGE_LEVEL.ok && ` ${passageText('That is {percent} % of what this browser allows.', { percent }, language)}`}
+      </p>
+      {usage.level === STORAGE_LEVEL.nearlyFull && (
+        <p data-testid="storage-nearly-full" className="font-sans text-sm text-verdict-exceeds" {...OWNED}>
+          {passageText('This browser’s storage for Passage is nearly full. Delete checks you no longer need, so that new checks can still be saved.', {}, language)}
+        </p>
       )}
     </div>
   );

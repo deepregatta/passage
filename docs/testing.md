@@ -684,6 +684,21 @@ check, keeps Share disabled, goes My passages → reload → Back → Forward �
 reloads a served deep link (still served), and reloads the second tab after the
 first deletes its check (empty state, no alert). Both browser steps failed
 before the change, on the decision band after the reload.
+Storage line on My passages (2026-11-15): `viewer/test/storageUsage.test.js`
+returns null for a missing API, a throwing or rejecting `estimate`, and a zero,
+missing, negative or non-finite quota or a missing usage; puts shares 0.4999,
+0.5, 0.7999 and 0.8 (and the same in whole bytes) at `ok`, `high`, `high` and
+`nearly-full`; formats less than 1 MB, 1 MB, 29 MB, 999 MB and 1.2 GB; and shows the percent rounded down
+(0.796 reads 79 %) and at most 100 %.
+`viewer/test/passagesPage.test.jsx` finds the exact English sentence at `ok`,
+the sentence without "about" below 1 MB (English and French), the share sentence from `high`, the caution only at `nearly-full`, nothing when
+the estimate is missing, throws or has no quota, the line after the list and
+the example button (nothing existing moves), the list shown before the estimate
+resolves, a second read after a delete and none after a failed one, no call to
+`persist()`, and the French sentences at each level. `viewer/e2e/fixture-persistence.spec.js`
+matches the sentence in real Chromium with a number pattern, never a fixed
+size; My passages is in no screenshot baseline, and the line must stay out of
+any future one because its size differs on every machine and run.
 The closest-limit line from the check's own record (2026-11-15):
 `viewer/test/closestLimitLine.test.jsx` opens a calm Check made through the real
 engine (verdict within) on a fresh store with no limits draft and finds the

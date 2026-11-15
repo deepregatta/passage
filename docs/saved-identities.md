@@ -164,6 +164,12 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   0.3 s and decoding it about 0.06 s. The check reopened from My passages
   after a reload, the seven earlier checks stayed plain, an earlier check
   still opened, and the console logged no error.
+- Storage usage on My passages (2026-11-15): the page shows the origin's usage
+  from `navigator.storage.estimate()`, which counts saved checks and the
+  forecast tile cache together (so it is not the size of the saved checks) and
+  is coarse in Safari; the line appears from 50 % of the quota with the share
+  and from 80 % with a caution to delete checks, it is read on mount and after
+  a delete only, and Passage makes no request for persistent storage.
 - Reopening after a reload (2026-11-15): a check saved in this browser that
   is open on the passage page (just made by Check, or opened from My
   passages) is reopened when the page is reloaded or the browser restores the

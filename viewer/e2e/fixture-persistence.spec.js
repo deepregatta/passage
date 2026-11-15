@@ -174,6 +174,9 @@ for (const language of ['en', 'fr']) {
     // Opened from My passages, it reopens after a reload too.
     await page.getByRole('link', { name: /^(My passages|Mes traversées)$/ }).first().click();
     await expect(page).toHaveURL(/#passages$/);
+    // The storage line (2026-11-15): this origin's usage as the browser estimates it, whatever its size.
+    await expect(page.getByTestId('storage-usage')).toContainText(
+      /^Passage uses (?:less than 1 MB|about (?:\d+ MB|\d+\.\d GB)) of this browser’s storage, counting saved checks and downloaded forecasts\./);
     await page.locator(`button[data-snapshot-id="${saved.id}"]`).click({ position: { x: 8, y: 8 } });
     await expect(page.getByTestId('decision-band')).toBeVisible();
     expect(await band()).toBe(bandBefore);
