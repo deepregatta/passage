@@ -12,8 +12,10 @@ export const POLAR_CONTENT_RULES = [
   ['ORC VPP block', /["']vpp["']\s*:\s*\{/],
   // Every deep-polars entry and release carries its licence constraint.
   ['deep-polars licence record', /["']constraint["']\s*:\s*["']no-public-download["']/],
-  // .pol text: a TWA\TWS header followed by a numeric row.
-  ['.pol table text', /^\s*twa\s*[\\/]\s*tws\b[^\n]*\r?\n\s*\d/im],
+  // .pol text: a TWA\TWS header followed by a numeric row. The header's indent
+  // is spaces and tabs only: with \s* every line start would rescan all the
+  // blank lines after it, quadratic on a hand-made text of blank lines.
+  ['.pol table text', /^[ \t]*twa\s*[\\/]\s*tws\b[^\n]*\r?\n\s*\d/im],
 ];
 
 /** The names of the rules the text matches, in rule order; empty when none does. */

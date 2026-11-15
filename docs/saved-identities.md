@@ -319,9 +319,131 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   document, and refuses the file on any match with a plain message. A served
   check, the example, a legacy identity-1 check and a browser without
   `CompressionStream` are not offered a copy (never an uncompressed file).
+  Since round 2 of the import work, the export also reads the document it is
+  about to hand over with the very `parseCheckFile`, contracts and bounds the
+  import uses (the validators load on the first save, not with the passage
+  page), applies the import's caps (16 MB compressed, 64 MB of text; "the
+  check is too large for a check file"), and reports a damaged check instead
+  of making a file the import would refuse: the round trip is a guarantee,
+  with one exception. The export applies no time bound, so a genuine check is
+  always exportable whatever the device's clock said; the import refuses a
+  check saved more than 24 hours after the import time, and accepts that file
+  once its time is no longer more than 24 hours ahead.
   Nothing is sent anywhere and no analytics event is sent; the saved check is
   only read. "Copy made" means the browser accepted the download; the sailor
   can still cancel it (iOS Safari, or a browser that asks where to save).
+- Importing a check file (2026-11-15, stage 1: one check per file): "Import
+  a check" on My passages reads one `.json.gz` file in this browser; nothing
+  is uploaded, no analytics event is sent, and it is not offered without
+  `DecompressionStream`. The file is content Passage did not write, so it is
+  refused at the first failure, with nothing written: over 16 MB compressed;
+  not gzip; inflating past 64 MB (read as a stream and stopped at the cap);
+  corrupt gzip or bytes that are not strict UTF-8; then
+  `parseCheckFile` (`engine/src/checkFile.ts`): an object key repeated within
+  one object or named `__proto__`, `constructor` or `prototype`, in the
+  document or any file; nesting deeper than 64 levels (real checks nest at
+  most 8); a string longer than 64 KiB in any file but the decision inputs
+  (the longest in the committed fixtures, goldens and scenarios is 558
+  characters, in real warnings 956); not JSON; `format` other than `"passage-checks"`; a
+  `format_version` above 1 ("made by a newer Passage") or not 1; an unknown
+  document field; other than exactly one check; an id that is not
+  `snapshot_v2_<16 hex>`; a file name outside the list, a required file
+  missing, a file that is not text, not JSON or not a JSON object; a manifest
+  with a key `writeSnapshot` never writes (`SNAPSHOT_MANIFEST_KEYS`, shared
+  with the writer: a served check's `demo` is refused), whose `artifacts` do
+  not name exactly the files present under the keys `writeSnapshot` uses
+  (`SNAPSHOT_ARTIFACT_FILES`), with `input_hashes` other than route and
+  profile, or a `check_sequence` that is not a whole number from 1 to 999,999
+  (the bound the export shares); a manifest without a save time; on import
+  only, a check saved (`created_at`) more than 24 hours after the import time,
+  with its own message ("its time is in the future. Check this device's date
+  and time."). No other time is compared: findings' `generated_at` and the
+  file's `exported_at` are not tied to the hash, so orders between them would
+  prove nothing against a forger and would refuse honest files after a clock
+  correction; any file failing
+  its contract (precompiled validators,
+  `viewer/src/lib/generated/checkFileValidators.js`, generated from
+  `contracts/` by `scripts/generate-check-file-validators.mjs`:
+  `snapshot.schema.json`, `findings.schema.json`,
+  `briefing-reader.schema.json`, `route.schema.json`, `plume.schema.json`,
+  `warnings.schema.json`, `synoptic-features.schema.json` (with one
+  documented tolerance in the generator: `route_transitions` may be absent;
+  the contract has required it since the first scaffold, aa5e9a7 on
+  2026-07-11, and the Python preparation has written it since 824e888 on
+  2026-07-12, but the engine scenario synoptics and every committed v2 check
+  lack it, no renderer reads it, and the file is tied to the hash),
+  `tides.schema.json`; `decision-inputs.json` has no contract, its hash is its
+  proof); the identity (below); then, in the viewer, the polar safety net;
+  the id of a check Passage serves (from the served catalogue this page
+  already read, the example and hidden ones included; no request is made, so
+  a page that loaded online imports offline, and a page that never read the
+  catalogue refuses the import for now); and a check already stored under
+  the id. The polar safety net (`viewer/src/lib/polarSafetyNet.js`, shared
+  with the export) runs the content rules of `scripts/check-no-polar-data.mjs`
+  over the raw texts, over each parsed file's canonical JSON (which decodes
+  escaped keys) and over every string of at least 16 characters inside the
+  parsed files (polar text inside a JSON string). It is a safety net, not a
+  guarantee: a table in a shape the rules do not describe passes. Reasons
+  logged in the console never quote a key or other file content.
+  - Tied to the decision hash (the id's 16 hex is `contentHash` of the parsed
+    decision inputs, so these cannot change alone): `decision-inputs.json`
+    entirely; `route.json` (canonically the inputs' `route`); `synoptic.json`
+    when present (canonically the inputs' `synoptic`; a synoptic file without
+    one in the inputs is refused); and, in the manifest and in findings:
+    `snapshot_id`, `decision_hash`, `identity_version` 2, `route_revision`
+    (`routeRevision` of the inputs' route and departure), `passage_id`, the
+    route and limits hashes (`input_hashes`, `inputs.route_hash` and
+    `inputs.profile_hash`), `departure_utc`, `profile_id`, `route_id` and the
+    engine version; and the number and ids of the findings' legs (one per
+    route leg, `L1`…`Ln`).
+  - Checked only for agreement, not covered by the hash: the verdict state in
+    the manifest, findings and the briefing's decision message (when it names
+    one; a check with tidal gates does not) and the `snapshot_id` of the
+    briefing and plume. Everything else in `findings.json`, `briefing.json`,
+    `plume.json`, `warnings.json` and `tides.json`, and the manifest's
+    `created_at` and `check_sequence`, is only held to its contract: the
+    findings and briefing are not re-derived (no engine re-run), so a file
+    altered consistently in those places is imported as it is. The page's
+    rendering hardening (above) is what keeps such content from breaking it.
+  Writing: the file texts are stored exactly as given (so an export of an
+  imported check gives the same file texts), through `writeAll` with the same
+  gzip-at-rest path as a browser save. The same id already here with
+  canonically identical decision inputs is "already here": nothing is written
+  or marked. The same id with other content (or unreadable inputs) is a
+  conflict and the stored check is untouched (write-once). A storage failure
+  leaves nothing. An imported check carries an `imported.json` record
+  (`imported_at`, and the file's `exported_at` and `exported_by`), never named
+  in the manifest's `artifacts` and never exported; `localSnapshots.list()`
+  marks it `imported: true`. The marker is one of the records of the same
+  `writeAll` transaction as the check's files and manifest, so a check is
+  stored with its marker or not at all; the passage page knows a check is
+  imported from that record existing, as `list()` does, without reading it.
+  Persistence is requested after an import as after a save. An imported check
+  joins its passage's history by its `passage_id` (the main use is restoring
+  one's own copy), ordered like any other by its `created_at` first. At the
+  same `created_at` as a check made in this browser, the imported check comes
+  first and the order is not ambiguous (two checks made here, or two
+  imported, keep the earlier rules), so a file cannot make the sailor's own
+  order unknown or place itself after their check. Its `check_sequence` is
+  left out of the next-sequence count: `writeSnapshot` skips listed items
+  with `imported: true` (part of the `SnapshotStore.list` contract;
+  `localSnapshots.list()` sets it) and counts only whole numbers below the
+  largest safe integer, so a file cannot push the sailor's numbers past the
+  shared bound, and a restored copy does not continue the numbering. It says
+  where it came from wherever it takes part: "Imported from a
+  file, not recomputed here · check made {time}" (its manifest's
+  `created_at`, not the import time) on its passage page and on the My
+  passages card when it is the latest check; "Check {n} · imported" on its
+  station of the passage's progress, whose button is named "…, imported from
+  a file"; "+{n} more checks ({m} imported)" when imported checks are folded
+  away; and "This comparison uses a check imported from a file, which was not
+  recomputed here." under the card's "since last check" line and its "route
+  changed" line whenever an imported check is compared, and in the passage
+  page's change story whenever either compared check is imported.
+  Known limit: when the sailor later computes a check with exactly the same
+  decision inputs (the same id), the exact-retry path reopens the stored,
+  imported check instead of saving a new one, so the page shows the imported
+  result, labelled as imported; nothing is recomputed or replaced.
 - Modern histories group only by explicit passage ID and persistence source.
   Legacy checks without explicit identity remain individually accessible and
   deletable. No inferred grouping from route names/counts/departure is permitted.

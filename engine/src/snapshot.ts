@@ -14,12 +14,40 @@ import { expectedPointIndex } from './auditSampling.js';
 import { parseUtc } from './eta.js';
 import { pointTimeIndex } from './findings/points.js';
 
+/**
+ * The keys writeSnapshot writes into a manifest, and the artifact each
+ * `artifacts` key names. One place for the writer and for the check-file
+ * import (checkFile.ts), which refuses a manifest with any other key.
+ */
+export const SNAPSHOT_MANIFEST_KEYS = Object.freeze([
+  'schema_version', 'snapshot_id', 'identity_version', 'passage_id', 'check_sequence', 'route_revision', 'decision_hash',
+  'created_at', 'engine_version', 'route_id', 'profile_id', 'departure_utc', 'verdict_state', 'artifacts', 'input_hashes',
+] as const);
+export const SNAPSHOT_ARTIFACT_FILES = Object.freeze({
+  findings: 'findings.json',
+  briefing: 'briefing.json',
+  route: 'route.json',
+  decision_inputs: 'decision-inputs.json',
+  plume: 'plume.json',
+  warnings: 'warnings.json',
+  synoptic: 'synoptic.json',
+  tides: 'tides.json',
+} as const);
+/** A check sequence a manifest may hold: a whole number from 1 below the largest safe integer. */
+const usableSequence = (value: unknown): value is number =>
+  Number.isSafeInteger(value) && (value as number) >= 1 && (value as number) < Number.MAX_SAFE_INTEGER;
+
 export interface SnapshotStore {
   /** true if any artifact already exists for this snapshot id */
   exists(snapshotId: string): Promise<boolean>;
   /** Read immutable artifacts to verify a completed exact retry. */
   read?(snapshotId: string, filename: string): Promise<string | null>;
-  /** Complete manifests only; used to allocate creation order within an intent. */
+  /**
+   * Complete manifests only; used to allocate creation order within an intent.
+   * An item with `imported: true` is a check imported from a file: it is left
+   * out of the next check sequence (its number came from elsewhere, and the
+   * order of checks is by creation time first).
+   */
   list?(): Promise<Array<Record<string, unknown>>>;
   /** write one artifact (relative filename inside the snapshot dir) */
   write(snapshotId: string, filename: string, content: string): Promise<void>;
@@ -213,19 +241,22 @@ export async function writeSnapshot(
   }
 
   const history = findings.passage_id ? (await store.list?.() ?? []).filter(item =>
-    item.identity_version === 2 && item.passage_id === findings.passage_id) : [];
+    item.identity_version === 2 && item.passage_id === findings.passage_id && item.imported !== true) : [];
+  // Imported checks are left out above; of the rest only usable sequences count,
+  // whatever a store lists, so the next one is always a safe integer.
   const checkSequence = 1 + history.reduce((max, item) =>
-    Number.isSafeInteger(item.check_sequence) ? Math.max(max, Number(item.check_sequence)) : max, 0);
+    usableSequence(item.check_sequence) ? Math.max(max, item.check_sequence) : max, 0);
+  if (!Number.isSafeInteger(checkSequence)) throw new Error('No check sequence is left for this passage.');
   const artifacts: Record<string, unknown> = {
-    findings: 'findings.json',
-    briefing: 'briefing.json',
-    route: 'route.json',
+    findings: SNAPSHOT_ARTIFACT_FILES.findings,
+    briefing: SNAPSHOT_ARTIFACT_FILES.briefing,
+    route: SNAPSHOT_ARTIFACT_FILES.route,
   };
   // Every file is built before anything is written, so a store with writeAll
   // can save the whole check or nothing.
   const files: SnapshotFile[] = [];
   if (extras.decisionInputs) {
-    artifacts.decision_inputs = 'decision-inputs.json';
+    artifacts.decision_inputs = SNAPSHOT_ARTIFACT_FILES.decision_inputs;
     // Compact: this file holds the whole frozen grid, and indentation was over
     // half its size. No identity reads its text: decision_hash and snapshot_id
     // hash the value, and an exact retry compares canonical JSON of the parsed
@@ -236,19 +267,19 @@ export async function writeSnapshot(
   files.push({ filename: 'briefing.json', content: stringify(briefing) });
   files.push({ filename: 'route.json', content: stringify(extras.route) });
   if (extras.plume) {
-    artifacts.plume = 'plume.json';
+    artifacts.plume = SNAPSHOT_ARTIFACT_FILES.plume;
     files.push({ filename: 'plume.json', content: stringify(extras.plume) });
   }
   if (extras.warnings !== undefined) {
-    artifacts.warnings = 'warnings.json';
+    artifacts.warnings = SNAPSHOT_ARTIFACT_FILES.warnings;
     files.push({ filename: 'warnings.json', content: stringify(extras.warnings) });
   }
   if (extras.synoptic !== undefined) {
-    artifacts.synoptic = 'synoptic.json';
+    artifacts.synoptic = SNAPSHOT_ARTIFACT_FILES.synoptic;
     files.push({ filename: 'synoptic.json', content: stringify(extras.synoptic) });
   }
   if (extras.tides !== undefined) {
-    artifacts.tides = 'tides.json';
+    artifacts.tides = SNAPSHOT_ARTIFACT_FILES.tides;
     files.push({ filename: 'tides.json', content: stringify(extras.tides) });
   }
 

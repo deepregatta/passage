@@ -9,7 +9,7 @@
 export { preparedSynopticCoverage, CHANNEL_PREPARED_COVERAGE } from './synopticCoverage.js';
 
 export { ENGINE_VERSION } from './version.js';
-export { cachedContentHash, contentHash } from './hash.js';
+export { cachedContentHash, canonicalJson, contentHash } from './hash.js';
 
 export { runAnalysis, persistSnapshot, auditSamplePlan } from './analyze.js';
 export type { AnalyzeOptions, AnalyzeResult, AuditSamplePlan } from './analyze.js';
@@ -26,7 +26,7 @@ export { governingReason } from './governingReason.js';
 export type {
   GoverningReason, GoverningLeg, GoverningWarning, GoverningDisagreement, GoverningOther, LimitResult, LimitKind,
 } from './governingReason.js';
-export { buildPlume, writeSnapshot, SnapshotExistsError } from './snapshot.js';
+export { buildPlume, writeSnapshot, SnapshotExistsError, SNAPSHOT_ARTIFACT_FILES, SNAPSHOT_MANIFEST_KEYS } from './snapshot.js';
 export type { Plume, SnapshotFile, SnapshotStore } from './snapshot.js';
 export { quantile } from './quantile.js';
 export { scenarioSpread, SCENARIO_SPREAD_MIN_MEMBERS } from './scenarioSpread.js';
@@ -152,9 +152,12 @@ export type {
 export { routeRevision, decisionInputs, IDENTITY_VERSION, ENGINE_SEMANTICS } from './identity.js';
 export {
   CHECK_FILE_FORMAT, CHECK_FILE_VERSION, CHECK_FILE_NAMES, CHECK_FILE_REQUIRED, SNAPSHOT_V2_ID,
-  buildCheckFile, checkFileName, checkFileText, checkHex,
+  buildCheckFile, checkFileName, checkFileText, checkHex, jsonKeyProblem, parseCheckFile,
+  CHECK_FILE_FUTURE_MS, CHECK_FILE_MAX_COMPRESSED_BYTES, CHECK_FILE_MAX_DEPTH, CHECK_FILE_MAX_SEQUENCE, CHECK_FILE_MAX_STRING, CHECK_FILE_MAX_TEXT_BYTES,
 } from './checkFile.js';
-export type { CheckFileDocument, CheckFileEntry, CheckFileInput, CheckFileName } from './checkFile.js';
+export type {
+  CheckFileDocument, CheckFileEntry, CheckFileInput, CheckFileName, CheckFileParse, CheckFileProblem, JsonKeyLimits, ParseCheckFileOptions, ParsedCheck,
+} from './checkFile.js';
 
 export { DECISION_MESSAGE_REGISTRY, EN_DECISION_MESSAGES, formatMessageTime, isDecisionMessageRef, renderDecisionMessage, renderDecisionRegister } from './briefingMessages.js';
 export type { DecisionMessageRef, DecisionMessageId, MessageParams, DecisionMessageCatalogue, DecisionMessages } from './briefingMessages.js';

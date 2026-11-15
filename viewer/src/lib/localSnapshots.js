@@ -83,6 +83,9 @@ function addAll(db, records) {
 
 // The manifest stays a plain string: listing parses it straight from the index.
 const MANIFEST = 'snapshot.json';
+/** The record that marks a check imported from a file: never named in the
+ * manifest's artifacts and never exported (lib/checkImport.js). */
+export const IMPORT_MARKER = 'imported.json';
 
 /** The record one file is stored as. Compression finishes here, before any
  * transaction opens: a transaction commits as soon as its code awaits anything
@@ -173,6 +176,17 @@ export const localSnapshots = {
     }
   },
 
+  /** Whether a record of this file exists for the check, without reading it (false when storage fails). */
+  async has(snapshotId, filename) {
+    if (!available()) return false;
+    try {
+      const db = await openDb();
+      return (await tx(db, 'readonly', (s) => s.count(`${snapshotId}/${filename}`))) > 0;
+    } catch {
+      return false;
+    }
+  },
+
   async write(snapshotId, filename, content) {
     if (!available()) throw new Error(NO_INDEXEDDB);
     const record = await toRecord(snapshotId, filename, content);
@@ -211,9 +225,13 @@ export const localSnapshots = {
       const records = (await tx(db, 'readonly', (s) =>
         s.index('filename').getAll('snapshot.json'),
       )) ?? [];
+      // a check imported from a file has an imported.json marker (lib/checkImport.js)
+      const marked = new Set(((await tx(db, 'readonly', (s) => s.index('filename').getAllKeys(IMPORT_MARKER))) ?? [])
+        .map((key) => (typeof key === 'string' ? key.slice(0, -IMPORT_MARKER.length - 1) : null)));
       return records
         .map(listEntry)
         .filter(Boolean)
+        .map((entry) => (marked.has(entry.snapshot_id) ? { ...entry, imported: true } : entry))
         .sort((a, b) => b.snapshot_id.localeCompare(a.snapshot_id));
     } catch {
       return [];

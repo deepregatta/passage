@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { decisionInputs } from '../src/identity.js';
 import { assembleFindings, type AssembleOptions } from '../src/findings.js';
 import { renderBriefing } from '../src/briefing.js';
-import { writeSnapshot, type SnapshotStore } from '../src/snapshot.js';
+import { SNAPSHOT_ARTIFACT_FILES, SNAPSHOT_MANIFEST_KEYS, writeSnapshot, type SnapshotStore } from '../src/snapshot.js';
 import { NodeFsSnapshotStore } from '../src/io/node.js';
 import { readFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -128,4 +128,57 @@ it('persists creation order for a passage at tied timestamps; an exact retry ret
     const findings = assembleFindings(opts);
     expect(await writeSnapshot(store, findings, renderBriefing(findings), { route: opts.route, decisionInputs: decisionInputs(opts) }, 999)).toEqual(results[0]);
   } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+describe('the manifest writeSnapshot writes', () => {
+  /** An in-memory store whose catalogue lists the given earlier checks of the passage. */
+  const memory = (listed: Array<Record<string, unknown>>) => {
+    const files: Record<string, string> = {};
+    const store: SnapshotStore = {
+      exists: async () => false,
+      read: async (_id, name) => files[name] ?? null,
+      list: async () => listed,
+      write: async (_id, name, content) => { files[name] = content; },
+    };
+    return { store, manifest: () => JSON.parse(files['snapshot.json']!) };
+  };
+  const v2 = () => {
+    const opts = inputs();
+    Object.assign(opts.route, { passage_id: 'intent-sequence' });
+    const findings = assembleFindings(opts);
+    return { findings, briefing: renderBriefing(findings), extras: { route: opts.route, decisionInputs: decisionInputs(opts) } };
+  };
+
+  it('writes only SNAPSHOT_MANIFEST_KEYS, and artifacts named as SNAPSHOT_ARTIFACT_FILES names them', async () => {
+    const { store, manifest } = memory([]);
+    const { findings, briefing, extras } = v2();
+    await writeSnapshot(store, findings, briefing, extras, 1);
+    expect([...Object.keys(manifest())].sort()).toEqual([...SNAPSHOT_MANIFEST_KEYS].sort());
+    for (const [key, file] of Object.entries(manifest().artifacts)) expect(SNAPSHOT_ARTIFACT_FILES[key as keyof typeof SNAPSHOT_ARTIFACT_FILES]).toBe(file);
+  });
+
+  it('leaves imported checks out of the next check sequence', async () => {
+    const listed = [
+      { identity_version: 2, passage_id: 'intent-sequence', check_sequence: 3 },
+      { identity_version: 2, passage_id: 'intent-sequence', check_sequence: 999_999, imported: true },
+    ];
+    const { store, manifest } = memory(listed);
+    const { findings, briefing, extras } = v2();
+    await writeSnapshot(store, findings, briefing, extras, 1);
+    expect(manifest().check_sequence).toBe(4);
+    const onlyImported = memory([{ identity_version: 2, passage_id: 'intent-sequence', check_sequence: 999_999, imported: true }]);
+    await writeSnapshot(onlyImported.store, findings, briefing, extras, 1);
+    expect(onlyImported.manifest().check_sequence).toBe(1);
+  });
+
+  it('writes a safe check sequence whatever the store lists', async () => {
+    const listed = [Number.MAX_SAFE_INTEGER, 2 ** 53, 1e300, Infinity, '5000', 4.5, -3, 41].map((check_sequence) => ({ identity_version: 2, passage_id: 'intent-sequence', check_sequence }));
+    const { store, manifest } = memory(listed);
+    const { findings, briefing, extras } = v2();
+    await writeSnapshot(store, findings, briefing, extras, 1);
+    expect(manifest().check_sequence).toBe(42);
+    const near = memory([{ identity_version: 2, passage_id: 'intent-sequence', check_sequence: Number.MAX_SAFE_INTEGER - 1 }]);
+    await writeSnapshot(near.store, findings, briefing, extras, 1);
+    expect(Number.isSafeInteger(near.manifest().check_sequence)).toBe(true);
+  });
 });

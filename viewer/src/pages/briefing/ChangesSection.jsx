@@ -1,4 +1,5 @@
 import { comparisonForCheck } from '../../lib/passages.js';
+import ImportedComparisonNote from '../../components/ImportedComparisonNote.jsx';
 import { useEffect, useState } from 'react';
 import { diffFindings } from '@deepweather/engine';
 import { useApp } from '../../stores/appStore.js';
@@ -26,6 +27,8 @@ export default function ChangesSection() {
   const loadManifest = useApp((state) => state.loadManifest);
   const served = useApp((state) => state.snapshotSource === 'served');
   const reason = useGoverningReason(findings);
+  // the open check was imported from a file (its marker), whatever the catalogue says
+  const importedOpen = useApp((state) => state.imported);
   const [state, setState] = useState({ status: 'idle' });
   useEffect(() => { if (!manifest) loadManifest(); }, [manifest, loadManifest]);
   useEffect(() => {
@@ -45,7 +48,7 @@ export default function ChangesSection() {
       read(previous.snapshot_id, 'findings.json'),
       read(previous.snapshot_id, 'synoptic.json').catch(() => null),
     ]).then(([previousFindings, previousSynoptic]) => {
-      if (!cancelled) setState({ status: 'ok', previous: previousFindings, previousSynoptic, previousId: previous.snapshot_id, changes: diffFindings(previousFindings, findings, briefing?.next_run ?? briefing?.next_runs?.[0]) });
+      if (!cancelled) setState({ status: 'ok', previous: previousFindings, previousSynoptic, previousId: previous.snapshot_id, imported: Boolean(previous.imported || current.imported), changes: diffFindings(previousFindings, findings, briefing?.next_run ?? briefing?.next_runs?.[0]) });
     }).catch((error) => {
       if (!cancelled) setState({ status: 'error', error: error.message });
     });
@@ -59,7 +62,7 @@ export default function ChangesSection() {
   const story = governedStory(deriveChangeStory(state.changes, briefing), state.changes, governingClaim(findings, reason));
   const emulatedWarning = findings.evidence.some((item) => item.rule_id === 'A-WARN-01' && item.source_kind === 'emulated');
   return <div>
-    <header className="border-b-2 border-ink pb-5"><p className="eyebrow">Edited change story · previous → latest</p><h2 className="font-story text-3xl sm:text-4xl leading-tight sm:leading-10 max-w-5xl">{story.headline_plain}</h2><div className="flex items-center gap-3 mt-3"><TransitionChip state={state.changes.verdict_transition.from} emulated={emulatedWarning}/><span>→</span><TransitionChip state={state.changes.verdict_transition.to} emulated={emulatedWarning}/></div></header>
+    <header className="border-b-2 border-ink pb-5"><p className="eyebrow">Edited change story · previous → latest</p>{(state.imported || importedOpen) && <ImportedComparisonNote />}<h2 className="font-story text-3xl sm:text-4xl leading-tight sm:leading-10 max-w-5xl">{story.headline_plain}</h2><div className="flex items-center gap-3 mt-3"><TransitionChip state={state.changes.verdict_transition.from} emulated={emulatedWarning}/><span>→</span><TransitionChip state={state.changes.verdict_transition.to} emulated={emulatedWarning}/></div></header>
     <section className="py-5"><SynopticCompare previous={state.previousSynoptic} latest={latestSynoptic} previousId={state.previousId} latestId={findings.snapshot_id}/></section>
     <OnsetShift previous={state.previous} latest={findings} />
     <section className="grid lg:grid-cols-3 border-y border-ink/40 divide-y-legacy lg:divide-y-legacy-0 lg:divide-x-legacy divide-ink/30">

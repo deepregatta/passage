@@ -54,6 +54,9 @@ export default function SaveCheckCopy({ className }) {
       {status === COPY.damaged && (
         <span role="alert" className="font-instrument text-xs text-event">This copy was not saved: the check stored in this browser is damaged.</span>
       )}
+      {status === COPY.tooLarge && (
+        <span role="alert" className="font-instrument text-xs text-event">This copy was not saved: the check is too large for a check file.</span>
+      )}
       {status === COPY.polar && (
         <span role="alert" className="font-instrument text-xs text-event">This copy was not saved: the check holds boat polar data, which Passage never puts in a file.</span>
       )}

@@ -815,7 +815,100 @@ on the passage page of a browser-saved check and not on a served one.
 `viewer/e2e/check-file.spec.js` makes a real Check in fixture mode (desktop and
 mobile), saves a copy, reads the download and finds the file name, the format,
 version, key order and check id, the files equal to what the browser stored and
-the decision inputs hashing to the id, and no analytics event for it. `viewer/test/checkContentHardening.test.jsx` renders the verdict
+the decision inputs hashing to the id, and no analytics event for it.
+Importing a check from a file (2026-11-15): `engine/test/checkFile.test.ts`
+reads a valid file into the check with its texts exactly as given, runs the
+contract callback on every file but the decision inputs, and refuses as not a
+check file (not JSON, another kind or format, version 0 or as text, an unknown
+document field, no export time, a repeated document key), as newer (version 2),
+as the wrong count (zero or two checks), and as damaged an unknown check field,
+an id that is not v2, an import marker or another file name, missing decision
+inputs, a file that is not text, not JSON or an array, the keys `__proto__`,
+`constructor` and `prototype` in every file, a key repeated within one object
+(escapes included), a manifest naming a missing, extra or repeated file or
+none, and each identity break: another id, decision hash, identity version,
+route revision, passage, limits hash, departure or verdict in the manifest;
+decision inputs that no longer hash; a route or synoptic file that is not the
+inputs'; another check, verdict or route hash in findings; 200,000 legs or a
+missing leg; a briefing or plume for another check or a briefing with another
+verdict; a manifest with a served check's `demo` flag or any other field,
+artifacts under other keys or naming other files, another input hash, a check
+sequence of 0, 1,000,000, 2^53, 1.5 or text, no save time, nesting past 64
+levels and a string over 64 KiB in an open findings field (50 levels and 60
+KiB pass), and reasons that never quote a key; with the import's time bound, a
+save in 2099 or 24 hours and a second ahead is "future-time" while 24 hours
+less a second passes, and without it (the export) 2099 passes; a save before
+findings' time and a file made before the save or "in 2030" pass; it accepts
+a briefing whose decision names no verdict and sequences 1 and 999,999; `jsonKeyProblem` finds repeated and
+forbidden keys and ignores text inside strings. `engine/test/snapshotIdentity.test.ts`
+finds `writeSnapshot` writing exactly `SNAPSHOT_MANIFEST_KEYS` with artifacts
+named as `SNAPSHOT_ARTIFACT_FILES` names them, and a safe next check sequence
+whatever a store lists (2^53, 1e300, Infinity, text, fractions, negatives and
+the largest safe integer ignored) and listed checks marked `imported: true`
+left out of it (3 and an imported 999,999 give 4; only the imported one gives
+1). `viewer/test/checkFileValidators.test.js` compares the vendored
+date-time format with ajv-formats on 17 values and finds the precompiled
+validators accepting every file of a real Check and refusing seven wrong
+shapes; the synoptic validator accepts the engine scenario synoptics, which
+have no `route_transitions`. `viewer/test/checkImport.test.js` (a real Check of the calm scenario,
+fresh fake-indexeddb) imports a file and finds the texts stored exactly, the
+marker's fields, `imported: true` in `list()`, the large files compressed at
+rest and the marker never in the manifest; export → import in a clean store →
+export giving the same texts without the marker; "already here" over the same
+check saved or imported (store unchanged, no marker); a conflict over another
+check stored under the id (unchanged); a quota failure on the marker leaving
+nothing; no request at all (an import with every request failing works, with
+the served ids the page read); and a refusal for now when the page never read
+them. Each of 28 hostile files
+leaves the store byte for byte unchanged with its outcome: not gzip, empty,
+truncated or corrupt gzip, a gzip bomb past 64 MB, a file over 16 MB, invalid
+UTF-8, other JSON, text, GPX, a newer version, two or no checks, a repeated key
+in the document or a file, an import marker, another file name, decision
+inputs that no longer hash, another verdict, 200,000 legs or waypoints, wrong
+types, a verdict of the wrong type everywhere, a chart path with `..`, markup
+in the route name, the served example's id, `__proto__` and `constructor` in
+every file, a save in 2099, sequences 0 and 10,000, a `demo` flag, nesting 70
+deep and a 70,000-character string in an open findings field, a file made
+after the import time; plus polar data in an open findings field, behind a
+unicode-escaped key and inside a JSON string; no logged line quotes names,
+positions or markup. Six checks the engine makes (the calm check, another
+passage and departure, a name outside Latin-1 with markup, a reference-demo
+and a storm synoptic without `route_transitions`, a route with a boat
+reference) each export, import into a clean store and export again with the
+same file texts and name. `viewer/test/importCheck.test.jsx` finds the control and its note
+(English and French), none without `DecompressionStream`, an imported check
+joining the history of a check saved here after it with the label carrying the
+check's own time (English and French), the open button, "already here" writing
+nothing, the not-a-check-file and damaged messages (English and French), the
+label on the passage page and none for a check saved here, and "Save a copy to
+a file" for the imported check; the station "Check 1 · imported" and the
+comparison note on the card and in the passage page's change story when the
+imported check is the earlier of the sailor's own; the control shown when the
+served list failed, then refusing for now; an import with every request
+failing after the page read its lists; two imports ending in the same words
+both announced (the live text clears between them); and a whole Check whose
+route name is markup imported and shown as text, with no element made of it.
+`viewer/test/checkFileExport.test.js` also refuses a copy whose findings hide
+polar data behind a unicode-escaped key or inside a JSON string, and copies a
+whole Check whose route keeps a boat reference. Round 3: `checkImport.test.js` imports a check
+saved by a clock 10 minutes fast and exported after the correction (its
+`exported_at` before its `created_at`) on a device with the right clock, and a
+file whose `exported_at` is earlier than the save; after a forged import with
+sequence 999,999 on the sailor's passage, their own next check (saved through
+`persistSnapshot` and `localSnapshots`) gets sequence 1, exports and
+re-imports. `importCheck.test.jsx` finds an imported check saved at the same
+time and sequence as the sailor's own ordered before it, with both comparison
+notes on the card and the passage page's change story (no "order unavailable"),
+"+2 more checks (2 imported)" when imported checks are folded, the station
+button named "…, imported from a file" and "…, importée depuis un fichier",
+and the future-time message in English and French with nothing stored.
+`checkFileExport.test.js` refuses a copy one byte over either cap ("too large")
+and copies a check saved "in 2099". `scripts/check-no-polar-data.test.mjs` finds a
+`.pol` header after blank lines and 200,000 blank lines read without
+rescanning. `viewer/e2e/check-import.spec.js` (desktop and mobile) makes a real
+Check in fixture mode, saves a copy, refuses a hostile file in a second, empty
+browser context with nothing stored, imports the copy there and opens it with
+the label, the same verdict chip and the same departure line. `viewer/test/checkContentHardening.test.jsx` renders the verdict
 chip for "toString", "constructor", "__proto__", "hasOwnProperty" and "valueOf"
 as the existing insufficient chip, falls back for the same keys in the rule
 labels, model styles, section and check wording and the French catalogue,

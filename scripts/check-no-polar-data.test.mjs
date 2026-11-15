@@ -89,3 +89,14 @@ test('findings name the file and rule, never the data', () => {
   const [finding] = scanFiles(root, listTree(root));
   assert.deepEqual(Object.keys(finding).sort(), ['file', 'rule']);
 });
+
+test('a .pol header after blank lines still matches, and long runs of blank lines stay fast', async () => {
+  const { polarContentFindings } = await import('./polar-content-rules.mjs');
+  assert.deepEqual(polarContentFindings(`\n\n\n  \n${polText}`), ['.pol table text']);
+  assert.deepEqual(polarContentFindings(`notes\n\t TWA/TWS 6 12\n 40 4.1 5.2\n`), ['.pol table text']);
+  // 200,000 blank lines and no table: linear with [ \t]*, quadratic (minutes) with \s*
+  const blank = '\n'.repeat(200_000);
+  const started = performance.now();
+  assert.deepEqual(polarContentFindings(`${blank}twa${blank}`), []);
+  assert.ok(performance.now() - started < 2_000, 'the rules must not rescan blank lines');
+});

@@ -1,7 +1,7 @@
 import {
-  CHECK_FILE_NAMES, CHECK_FILE_REQUIRED, ENGINE_VERSION, buildCheckFile, checkFileName, checkFileText, checkHex, contentHash,
+  CHECK_FILE_MAX_COMPRESSED_BYTES, CHECK_FILE_MAX_TEXT_BYTES, CHECK_FILE_NAMES, CHECK_FILE_REQUIRED, ENGINE_VERSION, buildCheckFile, checkFileName, checkFileText, checkHex, contentHash, parseCheckFile,
 } from '@deepweather/engine';
-import { polarContentFindings } from '../../../scripts/polar-content-rules.mjs';
+import { holdsPolarData } from './polarSafetyNet.js';
 import { localSnapshots } from './localSnapshots.js';
 import { gunzipText, gzipText } from './snapshotCodec.js';
 import { saveFile } from './download.js';
@@ -15,7 +15,7 @@ import { saveFile } from './download.js';
 
 /** Why a copy was not made: the page says it in plain words. */
 export class CheckFileError extends Error {
-  /** @param {'unreadable' | 'damaged' | 'polar' | 'failed'} code */
+  /** @param {'unreadable' | 'damaged' | 'polar' | 'tooLarge' | 'failed'} code */
   constructor(code, message) {
     super(message);
     this.name = 'CheckFileError';
@@ -86,7 +86,9 @@ async function storedText(snapshotId, name) {
  * any text matches a no-polar-data rule, 'failed' for anything else (a file
  * name a check file cannot hold, compression).
  */
-export async function prepareCheckFile(snapshotId, { nowMs = Date.now() } = {}) {
+export async function prepareCheckFile(snapshotId, {
+  nowMs = Date.now(), maxTextBytes = CHECK_FILE_MAX_TEXT_BYTES, maxCompressedBytes = CHECK_FILE_MAX_COMPRESSED_BYTES,
+} = {}) {
   const hex = checkHex(snapshotId);
   if (hex === null) throw new CheckFileError('failed', 'Only a v2 check is saved to a file.');
   const manifestText = await storedText(snapshotId, 'snapshot.json');
@@ -118,21 +120,35 @@ export async function prepareCheckFile(snapshotId, { nowMs = Date.now() } = {}) 
     throw new CheckFileError('failed', error.message);
   }
   const text = checkFileText(document);
-  // The rules look at each file's own text: inside the document a file's
-  // quotes are escaped, which a rule written for JSON files would not see.
-  if ([...Object.values(files), text].some((part) => polarContentFindings(part).length)) {
+  // The safety net over each file's own text (inside the document a file's
+  // quotes are escaped, which a rule written for JSON files would not see), the
+  // document, and each parsed file's decoded values (lib/polarSafetyNet.js).
+  const values = Object.entries(files).map(([file, fileText]) => (file === 'decision-inputs.json' ? inputs : parsed(fileText, file)));
+  if (holdsPolarData({ texts: [...Object.values(files), text], values })) {
     throw new CheckFileError('polar', 'The check holds data a no-polar-data rule matches.');
+  }
+  // The round trip is a guarantee: the file is offered only if the import would
+  // take it, read by the very same parseCheckFile, contracts and bounds. The
+  // validators load here, on the first save, not with the passage page.
+  const { checkFileValidators } = await import('./generated/checkFileValidators.js');
+  // No time bound here: a genuine check is always exportable, whatever this device's clock said or says.
+  const reread = parseCheckFile(text, { nowMs, boundTime: false, validateFile: (file, value) => checkFileValidators[file]?.(value) === true });
+  if (!reread.ok) throw damaged(`An import would refuse this file: ${reread.detail}.`);
+  // the import's caps: a copy it would refuse as too large is not made
+  if (text.length > maxTextBytes || new TextEncoder().encode(text).byteLength > maxTextBytes) {
+    throw new CheckFileError('tooLarge', 'The check file text is over the import cap.');
   }
   const bytes = await gzipText(text).catch(() => null);
   if (!bytes || await gunzipText(bytes).catch(() => null) !== text) {
     throw new CheckFileError('failed', 'This browser could not compress the file exactly.');
   }
+  if (bytes.byteLength > maxCompressedBytes) throw new CheckFileError('tooLarge', 'The compressed check file is over the import cap.');
   return { name, bytes };
 }
 
 /** Where a copy stands, as the page shows it (components/SaveCheckCopy.jsx). */
 export const COPY = Object.freeze({
-  idle: 'idle', saving: 'saving', made: 'made', unreadable: 'unreadable', damaged: 'damaged', polar: 'polar', failed: 'failed',
+  idle: 'idle', saving: 'saving', made: 'made', unreadable: 'unreadable', damaged: 'damaged', polar: 'polar', tooLarge: 'tooLarge', failed: 'failed',
 });
 
 /** Prepare the file and hand it to the browser's download: COPY.made (the browser

@@ -13,6 +13,8 @@ import { MAX_LABEL_LENGTH, passageLabels } from '../lib/passageLabels.js';
 import { loadJson } from '../lib/verification.js';
 import { STORAGE_LEVEL, formatStorageSize, readStorageUsage, storagePercent } from '../lib/storageUsage.js';
 import { readPersisted } from '../lib/storagePersistence.js';
+import ImportCheck from '../components/ImportCheck.jsx';
+import ImportedComparisonNote from '../components/ImportedComparisonNote.jsx';
 import { minOf, maxOf } from '../lib/extent.js';
 
 /** Every passage you have checked: its latest verdict, what changed since the
@@ -130,6 +132,9 @@ export default function Passages() {
           <span className="stamp-emulated text-xs!">emulated</span>
         </button>
       )}
+
+      {/* shown whenever this browser's checks can be listed, the served list read or not */}
+      {(manifest || manifestError) && <ImportCheck language={language} onAnnounce={setNote} />}
 
       {(storage || notKept) && (
         <div className="mt-6 max-w-3xl space-y-2">
@@ -263,6 +268,11 @@ function PassageRow({ passage, publishedCases, label, language, onRename, onDele
                 </span>
               )}
               {passage.legacy && <span className="font-sans text-xs text-ink-soft">Saved check · separate history</span>}
+              {latest.imported && (
+                <span data-testid="imported-label" className="font-sans text-xs text-ink-soft" {...OWNED}>
+                  {passageText('Imported from a file, not recomputed here · check made {time}', { time: localTime(latest.created_at, language) }, language)}
+                </span>
+              )}
               {latest.verdict_state && <span className="inline-flex [&>span]:text-xs"><VerdictChip state={latest.verdict_state} small /></span>}
             </div>
           </div>
@@ -279,6 +289,7 @@ function PassageRow({ passage, publishedCases, label, language, onRename, onDele
                 ) : (
                   <span>Rechecked · verdict unchanged</span>
                 )}
+                {(previous.imported || latest.imported) && <ImportedComparisonNote />}
               </p>
             )}
             {change.kind && (
@@ -286,6 +297,7 @@ function PassageRow({ passage, publishedCases, label, language, onRename, onDele
                 {change.kind === 'route'
                   ? 'Route changed between checks. The thumbnail shows the latest route.'
                   : 'Route or departure changed between checks. The thumbnail shows the latest route.'}
+                {(latest.imported || checks.some((check) => check.imported && change.differing.has(check.snapshot_id))) && <ImportedComparisonNote />}
               </p>
             )}
           </div>
@@ -350,19 +362,24 @@ function Lifecycle({ checks, latestId, departure, departed, hasPublishedCase, lo
     <ol className="flex flex-col sm:flex-row sm:flex-wrap px-3 pb-2 pt-1" aria-label="Passage progress">
       {shown.map((check, index) => {
         if (!check) {
+          // a folded check imported from a file is still said to be one
+          const folded = checks.slice(1, -2);
+          const imported = folded.filter((item) => item.imported === true).length;
+          const template = imported === 0 ? '+{n} more checks' : imported === 1 ? '+{n} more checks (1 imported)' : '+{n} more checks ({m} imported)';
           return (
             <Station key={`more-${index}`} filled>
-              <span {...OWNED}>{passageText('+{n} more checks', { n: checks.length - 3 }, language)}</span>
+              <span {...OWNED}>{passageText(template, { n: folded.length, m: imported }, language)}</span>
             </Station>
           );
         }
         const n = checks.indexOf(check) + 1;
         const made = localTime(check.created_at, language);
         const different = differing.get(check.snapshot_id);
+        const imported = check.imported === true;
         const label = passageText(
-          different === 'route' ? 'Open check {n} of {name}, made {time}, on a different route'
-            : different ? 'Open check {n} of {name}, made {time}, on a different route or departure'
-              : 'Open check {n} of {name}, made {time}',
+          different === 'route' ? (imported ? 'Open check {n} of {name}, made {time}, on a different route, imported from a file' : 'Open check {n} of {name}, made {time}, on a different route')
+            : different ? (imported ? 'Open check {n} of {name}, made {time}, on a different route or departure, imported from a file' : 'Open check {n} of {name}, made {time}, on a different route or departure')
+              : imported ? 'Open check {n} of {name}, made {time}, imported from a file' : 'Open check {n} of {name}, made {time}',
           { n, name: title, time: made }, language);
         return (
           <Station key={check.snapshot_id} filled current={check.snapshot_id === latestId}>
@@ -374,7 +391,7 @@ function Lifecycle({ checks, latestId, departure, departed, hasPublishedCase, lo
               className="relative z-10 min-h-11 min-w-11 text-left underline-offset-2 hover:underline pr-2"
               {...OWNED}
             >
-              <span className="block">{passageText('Check {n}', { n }, language)}</span>
+              <span className="block">{passageText(check.imported ? 'Check {n} · imported' : 'Check {n}', { n }, language)}</span>
               <span className="block font-mono text-xs text-ink-soft">{made}</span>
             </button>
             {different && (

@@ -1,7 +1,7 @@
 import { evidenceById } from '../lib/evidenceSelectors.js';
 import { create } from 'zustand';
 import { initialPage, pageHash, standalonePage, validSnapshotId } from '../lib/routes.js';
-import { localSnapshots, fetchSnapshotJson, snapshotTombstones } from '../lib/localSnapshots.js';
+import { IMPORT_MARKER, localSnapshots, fetchSnapshotJson, snapshotTombstones } from '../lib/localSnapshots.js';
 import { openCheckMemory } from '../lib/openCheckMemory.js';
 import { preparedRun } from '../lib/preparedRun.js';
 import { getInitialLanguage, getLanguageFromPath, LANGUAGE_STORAGE_KEY } from '../i18n.js';
@@ -14,7 +14,7 @@ import { initialSelection, needsRecordedProfile } from '../lib/governing.js';
 let openSequence = 0;
 const emptySnapshot = {
   snapshotId: null, snapshotSource: null, findings: null, briefing: null, plume: null, snapshot: null,
-  warnings: null, synoptic: null, route: null, measurementAttempt: null, checkProfile: null,
+  warnings: null, synoptic: null, route: null, measurementAttempt: null, checkProfile: null, imported: false,
   selectedEvidenceId: null, selectedLegId: null, inspectorOpen: false,
 };
 
@@ -33,6 +33,9 @@ export const useApp = create((set, get) => ({
   setPlannerArea: (plannerArea) => set({ plannerArea }),
   manifest: null,
   manifestError: null,
+  // the ids of the checks Passage serves, hidden ones included, once this page has
+  // read the served catalogue (null until then): an import refuses them
+  servedIds: null,
 
   measurementAttempt: null,
   snapshotId: null,
@@ -47,6 +50,8 @@ export const useApp = create((set, get) => ({
   // the limits the open check recorded (its decision-inputs.json), when its verdict
   // sentence needs them; never the sailor's draft, which may have changed since
   checkProfile: null,
+  // the open check was imported from a file (its imported.json marker; lib/checkImport.js)
+  imported: false,
   loadError: null,
   loading: false,
 
@@ -140,6 +145,8 @@ export const useApp = create((set, get) => ({
       return;
     }
     const hidden = snapshotTombstones.all();
+    const servedIds = served instanceof Error ? get().servedIds
+      : new Set((served.snapshots ?? []).map((s) => s?.snapshot_id).filter((id) => typeof id === 'string'));
     const servedSnapshots = (served instanceof Error ? [] : served.snapshots ?? []).filter(
       (s) => !hidden.has(s.snapshot_id),
     );
@@ -149,6 +156,7 @@ export const useApp = create((set, get) => ({
     set({
       manifest: { ...(served instanceof Error ? {} : served), snapshots },
       manifestError: null,
+      servedIds,
     });
   },
 
@@ -214,6 +222,9 @@ export const useApp = create((set, get) => ({
         ? await file('decision-inputs.json').then((inputs) => inputs?.profile ?? null).catch(() => null)
         : null;
       if (sequence !== openSequence) return;
+      // a browser-saved check imported from a file carries a marker the page names it by
+      const imported = snapshotSource === 'local' && await localSnapshots.has(snapshotId, IMPORT_MARKER);
+      if (sequence !== openSequence) return;
       // start on the claim and leg the verdict sentence names, not the verdict driver
       // (the driver ranks by ratio and can be another leg, hour and count)
       const selection = initialSelection(findings, checkProfile);
@@ -227,6 +238,7 @@ export const useApp = create((set, get) => ({
         warnings,
         synoptic,
         route,
+        imported,
         loading: false,
         page: targetPage,
         ...selection,

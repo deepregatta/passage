@@ -9,7 +9,7 @@ import { useApp } from '../../stores/appStore.js';
 import { newPassageId } from '../../lib/passageIdentity.js';
 import { usePlanner } from '../../stores/plannerStore.js';
 import { routeTitle } from './routeLabels.jsx';
-import { OWNED, passageKeyOf, userRouteName } from '../../lib/passages.js';
+import { OWNED, localTime, passageKeyOf, passageText, userRouteName } from '../../lib/passages.js';
 import { passageLabels } from '../../lib/passageLabels.js';
 import { nextRunText } from './nextRunText.js';
 import { useGoverningReason, verdictSentences } from './verdictSentence.js';
@@ -46,6 +46,10 @@ export default function DecisionBand({ findings, warningEvidence, onOpenBulletin
   const snapshots = useApp((s) => s.manifest?.snapshots);
   const snapshotId = useApp((s) => s.snapshotId);
   const label = useMemo(() => passageLabels.all()[passageKeyOf(snapshots, snapshotId)] ?? null, [snapshots, snapshotId]);
+  // a check imported from a file says so, with the time the check itself was made
+  const imported = useApp((s) => s.imported);
+  const madeAt = useApp((s) => s.snapshot?.created_at ?? null);
+  const language = useApp((s) => s.language);
   const warningActive = findings.verdict.warning_override?.active;
   const emulated = warningActive && isEmulatedWarning(warningEvidence, warnings);
   const state = warningActive ? 'warning_active' : findings.verdict.state;
@@ -85,6 +89,11 @@ export default function DecisionBand({ findings, warningEvidence, onOpenBulletin
           <p className="font-mono text-[12px] text-ink-soft mt-1">
             <span>dep</span> {fmtLocalTime(findings.departure_utc)} · <span>times in</span> {localTimeZoneName()}
           </p>
+          {imported && (
+            <p data-testid="imported-label" className="font-sans text-[13px] text-ink-soft mt-1" {...OWNED}>
+              {passageText('Imported from a file, not recomputed here · check made {time}', { time: localTime(madeAt, language) }, language)}
+            </p>
+          )}
         </div>
         <div className="flex flex-col md:flex-row md:items-start gap-x-5 gap-y-3">
           <div className="flex items-center gap-2 flex-wrap shrink-0">

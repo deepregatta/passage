@@ -45,10 +45,16 @@ export function passageKeyOf(snapshots, snapshotId) {
   return snapshot ? groupKey(snapshot) : null;
 }
 
+/** An imported check against one this browser made: their creation times alone cannot be trusted to tie. */
+const oneImported = (a, b) => (a.imported === true) !== (b.imported === true);
+
 /** One deterministic order for progress stations and chronological comparisons. */
 export function compareChecks(a, b) {
   const time = (created(a) || 0) - (created(b) || 0);
   if (time) return time;
+  // At the same time, an imported check comes before one this browser made: a file
+  // cannot place itself after the sailor's own check, or make their order unknown.
+  if (oneImported(a, b)) return a.imported === true ? -1 : 1;
   if (a.legacy_history_id && a.legacy_history_id === b.legacy_history_id) {
     const order = (a.history_order ?? 0) - (b.history_order ?? 0);
     if (order) return order;
@@ -97,6 +103,7 @@ export function ambiguousCheckOrder(snapshots, entry) {
   return !Number.isFinite(created(entry)) || snapshots.some(other =>
     groupKey(other) === groupKey(entry) && other.snapshot_id !== entry.snapshot_id && created(other) === created(entry) &&
     !(entry.legacy_history_id && entry.legacy_history_id === other.legacy_history_id && entry.history_order !== other.history_order) &&
+    !oneImported(entry, other) &&
     !(Number.isSafeInteger(entry.check_sequence) && Number.isSafeInteger(other.check_sequence) && entry.check_sequence !== other.check_sequence));
 }
 
@@ -122,6 +129,16 @@ export const PASSAGE_TEMPLATES = [
   'Passage renamed to {name}.',
   'Passage renamed to {name}. This browser could not save the name, so it lasts only until you leave this page.',
   'Original name restored.',
+  // a check imported from a file (components/ImportCheck.jsx, My passages and the passage page)
+  'Imported from a file, not recomputed here · check made {time}',
+  'Check {n} · imported',
+  'Open check {n} of {name}, made {time}, imported from a file',
+  'Open check {n} of {name}, made {time}, on a different route, imported from a file',
+  'Open check {n} of {name}, made {time}, on a different route or departure, imported from a file',
+  '+{n} more checks (1 imported)',
+  '+{n} more checks ({m} imported)',
+  'Check imported from a file, departing {time}.',
+  'This check is already in My passages, departing {time}.',
 ];
 
 export function passageText(template, values, language) {

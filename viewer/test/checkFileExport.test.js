@@ -5,6 +5,7 @@ import { IDBFactory } from 'fake-indexeddb';
 import { CHECK_FILE_NAMES, contentHash } from '@deepweather/engine';
 import { gunzipText } from '../src/lib/snapshotCodec.js';
 import { polarContentFindings } from '../../scripts/polar-content-rules.mjs';
+import { makeCheck } from './helpers/checkFiles.js';
 
 // Saving a copy of a browser-saved check to a file (lib/checkFile.js): the gzip of
 // the engine's check file, version 1, holding every file of the check exactly as
@@ -18,6 +19,8 @@ const hex = '8ca29e5bd5a065f3';
 const SAVED = ['decision-inputs.json', 'findings.json', 'briefing.json', 'route.json', 'plume.json', 'warnings.json', 'synoptic.json', 'snapshot.json'];
 const demoFiles = () => SAVED.map((filename) => ({ filename, content: readFileSync(join(demoDir, filename), 'utf8') }));
 const NOW = Date.parse('2026-11-15T12:00:00Z');
+const savedOf = (check) => Object.entries(check.files).map(([filename, content]) => ({ filename, content }))
+  .sort((a, b) => (a.filename === 'snapshot.json') - (b.filename === 'snapshot.json'));
 
 let localSnapshots, checkFile;
 beforeEach(async () => {
@@ -77,16 +80,17 @@ it('exports the same original text from a check stored compressed and one stored
   expect(JSON.stringify(plain.document)).toBe(JSON.stringify(compressed.document));
 });
 
-it('passes the real no-polar-data rules for the demo check, and keeps the boat reference, scaling and leg speeds', async () => {
-  const files = demoFiles();
-  const route = JSON.parse(files.find((file) => file.filename === 'route.json').content);
+it('passes the real no-polar-data rules for a check whose route keeps the boat reference, scaling and leg speeds', async () => {
   // what a computed route records about the boat: its id, the percent of its polar, per-leg speeds
-  route.provenance = { routing_request: { polar_id: 'invented-boat-34', polar_scaling: 0.9 }, polar_ref: 'invented-boat-34' };
-  route.legs = [{ through_water_kt: 6.4, speed_over_ground_kt: 6.9 }];
-  const withBoat = files.map((file) => (file.filename === 'route.json' ? { ...file, content: JSON.stringify(route, null, 2) } : file));
-  await localSnapshots.writeAll(id, withBoat);
-  for (const { content } of withBoat) expect(polarContentFindings(content)).toEqual([]);
-  const { document } = await exported();
+  // (inside the decision inputs, so the check is whole and the copy's own re-read accepts it)
+  const check = await makeCheck({ routeExtras: {
+    provenance: { routing_request: { polar_id: 'invented-boat-34', polar_scaling: 0.9 }, polar_ref: 'invented-boat-34' },
+    legs: [{ through_water_kt: 6.4, speed_over_ground_kt: 6.9 }],
+  } });
+  await localSnapshots.writeAll(check.snapshotId, savedOf(check));
+  for (const content of Object.values(check.files)) expect(polarContentFindings(content)).toEqual([]);
+  const { bytes } = await checkFile.prepareCheckFile(check.snapshotId, { nowMs: NOW });
+  const document = JSON.parse(await gunzipText(bytes));
   expect(document.checks[0].files['route.json']).toContain('"polar_id": "invented-boat-34"');
   expect(document.checks[0].files['route.json']).toContain('"through_water_kt": 6.4');
 });
@@ -103,6 +107,20 @@ describe('a check whose text matches a no-polar-data rule', () => {
     await localSnapshots.writeAll(id, files);
     await expect(checkFile.prepareCheckFile(id, { nowMs: NOW })).rejects.toMatchObject({ name: 'CheckFileError', code: 'polar' });
     // the public result: the refusal, and no bytes handed to a download
+    expect(await saveWithDownloads()).toEqual({ outcome: checkFile.COPY.polar, downloads: [] });
+  });
+});
+
+describe('boat polar data the raw-text rules do not see', () => {
+  const key = ['speeds', 'kt'].join('_');
+  it.each([
+    ['behind a unicode-escaped key', (text) => text.replace('{', `{"debug": {"${key.replace('_', '\\u005f')}": [[4.1, 5.2], [6.3, 7.4]]},`)],
+    ['inside a JSON string', (text) => text.replace('{', `{"debug": ${JSON.stringify(JSON.stringify({ [key]: [[4.1, 5.2], [6.3, 7.4]] }))},`)],
+  ])('is refused %s, and no file is made', async (_case, plant) => {
+    const files = demoFiles().map((file) => (file.filename === 'findings.json' ? { ...file, content: plant(file.content) } : file));
+    expect(polarContentFindings(files.find((file) => file.filename === 'findings.json').content)).toEqual([]);
+    await localSnapshots.writeAll(id, files);
+    await expect(checkFile.prepareCheckFile(id, { nowMs: NOW })).rejects.toMatchObject({ code: 'polar' });
     expect(await saveWithDownloads()).toEqual({ outcome: checkFile.COPY.polar, downloads: [] });
   });
 });
@@ -157,6 +175,24 @@ describe('a copy that cannot be made', () => {
     await localSnapshots.writeAll(id, [{ filename: 'notes.json', content: '{}' }, ...manifestWith((m) => ({ ...m, artifacts: { ...m.artifacts, notes: 'notes.json' } }))]);
     await expect(checkFile.prepareCheckFile(id)).rejects.toMatchObject({ code: 'failed', message: expect.stringContaining('notes.json') });
     expect(await saveWithDownloads()).toEqual({ outcome: checkFile.COPY.failed, downloads: [] });
+  });
+
+  it('refuses a copy over the import\'s caps (64 MB of text, 16 MB compressed), plainly', async () => {
+    await localSnapshots.writeAll(id, demoFiles());
+    const { bytes } = await checkFile.prepareCheckFile(id, { nowMs: NOW });
+    const textBytes = new TextEncoder().encode(await gunzipText(bytes)).byteLength;
+    await expect(checkFile.prepareCheckFile(id, { nowMs: NOW, maxTextBytes: textBytes - 1 })).rejects.toMatchObject({ code: 'tooLarge' });
+    await expect(checkFile.prepareCheckFile(id, { nowMs: NOW, maxTextBytes: textBytes })).resolves.toMatchObject({ name: expect.any(String) });
+    await expect(checkFile.prepareCheckFile(id, { nowMs: NOW, maxCompressedBytes: bytes.byteLength - 1 })).rejects.toMatchObject({ code: 'tooLarge' });
+    expect(checkFile.COPY.tooLarge).toBe('tooLarge');
+  });
+
+  it('copies a check whose save time is ahead of this device, with no time bound', async () => {
+    const files = demoFiles().map((file) => (file.filename === 'snapshot.json'
+      ? { ...file, content: file.content.replace(/"created_at": "[^"]+"/, '"created_at": "2099-01-01T00:00:00.000Z"') } : file));
+    await localSnapshots.writeAll(id, files);
+    const { bytes } = await checkFile.prepareCheckFile(id, { nowMs: NOW });
+    expect(JSON.parse(JSON.parse(await gunzipText(bytes)).checks[0].files['snapshot.json']).created_at).toBe('2099-01-01T00:00:00.000Z');
   });
 
   it('hands a made copy to the download once', async () => {
