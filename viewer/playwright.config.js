@@ -1,5 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 const repo = path.resolve(import.meta.dirname, '..');
@@ -9,6 +9,14 @@ const launch = JSON.parse(readFileSync(path.join(repo, '.claude/launch.json'), '
   .configurations.find((item) => item.name === (production ? 'static-dist' : 'viewer-demo'));
 const port = Number(process.env.PASSAGE_E2E_PORT ?? launch.port);
 const baseURL = live ? 'https://passage.deepregatta.com' : `http://127.0.0.1:${port}`;
+// Playwright starts Chromium with --disable-dev-shm-usage, so every shared
+// memory region (each response body is a 2 MiB data pipe) is a reserved file
+// in TMPDIR. A renderer that reloads the unbundled dev app keeps ~1 GB of them
+// after five loads; where /tmp is a nearly full tmpfs that ends in
+// net::ERR_INSUFFICIENT_RESOURCES and an app that never mounts. Give the
+// test browser its own disk-backed temporary directory.
+const browserTmp = path.join(repo, 'output/playwright-tmp');
+mkdirSync(browserTmp, { recursive: true });
 
 export default defineConfig({
   testDir: './e2e',
@@ -21,6 +29,7 @@ export default defineConfig({
     baseURL,
     timezoneId: 'Europe/Paris',
     trace: 'retain-on-failure',
+    launchOptions: { env: { ...process.env, TMPDIR: browserTmp } },
   },
   projects: [
     { name: 'desktop', use: { ...devices['Desktop Chrome'], browserName: 'chromium', viewport: { width: 1568, height: 1003 } } },
