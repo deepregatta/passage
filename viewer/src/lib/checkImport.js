@@ -64,7 +64,8 @@ async function inflate(file) {
   return bytes;
 }
 
-function storageFull(error) {
+/** Whether a storage failure was the browser's quota (exported for the import of many checks). */
+export function storageFull(error) {
   for (let e = error; e; e = e.cause) {
     if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') return true;
   }
@@ -72,7 +73,7 @@ function storageFull(error) {
 }
 
 /** Whether the check stored here under this id is this check: 'same', 'different' or null when none is. */
-async function existing(check) {
+export async function existing(check) {
   if (!await localSnapshots.exists(check.snapshotId)) return null;
   const text = await localSnapshots.read(check.snapshotId, 'decision-inputs.json');
   if (typeof text !== 'string') return 'different';
@@ -112,7 +113,7 @@ export async function readCheckFile(file, { nowMs = Date.now(), servedIds = null
 }
 
 /** The records of one imported check: its files as given, the marker, the manifest last. */
-function importRecords(check, importedAt) {
+export function importRecords(check, importedAt) {
   const marker = JSON.stringify({ imported_at: importedAt, exported_at: check.exportedAt, exported_by: check.exportedBy }, null, 2);
   const files = CHECK_FILE_NAMES.filter((name) => name !== 'snapshot.json' && Object.hasOwn(check.files, name))
     .map((filename) => ({ filename, content: check.files[filename] }));

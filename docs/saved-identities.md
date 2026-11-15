@@ -521,8 +521,45 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   not a check file; newer (a header of format version 3 or above); a damaged
   line, with its reason (not a check line, a bad digest, or the version-1
   proof's own "damaged" or "future-time"); a wrong trailer (another count,
-  other keys); more than 1,000 checks. The import of many checks is not
-  built yet.
+  other keys); more than 1,000 checks.
+  The import of many checks (`importChecksFile` in
+  `viewer/src/lib/checkImportMany.js`, 2026-11-15; a library only, no control
+  calls it yet; "Import a check" still calls the stage 1 `importCheckFile`)
+  reads a file through the stream reader. A version-1 file goes to the stage
+  1 import and resolves `{ kind: 'v1', …its own result }` unchanged, except
+  that a file that is not gzip is "not a check file" whatever its size (stage
+  1 says "too large" past 16 MB). A version-2 file is refused before any
+  check line is read when the page never read the served ids (the stage 1
+  offline outcome) or its header is newer; no request is made at any point.
+  Each line is then settled in order, as stage 1 settles its one check: an id
+  that already appeared in the file is counted as repeated; a check whose
+  stored `decision-inputs.json` text equals the line's exactly is already
+  here (nothing is proven, since nothing is written); otherwise
+  `parseCheckFileEntryLine` with the contracts and the time bound (damaged or
+  future time), the polar safety net, a served id, stage 1's canonical
+  already-here or conflict rule, then stage 1's one all-or-nothing `writeAll`
+  of the files, the `imported.json` marker (carrying the header's
+  `exported_at` and `exported_by`) and the manifest. A refused line never
+  stops the others, and nothing of a line's parse outlives its check (a large
+  check's canonical decision inputs are 10 MB); the ids it keeps for the rest
+  of the import are copied into strings of their own, since in V8 a short
+  string cut from a line can keep the whole line alive (measured: about 22 MB
+  per large check kept until the end without the copy, none with it). A storage failure stops the
+  import with every stored check whole and says how many lines were not
+  settled (from the trailer, read on without parsing; unknown when it cannot
+  be reached). A file that breaks after some lines (truncated, corrupt,
+  trailing data, a second member, a line over its cap, too many checks,
+  invalid UTF-8, a trailer that does not count the lines) keeps what was
+  stored and ends `incomplete`, with the reader's code as a hint. An abort
+  stops between two checks, never inside one's storing. It resolves `{ kind:
+  'v2', outcomes: { imported, already, repeated, damaged, futureTime, polar,
+  served, conflict, tooLarge }, importedIds, end: complete | incomplete |
+  storage | stopped | refused, hint, notReached, refusal }`, asks for
+  persistent storage once at the end when it stored anything, and gives the
+  event loop a turn between checks. `removeImportedChecks(ids)` removes
+  exactly those ids that carry an import marker (files and marker, through
+  `localSnapshots.remove`) and refuses any other, for a later "remove what
+  this import added".
   The export of all checks (`prepareAllChecksFile` in
   `viewer/src/lib/allChecksFile.js`, 2026-11-15; a library only, no control
   calls it yet) lists this browser's checks (`localSnapshots.list()`): every

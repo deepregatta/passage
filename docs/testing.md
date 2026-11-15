@@ -1002,7 +1002,28 @@ the cap; nothing when not even the newest fits; an abort mid-way and before
 the start keeping nothing; a compressor that alters a byte of a line, and one
 that damages the gzip, each failing the whole backup at the read-back; nothing
 to save for an empty store, only a legacy check or only a damaged one; and the
-public entry point with the page's own store and compressor. `scripts/check-no-polar-data.test.mjs` finds a
+public entry point with the page's own store and compressor. Import of many
+checks (stage 2, part 4): `viewer/test/checkImportMany.test.js` (fresh
+fake-indexeddb, checks the engine makes, Node's `File`) stores each check of a
+file exactly as given with its marker and says it is complete; counts a
+repeated id without settling it again; finds a check already here from its
+stored decision inputs text with no proof call and nothing written; leaves a
+conflicting stored check untouched and goes on; makes no request; refuses
+before any check line when the served ids were never read, and for a newer
+header; for each of 22 refusals (stage 1's damaged, future-time, polar and
+served cases, a bad digest, a line that is not a check line and a version-1
+document as a line) put on one line between two valid ones, stores exactly
+the two valid ones and leaves a pre-existing check byte for byte; stops at a
+quota failure on the second of three with the first whole and two lines not
+settled, or unknown when the trailer cannot be reached; keeps the checks
+before a cut and of a member failing its check, flagged incomplete; flags a
+trailer counting three lines of two; counts a line over the line cap as too
+large; stops between checks on an abort; hands version-1 files to stage 1
+with its own outcomes; calls a non-gzip file over 16 MB not a check file
+(stage 1: too large); finds export-all, import-many into a clean store and
+export-all again giving the same lines for two saved checks (one with a name
+outside Latin-1) and one imported; and removes only checks with an import
+marker. `scripts/check-no-polar-data.test.mjs` finds a
 `.pol` header after blank lines and 200,000 blank lines read without
 rescanning. `viewer/e2e/check-import.spec.js` (desktop and mobile) makes a real
 Check in fixture mode, saves a copy, refuses a hostile file in a second, empty
