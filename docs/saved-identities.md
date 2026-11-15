@@ -472,7 +472,8 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   at a time. Nothing in the app writes or reads it yet: "Save a copy to a
   file" still writes version 1 and "Import a check" still reads only version
   1 (to which a version-2 file is "not a check file"). The format and its
-  pure functions live in `engine/src/checkFile.ts`. The file,
+  pure functions live in `engine/src/checkFile.ts`, the stream reader in
+  `viewer/src/lib/checkFileLines.js` (below). The file,
   `passage-all-checks-<UTC date YYYY-MM-DD>-<HHMM>Z.json.gz`
   (`allChecksFileName`, the UTC minute it is made), is JSON lines inside one
   gzip member, each line compact JSON (`JSON.stringify` never writes a raw
@@ -501,8 +502,41 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   not a check file; newer (a header of format version 3 or above); a damaged
   line, with its reason (not a check line, a bad digest, or the version-1
   proof's own "damaged" or "future-time"); a wrong trailer (another count,
-  other keys); more than 1,000 checks. Reading the gzip stream, the import of
-  many checks and the export of all of them are not built yet.
+  other keys); more than 1,000 checks. The import of many checks and the
+  export of all of them are not built yet.
+  The stream reader (`readCheckFileLines`, 2026-11-15; nothing calls it yet)
+  reads a `File` through `file.stream()` and `DecompressionStream('gzip')`,
+  never holding more than one line: it splits on byte 0x0A before decoding
+  and decodes each line alone with a fatal UTF-8 decoder that keeps a byte
+  order mark. It refuses a file over 1 GiB from its size and one that is not
+  gzip from its first two bytes, then holds each line to its cap while its
+  bytes still buffer (a check line past 64 MiB, a trailer past 4 KiB, all
+  lines past 8 GiB inflated, a 1,001st check line: the read stops there). It
+  yields the parsed header, each check line's text (proving it stays with the
+  caller, through `parseCheckFileEntryLine`) and, once the file has ended
+  cleanly, the trailer's parse. When the first line is not a version-2
+  header (longer than 4 KiB, not UTF-8, cut short, or any other text) it
+  yields only "version 1" and stops: the caller hands the same file to the
+  stage 1 import, which reads it afresh with its own caps (16 MB compressed,
+  64 MB inflated) and gives its own outcomes, so a version-1 document with or
+  without one final newline reads exactly as before. A header of format
+  version 3 or above is "newer". The other problems are told apart: the
+  stream failing or ending before the trailer (truncated; a last line
+  without its newline is never yielded, except the trailer's); bytes after
+  the trailer's line or after the gzip member; a second gzip member (found
+  from the first member's size before gzip's magic in the compressed bytes,
+  or, where the decompressor ends cleanly, from the file's last four bytes
+  not being the size of all it inflated); a member failing its own check
+  after the trailer; invalid UTF-8; an abort through an `AbortSignal`. The
+  stream is released on every end, error, abort and early stop. Decided: a
+  carriage return before a newline is part of the line, and the engine
+  refuses it (Passage never writes one and gzip keeps text tools from adding
+  one, so it means the text was rewritten by something else); the trailer
+  may end with or without its newline. How much a decompressor hands over
+  before it fails differs (Node's drops the output of a write that fails), so
+  damage early in a file can make its first line unreadable and the file
+  version 1's to judge (stage 1 refuses it as damaged), and a member failing
+  its check may read as truncated: every such file is refused either way.
 - Modern histories group only by explicit passage ID and persistence source.
   Legacy checks without explicit identity remain individually accessible and
   deletable. No inferred grouping from route names/counts/departure is permitted.

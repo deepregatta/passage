@@ -936,7 +936,43 @@ JSON); refuses 11 trailers (another count, none, as text, negative,
 fractional, written 2.0, another end, an extra key, another order, a carriage
 return, a check line) and 1,001 as too many checks while reading 0 and 1,000;
 refuses to write what it would not read; names the file by the UTC minute
-across midnight; and keeps the version-1 constants. `scripts/check-no-polar-data.test.mjs` finds a
+across midnight; and keeps the version-1 constants. `viewer/test/checkFileLines.test.js`
+(the stream reader, over gzip made by `node:zlib`; jsdom's `File` has no
+`stream()`, so it reads Node's own `File` and `Blob` from `node:buffer`, a
+stand-in Blob that gives the compressed bytes in chunks of a chosen size or at
+chosen offsets and records a cancel, and `checkFileLinesOf` fed inflated chunks
+split exactly) yields the header, two real check lines that prove and the
+trailer, the same through compressed chunks of 1, 7 and 4096 bytes, a trailer
+without its newline, no checks, and a trailer with another count or spacing
+for the caller to refuse; stops at a header of version 3; hands 12 files to
+the stage 1 path as version 1 (a real check file with and without a final
+newline, small documents with and without, a document of version 2 with its
+checks, a CRLF ending, a version-2 header ended by a carriage return, GPX, no
+text, a first line that is not UTF-8, a byte order mark, 64 KiB of zeros),
+after reading only the start of a large one and releasing its stream, also
+for gzip cut short or followed by another member inside the first line, with
+stage 1 then giving its own outcome for the same `File` ("newer", or the
+check); refuses not gzip, an empty file and no file, and a file one byte over
+the compressed cap from its size alone while reading one at the cap; reads a
+check line of exactly the line cap (also in two-byte characters) and refuses
+one byte more; stops an endless line after 11 of its 1 KiB chunks; reads a
+header at exactly the header cap and hands it to version 1 one byte under;
+reads a trailer of exactly 4 KiB and refuses 4,097 bytes; reads at and refuses
+one byte past the inflated cap; refuses a third check line over a cap of two;
+refuses as truncated a file ending after a check line, a last line without its
+newline (never yielded), a header alone, a header without its newline, a
+trailer cut short, and gzip cut short or damaged after its first kilobyte;
+refuses another line, a second newline or a byte after the trailer, junk and
+zero padding after the member, and a second member after the trailer, empty
+or holding the rest of the lines, also where the decompressor stops cleanly at
+the first member's end; refuses a member failing its check after the trailer
+as corrupt; refuses an invalid byte, an overlong encoding, an encoded
+surrogate and a sequence cut by the newline; decodes a line with characters of
+two to four bytes split at every byte across two chunks and one byte per chunk;
+keeps a carriage return and a byte order mark in the line, which the engine
+refuses; and stops for an aborted signal (reading nothing) and an abort after
+the header, releasing the stream then, on a refusal and when the caller stops
+early. `scripts/check-no-polar-data.test.mjs` finds a
 `.pol` header after blank lines and 200,000 blank lines read without
 rescanning. `viewer/e2e/check-import.spec.js` (desktop and mobile) makes a real
 Check in fixture mode, saves a copy, refuses a hostile file in a second, empty

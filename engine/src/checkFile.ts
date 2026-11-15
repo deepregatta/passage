@@ -526,7 +526,7 @@ function identityProblem(
 // buffer (viewer/src/lib/checkFileLines.js); these functions are pure.
 
 export const CHECK_FILE_V2_VERSION = 2;
-/** A version-2 file's caps: compressed, each line in UTF-8, the header and trailer each, checks, and all lines inflated. */
+/** A version-2 file's caps: compressed, each line in UTF-8 (its newline not counted), the header and trailer each (likewise), checks, and all lines inflated. */
 export const CHECK_FILE_V2_MAX_COMPRESSED_BYTES = 1024 ** 3;
 export const CHECK_FILE_V2_MAX_LINE_BYTES = 64 * 1024 ** 2;
 export const CHECK_FILE_V2_MAX_EDGE_BYTES = 4 * 1024;
