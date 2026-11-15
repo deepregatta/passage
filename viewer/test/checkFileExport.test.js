@@ -111,6 +111,18 @@ describe('a check whose text matches a no-polar-data rule', () => {
   });
 });
 
+it('reports decision inputs that no longer hash to the id as damaged, ahead of polar data elsewhere in the check', async () => {
+  // the hash refusal always came before the safety net; the re-read now proves the hash, so this pins the order
+  const files = demoFiles().map((file) => {
+    if (file.filename === 'decision-inputs.json') return { ...file, content: file.content.replace('{', '{"extra":1,') };
+    if (file.filename === 'findings.json') return { ...file, content: JSON.stringify({ ...JSON.parse(file.content), vpp: { angles: [40] } }, null, 2) };
+    return file;
+  });
+  await localSnapshots.writeAll(id, files);
+  await expect(checkFile.prepareCheckFile(id, { nowMs: NOW })).rejects.toMatchObject({ code: 'damaged', message: expect.stringContaining('hash') });
+  expect(await saveWithDownloads()).toEqual({ outcome: checkFile.COPY.damaged, downloads: [] });
+});
+
 describe('boat polar data the raw-text rules do not see', () => {
   const key = ['speeds', 'kt'].join('_');
   it.each([

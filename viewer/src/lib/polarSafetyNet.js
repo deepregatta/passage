@@ -11,12 +11,18 @@ import { polarContentFindings } from '../../../scripts/polar-content-rules.mjs';
 
 export const POLAR_STRING_MIN = 16;
 
-/** True when any rule matches the texts, the values' canonical JSON or a long string inside them. */
-export function holdsPolarData({ texts = [], values = [] }) {
+/**
+ * True when any rule matches the texts, the values' canonical JSON or a long
+ * string inside them. `canonicalTexts` (a Map from a value in `values` to its
+ * canonicalJson, already built: the decision inputs' from parseCheckFile)
+ * spares building that text again; the caller vouches that it is exactly
+ * canonicalJson(value). Every other value's canonical JSON is built here.
+ */
+export function holdsPolarData({ texts = [], values = [], canonicalTexts = null }) {
   const matches = (text) => polarContentFindings(text).length > 0;
   if (texts.some(matches)) return true;
   for (const value of values) {
-    if (matches(canonicalJson(value))) return true;
+    if (matches(canonicalTexts?.get(value) ?? canonicalJson(value))) return true;
     const pending = [value];
     while (pending.length) {
       const item = pending.pop();

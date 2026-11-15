@@ -3,7 +3,7 @@ import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   CHECK_FILE_FORMAT, CHECK_FILE_NAMES, CHECK_FILE_REQUIRED, CHECK_FILE_VERSION, buildCheckFile, checkFileName, checkFileText, checkHex, contentHash,
-  jsonKeyProblem, parseCheckFile, SNAPSHOT_ARTIFACT_FILES, SNAPSHOT_MANIFEST_KEYS, CHECK_FILE_MAX_SEQUENCE,
+  canonicalJson, jsonKeyProblem, parseCheckEntry, parseCheckFile, SNAPSHOT_ARTIFACT_FILES, SNAPSHOT_MANIFEST_KEYS, CHECK_FILE_MAX_SEQUENCE,
 } from '../src/index.js';
 
 // The check file (format "passage-checks", version 1): one browser-saved check as one
@@ -133,6 +133,21 @@ describe('parseCheckFile', () => {
     for (const [name, text] of Object.entries(files)) expect(result.check.files[name as keyof typeof result.check.files]).toBe(text);
     expect(result.check).toMatchObject({ exportedAt, exportedBy, departureUtc: '2026-07-20T06:00:00Z', createdAt: JSON.parse(files['snapshot.json']!).created_at });
     expect(contentHash(result.check.decisionInputs)).toBe('8ca29e5bd5a065f3');
+  });
+
+  it('proves the one check alone through parseCheckEntry, with the canonical decision inputs it hashed', () => {
+    const entry = parseCheckEntry(document().checks[0], { nowMs: NOW_MS });
+    const whole = parseCheckFile(fileText(), { nowMs: NOW_MS });
+    expect(entry.ok && whole.ok).toBe(true);
+    if (!entry.ok || !whole.ok) return;
+    const { exportedAt: _at, exportedBy: _by, ...check } = whole.check;
+    expect(entry.check).toEqual(check);
+    expect(entry.check.decisionInputsCanonical).toBe(canonicalJson(entry.check.decisionInputs));
+    expect(contentHash(entry.check.decisionInputs)).toBe(checkHex(entry.check.snapshotId));
+    expect(parseCheckEntry({ ...document().checks[0], note: 'x' })).toMatchObject({ ok: false, problem: 'damaged', detail: 'an unknown check field' });
+    expect(parseCheckEntry(null)).toMatchObject({ ok: false, problem: 'damaged' });
+    const future = JSON.parse(editFile('snapshot.json', (m: J) => ({ ...m, created_at: '2099-01-01T00:00:00.000Z' }))).checks[0];
+    expect(parseCheckEntry(future, { nowMs: NOW_MS, boundTime: true })).toMatchObject({ ok: false, problem: 'future-time' });
   });
 
   it('runs the schema check on every file but the decision inputs', () => {

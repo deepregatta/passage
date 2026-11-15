@@ -101,7 +101,9 @@ export async function readCheckFile(file, { nowMs = Date.now(), servedIds = null
   }
   const { check } = result;
   // the safety net over every file's own text, the document's and each file's decoded values
-  if (holdsPolarData({ texts: [...Object.values(check.files), text], values: Object.values(check.parsed) })) throw new Refused(IMPORT.polar, 'a no-polar-data rule matches');
+  // (the decision inputs' canonical JSON is the one parseCheckFile built for the hash)
+  const canonicalTexts = new Map([[check.decisionInputs, check.decisionInputsCanonical]]);
+  if (holdsPolarData({ texts: [...Object.values(check.files), text], values: Object.values(check.parsed), canonicalTexts })) throw new Refused(IMPORT.polar, 'a no-polar-data rule matches');
   // the ids this page read from the served catalogue (the example and hidden ones included);
   // no request is made here, so a page that loaded online can import offline
   if (!(servedIds instanceof Set)) throw new Refused(IMPORT.offline, 'the list of served checks was never read in this page');

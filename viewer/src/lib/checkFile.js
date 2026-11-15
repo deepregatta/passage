@@ -100,16 +100,21 @@ export async function prepareCheckFile(snapshotId, {
   for (const name of fileNames(manifest)) {
     if (name !== 'snapshot.json') files[name] = await storedText(snapshotId, name);
   }
-  // parsed once: its hash proves the check, its departure names the file
-  const inputs = parsed(files['decision-inputs.json'], 'decision-inputs.json');
-  if (contentHash(inputs) !== hex) throw damaged('The decision inputs do not hash to this check.');
+  // parsed here for its departure, which names the file
+  const { departureUtc } = parsed(files['decision-inputs.json'], 'decision-inputs.json');
+  // The re-read below proves the decision inputs hash to the id. The hash is
+  // checked apart only where the re-read fails or cannot run, so that refusal
+  // still comes before a failed build, polar data and the re-read's own, as it
+  // always did (the canonical JSON of large inputs is the costliest step).
+  const unhashed = () => contentHash(parsed(files['decision-inputs.json'], 'decision-inputs.json')) !== hex;
+  const unhashedError = () => damaged('The decision inputs do not hash to this check.');
   const findings = parsed(files['findings.json'], 'findings.json');
   if (findings.snapshot_id !== snapshotId || (findings.decision_hash !== undefined && findings.decision_hash !== hex)) {
     throw damaged('findings.json does not name this check.');
   }
   let name;
   try {
-    name = checkFileName(snapshotId, inputs.departureUtc);
+    name = checkFileName(snapshotId, departureUtc);
   } catch (error) {
     throw damaged(error.message);
   }
@@ -117,23 +122,40 @@ export async function prepareCheckFile(snapshotId, {
   try {
     document = buildCheckFile({ snapshotId, files, exportedAt: new Date(nowMs).toISOString(), exportedBy: CHECK_FILE_EXPORTED_BY });
   } catch (error) {
+    if (unhashed()) throw unhashedError();
     throw new CheckFileError('failed', error.message);
   }
   const text = checkFileText(document);
   // The safety net over each file's own text (inside the document a file's
   // quotes are escaped, which a rule written for JSON files would not see), the
   // document, and each parsed file's decoded values (lib/polarSafetyNet.js).
-  const values = Object.entries(files).map(([file, fileText]) => (file === 'decision-inputs.json' ? inputs : parsed(fileText, file)));
-  if (holdsPolarData({ texts: [...Object.values(files), text], values })) {
-    throw new CheckFileError('polar', 'The check holds data a no-polar-data rule matches.');
-  }
+  const texts = [...Object.values(files), text];
+  const polar = () => new CheckFileError('polar', 'The check holds data a no-polar-data rule matches.');
+  // What is refused before the re-read, in this order, when the re-read fails or cannot run.
+  const refuseAsBefore = () => {
+    if (unhashed()) throw unhashedError();
+    if (holdsPolarData({ texts, values: Object.entries(files).map(([file, fileText]) => parsed(fileText, file)) })) throw polar();
+  };
   // The round trip is a guarantee: the file is offered only if the import would
   // take it, read by the very same parseCheckFile, contracts and bounds. The
   // validators load here, on the first save, not with the passage page.
-  const { checkFileValidators } = await import('./generated/checkFileValidators.js');
+  let checkFileValidators;
+  try {
+    ({ checkFileValidators } = await import('./generated/checkFileValidators.js'));
+  } catch (error) {
+    refuseAsBefore();
+    throw error;
+  }
   // No time bound here: a genuine check is always exportable, whatever this device's clock said or says.
   const reread = parseCheckFile(text, { nowMs, boundTime: false, validateFile: (file, value) => checkFileValidators[file]?.(value) === true });
-  if (!reread.ok) throw damaged(`An import would refuse this file: ${reread.detail}.`);
+  if (!reread.ok) {
+    refuseAsBefore();
+    throw damaged(`An import would refuse this file: ${reread.detail}.`);
+  }
+  // A re-read that passed proved the hash, and lends the safety net the parsed
+  // files and the decision inputs' canonical JSON it already built.
+  const { check } = reread;
+  if (holdsPolarData({ texts, values: Object.values(check.parsed), canonicalTexts: new Map([[check.decisionInputs, check.decisionInputsCanonical]]) })) throw polar();
   // the import's caps: a copy it would refuse as too large is not made
   if (text.length > maxTextBytes || new TextEncoder().encode(text).byteLength > maxTextBytes) {
     throw new CheckFileError('tooLarge', 'The check file text is over the import cap.');

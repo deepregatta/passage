@@ -330,6 +330,13 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   always exportable whatever the device's clock said; the import refuses a
   check saved more than 24 hours after the import time, and accepts that file
   once its time is no longer more than 24 hours ahead.
+  Since stage 2's first part (2026-11-15; no change in what either control
+  does) a check is proven once: `parseCheckEntry` proves one
+  `{ snapshot_id, files }` entry and `parseCheckFile` reads the version-1
+  document around it with the same results; the decision inputs' canonical
+  JSON, the costliest step, is built once per check and serves both the hash
+  and the polar safety net; and the export's hash proof is that re-read (a
+  mismatch is still reported as damaged before polar data, as before).
   Nothing is sent anywhere and no analytics event is sent; the saved check is
   only read. "Copy made" means the browser accepted the download; the sailor
   can still cancel it (iOS Safari, or a browser that asks where to save).

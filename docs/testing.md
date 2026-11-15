@@ -903,7 +903,15 @@ notes on the card and the passage page's change story (no "order unavailable"),
 button named "…, imported from a file" and "…, importée depuis un fichier",
 and the future-time message in English and French with nothing stored.
 `checkFileExport.test.js` refuses a copy one byte over either cap ("too large")
-and copies a check saved "in 2099". `scripts/check-no-polar-data.test.mjs` finds a
+and copies a check saved "in 2099". Proving a check once (stage 2, part 1):
+`engine/test/checkFile.test.ts` finds `parseCheckEntry` giving the same check
+as `parseCheckFile` without the document's fields, the decision inputs'
+canonical JSON it hashed, and "damaged" and "future-time" for one entry;
+`checkFileExport.test.js` still reports decision inputs that no longer hash as
+damaged when polar data is also in the check; `viewer/test/polarSafetyNet.test.js`
+finds a given canonical text read in place of its own value's only (an equal
+copy gets its own), the other values' canonical JSON still built, long strings
+still walked and the raw texts still read. `scripts/check-no-polar-data.test.mjs` finds a
 `.pol` header after blank lines and 200,000 blank lines read without
 rescanning. `viewer/e2e/check-import.spec.js` (desktop and mobile) makes a real
 Check in fixture mode, saves a copy, refuses a hostile file in a second, empty

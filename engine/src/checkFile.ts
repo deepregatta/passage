@@ -13,7 +13,7 @@
  * document here, and the import will read the same constants.
  */
 import { parseUtc, toIso } from './eta.js';
-import { canonicalJson, contentHash } from './hash.js';
+import { canonicalJson, contentHash, fnv1a64Hex } from './hash.js';
 import { routeRevision } from './identity.js';
 import { SNAPSHOT_ARTIFACT_FILES, SNAPSHOT_MANIFEST_KEYS } from './snapshot.js';
 import type { Route } from './types.js';
@@ -134,18 +134,27 @@ export type CheckFileProblem =
   | 'future-time' // the check was saved more than a day after the import time
   | 'damaged'; // the check is not what its identity says, or a file is not valid
 
-export interface ParsedCheck {
+/** One check of a check file, proven (parseCheckEntry): everything but the document's own fields. */
+export interface ParsedCheckEntry {
   snapshotId: string;
   /** the file texts exactly as the file holds them, in CHECK_FILE_NAMES order */
   files: Partial<Record<CheckFileName, string>>;
-  exportedAt: string;
-  exportedBy: string;
   departureUtc: string;
   createdAt: string;
   /** the parsed decision inputs, already proven to hash to the id */
   decisionInputs: Record<string, unknown>;
+  /**
+   * canonicalJson(decisionInputs), the text the id's hash was proven over:
+   * computed once per check, so the polar safety net need not build it again
+   */
+  decisionInputsCanonical: string;
   /** every file parsed (for the polar safety net over decoded values) */
   parsed: Partial<Record<CheckFileName, Record<string, unknown>>>;
+}
+
+export interface ParsedCheck extends ParsedCheckEntry {
+  exportedAt: string;
+  exportedBy: string;
 }
 
 /** How far ahead of the import time a check's own time may be: clock skew between devices, generously. */
@@ -159,6 +168,13 @@ export const CHECK_FILE_MAX_TEXT_BYTES = 64 * 1024 * 1024;
 export type CheckFileParse =
   | { ok: true; check: ParsedCheck }
   | { ok: false; problem: CheckFileProblem; detail: string };
+
+/** Why one check of a check file was refused: the two problems a check itself can have. */
+export type CheckEntryProblem = Extract<CheckFileProblem, 'damaged' | 'future-time'>;
+
+export type CheckEntryParse =
+  | { ok: true; check: ParsedCheckEntry }
+  | { ok: false; problem: CheckEntryProblem; detail: string };
 
 export interface ParseCheckFileOptions {
   /** now, for the bound on the check's time (Date.now() by default) */
@@ -250,7 +266,7 @@ export function jsonKeyProblem(text: string, { maxDepth = CHECK_FILE_MAX_DEPTH, 
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value);
-const fail = (problem: CheckFileProblem, detail: string): CheckFileParse => ({ ok: false, problem, detail });
+const fail = <P extends CheckFileProblem>(problem: P, detail: string) => ({ ok: false as const, problem, detail });
 const DOCUMENT_KEYS = ['format', 'format_version', 'exported_at', 'exported_by', 'checks'];
 const sameInstant = (a: unknown, b: unknown) => typeof a === 'string' && typeof b === 'string' && Date.parse(a) === Date.parse(b) && Number.isFinite(Date.parse(a));
 
@@ -270,9 +286,10 @@ function briefingVerdict(briefing: Record<string, unknown>): string | null | und
  * the format and version; exactly one check; a v2 id; only check file names,
  * all required ones, each text; the key policy and JSON of each file; the
  * manifest's artifacts naming exactly the files present; each file's schema;
- * then the identity (see checkIdentity).
+ * then the identity (see checkIdentity). Everything from the v2 id on is
+ * parseCheckEntry's, which proves the document's one check.
  */
-export function parseCheckFile(text: string, { validateFile, nowMs = Date.now(), boundTime = false }: ParseCheckFileOptions = {}): CheckFileParse {
+export function parseCheckFile(text: string, options: ParseCheckFileOptions = {}): CheckFileParse {
   if (typeof text !== 'string') return fail('not-check-file', 'not text');
   const outerKeys = jsonKeyProblem(text);
   if (outerKeys) return fail('not-check-file', `the document has ${outerKeys}`);
@@ -295,7 +312,27 @@ export function parseCheckFile(text: string, { validateFile, nowMs = Date.now(),
   if (!Array.isArray(checks)) return fail('not-check-file', 'no checks');
   if (checks.length !== 1) return fail('check-count', `${checks.length} checks`);
 
-  const entry = checks[0];
+  const entry = parseCheckEntry(checks[0], options);
+  if (!entry.ok) return entry;
+  const { snapshotId, files, departureUtc, createdAt, decisionInputs, decisionInputsCanonical, parsed } = entry.check;
+  return {
+    ok: true,
+    check: { snapshotId, files, exportedAt, exportedBy, departureUtc, createdAt, decisionInputs, decisionInputsCanonical, parsed },
+  };
+}
+
+/**
+ * Prove one check of a check file, a parsed `{ snapshot_id, files }` entry
+ * (version 1's one check, or one line of version 2), or say why not.
+ * Checked, in order: only those two fields; a v2 id; only check file names,
+ * all required ones, each text; the key policy and JSON of each file; the
+ * manifest's fields and artifacts naming exactly the files present; the check
+ * sequence and save time (with `boundTime`, not more than CHECK_FILE_FUTURE_MS
+ * after `nowMs`: 'future-time'); each file's schema through `validateFile`;
+ * then the identity (see checkIdentity). Every other failure is 'damaged'.
+ * The reasons never quote the check's content or key names.
+ */
+export function parseCheckEntry(entry: unknown, { validateFile, nowMs = Date.now(), boundTime = false }: ParseCheckFileOptions = {}): CheckEntryParse {
   if (!isRecord(entry) || Object.keys(entry).some((key) => key !== 'snapshot_id' && key !== 'files')) return fail('damaged', 'an unknown check field');
   const snapshotId = entry.snapshot_id;
   const hex = checkHex(snapshotId);
@@ -357,18 +394,17 @@ export function parseCheckFile(text: string, { validateFile, nowMs = Date.now(),
   }
 
   const identity = checkIdentity(id, hex, parsed);
-  if (identity) return fail('damaged', identity);
+  if ('problem' in identity) return fail('damaged', identity.problem);
   const inputs = parsed['decision-inputs.json']!;
   return {
     ok: true,
     check: {
       snapshotId: id,
       files,
-      exportedAt,
-      exportedBy,
       departureUtc: inputs.departureUtc as string,
       createdAt: manifest.created_at as string,
       decisionInputs: inputs,
+      decisionInputsCanonical: identity.canonicalInputs,
       parsed,
     },
   };
@@ -391,17 +427,38 @@ export function parseCheckFile(text: string, { validateFile, nowMs = Date.now(),
  * briefing's decision message; the snapshot_id of the briefing and plume;
  * and everything else in findings.json, briefing.json, plume.json,
  * warnings.json, tides.json, the manifest's created_at and check_sequence.
+ *
+ * Gives the decision inputs' canonical JSON when the identity holds: it is
+ * built once per check, here, for the hash (it costs most of a large check's
+ * proof).
  */
-function checkIdentity(id: string, hex: string, parsed: Partial<Record<CheckFileName, Record<string, unknown>>>): string | null {
+function checkIdentity(id: string, hex: string, parsed: Partial<Record<CheckFileName, Record<string, unknown>>>): { problem: string } | { canonicalInputs: string } {
+  const problem = (reason: string) => ({ problem: reason });
   const manifest = parsed['snapshot.json']!;
   const inputs = parsed['decision-inputs.json']!;
   const findings = parsed['findings.json']!;
   const briefing = parsed['briefing.json']!;
   const route = parsed['route.json']!;
-  if (manifest.identity_version !== 2 || findings.identity_version !== 2 || inputs.identity_version !== 2) return 'not identity version 2';
-  if (manifest.snapshot_id !== id || findings.snapshot_id !== id) return 'a manifest or findings for another check';
-  if (manifest.decision_hash !== hex || findings.decision_hash !== hex) return 'another decision hash';
-  if (contentHash(inputs) !== hex) return 'decision inputs that do not hash to the id';
+  if (manifest.identity_version !== 2 || findings.identity_version !== 2 || inputs.identity_version !== 2) return problem('not identity version 2');
+  if (manifest.snapshot_id !== id || findings.snapshot_id !== id) return problem('a manifest or findings for another check');
+  if (manifest.decision_hash !== hex || findings.decision_hash !== hex) return problem('another decision hash');
+  // contentHash(inputs), keeping the canonical text it hashes
+  const canonicalInputs = canonicalJson(inputs);
+  if (fnv1a64Hex(canonicalInputs) !== hex) return problem('decision inputs that do not hash to the id');
+  const failed = identityProblem(id, inputs, findings, manifest, briefing, route, parsed);
+  return failed === null ? { canonicalInputs } : problem(failed);
+}
+
+/** The rest of checkIdentity, after the hash: why the identity does not hold, or null. */
+function identityProblem(
+  id: string,
+  inputs: Record<string, unknown>,
+  findings: Record<string, unknown>,
+  manifest: Record<string, unknown>,
+  briefing: Record<string, unknown>,
+  route: Record<string, unknown>,
+  parsed: Partial<Record<CheckFileName, Record<string, unknown>>>,
+): string | null {
   if (!isRecord(inputs.route) || !isRecord(inputs.profile) || typeof inputs.departureUtc !== 'string') return 'decision inputs without a route, limits or departure';
   if (canonicalJson(route) !== canonicalJson(inputs.route)) return 'a route that is not the decision inputs\' route';
   if (parsed['synoptic.json'] && canonicalJson(parsed['synoptic.json']) !== canonicalJson(inputs.synoptic)) return 'a synoptic file that is not the decision inputs\' synoptic';
