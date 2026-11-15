@@ -167,9 +167,16 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
 - Storage usage on My passages (2026-11-15): the page shows the origin's usage
   from `navigator.storage.estimate()`, which counts saved checks and the
   forecast tile cache together (so it is not the size of the saved checks) and
-  is coarse in Safari; the line appears from 50 % of the quota with the share
-  and from 80 % with a caution to delete checks, it is read on mount and after
-  a delete only, and Passage makes no request for persistent storage.
+  is coarse in Safari; the size is always shown, the share of the quota is
+  added from 50 % and a caution to delete checks from 80 %, it is read on
+  mount and after a delete only, and Passage makes no request for persistent
+  storage. Seen once on the live site the same day (deployed build `60a942d`,
+  a Chromium-based browser, read-only): with eight saved checks the line read
+  "Passage uses about 29 MB of this browser's storage, counting saved checks
+  and downloaded forecasts." at level `ok` (the browser's estimate was
+  29.2 MB of a 252 GB quota), last on the page, fitting a 375 px width, with
+  no console error. The French text and the 50 % and 80 % states were not
+  seen live.
 - Reopening after a reload (2026-11-15): a check saved in this browser that
   is open on the passage page (just made by Check, or opened from My
   passages) is reopened when the page is reloaded or the browser restores the
