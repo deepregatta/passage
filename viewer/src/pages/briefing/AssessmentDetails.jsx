@@ -1,3 +1,4 @@
+import { stripInvisibleControls } from '@deepweather/engine';
 import BriefingMessage from '../../components/BriefingMessage.jsx';
 import { useApp } from '../../stores/appStore.js';
 import { EvidenceLink } from '../../components/common.jsx';
@@ -29,7 +30,7 @@ function StorySection({ section, findings }) {
   const unassessed = coverage?.items.filter((item) => item.status === 'not_assessed') ?? [];
   const plain = coverage
     ? `Not assessed: ${unassessed.map((item) => item.detail ?? item.capability.replaceAll('_', ' ')).join(', ')}. No flag does not mean no risk.${coverage.derived ? ' Coverage derived conservatively from evidence in this legacy check.' : ''}`
-    : checkWording(section.register_plain);
+    : checkWording(stripInvisibleControls(section.register_plain));
   const tone =
     section.id === 'warnings'
       ? 'border-l-4 border-authority pl-3'

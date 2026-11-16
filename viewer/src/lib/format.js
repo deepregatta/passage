@@ -1,3 +1,4 @@
+import { stripInvisibleControls } from '@deepweather/engine';
 import { palette } from './palette.js';
 // Deterministic UTC formatting + verdict metadata (exact verdict wording).
 
@@ -127,9 +128,10 @@ export const VERDICT = {
   warning_active: { label: 'Official warning active', glyph: '🚩', tw: 'authority', hex: palette.authority },
 };
 
-/** Drawn routes have machine waypoint ids (wp1, wp2…); spell them out for display. */
+/** Drawn routes have machine waypoint ids (wp1, wp2…); spell them out for display. A saved or
+ * imported check's text loses its controls first (stripInvisibleControls: nothing else changes). */
 export function placeLabel(raw) {
-  return typeof raw === 'string' ? raw.replace(/\bwp(\d+)\b/gi, 'waypoint $1') : raw;
+  return typeof raw === 'string' ? stripInvisibleControls(raw).replace(/\bwp(\d+)\b/gi, 'waypoint $1') : raw;
 }
 
 /** Jack layer: rule family → plain noun (mirrors engine plainLanguage.ts). */

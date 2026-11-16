@@ -797,6 +797,16 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   when a check is revised ("Revise this passage": it becomes a new check's
   route name, so no saved hash changes). Whole sentences from a briefing are
   not cut by it. No saved file, route or hash input is changed.
+- Display text from a check (2026-11-16): `stripInvisibleControls`, in the
+  same engine module and sharing its classes, removes only the C0 and C1
+  controls but ordinary white space (tab, line feed, vertical tab, form feed,
+  carriage return) and the bidirectional controls above. It does not collapse
+  or trim white space, cut, or remove the blank-rendering characters, so a
+  sentence without those controls comes back identical. It is applied at two
+  display sites only: `placeLabel` (the weather story's place labels, the
+  synoptic hero's consequence sentence, and the route labels built with it)
+  and a reasoning section's `register_plain` on the check page (before its
+  current-wording lookup). No saved file, route or hash input is changed.
 - Modern histories group only by explicit passage ID and persistence source.
   Legacy checks without explicit identity remain individually accessible and
   deletable. No inferred grouping from route names/counts/departure is permitted.

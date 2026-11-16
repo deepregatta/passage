@@ -31,8 +31,20 @@ export const PASSAGE_NAME_MAX_LENGTH = 80;
  * presentation). A name left with nothing visible (spaces, U+200C, U+200D,
  * U+FE0E, U+FE0F and combining marks only) is empty, so the default name shows.
  */
-// eslint-disable-next-line no-control-regex, no-misleading-character-class -- each code unit here is one the rule removes, combining marks included
-const REMOVED = /[\u0000-\u001F\u007F-\u009F\u00AD\u034F\u061C\u115F\u1160\u17B4\u17B5\u180B-\u180F\u200B\u200E\u200F\u202A-\u202E\u2060-\u2064\u2066-\u206F\u2800\u3164\uFE00-\uFE0D\uFFA0\uFFF0-\uFFFB]/g;
+/**
+ * The classes both rules here remove, as regex class bodies of explicit code units: the C0 and
+ * C1 controls but ordinary white space, and the bidirectional controls. White space (tab, line
+ * feed, vertical tab, form feed, carriage return) is its own class: a name makes it one space,
+ * display text keeps it.
+ */
+const CONTROLS = '\\u0000-\\u0008\\u000E-\\u001F\\u007F-\\u009F';
+const SPACE_CONTROLS = '\\u0009-\\u000D';
+const BIDI_CONTROLS = '\\u061C\\u200E\\u200F\\u202A-\\u202E\\u2066-\\u2069';
+/** Blank-rendering or text-hiding characters (third item above); a name loses them, display text keeps them. */
+const BLANK = '\\u00AD\\u034F\\u115F\\u1160\\u17B4\\u17B5\\u180B-\\u180F\\u200B\\u2060-\\u2064\\u206A-\\u206F\\u2800\\u3164\\uFE00-\\uFE0D\\uFFA0\\uFFF0-\\uFFFB';
+// eslint-disable-next-line no-misleading-character-class -- each code unit here is one the rule removes, combining ones included
+const REMOVED = new RegExp(`[${SPACE_CONTROLS}${CONTROLS}${BIDI_CONTROLS}${BLANK}]`, 'g');
+const DISPLAY_REMOVED = new RegExp(`[${CONTROLS}${BIDI_CONTROLS}]`, 'g');
 /** The astral ranges above, as surrogate pairs (no u flag: code units, as everywhere in the rule). */
 const REMOVED_ASTRAL = /\uD82F[\uDCA0-\uDCA3]|\uD834[\uDD73-\uDD7A]|[\uDB40-\uDB43][\uDC00-\uDFFF]/g;
 const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g;
@@ -64,4 +76,17 @@ export function cleanPassageName(value: unknown): string {
   }
   // nothing to show: the default name shows instead
   return VISIBLE.test(name) ? name : '';
+}
+
+/**
+ * Display text read from a saved or imported check (a register_plain sentence, a place label)
+ * with the controls above removed and nothing else changed: the C0 and C1 controls but ordinary
+ * white space, and the bidirectional controls U+061C, U+200E, U+200F, U+202A–U+202E and
+ * U+2066–U+2069, which would reorder what follows on screen (2026-11-16). No white space
+ * collapse, no trim, no cut and no blank-character removal, so a sentence without them comes
+ * back identical. For display only: stored files and their hash inputs are never passed through
+ * it. Anything that is not a string is returned as is. Pure.
+ */
+export function stripInvisibleControls<T>(value: T): T {
+  return (typeof value === 'string' ? value.replace(DISPLAY_REMOVED, '') : value) as T;
 }

@@ -1374,3 +1374,11 @@ Again (regressions first): `passageName.test.ts` removes braille pattern
 blanks, empties a name of combining marks only (also with joiners and
 presentation selectors), keeps é written as e and U+0301 and other marks on
 a visible letter, and the fuzz includes these classes.
+`passageName.test.ts` also proves, for every BMP code unit, that sharing the
+classes with `stripInvisibleControls` left the name rule exactly as committed,
+and that the strip removes exactly the C0 and C1 controls but ordinary white
+space and the bidirectional controls, and changes nothing else.
+`displayControls.test.jsx` (regression first) shows a U+202E removed from a
+place label and from a reasoning section's `register_plain`, and that every
+string in the committed fixtures and goldens (engine, viewer and analysis;
+over 100 files, every `register_plain` among them) comes back byte-identical.

@@ -10,7 +10,7 @@ export { preparedSynopticCoverage, CHANNEL_PREPARED_COVERAGE } from './synopticC
 
 export { ENGINE_VERSION } from './version.js';
 export { cachedContentHash, canonicalJson, contentHash, fnv1a64Hex } from './hash.js';
-export { PASSAGE_NAME_MAX_LENGTH, cleanPassageName } from './passageName.js';
+export { PASSAGE_NAME_MAX_LENGTH, cleanPassageName, stripInvisibleControls } from './passageName.js';
 
 export { runAnalysis, persistSnapshot, auditSamplePlan } from './analyze.js';
 export type { AnalyzeOptions, AnalyzeResult, AuditSamplePlan } from './analyze.js';

@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { PASSAGE_NAME_MAX_LENGTH, cleanPassageName } from '../src/index.js';
+import { PASSAGE_NAME_MAX_LENGTH, cleanPassageName, stripInvisibleControls } from '../src/index.js';
 
 // One cleaning rule for passage names (engine/src/passageName.ts): typed, saved in a
 // route, or read from a check file.
@@ -112,5 +112,56 @@ describe('cleanPassageName', () => {
     expect(named.length).toBeGreaterThan(3);
     expect(named).toContain('Cherbourg → Plymouth');
     for (const name of named) expect(cleanPassageName(name)).toBe(name);
+  });
+});
+
+describe('cleanPassageName and stripInvisibleControls share their classes', () => {
+  it('removes from a name exactly the code units it removed before the classes were shared', () => {
+    // the rule's literal class as committed in 990538c: white space becomes a space first
+    // eslint-disable-next-line no-control-regex, no-misleading-character-class -- the committed class, controls and combining code units included
+    const BEFORE = /[\u0000-\u001F\u007F-\u009F\u00AD\u034F\u061C\u115F\u1160\u17B4\u17B5\u180B-\u180F\u200B\u200E\u200F\u202A-\u202E\u2060-\u2064\u2066-\u206F\u2800\u3164\uFE00-\uFE0D\uFFA0\uFFF0-\uFFFB]/;
+    const wrong: string[] = [];
+    for (let unit = 0; unit <= 0xffff; unit++) {
+      if (unit >= 0xd800 && unit <= 0xdfff) continue;
+      const ch = String.fromCharCode(unit);
+      const expected = /\s/.test(ch) ? 'a b' : BEFORE.test(ch) ? 'ab' : `a${ch}b`;
+      if (cleanPassageName(`a${ch}b`) !== expected) wrong.push(unit.toString(16));
+    }
+    expect(wrong).toEqual([]);
+  });
+});
+
+describe('stripInvisibleControls', () => {
+  it('removes exactly the C0 and C1 controls but ordinary white space, and the bidirectional controls', () => {
+    const removed: number[] = [];
+    for (let unit = 0; unit <= 0xffff; unit++) {
+      if (stripInvisibleControls(`a${String.fromCharCode(unit)}b`) === 'ab') removed.push(unit);
+    }
+    const expected = [
+      ...Array.from({ length: 9 }, (_, i) => i), ...Array.from({ length: 0x12 }, (_, i) => 0x0e + i), ...Array.from({ length: 0x21 }, (_, i) => 0x7f + i),
+      0x061c, 0x200e, 0x200f, 0x202a, 0x202b, 0x202c, 0x202d, 0x202e, 0x2066, 0x2067, 0x2068, 0x2069,
+    ];
+    expect(removed).toEqual(expected);
+  });
+
+  it('turns a right-to-left override in a sentence back into the sentence', () => {
+    expect(stripInvisibleControls('Wind \u202Egnisae\u202C later.')).toBe('Wind gnisae later.');
+    expect(stripInvisibleControls('Off\u2066 Cherbourg\u2069 at\u200F dawn\u0007\u0085')).toBe('Off Cherbourg at dawn');
+  });
+
+  it('changes nothing else: white space, blank characters, joiners, no-break spaces and length stay as given', () => {
+    for (const text of [
+      '  two  spaces, a tab\t, a line\nbreak, \u000B\u000C\r ',
+      'soft\u00ADhyphen, zero\u200Bwidth, braille\u2800blank, word\u2060joiner, \u3164filler',
+      'joiners \uD83D\uDC68\u200D\uD83D\uDC69 and \u2764\uFE0F, e\u0301, 1\u00A0kn, 20\u202F%, \uFEFF',
+      'lone \uD800 surrogate',
+      'x'.repeat(5000),
+      '',
+    ]) expect(stripInvisibleControls(text)).toBe(text);
+  });
+
+  it('returns anything that is not a string as is', () => {
+    const object = { register_plain: '\u202E' };
+    for (const value of [null, undefined, 42, object, ['\u202E']]) expect(stripInvisibleControls(value)).toBe(value);
   });
 });
