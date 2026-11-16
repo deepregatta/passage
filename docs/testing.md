@@ -1370,3 +1370,7 @@ blank-looking route name, drops a bidirectional control from a leg name in
 `legPlace`, `legLabel` (bare too) and `routeTitle`, and gives the planner the
 cleaned name on "Revise this passage" while the route keeps its own;
 `storageFetchGuards.test.jsx` shows a gate name cleaned on the route map.
+Again (regressions first): `passageName.test.ts` removes braille pattern
+blanks, empties a name of combining marks only (also with joiners and
+presentation selectors), keeps é written as e and U+0301 and other marks on
+a visible letter, and the fuzz includes these classes.

@@ -773,13 +773,15 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   bidirectional controls U+061C, U+200E, U+200F, U+202A–U+202E and
   U+2066–U+2069, and the characters that render blank or hide text (U+00AD,
   U+034F, U+115F, U+1160, U+17B4, U+17B5, U+180B–U+180F, U+200B,
-  U+2060–U+2064, U+206A–U+206F, U+3164, U+FE00–U+FE0D, U+FFA0,
+  U+2060–U+2064, U+206A–U+206F, U+2800, U+3164, U+FE00–U+FE0D, U+FFA0,
   U+FFF0–U+FFFB, and the astral U+1BCA0–U+1BCA3, U+1D173–U+1D17A and
   U+E0000–U+E0FFF: all tag characters, so a subdivision flag loses its tags,
   and the variation-selector supplement); the name is trimmed and cut at 80
   UTF-16 code units without splitting a surrogate pair; a name left with
-  nothing visible (only spaces, U+200C, U+200D, U+FE0E, U+FE0F) is empty, so
-  the default name shows. Zero width joiners and non-joiners and the text and
+  nothing visible (only spaces, U+200C, U+200D, U+FE0E, U+FE0F and combining
+  marks, U+0300–U+036F, U+1AB0–U+1AFF, U+1DC0–U+1DFF, U+20D0–U+20FF and
+  U+FE20–U+FE2F, which show nothing on their own) is empty, so the default
+  name shows; a name with another visible character keeps its combining marks. Zero width joiners and non-joiners and the text and
   emoji presentation selectors U+FE0E and U+FE0F stay. Explicit ranges only,
   no Unicode property classes and no normalisation, so it cleans the same in
   every engine version; it is idempotent. The rule was tightened on

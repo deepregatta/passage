@@ -20,7 +20,7 @@ export const PASSAGE_NAME_MAX_LENGTH = 80;
  *   U+115F and U+1160 Hangul fillers, U+17B4 and U+17B5 Khmer inherent
  *   vowels, U+180B–U+180F Mongolian selectors, U+200B zero width space,
  *   U+2060–U+2064 word joiner and invisible operators, U+206A–U+206F
- *   deprecated format controls, U+3164 Hangul filler, U+FE00–U+FE0D
+ *   deprecated format controls, U+2800 braille pattern blank, U+3164 Hangul filler, U+FE00–U+FE0D
  *   variation selectors 1 to 14, U+FFA0 halfwidth Hangul filler, U+FFF0–U+FFFB
  *   specials and interlinear annotation;
  * - astral (as surrogate pairs): U+1BCA0–U+1BCA3 shorthand format controls,
@@ -29,16 +29,20 @@ export const PASSAGE_NAME_MAX_LENGTH = 80;
  * Kept: U+200C and U+200D (zero width non-joiner and joiner, which emoji
  * sequences and some scripts need) and U+FE0E and U+FE0F (text and emoji
  * presentation). A name left with nothing visible (spaces, U+200C, U+200D,
- * U+FE0E and U+FE0F only) is empty, so the default name shows.
+ * U+FE0E, U+FE0F and combining marks only) is empty, so the default name shows.
  */
 // eslint-disable-next-line no-control-regex, no-misleading-character-class -- each code unit here is one the rule removes, combining marks included
-const REMOVED = /[\u0000-\u001F\u007F-\u009F\u00AD\u034F\u061C\u115F\u1160\u17B4\u17B5\u180B-\u180F\u200B\u200E\u200F\u202A-\u202E\u2060-\u2064\u2066-\u206F\u3164\uFE00-\uFE0D\uFFA0\uFFF0-\uFFFB]/g;
+const REMOVED = /[\u0000-\u001F\u007F-\u009F\u00AD\u034F\u061C\u115F\u1160\u17B4\u17B5\u180B-\u180F\u200B\u200E\u200F\u202A-\u202E\u2060-\u2064\u2066-\u206F\u2800\u3164\uFE00-\uFE0D\uFFA0\uFFF0-\uFFFB]/g;
 /** The astral ranges above, as surrogate pairs (no u flag: code units, as everywhere in the rule). */
 const REMOVED_ASTRAL = /\uD82F[\uDCA0-\uDCA3]|\uD834[\uDD73-\uDD7A]|[\uDB40-\uDB43][\uDC00-\uDFFF]/g;
 const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g;
-/** Something a name shows: any code unit but a space, the joiners and the presentation selectors. */
+/**
+ * Something a name shows: any code unit but a space, the joiners, the presentation selectors
+ * and combining marks (U+0300–U+036F, U+1AB0–U+1AFF, U+1DC0–U+1DFF, U+20D0–U+20FF,
+ * U+FE20–U+FE2F), which show nothing on their own: a name with another visible character keeps them.
+ */
 // eslint-disable-next-line no-misleading-character-class -- single code units, the joiners and the presentation selectors among them
-const VISIBLE = /[^ \u200C\u200D\uFE0E\uFE0F]/;
+const VISIBLE = /[^ \u200C\u200D\uFE0E\uFE0F\u0300-\u036F\u1AB0-\u1AFF\u1DC0-\u1DFF\u20D0-\u20FF\uFE20-\uFE2F]/;
 const isHigh = (unit: number) => unit >= 0xd800 && unit <= 0xdbff;
 
 /**

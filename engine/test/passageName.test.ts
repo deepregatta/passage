@@ -39,6 +39,19 @@ describe('cleanPassageName', () => {
   });
 
   it.each([
+    ['braille pattern blanks', '\u2800\u2800', ''],
+    ['a braille blank inside a name', 'Brest\u2800Yeu', 'BrestYeu'],
+    ['a name of combining marks only', '\u0301\u0308 \u1AB0\u1DC0\u20D0\uFE20', ''],
+    ['combining marks with joiners and presentation selectors only', '\u0301\u200D\uFE0F', ''],
+  ])('empties or cleans %s (tightened again 2026-11-16)', (_case, input, output) => {
+    expect(cleanPassageName(input)).toBe(output);
+  });
+
+  it('keeps combining marks on a visible letter: é written as e and U+0301 stays as given', () => {
+    for (const name of ['Le Ve\u0301lo', 'e\u0301', 'Cafe\u0301 \u20DD']) expect(cleanPassageName(name)).toBe(name);
+  });
+
+  it.each([
     ['a zero width joiner in an emoji sequence', 'Crew 👩\u200D👩\u200D👧'],
     ['a zero width non-joiner', 'می\u200Cخواهم'],
     ['a regional flag', 'Brest 🇫🇷'],
@@ -70,7 +83,8 @@ describe('cleanPassageName', () => {
       0xd800, 0xdbff, 0xdc00, 0xdfff, 0xd83d, 0xde00, 0x41, 0x7a, 0xe9, 0x2192, 0x3000, 0xfeff,
       // the classes added on 2026-11-16, and the halves of the astral ranges removed
       0xad, 0x34f, 0x115f, 0x1160, 0x17b4, 0x180b, 0x2061, 0x206a, 0x3164, 0xfe00, 0xfe0d, 0xfe0e, 0xfe0f, 0xffa0, 0xfff0, 0xfffb,
-      0xd82f, 0xdca0, 0xd834, 0xdd73, 0xdb40, 0xdb43, 0xdc67, 0xdfff, 0x5d0, 0x627];
+      0xd82f, 0xdca0, 0xd834, 0xdd73, 0xdb40, 0xdb43, 0xdc67, 0xdfff, 0x5d0, 0x627,
+      0x2800, 0x300, 0x36f, 0x1ab0, 0x1aff, 0x1dc0, 0x1dff, 0x20d0, 0x20ff, 0xfe20, 0xfe2f];
     let state = 2463534242;
     const next = () => { state ^= state << 13; state ^= state >>> 17; state ^= state << 5; return state >>> 0; };
     for (let i = 0; i < 22_000; i++) {
@@ -82,7 +96,7 @@ describe('cleanPassageName', () => {
       expect(once).toBe(once.trim());
       expect(/\s\s/.test(once)).toBe(false);
       // eslint-disable-next-line no-misleading-character-class -- single code units: the joiners and the presentation selectors
-      if (once) expect(/[^ \u200C\u200D\uFE0E\uFE0F]/.test(once)).toBe(true);
+      if (once) expect(/[^ \u200C\u200D\uFE0E\uFE0F\u0300-\u036F\u1AB0-\u1AFF\u1DC0-\u1DFF\u20D0-\u20FF\uFE20-\uFE2F]/.test(once)).toBe(true);
     }
   });
 
