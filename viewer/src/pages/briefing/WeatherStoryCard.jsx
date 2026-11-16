@@ -1,3 +1,4 @@
+import { cleanPassageName } from '@deepweather/engine';
 import { useState } from 'react';
 import { capitalize, fmtTextTime, placeLabel, plainEventNoun } from '../../lib/format.js';
 import { Term } from '../../lib/glossary.jsx';
@@ -47,7 +48,7 @@ export default function WeatherStoryCard({ findings, sections }) {
   if (gate)
     bullets.push(
       <>
-        The <Term term="tidal gate">{gate.name} gate</Term>{' '}
+        The <Term term="tidal gate">{cleanPassageName(gate.name)} gate</Term>{' '}
         {gate.status === 'conflict' ? 'does not fit this departure' : 'only partly fits'}. The
         stream will be against you.
       </>,

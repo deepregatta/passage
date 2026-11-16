@@ -10,12 +10,17 @@ const legNumber = (legId) => {
 
 const parenthesised = (text) => `(${text})`;
 
-const shortName = (name) => placeLabel(name.split('→')[1]?.trim().split(',')[0] ?? name.slice(0, 24));
+/** Where a leg ends, from its name (check content): shown as a name, so cleaned by the one rule; '' when nothing is left. */
+const shortName = (name) => {
+  const text = cleanPassageName(name); // '' for anything that is not text
+  return cleanPassageName(placeLabel(text.split('→')[1]?.trim().split(',')[0] ?? text.slice(0, 24)));
+};
 
 /** "near Plymouth breakwater": where a leg ends, for sentences like "limit near …". */
 export const legPlace = (findings, legId) => {
   const leg = findings.legs.find((l) => l.leg_id === legId);
-  return leg ? `near ${shortName(leg.name)}` : legId;
+  const place = leg ? shortName(leg.name) : '';
+  return place ? `near ${place}` : legId;
 };
 
 /**
@@ -27,8 +32,9 @@ export const legPlace = (findings, legId) => {
 export const legLabel = (findings, legId, { bare = false } = {}) => {
   const leg = findings.legs.find((l) => l.leg_id === legId);
   const number = legNumber(legId);
-  if (!leg) return number === null ? String(legId ?? '') : `leg ${number}`;
-  const place = bare ? shortName(leg.name) : legPlace(findings, legId);
+  const named = leg ? shortName(leg.name) : '';
+  if (!named) return number === null ? String(legId ?? '') : `leg ${number}`;
+  const place = bare ? named : legPlace(findings, legId);
   return number === null ? place : `${place} ${parenthesised(`leg ${number}`)}`;
 };
 

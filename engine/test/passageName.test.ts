@@ -24,11 +24,29 @@ describe('cleanPassageName', () => {
   });
 
   it.each([
+    ['Hangul fillers that render blank', '\u3164\u3164', ''],
+    ['a halfwidth Hangul filler and choseong/jungseong fillers', '\uFFA0 \u115F\u1160', ''],
+    ['nothing but joiners and variation selectors', '\u200D\u200C\uFE0F\uFE0E \u200D', ''],
+    ['a soft hyphen and a grapheme joiner', 'Bre\u00ADst\u034F', 'Brest'],
+    ['Khmer inherent vowels and Mongolian variation selectors', 'a\u17B4\u17B5b\u180B\u180Fc', 'abc'],
+    ['invisible operators and deprecated format controls', 'a\u2061\u2064b\u206A\u206Fc', 'abc'],
+    ['variation selectors 1 to 14, keeping 15 and 16', 'a\uFE00\uFE0Db\uFE0Ec\uFE0F', 'ab\uFE0Ec\uFE0F'],
+    ['specials U+FFF0 to U+FFFB', 'a\uFFF0\uFFF9\uFFFBb', 'ab'],
+    ['shorthand format controls and musical formatting', 'a\uD82F\uDCA0\uD82F\uDCA3b\uD834\uDD73\uD834\uDD7Ac', 'abc'],
+    ['tag characters, alone or in a subdivision flag, and the variation-selector supplement', 'Cardiff \uD83C\uDFF4\uDB40\uDC67\uDB40\uDC62\uDB40\uDC7F x\uDB40\uDD00\uDB40\uDDEF\uDB43\uDFFF\uDB40\uDC00', 'Cardiff \uD83C\uDFF4 x'],
+  ])('also removes %s (tightened 2026-11-16)', (_case, input, output) => {
+    expect(cleanPassageName(input)).toBe(output);
+  });
+
+  it.each([
     ['a zero width joiner in an emoji sequence', 'Crew 👩\u200D👩\u200D👧'],
     ['a zero width non-joiner', 'می\u200Cخواهم'],
-    ['a flag of tag characters', 'Cardiff 🏴\uDB40\uDC67\uDB40\uDC62\uDB40\uDC77\uDB40\uDC6C\uDB40\uDC73\uDB40\uDC7F'],
     ['a regional flag', 'Brest 🇫🇷'],
     ['accents, arrows and dashes', 'Île d’Yeu → Les Sables-d’Olonne – retour'],
+    ['Arabic', 'من الدار البيضاء إلى طنجة'],
+    ['Hebrew', 'מחיפה לאשדוד'],
+    ['CJK', '横浜から神戸へ'],
+    ['an emoji presentation selector', 'Brest \u2693\uFE0F'],
     ['decomposed letters, as given (no normalisation)', 'Ilé'],
   ])('keeps %s', (_case, name) => {
     expect(cleanPassageName(name)).toBe(name);
@@ -46,13 +64,16 @@ describe('cleanPassageName', () => {
     for (const value of [null, undefined, 42, {}, ['a'], '', '   ', '\u202E\u200B\u0000']) expect(cleanPassageName(value)).toBe('');
   });
 
-  it('is idempotent, and never leaves a lone surrogate, over random text', () => {
+  it('is idempotent, never leaves a lone surrogate and never leaves a blank name, over 22,000 random strings', () => {
     // a fixed pseudo-random sequence over the code units the rule cares about, and ordinary ones
     const pool = [0x20, 0x09, 0x0a, 0x00, 0x7f, 0x85, 0x9f, 0xa0, 0x61c, 0x200b, 0x200c, 0x200d, 0x200e, 0x202a, 0x202e, 0x2060, 0x2066, 0x2069,
-      0xd800, 0xdbff, 0xdc00, 0xdfff, 0xd83d, 0xde00, 0x41, 0x7a, 0xe9, 0x2192, 0x3000, 0xfeff];
+      0xd800, 0xdbff, 0xdc00, 0xdfff, 0xd83d, 0xde00, 0x41, 0x7a, 0xe9, 0x2192, 0x3000, 0xfeff,
+      // the classes added on 2026-11-16, and the halves of the astral ranges removed
+      0xad, 0x34f, 0x115f, 0x1160, 0x17b4, 0x180b, 0x2061, 0x206a, 0x3164, 0xfe00, 0xfe0d, 0xfe0e, 0xfe0f, 0xffa0, 0xfff0, 0xfffb,
+      0xd82f, 0xdca0, 0xd834, 0xdd73, 0xdb40, 0xdb43, 0xdc67, 0xdfff, 0x5d0, 0x627];
     let state = 2463534242;
     const next = () => { state ^= state << 13; state ^= state >>> 17; state ^= state << 5; return state >>> 0; };
-    for (let i = 0; i < 2000; i++) {
+    for (let i = 0; i < 22_000; i++) {
       const text = String.fromCharCode(...Array.from({ length: next() % 120 }, () => pool[next() % pool.length]!));
       const once = cleanPassageName(text);
       expect(cleanPassageName(once), JSON.stringify(text)).toBe(once);
@@ -60,6 +81,8 @@ describe('cleanPassageName', () => {
       expect(once.length).toBeLessThanOrEqual(80);
       expect(once).toBe(once.trim());
       expect(/\s\s/.test(once)).toBe(false);
+      // eslint-disable-next-line no-misleading-character-class -- single code units: the joiners and the presentation selectors
+      if (once) expect(/[^ \u200C\u200D\uFE0E\uFE0F]/.test(once)).toBe(true);
     }
   });
 

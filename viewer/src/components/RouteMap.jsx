@@ -1,3 +1,4 @@
+import { cleanPassageName } from '@deepweather/engine';
 import { palette } from '../lib/palette.js';
 import { useEffect, useMemo, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, Tooltip, useMap } from 'react-leaflet';
@@ -255,7 +256,8 @@ export default function RouteMap({ height = 420 }) {
             <Marker key={g.gate_id} position={[pos.lat, pos.lon]} icon={gateIcon(g.status)}>
               <Tooltip direction="top" offset={[0, -10]}>
                 <span className="font-sans text-[12px]">
-                  <b>{g.name}</b> · gate {g.status}
+                  {/* a gate's name is check content: shown as a name, cleaned by the one rule */}
+                  <b>{cleanPassageName(g.name)}</b> · gate {g.status}
                 </span>
               </Tooltip>
             </Marker>

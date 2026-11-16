@@ -1,3 +1,4 @@
+import { cleanPassageName } from '@deepweather/engine';
 import { useMemo } from 'react';
 import clsx from 'clsx';
 import { EvidenceLink, VerdictChip } from '../../components/common.jsx';
@@ -68,7 +69,8 @@ export default function DecisionBand({ findings, warningEvidence, onOpenBulletin
     usePlanner.getState().patch({
       passageId: findings.identity_version === 2 && findings.passage_id ? findings.passage_id : newPassageId(),
       mode: 'draw',
-      name: route.name ?? findings.route_id,
+      // the next check's name (a new route, so no saved hash changes): cleaned by the one rule for names
+      name: cleanPassageName(route.name) || findings.route_id,
       waypoints: route.waypoints.map((wp) => ({ lat: wp.lat, lng: wp.lon })),
       speeds: route.speeds_kt ? { ...route.speeds_kt } : usePlanner.getState().speeds,
       departureLocal: toLocalDateTimeValue(findings.departure_utc),

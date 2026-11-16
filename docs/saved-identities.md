@@ -762,21 +762,33 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   passage's grouping key, `local|passage|<passage_id>` for a check saved
   here), never part of a check. One cleaning rule applies to every name, in
   the engine (`cleanPassageName`, `engine/src/passageName.ts`): white space
-  runs become one space; C0 and C1 controls, the bidirectional controls
-  U+061C, U+200E, U+200F, U+202A–U+202E and U+2066–U+2069, U+200B and U+2060,
-  and lone surrogates are removed; the name is trimmed and cut at 80 UTF-16
-  code units without splitting a surrogate pair. Zero width joiners and
-  non-joiners and tag characters stay (emoji sequences, some scripts,
-  flags). Explicit ranges only, no Unicode property classes and no
-  normalisation, so it cleans the same in every engine version; it is
-  idempotent. It applies to a typed rename (and to a stored one read back),
-  and to a route name shown as a passage's name or title (the card's default
-  name and the aria-labels built from it, the passage page's heading and its
-  fallback title from the legs, the leg progress bar, the tab title) and sent
-  as `race_name` by the feedback form. No saved file, route or hash input is
-  changed: the route keeps its name as saved, and the planner, when a check
-  is continued, still takes the route's name as it is (it becomes the next
-  check's route, a hash input).
+  runs become one space; lone surrogates are removed first (so no later
+  removal can join two halves into a new pair); then C0 and C1 controls, the
+  bidirectional controls U+061C, U+200E, U+200F, U+202A–U+202E and
+  U+2066–U+2069, and the characters that render blank or hide text (U+00AD,
+  U+034F, U+115F, U+1160, U+17B4, U+17B5, U+180B–U+180F, U+200B,
+  U+2060–U+2064, U+206A–U+206F, U+3164, U+FE00–U+FE0D, U+FFA0,
+  U+FFF0–U+FFFB, and the astral U+1BCA0–U+1BCA3, U+1D173–U+1D17A and
+  U+E0000–U+E0FFF: all tag characters, so a subdivision flag loses its tags,
+  and the variation-selector supplement); the name is trimmed and cut at 80
+  UTF-16 code units without splitting a surrogate pair; a name left with
+  nothing visible (only spaces, U+200C, U+200D, U+FE0E, U+FE0F) is empty, so
+  the default name shows. Zero width joiners and non-joiners and the text and
+  emoji presentation selectors U+FE0E and U+FE0F stay. Explicit ranges only,
+  no Unicode property classes and no normalisation, so it cleans the same in
+  every engine version; it is idempotent. The rule was tightened on
+  2026-11-16 before any version-3 file existed: a version-3 reader requires
+  every name to be one the rule leaves as it is, so the rule is now fixed. It
+  applies to a typed rename (and to a stored one read back); to a route name
+  shown as a passage's name or title (the card's default name and the
+  aria-labels built from it, the passage page's heading and its fallback
+  title from the legs, the leg progress bar, the tab title) and sent as
+  `race_name` by the feedback form; to the leg place names shown in
+  sentences and labels (`legLabel`, `legPlace`) and the tidal gate names on
+  the route map and in the weather story; and to the name the planner takes
+  when a check is revised ("Revise this passage": it becomes a new check's
+  route name, so no saved hash changes). Whole sentences from a briefing are
+  not cut by it. No saved file, route or hash input is changed.
 - Modern histories group only by explicit passage ID and persistence source.
   Legacy checks without explicit identity remain individually accessible and
   deletable. No inferred grouping from route names/counts/departure is permitted.

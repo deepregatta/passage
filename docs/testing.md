@@ -1352,4 +1352,19 @@ the trailer (with or without its newline) or a short line, reading that line
 as what it is; yields a second names line later as a check line; and reads a
 version-2 file with no names item. `checkImportMany.test.js` imports a
 version-3 file's checks with its names not yet applied; the tests that took
-version 3 as newer now take version 4.
+version 3 as newer now take version 4. Tightened name rule (2026-11-16, regressions first):
+`engine/test/passageName.test.ts` removes Hangul fillers that render blank,
+the halfwidth and choseong/jungseong fillers, a soft hyphen and a grapheme
+joiner, Khmer inherent vowels and Mongolian selectors, invisible operators and
+deprecated format controls, variation selectors 1 to 14 (keeping 15 and 16),
+the specials, the shorthand and musical format controls, tag characters alone
+or in a subdivision flag and the variation-selector supplement; empties a
+name of nothing but joiners and presentation selectors; keeps Arabic, Hebrew,
+CJK and an emoji presentation selector; and is idempotent, pair-safe and never
+blank over 22,000 pseudo-random strings with these classes (a run found a
+pair formed by a removal; lone surrogates are now removed first).
+`viewer/test/shownNames.test.js` falls back to the default name for a
+blank-looking route name, drops a bidirectional control from a leg name in
+`legPlace`, `legLabel` (bare too) and `routeTitle`, and gives the planner the
+cleaned name on "Revise this passage" while the route keeps its own;
+`storageFetchGuards.test.jsx` shows a gate name cleaned on the route map.

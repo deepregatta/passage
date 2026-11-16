@@ -191,6 +191,13 @@ it('discards stale gate positions after the route changes', async () => {
   await act(async () => old.resolve(json({ gates: [{ gate_id: gate.gate_id, lat: 50, lon: -1 }] })));
   expect(screen.queryByText('Test gate')).not.toBeInTheDocument();
 });
+it('shows a gate\'s name from check content cleaned by the one rule for names', async () => {
+  const gate = { gate_id: 'test-gate', name: 'Raz\u202E de Sein\u200B', status: 'clear' };
+  fetch.mockResolvedValue(json({ gates: [{ gate_id: gate.gate_id, lat: 50, lon: -1 }] }));
+  useApp.setState({ findings: { ...findings, gates: [gate] }, route });
+  render(<RouteMap />);
+  expect(await screen.findByText('Raz de Sein')).toBeInTheDocument();
+});
 it('aborts the map wind request on unmount', async () => {
   preparedRun.mockResolvedValue({ doc: { artifacts: { wind_grid: 'wind.json' } } });
   fetch.mockImplementation(async (url) => url.endsWith('wind.json') ? new Promise(() => {}) : json({ gates: [] }));
