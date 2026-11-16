@@ -1343,8 +1343,10 @@ every kind, empty, unclean, over-long or numeric names, out of order, a
 passage twice, 1,001 names, a repeated or forbidden key, a check line, over
 512 KiB), never quoting a name or an id. Reader, version 3: `checkFileLines.test.js` yields the header, the names,
 each check line and the trailer; no names for an empty names line, and the
-same one byte at a time; stops before any check at a names line one byte over
-its cap and reads one at it; refuses as truncated a file cut inside its names
+same one byte at a time; reads a names line at its cap and drops one a byte
+over it, or of many MiB, unread (names unreadable, every check after it read,
+no more than nine bytes and the names cap of text held, the inflated cap still
+bounding the work; it used to stop the read before any check); refuses as truncated a file cut inside its names
 line, right after its header or with nothing after it; says the names are
 unreadable and still reads the checks for a refused names line and one that
 is not UTF-8; says so when the header is followed directly by a check line,

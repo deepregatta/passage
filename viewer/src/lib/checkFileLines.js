@@ -174,7 +174,7 @@ export async function* checkFileLinesOf(chunks, {
   let kind = null; // null until known, then 'trailer' or 'check'
   let phase = 'header'; // then 'names' (version 3 only), then 'body', then 'ended' once the trailer is whole
   let namesLine = null; // in the names phase: null until its first bytes say, then true (the names line) or false (none: another line)
-  let namesBroken = false; // the names line is not UTF-8: it is unreadable, and its bytes are no longer decoded
+  let namesBroken = false; // the names line is not UTF-8 or is over its cap: it is unreadable, and its bytes are no longer decoded
   let notice = null; // something to say before the line in hand: the names line is missing
   let checks = 0;
   let inflated = 0;
@@ -213,8 +213,12 @@ export async function* checkFileLinesOf(chunks, {
     if (phase === 'header') {
       if (length > limits.edgeBytes) return false;
     } else if (phase === 'names') {
-      // the names line is held to its own cap, and stops the read before any check when over it
-      if (length > limits.namesBytes) throw refuse(LINES.tooLarge, 'a names line over its cap');
+      // a names line over its own cap is dropped unread: its bytes are only counted (the inflated cap
+      // still bounds them), the names are unreadable, and the checks after it are read as usual
+      if (length > limits.namesBytes && !namesBroken) {
+        namesBroken = true;
+        text = '';
+      }
     } else {
       settle(false);
       if (kind === 'trailer' && length > limits.edgeBytes) throw refuse(LINES.tooLarge, 'a trailer over its cap');

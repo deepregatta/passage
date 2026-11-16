@@ -565,12 +565,31 @@ describe('a version-3 file: a names line after the header', () => {
     expect(await readChunks(Array.from(encoder.encode(text), (byte) => new Uint8Array([byte])))).toEqual(whole);
   });
 
-  it('stops before any check at a names line over its cap, and reads one at the cap', async () => {
+  it('drops a names line over its cap unread, says the names are unreadable, and still reads every check', async () => {
     const line = checkFileNamesLine(NAMES);
     const size = encoder.encode(line).byteLength - 1;
-    expect((await read(fileOf(gzip(backup3(line, [fakeLine(40)]))), { caps: { namesBytes: size } })).code).toBeNull();
-    const over = await read(fileOf(gzip(backup3(line, [fakeLine(40)]))), { caps: { namesBytes: size - 1 } });
-    expect(over).toEqual({ items: [{ kind: 'v3', header }], code: LINES.tooLarge, detail: 'a names line over its cap' });
+    expect((await read(fileOf(gzip(backup3(line, [fakeLine(40)]))), { caps: { namesBytes: size } })).items[1]).toEqual({ names: NAMES });
+    // one byte over
+    const over = await read(fileOf(gzip(backup3(line, [fakeLine(40), fakeLine(50)]))), { caps: { namesBytes: size - 1 } });
+    expect(over).toEqual({ items: [{ kind: 'v3', header }, { namesUnreadable: true }, fakeLine(40), fakeLine(50), { trailer: { ok: true, checks: 2 } }], code: null });
+  });
+
+  it('drops a names line of many MiB without holding it, and the checks after it are read', async () => {
+    const huge = `{"names":[{"passage_id":"a","name":"${'x'.repeat(6 * 1024 * 1024)}"}],"names_digest":"0123456789abcdef"}\n`;
+    const text = HEADER3 + huge + `${fakeLine(40)}\n${checkFileTrailerLine(1)}`;
+    const bytes = encoder.encode(text);
+    const chunks = [];
+    for (let at = 0; at < bytes.byteLength; at += 65_536) chunks.push(bytes.slice(at, at + 65_536));
+    let heldBytes = 0;
+    let heldChars = 0;
+    const probe = (held) => { heldBytes = Math.max(heldBytes, held.heldBytes); heldChars = Math.max(heldChars, held.heldChars); };
+    const result = await readChunks(chunks, { probe });
+    expect(result).toEqual({ items: [{ kind: 'v3', header }, { namesUnreadable: true }, fakeLine(40), { trailer: { ok: true, checks: 1 } }], code: null });
+    // what the reader held: never more than the names cap of text, nor more than nine bytes
+    expect(heldChars).toBeLessThanOrEqual(LINE_CAPS.namesBytes);
+    expect(heldBytes).toBeLessThanOrEqual(9);
+    // the inflated cap still bounds the work
+    expect(await readChunks(chunks, { caps: { inflatedBytes: 1024 * 1024 } })).toMatchObject({ code: LINES.tooLarge });
   });
 
   it('refuses a file cut inside its names line as truncated, and one with nothing after its header', async () => {
