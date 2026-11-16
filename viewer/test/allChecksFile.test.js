@@ -29,6 +29,7 @@ beforeAll(async () => {
   ];
 });
 beforeEach(async () => {
+  localStorage.clear();
   vi.resetModules();
   vi.stubGlobal('indexedDB', new IDBFactory());
   ({ localSnapshots } = await import('../src/lib/localSnapshots.js'));
@@ -74,7 +75,7 @@ describe('a backup of every check', () => {
     expect(result.name).toBe('passage-all-checks-2026-11-16-0900Z.json.gz');
     expect(progress).toEqual([1, 2, 3, 4].map((index) => ({ index, total: 4 })));
     const back = await readBack(result.blob);
-    expect(back.header).toEqual({ kind: 'v2', header: { exportedAt: '2026-11-16T09:00:00.000Z', exportedBy: expect.stringMatching(/^Passage engine \d+\.\d+\.\d+$/) } });
+    expect(back.header).toEqual({ kind: 'v3', header: { exportedAt: '2026-11-16T09:00:00.000Z', exportedBy: expect.stringMatching(/^Passage engine \d+\.\d+\.\d+$/) } });
     expect(back.trailer).toEqual({ trailer: { ok: true, checks: 4 } });
     back.proven.forEach((line, i) => {
       expect(line.ok).toBe(true);
@@ -303,8 +304,13 @@ describe('review round', () => {
     const whole = await make({ caps: { compressedBytes: 1e9 } });
     // the four together are larger than the cap, which each one alone fits
     expect(whole.blob.size).toBeGreaterThan(cap);
-    const result = await make({ caps: { compressedBytes: cap, compressorMargin: 0 } }, { compressor: lateCompressor() });
+    const labels = () => ({ 'local|passage|passage-heavy-0': 'Heavy zero', 'local|passage|passage-heavy-3': 'Heavy three' });
+    const result = await make({ caps: { compressedBytes: cap, compressorMargin: 0 } }, { compressor: lateCompressor(), labels });
     expect(result.outcome).toBe(lib.ALL_CHECKS.made);
+    // the pass that made the file again wrote the same names line, the names of dropped passages included
+    let names = null;
+    for await (const item of lines.readCheckFileLines(result.blob)) if (item.names) ({ names } = item);
+    expect(names).toEqual([{ passage_id: 'passage-heavy-0', name: 'Heavy zero' }, { passage_id: 'passage-heavy-3', name: 'Heavy three' }]);
     expect(result.blob.size).toBeLessThanOrEqual(cap);
     expect(result.counts.included).toBeGreaterThanOrEqual(1);
     expect(result.counts.included + result.counts.overCap).toBe(4);
@@ -338,5 +344,86 @@ describe('review round', () => {
     expect(result.included).not.toContain(newest.snapshot_id);
     expect(result.included).not.toContain(checks[3].snapshotId);
     expect(await localSnapshots.exists(checks[3].snapshotId)).toBe(true);
+  });
+});
+
+describe('version 3: the names the sailor gave their passages', () => {
+  const namesOf = async (blob) => {
+    for await (const item of lines.readCheckFileLines(blob)) if (item.names || item.namesUnreadable) return item;
+    return null;
+  };
+  const textOf = async (blob) => {
+    const { gunzipSync } = await import('node:zlib');
+    return gunzipSync(new Uint8Array(await blob.arrayBuffer())).toString('utf8');
+  };
+
+  it('carries, sorted, each passage with a check in the export and a name given here, cleaned; never a legacy, served or check-less one', async () => {
+    await store(checks[0]);
+    await store(checks[1]);
+    const legacyId = '20260720T060000Z_44d2cd5f_64ea971e';
+    await localSnapshots.writeAll(legacyId, [{ filename: 'snapshot.json', content: JSON.stringify({ snapshot_id: legacyId, created_at: '2026-07-19T13:00:00Z' }) }]);
+    // an imported-only passage the sailor renamed
+    const { importCheckFile } = await import('../src/lib/checkImport.js');
+    expect((await importCheckFile(fileOf((await checkFileOf(checks[2])).bytes), { servedIds: new Set(), nowMs: NOW })).outcome).toBe('imported');
+    const labels = {
+      'local|passage|passage-b': 'Bravo',
+      'local|passage|passage-a': '  Alpha\u202E  run ',
+      'local|passage|passage-c': 'Charlie (imported)',
+      'local|passage|passage-zzz': 'No check here',
+      'served|passage|passage-b': 'Served',
+      [`local|snapshot|${legacyId}`]: 'Legacy',
+      'local|passage|passage-d': '\u200B',
+    };
+    const result = await make({}, { labels: () => labels });
+    expect(result.outcome).toBe(lib.ALL_CHECKS.made);
+    expect(await namesOf(result.blob)).toEqual({ names: [
+      { passage_id: 'passage-a', name: 'Alpha run' },
+      { passage_id: 'passage-b', name: 'Bravo' },
+      { passage_id: 'passage-c', name: 'Charlie (imported)' },
+    ] });
+    // always a names line, empty when no passage has a name
+    const none = await make();
+    expect(await namesOf(none.blob)).toEqual({ names: [] });
+    expect((await textOf(none.blob)).split('\n')[1]).toBe('{"names":[],"names_digest":"cbf29ce484222325"}');
+  });
+
+  it('round-trips: export, import into a clean store, export again give the same lines, the names line included', async () => {
+    const { passageLabels } = await import('../src/lib/passageLabels.js');
+    await store(checks[0]);
+    await store(checks[1]);
+    passageLabels.set('local|passage|passage-a', 'Île d’Yeu → Brest 🌊');
+    const deps3 = { labels: () => passageLabels.all() };
+    const first = await make({}, deps3);
+    const firstText = await textOf(first.blob);
+    expect(firstText.split('\n')[1]).toContain('"name":"Île d’Yeu → Brest 🌊"');
+    localStorage.clear();
+    vi.stubGlobal('indexedDB', new IDBFactory());
+    vi.resetModules();
+    ({ localSnapshots } = await import('../src/lib/localSnapshots.js'));
+    lib = await import('../src/lib/allChecksFile.js');
+    const { importChecksFile } = await import('../src/lib/checkImportMany.js');
+    const fresh = (await import('../src/lib/passageLabels.js')).passageLabels;
+    const imported = await importChecksFile(first.blob, { servedIds: new Set(), nowMs: NOW });
+    expect(imported).toMatchObject({ end: 'complete', appliedNames: [{ key: 'local|passage|passage-a', name: 'Île d’Yeu → Brest 🌊' }] });
+    const second = await make({}, { labels: () => fresh.all() });
+    expect(await textOf(second.blob)).toBe(firstText);
+  });
+
+  it('fails the whole backup when the names line does not read back as written', async () => {
+    await store(checks[0]);
+    const compressor = () => {
+      const alter = new TransformStream({
+        transform(chunk, controller) {
+          if (new TextDecoder().decode(chunk.subarray(0, 9)) === '{"names":') {
+            const copy = chunk.slice();
+            const at = new TextDecoder().decode(copy).indexOf('Alpha');
+            copy[at] = 0x42; // "Blpha": the digest no longer holds
+            controller.enqueue(copy);
+          } else controller.enqueue(chunk);
+        },
+      });
+      return { writable: alter.writable, readable: alter.readable.pipeThrough(new CompressionStream('gzip')) };
+    };
+    expect(await make({}, { compressor, labels: () => ({ 'local|passage|passage-a': 'Alpha' }) })).toEqual({ outcome: lib.ALL_CHECKS.failed, reason: 'verify' });
   });
 });

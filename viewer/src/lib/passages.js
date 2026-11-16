@@ -34,10 +34,13 @@ export function userRouteName(route) {
   return name;
 }
 
+/** The key a passage of checks saved or imported here is grouped and renamed under (lib/passageLabels.js). */
+export const passageLabelKey = (passageId) => `local|passage|${passageId}`;
+
 const created = (snapshot) => Date.parse(snapshot.created_at);
 const source = (snapshot) => snapshot.local ? 'local' : 'served';
 const groupKey = (snapshot) => snapshot.identity_version === 2 && snapshot.passage_id
-  ? `${source(snapshot)}|passage|${snapshot.passage_id}`
+  ? (snapshot.local ? passageLabelKey(snapshot.passage_id) : `served|passage|${snapshot.passage_id}`)
   : !snapshot.local && snapshot.legacy_history_id
     ? `served|reference|${snapshot.legacy_history_id}`
     : `${source(snapshot)}|snapshot|${snapshot.snapshot_id}`;

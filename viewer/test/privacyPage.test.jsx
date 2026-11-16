@@ -96,11 +96,23 @@ describe('privacy copy', () => {
   });
 
   it('describes check files that stay on the device, in both languages', () => {
-    const english = 'Check files: if you save a copy of one check or of all your checks to a file, or import one, the file is written and read on your device only. It holds the route, the departure time, your limits, the boat reference and the forecast data that check used. Passage does not send it anywhere; who sees it is up to you.';
-    const french = 'Fichiers de vérification\u00A0: si vous enregistrez dans un fichier une copie d’une vérification ou de toutes vos vérifications, ou si vous en importez une, le fichier est écrit et lu uniquement sur votre appareil. Il contient la route, l’heure de départ, vos limites, la référence du bateau et les données de prévision utilisées par cette vérification. Passage ne l’envoie nulle part\u00A0; vous décidez qui le voit.';
+    const english = 'Check files: if you save a copy of one check or of all your checks to a file, or import one, the file is written and read on your device only. It holds the route, the departure time, your limits, the boat reference and the forecast data each check used; a file of all your checks also holds the names you gave your passages. Passage does not send it anywhere; who sees it is up to you.';
+    const french = 'Fichiers de vérification\u00A0: si vous enregistrez dans un fichier une copie d’une vérification ou de toutes vos vérifications, ou si vous en importez une, le fichier est écrit et lu uniquement sur votre appareil. Il contient la route, l’heure de départ, vos limites, la référence du bateau et les données de prévision utilisées par chaque vérification\u00A0; un fichier de toutes vos vérifications contient aussi les noms que vous avez donnés à vos traversées. Passage ne l’envoie nulle part\u00A0; vous décidez qui le voit.';
     expect(text()).toContain(english);
     expect(translateText(english, 'fr')).toBe(french);
     for (const language of ['en', 'fr']) expect(privacyHtml(language, translateText)).toContain(language === 'fr' ? french : english);
+  });
+
+  it('lists the passage names and the note of the last file of all checks among what stays in the browser, in both languages', () => {
+    const items = [
+      ['The names you give your passages on My passages.', 'Les noms que vous donnez à vos traversées dans Mes traversées.'],
+      ['A note of when you last saved all your checks to a file, and which checks it held.', 'Une note indiquant quand vous avez enregistré toutes vos vérifications dans un fichier pour la dernière fois, et quelles vérifications il contenait.'],
+    ];
+    for (const [english, french] of items) {
+      expect(text()).toContain(english);
+      expect(translateText(english, 'fr')).toBe(french);
+      for (const language of ['en', 'fr']) expect(privacyHtml(language, translateText)).toContain(language === 'fr' ? french : english);
+    }
   });
 
   it('stays free of the internal codename and of storage the app does not use', () => {

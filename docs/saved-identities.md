@@ -721,7 +721,7 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   Both flaws seen there were fixed the same day: the progress text now counts
   check lines read (never the trailer), and the "0 checks imported" line is
   left out when other information lines are shown.
-- Check file, version 3 (format; not yet written by the app; 2026-11-16):
+- Check file, version 3 (2026-11-16; written by "Save all checks to a file" and read by "Import from a file" since stage 2's names part, local tests only):
   version 2 with the names the sailor gave their passages, so restoring all
   checks brings each renamed passage back under its name. The header says
   `"format_version":3` (`checkFileHeaderLine` takes the version, 2 or 3;
@@ -743,7 +743,7 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   construction of `files_digest`); it catches accidental damage and is not a
   security measure. No names: `{"names":[],"names_digest":"cbf29ce484222325"}`.
   Refusals of a names line never quote a name or an id. Version 2 and its
-  exact-text pins are unchanged; nothing writes version 3 yet.
+  exact-text pins are unchanged.
   The stream reader (since stage 2's names part) reads a version-3 file: it
   yields `{ kind: 'v3', header }`, then reads exactly one line as the names
   line, held to its own cap while its bytes buffer (512 KiB; a names line
@@ -761,8 +761,52 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   (bfcb747) was verified on a version-3 file made by this engine: its engine
   reads the header as `newer-version`, and its import of many checks
   refuses the file as made by a newer Passage before reading any line, with
-  nothing stored (no line read, no check, no name). The import of many checks reads a
-  version-3 file's checks and does not apply its names yet.
+  nothing stored (no line read, no check, no name).
+  The import of many checks reads a version-3 file's checks, and gives its
+  names (below).
+  The export of all checks writes version 3 (the single-check copy stays
+  version 1, with no name): it reads this browser's names once at the start
+  and writes, sorted, the name of each passage that has at least one
+  candidate check in the export (a v2 id) and a non-empty name given here,
+  cleaned by the one rule, with a `passage_id` the rule allows; legacy and
+  served checks carry none, an imported passage the sailor renamed is
+  carried, and a name for a passage with no check here is not. With no names
+  it writes `{"names":[],…}`. The read-back checks the version and the names
+  line (its FNV, as for the check lines), and a pass that makes the file
+  again without its oldest checks writes the same names line.
+  The import applies a name from the file to passage P only when all of
+  these hold: this browser held no check of P at all before the import
+  began (made here or imported, from the one listing taken before the first
+  line: a file never names a passage the sailor already has, even through a
+  forged check of it, which is stored and labelled imported while its name
+  is not taken); this import has just stored a check of P (imported, not
+  already here); the names line names P; and this browser has no name for
+  `local|passage|<P>` at that moment, read again each time (so a rename in
+  another tab wins). It never replaces a name. It is applied right after the
+  first stored check of P, never at the end, so a stop, a full storage, a
+  file cut short or leaving the page keep the names of the passages reached.
+  Names for passages with no stored check are ignored. The result says which
+  names were applied (`appliedNames`), whether the names line was unreadable
+  (the checks are still imported) and whether this browser could not keep a
+  name (it then may be gone when the page is left). It also counts the
+  names it did not use because their passage was already here
+  (`namesNotUsed`): a names-line entry counts when this browser held a check
+  of its passage before the import began, a check line of that passage ended
+  imported, already here or conflict, and the passage's name here differs
+  from the file's (no name here differs; the same name does not count); a
+  name whose passage has no such line is not counted. The summary, or the
+  one-check result, then says "{n} passage names in the file were not used:
+  those passages were already here." (singular "{n} passage name in the file
+  was not used: that passage was already here."), and says nothing when the
+  count is 0. The undo removes, after
+  the checks, each name the import applied that is still the name it gave (a
+  name the sailor typed since, on a passage that keeps checks, is kept); a
+  passage the undo empties loses its name whatever it is, as before, and
+  the dialog says only that the names taken from the file are removed too.
+  A file of one check keeps the single-check result, says under it that it
+  took the passage's name, and offers the undo when it gave a name. The one round-trip
+  exception: a name whose passage had no check included in the file is not
+  given on import, so it is not in the next file made from that browser.
 - Passage names (2026-11-16): a name typed with "Rename" on My passages is a
   display label in local storage (`deepweather.passage-labels`, keyed by the
   passage's grouping key, `local|passage|<passage_id>` for a check saved
@@ -796,7 +840,17 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   the route map and in the weather story; and to the name the planner takes
   when a check is revised ("Revise this passage": it becomes a new check's
   route name, so no saved hash changes). Whole sentences from a briefing are
-  not cut by it. No saved file, route or hash input is changed.
+  not cut by it. No saved file, route or hash input is changed. A name this
+  browser could not store (a full or blocked storage) is kept as one of
+  this tab's pending changes (a name, or a removal): each read returns the
+  stored names with the pending changes laid over them, so the name stays
+  on the page while another tab's renames and removals still show; a write
+  that succeeds stores that merged set and clears the pending changes, so it
+  neither drops another tab's rename nor brings back a name another tab
+  removed; when storage cannot be read, the last names read stand in for
+  it, with the pending changes over them (this used to drop a rename made
+  with a full storage at once, and a first fix that kept the page's own
+  names lost other tabs' changes).
 - Display text from a check (2026-11-16): `stripInvisibleControls`, in the
   same engine module and sharing its classes, removes only the C0 and C1
   controls but ordinary white space (tab, line feed, vertical tab, form feed,

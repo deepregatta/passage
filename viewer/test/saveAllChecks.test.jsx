@@ -14,7 +14,7 @@ const NB = ' ';
 const STRINGS = {
   en: {
     button: 'Save all checks to a file',
-    hint: 'One file with every check saved in this browser, made here without sending anything. Keep it on another device or drive: if this browser deletes its checks, you can import them again.',
+    hint: 'One file with every check saved in this browser and the names you gave their passages, made here without sending anything. Keep it on another device or drive: if this browser deletes its checks, you can import them again.',
     making: (i, n) => `Making the file: check ${i} of ${n}…`,
     stop: 'Stop',
     stopped: 'Stopped. No file was made.',
@@ -38,7 +38,7 @@ const STRINGS = {
   },
   fr: {
     button: 'Enregistrer toutes les vérifications dans un fichier',
-    hint: `Un seul fichier avec toutes les vérifications enregistrées dans ce navigateur, créé ici sans rien envoyer. Gardez-le sur un autre appareil ou support${NB}: si ce navigateur supprime ses vérifications, vous pourrez les importer à nouveau.`,
+    hint: `Un seul fichier avec toutes les vérifications enregistrées dans ce navigateur et les noms que vous avez donnés à leurs traversées, créé ici sans rien envoyer. Gardez-le sur un autre appareil ou support${NB}: si ce navigateur supprime ses vérifications, vous pourrez les importer à nouveau.`,
     making: (i, n) => `Création du fichier${NB}: vérification ${i} sur ${n}…`,
     stop: 'Arrêter',
     stopped: 'Arrêté. Aucun fichier n’a été créé.',
@@ -188,7 +188,7 @@ describe('making the file', () => {
     let header;
     for await (const item of readCheckFileLines(downloads.blobs[0])) {
       if (typeof item === 'string') lines.push(item);
-      else if (item.kind === 'v2') ({ header } = item);
+      else if (item.kind === 'v3') ({ header } = item);
     }
     expect(lines).toHaveLength(2);
     // the last file, remembered with its checks and the instant the file was made (its header's, as in its name)
@@ -365,7 +365,7 @@ describe('the last file', () => {
 
 it('has French for every template of both controls, keeping its placeholders', async () => {
   const { CHECKS_FILE_TEMPLATES } = await import('../src/lib/checksFileText.js');
-  expect(CHECKS_FILE_TEMPLATES).toHaveLength(60);
+  expect(CHECKS_FILE_TEMPLATES).toHaveLength(66);
   for (const template of CHECKS_FILE_TEMPLATES) {
     const french = i18n.translateText(template, 'fr');
     expect(french, template).not.toBe(template);

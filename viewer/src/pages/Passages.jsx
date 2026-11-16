@@ -91,18 +91,20 @@ export default function Passages() {
   };
   // Removing what an import added goes through the same delete as "Delete" (it forgets the
   // remembered open check and closes it if open); a passage left without checks loses its name.
-  const removeImported = useCallback(async (ids) => {
+  // The names a version-3 import gave go too, while they are still the names it gave.
+  const removeImported = useCallback(async (ids, names = []) => {
     const touched = new Set(groupPassages(useApp.getState().manifest?.snapshots)
       .filter((passage) => passage.checks.some((check) => ids.includes(check.snapshot_id))).map((passage) => passage.key));
     const { removeImportedChecks } = await import('../lib/checkImportMany.js');
-    const result = await removeImportedChecks(ids, { remove: deleteSnapshot });
+    const result = await removeImportedChecks(ids, { remove: deleteSnapshot, names });
     const left = new Set(groupPassages(useApp.getState().manifest?.snapshots).map((passage) => passage.key));
-    let next = null;
-    for (const key of touched) if (!left.has(key)) next = passageLabels.remove(key).labels;
-    if (next) setLabels(next);
+    for (const key of touched) if (!left.has(key)) passageLabels.remove(key);
+    setLabels(passageLabels.all());
     refreshStorage();
     return result;
   }, [deleteSnapshot, refreshStorage]);
+  // an import may give passages their names (a version-3 file): the cards show them at once
+  const labelsChanged = useCallback(() => setLabels(passageLabels.all()), []);
   // The deleted card held focus; the page title is the next sensible place.
   const deleted = (key) => {
     setLabels(passageLabels.remove(key).labels);
@@ -160,7 +162,7 @@ export default function Passages() {
           {storage && <StorageUsage usage={storage} language={language} />}
           {notKept && <StorageNotKept language={language} />}
           <SaveAllChecks exportable={exportable} hasLocalCheck={hasLocalCheck} language={language} onAnnounce={setNote} />
-          {showImport && <ImportCheck language={language} onAnnounce={setNote} removeChecks={removeImported} />}
+          {showImport && <ImportCheck language={language} onAnnounce={setNote} removeChecks={removeImported} onLabelsChanged={labelsChanged} />}
         </div>
       )}
     </div>

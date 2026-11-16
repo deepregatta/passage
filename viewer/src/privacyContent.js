@@ -66,10 +66,12 @@ export const PRIVACY_BLOCKS = [
     'GRIB files page choices: last area, period, time step and models.',
     'The demo briefings you have hidden.',
     'Briefings you save in this browser (IndexedDB).',
+    'The names you give your passages on My passages.',
+    'A note of when you last saved all your checks to a file, and which checks it held.',
     'A cache of forecast tiles so they load faster (IndexedDB).',
     'The usage-measurement identifiers and campaign tags described above: the visitor identifier and first campaign tags stay in local storage; the session identifier, current campaign tags and a few session flags are in session storage and clear when the tab closes.',
   ] },
-  { type: 'p', text: 'Check files: if you save a copy of one check or of all your checks to a file, or import one, the file is written and read on your device only. It holds the route, the departure time, your limits, the boat reference and the forecast data that check used. Passage does not send it anywhere; who sees it is up to you.' },
+  { type: 'p', text: 'Check files: if you save a copy of one check or of all your checks to a file, or import one, the file is written and read on your device only. It holds the route, the departure time, your limits, the boat reference and the forecast data each check used; a file of all your checks also holds the names you gave your passages. Passage does not send it anywhere; who sees it is up to you.' },
 
   { type: 'h2', text: 'Who receives data' },
   { type: 'p', text: 'Cloudflare (hosting, forecast storage and server functions), Supabase (usage events and feedback) and the OpenStreetMap and OpenSeaMap tile services. We do not sell personal data and do not share it with advertising networks. Some of these providers process data outside the EEA; the safeguards are described in the full policy.' },

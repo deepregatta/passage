@@ -143,7 +143,7 @@ export default function SaveAllChecks({ exportable, hasLocalCheck, language, onA
             >
               Save all checks to a file
             </button>
-            <span className="font-sans text-sm text-ink-soft">One file with every check saved in this browser, made here without sending anything. Keep it on another device or drive: if this browser deletes its checks, you can import them again.</span>
+            <span className="font-sans text-sm text-ink-soft">One file with every check saved in this browser and the names you gave their passages, made here without sending anything. Keep it on another device or drive: if this browser deletes its checks, you can import them again.</span>
           </div>
           {making && (
             <div ref={progress} className="flex flex-wrap items-center gap-x-3 gap-y-1" data-testid="save-all-progress">

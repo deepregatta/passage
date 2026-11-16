@@ -3,7 +3,8 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { gunzipSync, gzipSync } from 'node:zlib';
 
-// Save all checks to one file and import them elsewhere (2026-11-16, stage 2): two real
+// Save all checks to one file and import them elsewhere (2026-11-16, stage 2; a renamed
+// passage's name travels with the file since version 3): two real
 // Checks in fixture mode, saved in this test's own browser storage, written to one
 // version-2 file in two taps, read here (name, header, two lines, trailer) and imported
 // into fresh, empty browser contexts: whole, mixed with a damaged line, and offline once
@@ -71,6 +72,11 @@ test('all checks saved to one file import into another browser, whole, mixed and
   ];
   expect(new Set(ids).size).toBe(2);
   await page.goto('/#passages');
+  // the sailor names one passage
+  await page.getByRole('button', { name: 'Rename Scratch all one' }).click();
+  await page.getByRole('textbox', { name: 'Passage name' }).fill('Autumn delivery → Plymouth');
+  await page.getByRole('textbox', { name: 'Passage name' }).press('Enter');
+  await expect(page.getByRole('heading', { level: 2, name: 'Autumn delivery → Plymouth' })).toBeVisible();
   const save = page.getByTestId('save-all-checks');
   await save.getByRole('button', { name: 'Save all checks to a file' }).click();
   await expect(save.getByTestId('save-all-ready')).toHaveText(/^File ready: 2 checks, (less than 1 MB|about \d+ MB)\.$/);
@@ -84,10 +90,13 @@ test('all checks saved to one file import into another browser, whole, mixed and
   expect([...bytes.subarray(0, 2)]).toEqual([0x1f, 0x8b]);
   const lines = gunzipSync(bytes).toString('utf8').split('\n');
   expect(lines.pop()).toBe('');
-  expect(lines).toHaveLength(4);
-  expect(JSON.parse(lines[0])).toMatchObject({ format: 'passage-checks', format_version: 2, exported_by: expect.stringMatching(/^Passage engine /) });
-  expect(lines.slice(1, 3).map((line) => JSON.parse(line).snapshot_id).sort()).toEqual([...ids].sort());
-  expect(JSON.parse(lines[3])).toEqual({ end: 'passage-checks', checks: 2 });
+  expect(lines).toHaveLength(5);
+  expect(JSON.parse(lines[0])).toMatchObject({ format: 'passage-checks', format_version: 3, exported_by: expect.stringMatching(/^Passage engine /) });
+  // the names line: the one name given here
+  const names = JSON.parse(lines[1]);
+  expect(names.names).toEqual([{ passage_id: expect.any(String), name: 'Autumn delivery → Plymouth' }]);
+  expect(lines.slice(2, 4).map((line) => JSON.parse(line).snapshot_id).sort()).toEqual([...ids].sort());
+  expect(JSON.parse(lines[4])).toEqual({ end: 'passage-checks', checks: 2 });
   await expect(save.getByTestId('last-checks-file')).toHaveText(/^Last file of all checks: made .+, 2 checks\.$/);
 
   // a fresh browser: both passages, labelled as imported
@@ -100,7 +109,14 @@ test('all checks saved to one file import into another browser, whole, mixed and
       const card = whole.page.locator(`[data-snapshot-id="${id}"]`).locator('xpath=ancestor::article');
       await expect(card.getByTestId('imported-label')).toHaveText(/^Imported from a file, not recomputed here · check made .+$/);
     }
-    await expect(control.getByRole('button', { name: 'Remove the checks this import added' })).toBeVisible();
+    await expect(control.getByTestId('import-summary')).toContainText('1 passage name was taken from the file.');
+    // the name on its card and on its passage page
+    await expect(whole.page.getByRole('heading', { level: 2, name: 'Autumn delivery → Plymouth' })).toBeVisible();
+    await whole.page.getByRole('button', { name: /^Open Autumn delivery → Plymouth, departing / }).click();
+    await expect(whole.page.getByTestId('decision-band')).toContainText('Autumn delivery → Plymouth');
+    await whole.page.goto('/#passages');
+    await whole.page.evaluate(() => window.scrollTo(0, 0));
+    expect(await whole.page.evaluate(() => JSON.parse(localStorage.getItem('deepweather.passage-labels')))).toEqual({ [`local|passage|${names.names[0].passage_id}`]: 'Autumn delivery → Plymouth' });
     // the storage block fits a 375 px screen
     await whole.page.setViewportSize({ width: 375, height: 812 });
     expect(await whole.page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
@@ -110,12 +126,29 @@ test('all checks saved to one file import into another browser, whole, mixed and
     await whole.context.close();
   }
 
+  // the undo takes back the checks and the name this import gave
+  const undone = await freshPassages(browser, testInfo);
+  try {
+    const control = undone.page.getByTestId('import-check');
+    await control.locator('input[type="file"]').setInputFiles(file);
+    await expect(undone.page.getByRole('heading', { level: 2, name: 'Autumn delivery → Plymouth' })).toBeVisible();
+    await control.getByRole('button', { name: 'Remove the checks this import added' }).click();
+    const dialog = undone.page.getByRole('alertdialog');
+    await expect(dialog).toContainText('The passage names it took from the file are removed too.');
+    await dialog.getByRole('button', { name: 'Remove' }).click();
+    await expect(control.getByTestId('import-removed')).toHaveText('2 checks removed.');
+    await expect(undone.page.getByRole('heading', { level: 2, name: 'Autumn delivery → Plymouth' })).toHaveCount(0);
+    expect(await undone.page.evaluate(() => localStorage.getItem('deepweather.passage-labels'))).toBeNull();
+  } finally {
+    await undone.context.close();
+  }
+
   // one valid line and one altered: its files no longer give its digest
   const mixedPath = testInfo.outputPath('mixed.json.gz');
-  const altered = lines[2].replace(/"files_digest":"([0-9a-f])/, (_match, hex) => `"files_digest":"${hex === '0' ? '1' : '0'}`);
-  expect(altered).not.toBe(lines[2]);
+  const altered = lines[3].replace(/"files_digest":"([0-9a-f])/, (_match, hex) => `"files_digest":"${hex === '0' ? '1' : '0'}`);
+  expect(altered).not.toBe(lines[3]);
   const { writeFileSync } = await import('node:fs');
-  writeFileSync(mixedPath, gzipSync(`${[lines[0], lines[1], altered, lines[3]].join('\n')}\n`));
+  writeFileSync(mixedPath, gzipSync(`${[lines[0], lines[1], lines[2], altered, lines[4]].join('\n')}\n`));
   const mixed = await freshPassages(browser, testInfo);
   try {
     const control = mixed.page.getByTestId('import-check');

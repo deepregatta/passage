@@ -49,6 +49,12 @@ const T = Object.freeze({
   joinedOne: '{n} of the imported checks sits in a passage alongside checks made in this browser.',
   repeated: '{n} checks appear more than once in the file; each was read once.',
   repeatedOne: '{n} check appears more than once in the file; it was read once.',
+  namesTaken: '{n} passage names were taken from the file.',
+  namesTakenOne: '{n} passage name was taken from the file.',
+  namesNotUsed: '{n} passage names in the file were not used: those passages were already here.',
+  namesNotUsedOne: '{n} passage name in the file was not used: that passage was already here.',
+  namesUnreadable: 'The passage names in this file could not be read. Its checks were read as usual.',
+  namesNotPersisted: 'This browser could not save the passage names; they may be gone when you leave this page.',
   notDamaged: '{n} checks were not imported: the file is damaged or has been altered there.',
   notDamagedOne: '{n} check was not imported: the file is damaged or has been altered there.',
   notFuture: '{n} checks were not imported: their time is in the future. Check this device’s date and time.',
@@ -159,6 +165,27 @@ export const listsAfter = (result, single) => result.kind === 'v2' || single.sta
 
 const NONE = { imported: 0, already: 0, repeated: 0, damaged: 0, futureTime: 0, polar: 0, served: 0, conflict: 0, tooLarge: 0 };
 
+/**
+ * What became of a version-3 file's passage names, as information: how many it took (a line only
+ * when it took some), then how many went unused because their passage was already here (a line
+ * only when some did).
+ */
+export function namesInfoLines(result, language) {
+  const taken = result.appliedNames?.length ?? 0;
+  const notUsed = result.namesNotUsed ?? 0;
+  const lines = taken ? [countText(taken, T.namesTaken, T.namesTakenOne, {}, language)] : [];
+  if (notUsed) lines.push(countText(notUsed, T.namesNotUsed, T.namesNotUsedOne, {}, language));
+  return lines;
+}
+
+/** What went wrong with a version-3 file's passage names: the names line could not be read, or this browser would not keep them. */
+export function namesProblems(result, language) {
+  const problems = [];
+  if (result.namesUnreadable) problems.push(passageText(T.namesUnreadable, {}, language));
+  if (result.namesNotPersisted) problems.push(passageText(T.namesNotPersisted, {}, language));
+  return problems;
+}
+
 /** An import that ended at a check line over the line cap (the reader stops there). */
 const stoppedAtLarge = (result) => result.end === 'incomplete' && result.hint === 'too-large' && result.outcomes?.tooLarge > 0;
 
@@ -176,6 +203,7 @@ export function importSummary(result, language) {
   if (result.joinedOwn) info.push(countText(result.joinedOwn, T.joined, T.joinedOne, {}, language));
   // a check line given twice was read once: not a damage of the file
   if (outcomes.repeated) info.push(countText(outcomes.repeated, T.repeated, T.repeatedOne, {}, language));
+  info.push(...namesInfoLines(result, language));
   // "0 imported" opens the summary only when no other information line does
   if (result.end !== 'stopped' && !outcomes.imported && info.length > 1) info.shift();
   const problems = [];
@@ -189,6 +217,7 @@ export function importSummary(result, language) {
     [stoppedAtLarge(result) ? 0 : outcomes.tooLarge, T.notTooLarge, T.notTooLargeOne],
   ];
   for (const [n, plural, singular] of refused) if (n) problems.push(countText(n, plural, singular, {}, language));
+  problems.push(...namesProblems(result, language));
   if (stoppedAtLarge(result)) {
     problems.push(passageText(T.stoppedTooLarge, {}, language));
   } else if (result.end === 'incomplete') {

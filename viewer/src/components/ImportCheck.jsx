@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { useApp } from '../stores/appStore.js';
 import { IMPORT, canImportCheckFile, whenIdle } from '../lib/checkImportOutcomes.js';
 import { OWNED, localTime, passageText } from '../lib/passages.js';
-import { importStartLine, importSummary, importerUnavailable, importingLine, listsAfter, removeLabel, removeQuestion, removedLine, singleStatusOf } from '../lib/checksFileText.js';
+import { importStartLine, importSummary, importerUnavailable, namesProblems, namesInfoLines, importingLine, listsAfter, removeLabel, removeQuestion, removedLine, singleStatusOf } from '../lib/checksFileText.js';
 import ConfirmDialog from './ConfirmDialog.jsx';
 
 /**
@@ -20,14 +20,14 @@ import ConfirmDialog from './ConfirmDialog.jsx';
  * the Stop or the undo button goes while it has focus, focus moves to the line
  * that says how it ended, so it never falls to the page.
  */
-export default function ImportCheck({ language, onAnnounce, removeChecks }) {
+export default function ImportCheck({ language, onAnnounce, removeChecks, onLabelsChanged }) {
   const loadManifest = useApp((state) => state.loadManifest);
   const openSnapshot = useApp((state) => state.openSnapshot);
   const servedIds = useApp((state) => state.servedIds);
   const input = useRef(null);
   const busy = useRef(false);
   const controller = useRef(null);
-  const [state, setState] = useState({ working: false, progress: null, status: null, snapshotId: null, departureUtc: null, summary: null, added: [] });
+  const [state, setState] = useState({ working: false, progress: null, status: null, snapshotId: null, departureUtc: null, summary: null, added: [], names: [], nameProblems: [], nameInfo: [] });
   const [confirming, setConfirming] = useState(false);
   const [removed, setRemoved] = useState(null);
   const progressBlock = useRef(null);
@@ -60,7 +60,7 @@ export default function ImportCheck({ language, onAnnounce, removeChecks }) {
     busy.current = true;
     const stop = new AbortController();
     controller.current = stop;
-    setState({ working: true, progress: null, status: null, snapshotId: null, departureUtc: null, summary: null, added: [] });
+    setState({ working: true, progress: null, status: null, snapshotId: null, departureUtc: null, summary: null, added: [], names: [], nameProblems: [], nameInfo: [] });
     setRemoved(null);
     // the live text changes even when this import ends like the last one
     onAnnounce?.('');
@@ -80,20 +80,27 @@ export default function ImportCheck({ language, onAnnounce, removeChecks }) {
     }
     // Stop goes with the count: focus on it moves to the outcome
     if (progressBlock.current?.contains(document.activeElement)) refocus.current = outcome;
+    // passage names this import gave (a version-3 file): the page shows them, and the undo takes them back
+    const names = result.appliedNames ?? [];
+    if (names.length) onLabelsChanged?.();
     const single = singleStatusOf(result);
     if (single) {
       if (listsAfter(result, single)) await loadManifest();
       // a check of a version-2 file departs as its listing says
       const departureUtc = single.departureUtc ?? useApp.getState().manifest?.snapshots?.find((entry) => entry.snapshot_id === single.snapshotId)?.departure_utc ?? null;
-      setState({ working: false, progress: null, status: single.status, snapshotId: single.snapshotId, departureUtc, summary: null, added: [] });
+      // a file of one check is told as stage 1 tells it; the undo is offered only when it also gave a name
+      setState({
+        working: false, progress: null, status: single.status, snapshotId: single.snapshotId, departureUtc, summary: null,
+        added: names.length ? result.importedIds : [], names, nameProblems: namesProblems(result, language), nameInfo: namesInfoLines(result, language),
+      });
       const done = resultLine(single.status, departureUtc ? localTime(departureUtc, language) : null, language);
       // the page's own live region says it (a failure is an alert of its own)
-      if (done) onAnnounce?.(done);
+      if (done) onAnnounce?.([done, ...namesInfoLines(result, language)].join(' '));
       return;
     }
     await loadManifest();
     const summary = importSummary(result, language);
-    setState({ working: false, progress: null, status: null, snapshotId: null, departureUtc: null, summary, added: result.importedIds ?? [] });
+    setState({ working: false, progress: null, status: null, snapshotId: null, departureUtc: null, summary, added: result.importedIds ?? [], names, nameProblems: [], nameInfo: [] });
     if (summary.info.length) onAnnounce?.(summary.info.join(' '));
   }
 
@@ -102,18 +109,22 @@ export default function ImportCheck({ language, onAnnounce, removeChecks }) {
     setConfirming(false);
     if (!ids.length) return;
     let gone;
-    if (removeChecks) ({ removed: gone } = await removeChecks(ids));
-    else ({ removed: gone } = await (await import('../lib/checkImportMany.js')).removeImportedChecks(ids));
+    if (removeChecks) ({ removed: gone } = await removeChecks(ids, state.names));
+    else ({ removed: gone } = await (await import('../lib/checkImportMany.js')).removeImportedChecks(ids, { names: state.names }));
     await loadManifest();
+    onLabelsChanged?.();
     // the undo button goes: focus moves to the line saying how many were removed
     refocus.current = removedText;
-    setState((current) => ({ ...current, added: [] }));
+    setState((current) => ({ ...current, added: [], names: [] }));
     const line = removedLine(gone.length, language);
     setRemoved(line);
     onAnnounce?.(line);
   }
 
   const { working, progress, status, summary, added } = state;
+  const appliedNames = state.names ?? [];
+  const nameProblems = state.nameProblems ?? [];
+  const nameInfo = state.nameInfo ?? [];
   const time = state.departureUtc ? localTime(state.departureUtc, language) : null;
   const opened = status === IMPORT.imported || status === IMPORT.alreadyHere;
   const line = resultLine(status, time, language);
@@ -149,6 +160,13 @@ export default function ImportCheck({ language, onAnnounce, removeChecks }) {
         </button>
       )}
       {status && !opened && <ImportProblem status={status} focusRef={outcome} />}
+      {/* a file of one check says under its result that it gave its passage a name, or that the name went unused */}
+      {nameInfo.map((text) => <p key={text} data-testid="import-names" className="font-sans text-sm text-ink" {...OWNED}>{text}</p>)}
+      {nameProblems.length > 0 && (
+        <div role="alert" className="space-y-1" {...OWNED}>
+          {nameProblems.map((text) => <p key={text} className="font-sans text-sm text-verdict-exceeds">{text}</p>)}
+        </div>
+      )}
       {summary && (
         <div data-testid="import-summary" className="space-y-1">
           {summary.info.map((text, i) => <p key={text} ref={i === 0 ? outcome : undefined} tabIndex={i === 0 ? -1 : undefined} className="font-sans text-sm text-ink focus:outline-hidden" {...OWNED}>{text}</p>)}
@@ -177,6 +195,7 @@ export default function ImportCheck({ language, onAnnounce, removeChecks }) {
           onConfirm={removeAdded}
           onCancel={() => setConfirming(false)}
         >
+          {appliedNames.length > 0 && <p>The passage names it took from the file are removed too.</p>}
           <p className="font-medium">This cannot be undone.</p>
         </ConfirmDialog>
       )}

@@ -1,13 +1,17 @@
 import {
-  CHECK_FILE_FUTURE_MS, CHECK_FILE_NAMES, allChecksFileName, checkFileEntryLine, checkFileHeaderLine, checkFileTrailerLine, checkHex, fnv1a64Hex, parseCheckEntry,
+  CHECK_FILE_FUTURE_MS, CHECK_FILE_NAMES, CHECK_FILE_V3_MAX_NAMES, CHECK_FILE_V3_VERSION, allChecksFileName, checkFileEntryLine, checkFileHeaderLine,
+  checkFileNamesLine, checkFileTrailerLine, checkHex, cleanPassageName, fnv1a64Hex, parseCheckEntry,
 } from '@deepweather/engine';
 import { CHECK_FILE_EXPORTED_BY } from './checkFile.js';
 import { LINE_CAPS, readCheckFileLines } from './checkFileLines.js';
 import { holdsPolarData } from './polarSafetyNet.js';
 import { localSnapshots } from './localSnapshots.js';
+import { passageLabels } from './passageLabels.js';
+import { passageLabelKey } from './passages.js';
 
-// Save every check this browser holds to one file: the check file, version 2
-// (engine/src/checkFile.ts), gzipped by the browser's own CompressionStream
+// Save every check this browser holds to one file: the check file, version 3
+// (engine/src/checkFile.ts: version 2 with the names the sailor gave their
+// passages, since 2026-11-16), gzipped by the browser's own CompressionStream
 // (2026-11-15, stage 2; a library only: no control calls it yet). The checks
 // are read and written one at a time, newest first, so the file holds the
 // checks most likely needed when a cap or a failure cuts it short, and no two
@@ -109,10 +113,14 @@ function lineOf(snapshotId, files, { validateFile, nowMs, lineBytes }) {
  */
 export async function makeAllChecksFile(deps, options = {}) {
   const cap = { ...LINE_CAPS, ...options.caps }.compressedBytes;
+  // the passage names, read once: every pass writes the same names line
+  const labels = deps.labels?.() ?? {};
+  let namesLine = null;
   let maxIncluded = Infinity;
   for (;;) {
-    const pass = await makePass(deps, options, maxIncluded);
+    const pass = await makePass(deps, options, maxIncluded, { labels, namesLine });
     if (!pass.overshoot) return pass;
+    ({ namesLine } = pass.overshoot);
     const { lineSizes, size } = pass.overshoot;
     if (lineSizes.length <= 1) return { outcome: ALL_CHECKS.failed, reason: 'tooLarge' };
     // the newest checks that should fit, estimated from this pass's own ratio; always at least one fewer
@@ -124,8 +132,30 @@ export async function makeAllChecksFile(deps, options = {}) {
   }
 }
 
+/** A passage id a names line can hold (the engine's rule: 1 to 128 characters of 0x21 to 0x7e). */
+const NAMED_PASSAGE = new RegExp('^[' + String.fromCharCode(0x21) + '-' + String.fromCharCode(0x7e) + ']{1,128}$');
+
+/**
+ * The names line of this file: each passage with at least one candidate check
+ * (a v2 id) and a name given here, cleaned by the one rule, in passage_id
+ * order (the first CHECK_FILE_V3_MAX_NAMES). Legacy and served checks carry
+ * none; an imported passage the sailor renamed is carried.
+ */
+export function namesLineOf(candidates, labels) {
+  const names = new Map();
+  for (const { passage_id: passageId } of candidates) {
+    if (typeof passageId !== 'string' || !NAMED_PASSAGE.test(passageId) || names.has(passageId)) continue;
+    const name = cleanPassageName(labels?.[passageLabelKey(passageId)]);
+    if (name) names.set(passageId, name);
+  }
+  const entries = [...names].map(([passageId, name]) => ({ passage_id: passageId, name }))
+    .sort((a, b) => (a.passage_id < b.passage_id ? -1 : a.passage_id > b.passage_id ? 1 : 0))
+    .slice(0, CHECK_FILE_V3_MAX_NAMES);
+  return checkFileNamesLine(entries);
+}
+
 /** One pass at the file, holding at most `maxIncluded` checks; { overshoot } when the finished file passes the compressed cap. */
-async function makePass(deps, { signal, onProgress, caps, nowMs = Date.now() }, maxIncluded) {
+async function makePass(deps, { signal, onProgress, caps, nowMs = Date.now() }, maxIncluded, given) {
   const limits = { ...LINE_CAPS, ...caps };
   const margin = limits.compressorMargin ?? COMPRESSOR_MARGIN;
   const { store, loadValidators, compressor, Blob: BlobOf, pause } = deps;
@@ -144,6 +174,7 @@ async function makePass(deps, { signal, onProgress, caps, nowMs = Date.now() }, 
   const ordered = backupOrder(candidates);
   const total = ordered.length;
   if (!total) return { outcome: ALL_CHECKS.empty, counts };
+  const namesLine = given.namesLine ?? namesLineOf(candidates, given.labels);
   const { checkFileValidators } = await loadValidators();
   const validateFile = (name, value) => checkFileValidators[name]?.(value) === true;
 
@@ -183,7 +214,9 @@ async function makePass(deps, { signal, onProgress, caps, nowMs = Date.now() }, 
     await writer.write(bytes);
   };
   try {
-    await write(new TextEncoder().encode(checkFileHeaderLine({ exportedAt, exportedBy: CHECK_FILE_EXPORTED_BY })));
+    await write(new TextEncoder().encode(checkFileHeaderLine({ exportedAt, exportedBy: CHECK_FILE_EXPORTED_BY, version: CHECK_FILE_V3_VERSION })));
+    // exactly one names line, always (empty when no passage has a name)
+    await write(new TextEncoder().encode(namesLine));
     for (let index = 0; index < total; index++) {
       if (aborted()) {
         await discard();
@@ -238,8 +271,8 @@ async function makePass(deps, { signal, onProgress, caps, nowMs = Date.now() }, 
   }
   const blob = new BlobOf([folded], { type: 'application/gzip' });
   folded = null;
-  if (blob.size > limits.compressedBytes) return { overshoot: { lineSizes, size: blob.size } };
-  const verified = await verify(blob, { exportedAt, digests, signal, caps: limits });
+  if (blob.size > limits.compressedBytes) return { overshoot: { lineSizes, size: blob.size, namesLine } };
+  const verified = await verify(blob, { exportedAt, digests, namesDigest: fnv1a64Hex(namesLine.slice(0, -1)), signal, caps: limits });
   if (verified !== true) return verified === 'stopped' ? { outcome: ALL_CHECKS.stopped } : { outcome: ALL_CHECKS.failed, reason: 'verify' };
   return { outcome: ALL_CHECKS.made, blob, name: allChecksFileName(exportedAt), exportedAt, included, counts };
 }
@@ -250,17 +283,22 @@ async function makePass(deps, { signal, onProgress, caps, nowMs = Date.now() }, 
  * written, and a trailer that holds. Not a second proof of each check, which
  * was proven before it was written. True, 'stopped', or false.
  */
-async function verify(blob, { exportedAt, digests, signal, caps }) {
+async function verify(blob, { exportedAt, digests, namesDigest, signal, caps }) {
   let lines = 0;
+  let names = false;
   try {
     for await (const item of readCheckFileLines(blob, { signal, caps })) {
       if (typeof item === 'string') {
-        if (lines >= digests.length || fnv1a64Hex(item) !== digests[lines]) return false;
+        if (!names || lines >= digests.length || fnv1a64Hex(item) !== digests[lines]) return false;
         lines += 1;
-      } else if (item.kind === 'v1') {
+      } else if (item.kind === 'v1' || item.kind === 'v2' || item.namesUnreadable) {
         return false;
-      } else if (item.kind === 'v2') {
+      } else if (item.kind === 'v3') {
         if (item.header.exportedAt !== exportedAt || item.header.exportedBy !== CHECK_FILE_EXPORTED_BY) return false;
+      } else if (item.names) {
+        // the names line, written back from what was read, is the one written (its text is fixed by its entries)
+        if (names || fnv1a64Hex(checkFileNamesLine(item.names).slice(0, -1)) !== namesDigest) return false;
+        names = true;
       } else if (item.trailer) {
         return item.trailer.checks === digests.length && lines === digests.length;
       }
@@ -275,6 +313,7 @@ async function verify(blob, { exportedAt, digests, signal, caps }) {
 
 const browserDeps = () => ({
   store: localSnapshots,
+  labels: () => passageLabels.all(),
   loadValidators: () => import('./generated/checkFileValidators.js'),
   compressor: () => new CompressionStream('gzip'),
   Blob,

@@ -38,6 +38,8 @@ beforeAll(async () => {
   pre = await makeCheck({ passageId: 'passage-pre', departureUtc: '2026-07-23T06:00:00Z', nowMs: Date.parse('2026-07-19T09:00:00Z') });
 });
 beforeEach(async () => {
+  // names a version-3 file gives passages live in local storage: none leak from one test to the next
+  localStorage.clear();
   vi.resetModules();
   vi.stubGlobal('indexedDB', new IDBFactory());
   ({ localSnapshots } = await import('../src/lib/localSnapshots.js'));
@@ -78,7 +80,7 @@ describe('a version-2 file', () => {
   it('stores each check exactly as given, marked, and says it is complete', async () => {
     const progress = [];
     const result = await importLines(fileFrom(backupOf([lineOf(a), lineOf(b)])), { onProgress: (step) => progress.push(step) });
-    expect(result).toEqual({ kind: 'v2', outcomes: { ...zero, imported: 2 }, importedIds: [a.snapshotId, b.snapshotId], joinedOwn: 0, linesRead: 2, first: { outcome: 'imported', snapshotId: a.snapshotId }, end: 'complete', hint: null, notReached: 0, refusal: null, storageFull: false });
+    expect(result).toEqual({ kind: 'v2', outcomes: { ...zero, imported: 2 }, importedIds: [a.snapshotId, b.snapshotId], joinedOwn: 0, linesRead: 2, first: { outcome: 'imported', snapshotId: a.snapshotId }, end: 'complete', hint: null, notReached: 0, refusal: null, storageFull: false, appliedNames: [], namesUnreadable: false, namesNotPersisted: false, namesNotUsed: 0 });
     expect(progress).toEqual([{ index: 0 }, { index: 1 }, { index: 2 }]);
     await expectStored(a);
     await expectStored(b);
@@ -326,7 +328,7 @@ describe('removeImportedChecks', () => {
     const before = await dump();
     await importLines(fileFrom(backupOf([lineOf(a), lineOf(b)])));
     const result = await many.removeImportedChecks([a.snapshotId, pre.snapshotId, 'snapshot_v2_0123456789abcdef', 42]);
-    expect(result).toEqual({ removed: [a.snapshotId], refused: [pre.snapshotId, 'snapshot_v2_0123456789abcdef', 42] });
+    expect(result).toEqual({ removed: [a.snapshotId], refused: [pre.snapshotId, 'snapshot_v2_0123456789abcdef', 42], namesRemoved: [] });
     const after = await dump();
     expect(idsIn(after)).toEqual([b.snapshotId, pre.snapshotId].sort());
     expect(recordsOf(after, pre.snapshotId)).toBe(recordsOf(before, pre.snapshotId));
@@ -414,15 +416,189 @@ it('removes imported checks through the delete it is given, and counts as remove
     remove: async (id) => { seen.push(id); if (id === a.snapshotId) await localSnapshots.remove(id); else throw new Error('blocked'); },
   });
   expect(seen).toEqual([a.snapshotId, b.snapshotId]);
-  expect(result).toEqual({ removed: [a.snapshotId], refused: [b.snapshotId] });
+  expect(result).toEqual({ removed: [a.snapshotId], refused: [b.snapshotId], namesRemoved: [] });
   expect(idsIn(await dump())).toEqual([b.snapshotId]);
 });
 
-it('reads the checks of a version-3 file after its names line, the names not yet applied', async () => {
+it('reads the checks of a version-3 file after its names line, and gives a stored passage its name', async () => {
   const { checkFileNamesLine: namesLine } = await import('@deepweather/engine');
   const header3 = checkFileHeaderLine({ exportedAt, exportedBy, version: 3 });
   const text = header3 + namesLine([{ passage_id: 'passage-a', name: 'A name' }]) + `${lineOf(a)}\n${lineOf(b)}\n` + checkFileTrailerLine(2);
   const result = await importLines(fileFrom(text));
   expect(result).toMatchObject({ kind: 'v2', end: 'complete', importedIds: [a.snapshotId, b.snapshotId], outcomes: { ...zero, imported: 2 } });
-  expect(localStorage.getItem('deepweather.passage-labels')).toBeNull();
+  expect(JSON.parse(localStorage.getItem('deepweather.passage-labels'))).toEqual({ 'local|passage|passage-a': 'A name' });
+});
+
+describe('a version-3 file gives its passage names', () => {
+  const header3 = () => checkFileHeaderLine({ exportedAt, exportedBy, version: 3 });
+  let namesLine;
+  beforeAll(async () => { ({ checkFileNamesLine: namesLine } = await import('@deepweather/engine')); });
+  const backup3 = (names, lines, trailer = checkFileTrailerLine(lines.length)) => header3() + namesLine(names) + lines.map((line) => `${line}\n`).join('') + trailer;
+  const labels = () => JSON.parse(localStorage.getItem('deepweather.passage-labels') ?? '{}');
+  const NAMES = [{ passage_id: 'passage-a', name: 'Alpha run' }, { passage_id: 'passage-b', name: 'Bravo → Brest' }, { passage_id: 'passage-zzz', name: 'No check' }];
+
+  it('to each passage it stores a check of, right after that check, and ignores names of passages with no check', async () => {
+    const seen = [];
+    const writeAll = localSnapshots.writeAll.bind(localSnapshots);
+    vi.spyOn(localSnapshots, 'writeAll').mockImplementation(async (id, records) => { seen.push({ id, labels: labels() }); return writeAll(id, records); });
+    const result = await importLines(fileFrom(backup3(NAMES, [lineOf(a), lineOf(b)])));
+    expect(result).toMatchObject({ end: 'complete', importedIds: [a.snapshotId, b.snapshotId], namesUnreadable: false, namesNotPersisted: false });
+    expect(result.appliedNames).toEqual([{ key: 'local|passage|passage-a', name: 'Alpha run' }, { key: 'local|passage|passage-b', name: 'Bravo → Brest' }]);
+    expect(labels()).toEqual({ 'local|passage|passage-a': 'Alpha run', 'local|passage|passage-b': 'Bravo → Brest' });
+    // a's name was there before b was stored
+    expect(seen[1].labels).toEqual({ 'local|passage|passage-a': 'Alpha run' });
+  });
+
+  it('not to a passage whose check is already here, nor over a name this browser has, nor when another tab names it meanwhile', async () => {
+    await localSnapshots.writeAll(a.snapshotId, savedFiles(a));
+    localStorage.setItem('deepweather.passage-labels', JSON.stringify({ 'local|passage|passage-b': 'Mine' }));
+    const writeAll = localSnapshots.writeAll.bind(localSnapshots);
+    vi.spyOn(localSnapshots, 'writeAll').mockImplementation(async (id, records) => {
+      // another tab renames c while its check is being stored
+      if (id === c.snapshotId) localStorage.setItem('deepweather.passage-labels', JSON.stringify({ ...labels(), 'local|passage|passage-c': 'Other tab' }));
+      return writeAll(id, records);
+    });
+    const names = [...NAMES, { passage_id: 'passage-c', name: 'Charlie' }];
+    const result = await importLines(fileFrom(backup3(names, [lineOf(a), lineOf(b), lineOf(c)])));
+    expect(result.outcomes).toMatchObject({ already: 1, imported: 2 });
+    expect(result.appliedNames).toEqual([]);
+    expect(labels()).toEqual({ 'local|passage|passage-b': 'Mine', 'local|passage|passage-c': 'Other tab' });
+  });
+
+  it('keeps the names of the passages reached when the import stops, storage fails or the file is cut', async () => {
+    const controller = new AbortController();
+    const stopped = await importLines(fileFrom(backup3(NAMES, [lineOf(a), lineOf(b)])), { signal: controller.signal, onProgress: ({ index }) => { if (index === 1) controller.abort(); } });
+    expect(stopped).toMatchObject({ end: 'stopped', appliedNames: [{ key: 'local|passage|passage-a', name: 'Alpha run' }] });
+    expect(labels()).toEqual({ 'local|passage|passage-a': 'Alpha run' });
+
+    localStorage.clear();
+    vi.stubGlobal('indexedDB', new IDBFactory());
+    vi.resetModules();
+    ({ localSnapshots } = await import('../src/lib/localSnapshots.js'));
+    many = await import('../src/lib/checkImportMany.js');
+    const add = IDBObjectStore.prototype.add;
+    vi.spyOn(IDBObjectStore.prototype, 'add').mockImplementation(function (record) {
+      if (record.filename === 'imported.json' && record.snapshot_id === b.snapshotId) {
+        const raw = this._rawObjectStore;
+        const storeRecord = raw.storeRecord;
+        raw.storeRecord = () => { raw.storeRecord = storeRecord; throw new DOMException('Quota exceeded.', 'QuotaExceededError'); };
+      }
+      return add.call(this, record);
+    });
+    const full = await importLines(fileFrom(backup3(NAMES, [lineOf(a), lineOf(b)])));
+    vi.mocked(IDBObjectStore.prototype.add).mockRestore();
+    expect(full).toMatchObject({ end: 'storage', appliedNames: [{ key: 'local|passage|passage-a', name: 'Alpha run' }] });
+    expect(labels()).toEqual({ 'local|passage|passage-a': 'Alpha run' });
+
+    localStorage.clear();
+    vi.stubGlobal('indexedDB', new IDBFactory());
+    vi.resetModules();
+    ({ localSnapshots } = await import('../src/lib/localSnapshots.js'));
+    many = await import('../src/lib/checkImportMany.js');
+    const text = backup3(NAMES, [lineOf(a), lineOf(b)]);
+    const cut = await importLines(fileFrom(text.slice(0, text.lastIndexOf(lineOf(b)) + 50)));
+    expect(cut).toMatchObject({ end: 'incomplete', appliedNames: [{ key: 'local|passage|passage-a', name: 'Alpha run' }] });
+    expect(labels()).toEqual({ 'local|passage|passage-a': 'Alpha run' });
+  });
+
+  it('keeps a name for the visit when this browser will not store it, and says so', async () => {
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('blocked'); });
+    const result = await importLines(fileFrom(backup3(NAMES, [lineOf(a)])));
+    expect(result).toMatchObject({ end: 'complete', namesNotPersisted: true, appliedNames: [{ key: 'local|passage|passage-a', name: 'Alpha run' }] });
+    const { passageLabels } = await import('../src/lib/passageLabels.js');
+    expect(passageLabels.all()).toEqual({ 'local|passage|passage-a': 'Alpha run' });
+  });
+
+  it('says its names are unreadable and still imports its checks', async () => {
+    const text = header3() + '{"names":[{"passage_id":"a b","name":"x"}],"names_digest":"0123456789abcdef"}\n' + `${lineOf(a)}\n${lineOf(b)}\n` + checkFileTrailerLine(2);
+    const result = await importLines(fileFrom(text));
+    expect(result).toMatchObject({ end: 'complete', namesUnreadable: true, appliedNames: [], outcomes: { ...zero, imported: 2 } });
+    expect(labels()).toEqual({});
+  });
+
+  it('never names a passage this browser already held a check of: a forged check of the sailor\'s own passage is stored, its name is not', async () => {
+    // the sailor's own passage, made here, never renamed
+    await localSnapshots.writeAll(pre.snapshotId, savedFiles(pre));
+    const forged = await makeCheck({ passageId: 'passage-pre', departureUtc: '2026-07-25T06:00:00Z', nowMs: Date.parse('2026-07-19T21:00:00Z') });
+    const names = [{ passage_id: 'passage-pre', name: 'Hostile name' }, { passage_id: 'passage-a', name: 'Alpha run' }];
+    const result = await importLines(fileFrom(backup3(names, [lineOf(forged), lineOf(a)])));
+    expect(result.importedIds).toEqual([forged.snapshotId, a.snapshotId]);
+    expect((await localSnapshots.list()).find((entry) => entry.snapshot_id === forged.snapshotId)).toMatchObject({ imported: true });
+    // only the passage new to this browser is named, and only it is counted
+    expect(result.appliedNames).toEqual([{ key: 'local|passage|passage-a', name: 'Alpha run' }]);
+    expect(labels()).toEqual({ 'local|passage|passage-a': 'Alpha run' });
+  });
+
+  it('never names a passage that held only an imported check before, while a clean browser gets every name', async () => {
+    const { importCheckFile } = await import('../src/lib/checkImport.js');
+    expect((await importCheckFile(fileOf((await checkFileOf(a)).bytes), { servedIds: SERVED, nowMs: NOW })).outcome).toBe('imported');
+    const second = await makeCheck({ passageId: 'passage-a', departureUtc: '2026-07-26T06:00:00Z', nowMs: Date.parse('2026-07-19T22:00:00Z') });
+    const result = await importLines(fileFrom(backup3(NAMES, [lineOf(second), lineOf(b)])));
+    expect(result.outcomes).toMatchObject({ imported: 2 });
+    expect(result.appliedNames).toEqual([{ key: 'local|passage|passage-b', name: 'Bravo → Brest' }]);
+    // a clean browser restoring the same passages gets every name
+    localStorage.clear();
+    vi.stubGlobal('indexedDB', new IDBFactory());
+    vi.resetModules();
+    ({ localSnapshots } = await import('../src/lib/localSnapshots.js'));
+    many = await import('../src/lib/checkImportMany.js');
+    const clean = await importLines(fileFrom(backup3(NAMES, [lineOf(a), lineOf(b)])));
+    expect(clean.appliedNames.map((entry) => entry.name)).toEqual(['Alpha run', 'Bravo → Brest']);
+  });
+
+  it('on undo removes the names it gave, but keeps a name retyped since', async () => {
+    const result = await importLines(fileFrom(backup3(NAMES, [lineOf(a), lineOf(b)])));
+    expect(result.appliedNames).toHaveLength(2);
+    const { passageLabels } = await import('../src/lib/passageLabels.js');
+    passageLabels.set('local|passage|passage-a', 'My own name');
+    const undo = await many.removeImportedChecks(result.importedIds, { names: result.appliedNames });
+    expect(undo).toEqual({ removed: [a.snapshotId, b.snapshotId], refused: [], namesRemoved: ['local|passage|passage-b'] });
+    expect(labels()).toEqual({ 'local|passage|passage-a': 'My own name' });
+  });
+
+  // namesNotUsed: names in the file whose passage was already here under another name, or none
+  it('counts a name not used when a step-by-step restore brought its passage first from a file of one check', async () => {
+    // step 1: a's own file of one check (version 1, no passage names)
+    expect((await checkImport.importCheckFile(fileOf((await checkFileOf(a)).bytes), { servedIds: SERVED, nowMs: NOW })).outcome).toBe('imported');
+    // step 2: the file of all checks, naming a (already here, no name) and b (new)
+    const result = await importLines(fileFrom(backup3(NAMES, [lineOf(a), lineOf(b)])));
+    expect(result.outcomes).toMatchObject({ already: 1, imported: 1 });
+    expect(result.appliedNames).toEqual([{ key: 'local|passage|passage-b', name: 'Bravo → Brest' }]);
+    expect(result.namesNotUsed).toBe(1);
+    expect(labels()).toEqual({ 'local|passage|passage-b': 'Bravo → Brest' });
+  });
+
+  it('counts no name not used when the same file comes back into a browser holding everything under the same names', async () => {
+    const file = backup3(NAMES, [lineOf(a), lineOf(b)]);
+    const first = await importLines(fileFrom(file));
+    expect(first).toMatchObject({ namesNotUsed: 0, appliedNames: [{ key: 'local|passage|passage-a', name: 'Alpha run' }, { key: 'local|passage|passage-b', name: 'Bravo → Brest' }] });
+    const again = await importLines(fileFrom(file));
+    expect(again.outcomes).toMatchObject({ already: 2, imported: 0 });
+    expect(again).toMatchObject({ appliedNames: [], namesNotUsed: 0 });
+    // a different name here is counted, a name here equal to the file's is not
+    const { passageLabels } = await import('../src/lib/passageLabels.js');
+    passageLabels.set('local|passage|passage-a', 'Renamed here');
+    expect((await importLines(fileFrom(file))).namesNotUsed).toBe(1);
+  });
+
+  it('counts the name of a forged check on the sailor\'s own passage as not used, and does not apply it', async () => {
+    await localSnapshots.writeAll(pre.snapshotId, savedFiles(pre));
+    const forged = await makeCheck({ passageId: 'passage-pre', departureUtc: '2026-07-25T06:00:00Z', nowMs: Date.parse('2026-07-19T21:00:00Z') });
+    const result = await importLines(fileFrom(backup3([{ passage_id: 'passage-pre', name: 'Hostile name' }], [lineOf(forged)])));
+    expect(result).toMatchObject({ importedIds: [forged.snapshotId], appliedNames: [], namesNotUsed: 1 });
+    expect(labels()).toEqual({});
+  });
+
+  it('counts a conflicting check\'s passage, but no name whose passage has no settled check in the file', async () => {
+    await localSnapshots.writeAll(pre.snapshotId, savedFiles(pre));
+    // another check of passage a under a's id (the conflict construction above)
+    await localSnapshots.writeAll(a.snapshotId, savedFiles(a).map((file) => (file.filename === 'decision-inputs.json' ? { ...file, content: b.files['decision-inputs.json'] } : file)));
+    // pre is here but no line of it is in the file; a's line conflicts with the a stored here
+    const names = [{ passage_id: 'passage-pre', name: 'Pre run' }, { passage_id: 'passage-a', name: 'Alpha run' }];
+    const result = await importLines(fileFrom(backup3(names, [lineOf(a)])));
+    expect(result.outcomes).toMatchObject({ conflict: 1, imported: 0 });
+    expect(result).toMatchObject({ appliedNames: [], namesNotUsed: 1 });
+    // a version-2 file has no names: nothing to count
+    expect((await importLines(fileFrom(backupOf([lineOf(a)])))).namesNotUsed).toBe(0);
+  });
 });

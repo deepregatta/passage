@@ -1353,7 +1353,7 @@ is not UTF-8; says so when the header is followed directly by a check line,
 the trailer (with or without its newline) or a short line, reading that line
 as what it is; yields a second names line later as a check line; and reads a
 version-2 file with no names item. `checkImportMany.test.js` imports a
-version-3 file's checks with its names not yet applied; the tests that took
+version-3 file's checks (and gives its names: see below); the tests that took
 version 3 as newer now take version 4. Tightened name rule (2026-11-16, regressions first):
 `engine/test/passageName.test.ts` removes Hangul fillers that render blank,
 the halfwidth and choseong/jungseong fillers, a soft hyphen and a grapheme
@@ -1381,4 +1381,52 @@ space and the bidirectional controls, and changes nothing else.
 `displayControls.test.jsx` (regression first) shows a U+202E removed from a
 place label and from a reasoning section's `register_plain`, and that every
 string in the committed fixtures and goldens (engine, viewer and analysis;
-over 100 files, every `register_plain` among them) comes back byte-identical.
+over 100 files, every `register_plain` among them) comes back byte-identical. Passage names in files (stage 2, names part):
+`checkImportMany.test.js` gives a name to each passage the import stores a
+check of, right after that check, and ignores a name with no check; gives
+none to a passage already here, over a name this browser has, or one another
+tab names meanwhile; keeps the names of the passages reached when the import
+stops, storage fails or the file is cut; keeps a name for the visit when
+storage refuses it and says so; says the names are unreadable and still
+imports the checks; and on undo removes a hostile name given to the sailor's
+own passage with a forged check while keeping a name retyped since. It
+counts the names not used (`namesNotUsed`): 1 after a step-by-step restore
+(a's file of one check, then the file of all checks naming a), 0 when the
+same file comes back to a browser holding everything under the same names
+(1 once a passage is renamed here), 1 for a forged check of the sailor's own
+passage (its name not applied), 1 for a conflicting check's passage and none
+for a name whose passage has no settled check line; 0 for a version-2 file.
+`importMany.test.jsx` says the not-used line under a one-check result and in
+the summary after a step-by-step restore and for a forged check (English and
+French, the no-break space before the French colon exact), and no such line
+when the same file comes back under the same names.
+`allChecksFile.test.js` carries, sorted and cleaned, the names of passages
+with a check in the export (an imported one included) and none for legacy,
+served or check-less passages, writes an empty names line when there are
+none, round-trips export, import into a clean store and export to the same
+text, fails the backup when the names line is altered, and keeps the names
+line in the pass that drops the oldest checks. `passageLabels.test.js` keeps a
+rename for the visit when only writing fails (a regression, failing before).
+`importMany.test.jsx` shows the names on the cards at once with the count of
+names taken and the undo dialog's sentence, takes them back on undo (English
+and French), offers the undo after a one-check file that gave a name and not
+otherwise, and says when the names were unreadable or could not be kept
+(English and French). `saveAllChecks.test.jsx` checks the new hint;
+`privacyPage.test.jsx` the new check-file paragraph and the two new items of
+what stays in the browser. `check-files-all.spec.js` renames a passage, saves
+all (version 3, its names line holding the name), imports into a fresh
+browser and finds the name on the card and the passage page, and removes it
+with the undo. Review round on names in files: `checkImportMany.test.js` stores a forged
+check of the sailor's own passage, labelled imported, without taking its
+name (only the passage new to this browser is named and counted), names no
+passage that held only an imported check before while a clean browser gets
+every name, and on undo keeps a name retyped since; `passageLabels.test.js`
+(regressions first for the two cross-tab cases) keeps another tab's rename
+when this tab later writes, never brings back names another tab deleted,
+keeps a typed name for the visit in each of the four read/write
+combinations, and keeps a removal it could not store; `importMany.test.jsx`
+says "1 passage name was taken from the file." under a one-check result
+(and in the live region), removes on undo the name of a passage the undo
+empties though renamed after the import, and keeps a name changed on a
+passage that still has checks; the shortened dialog sentence and the
+reworded not-saved line are checked in English and French.

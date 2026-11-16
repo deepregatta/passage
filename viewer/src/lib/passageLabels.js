@@ -9,11 +9,17 @@ import { PASSAGE_NAME_MAX_LENGTH, cleanPassageName } from '@deepweather/engine';
 export const PASSAGE_LABELS_KEY = 'deepweather.passage-labels';
 export const MAX_LABEL_LENGTH = PASSAGE_NAME_MAX_LENGTH;
 
-// Kept in memory too, so a rename lasts for the visit when storage is blocked.
-let memory = null;
+// This tab's names that storage has not taken yet: key → name, or null for a removal. A
+// successful read returns storage with these laid over it, so a name this tab could not
+// store lasts the visit, while another tab's renames and removals still show here; a
+// successful write stores that merged set and clears them.
+const pending = new Map();
+// The names storage last gave (or took), for when it cannot be read.
+let known = null;
 
 const clean = cleanPassageName;
 
+/** The stored names, or null when storage cannot be read. */
 function read() {
   try {
     const parsed = JSON.parse(localStorage.getItem(PASSAGE_LABELS_KEY) ?? '{}');
@@ -24,35 +30,46 @@ function read() {
   }
 }
 
-/** Returns true when the change reached browser storage. */
+/** Storage's names (or the last known ones) with this tab's pending changes laid over them. */
+function current() {
+  const stored = read();
+  if (stored) known = stored;
+  const labels = { ...(known ?? {}) };
+  for (const [key, value] of pending) {
+    if (value === null) delete labels[key];
+    else labels[key] = value;
+  }
+  return labels;
+}
+
+/** Store these names; true when storage took them, and then nothing is pending. */
 function write(labels) {
-  memory = labels;
   try {
     if (Object.keys(labels).length) localStorage.setItem(PASSAGE_LABELS_KEY, JSON.stringify(labels));
     else localStorage.removeItem(PASSAGE_LABELS_KEY);
-    return true;
   } catch {
     return false;
   }
+  known = labels;
+  pending.clear();
+  return true;
 }
 
 export const passageLabels = {
   all() {
-    const stored = read();
-    if (stored) memory = stored;
-    return { ...(memory ?? {}) };
+    return current();
   },
   /** An empty name removes the label, restoring the original. */
   set(key, name) {
-    const next = this.all();
     const label = clean(name);
-    if (label) next[key] = label; else delete next[key];
+    pending.set(key, label || null);
+    const next = current();
     return { labels: next, persisted: write(next) };
   },
   remove(key) {
     return this.set(key, '');
   },
   clean,
-  /** Test hook: forget the in-memory mirror. */
-  forgetMemory() { memory = null; },
+  /** Test hook: forget what this page holds (pending changes and the last stored names). */
+  forgetMemory() { known = null; pending.clear(); },
 };

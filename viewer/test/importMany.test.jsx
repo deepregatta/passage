@@ -2,8 +2,8 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { IDBFactory } from 'fake-indexeddb';
-import { checkFileEntryLine, checkFileHeaderLine, checkFileTrailerLine } from '@deepweather/engine';
-import { fileOf, gzipOf, installBlobStream, makeCheck } from './helpers/checkFiles.js';
+import { checkFileEntryLine, checkFileHeaderLine, checkFileNamesLine, checkFileTrailerLine } from '@deepweather/engine';
+import { checkFileOf, fileOf, gzipOf, installBlobStream, makeCheck } from './helpers/checkFiles.js';
 
 // "Import from a file" with a file of many checks (version 2), through the real importer
 // and store (fake-indexeddb, a fresh factory per test), and a stand-in importer where a
@@ -11,7 +11,7 @@ import { fileOf, gzipOf, installBlobStream, makeCheck } from './helpers/checkFil
 // removes exactly what this import added.
 vi.setConfig({ testTimeout: 60_000 });
 
-const NB = ' ';
+const NB = '\u00A0';
 const IMPORTED_AT = Date.parse('2026-11-16T09:00:00Z');
 const STRINGS = {
   en: {
@@ -372,5 +372,157 @@ describe('review round', () => {
     await showPassages();
     expect(within(control()).queryByRole('button', { name: STRINGS.en.remove(2) })).toBeNull();
     expect(await ids()).toEqual([a.snapshotId, b.snapshotId].sort());
+  });
+});
+
+describe('a version-3 file: the passage names it gives', () => {
+  const NB = '\u00A0';
+  const WORDS = {
+    en: {
+      taken: (n) => (n === 1 ? '1 passage name was taken from the file.' : `${n} passage names were taken from the file.`),
+      unreadable: 'The passage names in this file could not be read. Its checks were read as usual.',
+      notPersisted: 'This browser could not save the passage names; they may be gone when you leave this page.',
+      dialog: 'The passage names it took from the file are removed too.',
+      notUsed: (n) => (n === 1 ? '1 passage name in the file was not used: that passage was already here.' : `${n} passage names in the file were not used: those passages were already here.`),
+    },
+    fr: {
+      taken: (n) => (n <= 1 ? `${n} nom de traversée a été repris du fichier.` : `${n} noms de traversée ont été repris du fichier.`),
+      unreadable: 'Les noms de traversée de ce fichier n’ont pas pu être lus. Ses vérifications ont été lues normalement.',
+      notPersisted: `Ce navigateur n’a pas pu enregistrer les noms de traversée${NB}; ils risquent de disparaître quand vous quitterez cette page.`,
+      dialog: 'Les noms de traversée qu’elle a repris du fichier sont aussi retirés.',
+      notUsed: (n) => (n <= 1 ? `${n} nom de traversée du fichier n’a pas été utilisé${NB}: cette traversée était déjà ici.` : `${n} noms de traversée du fichier n’ont pas été utilisés${NB}: ces traversées étaient déjà ici.`),
+    },
+  };
+  const backup3 = async (names, lines) => fileOf(await gzipOf(checkFileHeaderLine({ exportedAt: '2026-11-15T12:00:00.000Z', exportedBy: 'Passage engine 0.2.0', version: 3 })
+    + checkFileNamesLine(names) + lines.map((line) => `${line}\n`).join('') + checkFileTrailerLine(lines.length)), 'passage-all-checks.json.gz');
+  const NAMES = [{ passage_id: 'passage-a', name: 'Alpha run' }, { passage_id: 'passage-b', name: 'Bravo → Brest' }];
+  const cardTitles = () => screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent);
+
+  it.each(['en', 'fr'])('shows the names on the cards at once, says how many were taken, and the undo takes them back (%s)', async (language) => {
+    await showPassages(language);
+    const user = userEvent.setup({ advanceTimers: () => {} });
+    await user.upload(fileInput(), await backup3(NAMES, [lineOf(a), lineOf(b)]));
+    const summary = await within(control()).findByTestId('import-summary', {}, { timeout: 30_000 });
+    hasText(summary, WORDS[language].taken(2));
+    await waitFor(() => expect(cardTitles()).toEqual(expect.arrayContaining(['Alpha run', 'Bravo → Brest'])));
+    await user.click(within(control()).getByRole('button', { name: STRINGS[language].remove(2) }));
+    const dialog = await screen.findByRole('alertdialog');
+    hasText(dialog, WORDS[language].dialog);
+    await user.click(within(dialog).getByRole('button', { name: STRINGS[language].confirm }));
+    await waitFor(() => hasText(within(control()).getByTestId('import-removed'), STRINGS[language].removed(2)));
+    expect(localStorage.getItem('deepweather.passage-labels')).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Alpha run' })).toBeNull();
+  });
+
+  it('offers the undo after a file of one check when it gave a name, and not without one', async () => {
+    await showPassages();
+    const user = userEvent.setup({ advanceTimers: () => {} });
+    await user.upload(fileInput(), await backup3([NAMES[0]], [lineOf(a)]));
+    expect(await within(control()).findByTestId('import-result', {}, { timeout: 30_000 })).toHaveTextContent(STRINGS.en.single(passages.localTime('2026-07-20T06:00:00Z', 'en')));
+    // the single-check result says it took the name too
+    expect(within(control()).getByTestId('import-names')).toHaveTextContent(WORDS.en.taken(1));
+    await waitFor(() => hasText(liveRegion(), WORDS.en.taken(1)));
+    await user.click(within(control()).getByRole('button', { name: STRINGS.en.remove(1) }));
+    hasText(await screen.findByRole('alertdialog'), WORDS.en.dialog);
+    await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Cancel' }));
+    // the same kind of file without a name: today's single-check result, no undo
+    await user.upload(fileInput(), await backup3([], [lineOf(b)]));
+    await waitFor(() => expect(within(control()).getByTestId('import-result')).toHaveTextContent('Check imported from a file'));
+    expect(within(control()).queryByRole('button', { name: STRINGS.en.remove(1) })).toBeNull();
+    expect(within(control()).queryByTestId('import-names')).toBeNull();
+  });
+
+  it.each(['en', 'fr'])('says a name in the file was not used after a step-by-step restore, in the summary and under a one-check result (%s)', async (language) => {
+    await showPassages(language);
+    const user = userEvent.setup({ advanceTimers: () => {} });
+    // step 1: a's own file of one check, which carries no passage names
+    await user.upload(fileInput(), fileOf((await checkFileOf(a)).bytes));
+    await within(control()).findByTestId('import-result', {}, { timeout: 30_000 });
+    expect(within(control()).queryByTestId('import-names')).toBeNull();
+    // step 2: a file of one check naming that passage: told as one check, with the line under it
+    await user.upload(fileInput(), await backup3([NAMES[0]], [lineOf(a)]));
+    await waitFor(() => hasText(within(control()).getByTestId('import-names'), WORDS[language].notUsed(1)));
+    // exactly as written, the no-break space before the French colon included
+    expect(within(control()).getByTestId('import-names').textContent).toBe(WORDS[language].notUsed(1));
+    await waitFor(() => hasText(liveRegion(), WORDS[language].notUsed(1)));
+    // step 3: the file of all checks naming both: one name taken, one not used, in the summary
+    await user.upload(fileInput(), await backup3(NAMES, [lineOf(a), lineOf(b)]));
+    const summary = await within(control()).findByTestId('import-summary', {}, { timeout: 30_000 });
+    hasText(summary, WORDS[language].taken(1));
+    hasText(summary, WORDS[language].notUsed(1));
+    expect(JSON.parse(localStorage.getItem('deepweather.passage-labels'))).toEqual({ 'local|passage|passage-b': 'Bravo → Brest' });
+  });
+
+  it('says nothing about unused names when the same file comes back to a browser holding everything under the same names', async () => {
+    await showPassages();
+    const user = userEvent.setup({ advanceTimers: () => {} });
+    const file = await backup3(NAMES, [lineOf(a), lineOf(b)]);
+    await user.upload(fileInput(), file);
+    hasText(await within(control()).findByTestId('import-summary', {}, { timeout: 30_000 }), WORDS.en.taken(2));
+    await user.upload(fileInput(), await backup3(NAMES, [lineOf(a), lineOf(b)]));
+    await waitFor(() => hasText(within(control()).getByTestId('import-summary'), STRINGS.en.already(2)));
+    expect(within(control()).getByTestId('import-summary').textContent).not.toMatch(/passage names? (in the file w|w)/);
+  });
+
+  it.each(['en', 'fr'])('says the name of a forged check on the sailor\'s own passage was not used, and keeps the passage\'s name (%s)', async (language) => {
+    await localSnapshots.writeAll(own.snapshotId, saved(own));
+    await showPassages(language);
+    const user = userEvent.setup({ advanceTimers: () => {} });
+    await user.upload(fileInput(), await backup3([{ passage_id: 'passage-own', name: 'Hostile name' }, NAMES[0]], [lineOf(ownPassage), lineOf(a)]));
+    const summary = await within(control()).findByTestId('import-summary', {}, { timeout: 30_000 });
+    hasText(summary, WORDS[language].taken(1));
+    hasText(summary, WORDS[language].notUsed(1));
+    expect(JSON.parse(localStorage.getItem('deepweather.passage-labels'))).toEqual({ 'local|passage|passage-a': 'Alpha run' });
+    expect(screen.queryByRole('heading', { name: 'Hostile name' })).toBeNull();
+  });
+
+  it.each(['en', 'fr'])('says when the names could not be read, and when this browser could not keep them (%s)', async (language) => {
+    const calls = standIn();
+    await showPassages(language);
+    const user = userEvent.setup({ advanceTimers: () => {} });
+    await user.upload(fileInput(), await backupFile([lineOf(a)]));
+    await waitFor(() => expect(calls).toHaveLength(1));
+    calls[0].resolve(v2({ end: 'complete', linesRead: 2, outcomes: { imported: 2 }, importedIds: ['snapshot_v2_0123456789abcdef', 'snapshot_v2_0123456789abcde0'],
+      namesUnreadable: true, namesNotPersisted: true, appliedNames: [{ key: 'local|passage|x', name: 'X' }] }));
+    const alert = await within(control()).findByRole('alert');
+    hasText(alert, WORDS[language].unreadable);
+    hasText(alert, WORDS[language].notPersisted);
+    hasText(within(control()).getByTestId('import-summary'), WORDS[language].taken(1));
+  });
+});
+
+describe('the undo and names changed after the import', () => {
+  const backup3 = async (names, lines) => fileOf(await gzipOf(checkFileHeaderLine({ exportedAt: '2026-11-15T12:00:00.000Z', exportedBy: 'Passage engine 0.2.0', version: 3 })
+    + checkFileNamesLine(names) + lines.map((line) => `${line}\n`).join('') + checkFileTrailerLine(lines.length)), 'passage-all-checks.json.gz');
+  const labels = () => JSON.parse(localStorage.getItem('deepweather.passage-labels') ?? '{}');
+
+  it('removes the name of a passage the undo empties, even one the sailor renamed after the import', async () => {
+    const { passageLabels } = await import('../src/lib/passageLabels.js');
+    await showPassages();
+    const user = userEvent.setup({ advanceTimers: () => {} });
+    await user.upload(fileInput(), await backup3([{ passage_id: 'passage-a', name: 'Alpha run' }], [lineOf(a)]));
+    await within(control()).findByTestId('import-result', {}, { timeout: 30_000 });
+    passageLabels.set('local|passage|passage-a', 'Renamed after the import');
+    await user.click(within(control()).getByRole('button', { name: STRINGS.en.remove(1) }));
+    await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: STRINGS.en.confirm }));
+    await waitFor(() => hasText(within(control()).getByTestId('import-removed'), STRINGS.en.removed(1)));
+    expect(labels()).toEqual({});
+  });
+
+  it('keeps a name the sailor changed on a passage that still has checks after the undo', async () => {
+    const { passageLabels } = await import('../src/lib/passageLabels.js');
+    await showPassages();
+    const user = userEvent.setup({ advanceTimers: () => {} });
+    // two checks of passage-a: one in this import, then one made here, which the undo leaves
+    await user.upload(fileInput(), await backup3([{ passage_id: 'passage-a', name: 'Alpha run' }], [lineOf(a), lineOf(b)]));
+    await within(control()).findByTestId('import-summary', {}, { timeout: 30_000 });
+    const sameA = await makeCheck({ passageId: 'passage-a', departureUtc: '2026-07-27T06:00:00Z', nowMs: Date.parse('2026-07-19T23:00:00Z') });
+    await localSnapshots.writeAll(sameA.snapshotId, saved(sameA));
+    passageLabels.set('local|passage|passage-a', 'Changed since');
+    await user.click(within(control()).getByRole('button', { name: STRINGS.en.remove(2) }));
+    await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: STRINGS.en.confirm }));
+    await waitFor(() => hasText(within(control()).getByTestId('import-removed'), STRINGS.en.removed(2)));
+    expect(labels()).toEqual({ 'local|passage|passage-a': 'Changed since' });
+    expect(await ids()).toEqual([sameA.snapshotId]);
   });
 });
