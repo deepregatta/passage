@@ -15,6 +15,7 @@
 import { parseUtc, toIso } from './eta.js';
 import { canonicalJson, contentHash, fnv1a64Hex, fnv1a64HexParts } from './hash.js';
 import { routeRevision } from './identity.js';
+import { cleanPassageName } from './passageName.js';
 import { SNAPSHOT_ARTIFACT_FILES, SNAPSHOT_MANIFEST_KEYS } from './snapshot.js';
 import type { Route } from './types.js';
 
@@ -588,11 +589,12 @@ export function checkFilesDigest(files: unknown): string | null {
 }
 
 /** The header line of a version-2 file, its newline included. Throws on a bad clock or no exporting version. */
-export function checkFileHeaderLine({ exportedAt, exportedBy }: { exportedAt: string; exportedBy: string }): string {
+export function checkFileHeaderLine({ exportedAt, exportedBy, version = CHECK_FILE_V2_VERSION }: { exportedAt: string; exportedBy: string; version?: number }): string {
   const at = Date.parse(exportedAt);
   if (typeof exportedAt !== 'string' || !Number.isFinite(at)) throw new Error('A check file needs the time it was made.');
   if (!exportedByHolds(exportedBy)) throw new Error('A check file names the version that made it, in printable ASCII.');
-  return `${JSON.stringify({ format: CHECK_FILE_FORMAT, format_version: CHECK_FILE_V2_VERSION, exported_at: new Date(at).toISOString(), exported_by: exportedBy })}\n`;
+  if (version !== CHECK_FILE_V2_VERSION && version !== CHECK_FILE_V3_VERSION) throw new Error('A file of check lines is version 2 or 3.');
+  return `${JSON.stringify({ format: CHECK_FILE_FORMAT, format_version: version, exported_at: new Date(at).toISOString(), exported_by: exportedBy })}\n`;
 }
 
 /**
@@ -643,7 +645,7 @@ export interface CheckFileHeader {
 }
 
 export type CheckFileHeaderParse =
-  | { ok: true; header: CheckFileHeader }
+  | { ok: true; header: CheckFileHeader; version: 2 | 3 }
   | { ok: false; problem: Extract<CheckFileV2Problem, 'not-check-file' | 'newer-version'>; detail: string };
 
 export type CheckFileLineParse =
@@ -672,11 +674,12 @@ function lineObject(line: unknown, maxLength: number): Record<string, unknown> |
 }
 
 /**
- * Read a version-2 file's first line (without its newline) as its header, or
- * say why not. 'newer-version' for a passage-checks header of a format version
- * above 2; 'not-check-file' for anything else that is not exactly the header
- * checkFileHeaderLine writes (keys, their order, compact JSON, exported_at as
- * ISO UTC, exported_by of 1 to 200 printable ASCII characters). A first line of version 1 is
+ * Read a version-2 or version-3 file's first line (without its newline) as
+ * its header, with its version, or say why not. 'newer-version' for a
+ * passage-checks header of a format version above 3; 'not-check-file' for
+ * anything else that is not exactly the header checkFileHeaderLine writes
+ * (keys, their order, compact JSON, exported_at as ISO UTC, exported_by of 1
+ * to 200 printable ASCII characters). A first line of version 1 is
  * 'not-check-file' here: a version-1 document is one line, read whole by
  * parseCheckFile.
  */
@@ -685,15 +688,15 @@ export function parseCheckFileHeader(line: string): CheckFileHeaderParse {
   if (typeof header === 'string') return fail('not-check-file', header);
   if (header.format !== CHECK_FILE_FORMAT) return fail('not-check-file', 'not the passage-checks format');
   const version = header.format_version;
-  if (typeof version === 'number' && Number.isInteger(version) && version > CHECK_FILE_V2_VERSION) return fail('newer-version', `format version ${version}`);
-  if (version !== CHECK_FILE_V2_VERSION) return fail('not-check-file', 'not format version 2');
+  if (typeof version === 'number' && Number.isInteger(version) && version > CHECK_FILE_V3_VERSION) return fail('newer-version', `format version ${version}`);
+  if (version !== CHECK_FILE_V2_VERSION && version !== CHECK_FILE_V3_VERSION) return fail('not-check-file', 'not format version 2 or 3');
   if (!sameKeys(header, HEADER_KEYS)) return fail('not-check-file', 'not the fields of a header');
   const { exported_at: exportedAt, exported_by: exportedBy } = header;
   const at = typeof exportedAt === 'string' ? Date.parse(exportedAt) : NaN;
   if (!Number.isFinite(at) || new Date(at).toISOString() !== exportedAt) return fail('not-check-file', 'no export time');
   if (!exportedByHolds(exportedBy)) return fail('not-check-file', 'no exporting version');
-  if (`${line}\n` !== checkFileHeaderLine({ exportedAt, exportedBy })) return fail('not-check-file', 'not one compact JSON object');
-  return { ok: true, header: { exportedAt, exportedBy } };
+  if (`${line}\n` !== checkFileHeaderLine({ exportedAt, exportedBy, version })) return fail('not-check-file', 'not one compact JSON object');
+  return { ok: true, header: { exportedAt, exportedBy }, version };
 }
 
 /**
@@ -736,4 +739,114 @@ export function parseCheckFileTrailer(line: string, checksRead: number): CheckFi
   if (`${line}\n` !== checkFileTrailerLine(checks as number)) return fail('trailer', 'not one compact JSON object');
   if (checks !== checksRead) return fail('trailer', 'a number of checks other than the checks read');
   return { ok: true, checks: checks as number };
+}
+
+// ---------------------------------------------------------------------------
+// The check file, version 3 (2026-11-16; a format only: nothing in the app
+// writes it yet). Version 2 with the names the sailor gave their passages: the
+// header says "format_version":3; then EXACTLY ONE names line; then the check
+// lines and the trailer, unchanged from version 2 (the trailer counts checks
+// only). The names line is always present, empty when there are no names:
+//   {"names":[{"passage_id":"…","name":"…"},…],"names_digest":"<16 hex>"}
+// Each entry is exactly passage_id then name; entries strictly ascending by
+// passage_id in UTF-16 code-unit order (so no passage twice); a passage_id is
+// 1 to 128 characters of 0x21–0x7e; a name is non-empty and already clean
+// (cleanPassageName(name) === name); at most CHECK_FILE_V3_MAX_NAMES entries;
+// the line at most CHECK_FILE_V3_MAX_NAMES_LINE_BYTES of UTF-8. Like every
+// line, its shape is fixed: any change is a new format_version.
+
+export const CHECK_FILE_V3_VERSION = 3;
+/** At most this many names in a file (one per passage; the check cap's own number). */
+export const CHECK_FILE_V3_MAX_NAMES = 1000;
+/** The names line's bytes in UTF-8, its newline not counted: 1,000 names of 80 characters fit with room. */
+export const CHECK_FILE_V3_MAX_NAMES_LINE_BYTES = 512 * 1024;
+/** How every names line starts (the writer's key order), so a reader knows it before it is whole. */
+export const CHECK_FILE_V3_NAMES_PREFIX = '{"names":';
+/** The digest of no names: FNV-1a 64's offset basis. */
+export const CHECK_FILE_V3_EMPTY_NAMES_DIGEST = 'cbf29ce484222325';
+
+/** One passage's name in a version-3 file. */
+export interface CheckFileName3 {
+  passage_id: string;
+  name: string;
+}
+
+export type CheckFileNamesParse =
+  | { ok: true; names: CheckFileName3[] }
+  | { ok: false; problem: 'names'; detail: string };
+
+const NAMES_KEYS = ['names', 'names_digest'];
+const NAME_KEYS = ['passage_id', 'name'];
+const PASSAGE_ID = /^[\x21-\x7e]{1,128}$/;
+
+/** Why these names cannot be a names line, or null. Never quotes them. */
+function namesProblem(names: unknown): string | null {
+  if (!Array.isArray(names)) return 'no list of names';
+  if (names.length > CHECK_FILE_V3_MAX_NAMES) return 'more names than a check file may hold';
+  let previous: string | null = null;
+  for (const entry of names) {
+    if (!isRecord(entry) || !sameKeys(entry, NAME_KEYS)) return 'a name that is not a passage id and a name';
+    const { passage_id: passageId, name } = entry;
+    if (typeof passageId !== 'string' || !PASSAGE_ID.test(passageId)) return 'a passage id that is not one';
+    if (typeof name !== 'string' || !name || cleanPassageName(name) !== name) return 'a name that is not a clean passage name';
+    // strictly ascending in UTF-16 code-unit order: sorted, and no passage twice
+    if (previous !== null && !(previous < passageId)) return 'names out of order or repeated';
+    previous = passageId;
+  }
+  return null;
+}
+
+/**
+ * The digest of a names line: FNV-1a 64 (the engine's hash primitive, over
+ * UTF-16 code units, as files_digest) of each entry in order as its
+ * passage_id, U+000A, its name's length in UTF-16 code units in decimal ASCII
+ * digits, U+000A, then its name. A passage_id holds no newline and each name
+ * is length-prefixed, so two different lists never give the same input. It
+ * catches accidental damage; it is NOT a security measure (anyone can
+ * recompute it). No names give the offset basis, cbf29ce484222325.
+ */
+export function checkNamesDigest(names: readonly CheckFileName3[]): string {
+  const parts: string[] = [];
+  for (const { passage_id: passageId, name } of names) parts.push(`${passageId}\n${name.length}\n`, name);
+  return fnv1a64HexParts(parts);
+}
+
+/**
+ * The names line of a version-3 file, its newline included, for these
+ * entries in any order (sorted here). Throws on entries the reader would
+ * refuse: a passage_id outside the rule, a name that is empty or not clean, a
+ * passage twice, more than CHECK_FILE_V3_MAX_NAMES, or a line over
+ * CHECK_FILE_V3_MAX_NAMES_LINE_BYTES.
+ */
+export function checkFileNamesLine(entries: readonly CheckFileName3[]): string {
+  if (!Array.isArray(entries)) throw new Error('A names line needs a list of names.');
+  const names = entries.map((entry) => ({ passage_id: entry?.passage_id, name: entry?.name }))
+    .sort((a, b) => (a.passage_id < b.passage_id ? -1 : a.passage_id > b.passage_id ? 1 : 0));
+  const problem = namesProblem(names);
+  if (problem) throw new Error(`A names line cannot hold ${problem}.`);
+  const line = JSON.stringify({ names, names_digest: checkNamesDigest(names as CheckFileName3[]) });
+  if (new TextEncoder().encode(line).byteLength > CHECK_FILE_V3_MAX_NAMES_LINE_BYTES) throw new Error('A names line cannot be that long.');
+  return `${line}\n`;
+}
+
+/**
+ * Read a version-3 file's names line (without its newline), or say why not
+ * ('names'; the reason never quotes a name or an id): exactly names then
+ * names_digest; each entry exactly passage_id then name, within the rule
+ * above; its digest; and exactly the text checkFileNamesLine writes for them.
+ * The caller holds the line to CHECK_FILE_V3_MAX_NAMES_LINE_BYTES before it
+ * gets here.
+ */
+export function parseCheckFileNames(line: string): CheckFileNamesParse {
+  const refuse = (detail: string) => ({ ok: false as const, problem: 'names' as const, detail });
+  const value = lineObject(line, CHECK_FILE_V3_MAX_NAMES_LINE_BYTES);
+  if (typeof value === 'string') return refuse(value);
+  if (!sameKeys(value, NAMES_KEYS)) return refuse('not the fields of a names line');
+  const problem = namesProblem(value.names);
+  if (problem) return refuse(problem);
+  const names = value.names as CheckFileName3[];
+  if (typeof value.names_digest !== 'string' || !DIGEST.test(value.names_digest)) return refuse('no names digest');
+  if (value.names_digest !== checkNamesDigest(names)) return refuse('names that do not give their digest');
+  if (`${line}\n` !== checkFileNamesLine(names)) return refuse('not one compact JSON object');
+  return { ok: true, names: names.map(({ passage_id: passageId, name }) => ({ passage_id: passageId, name })) };
 }

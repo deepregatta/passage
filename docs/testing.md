@@ -1330,4 +1330,15 @@ matrices, ORC VPP rows, deep-polars licence records, `.pol` tables, gzip
 included), then runs its own planted-sample test. `npm run build:pages` repeats
 the scan over `viewer/dist` with no exceptions. Findings name the file and rule,
 never the data. Tests use invented tables only; each file holding one is listed
-with its reason in `SYNTHETIC_POLAR_FILES`.
+with its reason in `SYNTHETIC_POLAR_FILES`. Check file, version 3 (format): `engine/test/checkFile.test.ts` pins the
+exact version-3 header, the names line of one passage with its digest
+computed from the definition on BigInt (21f34bf459ab4d61) and the empty
+names line (cbf29ce484222325); reads a version-3 header with its version and
+calls 4 newer (version 3 is no longer newer); writes names sorted in code-unit
+order and reads them back; refuses to write a passage twice, a bad id, an
+unclean or empty name or 1,001 names; and refuses 29 names lines (not JSON,
+spaces, a carriage return, key order, an extra or missing key, a digest in
+capitals or wrong, names not a list, entries of another shape, bad ids of
+every kind, empty, unclean, over-long or numeric names, out of order, a
+passage twice, 1,001 names, a repeated or forbidden key, a check line, over
+512 KiB), never quoting a name or an id.

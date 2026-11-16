@@ -225,6 +225,8 @@ export async function* checkFileLinesOf(chunks, {
     const line = take();
     if (line === null) return null;
     const result = parseCheckFileHeader(line);
+    // version 3 (a names line after the header) is read from stage 2's next part on: until then, as before, newer
+    if (result.ok && result.version !== 2) throw refuse(LINES.newerVersion, `format version ${result.version}`);
     if (result.ok) return result.header;
     if (result.problem === 'newer-version') throw refuse(LINES.newerVersion, result.detail);
     return null;

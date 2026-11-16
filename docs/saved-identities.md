@@ -721,6 +721,30 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   Both flaws seen there were fixed the same day: the progress text now counts
   check lines read (never the trailer), and the "0 checks imported" line is
   left out when other information lines are shown.
+- Check file, version 3 (format; not yet written by the app; 2026-11-16):
+  version 2 with the names the sailor gave their passages, so restoring all
+  checks brings each renamed passage back under its name. The header says
+  `"format_version":3` (`checkFileHeaderLine` takes the version, 2 or 3;
+  `parseCheckFileHeader` reads both and says which, and calls 4 and above
+  newer); then exactly one names line, always present; then the check lines
+  and the trailer exactly as in version 2 (the trailer counts checks only).
+  The names line (`checkFileNamesLine`, `parseCheckFileNames`) is
+  `{"names":[{"passage_id":"…","name":"…"},…],"names_digest":"<16 hex>"}`:
+  keys exactly `names` then `names_digest`, each entry exactly `passage_id`
+  then `name`, entries strictly ascending by `passage_id` in UTF-16 code-unit
+  order (so no passage twice), a `passage_id` of 1 to 128 characters of
+  0x21–0x7e, a non-empty `name` that the one cleaning rule leaves as it is
+  (`cleanPassageName(name) === name`), at most 1,000 entries
+  (`CHECK_FILE_V3_MAX_NAMES`) and at most 512 KiB of UTF-8
+  (`CHECK_FILE_V3_MAX_NAMES_LINE_BYTES`); the line must be exactly the text
+  the writer writes for its entries. `names_digest` (`checkNamesDigest`) is
+  FNV-1a 64 over, for each entry in order, its `passage_id`, U+000A, its
+  name's length in UTF-16 code units in decimal, U+000A and its name (the
+  construction of `files_digest`); it catches accidental damage and is not a
+  security measure. No names: `{"names":[],"names_digest":"cbf29ce484222325"}`.
+  Refusals of a names line never quote a name or an id. Version 2 and its
+  exact-text pins are unchanged; the stream reader still refuses a version-3
+  header as newer until it reads the names line, and nothing writes version 3.
 - Passage names (2026-11-16): a name typed with "Rename" on My passages is a
   display label in local storage (`deepweather.passage-labels`, keyed by the
   passage's grouping key, `local|passage|<passage_id>` for a check saved

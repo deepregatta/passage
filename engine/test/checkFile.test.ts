@@ -3,7 +3,8 @@ import { join, resolve } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 import {
   CHECK_FILE_V2_MAX_CHECKS, CHECK_FILE_V2_MAX_COMPRESSED_BYTES, CHECK_FILE_V2_MAX_EDGE_BYTES, CHECK_FILE_V2_MAX_INFLATED_BYTES, CHECK_FILE_V2_MAX_LINE_BYTES,
-  CHECK_FILE_V2_TRAILER_PREFIX, CHECK_FILE_V2_VERSION, CHECK_FILE_MAX_COMPRESSED_BYTES, CHECK_FILE_MAX_TEXT_BYTES, ScenarioBundleStore,
+  CHECK_FILE_V2_TRAILER_PREFIX, CHECK_FILE_V2_VERSION, CHECK_FILE_V3_EMPTY_NAMES_DIGEST, CHECK_FILE_V3_MAX_NAMES, CHECK_FILE_V3_MAX_NAMES_LINE_BYTES,
+  CHECK_FILE_V3_NAMES_PREFIX, CHECK_FILE_V3_VERSION, checkFileNamesLine, checkNamesDigest, cleanPassageName, parseCheckFileNames, CHECK_FILE_MAX_COMPRESSED_BYTES, CHECK_FILE_MAX_TEXT_BYTES, ScenarioBundleStore,
   allChecksFileName, checkFileEntryLine, checkFileHeaderLine, checkFileTrailerLine, checkFilesDigest, parseCheckFileEntryLine, parseCheckFileHeader,
   parseCheckFileTrailer, persistSnapshot, runAnalysis,
   CHECK_FILE_FORMAT, CHECK_FILE_NAMES, CHECK_FILE_REQUIRED, CHECK_FILE_VERSION, buildCheckFile, checkFileName, checkFileText, checkHex, contentHash,
@@ -375,7 +376,7 @@ describe('check file, version 2', () => {
     expect(lines.pop()).toBe('');
     expect(lines).toHaveLength(4);
     expect(Object.keys(JSON.parse(lines[0]!))).toEqual(['format', 'format_version', 'exported_at', 'exported_by']);
-    expect(parseCheckFileHeader(lines[0]!)).toEqual({ ok: true, header });
+    expect(parseCheckFileHeader(lines[0]!)).toEqual({ ok: true, header, version: 2 });
     lines.slice(1, -1).forEach((line, i) => {
       const check = checks[i]!;
       expect(Object.keys(JSON.parse(line))).toEqual(['snapshot_id', 'files', 'files_digest']);
@@ -489,8 +490,8 @@ describe('check file, version 2', () => {
     const line = (value: Record<string, unknown>) => JSON.stringify(value);
     const valid = { format: 'passage-checks', format_version: 2, exported_at: exportedAt, exported_by: exportedBy };
     it('tells a newer format version apart', () => {
-      expect(parseCheckFileHeader(line({ ...valid, format_version: 3 }))).toMatchObject({ ok: false, problem: 'newer-version' });
-      expect(parseCheckFileHeader(line({ ...valid, format_version: 3, more: true }))).toMatchObject({ ok: false, problem: 'newer-version' });
+      expect(parseCheckFileHeader(line({ ...valid, format_version: 4 }))).toMatchObject({ ok: false, problem: 'newer-version' });
+      expect(parseCheckFileHeader(line({ ...valid, format_version: 4, more: true }))).toMatchObject({ ok: false, problem: 'newer-version' });
     });
     it.each([
       ['version 1', line({ ...valid, format_version: 1 })],
@@ -516,7 +517,7 @@ describe('check file, version 2', () => {
     });
     it('takes an exporting version of 1 to 200 printable ASCII characters only, writing and reading', () => {
       for (const by of ['x', 'Passage engine 0.2.0 (test) ~!', ' '.repeat(10) + 'x', '~'.repeat(200)]) {
-        expect(parseCheckFileHeader(checkFileHeaderLine({ exportedAt, exportedBy: by }).slice(0, -1))).toEqual({ ok: true, header: { exportedAt, exportedBy: by } });
+        expect(parseCheckFileHeader(checkFileHeaderLine({ exportedAt, exportedBy: by }).slice(0, -1))).toEqual({ ok: true, header: { exportedAt, exportedBy: by }, version: 2 });
       }
       for (const by of ['Passage engine 0.2.0 · Île', 'tab\there', 'new\nline', 'nul\u0000', 'del\u007f', '🌊', '~'.repeat(201), '', '   ']) {
         expect(() => checkFileHeaderLine({ exportedAt, exportedBy: by })).toThrow(/version/);
@@ -598,5 +599,115 @@ describe('check file, version 2', () => {
     expect(CHECK_FILE_V2_MAX_INFLATED_BYTES).toBe(8 * 2 ** 30);
     // a version-2 header is not a version-1 document
     expect(parseCheckFile(checkFileHeaderLine(header), { nowMs: NOW_MS })).toMatchObject({ ok: false, problem: 'newer-version' });
+  });
+});
+
+// The check file, version 3: version 2 with exactly one names line after the header.
+describe('check file, version 3', () => {
+  const exportedAt3 = '2026-11-15T12:00:00Z';
+  const pinned = [{ passage_id: '0b6f4c1e-7d2a-4c4e-9f3b-2a1d5e6c7b80', name: 'Autumn delivery, Cherbourg → Plymouth' }];
+  /** FNV-1a 64 by its definition, on BigInt, over the names line's digest input. */
+  const fnvByDefinition = (names: Array<{ passage_id: string; name: string }>) => {
+    let input = '';
+    for (const { passage_id: id, name } of names) input += `${id}\n${name.length}\n${name}`;
+    let h = 0xcbf29ce484222325n;
+    for (let i = 0; i < input.length; i++) h = ((h ^ BigInt(input.charCodeAt(i))) * 0x100000001b3n) & 0xffffffffffffffffn;
+    return h.toString(16).padStart(16, '0');
+  };
+  const refused = (line: string) => {
+    const result = parseCheckFileNames(line);
+    expect(result, line.slice(0, 120)).toMatchObject({ ok: false, problem: 'names' });
+    return result;
+  };
+  // a names line with these entries and, unless given, the digest they would have (a stand-in where none can be computed)
+  const digestOf = (list: unknown) => { try { return checkNamesDigest(list as never); } catch { return '0123456789abcdef'; } };
+  const names = (list: unknown, digest?: string) => JSON.stringify({ names: list, names_digest: digest ?? digestOf(list) });
+
+  it('is fixed: the exact header and names line of a small file, and the digest computed from its definition', () => {
+    expect(CHECK_FILE_V3_VERSION).toBe(3);
+    expect(checkFileHeaderLine({ exportedAt: exportedAt3, exportedBy: 'Passage engine 0.2.0', version: 3 }))
+      .toBe('{"format":"passage-checks","format_version":3,"exported_at":"2026-11-15T12:00:00.000Z","exported_by":"Passage engine 0.2.0"}\n');
+    expect(fnvByDefinition(pinned)).toBe('21f34bf459ab4d61');
+    expect(checkNamesDigest(pinned)).toBe('21f34bf459ab4d61');
+    expect(checkFileNamesLine(pinned)).toBe('{"names":[{"passage_id":"0b6f4c1e-7d2a-4c4e-9f3b-2a1d5e6c7b80","name":"Autumn delivery, Cherbourg → Plymouth"}],"names_digest":"21f34bf459ab4d61"}\n');
+    expect(checkFileNamesLine([])).toBe('{"names":[],"names_digest":"cbf29ce484222325"}\n');
+    expect(fnvByDefinition([])).toBe(CHECK_FILE_V3_EMPTY_NAMES_DIGEST);
+    expect(CHECK_FILE_V3_NAMES_PREFIX).toBe('{"names":');
+    expect([CHECK_FILE_V3_MAX_NAMES, CHECK_FILE_V3_MAX_NAMES_LINE_BYTES]).toEqual([1000, 512 * 1024]);
+    // version 2's header is untouched, and stays the default
+    expect(checkFileHeaderLine({ exportedAt: exportedAt3, exportedBy: 'Passage engine 0.2.0' })).toContain('"format_version":2,');
+  });
+
+  it('reads a version-3 header with its version, and calls version 4 newer', () => {
+    const line = checkFileHeaderLine({ exportedAt, exportedBy, version: 3 }).slice(0, -1);
+    expect(parseCheckFileHeader(line)).toEqual({ ok: true, header: { exportedAt, exportedBy }, version: 3 });
+    expect(parseCheckFileHeader(line.replace('"format_version":3', '"format_version":4'))).toMatchObject({ ok: false, problem: 'newer-version' });
+    expect(() => checkFileHeaderLine({ exportedAt, exportedBy, version: 4 })).toThrow();
+    expect(() => checkFileHeaderLine({ exportedAt, exportedBy, version: 1 })).toThrow();
+  });
+
+  it('writes names sorted by passage id in code-unit order, reads them back, and computes the digest by the definition', () => {
+    const entries = [
+      { passage_id: 'b', name: 'Île d’Yeu → Brest 🌊' },
+      { passage_id: 'B', name: 'Crew 👩\u200D👩\u200D👧' },
+      { passage_id: 'a-1', name: 'Solent "hop", 3 \\ 4' },
+    ];
+    const line = checkFileNamesLine(entries);
+    expect(line.endsWith('}\n')).toBe(true);
+    const sorted = [entries[1]!, entries[2]!, entries[0]!];
+    expect(JSON.parse(line)).toEqual({ names: sorted, names_digest: fnvByDefinition(sorted) });
+    expect(parseCheckFileNames(line.slice(0, -1))).toEqual({ ok: true, names: sorted });
+    expect(checkFileNamesLine([...entries].reverse())).toBe(line);
+  });
+
+  it('refuses to write names the reader would refuse', () => {
+    expect(() => checkFileNamesLine([{ passage_id: 'a', name: 'x' }, { passage_id: 'a', name: 'y' }])).toThrow();
+    expect(() => checkFileNamesLine([{ passage_id: 'a b', name: 'x' }])).toThrow();
+    expect(() => checkFileNamesLine([{ passage_id: 'a', name: ' x' }])).toThrow();
+    expect(() => checkFileNamesLine([{ passage_id: 'a', name: '' }])).toThrow();
+    expect(() => checkFileNamesLine(Array.from({ length: 1001 }, (_, i) => ({ passage_id: `p${String(i).padStart(4, '0')}`, name: 'x' })))).toThrow();
+    expect(checkFileNamesLine(Array.from({ length: 1000 }, (_, i) => ({ passage_id: `${'p'.repeat(124)}${String(i).padStart(4, '0')}`, name: 'é'.repeat(80) }))).length).toBeGreaterThan(200_000);
+  });
+
+  it.each([
+    ['not JSON', () => '{"names":['],
+    ['a space inside', () => checkFileNamesLine(pinned).slice(0, -1).replace('"names":', '"names": ')],
+    ['a carriage return', () => `${checkFileNamesLine(pinned).slice(0, -1)}\r`],
+    ['keys in another order', () => JSON.stringify({ names_digest: checkNamesDigest(pinned), names: pinned })],
+    ['an extra key', () => JSON.stringify({ names: pinned, names_digest: checkNamesDigest(pinned), more: 1 })],
+    ['no digest', () => JSON.stringify({ names: pinned })],
+    ['a digest in capitals', () => names(pinned, checkNamesDigest(pinned).toUpperCase())],
+    ['a wrong digest', () => names(pinned, '0123456789abcdef')],
+    ['names that are not a list', () => names({ a: 1 })],
+    ['an entry with keys in another order', () => names([{ name: 'x', passage_id: 'a' }])],
+    ['an entry with an extra key', () => names([{ passage_id: 'a', name: 'x', more: 1 }])],
+    ['an entry that is not an object', () => names(['a'])],
+    ['a passage id with a space', () => names([{ passage_id: 'a b', name: 'x' }])],
+    ['an empty passage id', () => names([{ passage_id: '', name: 'x' }])],
+    ['a passage id of 129 characters', () => names([{ passage_id: 'a'.repeat(129), name: 'x' }])],
+    ['a passage id outside ASCII', () => names([{ passage_id: 'é', name: 'x' }])],
+    ['a passage id that is a number', () => names([{ passage_id: 1, name: 'x' }])],
+    ['an empty name', () => names([{ passage_id: 'a', name: '' }])],
+    ['a name with a right-to-left override', () => names([{ passage_id: 'a', name: 'a\u202Eb' }])],
+    ['a name with a double space', () => names([{ passage_id: 'a', name: 'a  b' }])],
+    ['a name of 81 characters', () => names([{ passage_id: 'a', name: 'x'.repeat(81) }])],
+    ['a name that is a number', () => names([{ passage_id: 'a', name: 1 }])],
+    ['names out of order', () => names([{ passage_id: 'b', name: 'x' }, { passage_id: 'a', name: 'y' }])],
+    ['a passage twice', () => names([{ passage_id: 'a', name: 'x' }, { passage_id: 'a', name: 'x' }])],
+    ['1,001 names', () => names(Array.from({ length: 1001 }, (_, i) => ({ passage_id: `p${String(i).padStart(4, '0')}`, name: 'x' })))],
+    ['a repeated key', () => checkFileNamesLine(pinned).slice(0, -1).replace('{"names":', '{"names":[],"names":')],
+    ['the key __proto__', () => checkFileNamesLine(pinned).slice(0, -1).replace('{"names":', '{"__proto__":{},"names":')],
+    ['a check line', () => checkFileTrailerLine(0).slice(0, -1)],
+    ['over 512 KiB', () => names([{ passage_id: 'a', name: 'x' }]).replace('"x"', `"${'x'.repeat(80)}"`).padEnd(512 * 1024 + 10, ' ')],
+  ])('refuses a names line with %s, never quoting it', (_case, make) => {
+    const result = refused(make());
+    expect(JSON.stringify(result)).not.toMatch(/Autumn|Cherbourg|0b6f4c1e/);
+  });
+
+  it('keeps names cleaned by the one rule, and only those', () => {
+    for (const name of ['Brest → Yeu', 'Crew 👩\u200D👩\u200D👧', 'x'.repeat(80)]) {
+      expect(cleanPassageName(name)).toBe(name);
+      expect(parseCheckFileNames(checkFileNamesLine([{ passage_id: 'a', name }]).slice(0, -1)).ok).toBe(true);
+    }
   });
 });
