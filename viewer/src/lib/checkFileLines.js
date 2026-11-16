@@ -1,6 +1,7 @@
 import {
   CHECK_FILE_V2_MAX_CHECKS, CHECK_FILE_V2_MAX_COMPRESSED_BYTES, CHECK_FILE_V2_MAX_EDGE_BYTES, CHECK_FILE_V2_MAX_INFLATED_BYTES,
-  CHECK_FILE_V2_MAX_LINE_BYTES, CHECK_FILE_V2_TRAILER_PREFIX, parseCheckFileHeader, parseCheckFileTrailer,
+  CHECK_FILE_V2_MAX_LINE_BYTES, CHECK_FILE_V2_TRAILER_PREFIX, CHECK_FILE_V3_MAX_NAMES_LINE_BYTES, CHECK_FILE_V3_NAMES_PREFIX,
+  parseCheckFileHeader, parseCheckFileNames, parseCheckFileTrailer,
 } from '@deepweather/engine';
 
 // The stream reader of the check file, version 2 (engine/src/checkFile.ts):
@@ -12,9 +13,12 @@ import {
 // (the engine's parseCheckFileEntryLine). It reads the header and trailer
 // itself, since it needs them to know where the file starts and ends.
 //
-// Yields, in order: { kind: 'v2', header } (the header parsed); each check
-// line's text (a string, without its newline); then { trailer: { ok: true,
-// checks } } once the trailer holds and the file has ended cleanly after it.
+// Yields, in order: { kind: 'v2', header } or { kind: 'v3', header } (the
+// header parsed); for version 3, { names } (the names line's entries) or
+// { namesUnreadable: true } (a names line refused or missing; the checks are
+// still read); each check line's text (a string, without its newline); then
+// { trailer: { ok: true, checks } } once the trailer holds and the file has
+// ended cleanly after it.
 // Or yields only { kind: 'v1' } and stops when the first line is not a
 // version-2 header: the file may be a version-1 document (one line, with or
 // without one final newline), and the caller hands the same File to the stage
@@ -76,6 +80,8 @@ export const LINE_CAPS = Object.freeze({
   edgeBytes: CHECK_FILE_V2_MAX_EDGE_BYTES,
   checks: CHECK_FILE_V2_MAX_CHECKS,
   inflatedBytes: CHECK_FILE_V2_MAX_INFLATED_BYTES,
+  /** a version-3 file's names line, its newline not counted */
+  namesBytes: CHECK_FILE_V3_MAX_NAMES_LINE_BYTES,
 });
 
 export class CheckFileLinesError extends Error {
@@ -90,6 +96,7 @@ export class CheckFileLinesError extends Error {
 const refuse = (code, detail) => new CheckFileLinesError(code, detail);
 const NEWLINE = 0x0a;
 const TRAILER_PREFIX = new TextEncoder().encode(CHECK_FILE_V2_TRAILER_PREFIX);
+const NAMES_PREFIX = new TextEncoder().encode(CHECK_FILE_V3_NAMES_PREFIX);
 const GZIP_MEMBER = [0x1f, 0x8b, 0x08];
 
 /**
@@ -160,16 +167,32 @@ export async function* checkFileLinesOf(chunks, {
   const decoder = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
   // the line being read: its byte count, its first bytes, its text so far, and (after the header) what it is
   let length = 0;
-  const prefix = new Uint8Array(TRAILER_PREFIX.length);
+  // the first bytes of a line: seven tell a trailer, nine a names line (only those are kept)
+  const prefix = new Uint8Array(NAMES_PREFIX.length);
   let prefixLength = 0;
   let text = '';
   let kind = null; // null until known, then 'trailer' or 'check'
-  let phase = 'header'; // then 'body', then 'ended' once the trailer is whole
+  let phase = 'header'; // then 'names' (version 3 only), then 'body', then 'ended' once the trailer is whole
+  let namesLine = null; // in the names phase: null until its first bytes say, then true (the names line) or false (none: another line)
+  let namesBroken = false; // the names line is not UTF-8: it is unreadable, and its bytes are no longer decoded
+  let notice = null; // something to say before the line in hand: the names line is missing
   let checks = 0;
   let inflated = 0;
   let trailer = null;
 
-  const startsAsTrailer = () => prefixLength === TRAILER_PREFIX.length && prefix.every((byte, i) => byte === TRAILER_PREFIX[i]);
+  const startsAsTrailer = () => prefixLength >= TRAILER_PREFIX.length && TRAILER_PREFIX.every((byte, i) => prefix[i] === byte);
+  const startsAsNames = () => prefixLength >= NAMES_PREFIX.length && NAMES_PREFIX.every((byte, i) => prefix[i] === byte);
+  // the bytes so far could still begin a names line
+  const couldBeNames = () => NAMES_PREFIX.subarray(0, Math.min(prefixLength, NAMES_PREFIX.length)).every((byte, i) => prefix[i] === byte);
+  // in the names phase: the line in hand is the names line, or the names line is missing and this line is read as what it is
+  const decideNames = (whole) => {
+    if (namesLine !== null || (!whole && prefixLength < NAMES_PREFIX.length)) return;
+    namesLine = startsAsNames();
+    if (namesLine) return;
+    notice = { namesUnreadable: true };
+    phase = 'body';
+    if (namesBroken) throw refuse(LINES.invalidUtf8, 'a line that is not UTF-8');
+  };
   // what a body line is, as soon as its first bytes (or its end) say so
   const settle = (whole) => {
     if (kind !== null || (!whole && prefixLength < TRAILER_PREFIX.length)) return;
@@ -180,24 +203,34 @@ export async function* checkFileLinesOf(chunks, {
   const add = (piece) => {
     if (!piece.byteLength) return true;
     length += piece.byteLength;
-    if (prefixLength < prefix.length) {
-      const n = Math.min(prefix.length - prefixLength, piece.byteLength);
+    const wanted = phase === 'names' ? NAMES_PREFIX.length : TRAILER_PREFIX.length;
+    if (prefixLength < wanted) {
+      const n = Math.min(wanted - prefixLength, piece.byteLength);
       prefix.set(piece.subarray(0, n), prefixLength);
       prefixLength += n;
     }
+    if (phase === 'names') decideNames(false);
     if (phase === 'header') {
       if (length > limits.edgeBytes) return false;
+    } else if (phase === 'names') {
+      // the names line is held to its own cap, and stops the read before any check when over it
+      if (length > limits.namesBytes) throw refuse(LINES.tooLarge, 'a names line over its cap');
     } else {
       settle(false);
       if (kind === 'trailer' && length > limits.edgeBytes) throw refuse(LINES.tooLarge, 'a trailer over its cap');
       if (length > limits.lineBytes) throw refuse(LINES.tooLarge, 'a line over its cap');
     }
     // decoded now and not kept: the line is held once, as text
-    try {
-      text += decoder.decode(piece, { stream: true });
-    } catch {
-      if (phase === 'header') return false;
-      throw refuse(LINES.invalidUtf8, 'a line that is not UTF-8');
+    if (!namesBroken) {
+      try {
+        text += decoder.decode(piece, { stream: true });
+      } catch {
+        if (phase === 'header') return false;
+        if (phase !== 'names') throw refuse(LINES.invalidUtf8, 'a line that is not UTF-8');
+        // a names line that is not UTF-8 is unreadable; the checks after it are still read
+        namesBroken = true;
+        text = '';
+      }
     }
     probe?.({ heldBytes: prefixLength, heldChars: text.length });
     return true;
@@ -220,16 +253,24 @@ export async function* checkFileLinesOf(chunks, {
     if (line === null) throw refuse(LINES.invalidUtf8, 'a line that is not UTF-8');
     return line;
   };
-  // the header line, whole: its parse, or null when the file is to be read as version 1
+  // the header line, whole: { header, version }, or null when the file is to be read as version 1
   const headerOf = () => {
     const line = take();
     if (line === null) return null;
     const result = parseCheckFileHeader(line);
-    // version 3 (a names line after the header) is read from stage 2's next part on: until then, as before, newer
-    if (result.ok && result.version !== 2) throw refuse(LINES.newerVersion, `format version ${result.version}`);
-    if (result.ok) return result.header;
+    if (result.ok) return { header: result.header, version: result.version };
     if (result.problem === 'newer-version') throw refuse(LINES.newerVersion, result.detail);
     return null;
+  };
+  // the names line, whole: what the reader says of it
+  const namesOf = () => {
+    const line = take();
+    const broken = namesBroken || line === null;
+    namesBroken = false;
+    namesLine = null;
+    phase = 'body';
+    const result = broken ? null : parseCheckFileNames(line);
+    return result?.ok ? { names: result.names } : { namesUnreadable: true };
   };
   const endOf = (line) => {
     const result = parseCheckFileTrailer(line, checks);
@@ -250,16 +291,35 @@ export async function* checkFileLinesOf(chunks, {
           yield { kind: 'v1' };
           return;
         }
+        if (notice) {
+          yield notice;
+          notice = null;
+          throwIfAborted(signal);
+        }
         if (newline === -1) break;
         start = newline + 1;
         if (phase === 'header') {
-          const header = headerOf();
-          if (header === null) {
+          const read = headerOf();
+          if (read === null) {
             yield { kind: 'v1' };
             return;
           }
-          phase = 'body';
-          yield { kind: 'v2', header };
+          // version 3: exactly one names line comes first
+          phase = read.version === 3 ? 'names' : 'body';
+          yield { kind: read.version === 3 ? 'v3' : 'v2', header: read.header };
+          throwIfAborted(signal);
+          continue;
+        }
+        if (phase === 'names') {
+          decideNames(true);
+          if (notice) {
+            yield notice;
+            notice = null;
+            throwIfAborted(signal);
+          }
+        }
+        if (phase === 'names') {
+          yield namesOf();
           throwIfAborted(signal);
           continue;
         }
@@ -294,6 +354,14 @@ export async function* checkFileLinesOf(chunks, {
       return;
     }
     throw refuse(LINES.truncated, 'no trailer');
+  }
+  if (phase === 'names') {
+    // nothing after the header, or a names line cut short
+    if (!length || namesLine === true || couldBeNames()) throw refuse(LINES.truncated, 'no trailer');
+    // a last line that is not a names line (a trailer without its newline): the names line is missing
+    namesLine = false;
+    phase = 'body';
+    yield { namesUnreadable: true };
   }
   if (phase === 'body') {
     // a trailer without its newline ends the file; one cut short (its closing brace is not its last character) is a truncation

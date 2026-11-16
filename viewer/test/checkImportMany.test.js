@@ -123,7 +123,7 @@ describe('a version-2 file', () => {
   });
 
   it('refuses a header of a newer format version before reading anything', async () => {
-    const newer = `${JSON.stringify({ format: 'passage-checks', format_version: 3, exported_at: exportedAt, exported_by: exportedBy })}\n`;
+    const newer = `${JSON.stringify({ format: 'passage-checks', format_version: 4, exported_at: exportedAt, exported_by: exportedBy })}\n`;
     expect(await importLines(fileFrom(`${newer}${lineOf(a)}\n`))).toMatchObject({ kind: 'v2', end: 'refused', refusal: 'newer-version' });
     expect(await dump()).toEqual([]);
   });
@@ -416,4 +416,13 @@ it('removes imported checks through the delete it is given, and counts as remove
   expect(seen).toEqual([a.snapshotId, b.snapshotId]);
   expect(result).toEqual({ removed: [a.snapshotId], refused: [b.snapshotId] });
   expect(idsIn(await dump())).toEqual([b.snapshotId]);
+});
+
+it('reads the checks of a version-3 file after its names line, the names not yet applied', async () => {
+  const { checkFileNamesLine: namesLine } = await import('@deepweather/engine');
+  const header3 = checkFileHeaderLine({ exportedAt, exportedBy, version: 3 });
+  const text = header3 + namesLine([{ passage_id: 'passage-a', name: 'A name' }]) + `${lineOf(a)}\n${lineOf(b)}\n` + checkFileTrailerLine(2);
+  const result = await importLines(fileFrom(text));
+  expect(result).toMatchObject({ kind: 'v2', end: 'complete', importedIds: [a.snapshotId, b.snapshotId], outcomes: { ...zero, imported: 2 } });
+  expect(localStorage.getItem('deepweather.passage-labels')).toBeNull();
 });

@@ -2,7 +2,7 @@ import { Blob as NodeBlob, File as NodeFile } from 'node:buffer';
 import { crc32, gzipSync } from 'node:zlib';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import {
-  buildCheckFile, checkFileEntryLine, checkFileHeaderLine, checkFileText, checkFileTrailerLine, parseCheckFileEntryLine,
+  buildCheckFile, checkFileEntryLine, checkFileHeaderLine, checkFileNamesLine, checkFileText, checkFileTrailerLine, parseCheckFileEntryLine,
 } from '@deepweather/engine';
 import {
   CheckFileLinesError, LINES, LINE_CAPS, checkFileLinesOf, endsWithSize, holdsSecondMember, memberSizeBytes, readCheckFileLines,
@@ -171,7 +171,7 @@ describe('a version-2 file', () => {
   });
 
   it('stops at a header of a newer format version', async () => {
-    const newer = `${JSON.stringify({ format: 'passage-checks', format_version: 3, exported_at: exportedAt, exported_by: exportedBy })}\n`;
+    const newer = `${JSON.stringify({ format: 'passage-checks', format_version: 4, exported_at: exportedAt, exported_by: exportedBy })}\n`;
     expect(await read(fileOf(gzip(newer + checkFileTrailerLine(0))))).toMatchObject({ items: [], code: LINES.newerVersion });
   });
 });
@@ -545,5 +545,68 @@ describe('review round', () => {
     expect(await read(failing(0))).toMatchObject({ items: [], code: LINES.unreadable });
     const end = await read(failing(bytes.byteLength - 4));
     expect(end).toMatchObject({ items: [{ kind: 'v2', header }, fakeLine(40)], code: LINES.unreadable, detail: 'the end of the file could not be read' });
+  });
+});
+
+describe('a version-3 file: a names line after the header', () => {
+  const NAMES = [{ passage_id: 'p-1', name: 'Autumn delivery, Cherbourg → Plymouth' }, { passage_id: 'p-2', name: 'Île d’Yeu 🌊' }];
+  const HEADER3 = checkFileHeaderLine({ exportedAt, exportedBy, version: 3 });
+  const backup3 = (namesLine, lines, trailer = checkFileTrailerLine(lines.length)) => HEADER3 + namesLine + lines.map((line) => `${line}\n`).join('') + trailer;
+
+  it('yields the header, the names, each check line and the trailer', async () => {
+    const result = await read(fileOf(gzip(backup3(checkFileNamesLine(NAMES), [fakeLine(40), fakeLine(50)]))));
+    expect(result).toEqual({ items: [{ kind: 'v3', header }, { names: NAMES }, fakeLine(40), fakeLine(50), { trailer: { ok: true, checks: 2 } }], code: null });
+  });
+
+  it('yields no names for an empty names line, and reads the same in chunks of one byte', async () => {
+    const text = backup3(checkFileNamesLine([]), [fakeLine(40)]);
+    const whole = await read(fileOf(gzip(text)));
+    expect(whole.items.slice(0, 2)).toEqual([{ kind: 'v3', header }, { names: [] }]);
+    expect(await readChunks(Array.from(encoder.encode(text), (byte) => new Uint8Array([byte])))).toEqual(whole);
+  });
+
+  it('stops before any check at a names line over its cap, and reads one at the cap', async () => {
+    const line = checkFileNamesLine(NAMES);
+    const size = encoder.encode(line).byteLength - 1;
+    expect((await read(fileOf(gzip(backup3(line, [fakeLine(40)]))), { caps: { namesBytes: size } })).code).toBeNull();
+    const over = await read(fileOf(gzip(backup3(line, [fakeLine(40)]))), { caps: { namesBytes: size - 1 } });
+    expect(over).toEqual({ items: [{ kind: 'v3', header }], code: LINES.tooLarge, detail: 'a names line over its cap' });
+  });
+
+  it('refuses a file cut inside its names line as truncated, and one with nothing after its header', async () => {
+    const text = backup3(checkFileNamesLine(NAMES), [fakeLine(40)]);
+    expect(await read(fileOf(gzip(text.slice(0, HEADER3.length + 30))))).toEqual({ items: [{ kind: 'v3', header }], code: LINES.truncated, detail: 'no trailer' });
+    expect(await read(fileOf(gzip(text.slice(0, HEADER3.length + 4))))).toMatchObject({ code: LINES.truncated });
+    expect(await read(fileOf(gzip(HEADER3)))).toMatchObject({ items: [{ kind: 'v3', header }], code: LINES.truncated });
+  });
+
+  it('says the names are unreadable, and still reads the checks, for a refused names line or one that is not UTF-8', async () => {
+    const refused = await read(fileOf(gzip(backup3('{"names":[{"passage_id":"a b","name":"x"}],"names_digest":"0123456789abcdef"}\n', [fakeLine(40)]))));
+    expect(refused).toEqual({ items: [{ kind: 'v3', header }, { namesUnreadable: true }, fakeLine(40), { trailer: { ok: true, checks: 1 } }], code: null });
+    const bad = concat(encoder.encode(HEADER3), encoder.encode('{"names":[{"passage_id":"a","name":"'), new Uint8Array([0xff, 0xfe]), encoder.encode('"}],"names_digest":"0123456789abcdef"}\n'),
+      encoder.encode(`${fakeLine(40)}\n${checkFileTrailerLine(1)}`));
+    expect(await read(fileOf(gzip(bad)))).toEqual({ items: [{ kind: 'v3', header }, { namesUnreadable: true }, fakeLine(40), { trailer: { ok: true, checks: 1 } }], code: null });
+  });
+
+  it('says the names are unreadable when the header is followed directly by a check line or the trailer, and reads that line as what it is', async () => {
+    const direct = await read(fileOf(gzip(HEADER3 + `${fakeLine(40)}\n${checkFileTrailerLine(1)}`)));
+    expect(direct).toEqual({ items: [{ kind: 'v3', header }, { namesUnreadable: true }, fakeLine(40), { trailer: { ok: true, checks: 1 } }], code: null });
+    expect(await read(fileOf(gzip(HEADER3 + checkFileTrailerLine(0))))).toEqual({ items: [{ kind: 'v3', header }, { namesUnreadable: true }, { trailer: { ok: true, checks: 0 } }], code: null });
+    // the trailer without its newline, right after the header
+    expect(await read(fileOf(gzip(HEADER3 + checkFileTrailerLine(0).slice(0, -1))))).toEqual({ items: [{ kind: 'v3', header }, { namesUnreadable: true }, { trailer: { ok: true, checks: 0 } }], code: null });
+    // a short line that is no names line
+    expect((await read(fileOf(gzip(`${HEADER3}{}\n${checkFileTrailerLine(1)}`)))).items).toEqual([{ kind: 'v3', header }, { namesUnreadable: true }, '{}', { trailer: { ok: true, checks: 1 } }]);
+  });
+
+  it('yields a second names line later as a check line, for the caller to refuse', async () => {
+    const names = checkFileNamesLine(NAMES);
+    const result = await read(fileOf(gzip(backup3(names, [fakeLine(40), names.slice(0, -1)]))));
+    expect(result.items).toEqual([{ kind: 'v3', header }, { names: NAMES }, fakeLine(40), names.slice(0, -1), { trailer: { ok: true, checks: 2 } }]);
+  });
+
+  it('keeps a version-2 file as it was: no names item', async () => {
+    const result = await read(fileOf(gzip(backup([fakeLine(40)]))));
+    expect(result.items).toEqual([{ kind: 'v2', header }, fakeLine(40), { trailer: { ok: true, checks: 1 } }]);
+    expect(LINE_CAPS.namesBytes).toBe(512 * 1024);
   });
 });

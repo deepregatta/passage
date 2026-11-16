@@ -1341,4 +1341,15 @@ spaces, a carriage return, key order, an extra or missing key, a digest in
 capitals or wrong, names not a list, entries of another shape, bad ids of
 every kind, empty, unclean, over-long or numeric names, out of order, a
 passage twice, 1,001 names, a repeated or forbidden key, a check line, over
-512 KiB), never quoting a name or an id.
+512 KiB), never quoting a name or an id. Reader, version 3: `checkFileLines.test.js` yields the header, the names,
+each check line and the trailer; no names for an empty names line, and the
+same one byte at a time; stops before any check at a names line one byte over
+its cap and reads one at it; refuses as truncated a file cut inside its names
+line, right after its header or with nothing after it; says the names are
+unreadable and still reads the checks for a refused names line and one that
+is not UTF-8; says so when the header is followed directly by a check line,
+the trailer (with or without its newline) or a short line, reading that line
+as what it is; yields a second names line later as a check line; and reads a
+version-2 file with no names item. `checkImportMany.test.js` imports a
+version-3 file's checks with its names not yet applied; the tests that took
+version 3 as newer now take version 4.

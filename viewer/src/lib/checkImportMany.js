@@ -158,7 +158,8 @@ export async function importChecksFile(file, { servedIds = null, signal, onProgr
         await lines.return();
         return { kind: 'v1', ...await importCheckFile(file, { servedIds, nowMs }) };
       }
-      if (item?.kind === 'v2') {
+      // version 3 is version 2 with a names line first: its checks are read the same way
+      if (item?.kind === 'v2' || item?.kind === 'v3') {
         header = item.header;
         // no request is made: a page that never read the served ids refuses for now
         if (!(servedIds instanceof Set)) {
@@ -169,6 +170,8 @@ export async function importChecksFile(file, { servedIds = null, signal, onProgr
         onProgress?.({ index: 0 });
         continue;
       }
+      // a version-3 file's passage names: not applied here (yet)
+      if (item?.names || item?.namesUnreadable) continue;
       if (item?.trailer) return item.trailer.checks === index ? result(IMPORT_END.complete, { notReached: 0 }) : result(IMPORT_END.incomplete, { hint: LINES.trailer });
       // a check line
       index += 1;

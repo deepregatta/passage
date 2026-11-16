@@ -743,8 +743,20 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   construction of `files_digest`); it catches accidental damage and is not a
   security measure. No names: `{"names":[],"names_digest":"cbf29ce484222325"}`.
   Refusals of a names line never quote a name or an id. Version 2 and its
-  exact-text pins are unchanged; the stream reader still refuses a version-3
-  header as newer until it reads the names line, and nothing writes version 3.
+  exact-text pins are unchanged; nothing writes version 3 yet.
+  The stream reader (since stage 2's names part) reads a version-3 file: it
+  yields `{ kind: 'v3', header }`, then reads exactly one line as the names
+  line, held to its own cap while its bytes buffer (512 KiB; over it, the
+  read stops before any check, as for a trailer over its cap), and yields
+  `{ names }` when it parses or `{ namesUnreadable: true }` when it is
+  refused, including a names line that is not UTF-8; the checks still follow
+  and are read. A missing names line (the line after the header is a check
+  line or the trailer, told from its first nine bytes) is
+  `{ namesUnreadable: true }` too, and that line is then read as what it is.
+  A names line cut short is a truncation; a line starting `{"names` later
+  in the file is a check line, which the caller refuses as damaged. Version
+  2 and version 1 read as before. The import of many checks reads a
+  version-3 file's checks and does not apply its names yet.
 - Passage names (2026-11-16): a name typed with "Rename" on My passages is a
   display label in local storage (`deepweather.passage-labels`, keyed by the
   passage's grouping key, `local|passage|<passage_id>` for a check saved
