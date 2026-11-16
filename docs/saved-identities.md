@@ -699,6 +699,25 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   damage early in a file can make its first line unreadable and the file
   version 1's to judge (stage 1 refuses it as damaged), and a member failing
   its check may read as truncated: every such file is refused either way.
+- Live test of the all-checks file (2026-11-16, passage.deepregatta.com, the
+  desktop app's built-in Chromium, the owner's own data, counts only): "Save
+  all checks to a file" made one file from 8 checks in 7.5 s (9.18 MB of gzip,
+  73.1 MB of text: a version-2 header, 8 check lines, the trailer; nothing left
+  out). Progress and Stop showed; the longest main-thread task was 0.95 s.
+  "Save the file" gave the "Your browser saves it…" line and wrote the
+  last-file record (two keys, 8 ids, `made_at` equal to the header's
+  `exported_at`); that browser pane again wrote no download to disk, so the
+  file on disk is not verified. The same bytes given to "Import from a file"
+  answered "0 checks imported from the file." and "8 checks were already in My
+  passages." in 1.1 s, with no undo button; the store was unchanged (8 checks,
+  56 records, no marker). The only requests were the importer's own script and
+  the served list the page reloads afterwards. Both controls and the last-file
+  line read correctly in French and fit a 375 px viewport with no horizontal
+  overflow and no console error. Seen and not yet fixed: the import's progress
+  text counted to "check 9" for 8 checks (the trailer line is counted), and the
+  summary opens with a "0 checks imported" line when every check was already
+  here. Not tested live: an import that stores checks, a refusal, the undo,
+  Stop, Safari, Firefox, a phone.
 - Modern histories group only by explicit passage ID and persistence source.
   Legacy checks without explicit identity remain individually accessible and
   deletable. No inferred grouping from route names/counts/departure is permitted.
