@@ -119,6 +119,7 @@ beforeEach(() => { vi.mocked(runAnalysis).mockReset(); });
 
 describe('refineScan equals one scan over the merged departures', () => {
   const SEEDS = Array.from({ length: 120 }, (_, i) => i + 1);
+  // Explicit timeout: a CPU-bound property test over generated cases (fixed seeds, no I/O or timers). The default 5 s is too tight beside other work on the machine; a real hang still fails.
   it('on generated audits with missing values, failures and a layer present only at refined times (seeds 1-120)', async () => {
     let changedByRefining = 0, refinedSeeds = 0, markMovedToRefined = 0;
     for (const seed of SEEDS) {
@@ -152,7 +153,7 @@ describe('refineScan equals one scan over the merged departures', () => {
     expect(refinedSeeds).toBeGreaterThan(100);
     expect(markMovedToRefined).toBeGreaterThan(10);
     expect(changedByRefining).toBeGreaterThan(10);
-  });
+  }, 60_000);
 
   it('recomputes every baseline-relative field against the first coarse candidate', async () => {
     mockAudits(4);

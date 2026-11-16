@@ -77,6 +77,7 @@ describe('cleanPassageName', () => {
     for (const value of [null, undefined, 42, {}, ['a'], '', '   ', '\u202E\u200B\u0000']) expect(cleanPassageName(value)).toBe('');
   });
 
+  // Explicit timeout: a CPU-bound property test over generated cases (fixed seeds, no I/O or timers). The default 5 s is too tight beside other work on the machine; a real hang still fails.
   it('is idempotent, never leaves a lone surrogate and never leaves a blank name, over 22,000 random strings', () => {
     // a fixed pseudo-random sequence over the code units the rule cares about, and ordinary ones
     const pool = [0x20, 0x09, 0x0a, 0x00, 0x7f, 0x85, 0x9f, 0xa0, 0x61c, 0x200b, 0x200c, 0x200d, 0x200e, 0x202a, 0x202e, 0x2060, 0x2066, 0x2069,
@@ -98,7 +99,7 @@ describe('cleanPassageName', () => {
       // eslint-disable-next-line no-misleading-character-class -- single code units: the joiners and the presentation selectors
       if (once) expect(/[^ \u200C\u200D\uFE0E\uFE0F\u0300-\u036F\u1AB0-\u1AFF\u1DC0-\u1DFF\u20D0-\u20FF\uFE20-\uFE2F]/.test(once)).toBe(true);
     }
-  });
+  }, 60_000);
 
   it('leaves every route name of the committed routes and demo checks as it is', () => {
     const names: string[] = [];

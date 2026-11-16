@@ -328,6 +328,7 @@ describe('point reads are stored at the published precision', () => {
 });
 
 describe('rounding never makes a value less hazardous (review round 2)', () => {
+  // Explicit timeout: a CPU-bound property test over generated cases (fixed seeds, no I/O or timers). The default 5 s is too tight beside other work on the machine; a real hang still fails.
   it('rounds compared quantities toward the hazardous side by less than one step', () => {
     let seed = 11;
     const rnd = () => ((seed = (seed * 1103515245 + 12345) % 2 ** 31) / 2 ** 31);
@@ -353,7 +354,7 @@ describe('rounding never makes a value less hazardous (review round 2)', () => {
     // a value already on the 0.01 lattice within float noise stays on it
     expect(roundToward([17.800000000000001, 0.1 + 0.2, 16.3], 0.01, 'up')).toEqual([17.8, 0.3, 16.3]);
     expect(roundToward([17.808], 0.01, 'up')).toEqual([17.81]);
-  });
+  }, 60_000);
 
   it('an interpolated gust of 17.808 kt still exceeds a 17.8 kt limit', async () => {
     const CYCLE = '2026-07-20T00:00Z';

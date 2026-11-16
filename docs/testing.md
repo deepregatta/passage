@@ -63,6 +63,8 @@ Suite ownership:
 | `viewer/e2e/` | Playwright | Desktop/mobile core flows and reviewed screenshot baselines |
 | `analysis/tests/` | pytest | Provider adapters, route-independent preparation, warnings, tides, observations, verification, and the ecCodes GRIB export contract |
 
+Three engine tests are CPU-bound property loops over fixed-seed generated cases (`refineScan.test.ts` seeds 1-120, `auditSampling.test.ts` rounding, `passageName.test.ts` 22,000 strings). They take 1.5-3 s alone but over 6 s when the machine is busy, so each carries an explicit 60 s timeout instead of vitest's 5 s default; a real hang still fails, and the case counts are not reduced.
+
 Verification regressions cross the real matcher, CLI retry and calibration
 persistence (`analysis/tests/test_verification*.py`). They check same-case
 idempotence, corrected/empty/emulated replacements, deterministic order, legacy
