@@ -4,6 +4,7 @@
  * paper-chart styling, English-as-key i18n. No account required. */
 import { useEffect, useState } from 'react';
 import clsx from 'clsx';
+import { cleanPassageName } from '@deepweather/engine';
 import { useApp } from '../stores/appStore.js';
 import { track } from '../lib/analytics.js';
 import { analysisShareUrl } from '../lib/routes.js';
@@ -76,7 +77,8 @@ function FeedbackDialog({ onNavigate, onClose }) {
           platform: deviceType(),
           // Shared inbox wire keys: Passage supplies the snapshot id and route name.
           race_id: snapshotId || null,
-          race_name: route?.name || null,
+          // the route's name as shown, cleaned by the one rule for names (the saved route is unchanged)
+          race_name: cleanPassageName(route?.name) || null,
           website,
         }),
         headers: { 'Content-Type': 'application/json' },

@@ -92,6 +92,25 @@ describe('viewer fixture harness', () => {
     expect(screen.getByRole('button', { name: /Next: explore another scenario/ })).toBeTruthy();
   });
 
+  it('sends the open route\'s name as shown, cleaned of controls, without changing the route', async () => {
+    const user = userEvent.setup();
+    const previousFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn(async (input, init) => {
+      if (String(input).includes('/api/feedback')) return new Response('{"ok":true}', { status: 201, headers: { 'Content-Type': 'application/json' } });
+      return previousFetch(input, init);
+    });
+    const route = { name: 'Brest RLO\u202E evil\u202C → Yeu\u200B' };
+    useApp.setState({ route });
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'Send feedback / report a data issue' }));
+    await user.type(screen.getByPlaceholderText(/what looks wrong/i), 'A note');
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+    await waitFor(() => expect(screen.getByText('Thanks! Your message has been received.')).toBeTruthy());
+    const call = globalThis.fetch.mock.calls.find(([input]) => String(input).includes('/api/feedback'));
+    expect(JSON.parse(call[1].body).race_name).toBe('Brest RLO evil → Yeu');
+    expect(route.name).toBe('Brest RLO\u202E evil\u202C → Yeu\u200B');
+  });
+
   it('switches the whole interface to French and remembers the choice', async () => {
     const user = userEvent.setup();
     render(<App />);

@@ -1,14 +1,18 @@
+import { PASSAGE_NAME_MAX_LENGTH, cleanPassageName } from '@deepweather/engine';
+
 // A passage's name is a display label only. It lives apart from the saved checks,
 // keyed by the passage's grouping key (see lib/passages.js), so renaming never
 // touches a passage_id, route_revision, snapshot fingerprint or frozen check.
 // The key keeps the internal "deepweather" prefix like the other stored keys.
+// A name is cleaned by the engine's one rule (cleanPassageName), typed or read back.
+
 export const PASSAGE_LABELS_KEY = 'deepweather.passage-labels';
-export const MAX_LABEL_LENGTH = 80;
+export const MAX_LABEL_LENGTH = PASSAGE_NAME_MAX_LENGTH;
 
 // Kept in memory too, so a rename lasts for the visit when storage is blocked.
 let memory = null;
 
-const clean = (value) => (typeof value === 'string' ? value.replace(/\s+/g, ' ').trim().slice(0, MAX_LABEL_LENGTH).trim() : '');
+const clean = cleanPassageName;
 
 function read() {
   try {

@@ -721,6 +721,26 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   Both flaws seen there were fixed the same day: the progress text now counts
   check lines read (never the trailer), and the "0 checks imported" line is
   left out when other information lines are shown.
+- Passage names (2026-11-16): a name typed with "Rename" on My passages is a
+  display label in local storage (`deepweather.passage-labels`, keyed by the
+  passage's grouping key, `local|passage|<passage_id>` for a check saved
+  here), never part of a check. One cleaning rule applies to every name, in
+  the engine (`cleanPassageName`, `engine/src/passageName.ts`): white space
+  runs become one space; C0 and C1 controls, the bidirectional controls
+  U+061C, U+200E, U+200F, U+202A–U+202E and U+2066–U+2069, U+200B and U+2060,
+  and lone surrogates are removed; the name is trimmed and cut at 80 UTF-16
+  code units without splitting a surrogate pair. Zero width joiners and
+  non-joiners and tag characters stay (emoji sequences, some scripts,
+  flags). Explicit ranges only, no Unicode property classes and no
+  normalisation, so it cleans the same in every engine version; it is
+  idempotent. It applies to a typed rename (and to a stored one read back),
+  and to a route name shown as a passage's name or title (the card's default
+  name and the aria-labels built from it, the passage page's heading and its
+  fallback title from the legs, the leg progress bar, the tab title) and sent
+  as `race_name` by the feedback form. No saved file, route or hash input is
+  changed: the route keeps its name as saved, and the planner, when a check
+  is continued, still takes the route's name as it is (it becomes the next
+  check's route, a hash input).
 - Modern histories group only by explicit passage ID and persistence source.
   Legacy checks without explicit identity remain individually accessible and
   deletable. No inferred grouping from route names/counts/departure is permitted.

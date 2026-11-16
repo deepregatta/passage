@@ -1,3 +1,4 @@
+import { cleanPassageName } from '@deepweather/engine';
 import { capitalize, fmtLocalTime } from './format.js';
 import { translateText } from '../i18n.js';
 import { GENERIC_NAME } from '../pages/planner/passageName.js';
@@ -10,7 +11,8 @@ export function routeName(routeId) {
     .replace(/-(v\d+|\d+wp)$/i, '')
     .split('-')
     .filter(Boolean);
-  return capitalize(words.join(' ')) || routeId;
+  // check content, shown as a name: the one cleaning rule for names (engine cleanPassageName)
+  return cleanPassageName(capitalize(words.join(' ')) || routeId) || null;
 }
 
 /** The name a passage's card shows before any rename: its saved route's name,
@@ -18,7 +20,8 @@ export function routeName(routeId) {
  * planner's default name. The saved route is check content, so a name that is
  * not text is ignored. */
 export function passageDefaultName(route, routeId, language) {
-  const saved = typeof route?.name === 'string' ? route.name : null;
+  // shown as the passage's name, cleaned as any name is; the saved route is never changed
+  const saved = cleanPassageName(route?.name) || null;
   return saved ?? routeName(routeId) ?? GENERIC_NAME[language] ?? GENERIC_NAME.en;
 }
 
@@ -26,7 +29,7 @@ export function passageDefaultName(route, routeId, language) {
  * briefing should name it from its legs (fixed routes, and computed routes
  * saved before names were carried, which hold the engine's own label). */
 export function userRouteName(route) {
-  const name = typeof route?.name === 'string' ? route.name.trim() : '';
+  const name = cleanPassageName(route?.name);
   if (!name || route.mode === 'fixed' || /\(computed\)$/.test(name)) return null;
   return name;
 }

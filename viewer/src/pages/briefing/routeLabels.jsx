@@ -1,3 +1,4 @@
+import { cleanPassageName } from '@deepweather/engine';
 import { placeLabel } from '../../lib/format.js';
 
 // Kept in JSX so the viewer translation scanner covers these shared labels.
@@ -31,10 +32,11 @@ export const legLabel = (findings, legId, { bare = false } = {}) => {
   return number === null ? place : `${place} ${parenthesised(`leg ${number}`)}`;
 };
 
+/** The passage's title from its legs (check content): cleaned as any shown name is (engine cleanPassageName). */
 export function routeTitle(findings) {
   const first = findings.legs[0];
   const last = findings.legs[findings.legs.length - 1];
   const from = placeLabel(first?.name.split('→')[0]?.trim().split(',')[0] ?? findings.route_id);
   const to = placeLabel(last?.name.split('→')[1]?.trim().split(',')[0] ?? '');
-  return to ? `${from} → ${to}` : from;
+  return cleanPassageName(to ? `${from} → ${to}` : from);
 }

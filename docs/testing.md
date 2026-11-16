@@ -1092,7 +1092,20 @@ through the page's own `deleteSnapshot` that empties a renamed passage and
 drops its name, the stations of imported checks named "…, imported from a
 file", and no undo after leaving the page and coming back;
 `checkImportMany.test.js` counts as removed only what the store no longer
-holds when the given delete fails. `importMany.test.jsx` also holds the two
+holds when the given delete fails. Passage names (one cleaning rule): `engine/test/passageName.test.ts` finds
+`cleanPassageName` removing white space runs, C0 and C1 controls, the Arabic
+letter mark, the directional marks, embeddings, overrides and isolates, the
+zero width space, the word joiner and lone surrogates; keeping a zero width
+joiner in an emoji sequence, a non-joiner, tag-character and regional flags,
+accents and decomposed letters as given; cutting at 80 code units without
+splitting a pair; giving '' for anything not text; idempotent over 2,000
+pseudo-random strings; and every committed route and demo check name
+unchanged. `viewer/test/passageLabels.test.js` (regressions first: they failed
+before the rule) finds a typed rename without its right-to-left override,
+without half an emoji at the cut, a stored name read back cleaned, and a
+hostile route name cleaned as the default passage name, the heading and the
+title from the legs while the route keeps it; `app.test.jsx` finds the
+feedback form's `race_name` cleaned. `importMany.test.jsx` also holds the two
 display fixes of 2026-11-16: the progress text never shows a number above the
 check lines in the file, and the "0 checks imported" line is left out when
 other information lines are shown (kept when only refusals follow), with the
