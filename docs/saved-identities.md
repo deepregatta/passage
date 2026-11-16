@@ -856,11 +856,16 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   controls but ordinary white space (tab, line feed, vertical tab, form feed,
   carriage return) and the bidirectional controls above. It does not collapse
   or trim white space, cut, or remove the blank-rendering characters, so a
-  sentence without those controls comes back identical. It is applied at two
-  display sites only: `placeLabel` (the weather story's place labels, the
-  synoptic hero's consequence sentence, and the route labels built with it)
-  and a reasoning section's `register_plain` on the check page (before its
-  current-wording lookup). No saved file, route or hash input is changed.
+  sentence without those controls comes back identical. It is applied at
+  these display sites only: `placeLabel` (the weather story's place labels,
+  the synoptic hero's consequence sentence, and the route labels built with
+  it); a reasoning section's `register_plain` on the check page (before its
+  current-wording lookup); the text `BriefingMessage` shows (every decision
+  message field, both languages, since a check's `leg_name` is substituted
+  into the app's own sentences); a section's `register_pro` and its title
+  (`sectionTitle`, before its current-wording lookup); and a coverage item's
+  `detail` (the not-assessed sentence and the Models and coverage list). No
+  saved file, route or hash input is changed; the engine's rendering is not.
 - Modern histories group only by explicit passage ID and persistence source.
   Legacy checks without explicit identity remain individually accessible and
   deletable. No inferred grouping from route names/counts/departure is permitted.

@@ -1,3 +1,4 @@
+import { stripInvisibleControls } from '@deepweather/engine';
 import { useApp } from '../stores/appStore.js';
 import { messageStatusLabel, renderBriefingField } from '../lib/briefingMessages.js';
 import { translateText } from '../i18n.js';
@@ -29,7 +30,8 @@ export default function BriefingMessage({ section, field, version = 1, omitScena
       {problem && <span className="block font-sans text-xs text-verdict-insufficient" role="status">
         {messageStatusLabel(result.status, language)}
       </span>}
-      {result.text}
+      {/* a check's free text (leg_name) sits inside the app's own sentences: no bidirectional or control character may reach the page */}
+      {stripInvisibleControls(result.text)}
     </span>
   );
 }

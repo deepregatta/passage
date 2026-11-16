@@ -29,7 +29,7 @@ function StorySection({ section, findings }) {
   const coverage = section.id === 'unsupported' ? deriveCoverage(findings) : null;
   const unassessed = coverage?.items.filter((item) => item.status === 'not_assessed') ?? [];
   const plain = coverage
-    ? `Not assessed: ${unassessed.map((item) => item.detail ?? item.capability.replaceAll('_', ' ')).join(', ')}. No flag does not mean no risk.${coverage.derived ? ' Coverage derived conservatively from evidence in this legacy check.' : ''}`
+    ? `Not assessed: ${unassessed.map((item) => stripInvisibleControls(item.detail) ?? item.capability.replaceAll('_', ' ')).join(', ')}. No flag does not mean no risk.${coverage.derived ? ' Coverage derived conservatively from evidence in this legacy check.' : ''}`
     : checkWording(stripInvisibleControls(section.register_plain));
   const tone =
     section.id === 'warnings'
@@ -65,7 +65,7 @@ function ProfessionalRegister({ sections, findings }) {
             <div key={section.id}>
               <h4 className="font-sans text-xs font-medium">{decision ? <BriefingMessage section={section} field="title" version={version} /> : sectionTitle(section)}</h4>
               <p className="font-sans text-xs leading-relaxed text-ink-soft mt-0.5">
-                {decision ? <BriefingMessage section={section} field="pro" version={version} describeDriver={describeDriver} /> : section.register_pro}
+                {decision ? <BriefingMessage section={section} field="pro" version={version} describeDriver={describeDriver} /> : stripInvisibleControls(section.register_pro)}
               </p>
               {section.evidence_ids.length > 0 && (
                 <p className="mt-1 font-mono text-xs text-ink-soft">

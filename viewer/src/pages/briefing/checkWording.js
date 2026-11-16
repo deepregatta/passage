@@ -1,3 +1,4 @@
+import { stripInvisibleControls } from '@deepweather/engine';
 import { own } from '../../lib/own.js';
 
 // Saved briefing sections predate "check" as the one name for a result. The page shows the
@@ -14,7 +15,10 @@ const TEXTS = {
 };
 
 /** @param {{ title?: string }} section */
-export const sectionTitle = (section) => own(TITLES, section.title) ?? section.title;
+export const sectionTitle = (section) => {
+  const title = stripInvisibleControls(section.title);
+  return own(TITLES, title) ?? title;
+};
 
 /** @param {unknown} text */
 export const checkWording = (text) => own(TEXTS, text) ?? text;

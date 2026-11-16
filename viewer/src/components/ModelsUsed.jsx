@@ -1,4 +1,4 @@
-import { CHANNEL_PREPARED_COVERAGE, describeEcmwfRuns } from '@deepweather/engine';
+import { CHANNEL_PREPARED_COVERAGE, describeEcmwfRuns, stripInvisibleControls } from '@deepweather/engine';
 import { deriveCoverage } from '../lib/evidenceSelectors.js';
 import { useApp } from '../stores/appStore.js';
 import { palette } from '../lib/palette.js';
@@ -79,7 +79,7 @@ export default function ModelsUsed() {
               <li key={item.capability} className="flex flex-wrap justify-between gap-x-3 gap-y-1 border-b hairline py-1">
                 <span>{item.capability.replaceAll('_', ' ')}</span>
                 <span className={item.status === 'assessed_emulated' ? 'stamp-emulated' : 'text-ink-soft'}>{item.status.replaceAll('_', ' ')}</span>
-                {item.route_hours && <p className="basis-full text-ink-soft leading-relaxed">{item.detail}</p>}
+                {item.route_hours && <p className="basis-full text-ink-soft leading-relaxed">{stripInvisibleControls(item.detail)}</p>}
                 {item.detail === CHANNEL_PREPARED_COVERAGE && <p className="basis-full text-ink-soft leading-relaxed">{item.detail}</p>}
               </li>
             ))}</ul> : <p>Coverage records unavailable for this check.</p>}

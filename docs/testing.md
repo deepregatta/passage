@@ -1379,9 +1379,14 @@ classes with `stripInvisibleControls` left the name rule exactly as committed,
 and that the strip removes exactly the C0 and C1 controls but ordinary white
 space and the bidirectional controls, and changes nothing else.
 `displayControls.test.jsx` (regression first) shows a U+202E removed from a
-place label and from a reasoning section's `register_plain`, and that every
-string in the committed fixtures and goldens (engine, viewer and analysis;
-over 100 files, every `register_plain` among them) comes back byte-identical. Passage names in files (stage 2, names part):
+place label and from a reasoning section's `register_plain`; from a rendered
+decision message when a check's `leg_name` carries a U+202E or a C1 control
+(title, plain and pro, English and French, text equal to the clean name's);
+from `register_pro`, a section title and a coverage `detail` (both places it
+is shown); and that every string in the committed fixtures and goldens
+(engine, viewer and analysis; over 100 files, every `register_plain` among
+them) and every rendered decision message of the committed demo checks and
+message cases, in both languages, comes back byte-identical. Passage names in files (stage 2, names part):
 `checkImportMany.test.js` gives a name to each passage the import stores a
 check of, right after that check, and ignores a name with no check; gives
 none to a passage already here, over a name this browser has, or one another
