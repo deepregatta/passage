@@ -1092,7 +1092,12 @@ through the page's own `deleteSnapshot` that empties a renamed passage and
 drops its name, the stations of imported checks named "…, imported from a
 file", and no undo after leaving the page and coming back;
 `checkImportMany.test.js` counts as removed only what the store no longer
-holds when the given delete fails. `scripts/check-no-polar-data.test.mjs` finds a
+holds when the given delete fails. `importMany.test.jsx` also holds the two
+display fixes of 2026-11-16: the progress text never shows a number above the
+check lines in the file, and the "0 checks imported" line is left out when
+other information lines are shown (kept when only refusals follow), with the
+live region and focus following the first line shown (English and French).
+`scripts/check-no-polar-data.test.mjs` finds a
 `.pol` header after blank lines and 200,000 blank lines read without
 rescanning. `viewer/e2e/check-import.spec.js` (desktop and mobile) makes a real
 Check in fixture mode, saves a copy, refuses a hostile file in a second, empty

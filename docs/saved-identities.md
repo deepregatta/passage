@@ -718,6 +718,9 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   summary opens with a "0 checks imported" line when every check was already
   here. Not tested live: an import that stores checks, a refusal, the undo,
   Stop, Safari, Firefox, a phone.
+  Both flaws seen there were fixed the same day: the progress text now counts
+  check lines read (never the trailer), and the "0 checks imported" line is
+  left out when other information lines are shown.
 - Modern histories group only by explicit passage ID and persistence source.
   Legacy checks without explicit identity remain individually accessible and
   deletable. No inferred grouping from route names/counts/departure is permitted.

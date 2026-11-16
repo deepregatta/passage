@@ -48,6 +48,7 @@ const STRINGS = {
     question: (n) => (n <= 1 ? `Retirer la vérification ajoutée par cette importation${NB}?` : `Retirer les ${n} vérifications ajoutées par cette importation${NB}?`),
     confirm: 'Retirer',
     removed: (n) => (n <= 1 ? `${n} vérification retirée.` : `${n} vérifications retirées.`),
+    already: (n) => (n <= 1 ? `${n} vérification était déjà dans Mes traversées.` : `${n} vérifications étaient déjà dans Mes traversées.`),
     repeated: (n) => (n <= 1 ? `${n} vérification apparaît plusieurs fois dans le fichier${NB}; elle a été lue une seule fois.` : `${n} vérifications apparaissent plusieurs fois dans le fichier${NB}; chacune a été lue une seule fois.`),
     undoNote: 'Ce bouton ne reste que jusqu’à ce que vous quittiez cette page.',
     stopped: (n) => (n <= 1 ? `Arrêté. ${n} vérification a été importée avant l’arrêt.` : `Arrêté. ${n} vérifications ont été importées avant l’arrêt.`),
@@ -196,7 +197,7 @@ describe('while importing, and how an import of many ends', () => {
     const progress = await within(control()).findByTestId('import-progress');
     hasText(progress, STRINGS[language].importing(1));
     calls[0].options.onProgress({ index: 4 });
-    await waitFor(() => hasText(progress, STRINGS[language].importing(5)));
+    await waitFor(() => hasText(progress, STRINGS[language].importing(4)));
     // indeterminate: no value
     expect(progress.querySelector('progress')).not.toHaveAttribute('value');
     // no announcement per check
@@ -206,7 +207,7 @@ describe('while importing, and how an import of many ends', () => {
     expect(button).not.toBeDisabled();
     // the bar is named by the running count beside it
     const bar = within(progress).getByRole('progressbar');
-    hasText(document.getElementById(bar.getAttribute('aria-labelledby')), STRINGS[language].importing(5));
+    hasText(document.getElementById(bar.getAttribute('aria-labelledby')), STRINGS[language].importing(4));
     within(progress).getByRole('button', { name: language === 'en' ? STRINGS.en.stop : 'Arrêter' }).focus();
     await user.keyboard('{Enter}');
     const summary = await within(control()).findByTestId('import-summary');
@@ -244,6 +245,77 @@ describe('while importing, and how an import of many ends', () => {
     calls[0].resolve(v2({ end: 'refused', refusal: 'offline', linesRead: 0 }));
     expect(await within(control()).findByRole('alert')).toHaveTextContent(STRINGS.en.offline);
     expect(within(control()).queryByTestId('import-summary')).toBeNull();
+  });
+});
+
+describe('display defects seen live (2026-11-16)', () => {
+  it('never shows a check number above the number of check lines in the file', async () => {
+    for (const check of [a, b, ownPassage]) await localSnapshots.writeAll(check.snapshotId, saved(check));
+    await showPassages();
+    const shown = [];
+    const watch = new MutationObserver(() => {
+      const text = control().querySelector('[data-testid="import-progress"]')?.textContent ?? '';
+      const found = /check (\d+)/.exec(text);
+      if (found) shown.push(Number(found[1]));
+    });
+    watch.observe(control(), { childList: true, subtree: true, characterData: true });
+    const user = userEvent.setup({ advanceTimers: () => {} });
+    await user.upload(fileInput(), await backupFile([lineOf(a), lineOf(b), lineOf(ownPassage)]));
+    await within(control()).findByTestId('import-summary', {}, { timeout: 30_000 });
+    watch.disconnect();
+    expect(shown.length).toBeGreaterThan(0);
+    expect(Math.max(...shown)).toBe(3);
+  });
+
+  it.each(['en', 'fr'])('leaves out the zero line when nothing was imported but others are told, and says the first line shown (%s)', async (language) => {
+    for (const check of [a, b]) await localSnapshots.writeAll(check.snapshotId, saved(check));
+    await showPassages(language);
+    const user = userEvent.setup({ advanceTimers: () => {} });
+    await user.upload(fileInput(), await backupFile([lineOf(a), lineOf(b)]));
+    const summary = await within(control()).findByTestId('import-summary', {}, { timeout: 30_000 });
+    expect(folded(summary.textContent)).not.toContain(folded(STRINGS[language].imported(0)));
+    const first = summary.querySelector('p');
+    hasText(first, STRINGS[language].already(2));
+    await waitFor(() => expect(folded(liveRegion().textContent)).toBe(folded(STRINGS[language].already(2))));
+  });
+
+  it.each(['en', 'fr'])('keeps the zero line when nothing was imported and every check was refused (%s)', async (language) => {
+    await showPassages(language);
+    const user = userEvent.setup({ advanceTimers: () => {} });
+    await user.upload(fileInput(), await backupFile([damagedLine(a), damagedLine(b)]));
+    const summary = await within(control()).findByTestId('import-summary', {}, { timeout: 30_000 });
+    const first = summary.querySelector('p');
+    hasText(first, STRINGS[language].imported(0));
+    hasText(within(summary).getByRole('alert'), STRINGS[language].damaged(2));
+  });
+
+  it.each([
+    ['0 imported, some already here', { already: 2 }, 'already', 2],
+    ['0 imported, only refusals', { damaged: 2 }, 'imported', 0],
+  ])('moves focus from Stop to the first line shown (%s)', async (_case, outcomes, key, n) => {
+    const calls = standIn();
+    await showPassages();
+    const user = userEvent.setup({ advanceTimers: () => {} });
+    await user.upload(fileInput(), await backupFile([lineOf(a)]));
+    await waitFor(() => expect(calls).toHaveLength(1));
+    calls[0].options.onProgress({ index: 0 });
+    const progress = await within(control()).findByTestId('import-progress');
+    within(progress).getByRole('button', { name: STRINGS.en.stop }).focus();
+    calls[0].resolve(v2({ end: 'complete', linesRead: 2, notReached: 0, outcomes }));
+    const summary = await within(control()).findByTestId('import-summary');
+    hasText(summary.querySelector('p'), STRINGS.en[key](n));
+    await waitFor(() => expect(summary.querySelector('p')).toHaveFocus());
+  });
+
+  it('keeps the imported line first when some were imported and some were already here', async () => {
+    await localSnapshots.writeAll(a.snapshotId, saved(a));
+    await showPassages();
+    const user = userEvent.setup({ advanceTimers: () => {} });
+    await user.upload(fileInput(), await backupFile([lineOf(a), lineOf(b)]));
+    const summary = await within(control()).findByTestId('import-summary', {}, { timeout: 30_000 });
+    const lines = [...summary.querySelectorAll('p')].map((p) => folded(p.textContent));
+    expect(lines.slice(0, 2)).toEqual([folded(STRINGS.en.imported(1)), folded(STRINGS.en.already(1))]);
+    await waitFor(() => expect(folded(liveRegion().textContent)).toBe(folded(`${STRINGS.en.imported(1)} ${STRINGS.en.already(1)}`)));
   });
 });
 

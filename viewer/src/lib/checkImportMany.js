@@ -109,7 +109,7 @@ async function settleLine(line, { header, servedIds, nowMs, importedAt }) {
  * Import the checks of one file. Options: `servedIds` (the ids of the checks
  * Passage serves, as this page read them; without them a version-2 file is
  * refused before any check line is read), `signal` (an abort stops between two
- * checks, never inside one's storing), `onProgress({ index })` after each line,
+ * checks, never inside one's storing), `onProgress({ index })` as each check line is read (index counts check lines, never the trailer),
  * `nowMs`, `caps` (the reader's, smaller in tests).
  *
  * A version-1 file resolves { kind: 'v1', ...stage 1's own result }, exactly
@@ -172,6 +172,8 @@ export async function importChecksFile(file, { servedIds = null, signal, onProgr
       if (item?.trailer) return item.trailer.checks === index ? result(IMPORT_END.complete, { notReached: 0 }) : result(IMPORT_END.incomplete, { hint: LINES.trailer });
       // a check line
       index += 1;
+      // a line known to be a check: its number is the count of check lines read (the trailer is never one)
+      onProgress?.({ index });
       ownPassages ??= new Set((await localSnapshots.list())
         .filter((entry) => !entry.imported && typeof entry.passage_id === 'string')
         .map((entry) => entry.passage_id));
@@ -200,7 +202,6 @@ export async function importChecksFile(file, { servedIds = null, signal, onProgr
           if (settled.passageId !== null && ownPassages.has(settled.passageId)) joinedOwn += 1;
         }
       }
-      onProgress?.({ index });
       // between two checks: the page stays responsive, and an abort lands here
       await turn();
       if (signal?.aborted) {

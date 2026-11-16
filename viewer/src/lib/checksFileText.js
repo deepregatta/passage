@@ -176,6 +176,8 @@ export function importSummary(result, language) {
   if (result.joinedOwn) info.push(countText(result.joinedOwn, T.joined, T.joinedOne, {}, language));
   // a check line given twice was read once: not a damage of the file
   if (outcomes.repeated) info.push(countText(outcomes.repeated, T.repeated, T.repeatedOne, {}, language));
+  // "0 imported" opens the summary only when no other information line does
+  if (result.end !== 'stopped' && !outcomes.imported && info.length > 1) info.shift();
   const problems = [];
   const refused = [
     [outcomes.damaged, T.notDamaged, T.notDamagedOne],

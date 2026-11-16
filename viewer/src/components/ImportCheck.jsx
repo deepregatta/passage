@@ -136,7 +136,7 @@ export default function ImportCheck({ language, onAnnounce, removeChecks }) {
         <div ref={progressBlock} className="flex flex-wrap items-center gap-x-3 gap-y-1" data-testid="import-progress">
           {/* indeterminate: a file says how many checks it holds only at its end */}
           <progress aria-labelledby={progressText} className="w-40 max-w-full" />
-          <span id={progressText} className="font-sans text-sm text-ink-soft" {...OWNED}>{importingLine(progress.index + 1, language)}</span>
+          <span id={progressText} className="font-sans text-sm text-ink-soft" {...OWNED}>{importingLine(progress.index, language)}</span>
           <button type="button" onClick={() => controller.current?.abort()} className="min-h-11 border hairline rounded-sm px-4 font-medium text-ink hover:border-ink-soft">
             Stop
           </button>
