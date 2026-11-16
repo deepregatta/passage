@@ -866,6 +866,23 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   (`sectionTitle`, before its current-wording lookup); and a coverage item's
   `detail` (the not-assessed sentence and the Models and coverage list). No
   saved file, route or hash input is changed; the engine's rendering is not.
+- Live test of the version-3 all-checks file (2026-11-16, passage.deepregatta.com,
+  the desktop app's built-in Chromium, the owner's own data, counts only):
+  "Save all checks to a file" made one file from 8 checks in 6.9 s (9.18 MB of
+  gzip, 73.1 MB of text, 11 lines: a version-3 header, the names line, 8 check
+  lines, the trailer; nothing left out; longest main-thread task 0.94 s). That
+  browser holds no typed passage name, so the names line was the empty one
+  (`"names":[]` with digest `cbf29ce484222325`); a file that carries names has
+  not been made on the live site. The last-file record was rewritten (8 ids,
+  `made_at` equal to the header's `exported_at`). The same bytes given to
+  "Import from a file" answered only "8 checks were already in My passages." in
+  0.6 s: the progress text stopped at check 8 and no "0 checks imported" line
+  opened the summary, so both display flaws of the earlier test are gone; no
+  names line, no alert and no undo button showed. The store and the stored
+  names were unchanged (8 checks, 56 records, no marker). No console error.
+  As before, that pane wrote no download to disk. Not tested live: a name
+  applied or not used, an import that stores checks, a refusal, the undo, Stop,
+  Safari, Firefox, a phone.
 - Modern histories group only by explicit passage ID and persistence source.
   Legacy checks without explicit identity remain individually accessible and
   deletable. No inferred grouping from route names/counts/departure is permitted.
