@@ -1039,7 +1039,60 @@ deleted during the export as unreadable while leaving out one saved during
 it. A test of flat memory retention was not added: garbage collection timing
 in the test runner does not make it deterministic; it was measured instead
 in Node with forced collection (about one large check's line held while a
-check is in hand, 2 MB at the end of eight). `scripts/check-no-polar-data.test.mjs` finds a
+check is in hand, 2 MB at the end of eight). The controls (stage 2, 2026-11-16):
+`viewer/test/saveAllChecks.test.jsx` (real store, fresh fake-indexeddb; jsdom's
+`Blob` is given a `stream()` read from its own `arrayBuffer()` by
+`installBlobStream`, test-only) finds the control after the storage line and
+the "can delete" note and before the import, the page's live region present
+first; none without an exportable check (none at all, only a legacy one) or
+without `CompressionStream`, the import still there; a real file made, handed
+over only on the second tap, focus kept, read back with two lines, its record
+written and the last-file line shown, the object URL kept for another tap and
+released on `pagehide`; with a stand-in library, in English and French, the
+count and progress while making, a busy button that stays focusable and
+starts nothing twice, no announcement per check, Stop keeping nothing and
+saying so; one line per reason left out (seven reasons, singular and plural);
+the empty and failed alerts; the previous object URL released when a new file
+is made and on unmount; the last-file line with how many checks are not in it
+(English and French), one line when all are in it, none without a check saved
+here or with a broken record, and a save that works when local storage
+refuses the record; and French for all 57 templates with their placeholders
+and no plain space before `:`, `;` or `?`. `viewer/test/importMany.test.jsx`
+imports a file of three lines (one damaged) and finds one summary, the
+problem in one alert, the live region, both checks listed as imported, and
+an undo through the dialog removing exactly those two (the check made here
+byte for byte), in English and French; the already-here and joined lines and
+a cancelled undo keeping focus; a version-2 file of one check told exactly as
+stage 1 tells it, with "Open the check"; with a stand-in importer, the start
+announced once, the running count with an indeterminate bar and Stop, a busy
+button that stays focusable, and the stopped line (English and French); the
+ends-early, more-than-1,000, storage-full and other-storage lines; and the
+refusal for now of a file of many checks. `importCheck.test.jsx` passes
+unchanged but for the control's new name and note. `privacyPage.test.jsx`
+checks the new first sentence about check files and the date 16 November
+2026. `viewer/e2e/check-files-all.spec.js` (desktop and mobile) makes two
+Checks in fixture mode, saves all in two taps, reads the download (name,
+header, two lines, trailer) and the last-file line, imports it into a fresh
+browser and finds both passages labelled as imported and the undo button,
+fits 375 px with no horizontal overflow, imports a mixed file (one line with
+a changed digest) with its summary and alert, imports offline after the page
+loaded, and sends no analytics event for either; `check-import.spec.js` uses
+the new name. Review round on the two screens: `saveAllChecks.test.jsx` finds
+the object URL revoked 60 seconds after `pagehide` and after unmount (fake
+timers) but at once when a new file replaces it, the last-file record's
+`made_at` equal to the file header's `exported_at` and the name's minute, the
+progress bar named by its text, and focus moved to the stopped line (Stop by
+keyboard) and to the ready line (Stop focused when the file is made);
+`importMany.test.jsx` finds a check given twice said as read once and not as
+damage (English and French), the too-large stop said alone, an inflated-cap
+stop still said as ending early, the progress bar named by its count, focus on
+the summary's first line after Stop by keyboard and on the removed line after
+the undo by keyboard, the undo note and its absence after removal, an undo
+through the page's own `deleteSnapshot` that empties a renamed passage and
+drops its name, the stations of imported checks named "…, imported from a
+file", and no undo after leaving the page and coming back;
+`checkImportMany.test.js` counts as removed only what the store no longer
+holds when the given delete fails. `scripts/check-no-polar-data.test.mjs` finds a
 `.pol` header after blank lines and 200,000 blank lines read without
 rescanning. `viewer/e2e/check-import.spec.js` (desktop and mobile) makes a real
 Check in fixture mode, saves a copy, refuses a hostile file in a second, empty

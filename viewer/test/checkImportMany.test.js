@@ -78,8 +78,8 @@ describe('a version-2 file', () => {
   it('stores each check exactly as given, marked, and says it is complete', async () => {
     const progress = [];
     const result = await importLines(fileFrom(backupOf([lineOf(a), lineOf(b)])), { onProgress: (step) => progress.push(step) });
-    expect(result).toEqual({ kind: 'v2', outcomes: { ...zero, imported: 2 }, importedIds: [a.snapshotId, b.snapshotId], joinedOwn: 0, linesRead: 2, end: 'complete', hint: null, notReached: 0, refusal: null });
-    expect(progress).toEqual([{ index: 1 }, { index: 2 }]);
+    expect(result).toEqual({ kind: 'v2', outcomes: { ...zero, imported: 2 }, importedIds: [a.snapshotId, b.snapshotId], joinedOwn: 0, linesRead: 2, first: { outcome: 'imported', snapshotId: a.snapshotId }, end: 'complete', hint: null, notReached: 0, refusal: null, storageFull: false });
+    expect(progress).toEqual([{ index: 0 }, { index: 1 }, { index: 2 }]);
     await expectStored(a);
     await expectStored(b);
     expect((await localSnapshots.list()).every((entry) => entry.imported)).toBe(true);
@@ -213,7 +213,7 @@ describe('a file that breaks part-way keeps what was stored', () => {
     });
     const result = await importLines(fileFrom(backupOf([lineOf(a), lineOf(b), lineOf(c)])));
     vi.mocked(IDBObjectStore.prototype.add).mockRestore();
-    expect(result).toMatchObject({ end: 'storage', importedIds: [a.snapshotId], notReached: 2, outcomes: { ...zero, imported: 1 } });
+    expect(result).toMatchObject({ end: 'storage', storageFull: true, importedIds: [a.snapshotId], notReached: 2, outcomes: { ...zero, imported: 1 } });
     expect(idsIn(await dump())).toEqual([a.snapshotId]);
     await expectStored(a);
   });
@@ -404,4 +404,16 @@ describe('review round: settling, passages, unknown counts, concurrency', () => 
     expect(result.importedIds).toEqual([a.snapshotId, b.snapshotId]);
     expect(idsIn(await dump())).toEqual([...result.importedIds].sort());
   });
+});
+
+it('removes imported checks through the delete it is given, and counts as removed only what the store no longer holds', async () => {
+  await importLines(fileFrom(backupOf([lineOf(a), lineOf(b)])));
+  const seen = [];
+  const result = await many.removeImportedChecks([a.snapshotId, b.snapshotId], {
+    // a delete that removes a, and one that fails for b
+    remove: async (id) => { seen.push(id); if (id === a.snapshotId) await localSnapshots.remove(id); else throw new Error('blocked'); },
+  });
+  expect(seen).toEqual([a.snapshotId, b.snapshotId]);
+  expect(result).toEqual({ removed: [a.snapshotId], refused: [b.snapshotId] });
+  expect(idsIn(await dump())).toEqual([b.snapshotId]);
 });

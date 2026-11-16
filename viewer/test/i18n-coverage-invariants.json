@@ -267,6 +267,9 @@
         "ui-monospace, monospace",
         "value"
       ],
+      "viewer/src/components/SaveAllChecks.jsx": [
+        "pagehide"
+      ],
       "viewer/src/components/Shell.jsx": [
         "about",
         "briefing",

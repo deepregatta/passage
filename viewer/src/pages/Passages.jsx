@@ -14,6 +14,8 @@ import { loadJson } from '../lib/verification.js';
 import { STORAGE_LEVEL, formatStorageSize, readStorageUsage, storagePercent } from '../lib/storageUsage.js';
 import { readPersisted } from '../lib/storagePersistence.js';
 import ImportCheck from '../components/ImportCheck.jsx';
+import SaveAllChecks from '../components/SaveAllChecks.jsx';
+import { exportableIds } from '../lib/lastChecksFile.js';
 import ImportedComparisonNote from '../components/ImportedComparisonNote.jsx';
 import { minOf, maxOf } from '../lib/extent.js';
 
@@ -24,6 +26,7 @@ export default function Passages() {
   const manifestError = useApp((s) => s.manifestError);
   const loadManifest = useApp((s) => s.loadManifest);
   const setPage = useApp((s) => s.setPage);
+  const deleteSnapshot = useApp((s) => s.deleteSnapshot);
   const loadError = useApp((s) => s.loadError);
   const language = useApp((s) => s.language);
   const [publishedCases, setPublishedCases] = useState(new Set());
@@ -69,6 +72,10 @@ export default function Passages() {
   // Only a check saved in this browser can be deleted by it; the served example cannot.
   const hasLocalCheck = Boolean(manifest?.snapshots?.some((snapshot) => snapshot.local));
   const notKept = hasLocalCheck && (persisted === false || persisted === null);
+  // the checks saved or imported here that a file of all checks can hold
+  const exportable = useMemo(() => exportableIds(manifest?.snapshots), [manifest]);
+  // the import is shown whenever this browser's checks can be listed, the served list read or not
+  const showImport = Boolean(manifest || manifestError);
 
   // Renaming sets a display label for this browser; no saved check is rewritten.
   const rename = (key, name, defaultTitle) => {
@@ -82,6 +89,20 @@ export default function Passages() {
         ? 'Passage renamed to {name}.'
         : 'Passage renamed to {name}. This browser could not save the name, so it lasts only until you leave this page.', { name: typed }, language));
   };
+  // Removing what an import added goes through the same delete as "Delete" (it forgets the
+  // remembered open check and closes it if open); a passage left without checks loses its name.
+  const removeImported = useCallback(async (ids) => {
+    const touched = new Set(groupPassages(useApp.getState().manifest?.snapshots)
+      .filter((passage) => passage.checks.some((check) => ids.includes(check.snapshot_id))).map((passage) => passage.key));
+    const { removeImportedChecks } = await import('../lib/checkImportMany.js');
+    const result = await removeImportedChecks(ids, { remove: deleteSnapshot });
+    const left = new Set(groupPassages(useApp.getState().manifest?.snapshots).map((passage) => passage.key));
+    let next = null;
+    for (const key of touched) if (!left.has(key)) next = passageLabels.remove(key).labels;
+    if (next) setLabels(next);
+    refreshStorage();
+    return result;
+  }, [deleteSnapshot, refreshStorage]);
   // The deleted card held focus; the page title is the next sensible place.
   const deleted = (key) => {
     setLabels(passageLabels.remove(key).labels);
@@ -133,13 +154,13 @@ export default function Passages() {
         </button>
       )}
 
-      {/* shown whenever this browser's checks can be listed, the served list read or not */}
-      {(manifest || manifestError) && <ImportCheck language={language} onAnnounce={setNote} />}
-
-      {(storage || notKept) && (
-        <div className="mt-6 max-w-3xl space-y-2">
+      {/* this browser's storage: what Passage uses, that it can be deleted, a file of every check, and importing one */}
+      {(storage || notKept || hasLocalCheck || showImport) && (
+        <div data-testid="storage-block" className="mt-6 max-w-3xl space-y-3">
           {storage && <StorageUsage usage={storage} language={language} />}
           {notKept && <StorageNotKept language={language} />}
+          <SaveAllChecks exportable={exportable} hasLocalCheck={hasLocalCheck} language={language} onAnnounce={setNote} />
+          {showImport && <ImportCheck language={language} onAnnounce={setNote} removeChecks={removeImported} />}
         </div>
       )}
     </div>

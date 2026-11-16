@@ -145,6 +145,16 @@ export function passageText(template, values, language) {
   return translateText(template, language).replace(/\{(\w+)\}/g, (token, key) => String(values[key] ?? token));
 }
 
+/**
+ * A sentence about a count: the singular template for one check (in French
+ * for none or one, as French says "0 vérification"), the plural otherwise.
+ * Both templates carry {n}.
+ */
+export function countText(n, plural, singular, values, language) {
+  const one = language === 'fr' ? n <= 1 : n === 1;
+  return passageText(one ? singular : plural, { ...values, n }, language);
+}
+
 /** Local time in the page language. */
 export const localTime = (iso, language) => translateText(fmtLocalTime(iso), language);
 

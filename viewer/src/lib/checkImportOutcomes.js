@@ -14,6 +14,8 @@ export const IMPORT = Object.freeze({
   polar: 'polar',
   served: 'served',
   offline: 'offline',
+  // a file of many checks refused for now because the page never read the served checks (lib/checkImportMany.js)
+  manyOffline: 'offline-many',
   conflict: 'conflict',
   storage: 'storage',
 });

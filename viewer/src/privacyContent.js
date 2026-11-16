@@ -19,7 +19,7 @@ export const fullPolicyUrl = (language) => FULL_POLICY_URL[language === 'fr' ? '
 export const PRIVACY_BLOCKS = [
   { type: 'h1', text: 'Privacy policy' },
   { type: 'p', text: 'This page describes what Passage (passage.deepregatta.com) does with personal data. It is read together with the full DeepRegatta privacy policy, which covers all our products.' },
-  { type: 'p', text: 'Last updated: 15 November 2026' },
+  { type: 'p', text: 'Last updated: 16 November 2026' },
 
   { type: 'h2', text: 'In short' },
   { type: 'ul', items: [
@@ -69,7 +69,7 @@ export const PRIVACY_BLOCKS = [
     'A cache of forecast tiles so they load faster (IndexedDB).',
     'The usage-measurement identifiers and campaign tags described above: the visitor identifier and first campaign tags stay in local storage; the session identifier, current campaign tags and a few session flags are in session storage and clear when the tab closes.',
   ] },
-  { type: 'p', text: 'Check files: if you save a copy of a check to a file, or import one, the file is written and read on your device only. It holds the route, the departure time, your limits, the boat reference and the forecast data that check used. Passage does not send it anywhere; who sees it is up to you.' },
+  { type: 'p', text: 'Check files: if you save a copy of one check or of all your checks to a file, or import one, the file is written and read on your device only. It holds the route, the departure time, your limits, the boat reference and the forecast data that check used. Passage does not send it anywhere; who sees it is up to you.' },
 
   { type: 'h2', text: 'Who receives data' },
   { type: 'p', text: 'Cloudflare (hosting, forecast storage and server functions), Supabase (usage events and feedback) and the OpenStreetMap and OpenSeaMap tile services. We do not sell personal data and do not share it with advertising networks. Some of these providers process data outside the EEA; the safeguards are described in the full policy.' },

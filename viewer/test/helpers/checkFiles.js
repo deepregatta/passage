@@ -44,3 +44,25 @@ export const gzipOf = (text) => gzipText(text);
 
 /** A File the importer reads, from bytes. */
 export const fileOf = (bytes, name = 'passage-check.json.gz') => new File([bytes], name, { type: 'application/gzip' });
+
+/**
+ * jsdom's Blob and File have no stream(), which every browser Passage supports
+ * has and the reader of a version-2 file needs (lib/checkFileLines.js). For
+ * tests that hand jsdom Files to the page, give its Blob one, read from its own
+ * arrayBuffer(). Test-only: the page has no fallback.
+ */
+export function installBlobStream() {
+  if (typeof Blob.prototype.stream === 'function') return;
+  Object.defineProperty(Blob.prototype, 'stream', {
+    configurable: true,
+    value() {
+      const blob = this;
+      return new ReadableStream({
+        async start(controller) {
+          controller.enqueue(new Uint8Array(await blob.arrayBuffer()));
+          controller.close();
+        },
+      });
+    },
+  });
+}

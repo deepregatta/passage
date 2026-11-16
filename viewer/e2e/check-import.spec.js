@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
-// Import a check from a file (2026-11-15): a real Check in fixture mode is saved
+// Import a check from a file (2026-11-15; the control is "Import from a file" since 2026-11-16): a real Check in fixture mode is saved
 // in this test's own browser storage, saved to a file, and imported into a second,
 // empty browser context. The imported check opens with its label, the same verdict
 // and departure; a file that is not a check file is refused with a message. Demo
@@ -61,7 +61,7 @@ test('a check saved to a file imports into another browser, labelled, with the s
     await prepare(other);
     await other.goto('/#passages');
     const control = other.getByTestId('import-check');
-    await expect(control.getByRole('button', { name: 'Import a check' })).toBeVisible();
+    await expect(control.getByRole('button', { name: 'Import from a file' })).toBeVisible();
     await expect(control.getByText('It is read in this browser; nothing is uploaded.', { exact: false })).toBeVisible();
 
     // a hostile file first: refused, nothing stored

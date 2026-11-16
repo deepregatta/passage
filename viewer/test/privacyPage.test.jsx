@@ -88,16 +88,16 @@ describe('privacy copy', () => {
     const french = 'Ces données restent sur votre appareil. Elles y restent jusqu’à ce que vous les supprimiez ou effaciez les données de ce site, ou jusqu’à ce que votre navigateur les supprime de lui-même\u00A0: certains navigateurs le font lorsque l’appareil manque d’espace, ou après une période sans visite sur Passage.';
     expect(text()).toContain(english);
     expect(text()).not.toContain('stays on your device until you delete it');
-    expect(text()).toContain('Last updated: 15 November 2026');
+    expect(text()).toContain('Last updated: 16 November 2026');
     const frenchPage = privacyTexts().map((item) => translateText(item, 'fr')).join('\n');
     expect(frenchPage).toContain(french);
-    expect(frenchPage).toContain('Dernière mise à jour : 15 novembre 2026');
-    for (const language of ['en', 'fr']) expect(privacyHtml(language, translateText)).toContain(language === 'fr' ? 'Dernière mise à jour : 15 novembre 2026' : 'Last updated: 15 November 2026');
+    expect(frenchPage).toContain('Dernière mise à jour : 16 novembre 2026');
+    for (const language of ['en', 'fr']) expect(privacyHtml(language, translateText)).toContain(language === 'fr' ? 'Dernière mise à jour : 16 novembre 2026' : 'Last updated: 16 November 2026');
   });
 
   it('describes check files that stay on the device, in both languages', () => {
-    const english = 'Check files: if you save a copy of a check to a file, or import one, the file is written and read on your device only. It holds the route, the departure time, your limits, the boat reference and the forecast data that check used. Passage does not send it anywhere; who sees it is up to you.';
-    const french = 'Fichiers de vérification\u00A0: si vous enregistrez une copie d’une vérification dans un fichier, ou si vous en importez une, le fichier est écrit et lu uniquement sur votre appareil. Il contient la route, l’heure de départ, vos limites, la référence du bateau et les données de prévision utilisées par cette vérification. Passage ne l’envoie nulle part\u00A0; vous décidez qui le voit.';
+    const english = 'Check files: if you save a copy of one check or of all your checks to a file, or import one, the file is written and read on your device only. It holds the route, the departure time, your limits, the boat reference and the forecast data that check used. Passage does not send it anywhere; who sees it is up to you.';
+    const french = 'Fichiers de vérification\u00A0: si vous enregistrez dans un fichier une copie d’une vérification ou de toutes vos vérifications, ou si vous en importez une, le fichier est écrit et lu uniquement sur votre appareil. Il contient la route, l’heure de départ, vos limites, la référence du bateau et les données de prévision utilisées par cette vérification. Passage ne l’envoie nulle part\u00A0; vous décidez qui le voit.';
     expect(text()).toContain(english);
     expect(translateText(english, 'fr')).toBe(french);
     for (const language of ['en', 'fr']) expect(privacyHtml(language, translateText)).toContain(language === 'fr' ? french : english);

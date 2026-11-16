@@ -2,9 +2,9 @@ import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { IDBFactory } from 'fake-indexeddb';
-import { checkFileOf, fileOf, makeCheck } from './helpers/checkFiles.js';
+import { checkFileOf, fileOf, installBlobStream, makeCheck } from './helpers/checkFiles.js';
 
-// "Import a check" on My passages, through the real importer and store (fake-indexeddb,
+// "Import from a file" on My passages, through the real importer and store (fake-indexeddb,
 // a fresh factory per test). An imported check joins its passage's history and always
 // says it was imported from a file, with the time the check itself was made.
 vi.setConfig({ testTimeout: 30_000 });
@@ -12,8 +12,8 @@ vi.setConfig({ testTimeout: 30_000 });
 const IMPORTED_AT = Date.parse('2026-11-16T09:00:00Z');
 const STRINGS = {
   en: {
-    button: 'Import a check',
-    note: 'Choose a check file saved from Passage (.json.gz). It is read in this browser; nothing is uploaded.',
+    button: 'Import from a file',
+    note: 'Choose a file saved from Passage (.json.gz), with one check or all of them. It is read in this browser; nothing is uploaded.',
     done: (time) => `Check imported from a file, departing ${time}.`,
     here: (time) => `This check is already in My passages, departing ${time}.`,
     open: 'Open the check',
@@ -25,8 +25,8 @@ const STRINGS = {
     damaged: 'This check was not imported: the file is damaged or has been altered.',
   },
   fr: {
-    button: 'Importer une vérification',
-    note: 'Choisissez un fichier de vérification enregistré depuis Passage (.json.gz). Il est lu dans ce navigateur ; rien n’est envoyé.',
+    button: 'Importer depuis un fichier',
+    note: 'Choisissez un fichier enregistré depuis Passage (.json.gz), avec une vérification ou toutes. Il est lu dans ce navigateur ; rien n’est envoyé.',
     done: (time) => `Vérification importée depuis un fichier, départ ${time}.`,
     label: (time) => `Importée depuis un fichier, non recalculée ici · vérification faite ${time}`,
     notCheckFile: 'Ce fichier n’est pas un fichier de vérification Passage.',
@@ -36,6 +36,7 @@ const STRINGS = {
 
 let earlier, imported;
 beforeAll(async () => {
+  installBlobStream();
   // two checks of one passage: the earlier one saved in this browser, the later one imported
   earlier = await makeCheck({ passageId: 'passage-shared', nowMs: Date.parse('2026-07-19T17:00:00Z') });
   imported = await makeCheck({ passageId: 'passage-shared', departureUtc: '2026-07-20T09:00:00Z', nowMs: Date.parse('2026-07-19T18:00:00Z') });

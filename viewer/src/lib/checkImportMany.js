@@ -98,8 +98,9 @@ async function settleLine(line, { header, servedIds, nowMs, importedAt }) {
     const meanwhile = await existing(check).catch(() => null);
     if (meanwhile === 'same') return { outcome: 'already' };
     if (meanwhile === 'different') return { outcome: 'conflict' };
-    console.error(`Passage could not store an imported check: ${storageFull(error) ? 'storage full' : error?.name ?? 'error'}`);
-    return { stop: IMPORT_END.storage };
+    const full = storageFull(error);
+    console.error(`Passage could not store an imported check: ${full ? 'storage full' : error?.name ?? 'error'}`);
+    return { stop: IMPORT_END.storage, full };
   }
   return { outcome: 'imported', snapshotId: check.snapshotId, passageId: typeof check.decisionInputs.route?.passage_id === 'string' ? check.decisionInputs.route.passage_id : null };
 }
@@ -123,7 +124,10 @@ async function settleLine(line, { header, servedIds, nowMs, importedAt }) {
  * was; after a storage failure the failed one and every later one, from the
  * trailer; null whenever that number is unknown, as when the file broke or
  * the import stopped before its trailer), refusal (an IMPORT outcome when end
- * is refused) }. An abort before the header resolves { kind: 'unknown', end:
+ * is refused), first (the first check line's { outcome, snapshotId }, or
+ * null), storageFull (true when a storage failure was the browser's quota) }.
+ * onProgress is also called with { index: 0 } once a version-2 header is
+ * read. An abort before the header resolves { kind: 'unknown', end:
  * stopped }. Never rejects.
  */
 export async function importChecksFile(file, { servedIds = null, signal, onProgress, nowMs = Date.now(), caps } = {}) {
@@ -136,9 +140,11 @@ export async function importChecksFile(file, { servedIds = null, signal, onProgr
   let ownPassages = null;
   let joinedOwn = 0;
   let index = 0;
+  // the first check line's outcome and id (an own copy), so a file of one check can be told as stage 1 tells it
+  let first = null;
   const result = (end, extra = {}) => {
     if (importedIds.length) requestPersistence();
-    return { kind: 'v2', outcomes, importedIds, joinedOwn, linesRead: index, end, hint: null, notReached: null, refusal: null, ...extra };
+    return { kind: 'v2', outcomes, importedIds, joinedOwn, linesRead: index, first, end, hint: null, notReached: null, refusal: null, storageFull: false, ...extra };
   };
   const importedAt = new Date(nowMs).toISOString();
   const lines = readCheckFileLines(file, { signal, caps });
@@ -159,6 +165,8 @@ export async function importChecksFile(file, { servedIds = null, signal, onProgr
           await lines.return();
           return result(IMPORT_END.refused, { refusal: IMPORT.offline });
         }
+        // the import of a version-2 file has begun; no check line is read yet
+        onProgress?.({ index: 0 });
         continue;
       }
       if (item?.trailer) return item.trailer.checks === index ? result(IMPORT_END.complete, { notReached: 0 }) : result(IMPORT_END.incomplete, { hint: LINES.trailer });
@@ -177,13 +185,15 @@ export async function importChecksFile(file, { servedIds = null, signal, onProgr
       } else if (id !== null && await storedTextMatches(id, item)) {
         outcomes.already += 1;
         seen.add(id);
+        if (index === 1) first = { outcome: 'already', snapshotId: id };
       } else {
         const settled = await settleLine(item, { header, servedIds, nowMs, importedAt });
         if (settled.stop) {
           await lines.return();
-          return result(IMPORT_END.storage, { notReached: await linesLeft(file, caps, index) });
+          return result(IMPORT_END.storage, { notReached: await linesLeft(file, caps, index), storageFull: settled.full });
         }
         outcomes[settled.outcome] += 1;
+        if (index === 1) first = { outcome: settled.outcome, snapshotId: settled.snapshotId ? ownCopy(settled.snapshotId) : id };
         if (id !== null && SETTLED.has(settled.outcome)) seen.add(id);
         if (settled.snapshotId) {
           importedIds.push(ownCopy(settled.snapshotId));
@@ -234,11 +244,14 @@ async function linesLeft(file, caps, failedAt) {
 
 /**
  * Remove checks this browser imported (a later "remove what this import
- * added"): each id is removed, files and marker, through the store's own
- * delete, only when it has an import marker; any other id is refused and left
- * as it is. Resolves { removed, refused } (ids).
+ * added"): each id is removed, files and marker, only when it has an import
+ * marker; any other id is refused and left as it is. `remove(id)` is the
+ * delete to use: the page passes its own (appStore deleteSnapshot, which also
+ * forgets the remembered open check and closes it if open); the store's
+ * delete by default. An id counts as removed once the store no longer holds
+ * it. Resolves { removed, refused } (ids).
  */
-export async function removeImportedChecks(ids) {
+export async function removeImportedChecks(ids, { remove = (id) => localSnapshots.remove(id) } = {}) {
   const removed = [];
   const refused = [];
   for (const id of ids ?? []) {
@@ -246,8 +259,13 @@ export async function removeImportedChecks(ids) {
       refused.push(id);
       continue;
     }
-    if (await localSnapshots.remove(id)) removed.push(id);
-    else refused.push(id);
+    try {
+      await remove(id);
+    } catch {
+      // judged below by what the store still holds
+    }
+    if (await localSnapshots.exists(id)) refused.push(id);
+    else removed.push(id);
   }
   return { removed, refused };
 }

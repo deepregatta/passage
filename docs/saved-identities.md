@@ -467,11 +467,12 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   horizontal overflow and no console error. Not tested live: an import that
   stores a check (it needs a browser without the check), a refusal, Safari,
   Firefox, a phone.
-- Check file, version 2 (format; not yet offered in the app; 2026-11-15):
-  one file meant to hold all of a sailor's checks, read and stored one check
-  at a time. Nothing in the app writes or reads it yet: "Save a copy to a
-  file" still writes version 1 and "Import a check" still reads only version
-  1 (to which a version-2 file is "not a check file"). The format and its
+- Check file, version 2 (2026-11-15; offered in the app since 2026-11-16):
+  one file holding all of a sailor's checks, read and stored one check at a
+  time. On My passages, "Save all checks to a file" writes it and "Import
+  from a file" (named "Import a check" until 2026-11-16) reads it as well as
+  version 1; "Save a copy to a file" on the passage page still writes
+  version 1, one check. The format and its
   pure functions live in `engine/src/checkFile.ts`, the stream reader in
   `viewer/src/lib/checkFileLines.js` (below). The file,
   `passage-all-checks-<UTC date YYYY-MM-DD>-<HHMM>Z.json.gz`
@@ -523,8 +524,9 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   proof's own "damaged" or "future-time"); a wrong trailer (another count,
   other keys); more than 1,000 checks.
   The import of many checks (`importChecksFile` in
-  `viewer/src/lib/checkImportMany.js`, 2026-11-15; a library only, no control
-  calls it yet; "Import a check" still calls the stage 1 `importCheckFile`)
+  `viewer/src/lib/checkImportMany.js`, 2026-11-15; called by "Import from a
+  file" since 2026-11-16, which hands a version-1 file on to the stage 1
+  `importCheckFile`)
   reads a file through the stream reader. A version-1 file goes to the stage
   1 import and resolves `{ kind: 'v1', …its own result }` unchanged, except
   that a file that is not gzip is "not a check file" whatever its size (stage
@@ -569,11 +571,48 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   persistent storage once at the end when it stored anything, and gives the
   event loop a turn between checks. `removeImportedChecks(ids)` removes
   exactly those ids that carry an import marker (files and marker, through
-  `localSnapshots.remove`) and refuses any other, for a later "remove what
-  this import added".
+  `localSnapshots.remove`) and refuses any other; "Import from a file" offers
+  it after an import of many that stored checks.
+  The controls (2026-11-16, My passages, in the storage block after the
+  storage line and the note that this browser can delete checks): "Save all
+  checks to a file" (`components/SaveAllChecks.jsx`) loads the export and its
+  validators on the first tap, shows "check i of n" with a progress bar and
+  Stop (stopping keeps nothing), then "File ready" with the number of checks
+  and the size, one line per reason checks were left out, and "Save the
+  file": a second tap, a fresh gesture for the download, keeps the object
+  URL until the next file replaces it (revoked at once) or, after
+  `pagehide` or leaving the page, for another 60 seconds (some browsers read
+  a blob URL lazily, after the click), and writes
+  `deepweather.last-checks-file` (`{ made_at, ids }`, local storage, wrapped:
+  the page works without it; `made_at` is the file's own `exported_at`, the
+  instant in its name), from which the page says when the last file was made
+  and how many checks saved here are not in it (by id, never by clock). It is not shown without `CompressionStream` or a check that can be
+  put in a file. "Import from a file" (`components/ImportCheck.jsx`) calls
+  `importChecksFile`: a file of one check (version 1, or version 2 with one
+  line) reads exactly as stage 1 says it, with "Open the check"; otherwise
+  the start is announced, a count with an indeterminate progress bar and Stop
+  runs, and one summary follows: how many were imported, already here, sit
+  in a passage alongside checks made here, and appear more than once in the
+  file (each read once: information, not damage), then one line per kind of
+  refusal, then a line when the file ends early, holds more than 1,000
+  checks, stopped at a check line over the line cap (that line replaces both
+  the ends-early line and a too-large count), meets a full storage (said only
+  when the quota was the cause) or another storage failure, or was stopped;
+  problems are one alert. A button then removes exactly what this import
+  added, through the confirmation dialog and the same store delete the
+  page's own "Delete" uses (it forgets the remembered open check and closes
+  it if open; a passage the removal empties loses its saved name), refusing
+  any id without an import marker, and says how many were removed; a line
+  under it says it stays only until the page is left. When a flow ends and
+  its Stop or undo button goes while focused, focus moves to the line that
+  says how it ended, never to the page; each progress bar is named by the
+  text beside it.
+  Both speak through the page's one live region, never per check; busy
+  buttons stay focusable (`aria-disabled`); no analytics event; the importer
+  still loads when the page is idle.
   The export of all checks (`prepareAllChecksFile` in
-  `viewer/src/lib/allChecksFile.js`, 2026-11-15; a library only, no control
-  calls it yet) lists this browser's checks (`localSnapshots.list()`): every
+  `viewer/src/lib/allChecksFile.js`, 2026-11-15; called by "Save all checks
+  to a file" since 2026-11-16) lists this browser's checks (`localSnapshots.list()`): every
   check saved or imported here with a v2 id is a candidate, an imported one
   without its `imported.json` marker (only the files its manifest names are
   read); a legacy identity-1 check is counted as legacy and left out. It
@@ -609,7 +648,8 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   (`makeAllChecksFile`) takes the store, the validators' loader, the
   compressor, `Blob` and the pause as dependencies, so it could run in a
   Worker; it runs on the main thread for now.
-  The stream reader (`readCheckFileLines`, 2026-11-15; nothing calls it yet)
+  The stream reader (`readCheckFileLines`, 2026-11-15; used by both controls
+  since 2026-11-16)
   reads a `File` through `file.stream()` and `DecompressionStream('gzip')`,
   never holding more than one line: it splits on byte 0x0A before decoding
   and decodes each line piece by piece with a fatal UTF-8 decoder that keeps

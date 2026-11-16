@@ -241,7 +241,7 @@ async function makePass(deps, { signal, onProgress, caps, nowMs = Date.now() }, 
   if (blob.size > limits.compressedBytes) return { overshoot: { lineSizes, size: blob.size } };
   const verified = await verify(blob, { exportedAt, digests, signal, caps: limits });
   if (verified !== true) return verified === 'stopped' ? { outcome: ALL_CHECKS.stopped } : { outcome: ALL_CHECKS.failed, reason: 'verify' };
-  return { outcome: ALL_CHECKS.made, blob, name: allChecksFileName(exportedAt), included, counts };
+  return { outcome: ALL_CHECKS.made, blob, name: allChecksFileName(exportedAt), exportedAt, included, counts };
 }
 
 /**
@@ -285,7 +285,8 @@ const browserDeps = () => ({
  * Make one file of every check saved or imported in this browser. Options:
  * `signal` (an abort gives ALL_CHECKS.stopped and keeps nothing),
  * `onProgress({ index, total })` after each check, `caps` (LINE_CAPS, smaller
- * in tests), `nowMs`. Resolves { outcome: made, blob, name, included (ids, in
+ * in tests), `nowMs`. Resolves { outcome: made, blob, name, exportedAt (the
+ * header's exported_at, the instant in the name), included (ids, in
  * file order), counts: { included, legacy, damaged, unreadable, polar,
  * tooLarge, overCap, futureDated } }, { outcome: empty, counts }, { outcome:
  * stopped } or { outcome: failed, reason }. futureDated counts included checks
