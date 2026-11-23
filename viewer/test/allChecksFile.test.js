@@ -316,7 +316,7 @@ describe('review round', () => {
     expect(result.counts.included + result.counts.overCap).toBe(4);
     expect(result.included).toEqual(whole.included.slice(0, result.counts.included));
     expect((await readBack(result.blob)).proven.every((line) => line.ok)).toBe(true);
-  });
+  }, 60_000); // CPU-bound: four ~0.5 MB checks built, gzipped and read back; 4.5 s alone, 15 s on a loaded machine
 
   it('fails as too large only when not even one check fits', async () => {
     for (const check of checks) await store(check);

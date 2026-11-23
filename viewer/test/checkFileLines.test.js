@@ -140,7 +140,7 @@ describe('a version-2 file', () => {
     // one byte at a time, on a smaller file (each byte is a stream read)
     const small = gzip(backup(['{"snapshot_id":"Île d’Yeu 🌊"}', fakeLine(300)]));
     expect(await read(chunkedFile(small, 1))).toEqual(await read(fileOf(small)));
-  });
+  }, 60_000); // CPU-bound: gzip and a stream read per byte, deterministic; 2.3 s alone, 12 s on a loaded machine
 
   it('accepts a trailer without its final newline, and no checks', async () => {
     expect((await read(fileOf(gzip(text().slice(0, -1))))).items.at(-1)).toEqual({ trailer: { ok: true, checks: 2 } });

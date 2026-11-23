@@ -60,13 +60,13 @@ beforeEach(async () => {
 });
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
-async function showPassages(language = 'en') {
+async function showPassages(language = 'en', { served = true } = {}) {
   useApp.setState({ language });
   const { default: Passages } = await import('../src/pages/Passages.jsx');
   const view = render(<div id="root"><Passages /><i18n.LocalizedDocument language={language} /></div>);
   await screen.findByRole('heading', { level: 1 });
-  // the control shows once the list of passages is read
-  await waitFor(() => expect(useApp.getState().manifest).not.toBeNull());
+  // the control shows once the list of passages is read; a failed served list never sets the manifest
+  if (served) await waitFor(() => expect(useApp.getState().manifest).not.toBeNull());
   return view;
 }
 const fileInput = () => screen.getByTestId('import-check').querySelector('input[type="file"]');
@@ -198,7 +198,8 @@ describe('provenance wherever an imported check takes part', () => {
 describe('the import control and the network', () => {
   it('is shown when the served list failed, and then refuses for now', async () => {
     globalThis.fetch.mockImplementation(async (url) => (String(url).includes('manifest.json') ? new Response('', { status: 500 }) : new Response('null')));
-    await showPassages().catch(() => {});
+    // the manifest never loads here: do not wait for it (that wait ran out the 8 s waitFor limit, swallowed by a catch)
+    await showPassages('en', { served: false });
     await waitFor(() => expect(useApp.getState().manifestError).not.toBeNull());
     expect(await screen.findByRole('button', { name: STRINGS.en.button })).toBeVisible();
     const user = userEvent.setup({ advanceTimers: () => {} });
