@@ -72,7 +72,7 @@ it.each([
 
 it.each([
   ['storage-full', 'QuotaExceededError: Quota exceeded.', SAVE_FAILED['storage-full']],
-  ['blocked', 'Snapshot x is incomplete, legacy or conflicting. Snapshots are write-once.', SAVE_FAILED.blocked],
+  ['blocked', 'Check x is incomplete, legacy or conflicting. Checks are write-once.', SAVE_FAILED.blocked],
   ['failed', 'AbortError: The save was interrupted.', SAVE_FAILED.failed],
   ['failed', 'This browser cannot store checks (no IndexedDB)', SAVE_FAILED.failed],
   ['unknown-kind', 'Snapshot write failed: HTTP 500', SAVE_FAILED.failed],

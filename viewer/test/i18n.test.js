@@ -44,6 +44,22 @@ describe('limit fragment boundaries', () => {
   });
 });
 
+it('translates the check wording of save failures, load errors and published-case labels', () => {
+  expect(translateText('Check snapshot_v2_0123456789abcdef is incomplete, legacy or conflicting. Checks are write-once.', 'fr'))
+    .toBe('La vérification snapshot_v2_0123456789abcdef est incomplète, ancienne ou en conflit. Les vérifications sont à écriture unique.');
+  expect(translateText('Check decision inputs conflict with its identity.', 'fr')).toBe('Les données d’entrée de la vérification contredisent son identité.');
+  expect(translateText('Invalid check identifier', 'fr')).toBe('Identifiant de vérification invalide');
+  expect(translateText('No multi-model data in this check.', 'fr')).toBe('Aucune donnée multimodèle dans cette vérification.');
+  expect(translateText('Published verification case · check as saved', 'fr')).toBe('Cas de vérification publié · vérification telle qu’enregistrée');
+});
+
+it('translates the emulated-evidence line, in the current wording and as frozen in older checks', () => {
+  expect(translateText('Emulated evidence entries: E1, E2. Provider modes are recorded with this check.', 'fr'))
+    .toBe('Entrées probantes simulées : E1, E2. Les modes des fournisseurs sont consignés avec cette vérification.');
+  expect(translateText('Emulated evidence entries: E1, E2. Provider modes are recorded in the snapshot inputs.', 'fr'))
+    .toBe('Entrées probantes simulées : E1, E2. Les modes des fournisseurs sont consignés dans les données d’entrée de la vérification.');
+});
+
 it('translates transport timeouts, network errors and tile validation failures', () => {
   expect(translateText('forecast fetch timed out after 15000 ms for latest.json', 'fr'))
     .toBe('Délai de chargement des prévisions dépassé après 15000 ms pour latest.json');

@@ -70,7 +70,7 @@ export interface SnapshotStore {
 export class SnapshotExistsError extends Error {
   constructor(
     readonly snapshotId: string,
-    message = `Snapshot ${snapshotId} is incomplete, legacy or conflicting. Snapshots are write-once.`,
+    message = `Check ${snapshotId} is incomplete, legacy or conflicting. Checks are write-once.`,
   ) {
     super(message);
     this.name = 'SnapshotExistsError';
@@ -212,7 +212,7 @@ export async function writeSnapshot(
   const id = findings.snapshot_id;
   if (findings.identity_version === 2 && (!extras.decisionInputs || contentHash(extras.decisionInputs) !== findings.decision_hash ||
       canonicalJson(extras.decisionInputs.route) !== canonicalJson(extras.route))) {
-    throw new Error('Snapshot decision inputs conflict with its identity.');
+    throw new Error('Check decision inputs conflict with its identity.');
   }
   if (await store.exists(id)) {
     const manifestJson = await store.read?.(id, 'snapshot.json');

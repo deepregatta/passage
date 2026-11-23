@@ -134,7 +134,7 @@ describe('all-or-nothing saves', () => {
     const refusal = await writeSnapshot(store, findings, briefing, extras, 1).catch(error => error);
     expect(refusal).toBeInstanceOf(SnapshotExistsError);
     expect(refusal).toMatchObject({ name: 'SnapshotExistsError', snapshotId: findings.snapshot_id,
-      message: `Snapshot ${findings.snapshot_id} is incomplete, legacy or conflicting. Snapshots are write-once.` });
+      message: `Check ${findings.snapshot_id} is incomplete, legacy or conflicting. Checks are write-once.` });
     expect(store.batches).toEqual([]);
     expect([...store.files]).toEqual([[`${findings.snapshot_id}/route.json`, '{"original":true}']]);
   });

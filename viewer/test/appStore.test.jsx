@@ -1,9 +1,10 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useApp } from '../src/stores/appStore.js';
 import { usePlayback } from '../src/stores/playbackStore.js';
 import { fetchSnapshotJson, localSnapshots, snapshotTombstones } from '../src/lib/localSnapshots.js';
 import { preparedRun } from '../src/lib/preparedRun.js';
+import { LocalizedDocument } from '../src/i18n.js';
 import Briefing from '../src/pages/Briefing.jsx';
 import Passages from '../src/pages/Passages.jsx';
 
@@ -185,6 +186,14 @@ describe('snapshot load feedback', () => {
     useApp.setState({ loadError: 'fixture load failure' });
     render(<Page />);
     expect(screen.getByRole('alert')).toHaveTextContent('fixture load failure');
+  });
+
+  it.each([Briefing, Passages])('shows the invalid-identifier error in French on %s', async (Page) => {
+    useApp.setState({ language: 'fr', loadError: null });
+    render(<div id="root"><Page /><LocalizedDocument language="fr" /></div>);
+    await act(async () => { await useApp.getState().openSnapshot('not a valid id', null, 'briefing', 'local'); });
+    expect(useApp.getState().loadError).toBe('Invalid check identifier');
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Identifiant de vérification invalide'));
   });
 
   it('shows loading instead of the old briefing during another open', async () => {

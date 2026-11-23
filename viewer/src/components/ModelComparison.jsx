@@ -103,7 +103,7 @@ export default function ModelComparison() {
   }, [plume, findings, legId, mobile]);
 
   if (!view) {
-    return <p className="text-sm text-ink-soft">No multi-model data in this snapshot.</p>;
+    return <p className="text-sm text-ink-soft">No multi-model data in this check.</p>;
   }
   return (
     <div>

@@ -197,7 +197,7 @@ export const useApp = create((set, get) => ({
     usePlayback.getState().reset();
     set({ ...emptySnapshot, loading: true, loadError: null, snapshotId, measurementAttempt });
     try {
-      if (!validSnapshotId(snapshotId)) throw new Error('Invalid snapshot identifier');
+      if (!validSnapshotId(snapshotId)) throw new Error('Invalid check identifier');
       const snapshotSource = source === 'served' || targetPage === 'example'
         ? 'served' : source === 'local' || await localSnapshots.exists(snapshotId) ? 'local' : 'served';
       if (targetPage !== 'example') await preparedRun(); // live/saved runs only

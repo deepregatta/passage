@@ -82,7 +82,7 @@ export default function OutcomeSection() {
     <article>
       <header className="border-y-2 border-ink py-5 grid sm:grid-cols-[1fr_auto] gap-4">
         <div>
-          <p className="eyebrow">Published verification case · frozen snapshot</p>
+          <p className="eyebrow">Published verification case · check as saved</p>
           <h2 className="font-story text-3xl sm:text-4xl">What the forecast said, and what happened</h2>
         </div>
         <button type="button" onClick={printOutcome} className="print:hidden self-start min-h-11 px-4 border border-ink font-instrument">Print / save PDF</button>

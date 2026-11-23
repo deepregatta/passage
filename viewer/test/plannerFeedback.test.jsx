@@ -162,7 +162,7 @@ const saveFailure = (saveFailure, text) => Object.assign(new Error(text), { name
 it.each([
   ['storage-full', 'QuotaExceededError: The quota has been exceeded.', 'This check was not saved: this browser’s storage for this site is full, so nothing was stored. To free space, delete saved checks you no longer need in My passages.',
     'Cette vérification n’a pas été enregistrée\u00A0: l’espace de stockage de ce navigateur pour ce site est plein, rien n’a donc été enregistré. Pour libérer de la place, supprimez dans Mes traversées les vérifications enregistrées dont vous n’avez plus besoin.'],
-  ['blocked', 'Snapshot snapshot_v2_0123456789abcdef is incomplete, legacy or conflicting. Snapshots are write-once.',
+  ['blocked', 'Check snapshot_v2_0123456789abcdef is incomplete, legacy or conflicting. Checks are write-once.',
     'This check could not be saved: this browser already holds an earlier save of the same check that cannot be reopened, and saved checks are never overwritten. Nothing new was stored. A check on a newer forecast, or after a change to the route, departure or limits, can be saved normally.',
     'Cette vérification n’a pas pu être enregistrée\u00A0: ce navigateur contient déjà un enregistrement antérieur de la même vérification qui ne peut pas être rouvert, et les vérifications enregistrées ne sont jamais remplacées. Rien de nouveau n’a été enregistré. Une vérification sur une prévision plus récente, ou après une modification de la route, du départ ou des limites, pourra être enregistrée normalement.'],
   ['failed', 'This browser cannot store checks (no IndexedDB)', 'This check was not saved in this browser, and nothing was stored.',
@@ -189,6 +189,23 @@ it.each([
   // toHaveTextContent folds the no-break space before the colon into a space
   await waitFor(() => expect(frAlert).toHaveTextContent(french.replace(/\u00A0/g, ' ')));
   expect(frAlert).not.toHaveTextContent(raw);
+});
+
+it.each([
+  ['blocked', 'Check snapshot_v2_0123456789abcdef is incomplete, legacy or conflicting. Checks are write-once.',
+    'La vérification snapshot_v2_0123456789abcdef est incomplète, ancienne ou en conflit. Les vérifications sont à écriture unique.'],
+  ['failed', 'Check decision inputs conflict with its identity.', 'Les données d’entrée de la vérification contredisent son identité.'],
+])('shows the technical detail of a %s save in French: %j', async (kind, raw, french) => {
+  useApp.setState({ language: 'fr' });
+  const { LocalizedDocument } = await import('../src/i18n.js');
+  await act(async () => { usePlanner.setState({ mode: 'draw', waypoints: [{ lat: 50.5, lng: -1.5 }, { lat: 50.6, lng: -1.4 }] }); });
+  analyzeInBrowser.mockRejectedValueOnce(saveFailure(kind, raw));
+  render(<div id="root"><Planner /><LocalizedDocument language="fr" /></div>);
+  fireEvent.click(screen.getByRole('button', { name: /^(Vérifier cette traversée|Check this passage)$/ }));
+  await screen.findByRole('alert');
+  const detail = screen.getByText(/^(Détail technique|Technical detail)$/).closest('details');
+  await waitFor(() => expect(detail).toHaveTextContent(french));
+  expect(detail).not.toHaveTextContent(raw);
 });
 
 it.each(['date', 'boat', 'mode'])('clears a failure when the %s it depended on changes', async (change) => {

@@ -65,7 +65,7 @@ function ProfessionalRegister({ sections, findings }) {
             <div key={section.id}>
               <h4 className="font-sans text-xs font-medium">{decision ? <BriefingMessage section={section} field="title" version={version} /> : sectionTitle(section)}</h4>
               <p className="font-sans text-xs leading-relaxed text-ink-soft mt-0.5">
-                {decision ? <BriefingMessage section={section} field="pro" version={version} describeDriver={describeDriver} /> : stripInvisibleControls(section.register_pro)}
+                {decision ? <BriefingMessage section={section} field="pro" version={version} describeDriver={describeDriver} /> : checkWording(stripInvisibleControls(section.register_pro))}
               </p>
               {section.evidence_ids.length > 0 && (
                 <p className="mt-1 font-mono text-xs text-ink-soft">

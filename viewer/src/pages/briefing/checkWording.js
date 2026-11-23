@@ -20,5 +20,12 @@ export const sectionTitle = (section) => {
   return own(TITLES, title) ?? title;
 };
 
+// The one frozen sentence that carries evidence ids, so it is matched as a whole rather than looked up.
+const EMULATED_ENTRIES = /^(Emulated evidence entries: .+\.) Provider modes are recorded in the snapshot inputs\.$/;
+
 /** @param {unknown} text */
-export const checkWording = (text) => own(TEXTS, text) ?? text;
+export const checkWording = (text) => {
+  const known = own(TEXTS, text);
+  if (known !== undefined) return known;
+  return typeof text === 'string' ? text.replace(EMULATED_ENTRIES, '$1 Provider modes are recorded with this check.') : text;
+};
