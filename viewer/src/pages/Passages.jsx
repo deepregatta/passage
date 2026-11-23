@@ -151,7 +151,7 @@ export default function Passages() {
 
       {manifest && !hasExample && (
         <button type="button" onClick={() => setPage('example')} className="mt-6 flex items-center gap-3 border hairline bg-white/30 px-4 py-3 hover:border-ink-soft text-left">
-          <span className="font-story text-lg">See an example briefing</span>
+          <span className="font-story text-lg">See an example check</span>
           <span className="stamp-emulated text-xs!">emulated</span>
         </button>
       )}
@@ -363,7 +363,7 @@ function PassageRow({ passage, publishedCases, label, language, onRename, onDele
         <ConfirmDialog
           heading={passageText('Delete "{name}"?', name, language)}
           headingProps={OWNED}
-          confirmLabel={checks.length === 1 ? 'Delete briefing' : 'Delete passage'}
+          confirmLabel={checks.length === 1 ? 'Delete check' : 'Delete passage'}
           cancelLabel="Cancel"
           onConfirm={remove}
           onCancel={() => setConfirming(false)}

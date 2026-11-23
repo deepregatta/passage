@@ -242,7 +242,7 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   a served check read from `/data/snapshots/`. Opening a served check or the
   example in the tab, a failed open, or deleting the check forgets it. If the
   check is no longer saved here (deleted, storage cleared), the page shows
-  "No briefing open. Choose a passage." without an error. Served deep links,
+  "No check open. Choose a passage." without an error. Served deep links,
   `#example`, Back/Forward and the other pages are unchanged; Back to
   `#passage` after a reload elsewhere also reopens the remembered check.
   Rejected: the id in the hash, which would make a browser-saved check look

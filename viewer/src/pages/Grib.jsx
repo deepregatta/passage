@@ -669,7 +669,7 @@ export default function Grib() {
       <p className="font-sans text-sm text-ink-soft mb-4 max-w-[90ch]">
         Forecast files for Adrena, OpenCPN, qtVlm, XyGrib or any GRIB software. Draw a box around your
         sailing area, choose a period, then download each file. Built in your browser from the same forecast
-        runs as your briefings.
+        runs as your checks.
       </p>
       {GRIB_TILES_ARE_FIXTURE && (
         <p className="flex flex-wrap items-center gap-2 text-[13px] font-sans mb-3">

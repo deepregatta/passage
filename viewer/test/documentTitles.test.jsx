@@ -74,10 +74,10 @@ describe('document titles', () => {
     expect(document.documentElement.lang).toBe('fr');
   });
 
-  it('says "Passage briefing" while the passage has not loaded', async () => {
+  it('says "Passage check" while the passage has not loaded', async () => {
     show('briefing');
     useApp.setState({ findings: null, loading: true });
-    await waitFor(() => expect(title()).toBe('Passage briefing · Passage by DeepRegatta'));
+    await waitFor(() => expect(title()).toBe('Passage check · Passage by DeepRegatta'));
   });
 
   it('follows in-app navigation', async () => {

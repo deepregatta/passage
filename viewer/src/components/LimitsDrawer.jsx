@@ -108,7 +108,7 @@ export default function LimitsDrawer() {
             Night-sailing preference is not evaluated. It does not affect the verdict, departure scan or route timing.
           </p>
           <p className="mt-4 border border-ink/25 bg-shoal/40 px-3 py-2 font-sans text-sm">
-            Changes apply to your next check. Briefings you already made keep the limits they were checked against.
+            Changes apply to your next check. Checks you already made keep the limits they were checked against.
           </p>
           {!limitsPersisted && <p role="status" className="mt-3 font-sans text-sm text-ink-soft">
             These limits apply to your next check, but could not be saved for a future visit.

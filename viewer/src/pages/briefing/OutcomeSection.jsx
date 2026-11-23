@@ -66,10 +66,10 @@ export default function OutcomeSection() {
         <h2 className="font-story text-2xl">Not verified yet</h2>
         <p className="font-instrument text-ink-soft mt-2 max-w-3xl">
           {snapshotSource === 'local'
-            ? 'Automatic verification is unavailable for briefings saved only in this browser.'
+            ? 'Automatic verification is unavailable for checks saved only in this browser.'
             : current?.invalid
-              ? 'The published verification case is invalid or does not match this briefing.'
-              : 'No published observation comparison is available for this briefing.'}
+              ? 'The published verification case is invalid or does not match this check.'
+              : 'No published observation comparison is available for this check.'}
         </p>
         {snapshotSource === 'local' && <p className="font-instrument text-ink-soft mt-2 max-w-3xl">
           Your route stays private. A future opt-in comparison with observations could run in your browser. This is not available yet.

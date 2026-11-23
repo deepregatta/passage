@@ -64,11 +64,11 @@ beforeEach(() => {
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); delete Element.prototype.scrollIntoView; });
 
 // ---- 5: first screen
-it('says what the product does under the title and links to the example briefing', () => {
+it('says what the product does under the title and links to the example check', () => {
   render(<Planner />);
   const heading = screen.getByRole('heading', { level: 1, name: 'Plan a passage' });
   expect(heading.parentElement).toHaveTextContent('Check a planned passage against the forecast and your boat’s limits: an explainable verdict, with the uncertainty shown.');
-  click('See an example briefing');
+  click('See an example check');
   expect(useApp.getState().setPage).toHaveBeenCalledWith('example');
 });
 

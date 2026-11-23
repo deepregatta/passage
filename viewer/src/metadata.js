@@ -10,12 +10,12 @@ export const SHARE_IMAGE = `${ORIGIN}/share/default.png`;
 export const COPY = {
   en: {
     title: 'Passage — Explainable passage-weather planning',
-    description: 'Plan sailing passages with live weather routing, explainable forecast risk, departure-window comparisons, and route-specific briefings from DeepRegatta.',
+    description: 'Plan sailing passages with live weather routing, explainable forecast risk, departure-window comparisons, and route-specific checks from DeepRegatta.',
     imageAlt: 'Passage weather-planning share card from DeepRegatta',
   },
   fr: {
     title: 'Passage — Planification météo explicable',
-    description: 'Planifiez vos traversées avec routage météo, analyse explicable des risques, comparaison des départs et briefings adaptés à votre route avec DeepRegatta.',
+    description: 'Planifiez vos traversées avec routage météo, analyse explicable des risques, comparaison des départs et vérifications adaptées à votre route avec DeepRegatta.',
     imageAlt: 'Carte de partage Passage pour la planification météo par DeepRegatta',
   },
 };
@@ -37,12 +37,12 @@ export const PRIVACY_COPY = {
   en: {
     ...COPY.en,
     title: 'Privacy policy | Passage',
-    description: 'What Passage does with personal data: no accounts or ads, routes and briefings kept in your browser, first-party usage counts and the services your browser contacts.',
+    description: 'What Passage does with personal data: no accounts or ads, routes and checks kept in your browser, first-party usage counts and the services your browser contacts.',
   },
   fr: {
     ...COPY.fr,
     title: 'Politique de confidentialité | Passage',
-    description: 'Ce que Passage fait des données personnelles : ni comptes ni publicité, routes et briefings conservés dans votre navigateur, mesure d’usage propriétaire et services contactés par votre navigateur.',
+    description: 'Ce que Passage fait des données personnelles : ni comptes ni publicité, routes et vérifications conservées dans votre navigateur, mesure d’usage propriétaire et services contactés par votre navigateur.',
   },
 };
 
@@ -54,7 +54,7 @@ export const pageCopy = (page) => STANDALONE_COPY[page] ?? COPY;
 // prerender ship, so crawlers and the hydrated page agree on the front door.
 const APP_TITLES = {
   passages: { en: 'My passages', fr: 'Mes traversées' },
-  briefing: { en: 'Passage briefing', fr: 'Briefing de traversée' },
+  briefing: { en: 'Passage check', fr: 'Vérification de traversée' },
   example: { en: 'Example passage', fr: 'Exemple de traversée' },
   about: { en: 'About the data', fr: 'À propos des données' },
 };
@@ -105,20 +105,20 @@ export const NO_JS_COPY = [
     fr: "Examinez le vent, la marée et le courant sur chaque tronçon, la dispersion des prévisions d’ensemble et d’autres horaires pour la même route.",
   },
   {
-    en: "Review the briefing's uncertainty and assumptions: active warnings, where models diverge, and how recent forecasts have shifted.",
-    fr: "Examinez les incertitudes et les hypothèses du briefing : avertissements en cours, divergences entre modèles et évolution des prévisions récentes.",
+    en: "Review the check's uncertainty and assumptions: active warnings, where models diverge, and how recent forecasts have shifted.",
+    fr: "Examinez les incertitudes et les hypothèses de la vérification : avertissements en cours, divergences entre modèles et évolution des prévisions récentes.",
   },
   {
-    en: "Save the briefing as a snapshot to keep the decision context — the forecast evidence as it stood when you made the call.",
-    fr: "Enregistrez le briefing pour conserver le contexte de la décision — les éléments météo tels qu’ils étaient au moment de votre choix.",
+    en: "Save the check to keep the decision context — the forecast evidence as it stood when you made the call.",
+    fr: "Enregistrez la vérification pour conserver le contexte de la décision — les éléments météo tels qu’ils étaient au moment de votre choix.",
   },
   {
     en: "Try it with an example route",
     fr: "Essayez avec une route exemple",
   },
   {
-    en: "A ready-made briefing for a Cherbourg to Plymouth crossing is built in. Open it from My passages, where it is marked \"example\", to explore the full audit — route timeline, tidal gates, warnings, and forecast evidence — without entering any personal data or creating an account.",
-    fr: "Un briefing prêt à consulter pour une traversée de Cherbourg à Plymouth est inclus. Ouvrez-le depuis « Mes traversées », où il est marqué « exemple », pour explorer l’analyse complète — chronologie de la route, passages de marée, avertissements et éléments météo — sans saisir de données personnelles ni créer de compte.",
+    en: "A ready-made check for a Cherbourg to Plymouth crossing is built in. Open it from My passages, where it is marked \"example\", to explore the full audit — route timeline, tidal gates, warnings, and forecast evidence — without entering any personal data or creating an account.",
+    fr: "Une vérification prête à consulter pour une traversée de Cherbourg à Plymouth est incluse. Ouvrez-la depuis « Mes traversées », où elle est marquée « exemple », pour explorer l’analyse complète — chronologie de la route, passages de marée, avertissements et éléments météo — sans saisir de données personnelles ni créer de compte.",
   },
   {
     en: "What Passage is — and is not",

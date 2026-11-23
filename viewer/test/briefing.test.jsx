@@ -156,7 +156,7 @@ it('shows the verdict state on the chip and the personal-limit result in the sen
 
 it('keeps the legacy chart fallback and route endpoints and distances', () => {
   render(<Briefing />);
-  expect(screen.getByText(/No synoptic chart was archived with this briefing/)).toBeVisible();
+  expect(screen.getByText(/No synoptic chart was archived with this check/)).toBeVisible();
   expect(screen.getByTestId('passage-map')).toBeVisible();
   const legs = document.querySelector('[aria-label="Legs"]');
   expect(legs).toHaveTextContent('Cherbourg');

@@ -165,7 +165,7 @@ it.each([
   ['blocked', 'Snapshot snapshot_v2_0123456789abcdef is incomplete, legacy or conflicting. Snapshots are write-once.',
     'This check could not be saved: this browser already holds an earlier save of the same check that cannot be reopened, and saved checks are never overwritten. Nothing new was stored. A check on a newer forecast, or after a change to the route, departure or limits, can be saved normally.',
     'Cette vérification n’a pas pu être enregistrée\u00A0: ce navigateur contient déjà un enregistrement antérieur de la même vérification qui ne peut pas être rouvert, et les vérifications enregistrées ne sont jamais remplacées. Rien de nouveau n’a été enregistré. Une vérification sur une prévision plus récente, ou après une modification de la route, du départ ou des limites, pourra être enregistrée normalement.'],
-  ['failed', 'This browser cannot store briefings (no IndexedDB)', 'This check was not saved in this browser, and nothing was stored.',
+  ['failed', 'This browser cannot store checks (no IndexedDB)', 'This check was not saved in this browser, and nothing was stored.',
     'Cette vérification n’a pas été enregistrée dans ce navigateur, et rien n’a été enregistré.'],
 ])('says in plain words that a %s save stored nothing, in English and French, with the browser text only as detail', async (kind, raw, english, french) => {
   await act(async () => { usePlanner.setState({ mode: 'draw', waypoints: [{ lat: 50.5, lng: -1.5 }, { lat: 50.6, lng: -1.4 }] }); });

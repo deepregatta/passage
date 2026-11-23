@@ -100,7 +100,7 @@ it('forgets the remembered open check, so a reload does not reopen the check tha
   history.replaceState(null, '', '/#passage');
   document.body.innerHTML = '';
   reload();
-  expect(await screen.findByText(/No briefing open/)).toBeVisible();
+  expect(await screen.findByText(/No check open/)).toBeVisible();
   expect(useApp.getState().snapshotId).toBeNull();
   expect(screen.queryByRole('heading', { name: FALLBACK.en[0] })).toBeNull();
 });

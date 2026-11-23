@@ -162,7 +162,7 @@ function listEntry(record) {
 }
 
 const available = () => typeof indexedDB !== 'undefined';
-const NO_INDEXEDDB = 'This browser cannot store briefings (no IndexedDB)';
+const NO_INDEXEDDB = 'This browser cannot store checks (no IndexedDB)';
 
 export const localSnapshots = {
   async exists(snapshotId) {
@@ -284,7 +284,7 @@ export async function fetchSnapshotJson(snapshotId, filename) {
   const local = await localSnapshots.read(snapshotId, filename);
   if (local !== null) return JSON.parse(local);
   if (await localSnapshots.exists(snapshotId)) {
-    throw new Error(`${snapshotId}/${filename}: not stored with this briefing`);
+    throw new Error(`${snapshotId}/${filename}: not stored with this check`);
   }
   const url = `/data/snapshots/${snapshotId}/${filename}`;
   const response = await fetch(url);

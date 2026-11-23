@@ -127,7 +127,7 @@ describe('My passages with damaged checks', () => {
     for (const id of listed()) {
       const card = screen.getAllByRole('button', { name: /^Open / }).find((button) => button.dataset.snapshotId === id).closest('article');
       await userEvent.click(within(card).getByRole('button', { name: /^Delete / }));
-      await userEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: /^Delete (briefing|passage)$/ }));
+      await userEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: /^Delete (check|passage)$/ }));
       await waitFor(() => expect(listed()).not.toContain(id));
     }
     expect(listed()).toEqual([]);

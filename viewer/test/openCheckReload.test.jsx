@@ -48,7 +48,7 @@ it('reopens the same browser-saved check after a reload without putting its id i
   expect(useApp.getState()).toMatchObject({ page: 'briefing', snapshotId: id, snapshotSource: 'local', measurementAttempt: null });
   expect(useApp.getState().findings).toEqual(before);
   expect(location.hash).toBe('#passage');
-  expect(screen.queryByText(/No briefing open/)).toBeNull();
+  expect(screen.queryByText(/No check open/)).toBeNull();
   // saved evidence only: nothing read from the served tree for this check
   expect(globalThis.fetch.mock.calls.map(([url]) => String(url)).filter((url) => url.includes(id))).toEqual([]);
 });
@@ -66,7 +66,7 @@ it('shows the empty state, without an error, when the check is gone from this br
   await useApp.getState().openSnapshot(id);
   stored.delete(id); // storage cleared, or deleted in another tab
   reload();
-  expect(await screen.findByText(/No briefing open/)).toBeTruthy();
+  expect(await screen.findByText(/No check open/)).toBeTruthy();
   await waitFor(() => expect(useApp.getState().loading).toBe(false));
   expect(screen.queryByRole('alert')).toBeNull();
   expect(useApp.getState()).toMatchObject({ snapshotId: null, findings: null, loadError: null });
@@ -79,7 +79,7 @@ it('forgets a check deleted in this tab', async () => {
   stored.add(id); // even if the same id were saved again, the deleted open is not restored
   history.replaceState(null, '', '/#passage');
   reload();
-  expect(await screen.findByText(/No briefing open/)).toBeTruthy();
+  expect(await screen.findByText(/No check open/)).toBeTruthy();
   expect(useApp.getState().snapshotId).toBeNull();
 });
 
@@ -89,7 +89,7 @@ it('does not reopen an earlier local check after a served check was opened in th
   expect(location.hash).toBe(`#passage?snapshot=${id}`);
   history.replaceState(null, '', '/#passage');
   reload();
-  expect(await screen.findByText(/No briefing open/)).toBeTruthy();
+  expect(await screen.findByText(/No check open/)).toBeTruthy();
 });
 
 it('does not reopen a check on other pages', async () => {

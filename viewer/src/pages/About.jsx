@@ -58,7 +58,7 @@ export default function About() {
       <header>
         <h1 className="font-chart text-3xl">About the data</h1>
         <p className="font-sans text-sm text-ink-soft mt-1 max-w-2xl">
-          How the forecasts in your briefings compared with what actually happened. This is the page where Passage earns your trust. Every number carries its sample size and how independent the observation really was.
+          How the forecasts in your checks compared with what actually happened. This is the page where Passage earns your trust. Every number carries its sample size and how independent the observation really was.
         </p>
       </header>
 

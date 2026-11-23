@@ -300,11 +300,11 @@ export default function DepartureComparison({ scan, departureLocal, busy, disabl
               )}
             </>
           )}
-          Click a time to check that departure against your limits{scan.rerouted ? ' (it sails its own computed route)' : ''} — the full briefing opens straight away.
+          Click a time to check that departure against your limits{scan.rerouted ? ' (it sails its own computed route)' : ''} — the full check opens straight away.
           {allInsufficient && (cut ? (
-            <>{' The models disagree near your limits at every assessed departure time. Open a briefing to see where they diverge and when the next update is due.'}</>
+            <>{' The models disagree near your limits at every assessed departure time. Open a check to see where they diverge and when the next update is due.'}</>
           ) : (
-            <> The models disagree near your limits throughout this window. Open a briefing to see
+            <> The models disagree near your limits throughout this window. Open a check to see
             where they diverge and when the next update is due.</>
           ))}
         </p>

@@ -123,7 +123,7 @@ export default function Planner() {
             Check a planned passage against the forecast and your boat’s limits: an explainable verdict, with the uncertainty shown.
           </p>
           <button type="button" onClick={() => setPage('example')} className="min-h-11 text-event underline underline-offset-4 text-left">
-            See an example briefing
+            See an example check
           </button>
 
           <Step n={1} title="Route">

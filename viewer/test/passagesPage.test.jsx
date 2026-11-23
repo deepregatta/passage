@@ -133,7 +133,7 @@ it('shows a delete failure next to its card as an alert', async () => {
   show(oneCheck());
   deleteSnapshot.mockRejectedValue(new Error('Could not delete: disk full'));
   await userEvent.click(await screen.findByRole('button', { name: /^Delete Cherbourg/ }));
-  await userEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Delete briefing' }));
+  await userEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Delete check' }));
   const alert = await screen.findByRole('alert');
   expect(alert).toHaveTextContent('Could not delete: disk full');
   expect(screen.getByRole('article')).toContainElement(alert);
@@ -350,7 +350,7 @@ describe('storage usage line', () => {
     navigator.storage.persist = persist;
     const view = show(oneCheck());
     const line = await screen.findByTestId('storage-usage');
-    const example = screen.getByRole('button', { name: /See an example briefing/ });
+    const example = screen.getByRole('button', { name: /See an example check/ });
     expect(example.compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(view.container.querySelector('ul').compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(persist).not.toHaveBeenCalled();
@@ -375,7 +375,7 @@ describe('storage usage line', () => {
     expect(await screen.findByTestId('storage-nearly-full')).toBeTruthy();
     expect(estimate).toHaveBeenCalledTimes(1);
     await userEvent.click(await screen.findByRole('button', { name: /^Delete Cherbourg/ }));
-    await userEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Delete briefing' }));
+    await userEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Delete check' }));
     await waitFor(() => expect(screen.getByTestId('storage-usage')).toHaveAttribute('data-level', 'ok'));
     expect(screen.getByTestId('storage-usage').textContent).toBe(sentence('10 MB'));
     expect(screen.queryByTestId('storage-nearly-full')).toBeNull();
@@ -388,7 +388,7 @@ describe('storage usage line', () => {
     await screen.findByTestId('storage-usage');
     deleteSnapshot.mockRejectedValue(new Error('Could not delete: disk full'));
     await userEvent.click(await screen.findByRole('button', { name: /^Delete Cherbourg/ }));
-    await userEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Delete briefing' }));
+    await userEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Delete check' }));
     await screen.findByRole('alert');
     expect(estimate).toHaveBeenCalledTimes(1);
   });
@@ -517,7 +517,7 @@ describe('storage not-kept line', () => {
     await screen.findByTestId('storage-not-kept');
     expect(persisted).toHaveBeenCalledTimes(1);
     await userEvent.click(await screen.findByRole('button', { name: /^Delete Cherbourg/ }));
-    await userEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Delete briefing' }));
+    await userEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Delete check' }));
     await waitFor(() => expect(screen.queryByTestId('storage-not-kept')).toBeNull());
     expect(persisted).toHaveBeenCalledTimes(2);
   });

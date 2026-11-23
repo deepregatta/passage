@@ -135,7 +135,7 @@ test('separate intent, reroute history, exact retry, reopen, predecessor and del
   await expect(page.getByTestId('decision-band')).toBeVisible();
   await page.goto('/#passages');
   await page.locator('article').filter({ has: page.locator(`button[data-snapshot-id="${legacyId}"]`) }).getByRole('button', { name: /^Delete / }).click();
-  await page.getByRole('alertdialog').getByRole('button', { name: 'Delete briefing' }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Delete check' }).click();
   await expect(legacyRows).toHaveCount(1);
   const survivors = await page.evaluate(async () => (await import('/src/lib/localSnapshots.js')).localSnapshots.list());
   expect(survivors.map(s => s.snapshot_id).sort()).toEqual([separate.id, legacyId === 'legacy-a' ? 'legacy-b' : 'legacy-a'].sort());

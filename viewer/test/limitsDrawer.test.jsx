@@ -125,7 +125,7 @@ describe('limits drawer as a modal', () => {
     render(<LimitsDrawer />);
     expect(screen.getByText(/apply to every check you make from now on/)).toBeVisible();
     expect(screen.queryByText(/Presets/)).toBeNull();
-    expect(screen.getByText('Changes apply to your next check. Briefings you already made keep the limits they were checked against.')).toBeVisible();
+    expect(screen.getByText('Changes apply to your next check. Checks you already made keep the limits they were checked against.')).toBeVisible();
   });
 
   it('locks body scroll while open and restores it on close, and contains overscroll', () => {

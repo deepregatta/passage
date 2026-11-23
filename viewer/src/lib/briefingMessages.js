@@ -129,7 +129,7 @@ export function renderBriefingField(version, section, field, language, french = 
   /** @param {string} text @param {string | null} driver */
   const withDriver = (text, driver) => (driver ? `${text} ${driver}` : text);
   const unavailable = language === 'fr' ? 'Contenu de décision indisponible.' : 'Decision content unavailable.';
-  if (version !== 1) return { text: language === 'fr' ? 'Version du briefing non prise en charge.' : 'Unsupported briefing version.', status: 'unsupported' };
+  if (version !== 1) return { text: language === 'fr' ? 'Version de la vérification non prise en charge.' : 'Unsupported check version.', status: 'unsupported' };
   const messages = section.messages;
   const hasMetadata = messages !== undefined;
   const validContainer = messages !== null && typeof messages === 'object' && !Array.isArray(messages)

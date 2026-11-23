@@ -48,7 +48,7 @@ test('a check that cannot be shown is contained to the page area and not reopene
   // a reload is not blank and does not reopen the check: the passage page's empty state
   await page.reload();
   await expect(page.getByRole('banner')).toBeVisible();
-  await expect(page.getByText(/No briefing open/)).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(/No check open/)).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole('heading', { name: 'This page could not be shown.' })).toHaveCount(0);
   await myPassages.click();
   await expect(page.getByRole('heading', { level: 1, name: 'My passages' })).toBeVisible();

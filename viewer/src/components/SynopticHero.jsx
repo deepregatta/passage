@@ -34,13 +34,13 @@ export default function SynopticHero() {
   }, [frame.focusedEvidenceId, selectEvidence]);
 
   if (!findings?.legs.length || !synoptic || !route?.waypoints?.length) {
-    return <div className="min-h-[430px] border border-dashed border-ink/30 bg-shoal/20 grid place-items-center p-8 text-center"><div><p className="font-story text-2xl">Synoptic chart unavailable</p><p className="font-instrument text-sm text-ink-soft mt-2">{findings ? 'This legacy run has route conditions, but no archived synoptic data.' : 'Open a passage briefing first.'}</p></div></div>;
+    return <div className="min-h-[430px] border border-dashed border-ink/30 bg-shoal/20 grid place-items-center p-8 text-center"><div><p className="font-story text-2xl">Synoptic chart unavailable</p><p className="font-instrument text-sm text-ink-soft mt-2">{findings ? 'This legacy run has route conditions, but no archived synoptic data.' : 'Open a passage check first.'}</p></div></div>;
   }
 
   const canvas = (standalone) => <HeroCanvas findings={findings} synoptic={synoptic} route={route} frame={frame} cursor={cursor} maxHours={maxHours} standalone={standalone} />;
   return <>
     <div className="relative"><button type="button" onClick={() => setFullscreen(true)} className="absolute z-10 right-2 top-2 min-h-11 px-3 bg-paper/90 border border-ink/40 font-instrument text-xs">Full screen</button>{canvas(false)}</div>
-    <FullscreenChart open={fullscreen} title="Causal briefing playback" onClose={() => setFullscreen(false)}>{canvas(true)}</FullscreenChart>
+    <FullscreenChart open={fullscreen} title="Causal playback" onClose={() => setFullscreen(false)}>{canvas(true)}</FullscreenChart>
   </>;
 }
 

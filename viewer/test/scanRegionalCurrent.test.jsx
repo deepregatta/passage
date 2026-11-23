@@ -237,11 +237,11 @@ describe('the mark and summary of a comparison the regional current model cut sh
   it('says the models disagree at every assessed time, not throughout the window, when it was cut short', () => {
     const p = (container) => container.querySelector('p.text-\\[13px\\]').textContent;
     let view = render$(scanOf(true, 'insufficient'));
-    expect(p(view.container)).toContain(' The models disagree near your limits at every assessed departure time. Open a briefing to see where they diverge and when the next update is due.');
+    expect(p(view.container)).toContain(' The models disagree near your limits at every assessed departure time. Open a check to see where they diverge and when the next update is due.');
     expect(p(view.container)).not.toContain('this window');
     view.unmount();
     view = render$(scanOf(true, 'insufficient'), 'fr');
-    expect(p(view.container)).toContain('Les modèles divergent près de vos limites à chaque heure de départ évaluée. Ouvrez un briefing pour voir où ils divergent et quand la prochaine mise à jour est attendue.');
+    expect(p(view.container)).toContain('Les modèles divergent près de vos limites à chaque heure de départ évaluée. Ouvrez une vérification pour voir où ils divergent et quand la prochaine mise à jour est attendue.');
     view.unmount();
     view = render$(scanOf(false, 'insufficient'));
     expect(p(view.container)).toContain('The models disagree near your limits throughout this window.');

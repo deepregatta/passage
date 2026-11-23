@@ -122,7 +122,7 @@ function EmptyState() {
   return (
     <div className="p-10">
       <p className="font-sans text-ink-soft">
-        No briefing open.{' '}
+        No check open.{' '}
         <button type="button" className="underline" onClick={() => setPage('passages')}>
           Choose a passage
         </button>

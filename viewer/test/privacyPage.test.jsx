@@ -88,11 +88,11 @@ describe('privacy copy', () => {
     const french = 'Ces données restent sur votre appareil. Elles y restent jusqu’à ce que vous les supprimiez ou effaciez les données de ce site, ou jusqu’à ce que votre navigateur les supprime de lui-même\u00A0: certains navigateurs le font lorsque l’appareil manque d’espace, ou après une période sans visite sur Passage.';
     expect(text()).toContain(english);
     expect(text()).not.toContain('stays on your device until you delete it');
-    expect(text()).toContain('Last updated: 16 November 2026');
+    expect(text()).toContain('Last updated: 23 November 2026');
     const frenchPage = privacyTexts().map((item) => translateText(item, 'fr')).join('\n');
     expect(frenchPage).toContain(french);
-    expect(frenchPage).toContain('Dernière mise à jour : 16 novembre 2026');
-    for (const language of ['en', 'fr']) expect(privacyHtml(language, translateText)).toContain(language === 'fr' ? 'Dernière mise à jour : 16 novembre 2026' : 'Last updated: 16 November 2026');
+    expect(frenchPage).toContain('Dernière mise à jour : 23 novembre 2026');
+    for (const language of ['en', 'fr']) expect(privacyHtml(language, translateText)).toContain(language === 'fr' ? 'Dernière mise à jour : 23 novembre 2026' : 'Last updated: 23 November 2026');
   });
 
   it('describes check files that stay on the device, in both languages', () => {

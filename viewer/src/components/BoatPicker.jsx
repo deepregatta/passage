@@ -111,7 +111,7 @@ export default function BoatPicker({ polarId, polarLabel, onSelect }) {
           {index && !unavailable && query && matches.length === 0 && (
             <p className="px-2 py-2 text-[12px] text-ink-soft">
               No boat matches “{query}”. Choose a generic cruiser by length below. The
-              briefing will identify the generic polar.
+              check will identify the generic polar.
             </p>
           )}
           <ul role="listbox" aria-label="Boat models">

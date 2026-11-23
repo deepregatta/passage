@@ -13,8 +13,8 @@ export default function PassageChart({ hasSynoptic }) {
     return (
       <div>
         <p className="font-instrument text-xs text-ink-soft border-l-4 border-line pl-3 py-1 mb-2">
-          No synoptic chart was archived with this briefing, so here is your passage
-          chart. New briefings show the pressure pattern behind your forecast.
+          No synoptic chart was archived with this check, so here is your passage
+          chart. New checks show the pressure pattern behind your forecast.
         </p>
         <RouteMap height={430} />
       </div>

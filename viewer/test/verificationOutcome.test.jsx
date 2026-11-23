@@ -31,7 +31,7 @@ it('renders the Python producer source and both lead semantics without claiming 
 
 it('browser-local snapshot has no public verifier request or scheduled-job promise', async () => {
   const fetch = open(pythonCase, 'local');
-  await screen.findByText('Automatic verification is unavailable for briefings saved only in this browser.');
+  await screen.findByText('Automatic verification is unavailable for checks saved only in this browser.');
   expect(fetch).not.toHaveBeenCalled();
   expect(screen.queryByText(/job will match/)).not.toBeInTheDocument();
 });

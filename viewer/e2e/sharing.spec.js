@@ -142,7 +142,7 @@ test('a browser-saved check reopens after a reload in its own tab, through histo
   // Deleted (here from the first tab): the other tab's reload shows the empty page, no error.
   await page.evaluate(async () => (await import('/src/stores/appStore.js')).useApp.getState().deleteSnapshot('local-two'));
   await other.reload();
-  await expect(other.getByText('No briefing open.', { exact: false })).toBeVisible();
+  await expect(other.getByText('No check open.', { exact: false })).toBeVisible();
   await expect(other.getByRole('alert')).toHaveCount(0);
   await expect(other.getByTestId('decision-band')).toHaveCount(0);
   expect(errors).toEqual([]);

@@ -337,7 +337,7 @@ it.each([
   expect(await localSnapshots.exists('big')).toBe(true);
   expect((await localSnapshots.list()).map(item => item.snapshot_id)).toEqual(['big']);
   vi.stubGlobal('fetch', vi.fn());
-  await expect(fetchSnapshotJson('big', 'decision-inputs.json')).rejects.toThrow('not stored with this briefing');
+  await expect(fetchSnapshotJson('big', 'decision-inputs.json')).rejects.toThrow('not stored with this check');
   expect(fetch).not.toHaveBeenCalled();
   // write-once still holds over the damaged record
   await expect(localSnapshots.writeAll('big', BIG)).rejects.toMatchObject({ name: 'ConstraintError' });
