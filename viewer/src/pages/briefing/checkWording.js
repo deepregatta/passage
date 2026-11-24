@@ -27,10 +27,13 @@ const EMULATED_ENTRIES = /^(Emulated evidence entries: .+\.) Provider modes are 
 // Matched as a whole sentence (from its first words), the same shape the French entries recognise.
 const UNASSESSED = /^(Unassessed hazard classes: [\s\S]* Absence of a flag must not be read as absence of risk) \(brief §5\)\.$/;
 
+// The synoptic section's sentence ends with a section number of the product brief.
+const FRONT_TYPES = /^(Detected systems \([\s\S]* Front-type labels withheld pending corroboration) \(§4\.1\)\.$/;
+
 /** @param {unknown} text */
 export const checkWording = (text) => {
   const known = own(TEXTS, text);
   if (known !== undefined) return known;
   if (typeof text !== 'string') return text;
-  return text.replace(EMULATED_ENTRIES, '$1 Provider modes are recorded with this check.').replace(UNASSESSED, '$1.');
+  return text.replace(EMULATED_ENTRIES, '$1 Provider modes are recorded with this check.').replace(UNASSESSED, '$1.').replace(FRONT_TYPES, '$1.');
 };
