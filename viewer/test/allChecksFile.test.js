@@ -8,7 +8,8 @@ import { checkFileOf, fileOf, makeCheck } from './helpers/checkFiles.js';
 // Scratch IndexedDB only (fake-indexeddb, a fresh factory per test); checks the
 // engine makes (helpers/checkFiles.js). jsdom's Blob has no stream(), so the core
 // is given Node's Blob (node:buffer), as the page's own Blob would be used.
-vi.setConfig({ testTimeout: 60_000 });
+// Hooks too: the beforeAll builds four real engine checks (0.4 s alone, 11.7 s on one shared core, past vitest's 10 s hook default).
+vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
 const NOW = Date.parse('2026-11-16T09:00:00Z');
 const savedFiles = (check) => Object.entries(check.files).map(([filename, content]) => ({ filename, content }))
