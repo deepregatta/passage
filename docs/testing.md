@@ -190,6 +190,22 @@ IndexedDB reopen at desktop/mobile sizes in EN/FR. Use the existing
 all POST/DELETE requests. Snapshot identity, verdicts, analysis and untouched
 message families must remain stable. Full briefing version 2 is deferred.
 
+Stored sentences shown in today's wording: three professional-register
+sentences are stored in saved checks and goldens in their original English
+(the emulated-evidence line saying "snapshot inputs", and the two that end
+"(brief §5)" and "(§4.1)"). `viewer/src/pages/briefing/checkWording.js` rewrites
+them on display only; the stored text and the legacy French matchers stay.
+`viewer/test/emulatedEvidenceWording.test.jsx`, `unassessedWording.test.jsx`
+and `frontTypeWording.test.jsx` render the saved example check in English and
+French, check the stored text is untouched and that the professional register
+shows no "§". Live look, 2026-11-24, public example check on
+passage.deepregatta.com at commit `1c2be84`, English and `/fr/`, every section
+opened: the three sentences, the two section titles and the "How it turned
+out" header read as intended in both languages, with no "snapshot", "briefing"
+or "§" anywhere in the page text and no English left in the French page for
+these sentences. Not looked at live: the empty model comparison line and the
+three error texts, which the example check does not show.
+
 ## Frozen Check and Scan inputs
 
 `viewer/src/lib/actionInputs.js` and `browserAnalysis.js` are checked with
