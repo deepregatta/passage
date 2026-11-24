@@ -23,9 +23,14 @@ export const sectionTitle = (section) => {
 // The one frozen sentence that carries evidence ids, so it is matched as a whole rather than looked up.
 const EMULATED_ENTRIES = /^(Emulated evidence entries: .+\.) Provider modes are recorded in the snapshot inputs\.$/;
 
+// The engine's "not assessed" sentence ends with a reference to the product brief, which means nothing to a sailor.
+// Matched as a whole sentence (from its first words), the same shape the French entries recognise.
+const UNASSESSED = /^(Unassessed hazard classes: [\s\S]* Absence of a flag must not be read as absence of risk) \(brief §5\)\.$/;
+
 /** @param {unknown} text */
 export const checkWording = (text) => {
   const known = own(TEXTS, text);
   if (known !== undefined) return known;
-  return typeof text === 'string' ? text.replace(EMULATED_ENTRIES, '$1 Provider modes are recorded with this check.') : text;
+  if (typeof text !== 'string') return text;
+  return text.replace(EMULATED_ENTRIES, '$1 Provider modes are recorded with this check.').replace(UNASSESSED, '$1.');
 };
