@@ -75,6 +75,10 @@ beforeEach(() => {
 
 afterEach(() => vi.useRealTimers());
 
+// CPU-bound: the next six tests run the real engine through Compute, Check and a 21-time Scan (most of it);
+// 0.2-0.6 s alone, 5.8 s in a loaded full run, 15.7 s on one shared core. The Scan wait gets the same room.
+const REAL_ENGINE_LIMIT = 30_000;
+
 it.each([2, -2, 0])('carries real routed timing through Compute, Check, Scan and candidate Check with %s kt current', async (along) => {
   vi.setSystemTime(new Date('2026-07-19T12:00:00Z'));
   const engine = await vi.importActual('@deepweather/engine');
@@ -100,7 +104,7 @@ it.each([2, -2, 0])('carries real routed timing through Compute, Check, Scan and
   await waitFor(() => expect(useApp.getState().openSnapshot).toHaveBeenCalledOnce());
   expect(audits[0].legs.at(-1).eta_range.nominal).toBe(routed.arrival_utc);
   fireEvent.click(scanButton());
-  const region = await screen.findByRole('region', { name: 'Departure comparison' });
+  const region = await screen.findByRole('region', { name: 'Departure comparison' }, { timeout: REAL_ENGINE_LIMIT });
   const scan = usePlanner.getState().scan;
   expect(scan.skipped).toEqual([]);
   expect(scan.candidates.map(c => c.passage_h)).toEqual(scan.candidates.map(c => scan.routes[c.departure_utc].duration_h));
@@ -108,7 +112,7 @@ it.each([2, -2, 0])('carries real routed timing through Compute, Check, Scan and
   await waitFor(() => expect(audits).toHaveLength(2));
   expect(audits[1].legs.at(-1).eta_range.nominal).toBe(usePlanner.getState().computed.arrival_utc);
   expect(saveRoute.mock.lastCall[0].timing).toEqual(usePlanner.getState().computed.route.timing);
-});
+}, REAL_ENGINE_LIMIT);
 
 const corridor = { lat0: 49.4, lon0: -3.55, dlat: 0.1, dlon: 0.2, nlat: 3, nlon: 3, u_kt: Array(18).fill(2), v_kt: Array(18).fill(0) };
 it.each([
@@ -168,7 +172,7 @@ it.each([
   expect(currents(audits[0].inputs.forecast_tiles)).toMatchObject({ current_source: source, run_id: source === 'prepared' ? 'prepared' : inputs.currentGrid.run_id });
   computeRoute.mockClear();
   fireEvent.click(scanButton());
-  await screen.findByRole('region', { name: 'Departure comparison' });
+  await screen.findByRole('region', { name: 'Departure comparison' }, { timeout: REAL_ENGINE_LIMIT });
   const scan = usePlanner.getState().scan;
   // Prepared: every candidate once. Short corridor: the first candidate fails on it, then every candidate on tiles.
   const candidates = candidateDepartures(Date.parse(DEPARTURE), 120, 6).length;
@@ -176,7 +180,7 @@ it.each([
   // One source for every candidate's route and audit: this prepared grid runs to 30 July, past the whole scan.
   expect(currents(scan.input_records).current_source).toBe(source);
   expect(Object.values(scan.routes).every(r => r.avg_sog_kt === Object.values(scan.routes)[0].avg_sog_kt)).toBe(true);
-});
+}, REAL_ENGINE_LIMIT);
 
 it('disables Check and Scan when real routing cannot arrive within the horizon', async () => {
   vi.setSystemTime(new Date('2026-07-19T12:00:00Z'));

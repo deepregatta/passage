@@ -94,7 +94,7 @@ beforeEach(async () => {
   await waitFor(() => expect(usePlanner.getState().computed).not.toBeNull());
   fireEvent.click(screen.getByRole('button', { name: /^Compare departure times \(next 5 days\)$/ }));
   await screen.findByRole('region', { name: 'Departure comparison' });
-});
+}, 30_000); // CPU-bound jsdom renders (Planner, Compute, Scan) under vitest's 10 s hook default, not the suite's 15 s; 9.3 s on one shared core
 afterEach(() => vi.useRealTimers());
 
 const comparison = () => screen.getByRole('region', { name: 'Departure comparison' });
