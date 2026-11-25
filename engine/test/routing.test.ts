@@ -378,6 +378,37 @@ describe('isochrone router', () => {
     expect(crossings).toEqual([]);
   });
 
+  it('the router does not pass a land wall through a pinch corner, even with graph nodes on cell corners', () => {
+    // 0.05° cells from (49.1, -5.5), land border. The wall is column 10 up to row 10 and
+    // column 11 from row 11: cells (10, 10) and (11, 11) meet only at the corner
+    // (49.625, -4.975), which isLand puts in the sea cell (10, 11). A 0.025° graph has a
+    // node on every cell corner, that one included.
+    const nlat = 21;
+    const nlon = 21;
+    const cells: Array<[number, number]> = [];
+    for (let i = 0; i < nlat; i++) {
+      for (let j = 0; j < nlon; j++) {
+        if (i === 0 || i === nlat - 1 || j === 0 || j === nlon - 1 || (j === 10 && i <= 10) || (j === 11 && i >= 11)) cells.push([i, j]);
+      }
+    }
+    const land = Array<number>(nlat * nlon).fill(0);
+    for (const [i, j] of cells) land[i * nlon + j] = 1;
+    const mask: LandMask = { schema_version: 1, kind: 'land_mask', lat0: 49.1, lon0: -5.5, dlat: 0.05, dlon: 0.05, nlat, nlon, land };
+    expect(isLand(mask, 49.625, -4.975)).toBe(false);
+    const request = {
+      start: { lat: 49.4, lon: -5.3 }, finish: { lat: 49.4, lon: -4.7 },
+      departureUtc: '2026-07-20T00:00:00Z', polar: POLAR, windGrid: windGrid(270, 14),
+      landMask: mask, resolutionDeg: 0.025,
+    };
+    expect(() => computeRoute(request)).toThrow('No route found');
+    // Opened by one sea cell (10, 10), the same wall lets the route through that gap.
+    mask.land[10 * nlon + 10] = 0;
+    const { route } = computeRoute(request);
+    for (let i = 1; i < route.waypoints.length; i++) {
+      expect(segmentCrossesLand(mask, route.waypoints[i - 1]!, route.waypoints[i]!)).toBe(false);
+    }
+  });
+
   it('no wind coverage -> clear error, not a bogus route', () => {
     expect(() =>
       computeRoute({

@@ -1,7 +1,5 @@
 /** Land mask (published by the Python factory from global-land-mask GLOBE data). */
 
-import { haversineNm, interpolatePosition } from '../geo.js';
-
 export interface LandMask {
   schema_version: number;
   kind: 'land_mask';
@@ -22,17 +20,108 @@ export function isLand(mask: LandMask, lat: number, lon: number): boolean {
   return mask.land[i * mask.nlon + j] === 1;
 }
 
-/** samples every ~0.4 nm along the segment */
+/**
+ * How near, in cells, a leg may pass a cell and still touch it. Far below any real distance
+ * (6 µm on a 0.05° cell) and far above the floating-point error of the cell coordinates, so
+ * a cell boundary the leg runs along or through counts on both sides, whichever cell
+ * Math.round would put the boundary in.
+ */
+const TOUCH_CELLS = 1e-9;
+/**
+ * A land cell the leg meets only within this many cells of one of its ends is left to isLand
+ * at that end: a leg leaving a sea point that lies on a land cell's edge or corner does not
+ * touch that land. (About 6 mm on a 0.05° cell.) Legs shorter than twice this, and ends on
+ * a pinch corner, get no such exception.
+ */
+const END_CELLS = 1e-6;
+
+/**
+ * Whether the cell point (u, v) lies within 2·END_CELLS of a cell corner where two land cells
+ * meet diagonally and the other two cells are sea: the only place where two legs meeting at
+ * a node could pass between sea cells that share no edge.
+ */
+function onPinchCorner(mask: LandMask, u: number, v: number): boolean {
+  const r = 2 * END_CELLS;
+  const i = Math.floor(u - r);
+  const j = Math.floor(v - r);
+  if (i === Math.floor(u + r) || j === Math.floor(v + r)) return false; // not near a corner
+  const { nlat, nlon, land } = mask;
+  const at = (ci: number, cj: number) => ci >= 0 && ci < nlat && cj >= 0 && cj < nlon && land[ci * nlon + cj] === 1;
+  const sw = at(i, j);
+  const se = at(i, j + 1);
+  const nw = at(i + 1, j);
+  const ne = at(i + 1, j + 1);
+  return sw === ne && se === nw && sw !== se;
+}
+
+/**
+ * Whether the leg a→b touches a land cell. The leg is the straight line in latitude and
+ * longitude (the geometry of interpolatePosition, which the timing, the audit's sample
+ * points and the former 0.4 nm sampler use), with longitudes taken as given, not wrapped.
+ * Every mask cell the leg passes through is visited, row by row (a supercover of the line),
+ * so a leg that clips a land cell's corner for any distance is caught. Touching a land cell
+ * along an edge or at a corner counts, except a contact within END_CELLS of one of the
+ * leg's ends, which isLand judges at that end (not for legs under 2·END_CELLS, nor at an end
+ * on a pinch corner). Cells outside the mask are sea, as in isLand; a non-finite coordinate,
+ * a latitude beyond ±90 or a longitude beyond ±360 counts as land.
+ */
 export function segmentCrossesLand(
   mask: LandMask,
   a: { lat: number; lon: number },
   b: { lat: number; lon: number },
 ): boolean {
-  const dist = haversineNm(a.lat, a.lon, b.lat, b.lon);
-  const steps = Math.max(2, Math.ceil(dist / 0.4));
-  for (let k = 0; k <= steps; k++) {
-    const p = interpolatePosition(a, b, k / steps);
-    if (isLand(mask, p.lat, p.lon)) return true;
+  // Fail closed on NaN, infinities and impossible coordinates (NaN fails every comparison).
+  if (!(Math.abs(a.lat) <= 90 && Math.abs(b.lat) <= 90 && Math.abs(a.lon) <= 360 && Math.abs(b.lon) <= 360)) return true;
+  // The ends, and the ends as interpolatePosition(·, ·, 1) computes them in either direction.
+  if (isLand(mask, a.lat, a.lon) || isLand(mask, b.lat, b.lon) ||
+    isLand(mask, a.lat + (b.lat - a.lat), a.lon + (b.lon - a.lon)) ||
+    isLand(mask, b.lat + (a.lat - b.lat), b.lon + (a.lon - b.lon))) return true;
+  const { lat0, lon0, dlat, dlon, nlat, nlon, land } = mask;
+  // Cell coordinates: cell (i, j) spans [i, i + 1) x [j, j + 1), the cell isLand's Math.round picks.
+  const ua = (a.lat - lat0) / dlat + 0.5;
+  const va = (a.lon - lon0) / dlon + 0.5;
+  const ub = (b.lat - lat0) / dlat + 0.5;
+  const vb = (b.lon - lon0) / dlon + 0.5;
+  const du = ub - ua;
+  const dv = vb - va;
+  const length = Math.hypot(du, dv);
+  if (!(length > 0)) return false; // a zero-length leg is its point, checked above
+  const e = TOUCH_CELLS;
+  const exempt = length > 2 * END_CELLS ? END_CELLS / length : 0;
+  const endA = exempt && !onPinchCorner(mask, ua, va) ? exempt : 0;
+  const endB = exempt && !onPinchCorner(mask, ub, vb) ? exempt : 0;
+  const iLo = Math.max(0, Math.floor(Math.min(ua, ub) - e));
+  const iHi = Math.min(nlat - 1, Math.floor(Math.max(ua, ub) + e));
+  for (let i = iLo; i <= iHi; i++) {
+    // The part of the leg, t in [r0, r1], within row i (widened by e).
+    let r0 = 0;
+    let r1 = 1;
+    if (du !== 0) {
+      const p = (i - e - ua) / du;
+      const q = (i + 1 + e - ua) / du;
+      r0 = Math.max(0, Math.min(p, q));
+      r1 = Math.min(1, Math.max(p, q));
+      if (r0 > r1) continue;
+    }
+    const v0 = va + dv * r0;
+    const v1 = va + dv * r1;
+    const jLo = Math.max(0, Math.floor(Math.min(v0, v1) - e));
+    const jHi = Math.min(nlon - 1, Math.floor(Math.max(v0, v1) + e));
+    for (let j = jLo; j <= jHi; j++) {
+      if (land[i * nlon + j] !== 1) continue;
+      if (endA === 0 && endB === 0) return true;
+      // The part of the leg within this cell; ignored only when it lies at an exempt end.
+      let c0 = r0;
+      let c1 = r1;
+      if (dv !== 0) {
+        const p = (j - e - va) / dv;
+        const q = (j + 1 + e - va) / dv;
+        c0 = Math.max(c0, Math.min(p, q));
+        c1 = Math.min(c1, Math.max(p, q));
+      }
+      if (c1 <= endA || c0 >= 1 - endB) continue;
+      return true;
+    }
   }
   return false;
 }

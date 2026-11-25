@@ -223,6 +223,27 @@ absent on the Draw tab; no Check was made. Not looked at live: the check-page
 line (it needs a check saved from a computed route), the print rendering and
 the reworded coastline error.
 
+The router's land check (`segmentCrossesLand` in `engine/src/routing/landmask.ts`)
+walks every mask cell a leg passes through, row by row, instead of reading points
+every 0.4 nm, which stepped over land cells a leg clipped for less than that (a
+Brest roads → Ouessant edge ran 0.25 nm inside one). The leg is the straight line
+in latitude and longitude that `interpolatePosition` uses, and cells are widened
+by 1e-9 of a cell, so touching a land cell along an edge or at a corner counts.
+The one exception: a land cell the leg meets only within 1e-6 of a cell of either
+end is left to `isLand` at that end, so a leg leaving a sea point on a land cell's
+edge or corner stays sea; legs shorter than 2e-6 of a cell get no exception, nor
+does an end within 2e-6 of a cell of a pinch corner (two land cells meeting
+diagonally, the other two sea), so two legs meeting at a node cannot pass between
+sea cells that share no edge, and a start or finish placed exactly on a pinch
+corner gets no leg. Outside the mask is sea and longitudes are not wrapped, as
+before; a non-finite coordinate, a latitude beyond ±90 or a longitude beyond ±360
+counts as land. `engine/test/landmask.test.ts` checks corner clips, edges,
+corners, pinch corners, a comb, a checkerboard, a diagonal wall (in one leg and
+in two) and non-finite input, in both directions, and on fixed-seed random masks
+that the walk matches a brute-force cell clipper and flags every leg the former
+sampler flagged; `routing.test.ts` runs `computeRoute` at a wall whose only gap is
+a pinch corner, with graph nodes on cell corners, and gets no route.
+
 ## Frozen Check and Scan inputs
 
 `viewer/src/lib/actionInputs.js` and `browserAnalysis.js` are checked with
