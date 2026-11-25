@@ -206,6 +206,23 @@ or "§" anywhere in the page text and no English left in the French page for
 these sentences. Not looked at live: the empty model comparison line and the
 three error texts, which the example check does not show.
 
+Computed routes are not for navigation: the router avoids only the land mask
+(GLOBE sampled at the centres of a 0.05° grid and grown by one cell, with no
+depth, chart or restricted-area data). The planner says so first under every
+computed route (`viewer/test/routeSourceNotes.test.jsx`,
+`plannerComputed.test.jsx`: shown after Compute, absent for a drawn or
+GPX-imported route, English and French). The check page says "Computed route ·
+not for navigation" under the chart only when the stored route has
+`mode: "computed"` with its `provenance.routing_request`
+(`viewer/src/lib/routeOrigin.js`, `viewer/test/computedRouteCaption.test.jsx`);
+a drawn, fixed or older route gets no line, and no committed fixture check has
+one. Live look, 2026-11-25, passage.deepregatta.com at commit `aced75d`: one
+Compute in the planner (route ready in about 4 s) showed the sentence as the
+first route note in the caution style, in English and at `/fr/`, and it was
+absent on the Draw tab; no Check was made. Not looked at live: the check-page
+line (it needs a check saved from a computed route), the print rendering and
+the reworded coastline error.
+
 ## Frozen Check and Scan inputs
 
 `viewer/src/lib/actionInputs.js` and `browserAnalysis.js` are checked with
