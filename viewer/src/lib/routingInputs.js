@@ -138,7 +138,7 @@ export async function loadRoutingInputs({
     throw new Error(
       error instanceof Error && /coastline|decompress/i.test(error.message)
         ? error.message
-        : "Couldn't load the coastline data needed for safe routing",
+        : "Couldn't load the coastline data needed to compute a route",
       { cause: error },
     );
   }

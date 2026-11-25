@@ -2,8 +2,20 @@ import { useState } from 'react';
 import clsx from 'clsx';
 import RouteMap from '../../components/lazy/LeafletLazy.jsx';
 import SynopticHero from '../../components/SynopticHero.jsx';
+import { isComputedRoute } from '../../lib/routeOrigin.js';
+import { useApp } from '../../stores/appStore.js';
 
 const VIEWS = [['pressure', 'Pressure chart'], ['map', 'Route map']];
+
+/** Under the chart, only for a check whose route was computed: the router avoids a
+ * coarse land outline and nothing else, so the line is not a navigable track. It
+ * prints with the chart. A check that cannot tell (a drawn, fixed or older route)
+ * gets no line. */
+function ComputedRouteNote() {
+  const computed = useApp((s) => isComputedRoute(s.route));
+  if (!computed) return null;
+  return <p className="eyebrow mt-1" data-testid="route-computed-note">Computed route · not for navigation</p>;
+}
 
 /** One chart for the passage: the pressure pattern behind the forecast, or the
  * route on a map. Both follow the same time cursor. */
@@ -17,6 +29,7 @@ export default function PassageChart({ hasSynoptic }) {
           chart. New checks show the pressure pattern behind your forecast.
         </p>
         <RouteMap height={430} />
+        <ComputedRouteNote />
       </div>
     );
   }
@@ -36,6 +49,7 @@ export default function PassageChart({ hasSynoptic }) {
         ))}
       </div>
       {view === 'pressure' ? <SynopticHero /> : <RouteMap height={430} />}
+      <ComputedRouteNote />
     </div>
   );
 }

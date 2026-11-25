@@ -18,7 +18,7 @@
   "scanning departures": "comparaison des départs",
   "Specify at least two valid waypoints.": "Indiquez au moins deux points de route valides.",
   "Click a point in open water near both ends of the passage": "Cliquez en pleine eau près de chaque extrémité de la traversée",
-  "Couldn't load the coastline data needed for safe routing": "Impossible de charger les données côtières nécessaires au routage sécurisé",
+  "Couldn't load the coastline data needed to compute a route": "Impossible de charger les données côtières nécessaires au calcul de la route",
   "This browser cannot decompress the coastline data": "Ce navigateur ne peut pas décompresser les données côtières",
   "Forecast tiles unavailable: no readable weather run": "Tuiles de prévision indisponibles : aucun cycle météo lisible",
   "Forecast tiles unavailable for this area": "Tuiles de prévision indisponibles pour cette zone",

@@ -10,6 +10,13 @@ const CAVEATS = {
   coarse: 'The grid of this currents model is coarser than Passage aims for.',
 };
 
+/**
+ * Shown first under every computed route: the router avoids only the coarse land
+ * outline (a 0.05° grid sampled at cell centres and grown by one cell, with no
+ * depth, chart or restricted-area data), so the route is not a navigable track.
+ */
+const NOT_FOR_NAVIGATION = 'Not for navigation. This route avoids only a coarse outline of the coast: rocks, shoals and small islands are not in it. Check it on a chart before you sail it.';
+
 /** A route the engine confined to the prepared current grid's box says so (it records the area it searched). */
 const CONFINED_NOTE = 'Routed inside the area the regional current model covers; the route could not go outside it.';
 
@@ -27,7 +34,7 @@ function CurrentsFetched({ fetchedAt, nowMs }) {
 }
 
 /**
- * Under a computed route: the current model the route was computed on, named
+ * Under a computed route: first, that it is not for navigation; then the current model the route was computed on, named
  * by its family as the passage page's current block names it ("Model not
  * recorded" when no record identifies one), whether the route was confined to
  * that model's area, then the routing notes (including "Currents unavailable…"
@@ -40,6 +47,7 @@ export default function RouteSourceNotes({ computed, nowMs }) {
   const confined = Boolean(computed?.route?.provenance?.routing_request?.search_bounds);
   return (
     <>
+      <p className="text-[13px] border-l-2 border-ink/50 pl-2" data-testid="route-not-for-navigation">{NOT_FOR_NAVIGATION}</p>
       {currents && (
         <p className="text-[12px] text-ink-soft" data-testid="route-currents">
           <span>Currents</span> · <span>{currentModelFamily(currents.model)?.name ?? 'Model not recorded'}</span>

@@ -147,7 +147,7 @@ describe('live routing inputs', () => {
         start: { lat: 0, lon: 0 }, finish: { lat: 1, lon: 1 }, polarId: 'test', departureIso, now, store,
       })).rejects.toMatchObject({
         message: /coastline|decompress/i.test(message)
-          ? message : "Couldn't load the coastline data needed for safe routing",
+          ? message : "Couldn't load the coastline data needed to compute a route",
         cause,
       });
     },

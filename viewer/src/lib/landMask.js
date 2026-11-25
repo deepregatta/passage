@@ -8,7 +8,7 @@ async function fetchPackedMask() {
     fetch('/data/land/global-005.bin.gz'),
   ]);
   if (!metadataResponse.ok || !bytesResponse.ok) {
-    throw new Error("Couldn't load the coastline data needed for safe routing");
+    throw new Error("Couldn't load the coastline data needed to compute a route");
   }
   const metadata = await metadataResponse.json();
   let bytes = new Uint8Array(await bytesResponse.arrayBuffer());

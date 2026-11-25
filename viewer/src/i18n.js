@@ -150,6 +150,9 @@ const FR = {
   "Currents unavailable right now. This route uses wind alone.": "Courants indisponibles pour le moment. Cette route utilise uniquement le vent.",
   'This currents grid is coarser than the model’s native resolution.': 'Cette grille de courants est plus grossière que la résolution native du modèle.',
   'The grid of this currents model is coarser than Passage aims for.': 'La grille de ce modèle de courants est plus grossière que celle visée par Passage.',
+  // Owner-approved 2026-11-25: the router's coarse land outline is not a chart (planner, under every computed route; check page, under the chart of a computed route).
+  'Not for navigation. This route avoids only a coarse outline of the coast: rocks, shoals and small islands are not in it. Check it on a chart before you sail it.': 'Pas pour la navigation. Cette route n’évite qu’un tracé approximatif de la côte\u00A0: les rochers, les hauts-fonds et les petites îles n’y figurent pas. Vérifiez-la sur une carte avant de la suivre.',
+  'Computed route · not for navigation': 'Route calculée · pas pour la navigation',
   'Routed inside the area the regional current model covers; the route could not go outside it.': 'Route calculée à l’intérieur de la zone couverte par le modèle régional de courants ; elle ne pouvait pas en sortir.',
   'The current grid does not cover every point and time the router reads': 'La grille de courants ne couvre pas tous les points et instants lus par le routeur',
   'This departure could not be routed.': 'Aucune route n’a pu être calculée pour ce départ.',
@@ -205,7 +208,7 @@ const FR = {
   'This departure time\'s route leaves the current grid used by the rest of the comparison.': 'La route de cette heure de départ sort de la grille de courants utilisée pour le reste de la comparaison.',
   "Specify at least two valid waypoints.": "Indiquez au moins deux points de route valides.",
   "Click a point in open water near both ends of the passage": "Cliquez en pleine eau près de chaque extrémité de la traversée",
-  "Couldn't load the coastline data needed for safe routing": "Impossible de charger les données côtières nécessaires au routage sécurisé",
+  "Couldn't load the coastline data needed to compute a route": "Impossible de charger les données côtières nécessaires au calcul de la route",
   "This browser cannot decompress the coastline data": "Ce navigateur ne peut pas décompresser les données côtières",
   "Forecast tiles unavailable: no readable weather run": "Tuiles de prévision indisponibles : aucun cycle météo lisible",
   "Forecast tiles unavailable for this area": "Tuiles de prévision indisponibles pour cette zone",

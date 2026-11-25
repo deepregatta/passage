@@ -55,9 +55,39 @@ describe.each(['en', 'fr'])('computed route current source in %s', (language) =>
   });
 });
 
-it('shows nothing for a result saved before routes recorded their current source', () => {
+it('shows only the navigation caution for a result saved before routes recorded their current source', () => {
   const view = render(<RouteSourceNotes computed={{ notes: [] }} />);
-  expect(view.container.textContent).toBe('');
+  expect(view.container.children).toHaveLength(1);
+  expect(view.getByTestId('route-not-for-navigation')).toBeInTheDocument();
+});
+
+// A computed route is checked only against a coarse land outline (owner-approved wording, 2026-11-25).
+const NOT_FOR_NAVIGATION = {
+  en: 'Not for navigation. This route avoids only a coarse outline of the coast: rocks, shoals and small islands are not in it. Check it on a chart before you sail it.',
+  fr: 'Pas pour la navigation. Cette route n’évite qu’un tracé approximatif de la côte\u00A0: les rochers, les hauts-fonds et les petites îles n’y figurent pas. Vérifiez-la sur une carte avant de la suivre.',
+};
+
+describe.each(['en', 'fr'])('the navigation caution under a computed route in %s', (language) => {
+  it.each(Object.keys(cases))('is the first line, in the caution style, with a %s current result', async (kind) => {
+    const view = render(<div id="root"><RouteSourceNotes computed={cases[kind]} /><LocalizedDocument language={language} /></div>);
+    await waitFor(() => expect(view.getByTestId('route-not-for-navigation').textContent).toBe(NOT_FOR_NAVIGATION[language]));
+    const line = view.getByTestId('route-not-for-navigation');
+    expect(line.parentElement.firstElementChild).toBe(line);
+    expect(line.className).toContain('text-[13px]');
+    expect(line.className).toContain('border-l-2');
+    expect(line.className).toContain('border-ink/50');
+    expect(line.className).toContain('pl-2');
+    expect(view.getAllByTestId('route-not-for-navigation')).toHaveLength(1);
+    expect(line.textContent).not.toMatch(/deepweather|\bbest\b|probab/i);
+    expect(line.textContent).not.toMatch(/\bGO\b/);
+  });
+
+  it('is shown for a confined route too, still first', async () => {
+    const view = render(<div id="root"><RouteSourceNotes computed={computedRoute(confined)} /><LocalizedDocument language={language} /></div>);
+    await waitFor(() => expect(view.getByTestId('route-not-for-navigation').textContent).toBe(NOT_FOR_NAVIGATION[language]));
+    expect(view.getByTestId('route-not-for-navigation').parentElement.firstElementChild).toBe(view.getByTestId('route-not-for-navigation'));
+    expect(view.getByTestId('route-confined')).toBeInTheDocument();
+  });
 });
 
 it('translates the new sentences in the catalogue', () => {

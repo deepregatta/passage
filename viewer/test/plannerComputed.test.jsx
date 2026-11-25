@@ -1,7 +1,8 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { candidateDepartures, computeRoute, scanDepartures } from '@deepweather/engine';
 import Planner from '../src/pages/Planner.jsx';
+import { LocalizedDocument } from '../src/i18n.js';
 import LimitsDrawer from '../src/components/LimitsDrawer.jsx';
 import { usePlanner } from '../src/stores/plannerStore.js';
 import { useApp } from '../src/stores/appStore.js';
@@ -520,4 +521,58 @@ it('routes every scan candidate with the percentage and keeps the picked time\'s
   expect(usePlanner.getState().scan).not.toBeNull();
   setPercent('95');
   expect(usePlanner.getState().scan).toBeNull();
+});
+
+// A computed route says it is not for navigation; a drawn or GPX-imported one never does (2026-11-25).
+describe.each([
+  ['en', 'Not for navigation. This route avoids only a coarse outline of the coast: rocks, shoals and small islands are not in it. Check it on a chart before you sail it.'],
+  ['fr', 'Pas pour la navigation. Cette route n’évite qu’un tracé approximatif de la côte\u00A0: les rochers, les hauts-fonds et les petites îles n’y figurent pas. Vérifiez-la sur une carte avant de la suivre.'],
+])('the navigation caution in %s', (language, text) => {
+  // Compute is started in English (the buttons are found by their English names), then the page is shown in `language`.
+  const Root = ({ shown }) => <div id="root"><Planner /><LocalizedDocument language={shown} /></div>;
+  const show = (shown = language) => {
+    useApp.setState({ language: shown });
+    return render(<Root shown={shown} />);
+  };
+  const switchTo = (view) => {
+    useApp.setState({ language });
+    view.rerender(<Root shown={language} />);
+  };
+
+  it('appears under a computed route', async () => {
+    const view = show('en');
+    expect(screen.queryByTestId('route-not-for-navigation')).not.toBeInTheDocument();
+    await compute();
+    switchTo(view);
+    await waitFor(() => expect(screen.getByTestId('route-not-for-navigation').textContent).toBe(text));
+  });
+
+  it('never appears for a route drawn by hand', async () => {
+    usePlanner.setState({ mode: 'draw', waypoints: [{ lat: 50.5, lng: -1.5 }, { lat: 50.6, lng: -1.4 }, { lat: 50.7, lng: -1.3 }] });
+    show();
+    await waitFor(() => expect(screen.getByRole('tab', { selected: true }).textContent).toMatch(/Draw|Tracer/));
+    expect(usePlanner.getState().waypoints).toHaveLength(3);
+    expect(screen.queryByTestId('route-not-for-navigation')).not.toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/Not for navigation|Pas pour la navigation/);
+  });
+
+  it('never appears for a route imported from a GPX file', async () => {
+    usePlanner.setState({ mode: 'draw' });
+    const { container } = show();
+    const gpx = '<gpx><rte><rtept lat="49.65" lon="-1.62"/><rtept lat="50" lon="-3"/><rtept lat="50.36" lon="-4.14"/></rte></gpx>';
+    fireEvent.change(container.querySelector('input[type="file"]'), { target: { files: [new File([gpx], 'crossing.gpx')] } });
+    await waitFor(() => expect(usePlanner.getState().waypoints).toHaveLength(3));
+    expect(screen.queryByTestId('route-not-for-navigation')).not.toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/Not for navigation|Pas pour la navigation/);
+  });
+
+  it('goes away with the computed route when the sailor switches to drawing', async () => {
+    const view = show('en');
+    await compute();
+    switchTo(view);
+    await waitFor(() => expect(screen.getByTestId('route-not-for-navigation')).toBeInTheDocument());
+    fireEvent.click(screen.getAllByRole('tab')[1]);
+    await waitFor(() => expect(usePlanner.getState().mode).toBe('draw'));
+    expect(screen.queryByTestId('route-not-for-navigation')).not.toBeInTheDocument();
+  });
 });
