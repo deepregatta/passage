@@ -186,7 +186,7 @@ export default function Planner() {
             <div aria-live="polite" className="space-y-1 empty:hidden">
               {clearedNotice && (
                 <p className="text-[13px] flex flex-wrap items-center gap-x-3">
-                  <span>Route cleared</span>
+                  <span>{clearedNotice === 'compute' ? 'Start and finish cleared' : 'Route cleared'}</span>
                   <button type="button" onClick={undoClear} className="underline text-event min-h-11 px-1">Undo clear</button>
                 </p>
               )}

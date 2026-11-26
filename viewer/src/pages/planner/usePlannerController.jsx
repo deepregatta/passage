@@ -22,9 +22,6 @@ import {
   changedRoutingInputs, draftSignature, routingInputKey, scanBasis, scanIsCurrent, staleRouteMessage, validPolarPercent,
 } from './plannerInputs.js';
 
-/** How long Clear can be undone. */
-export const CLEAR_UNDO_MS = 8000;
-
 export const validSpeed = (value) => Number.isFinite(value) && value > 0;
 
 /** What the scan button's status says when a comparison is stopped. */
@@ -106,6 +103,8 @@ export default function usePlannerController() {
    * back — so "Compute route" is ready to run straight after a switch. */
   const setMode = (value) => {
     if (value === mode) return;
+    // Seeding below is a new state, not something Undo clear could restore: switching tabs ends the offer.
+    setCleared(null);
     const next = { mode: value };
     if (value === 'compute' && endpoints.length === 0 && waypoints.length >= 2) {
       next.endpoints = [waypoints[0], waypoints[waypoints.length - 1]];
@@ -136,7 +135,8 @@ export default function usePlannerController() {
   const [noticeState, setNoticeState] = useState(null);
   // Draw mode started from the Compute endpoints: say so, because new points are added after them.
   const [seededFromCompute, setSeededFromCompute] = useState(false);
-  // What Clear removed, offered back for a few seconds ({before, signature}).
+  // What Clear removed on the tab it was pressed on, offered back until the draft is edited or the tab
+  // changes ({mode, before, signature}).
   const [cleared, setCleared] = useState(null);
   const [fitNonce, setFitNonce] = useState(0);
   const fileRef = useRef(null);
@@ -545,26 +545,29 @@ export default function usePlannerController() {
     else if (kind === ACTION.check) run();
     else fileRef.current?.click();
   };
+  /** Clear works on the open tab only. Compute: the start, finish and computed route; Draw: the
+   * drawn waypoints. What the other tab holds stays, so a result on show is never left over from
+   * points that were cleared: a comparison belongs to the open tab's points (scanBasis), so it is
+   * dropped with them and not before, and the other tab's route is untouched. */
   const clearDraft = () => {
-    const before = { waypoints, endpoints, computed: storedComputed };
-    const empty = waypoints.length === 0 && endpoints.length === 0 && !storedComputed;
-    setWaypoints([]);
-    setEndpoints([]);
-    setComputed(null);
-    setDiscardedKey(null);
-    setSeededFromCompute(false);
+    const computeTab = mode === 'compute';
+    const before = computeTab ? { endpoints, computed: storedComputed } : { waypoints };
+    const empty = computeTab ? endpoints.length === 0 && !storedComputed : waypoints.length === 0;
+    if (computeTab) {
+      setEndpoints([]);
+      setComputed(null);
+      setDiscardedKey(null); // the "route points changed" line was about the computed route that is now gone
+    } else {
+      setWaypoints([]);
+      setSeededFromCompute(false); // the note is about the drawn points that are now gone
+    }
     // Offered back only while nothing has been edited since.
-    setCleared(empty ? null : { before, signature: draftSignature(usePlanner.getState()) });
+    setCleared(empty ? null : { mode, before, signature: draftSignature(usePlanner.getState()) });
   };
   const undoClear = () => {
     if (cleared) patch(cleared.before);
     setCleared(null);
   };
-  useEffect(() => {
-    if (!cleared) return undefined;
-    const timer = setTimeout(() => setCleared(null), CLEAR_UNDO_MS);
-    return () => clearTimeout(timer);
-  }, [cleared]);
 
   return {
     mode, waypoints, computed, endpoints, polarId, polarLabel, polarPercent, polarPercentValid, name, speeds,
@@ -572,7 +575,7 @@ export default function usePlannerController() {
     setName, setSpeeds, setDepartureLocal, setPolarPercent, busy, activeAction, failure, notice, staleRoute,
     departureIssue, blocked, retryAction, clearDraft, undoClear, fitNonce, fileRef, passageName,
     seededFromCompute: mode === 'draw' && seededFromCompute && waypoints.length > 0,
-    clearedNotice: cleared?.signature === signature,
+    clearedNotice: cleared?.signature === signature ? cleared.mode : null,
     route, distance, speedsValid, passageHours, departureUtc, addWaypoint, moveWaypoint,
     runRouting, onGpx, runScan, stopScan, run, downloadLines,
     runRefine, refineReason, refineCount: refinement?.departures.length ?? 0,

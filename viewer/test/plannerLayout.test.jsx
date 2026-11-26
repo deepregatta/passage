@@ -3,10 +3,10 @@ import L from 'leaflet';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { computeRoute, scanDepartures } from '@deepweather/engine';
 import Planner from '../src/pages/Planner.jsx';
-import { CLEAR_UNDO_MS } from '../src/pages/planner/usePlannerController.jsx';
+import { routingInputKey } from '../src/pages/planner/plannerInputs.js';
 import { markerIcon, markerSpecs, labelMarker } from '../src/pages/planner/plannerMarkers.js';
 import { mapHint, barStatus } from '../src/pages/planner/plannerFeedback.js';
-import { translateText } from '../src/i18n.js';
+import { LocalizedDocument, translateText } from '../src/i18n.js';
 import { usePlanner } from '../src/stores/plannerStore.js';
 import { useApp } from '../src/stores/appStore.js';
 import { loadRoutingInputs } from '../src/lib/routingInputs.js';
@@ -182,26 +182,107 @@ it('keeps undo and clear apart with 44 px targets', () => {
   expect(screen.getByRole('button', { name: 'clear', exact: true }).parentElement).toHaveClass('gap-3');
 });
 
-it('lets Clear be undone for a few seconds, until the route is edited', async () => {
-  usePlanner.setState({ mode: 'draw', waypoints: [...EPS, { lat: 50.7, lng: -1.3 }] });
+const DRAWN = [{ lat: 50.1, lng: -1.1 }, { lat: 50.2, lng: -1.2 }, { lat: 50.7, lng: -1.3 }];
+const COMPUTED = { route: result('2026-09-12T08:00:00Z').route, inputKey: 'k' };
+
+/** A computed route that matches the draft's routing inputs, as Compute leaves it. */
+async function computeOne() {
+  click('Compute route');
+  await waitFor(() => expect(screen.getByText('12.3 nm')).toBeInTheDocument());
+}
+
+it('Compute tab: Clear removes the start, finish and computed route, keeps the drawn route, and says so', async () => {
+  usePlanner.setState({ waypoints: DRAWN });
+  render(<Planner />);
+  await computeOne();
+  click('clear');
+  const state = usePlanner.getState();
+  expect(state.endpoints).toEqual([]);
+  expect(state.computed).toBeNull();
+  expect(state.waypoints).toEqual(DRAWN);
+  // the saved draft holds the same, and nothing of the undo offer
+  const saved = JSON.parse(localStorage.getItem('deepweather.planner-draft'));
+  expect([saved.state.endpoints, saved.state.computed, saved.state.waypoints]).toEqual([[], null, DRAWN]);
+  expect(JSON.stringify(saved)).not.toContain('Start and finish cleared');
+  expect(Object.keys(saved.state)).not.toContain('cleared');
+  const region = screen.getByText('Start and finish cleared').closest('[aria-live="polite"]');
+  expect(region).not.toBeNull();
+  expect(screen.queryByText('Route cleared')).not.toBeInTheDocument();
+  // Undo restores exactly what that Clear removed, and nothing else changes
+  fireEvent.click(within(region).getByRole('button', { name: 'Undo clear' }));
+  expect(usePlanner.getState().endpoints).toEqual(EPS);
+  expect(usePlanner.getState().computed).not.toBeNull();
+  expect(usePlanner.getState().waypoints).toEqual(DRAWN);
+  expect(screen.getByText('12.3 nm')).toBeInTheDocument();
+  expect(screen.queryByText('Start and finish cleared')).not.toBeInTheDocument();
+});
+
+it('Draw tab: Clear removes the drawn route only, keeps the start, finish and computed route, and says so', () => {
+  const computed = { ...COMPUTED, inputKey: routingInputKey(usePlanner.getState()) };
+  usePlanner.setState({ mode: 'draw', waypoints: DRAWN, computed });
   render(<Planner />);
   click('clear');
   expect(usePlanner.getState().waypoints).toEqual([]);
+  expect(usePlanner.getState().endpoints).toEqual(EPS);
+  expect(usePlanner.getState().computed).toEqual(computed);
   const region = screen.getByText('Route cleared').closest('[aria-live="polite"]');
-  expect(region).not.toBeNull();
+  expect(screen.queryByText('Start and finish cleared')).not.toBeInTheDocument();
   fireEvent.click(within(region).getByRole('button', { name: 'Undo clear' }));
-  expect(usePlanner.getState().waypoints).toHaveLength(3);
+  expect(usePlanner.getState().waypoints).toEqual(DRAWN);
+  expect(usePlanner.getState().endpoints).toEqual(EPS);
+  expect(usePlanner.getState().computed).toEqual(computed);
   expect(screen.queryByText('Route cleared')).not.toBeInTheDocument();
-  // not offered once the route has been edited
-  click('clear');
-  act(() => mapEvents.click({ latlng: EPS[0] }));
-  expect(screen.queryByText('Route cleared')).not.toBeInTheDocument();
-  // and it expires
+});
+
+it('keeps offering Undo clear for as long as nothing has been edited, and not after the next edit', () => {
+  usePlanner.setState({ mode: 'draw', waypoints: DRAWN });
+  render(<Planner />);
   vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] });
   click('clear');
   expect(screen.getByText('Route cleared')).toBeInTheDocument();
-  act(() => { vi.advanceTimersByTime(CLEAR_UNDO_MS + 100); });
+  act(() => { vi.advanceTimersByTime(10 * 60 * 1000); });
+  expect(screen.getByText('Route cleared')).toBeInTheDocument();
+  act(() => mapEvents.click({ latlng: EPS[0] }));
   expect(screen.queryByText('Route cleared')).not.toBeInTheDocument();
+  // an edit elsewhere in the draft ends it too (here the departure)
+  usePlanner.setState({ waypoints: DRAWN });
+  click('clear');
+  expect(screen.getByText('Route cleared')).toBeInTheDocument();
+  act(() => usePlanner.getState().patch({ departureLocal: '2026-09-12T09:00' }));
+  expect(screen.queryByText('Route cleared')).not.toBeInTheDocument();
+});
+
+it('says the Compute clear in French', async () => {
+  useApp.setState({ language: 'fr' });
+  render(<><Planner /><LocalizedDocument language="fr" /></>);
+  await waitFor(() => expect(screen.getByRole('button', { name: 'effacer' })).toBeInTheDocument());
+  click('effacer');
+  await waitFor(() => expect(screen.getByText('Départ et arrivée effacés')).toBeInTheDocument());
+  expect(translateText('Start and finish cleared', 'fr')).toBe('Départ et arrivée effacés');
+  expect(translateText('Start and finish cleared', 'en')).toBe('Start and finish cleared');
+  expect(translateText('Route cleared', 'fr')).toBe('Route effacée');
+});
+
+it('ends the Undo offer when the tab changes, and never mixes the two tabs on the way back', () => {
+  usePlanner.setState({ waypoints: DRAWN });
+  render(<Planner />);
+  click('clear');
+  expect(screen.getByText('Start and finish cleared')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('tab', { name: 'Draw my route' }));
+  expect(screen.queryByText('Start and finish cleared')).not.toBeInTheDocument();
+  // coming back seeds the empty Compute tab from the drawn route: that is a new state, not an undo
+  fireEvent.click(screen.getByRole('tab', { name: 'Compute a route' }));
+  expect(usePlanner.getState().endpoints).toEqual([DRAWN[0], DRAWN[2]]);
+  expect(screen.queryByRole('button', { name: 'Undo clear' })).not.toBeInTheDocument();
+  // same the other way: clear the drawn route, go to Compute and back; Draw is seeded from the endpoints
+  fireEvent.click(screen.getByRole('tab', { name: 'Draw my route' }));
+  click('clear');
+  expect(screen.getByText('Route cleared')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('tab', { name: 'Compute a route' }));
+  fireEvent.click(screen.getByRole('tab', { name: 'Draw my route' }));
+  expect(usePlanner.getState().waypoints).toEqual([DRAWN[0], DRAWN[2]]);
+  expect(screen.getByText(/^Started from your Compute start and finish/)).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Undo clear' })).not.toBeInTheDocument();
 });
 
 it('restores a cleared computed route with its endpoints', async () => {

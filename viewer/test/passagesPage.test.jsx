@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Passages from '../src/pages/Passages.jsx';
 import { useApp } from '../src/stores/appStore.js';
+import { usePlanner } from '../src/stores/plannerStore.js';
 import { fetchSnapshotJson } from '../src/lib/localSnapshots.js';
 import { fmtLocalTime, localTimeZoneName } from '../src/lib/format.js';
 import { groupPassages, routeChanges, PASSAGE_TEMPLATES } from '../src/lib/passages.js';
@@ -48,6 +49,19 @@ beforeEach(() => {
     ? { name: 'Cherbourg → Plymouth', waypoints: [{ lat: 49.6, lon: -1.6 }, { lat: 50.3, lon: -4.1 }] } : null));
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); useApp.setState(useApp.getInitialState(), true); });
+
+it('+ New passage is a full reset: drawn route, start and finish and computed route all go', async () => {
+  const setPage = vi.fn();
+  usePlanner.setState({
+    waypoints: [{ lat: 50, lng: -1 }, { lat: 50.1, lng: -1.1 }], endpoints: [{ lat: 50, lng: -1 }, { lat: 50.2, lng: -1.2 }],
+    computed: { route: {}, inputKey: 'k' },
+  });
+  show(oneCheck(), { setPage });
+  await userEvent.click(screen.getByRole('button', { name: '+ New passage' }));
+  const state = usePlanner.getState();
+  expect([state.waypoints, state.endpoints, state.computed]).toEqual([[], [], null]);
+  expect(setPage).toHaveBeenCalledWith('planner');
+});
 
 it('names the open action after the passage and drops the snapshot id tooltip', async () => {
   const view = show(oneCheck());

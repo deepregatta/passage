@@ -407,6 +407,7 @@ const FR = {
   'Start set — add the next point': 'Départ placé — ajoutez le point suivant',
   'That did not finish — try again, or see the message in the form': 'L’opération n’a pas abouti — réessayez, ou consultez le message dans le formulaire',
   'Route cleared': 'Route effacée',
+  'Start and finish cleared': 'Départ et arrivée effacés',
   'Undo clear': 'Annuler l’effacement',
   'Started from your Compute start and finish; new points are added after the finish. Clear to begin again.': 'Départ et arrivée repris du mode Calculer ; les nouveaux points s’ajoutent après l’arrivée. Effacez pour recommencer.',
   'Slow': 'Lente',

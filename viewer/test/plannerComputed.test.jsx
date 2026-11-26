@@ -336,6 +336,10 @@ it('edits map points, carries endpoints between modes, and clears the draft', ()
   expect(usePlanner.getState().endpoints).toEqual([{ lat: 49, lng: -3 }]);
   expect(computeButton()).toBeDisabled();
   fireEvent.click(screen.getByRole('button', { name: 'clear', exact: true }));
+  // Clear on Compute keeps the drawn route, so empty it too: Draw is only seeded when it is empty
+  expect(usePlanner.getState()).toMatchObject({ endpoints: [], computed: null });
+  expect(usePlanner.getState().waypoints).toHaveLength(2);
+  act(() => usePlanner.getState().patch({ waypoints: [] }));
   act(() => mapEvents.click({ latlng: { lat: 50, lng: -1 } }));
   act(() => mapEvents.click({ latlng: { lat: 51, lng: -2 } }));
   fireEvent.click(screen.getByRole('tab', { name: 'Draw my route' }));
@@ -344,7 +348,9 @@ it('edits map points, carries endpoints between modes, and clears the draft', ()
   expect(usePlanner.getState().waypoints).toHaveLength(1);
   expect(checkButton()).toBeDisabled();
   fireEvent.click(screen.getByRole('button', { name: 'clear', exact: true }));
-  expect(usePlanner.getState()).toMatchObject({ waypoints: [], endpoints: [], computed: null });
+  // Clear on Draw empties the drawn route only; the Compute start and finish stay
+  expect(usePlanner.getState()).toMatchObject({ waypoints: [], computed: null });
+  expect(usePlanner.getState().endpoints).toHaveLength(2);
 });
 
 it('runs a queued automatic scan once after an active audit finishes, using the latest departure', async () => {
