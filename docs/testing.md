@@ -262,6 +262,27 @@ That look showed a Retry button under the message, which could not help; the ale
 now offers "Switch to Draw my route" there instead (`plannerFeedback.test.jsx`,
 local tests only).
 
+The fine routing index (engine only, not used by the planner yet, 2026-11-26).
+`routingLandMask` in `engine/src/routing/fineLandMask.ts` builds the router's
+window on the 1/480° lattice of the pinned TLI1 index (`nweu-20260825T07Z`,
+[shared contracts](shared-contracts.md)): the fine tile's cell wherever the index
+has a tile, the 0.05° outline's cell elsewhere, never sea for want of a tile.
+Each outline cell is exactly 24 × 24 fine cells, so the window covers exactly the
+outline window of the same box; cells are read in place through an accessor
+(`LandCellMask`), and a window no fine tile reaches is the outline window itself.
+It refuses a window with a listed tile missing or from another index.
+`isLand`, `segmentCrossesLand`, `seaJoinsPoints` and `snapToSea` read either kind of
+mask; `engine/test/fineLandMask.test.ts` checks on random masks that an accessor
+mask answers exactly as the array mask, compares every cell of real windows with
+the tiles and, across 40°N and 10°W, with the outline, and checks on the real tiles
+that Cowes joins Spithead and Brest roads joins Ouessant while Southampton Water
+above Calshot and the Golfe du Morbihan stay closed. `snapToSea` now reaches
+0.6° (twelve 0.05° cells, as before, and never fewer than twelve cells): a start
+in the Medina mouth snaps under 0.6 nm. Above 4 million cells `seaJoinsPoints` no
+longer floods the whole window: a bounded fill from each end proves a closed
+pocket, then a fill over blocks of cells proves a thick barrier, and anything else
+counts as joined, so the closed-water message is never shown without proof.
+
 The mask itself (`viewer/public/data/land/global-005.*`) is built by
 `analysis/scripts/build_global_land_mask.py` with
 `analysis/src/deepweather_analysis/coastline.py`. Its metadata records the rule:

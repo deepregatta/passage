@@ -17,7 +17,7 @@ import { bearingDegTrue, haversineNm, wrap180 } from '../geo.js';
 import { parseUtc, toIso } from '../eta.js';
 import { GridSampler, type RegionGrid } from '../grids.js';
 import { boatSpeedKt, type Polar } from './polar.js';
-import { isLand, seaJoinsPoints, segmentCrossesLand, type LandMask } from './landmask.js';
+import { isLand, seaJoinsPoints, segmentCrossesLand, type RoutingLandMask } from './landmask.js';
 import type { Route, Waypoint } from '../types.js';
 
 export interface RoutingRequest {
@@ -49,7 +49,8 @@ export interface RoutingRequest {
    * the usual routing error.
    */
   searchBounds?: SearchBounds;
-  landMask?: LandMask;
+  /** The 0.05° outline window, or the fine routing-index window (routingLandMask). */
+  landMask?: RoutingLandMask;
   /** graph resolution in degrees; default adapts to the crossing size */
   resolutionDeg?: number;
   maxHours?: number;

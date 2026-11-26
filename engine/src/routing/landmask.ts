@@ -13,11 +13,41 @@ export interface LandMask {
   land: number[];
 }
 
-export function isLand(mask: LandMask, lat: number, lon: number): boolean {
+/**
+ * A land mask read through a cell accessor rather than an array: the router's window over the
+ * fine routing index (fineLandMask.ts), whose cells are far too many to hold one number each.
+ * Cell (i, j) is centred on (lat0 + i·dlat, lon0 + j·dlon), as in LandMask; every function here
+ * treats both kinds alike.
+ */
+export interface LandCellMask {
+  kind: 'land_cells';
+  lat0: number;
+  lon0: number;
+  dlat: number;
+  dlon: number;
+  nlat: number;
+  nlon: number;
+  /** Whether cell (i, j), 0 <= i < nlat and 0 <= j < nlon, is land. */
+  landAt(i: number, j: number): boolean;
+  /** The fine routing index the cells come from, where they do (null: none). */
+  fine_index_id: string | null;
+}
+
+/** Any land mask the router and its helpers read. */
+export type RoutingLandMask = LandMask | LandCellMask;
+
+/** Whether in-grid cell (i, j) is land, for either kind of mask. */
+export function landAtOf(mask: RoutingLandMask): (i: number, j: number) => boolean {
+  if (mask.kind === 'land_cells') return mask.landAt;
+  const { land, nlon } = mask;
+  return (i, j) => land[i * nlon + j] === 1;
+}
+
+export function isLand(mask: RoutingLandMask, lat: number, lon: number): boolean {
   const i = Math.round((lat - mask.lat0) / mask.dlat);
   const j = Math.round((lon - mask.lon0) / mask.dlon);
   if (i < 0 || i >= mask.nlat || j < 0 || j >= mask.nlon) return false; // outside mask: assume sea
-  return mask.land[i * mask.nlon + j] === 1;
+  return mask.kind === 'land_cells' ? mask.landAt(i, j) : mask.land[i * mask.nlon + j] === 1;
 }
 
 /**
@@ -40,13 +70,13 @@ const END_CELLS = 1e-6;
  * meet diagonally and the other two cells are sea: the only place where two legs meeting at
  * a node could pass between sea cells that share no edge.
  */
-function onPinchCorner(mask: LandMask, u: number, v: number): boolean {
+function onPinchCorner(mask: RoutingLandMask, landAt: (i: number, j: number) => boolean, u: number, v: number): boolean {
   const r = 2 * END_CELLS;
   const i = Math.floor(u - r);
   const j = Math.floor(v - r);
   if (i === Math.floor(u + r) || j === Math.floor(v + r)) return false; // not near a corner
-  const { nlat, nlon, land } = mask;
-  const at = (ci: number, cj: number) => ci >= 0 && ci < nlat && cj >= 0 && cj < nlon && land[ci * nlon + cj] === 1;
+  const { nlat, nlon } = mask;
+  const at = (ci: number, cj: number) => ci >= 0 && ci < nlat && cj >= 0 && cj < nlon && landAt(ci, cj);
   const sw = at(i, j);
   const se = at(i, j + 1);
   const nw = at(i + 1, j);
@@ -66,7 +96,7 @@ function onPinchCorner(mask: LandMask, u: number, v: number): boolean {
  * a latitude beyond ±90 or a longitude beyond ±360 counts as land.
  */
 export function segmentCrossesLand(
-  mask: LandMask,
+  mask: RoutingLandMask,
   a: { lat: number; lon: number },
   b: { lat: number; lon: number },
 ): boolean {
@@ -76,7 +106,8 @@ export function segmentCrossesLand(
   if (isLand(mask, a.lat, a.lon) || isLand(mask, b.lat, b.lon) ||
     isLand(mask, a.lat + (b.lat - a.lat), a.lon + (b.lon - a.lon)) ||
     isLand(mask, b.lat + (a.lat - b.lat), b.lon + (a.lon - b.lon))) return true;
-  const { lat0, lon0, dlat, dlon, nlat, nlon, land } = mask;
+  const { lat0, lon0, dlat, dlon, nlat, nlon } = mask;
+  const landAt = landAtOf(mask);
   // Cell coordinates: cell (i, j) spans [i, i + 1) x [j, j + 1), the cell isLand's Math.round picks.
   const ua = (a.lat - lat0) / dlat + 0.5;
   const va = (a.lon - lon0) / dlon + 0.5;
@@ -88,8 +119,8 @@ export function segmentCrossesLand(
   if (!(length > 0)) return false; // a zero-length leg is its point, checked above
   const e = TOUCH_CELLS;
   const exempt = length > 2 * END_CELLS ? END_CELLS / length : 0;
-  const endA = exempt && !onPinchCorner(mask, ua, va) ? exempt : 0;
-  const endB = exempt && !onPinchCorner(mask, ub, vb) ? exempt : 0;
+  const endA = exempt && !onPinchCorner(mask, landAt, ua, va) ? exempt : 0;
+  const endB = exempt && !onPinchCorner(mask, landAt, ub, vb) ? exempt : 0;
   const iLo = Math.max(0, Math.floor(Math.min(ua, ub) - e));
   const iHi = Math.min(nlat - 1, Math.floor(Math.max(ua, ub) + e));
   for (let i = iLo; i <= iHi; i++) {
@@ -108,7 +139,7 @@ export function segmentCrossesLand(
     const jLo = Math.max(0, Math.floor(Math.min(v0, v1) - e));
     const jHi = Math.min(nlon - 1, Math.floor(Math.max(v0, v1) + e));
     for (let j = jLo; j <= jHi; j++) {
-      if (land[i * nlon + j] !== 1) continue;
+      if (!landAt(i, j)) continue;
       if (endA === 0 && endB === 0) return true;
       // The part of the leg within this cell; ignored only when it lies at an exempt end.
       let c0 = r0;
@@ -127,6 +158,15 @@ export function segmentCrossesLand(
 }
 
 /**
+ * Above this many cells (the padded window), seaJoinsPoints does not flood the whole window
+ * cell by cell (about 5 bytes a cell): a fine-index window over a long passage holds tens of
+ * millions of cells. Every 0.05° outline window is far below it.
+ */
+export const SEA_FILL_MAX_CELLS = 4_000_000;
+/** In a larger window, how many cells each end's own bounded fill may visit. */
+const SEA_FILL_END_BUDGET = 1_000_000;
+
+/**
  * Whether sea cells of the mask can join the point `a` to the point `b`, edge to edge.
  * The router's land check (segmentCrossesLand) rejects any leg that touches a land cell,
  * corners included, so a leg stays inside sea cells that share edges, and a route can
@@ -138,17 +178,27 @@ export function segmentCrossesLand(
  * around the window, joined to each other, so that going round the window counts as a
  * way through. False keeps the fill inside the window.
  *
+ * A window of more than SEA_FILL_MAX_CELLS cells is judged in two ways, each of which can
+ * only prove the ends apart: a fill from each end that may visit SEA_FILL_END_BUDGET cells
+ * (an end in a closed pocket, a harbour or a gulf, fills it all without meeting the other
+ * end), then a fill over square blocks of cells, a block counting as sea when any cell in it
+ * is (any edge-to-edge sea path runs through such blocks, each the same as or edge to edge
+ * with the one before, so blocks that do not join prove the ends apart). When neither proves
+ * it, the answer is true.
+ *
  * Returns false only when the two are provably apart: anything it cannot judge (a
  * non-finite point, an end on land, an end outside the window with nothing outside to
- * stand on) returns true, so a caller never says "closed" without being sure.
+ * stand on, a large window neither way above can settle) returns true, so a caller never
+ * says "closed" without being sure.
  */
 export function seaJoinsPoints(
-  mask: LandMask,
+  mask: RoutingLandMask,
   a: { lat: number; lon: number },
   b: { lat: number; lon: number },
   outsideIsSea: boolean,
 ): boolean {
-  const { nlat, nlon, land } = mask;
+  const { nlat, nlon } = mask;
+  const landAt = landAtOf(mask);
   // Row/column 0 and the last one of the padded grid are the ring of cells outside the window.
   const rows = nlat + 2;
   const cols = nlon + 2;
@@ -162,29 +212,63 @@ export function seaJoinsPoints(
     const i = Math.floor(cell / cols);
     const j = cell % cols;
     if (i === 0 || i === rows - 1 || j === 0 || j === cols - 1) return outsideIsSea;
-    return land[(i - 1) * nlon + (j - 1)] !== 1;
+    return !landAt(i - 1, j - 1);
   };
   const from = cellOf(a);
   const to = cellOf(b);
   if (from < 0 || to < 0 || !seaAt(from) || !seaAt(to)) return true;
   if (from === to) return true;
-  const seen = new Uint8Array(rows * cols);
-  const stack = [from];
-  seen[from] = 1;
-  while (stack.length) {
-    const cell = stack.pop()!;
-    if (cell === to) return true;
-    const i = Math.floor(cell / cols);
-    const j = cell % cols;
-    const next = [
-      i > 0 ? cell - cols : -1, i < rows - 1 ? cell + cols : -1,
-      j > 0 ? cell - 1 : -1, j < cols - 1 ? cell + 1 : -1,
-    ];
-    for (const n of next) {
-      if (n < 0 || seen[n] || !seaAt(n)) continue;
-      seen[n] = 1;
-      stack.push(n);
+  const total = rows * cols;
+  if (total <= SEA_FILL_MAX_CELLS) return fill(from, to, rows, cols, seaAt, total) !== 'apart';
+  // A pocket around either end, filled to its last cell without meeting the other end.
+  if (fill(from, to, rows, cols, seaAt, SEA_FILL_END_BUDGET) === 'apart') return false;
+  if (fill(to, from, rows, cols, seaAt, SEA_FILL_END_BUDGET) === 'apart') return false;
+  // Blocks of size × size cells.
+  const size = Math.ceil(Math.sqrt(total / SEA_FILL_MAX_CELLS));
+  const brows = Math.ceil(rows / size);
+  const bcols = Math.ceil(cols / size);
+  const seaBlock = new Uint8Array(brows * bcols);
+  for (let i = 0; i < rows; i++) {
+    const rowBase = Math.floor(i / size) * bcols;
+    for (let j = 0; j < cols; j++) {
+      const block = rowBase + Math.floor(j / size);
+      if (!seaBlock[block] && seaAt(i * cols + j)) seaBlock[block] = 1;
     }
   }
-  return false;
+  const blockOf = (cell: number) => Math.floor(Math.floor(cell / cols) / size) * bcols + Math.floor((cell % cols) / size);
+  return fill(blockOf(from), blockOf(to), brows, bcols, (block) => seaBlock[block] === 1, brows * bcols) !== 'apart';
+}
+
+/**
+ * Flood a rows × cols grid of sea cells edge to edge from `start`: 'joined' when it reaches
+ * `goal`, 'apart' when it has filled start's whole component without reaching it, and
+ * 'unknown' when it stopped after visiting `budget` cells.
+ */
+function fill(
+  start: number, goal: number, rows: number, cols: number, seaAt: (cell: number) => boolean, budget: number,
+): 'joined' | 'apart' | 'unknown' {
+  const total = rows * cols;
+  const seen = new Uint8Array(Math.ceil(total / 8));
+  const stack = new Int32Array(Math.min(total, budget));
+  const mark = (cell: number) => { seen[cell >> 3]! |= 1 << (cell & 7); };
+  const unseen = (cell: number) => (seen[cell >> 3]! & (1 << (cell & 7))) === 0;
+  let top = 0;
+  let visited = 1;
+  stack[top++] = start;
+  mark(start);
+  while (top > 0) {
+    const cell = stack[--top]!;
+    if (cell === goal) return 'joined';
+    const i = Math.floor(cell / cols);
+    const j = cell % cols;
+    const next = [i > 0 ? cell - cols : -1, i < rows - 1 ? cell + cols : -1, j > 0 ? cell - 1 : -1, j < cols - 1 ? cell + 1 : -1];
+    for (const n of next) {
+      if (n < 0 || !unseen(n) || !seaAt(n)) continue;
+      if (visited >= budget) return 'unknown';
+      mark(n);
+      visited += 1;
+      stack[top++] = n;
+    }
+  }
+  return 'apart';
 }
