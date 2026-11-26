@@ -255,6 +255,10 @@ the router's graph reaches beyond it (an end near or outside its edge), where go
 round the window counts as open water. `routing.test.ts` covers the walls, the corner
 pinch, the window edge and a random-mask soundness check, `landmask.test.ts` the helper,
 and `viewer/test/plannerComputed.test.jsx` the English and French planner text.
+Seen on the public site on 2026-11-26 with the rebuilt outline: a route computed
+through the Strait of Gibraltar (104 nm, 12.3 h, with the not-for-navigation note),
+and Sea of Marmara → Black Sea gave the closed-water message in English and French.
+The alert also offers Retry, which cannot help in that case.
 
 The mask itself (`viewer/public/data/land/global-005.*`) is built by
 `analysis/scripts/build_global_land_mask.py` with
