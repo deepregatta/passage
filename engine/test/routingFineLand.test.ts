@@ -229,3 +229,79 @@ describe('ends in closed pockets of sea on the fine routing index', () => {
     }
   });
 });
+
+// Graph nodes past the window's last cell used to count as sea (the mask simply ends there), and
+// routes ran across Devon, the Netherlands and Ireland through them (independent review of 6c5cfda,
+// 2026-11-26). Ends snapped as the planner snaps them; a uniform 14 kt wind from the given direction.
+const WINDOW_EDGE_CASES: Array<[string, P, P, number]> = [
+  ['Cornwall, north round Devon', { lat: 50.2264, lon: -4.7943 }, { lat: 50.6335, lon: -4.7882 }, 270],
+  ['the Humber to the Golfe du Lion', { lat: 53.6923, lon: -0.2492 }, { lat: 43.3906, lon: 4.5342 }, 45],
+  ['Galway Bay to the Elbe', { lat: 53.1169, lon: -9.7602 }, { lat: 55.0646, lon: 8.4571 }, 180],
+  ['Dunkirk to Liverpool Bay', { lat: 51.0426, lon: 2.2517 }, { lat: 53.3029, lon: -3.8657 }, 45],
+];
+/** Whether `p` lies in one of the window's cells (the cell isLand would read). */
+const inWindow = (m: RoutingLandMask, p: P) => {
+  const i = Math.round((p.lat - m.lat0) / m.dlat);
+  const j = Math.round((p.lon - m.lon0) / m.dlon);
+  return i >= 0 && i < m.nlat && j >= 0 && j < m.nlon;
+};
+
+describe.each([
+  ['the 0.05° outline', (bbox: ReturnType<typeof routeBbox>) => windowLandMask(coarse.bytes, coarse.metadata, bbox)],
+  ['the fine routing index', (bbox: ReturnType<typeof routeBbox>) => routingLandMask(coarse, fine, bbox)],
+])('on %s, a route never leaves the land window', (_label, windowFor) => {
+  it.each(WINDOW_EDGE_CASES)('%s', (_case, start, finish, fromDeg) => {
+    const bbox = routeBbox(start, finish);
+    const landMask = windowFor(bbox);
+    const { start: from, finish: to } = snapEnds(landMask, start, finish);
+    const maxHours = passageMaxHours(from!, to!);
+    let waypoints: P[] = [];
+    try {
+      waypoints = computeRoute({
+        start: from!, finish: to!, departureUtc: DEPARTURE, polar: POLAR,
+        windGrid: uniformWind(bbox, fromDeg, maxHours + 2), landMask, maxHours,
+      }).route.waypoints;
+    } catch (error) {
+      // No route is an answer; a route over land is not.
+      expect((error as Error).message).toMatch(/^No route found/);
+    }
+    expect(waypoints.filter((p) => !inWindow(landMask, p))).toEqual([]);
+    expect(legsOnLand(landMask, waypoints)).toEqual([]);
+  }, 120_000);
+});
+
+describe('where a moved end settles on the fine routing index', () => {
+  // Plymouth Sound's nearest open water is a slot one cell wide, open to the south: from there no
+  // route could beat out into a southerly. La Rochelle's is the same. A moved end now settles on a
+  // cell whose eight neighbours are sea.
+  it.each([
+    ['Plymouth Sound to the Rade de Brest', { lat: 50.35, lon: -4.14 }, { lat: 48.36, lon: -4.50 }, [150, 180, 210]],
+    ['La Rochelle to Les Sables', { lat: 46.15, lon: -1.17 }, { lat: 46.49, lon: -1.79 }, [180, 210]],
+  ])('%s computes into the wind, from a cell with room round it', (_label, start, finish, winds) => {
+    for (const fromDeg of winds as number[]) {
+      const { landMask, from, run } = route(start, finish, fromDeg);
+      const i = Math.round((from.lat - landMask.lat0) / landMask.dlat);
+      const j = Math.round((from.lon - landMask.lon0) / landMask.dlon);
+      for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) expect(isLand(landMask, landMask.lat0 + (i + di) * landMask.dlat, landMask.lon0 + (j + dj) * landMask.dlon)).toBe(false);
+      expect(legsOnLand(landMask, run().route.waypoints), `wind ${fromDeg}`).toEqual([]);
+    }
+  }, 120_000);
+
+  it('two ends in two different pockets: neither moves into the other’s pocket', () => {
+    // Poole Harbour west and Poole Quay: two separate pockets of the harbour’s drying water.
+    const start = { lat: 50.69, lon: -2.03 };
+    const finish = { lat: 50.71, lon: -1.99 };
+    const { landMask, from, to, run } = route(start, finish);
+    expect(from).not.toEqual(to);
+    expect(seaJoinsPoints(landMask, from, to, false)).toBe(true);
+    expect(legsOnLand(landMask, run().route.waypoints)).toEqual([]);
+  }, 60_000);
+
+  it('an end the sailor put on open sea stays where it is, slot or not', () => {
+    // The one-cell slot off Plymouth: open water, but no room round it.
+    const slot = { lat: 50.33020833333333, lon: -4.132291666666666 };
+    const landMask = routingLandMask(coarse, fine, routeBbox(slot, { lat: 48.36, lon: -4.50 }));
+    expect(isLand(landMask, slot.lat, slot.lon)).toBe(false);
+    expect(snapEnds(landMask, slot, { lat: 48.36, lon: -4.50 }).start).toEqual(slot);
+  });
+});

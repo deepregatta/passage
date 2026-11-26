@@ -511,26 +511,28 @@ describe('closed water on the coarse coastline outline', () => {
 
   describe('the window edge', () => {
     // A wall across the whole window, the start 0.03 degrees inside the west edge: the graph then
-    // reaches 0.1 degrees beyond the window, where the mask counts every cell as sea.
+    // reaches 0.1 degrees beyond the window, where the mask has no cells. It used to count them as
+    // sea and sail round the wall; past the window's last cell nothing is known, so it never goes there.
     const edgeMask = () => maskWith({ 10: all });
     const edge = {
       start: { lat: 49.5, lon: -5.97 }, finish: { lat: 50.5, lon: -5.97 },
       windGrid: wideWindGrid(),
     };
 
-    it('finds the way round the window edge when the graph reaches beyond it, so the outside is not called closed', () => {
-      const { route } = computeRoute(request(edgeMask(), edge));
-      expect(route.waypoints.some((wp) => wp.lon < -6.0)).toBe(true);
+    it('does not sail round the wall beyond the window: the water inside it is closed', () => {
+      const error = failure(request(edgeMask(), edge));
+      expect(error).toBeInstanceOf(ClosedWaterError);
+      expect(error.message).toBe(CLOSED_WATER_MESSAGE);
     });
 
-    it('does not claim a closed outline there when the route fails for another reason', () => {
-      const error = failure(request(edgeMask(), { ...edge, maxHours: 0.1 }));
-      expect(error.message).toBe('No route found within 0.1 h (wind coverage, land, or no-go conditions)');
+    it('with a gap in the wall, the route stays inside the window', () => {
+      const { route } = computeRoute(request(maskWith({ 10: (j) => j !== 5 }), edge));
+      expect(route.waypoints.every((wp) => wp.lon >= -6.05 && wp.lon <= 0.05 && wp.lat >= 48.95 && wp.lat <= 51.25)).toBe(true);
     });
 
-    it('does not claim a closed outline for an end outside the window either', () => {
-      const error = failure(request(edgeMask(), { ...edge, start: { lat: 49.5, lon: -6.3 }, finish: { lat: 50.5, lon: -6.3 }, maxHours: 0.1 }));
-      expect(error.message).toBe('No route found within 0.1 h (wind coverage, land, or no-go conditions)');
+    it('refuses an end outside the window: the mask cannot say whether it is sea', () => {
+      expect(() => computeRoute(request(edgeMask(), { ...edge, start: { lat: 49.5, lon: -6.3 }, finish: { lat: 50.5, lon: -6.3 } })))
+        .toThrow('Start or finish lies outside the land mask');
     });
   });
 

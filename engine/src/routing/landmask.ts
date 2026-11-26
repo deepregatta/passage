@@ -50,6 +50,16 @@ export function landAtOf(mask: RoutingLandMask): (i: number, j: number) => boole
   return (i, j) => land[i * nlon + j] === 1;
 }
 
+/**
+ * Whether (lat, lon) lies in one of the mask's cells, the cell isLand reads. Past the window's
+ * last cell the mask knows nothing: isLand calls it sea, but the router never goes there.
+ */
+export function insideMask(mask: RoutingLandMask, lat: number, lon: number): boolean {
+  const i = Math.round((lat - mask.lat0) / mask.dlat);
+  const j = Math.round((lon - mask.lon0) / mask.dlon);
+  return i >= 0 && i < mask.nlat && j >= 0 && j < mask.nlon;
+}
+
 export function isLand(mask: RoutingLandMask, lat: number, lon: number): boolean {
   const i = Math.round((lat - mask.lat0) / mask.dlat);
   const j = Math.round((lon - mask.lon0) / mask.dlon);
@@ -216,10 +226,10 @@ const SEA_FILL_END_BUDGET = 1_000_000;
  * exist only if both ends lie in one 4-connected sea component. This is that test, a
  * flood fill from `a`'s cell: run it only once a route has already failed.
  *
- * `outsideIsSea`: whether the router can use water beyond the window (its graph reaches
- * past the mask, where isLand counts every cell as sea). True adds a ring of sea cells
+ * `outsideIsSea`: whether water beyond the window counts. True adds a ring of sea cells
  * around the window, joined to each other, so that going round the window counts as a
- * way through. False keeps the fill inside the window.
+ * way through. False keeps the fill inside the window; the router always passes false,
+ * since it never uses a graph node outside the mask's cells.
  *
  * A window of more than SEA_FILL_MAX_CELLS cells is judged in two ways, each of which can
  * only prove the ends apart: a fill from each end that may visit SEA_FILL_END_BUDGET cells

@@ -22,7 +22,7 @@ vi.mock('@deepweather/engine', async (importOriginal) => {
   return { ...original, routingLandMask: (...args) => engine.routingLandMask(...args) };
 });
 import {
-  clearLandMaskCacheForTests, FINE_LAND_ENABLED, FINE_LAND_INDEX, landMaskForBbox,
+  clearLandMaskCacheForTests, FINE_LAND_ENABLED, FINE_LAND_INDEX, FINE_STALL_PAUSE_MS, landMaskForBbox,
 } from '../src/lib/landMask.js';
 import { DEPARTURE, routingInputs } from './fixtures/routingTiming.js';
 
@@ -129,8 +129,43 @@ describe('the fine routing index in the planner', () => {
     // The stalled request was aborted, not left running.
     const call = globalThis.fetch.mock.calls.find(([url]) => String(url) === stalled);
     expect(call[1]?.signal?.aborted).toBe(true);
+    // After the pause a stall earns, the next route tries the fine index again.
     serve();
+    vi.spyOn(Date, 'now').mockReturnValue(started + FINE_STALL_PAUSE_MS + 60_000);
     expect((await landMaskForBbox(solent, { fine: true, timeoutMs: 50 })).kind).toBe('land_cells');
+    vi.mocked(Date.now).mockRestore();
+  });
+
+  it('when on, one deadline covers the whole fine load: a slow manifest leaves the tiles only what is left', async () => {
+    const answer = globalThis.fetch;
+    globalThis.fetch = vi.fn((url, init) => {
+      if (String(url) === `${FINE_LAND_INDEX}/manifest.json`) return new Promise((resolve) => setTimeout(() => resolve(answer(url, init)), 300));
+      if (String(url).startsWith(FINE_LAND_INDEX)) return new Promise(() => {});
+      return answer(url, init);
+    });
+    const started = Date.now();
+    expect((await landMaskForBbox(solent, { fine: true, timeoutMs: 400 })).kind).toBe('land_mask');
+    // A deadline per file would wait 300 ms for the manifest, then 400 ms more for the tile.
+    expect(Date.now() - started).toBeLessThan(600);
+  });
+
+  it('when on, after a stall the next routes go straight to the outline for a while, fetching nothing', async () => {
+    const answer = globalThis.fetch;
+    globalThis.fetch = vi.fn((url, init) => (String(url) === `${FINE_LAND_INDEX}/N50W010.bin.gz` ? new Promise(() => {}) : answer(url, init)));
+    expect((await landMaskForBbox(solent, { fine: true, timeoutMs: 50 })).kind).toBe('land_mask');
+    serve();
+    requested = [];
+    const started = Date.now();
+    expect((await landMaskForBbox(solent, { fine: true, timeoutMs: 5000 })).kind).toBe('land_mask');
+    expect(Date.now() - started).toBeLessThan(1000);
+    expect(fineRequests()).toEqual([]);
+  });
+
+  it('when on, a fine file that fails at once (not a stall) is tried again on the next route', async () => {
+    serve((url, bytes) => (url.endsWith('N50W010.bin.gz') ? null : bytes));
+    expect((await landMaskForBbox(solent, { fine: true })).kind).toBe('land_mask');
+    serve();
+    expect((await landMaskForBbox(solent, { fine: true })).kind).toBe('land_cells');
   });
 
   it('when on, a fine window that cannot be built falls back to the outline', async () => {

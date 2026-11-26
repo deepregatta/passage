@@ -120,11 +120,18 @@ export const SNAP_POCKET_CELLS = 2000;
 
 /**
  * Both ends of a passage, each on the sea cell the router starts from: snapToSea's nearest sea
- * cell, and on the fine routing index (a LandCellMask) never in a closed pocket of sea that
- * does not hold the other end. There a harbour, a dock or a drying creek is often a pocket of
- * a few cells that no route can leave; such an end moves to the nearest sea cell, within the
- * snap's reach, whose water is larger than SNAP_POCKET_CELLS, runs to the edge of the window,
- * or holds the other end. With none in reach it stays, and the router says the water is closed.
+ * cell, and on the fine routing index (a LandCellMask) never in a closed pocket of sea, unless
+ * the other end lies in the same pocket (then both stay). There a harbour, a dock or a drying
+ * creek is often a pocket of a few cells that no route can leave; such an end moves to the
+ * nearest sea cell, within the snap's reach, whose water is open: larger than
+ * SNAP_POCKET_CELLS or running to the edge of the window. Two ends in two different pockets
+ * both move out to open water; neither moves into the other's pocket.
+ *
+ * An end that moves (it was on land or in a pocket) moves to a cell with room round it: all
+ * eight neighbours sea. A one-cell slot of sea can be the nearest open water, and a route
+ * cannot beat out of it into the wind. With no such cell in reach it takes the nearest open
+ * cell; with none of those it stays where snapToSea put it, and the router says the water is
+ * closed. An end the sailor put on open sea stays where it is.
  * On the 0.05° outline this is snapToSea for each end, unchanged.
  */
 export function snapEndsToSea(
@@ -135,31 +142,27 @@ export function snapEndsToSea(
   const a = snapToSea(mask, start);
   const b = snapToSea(mask, finish);
   if (mask.kind !== 'land_cells' || !a || !b) return { start: a, finish: b };
-  const from = outOfPocket(mask, start, a, b);
-  return { start: from, finish: outOfPocket(mask, finish, b, from) };
+  const water = openWater(mask);
+  const pa = water.pocketOf(a);
+  // Both ends in one closed pocket: a passage inside it, left as asked.
+  if (pa && pa.has(water.cellOf(b))) return { start: a, finish: b };
+  return { start: water.settle(start, a, pa), finish: water.settle(finish, b, water.pocketOf(b)) };
 }
 
-/** `snapped`, or the nearest sea cell to `point` outside a closed pocket that lacks `other` (see snapEndsToSea). */
-function outOfPocket(
-  mask: RoutingLandMask,
-  point: { lat: number; lon: number },
-  snapped: { lat: number; lon: number },
-  other: { lat: number; lon: number },
-): { lat: number; lon: number } {
+/** snapEndsToSea's reading of a fine window: closed pockets, open water and room round a cell. */
+function openWater(mask: RoutingLandMask) {
   const landAt = landAtOf(mask);
   const { nlat, nlon } = mask;
-  const cellOf = (p: { lat: number; lon: number }) =>
+  const index = (p: { lat: number; lon: number }) =>
     [Math.round((p.lat - mask.lat0) / mask.dlat), Math.round((p.lon - mask.lon0) / mask.dlon)] as const;
-  const [oi, oj] = cellOf(other);
-  const goal = oi * nlon + oj;
+  const cellOf = (p: { lat: number; lon: number }) => { const [i, j] = index(p); return i * nlon + j; };
   /** The cells of the closed pocket holding sea cell (i, j), or null when its water is open. */
   const pocket = (i: number, j: number): Set<number> | null => {
-    const start = i * nlon + j;
-    const seen = new Set<number>([start]);
-    const stack = [start];
+    const first = i * nlon + j;
+    const seen = new Set<number>([first]);
+    const stack = [first];
     while (stack.length > 0) {
       const cell = stack.pop()!;
-      if (cell === goal) return null;
       const ci = Math.floor(cell / nlon);
       const cj = cell % nlon;
       if (ci === 0 || ci === nlat - 1 || cj === 0 || cj === nlon - 1) return null;
@@ -173,32 +176,48 @@ function outOfPocket(
     }
     return seen;
   };
-  const [si, sj] = cellOf(snapped);
-  if (si < 0 || si >= nlat || sj < 0 || sj >= nlon) return snapped;
-  const first = pocket(si, sj);
-  if (!first) return snapped;
-  const closed = first;
-  const [ci, cj] = cellOf(point);
-  const maxCells = Math.max(12, Math.round(SNAP_REACH_DEG / Math.min(mask.dlat, mask.dlon)));
-  for (let r = 0; r <= maxCells; r++) {
-    // The ring's sea cells outside known pockets, nearest first.
-    const ring: Array<{ i: number; j: number; d2: number }> = [];
-    for (let di = -r; di <= r; di++) {
-      const edgeRow = di === -r || di === r;
-      for (let dj = -r; dj <= r; dj += edgeRow || r === 0 ? 1 : 2 * r) {
-        const i = ci + di;
-        const j = cj + dj;
-        if (i < 0 || i >= nlat || j < 0 || j >= nlon || closed.has(i * nlon + j) || landAt(i, j)) continue;
-        ring.push({ i, j, d2: di * di + dj * dj });
+  /** Whether the eight cells round in-window cell (i, j) are all sea in the window. */
+  const roomy = (i: number, j: number) => {
+    if (i < 1 || i > nlat - 2 || j < 1 || j > nlon - 2) return false;
+    for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) if (landAt(i + di, j + dj)) return false;
+    return true;
+  };
+  const inside = (i: number, j: number) => i >= 0 && i < nlat && j >= 0 && j < nlon;
+  const pocketOf = (p: { lat: number; lon: number }) => { const [i, j] = index(p); return inside(i, j) ? pocket(i, j) : null; };
+  /** The nearest open sea cell to `point` (with room when `needRoom`), outside the known pockets in `closed`. */
+  const nearestOpen = (point: { lat: number; lon: number }, closed: Set<number>, needRoom: boolean) => {
+    const [ci, cj] = index(point);
+    const maxCells = Math.max(12, Math.round(SNAP_REACH_DEG / Math.min(mask.dlat, mask.dlon)));
+    for (let r = 0; r <= maxCells; r++) {
+      // The ring's sea cells outside known pockets, nearest first.
+      const ring: Array<{ i: number; j: number; d2: number }> = [];
+      for (let di = -r; di <= r; di++) {
+        const edgeRow = di === -r || di === r;
+        for (let dj = -r; dj <= r; dj += edgeRow || r === 0 ? 1 : 2 * r) {
+          const i = ci + di;
+          const j = cj + dj;
+          if (!inside(i, j) || closed.has(i * nlon + j) || landAt(i, j) || (needRoom && !roomy(i, j))) continue;
+          ring.push({ i, j, d2: di * di + dj * dj });
+        }
+      }
+      ring.sort((x, y) => x.d2 - y.d2);
+      for (const { i, j } of ring) {
+        if (closed.has(i * nlon + j)) continue;
+        const cells = pocket(i, j);
+        if (!cells) return { lat: mask.lat0 + i * mask.dlat, lon: mask.lon0 + j * mask.dlon };
+        for (const cell of cells) closed.add(cell);
       }
     }
-    ring.sort((x, y) => x.d2 - y.d2);
-    for (const { i, j } of ring) {
-      if (closed.has(i * nlon + j)) continue;
-      const cells = pocket(i, j);
-      if (!cells) return { lat: mask.lat0 + i * mask.dlat, lon: mask.lon0 + j * mask.dlon };
-      for (const cell of cells) closed.add(cell);
-    }
-  }
-  return snapped;
+    return null;
+  };
+  /** Where the end asked at `point`, snapped to `snapped` (in closed pocket `own`, or null), settles. */
+  const settle = (point: { lat: number; lon: number }, snapped: { lat: number; lon: number }, own: Set<number> | null) => {
+    const [si, sj] = index(snapped);
+    if (!inside(si, sj)) return snapped;
+    const moved = snapped.lat !== point.lat || snapped.lon !== point.lon;
+    if (!own && (!moved || roomy(si, sj))) return snapped;
+    const closed = new Set(own ?? []);
+    return nearestOpen(point, closed, true) ?? (own ? nearestOpen(point, closed, false) : snapped) ?? snapped;
+  };
+  return { cellOf, pocketOf, settle };
 }

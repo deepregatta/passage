@@ -17,7 +17,7 @@ import { bearingDegTrue, haversineNm, wrap180 } from '../geo.js';
 import { parseUtc, toIso } from '../eta.js';
 import { GridSampler, type RegionGrid } from '../grids.js';
 import { boatSpeedKt, type Polar } from './polar.js';
-import { isLand, seaJoinsPoints, segmentCrossesLand, type RoutingLandMask } from './landmask.js';
+import { insideMask, isLand, seaJoinsPoints, segmentCrossesLand, type RoutingLandMask } from './landmask.js';
 import type { Route, Waypoint } from '../types.js';
 
 export interface RoutingRequest {
@@ -290,20 +290,22 @@ function routeOnGraph(request: RoutingRequest, withEndPatches: boolean): Routing
   // Only on a failure: a flood fill over the land mask says whether any sea joins the two ends.
   const noRoute = () => {
     if (clipped) return new SearchBoundsError('no-route');
-    if (landMask && !seaJoinsPoints(landMask, startPoint, finishPoint, graphReachesBeyondMask())) {
+    if (landMask && !seaJoinsPoints(landMask, startPoint, finishPoint, false)) {
       return new ClosedWaterError(landMask.kind === 'land_cells' && landMask.fine_index_id !== null);
     }
     return new Error(`No route found within ${request.maxHours ?? 48} h (wind coverage, land, or no-go conditions)`);
   };
-  // The graph can reach past the mask (an end near or outside its edge grows the graph to include it),
-  // where every cell counts as sea: then water round the window is water the router could use.
-  const graphReachesBeyondMask = () => {
-    if (!landMask) return false;
-    const eps = 1e-9;
-    return lat0 < landMask.lat0 - eps || lat1 > landMask.lat0 + (landMask.nlat - 1) * landMask.dlat + eps ||
-      lon0 < landMask.lon0 - eps || lon1 > landMask.lon0 + (landMask.nlon - 1) * landMask.dlon + eps;
-  };
+  // The graph can reach past the land mask's window: its rows and columns are rounded, and it is
+  // grown round the ends. The mask knows nothing there (isLand calls it sea only because the window
+  // ends), so with a mask no node outside its cells is ever used, and neither end may lie outside
+  // them: every node and leg is judged on cells the mask holds. The router's windows are crops of a
+  // whole-globe outline (lat -90..90, lon -180..180), so no real open sea lies beyond a window that
+  // a route could need: the caller's window holds the passage.
+  const offMask = (lat: number, lon: number) => !!landMask && !insideMask(landMask, lat, lon);
 
+  if (landMask && (offMask(start.lat, start.lon) || offMask(finish.lat, finish.lon))) {
+    throw new Error('Start or finish lies outside the land mask');
+  }
   if (landMask && (isLand(landMask, start.lat, start.lon) || isLand(landMask, finish.lat, finish.lon))) {
     throw new Error('Start or finish is on land');
   }
@@ -452,6 +454,7 @@ function routeOnGraph(request: RoutingRequest, withEndPatches: boolean): Routing
     let hasSeaConnection = false;
     const connects = (i: number, j: number) => {
       const node = { lat: L.lats[i]!, lon: L.lons[j]! };
+      if (offMask(node.lat, node.lon)) return false;
       if (landMask && segmentCrossesLand(landMask, p, node)) return false;
       hasSeaConnection = true;
       if (fromStart && travel(p, node, departureMs) === null) return false;
@@ -484,6 +487,9 @@ function routeOnGraph(request: RoutingRequest, withEndPatches: boolean): Routing
   const insideBounds = (p: { lat: number; lon: number }) => !bounds ||
     (p.lat >= bounds.minLat && p.lat <= bounds.maxLat && p.lon >= bounds.minLon && p.lon <= bounds.maxLon);
   if (!insideBounds(startPoint) || !insideBounds(finishPoint)) throw new SearchBoundsError('endpoint-outside');
+  if (landMask && (offMask(startPoint.lat, startPoint.lon) || offMask(finishPoint.lat, finishPoint.lon))) {
+    throw new Error('Start or finish lies outside the land mask');
+  }
   if (landMask && (isLand(landMask, startPoint.lat, startPoint.lon) || isLand(landMask, finishPoint.lat, finishPoint.lon))) {
     throw new Error('Start or finish is on land');
   }
@@ -601,6 +607,7 @@ function routeOnGraph(request: RoutingRequest, withEndPatches: boolean): Routing
       for (let j = Math.max(0, bj - ENDPOINT_RINGS); j <= Math.min(F.nlon - 1, bj + ENDPOINT_RINGS); j++) {
         const node = F.offset + i * F.nlon + j;
         if (node === finishId) continue;
+        if (offMask(F.lats[i]!, F.lons[j]!)) continue;
         if (landMask && segmentCrossesLand(landMask, finishPoint, { lat: F.lats[i]!, lon: F.lons[j]! })) continue;
         if (settled[node]) {
           settledEnds.push(node);
@@ -626,7 +633,7 @@ function routeOnGraph(request: RoutingRequest, withEndPatches: boolean): Routing
     if (settled[to]) return false;
     const toLat = latAt(to);
     const toLon = lonAt(to);
-    if (landMask && isLand(landMask, toLat, toLon)) return false;
+    if (landMask && (isLand(landMask, toLat, toLon) || offMask(toLat, toLon))) return false;
     // Even adjacent sea nodes can straddle land in a finer-resolution mask.
     return !(landMask && segmentCrossesLand(landMask, pointAt(node), { lat: toLat, lon: toLon }));
   };

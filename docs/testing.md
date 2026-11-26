@@ -250,10 +250,29 @@ mask (`seaJoinsPoints` in `landmask.ts`, a flood fill run only after the failure
 `computeRoute` throws `ClosedWaterError` and the planner says that a strait or channel
 too narrow for the coarse outline may be the cause and points to Draw my route. Any
 other failure keeps its usual message, and so does a search that `searchBounds` held
-back (its callers retry without the box). The fill stays inside the mask window unless
-the router's graph reaches beyond it (an end near or outside its edge), where going
-round the window counts as open water. `routing.test.ts` covers the walls, the corner
-pinch, the window edge and a random-mask soundness check, `landmask.test.ts` the helper,
+back (its callers retry without the box). The fill stays inside the mask window.
+
+The router never uses a graph node outside the mask's cells (2026-11-26). Its
+graph is rounded to whole rows and columns and grown 0.1° round the ends, so its
+last row or column could lie past the window, where `isLand` calls every cell sea
+only because the window ends there; routes ran across Devon, the Netherlands and
+France through such nodes, on the outline and on the fine index alike (independent
+review of 6c5cfda). Those nodes are now never expanded or joined to an end, and an
+end outside the window is refused ("Start or finish lies outside the land mask";
+the planner never sends one: its window is the route box, at least 0.5° round both
+ends, and it snaps the ends inside it). The windows are crops of a whole-globe
+outline (lat −90..90, lon −180..180), so no real open sea beyond one is lost.
+Compared on 700 random outline passages (uniform winds, 8 directions, four
+regions, before and after): 693 identical; four failures now say closed water
+instead of the generic message (their only water past the window); one route that
+crossed Denmark through the window's edge is now closed water; one Levant → Libya
+route that sailed 16 waypoints outside the window now stays inside it; and one
+Black Sea route takes the same 27.2 h and 130.2 nm with its tacks in another
+order (a tie broken differently once the outside nodes leave the queue).
+`routingFineLand.test.ts` routes the review's four cases on both masks with every
+waypoint inside the window. `routing.test.ts` covers the walls, the corner
+pinch, the window edge (a wall across the window is closed water even with the
+start 0.03° from its edge) and a random-mask soundness check, `landmask.test.ts` the helper,
 and `viewer/test/plannerComputed.test.jsx` the English and French planner text.
 Seen on the public site on 2026-11-26 with the rebuilt outline: a route computed
 through the Strait of Gibraltar (104 nm, 12.3 h, with the not-for-navigation note),
@@ -305,12 +324,18 @@ the tiles (Cork Harbour to Valentia, west of 10°W; Aberdeen to Bergen, north of
 
 Both ends are snapped together (`snapEndsToSea`): on the 0.05° outline exactly as
 `snapToSea` snaps each, and on a fine window never in a closed pocket of sea
-(edge to edge, at most `SNAP_POCKET_CELLS` = 2,000 cells) that lacks the other end.
+(edge to edge, at most `SNAP_POCKET_CELLS` = 2,000 cells) unless the other end
+lies in the same one; two ends in two different pockets both move out to open
+water (Poole Harbour west to Poole Quay used to jump the start onto the finish).
 Measured on the nweu tiles, the harbour ends the outline routes from often lie in
 such a pocket (Cherbourg's Grande Rade, Poole and Terschelling one cell, Lorient
 two, St Helier three, Arcachon 65, Plymouth Sound 89, Liverpool 189, Cork Harbour
 231), which made the route closed water; such an end moves to the nearest sea cell
-whose water is open, within the snap's 0.6° reach. The IJsselmeer (about 31,000
+whose water is open, within the snap's 0.6° reach, and with room round it (its
+eight neighbours sea): Plymouth Sound's and La Rochelle's nearest open water is a
+one-cell slot no route can beat out of into a southerly. With no roomy cell in
+reach the nearest open cell is taken. An end the sailor put on open sea stays
+where it is. The IJsselmeer (about 31,000
 cells, closed by its dams) stays closed water. `seaJoinsPoints` keeps its answers
 per mask, so a departure scan floods each window once. The land check walks
 8 × 8-cell blocks first (`LandCellMask.blocks`, each worked out on first use) and
@@ -322,9 +347,11 @@ the West Solent → the Needles round the Isle of Wight (over 40 nm: Hurst narro
 stays closed), the long passages above, nine harbour pairs with an end in a pocket,
 and gets closed water from the IJsselmeer; every emitted leg is checked by the exact
 walk on the fine window. Of the 22 harbour passages of the 2026-11-26 review, 21
-route on the fine tiles (most ends within 2.5 km of the point asked for; Liverpool
-3.8 km, Terschelling 4.6 km, Arcachon 10.5 km past its drying banks and the Golfe
-du Morbihan 10.3 km, out of the gulf, where the outline snaps 3 to 25 km); Vigo to
+route on the fine tiles (most ends within 3 km of the point asked for; Liverpool
+3.9 km, Terschelling 4.9 km, Cork's Valentia end 5.7 km, Arcachon 10.8 km past its
+drying banks and the Golfe du Morbihan 10.6 km, out of the gulf, where the outline
+snaps 3 to 25 km); Plymouth Sound to the Rade de Brest now routes in every wind
+from 150° to 210° as well; Vigo to
 La Coruña is closed water on the outline and on the fine tiles alike (its window
 does not reach round Cape Finisterre). `npm run bench:routing -w engine --
 --fine` measures the bench passages on the fine index: on 2026-11-26 a 21-departure
@@ -341,10 +368,14 @@ when `FINE_LAND_ENABLED` is on, and it is off: every computed route on the publi
 site still reads the 0.05° outline alone. When on, it fetches the pinned manifest
 once and only the 10° tiles a window meets, checks each against the manifest's size
 and FNV-1a 64 checksum before decoding, and on any failure (a missing or changed
-file, another version, a file that has not arrived within `FINE_FETCH_TIMEOUT_MS`
-= 10 s, which is then aborted, or a window that cannot be built) routes on the
-outline and tries again for the next route. `viewer/test/landMaskFine.test.js`
+file, another version, a load that has not finished within `FINE_FETCH_TIMEOUT_MS`
+= 10 s, one deadline for the manifest and the tiles together, whose fetches are
+then aborted, or a window that cannot be built) routes on the outline and tries
+again for the next route; after a stall the next routes go straight to the outline
+for `FINE_STALL_PAUSE_MS` = 60 s, so Compute and then Compare do not each wait out
+the deadline (the worker keeps its own cache, so it can still wait once itself). `viewer/test/landMaskFine.test.js`
 covers the switch being off, the fetches, each failure, a stalled manifest or tile,
+the one deadline, the pause after a stall,
 and two routes through the loader, the router and the route note: Cowes to
 Cherbourg's Grande Rade (the fine note; the outline snaps the start over 5 nm out)
 and Cork Harbour to Valentia (the outline's note, the route leaving the tiles).
