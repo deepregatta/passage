@@ -13,7 +13,8 @@ vi.mock('@deepweather/engine', async (importOriginal) => ({
   ...(({ tileModelId, currentProduct }) => ({ tileModelId, currentProduct }))(await importOriginal()),
   routeBbox: () => ({ minLat: 0, maxLat: 1, minLon: 0, maxLon: 1 }),
   passageMaxHours: () => 48,
-  snapToSea: mocks.snapToSea,
+  // both ends through the one snap mock, start first, as the engine's snapEndsToSea does on the outline
+  snapEndsToSea: (mask, start, finish) => ({ start: mocks.snapToSea(mask, start), finish: mocks.snapToSea(mask, finish) }),
   polarFromRelease: mocks.polarFromRelease,
   forecastRunGone: (error) => (error?.name === 'ForecastRunGoneError' ? error : null),
   contentHash: (value) => `digest-${value.run_id}`,

@@ -261,6 +261,21 @@ export function seaJoinsPoints(
   const to = cellOf(b);
   if (from < 0 || to < 0 || !seaAt(from) || !seaAt(to)) return true;
   if (from === to) return true;
+  // The same question on the same mask has the same answer: a departure scan asks it of every
+  // departure that fails, and on the fine routing index each answer can take a tenth of a second.
+  let answers = seaJoinsAnswers.get(mask);
+  if (!answers) seaJoinsAnswers.set(mask, (answers = new Map()));
+  const key = `${from} ${to} ${outsideIsSea}`;
+  let answer = answers.get(key);
+  if (answer === undefined) answers.set(key, (answer = seaJoinsCells(from, to, rows, cols, seaAt)));
+  return answer;
+}
+
+/** seaJoinsPoints' answers by mask, then by end cells and outsideIsSea. */
+const seaJoinsAnswers = new WeakMap<RoutingLandMask, Map<string, boolean>>();
+
+/** seaJoinsPoints between two sea cells of the padded grid. */
+function seaJoinsCells(from: number, to: number, rows: number, cols: number, seaAt: (cell: number) => boolean): boolean {
   const total = rows * cols;
   if (total <= SEA_FILL_MAX_CELLS) return fill(from, to, rows, cols, seaAt, total) !== 'apart';
   // A pocket around either end, filled to its last cell without meeting the other end.

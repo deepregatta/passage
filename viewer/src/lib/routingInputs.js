@@ -1,4 +1,4 @@
-import { forecastRunGone, passageMaxHours, polarFromRelease, routeBbox, snapToSea } from '@deepweather/engine';
+import { forecastRunGone, passageMaxHours, polarFromRelease, routeBbox, snapEndsToSea } from '@deepweather/engine';
 import { landMaskForBbox } from './landMask.js';
 import { forecastStore, friendlyForecastError } from './forecastStore.js';
 import { preparedRun } from './preparedRun.js';
@@ -142,8 +142,7 @@ export async function loadRoutingInputs({
       { cause: error },
     );
   }
-  const snappedStart = snapToSea(landMask, start);
-  const snappedFinish = snapToSea(landMask, finish);
+  const { start: snappedStart, finish: snappedFinish } = snapEndsToSea(landMask, start, finish);
   if (!snappedStart || !snappedFinish) {
     throw new Error('Click a point in open water near both ends of the passage');
   }

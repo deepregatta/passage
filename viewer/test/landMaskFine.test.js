@@ -6,10 +6,21 @@ import { Blob as NodeBlob } from 'node:buffer';
 import { readFile } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createElement } from 'react';
+import { cleanup, render, screen } from '@testing-library/react';
 import {
-  computeRoute, passageMaxHours, routeBbox, segmentCrossesLand, snapToSea,
+  computeRoute, passageMaxHours, routeBbox, segmentCrossesLand, snapEndsToSea, snapToSea,
 } from '@deepweather/engine';
+import RouteSourceNotes from '../src/pages/planner/RouteSourceNotes.jsx';
+
+// routingLandMask is the engine's own, unless a test makes it throw.
+const engine = vi.hoisted(() => ({ routingLandMask: null }));
+vi.mock('@deepweather/engine', async (importOriginal) => {
+  const original = await importOriginal();
+  engine.routingLandMask = vi.fn(original.routingLandMask);
+  return { ...original, routingLandMask: (...args) => engine.routingLandMask(...args) };
+});
 import {
   clearLandMaskCacheForTests, FINE_LAND_ENABLED, FINE_LAND_INDEX, landMaskForBbox,
 } from '../src/lib/landMask.js';
@@ -43,6 +54,7 @@ beforeEach(() => {
   requested = [];
   serve();
 });
+afterEach(cleanup);
 afterAll(() => {
   vi.unstubAllGlobals();
   clearLandMaskCacheForTests();
@@ -104,18 +116,46 @@ describe('the fine routing index in the planner', () => {
     expect(fine.kind).toBe('land_cells');
   });
 
-  it('when on, Cowes to Cherbourg computes from inside the Solent, every leg off the fine cells', async () => {
-    const cowes = { lat: 50.766, lon: -1.298 };
-    const cherbourg = { lat: 49.66, lon: -1.62 };
-    const bbox = routeBbox(cowes, cherbourg);
+  it.each([
+    ['the manifest', `${FINE_LAND_INDEX}/manifest.json`],
+    ['a tile', `${FINE_LAND_INDEX}/N50W010.bin.gz`],
+  ])('when on, %s that never answers falls back to the outline in time, and is not kept', async (_label, stalled) => {
+    const answer = globalThis.fetch;
+    globalThis.fetch = vi.fn((url, init) => (String(url) === stalled ? new Promise(() => {}) : answer(url, init)));
+    const started = Date.now();
+    const fallback = await landMaskForBbox(solent, { fine: true, timeoutMs: 50 });
+    expect(fallback.kind).toBe('land_mask');
+    expect(Date.now() - started).toBeLessThan(2000);
+    // The stalled request was aborted, not left running.
+    const call = globalThis.fetch.mock.calls.find(([url]) => String(url) === stalled);
+    expect(call[1]?.signal?.aborted).toBe(true);
+    serve();
+    expect((await landMaskForBbox(solent, { fine: true, timeoutMs: 50 })).kind).toBe('land_cells');
+  });
+
+  it('when on, a fine window that cannot be built falls back to the outline', async () => {
+    engine.routingLandMask.mockImplementationOnce(() => { throw new Error('routing-index tile N50W010 is missing'); });
+    const fallback = await landMaskForBbox(solent, { fine: true });
+    expect(fallback.kind).toBe('land_mask');
+    expect((await landMaskForBbox(solent, { fine: true })).kind).toBe('land_cells');
+  });
+
+  it.each([
+    // The Grande Rade end is a one-cell pocket of sea on the fine index: it moves out to open water.
+    ['Cowes to Cherbourg’s Grande Rade', { lat: 50.766, lon: -1.298 }, { lat: 49.65, lon: -1.62 }, 'fine'],
+    // Valentia lies west of 10°W, past the fine tiles: that stretch is checked on the outline alone.
+    ['Cork Harbour to Valentia', { lat: 51.80, lon: -8.30 }, { lat: 51.93, lon: -10.35 }, 'outline'],
+  ])('when on, %s computes as the planner computes it, with the note its land check earns', async (_label, start, finish, note) => {
+    const bbox = routeBbox(start, finish);
     const landMask = await landMaskForBbox(bbox, { fine: true });
-    const outline = await landMaskForBbox(bbox, { fine: false });
-    const from = snapToSea(landMask, cowes);
-    const to = snapToSea(landMask, cherbourg);
-    expect(haversineNm(cowes.lat, cowes.lon, from.lat, from.lon)).toBeLessThan(0.6);
-    // The outline snaps the same start miles out of the Solent.
-    const outlineFrom = snapToSea(outline, cowes);
-    expect(haversineNm(cowes.lat, cowes.lon, outlineFrom.lat, outlineFrom.lon)).toBeGreaterThan(5);
+    const { start: from, finish: to } = snapEndsToSea(landMask, start, finish);
+    expect(haversineNm(start.lat, start.lon, from.lat, from.lon)).toBeLessThan(2);
+    if (note === 'fine') {
+      // The outline snaps the same start miles out of the Solent.
+      const outline = await landMaskForBbox(bbox, { fine: false });
+      const outlineFrom = snapToSea(outline, start);
+      expect(haversineNm(start.lat, start.lon, outlineFrom.lat, outlineFrom.lon)).toBeGreaterThan(5);
+    }
     const maxHours = passageMaxHours(from, to);
     const hours = maxHours + 2;
     const lat0 = Math.floor(bbox.minLat) - 1;
@@ -136,5 +176,9 @@ describe('the fine routing index in the planner', () => {
     });
     const onLand = route.waypoints.slice(1).filter((point, k) => segmentCrossesLand(landMask, route.waypoints[k], point));
     expect(onLand).toEqual([]);
+    render(createElement(RouteSourceNotes, { computed: { route } }));
+    expect(screen.getByTestId('route-not-for-navigation').textContent).toMatch(note === 'fine'
+      ? /^Not for navigation\. This route avoids land and areas that dry at low tide as a 230 m grid shows them/
+      : /^Not for navigation\. This route avoids only a coarse outline of the coast/);
   }, 60_000);
 });

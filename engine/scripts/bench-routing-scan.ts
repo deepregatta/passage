@@ -26,7 +26,7 @@ import { gunzipSync } from 'node:zlib';
 import { performance } from 'node:perf_hooks';
 import { computeRoute, type RoutingResult } from '../src/routing/isochrone.js';
 import { polarFromRelease } from '../src/routing/deepPolars.js';
-import { snapToSea, windowLandMask, type PackedLandMaskMetadata } from '../src/routing/landmaskPack.js';
+import { snapEndsToSea, windowLandMask, type PackedLandMaskMetadata } from '../src/routing/landmaskPack.js';
 import { routingLandMask } from '../src/routing/fineLandMask.js';
 import { decodeLandIndexTile, parseLandIndexManifest } from '../src/routing/landIndex.js';
 import type { RoutingLandMask } from '../src/routing/landmask.js';
@@ -119,8 +119,7 @@ async function loadInputs(store: TileForecastStore, p: Passage, scanning: boolea
   const remaining = Math.floor((NOW_MS + FORECAST_HOURS * 3600_000 - departureMs) / 3600_000);
   const hours = Math.min((scanning ? 120 : 0) + maxHours + 6, remaining);
   const landMask = fineIndex ? routingLandMask({ bytes: maskBytes, metadata: maskMeta }, fineIndex, bbox) : windowLandMask(maskBytes, maskMeta, bbox);
-  const start = snapToSea(landMask, p.start);
-  const finish = snapToSea(landMask, p.finish);
+  const { start, finish } = snapEndsToSea(landMask, p.start, p.finish);
   if (!start || !finish) throw new Error(`${p.id}: endpoint on land`);
   const windGrid = await store.getWindGrid(bbox, DEPARTURE_ISO, hours);
   const currentGrid = await store.getCurrentGrid(bbox, DEPARTURE_ISO, hours);

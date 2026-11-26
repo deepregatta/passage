@@ -285,39 +285,75 @@ counts as joined, so the closed-water message is never shown without proof.
 
 On such a window the router (`computeRoute`, still engine only) first searches its usual
 grid; only when that finds no route (no node near an end joins it, or the search
-fails) and an end lies in a fine cell does it search again with fine end patches:
-1/480° nodes on fine cell centres within 0.15° of each end (two that touch merged),
-each main-grid node inside a patch linked to its nearest patch node. A route the
+fails) and an end lies in a fine cell does it search again with fine end patches
+in two tiers round each end (`END_PATCH_TIERS`): 1/480° nodes on fine cell centres
+within 0.15°, and 1/120° nodes out to 0.5° (two patches of a tier that touch merged),
+each node of the coarser level inside a patch linked to its nearest patch node. The
+outer tier carries a long passage's route out of narrow water its main grid
+(span/150, 0.03° to 0.1°) cannot thread: without it, Cowes to off Brest, to off
+La Coruña and to Bergen, and the Rade de Brest to Lisbon and to Bilbao, failed in
+winds where the outline routed them. A route the
 usual grid finds is never searched again; closed water, a search held back by
 `searchBounds` and a current gap are final; on the 0.05° outline nothing changes.
 Measured on the nweu tiles: a 1/240° graph threads the 0.7 km lane of the Goulet
 de Brest only off the wind and only with nodes on cell centres; beating out in a
 westerly needs a node in every cell. A route that used the patches records
-`land_index` and `end_resolution_deg` in `routing_request`. The land check walks
+`end_resolution_deg` in `routing_request`, and a route lying in fine cells all
+along (every point and every leg) records `land_index`; a route partly outside
+the tiles (Cork Harbour to Valentia, west of 10°W; Aberdeen to Bergen, north of
+60°N) records no `land_index` and keeps the outline's note.
+
+Both ends are snapped together (`snapEndsToSea`): on the 0.05° outline exactly as
+`snapToSea` snaps each, and on a fine window never in a closed pocket of sea
+(edge to edge, at most `SNAP_POCKET_CELLS` = 2,000 cells) that lacks the other end.
+Measured on the nweu tiles, the harbour ends the outline routes from often lie in
+such a pocket (Cherbourg's Grande Rade, Poole and Terschelling one cell, Lorient
+two, St Helier three, Arcachon 65, Plymouth Sound 89, Liverpool 189, Cork Harbour
+231), which made the route closed water; such an end moves to the nearest sea cell
+whose water is open, within the snap's 0.6° reach. The IJsselmeer (about 31,000
+cells, closed by its dams) stays closed water. `seaJoinsPoints` keeps its answers
+per mask, so a departure scan floods each window once. The land check walks
 8 × 8-cell blocks first (`LandCellMask.blocks`, each worked out on first use) and
 walks the cells only through a block holding land, so its answers are unchanged
 (checked on random masks and real windows). `engine/test/routingFineLand.test.ts`
 computes Cowes → Spithead and Cowes → Cherbourg from a start snapped under 0.6 nm
 from the Medina mouth, Brest roads ↔ Ouessant through the Goulet in a 250° wind,
 the West Solent → the Needles round the Isle of Wight (over 40 nm: Hurst narrows
-stays closed) and gets closed water from the Golfe du Morbihan; every emitted leg is
-checked by the exact walk on the fine window. `npm run bench:routing -w engine --
+stays closed), the long passages above, nine harbour pairs with an end in a pocket,
+and gets closed water from the IJsselmeer; every emitted leg is checked by the exact
+walk on the fine window. Of the 22 harbour passages of the 2026-11-26 review, 21
+route on the fine tiles (most ends within 2.5 km of the point asked for; Liverpool
+3.8 km, Terschelling 4.6 km, Arcachon 10.5 km past its drying banks and the Golfe
+du Morbihan 10.3 km, out of the gulf, where the outline snaps 3 to 25 km); Vigo to
+La Coruña is closed water on the outline and on the fine tiles alike (its window
+does not reach round Cape Finisterre). `npm run bench:routing -w engine --
 --fine` measures the bench passages on the fine index: on 2026-11-26 a 21-departure
 scan routed 8–12 % slower than on the outline (77 nm 1.19 s against 1.09 s, Biscay
 2.83 s against 2.61 s); a departure that needs the patches took about 0.1 s more.
+A scan whose every departure needs them costs more: 21 departures from the Rade de
+Brest to off La Coruña took 5.5 s on the fine index against 2.0 s on the outline
+(Node, 2026-11-26, after the two-tier patches and the kept `seaJoinsPoints`
+answers; 9.6 s without the latter), because each departure is searched on the main
+grid first and again with the patches. Not measured on a phone.
 
 The planner's loader (`viewer/src/lib/landMask.js`) reads the fine index only
 when `FINE_LAND_ENABLED` is on, and it is off: every computed route on the public
 site still reads the 0.05° outline alone. When on, it fetches the pinned manifest
 once and only the 10° tiles a window meets, checks each against the manifest's size
 and FNV-1a 64 checksum before decoding, and on any failure (a missing or changed
-file, another version) routes on the outline and tries again for the next route.
-`viewer/test/landMaskFine.test.js` covers the switch being off, the fetches, each
-failure, and Cowes → Cherbourg through the loader and the router: the fine index
-snaps the Medina-mouth start under 0.6 nm, the outline over 5 nm out.
+file, another version, a file that has not arrived within `FINE_FETCH_TIMEOUT_MS`
+= 10 s, which is then aborted, or a window that cannot be built) routes on the
+outline and tries again for the next route. `viewer/test/landMaskFine.test.js`
+covers the switch being off, the fetches, each failure, a stalled manifest or tile,
+and two routes through the loader, the router and the route note: Cowes to
+Cherbourg's Grande Rade (the fine note; the outline snaps the start over 5 nm out)
+and Cork Harbour to Valentia (the outline's note, the route leaving the tiles).
+A fallback is silent; on the deployed site a route shows it used the fine data by
+its note (the fine not-for-navigation note, read from `land_index`) and by a start
+inside the Solent.
 The wording that goes with it is in place and waits on the same switch (owner-
-approved, 2026-11-26): a route whose ends or graph nodes lie in a fine cell
-records `land_index`, and its not-for-navigation note says it avoids land and
+approved, 2026-11-26): a route lying in fine cells all along records
+`land_index`, and its not-for-navigation note says it avoids land and
 drying areas as a 230 m grid shows them, with a margin of about 200 m, that the
 grid can be wrong and that single rocks are not in it (`routeSourceNotes.test.jsx`);
 closed water on the fine index has its own message, which the planner, by the

@@ -13,7 +13,7 @@ vi.mock('@deepweather/engine', async (original) => ({
   ...await original(),
   // routing is not what these tests are about: the polar and the snapped ends are stand-ins
   polarFromRelease: () => ({ polar_id: 'test' }),
-  snapToSea: (_mask, point) => ({ lat: point.lat, lon: point.lon }),
+  snapEndsToSea: (_mask, start, finish) => ({ start: { lat: start.lat, lon: start.lon }, finish: { lat: finish.lat, lon: finish.lon } }),
 }));
 vi.mock('../src/lib/landMask.js', () => ({ landMaskForBbox: async () => ({ kind: 'land_mask' }) }));
 

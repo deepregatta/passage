@@ -5,6 +5,13 @@ import { FINE_LAND_ENABLED, FINE_LAND_INDEX } from './fineLandSwitch.js';
 
 export { FINE_LAND_ENABLED, FINE_LAND_INDEX };
 
+/**
+ * How long one routing-index file (the manifest or a tile, each under 60 kB) may take before
+ * the route goes on without it, on the outline: a fetch that stalls must not hold Compute at
+ * "Loading the coastline" or stay cached as a promise that never settles.
+ */
+export const FINE_FETCH_TIMEOUT_MS = 10_000;
+
 let packedMaskPromise;
 let fineManifestPromise;
 /** Decoded fine tiles by id (a promise each); a failed one is forgotten so the next route tries again. */
@@ -45,17 +52,38 @@ function remembered(map, key, load) {
   return map.get(key);
 }
 
-async function fetchFineManifest() {
-  const response = await fetch(`${FINE_LAND_INDEX}/manifest.json`);
-  if (!response.ok) throw new Error(`routing-index manifest: HTTP ${response.status}`);
-  return parseLandIndexManifest(await response.json());
+/** The bytes of one routing-index file, or a rejection once `timeoutMs` has passed (the fetch is then aborted). */
+async function fetchFineBytes(url, timeoutMs) {
+  const controller = new AbortController();
+  let timer;
+  const timeout = new Promise((_resolve, reject) => {
+    timer = setTimeout(() => {
+      const error = new Error(`${url}: no answer within ${timeoutMs} ms`);
+      controller.abort(error);
+      reject(error);
+    }, timeoutMs);
+  });
+  const read = (async () => {
+    const response = await fetch(url, { signal: controller.signal });
+    if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
+    return new Uint8Array(await response.arrayBuffer());
+  })();
+  read.catch(() => {});
+  try {
+    return await Promise.race([read, timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function fetchFineManifest(timeoutMs) {
+  const bytes = await fetchFineBytes(`${FINE_LAND_INDEX}/manifest.json`, timeoutMs);
+  return parseLandIndexManifest(JSON.parse(new TextDecoder().decode(bytes)));
 }
 
 /** A fine tile, checked against the manifest's size and checksum (of the gzipped object) before decoding. */
-async function fetchFineTile(manifest, id) {
-  const response = await fetch(`${FINE_LAND_INDEX}/${id}.bin.gz`);
-  if (!response.ok) throw new Error(`routing-index tile ${id}: HTTP ${response.status}`);
-  const stored = new Uint8Array(await response.arrayBuffer());
+async function fetchFineTile(manifest, id, timeoutMs) {
+  const stored = await fetchFineBytes(`${FINE_LAND_INDEX}/${id}.bin.gz`, timeoutMs);
   const expected = manifest.tiles[id];
   if (stored.length !== expected.bytes || fnv1a64Hex(stored) !== expected.fnv64) {
     throw new Error(`routing-index tile ${id} differs from its manifest`);
@@ -68,8 +96,8 @@ async function fetchFineTile(manifest, id) {
 }
 
 /** The manifest and the decoded tiles whose 10° squares meet `bbox` (with a 0.05° outline cell of margin). */
-async function fineIndexFor(bbox) {
-  fineManifestPromise ??= fetchFineManifest().catch((error) => {
+async function fineIndexFor(bbox, timeoutMs) {
+  fineManifestPromise ??= fetchFineManifest(timeoutMs).catch((error) => {
     fineManifestPromise = undefined;
     throw error;
   });
@@ -83,32 +111,30 @@ async function fineIndexFor(bbox) {
       bbox.minLon - margin < lon + deg && bbox.maxLon + margin > lon;
   });
   const tiles = Object.fromEntries(await Promise.all(needed.map(async (id) =>
-    [id, await remembered(fineTilePromises, id, () => fetchFineTile(manifest, id))])));
+    [id, await remembered(fineTilePromises, id, () => fetchFineTile(manifest, id, timeoutMs))])));
   return { manifest, tiles };
 }
 
 /**
  * The land mask a computed route reads for `bbox`: the 0.05° outline window, or with
  * `fine` (FINE_LAND_ENABLED by default) the fine routing index wherever it has a tile.
- * Fine data that cannot be fetched or does not match its manifest leaves the route on
- * the outline: a window is never built with a hole in it.
+ * Fine data that cannot be fetched within `timeoutMs` a file, does not match its manifest
+ * or cannot be made into a window leaves the route on the outline: a window is never built
+ * with a hole in it.
  */
-export async function landMaskForBbox(bbox, { fine = FINE_LAND_ENABLED } = {}) {
+export async function landMaskForBbox(bbox, { fine = FINE_LAND_ENABLED, timeoutMs = FINE_FETCH_TIMEOUT_MS } = {}) {
   packedMaskPromise ??= fetchPackedMask().catch((error) => {
     packedMaskPromise = undefined;
     throw error;
   });
   const coarse = await packedMaskPromise;
   if (!fine) return windowLandMask(coarse.bytes, coarse.metadata, bbox);
-  let index = null;
   try {
-    index = await fineIndexFor(bbox);
+    return routingLandMask(coarse, await fineIndexFor(bbox, timeoutMs), bbox);
   } catch {
     // The outline alone, as before the fine index: never sea where the fine data is missing.
+    return windowLandMask(coarse.bytes, coarse.metadata, bbox);
   }
-  return index
-    ? routingLandMask(coarse, index, bbox)
-    : windowLandMask(coarse.bytes, coarse.metadata, bbox);
 }
 
 export function clearLandMaskCacheForTests() {

@@ -104,6 +104,20 @@ PASSAGE-03 rules recorded before implementation, 2026-10-03.
   (`legacySnapshot.test.ts`, `routed-current.json` reproduced byte for byte).
   Engine semantics and identity version are unchanged: evaluation of a given
   route is unchanged; only which route Compute produces can differ.
+- Fine coastline (2026-11-26, behind `FINE_LAND_ENABLED`, which is off): a
+  computed route that lies in fine routing-index cells all along carries
+  `routing_request.land_index` (the index id, `nweu-20260825T07Z`), and one the
+  router searched with end patches carries `routing_request.end_resolution_deg`
+  (their finest node spacing, 1/480°). Both are optional and additive inside the
+  free-form `routing_request` object of `contracts/route.schema.json`, like
+  `search_bounds`: route content, so part of `route_revision`,
+  `inputs.route_hash`, the frozen decision inputs and so `decision_hash` and
+  `snapshot_id` of a check on that route. A route computed on the 0.05° outline
+  alone (every route while the switch is off) records neither and is
+  byte-identical to before; saved routes and passages are read unchanged. The
+  route note reads `land_index`: a route that records it shows the fine
+  not-for-navigation note, every other route the outline's. Engine semantics and
+  identity version are unchanged.
 - Successful exact retries reopen the complete original snapshot. Partial,
   legacy or conflicting existing artifacts are never overwritten or accepted
   as a retry. The manifest remains the completion marker; frozen decision

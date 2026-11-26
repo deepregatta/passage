@@ -11,8 +11,8 @@ import { haversineNm } from '../src/geo.js';
 import type { RegionGrid } from '../src/grids.js';
 import { ClosedWaterError, computeRoute } from '../src/routing/isochrone.js';
 import { decodeLandIndexTile, parseLandIndexManifest } from '../src/routing/landIndex.js';
-import { isLand, segmentCrossesLand, type RoutingLandMask } from '../src/routing/landmask.js';
-import { snapToSea, type PackedLandMaskMetadata } from '../src/routing/landmaskPack.js';
+import { isLand, seaJoinsPoints, segmentCrossesLand, type RoutingLandMask } from '../src/routing/landmask.js';
+import { snapEndsToSea as snapEnds, snapToSea, windowLandMask, type PackedLandMaskMetadata } from '../src/routing/landmaskPack.js';
 import { routingLandMask } from '../src/routing/fineLandMask.js';
 import { polarFromRelease } from '../src/routing/deepPolars.js';
 import { INVENTED_POLAR_ENTRY } from '../scripts/perf/scenarios.js';
@@ -59,8 +59,7 @@ function uniformWind(bbox: ReturnType<typeof routeBbox>, fromDeg: number, hours:
 function route(start: P, finish: P, fromDeg = 250) {
   const bbox = routeBbox(start, finish);
   const landMask = routingLandMask(coarse, fine, bbox);
-  const from = snapToSea(landMask, start);
-  const to = snapToSea(landMask, finish);
+  const { start: from, finish: to } = snapEnds(landMask, start, finish);
   if (!from || !to) throw new Error('an end has no water near it');
   const maxHours = passageMaxHours(from, to);
   const run = () => computeRoute({
@@ -117,14 +116,38 @@ describe('computed routes on the fine routing index', () => {
     expect(throughGoulet).toBe(true);
   }, 60_000);
 
-  it('the Golfe du Morbihan stays closed water, said in the fine index’s own words', () => {
-    const { landMask, from, run } = route({ lat: 47.6, lon: -2.8 }, { lat: 47.5, lon: -2.95 });
+  it.each([
+    ['Cowes to off Brest, in a northerly', { lat: 50.766, lon: -1.298 }, { lat: 48.30, lon: -4.90 }, 0],
+    ['Cowes to off Brest, in an easterly', { lat: 50.766, lon: -1.298 }, { lat: 48.30, lon: -4.90 }, 90],
+    ['Cowes to off La Coruña, in a northerly', { lat: 50.766, lon: -1.298 }, { lat: 43.55, lon: -8.45 }, 0],
+    ['Cowes to Bergen, in an easterly', { lat: 50.766, lon: -1.298 }, { lat: 60.39, lon: 5.32 }, 90],
+    ['the Rade de Brest to Lisbon, in a northerly', { lat: 48.36, lon: -4.50 }, { lat: 38.70, lon: -9.15 }, 0],
+    ['the Rade de Brest to Bilbao, in a northerly', { lat: 48.36, lon: -4.50 }, { lat: 43.40, lon: -3.00 }, 0],
+  ])('a long passage from narrow water computes: %s', (_label, start, finish, fromDeg) => {
+    // The outer end patch carries the route from the inner one out past narrow water the main grid
+    // of a long passage (0.03° to 0.1°) is too coarse to thread.
+    const { landMask, run } = route(start, finish, fromDeg);
+    const { route: computed } = run();
+    expect(legsOnLand(landMask, computed.waypoints)).toEqual([]);
+    expect(computed.provenance?.routing_request).toMatchObject({ end_resolution_deg: Math.round(1e6 / 480) / 1e6 });
+  }, 60_000);
+
+  it('the IJsselmeer stays closed water, said in the fine index’s own words', () => {
+    // Closed by its dams: about 31,000 cells of sea, far more than a pocket an end is moved out of.
+    const { landMask, from, run } = route({ lat: 52.75, lon: 5.30 }, { lat: 52.98, lon: 4.70 });
+    expect(from).toEqual({ lat: 52.75, lon: 5.30 });
     expect(isLand(landMask, from.lat, from.lon)).toBe(false);
     expect(run).toThrow(ClosedWaterError);
     // Owner-approved wording, 2026-11-26.
     const message = (() => { try { run(); return null; } catch (error) { return (error as Error).message; } })();
     expect(message).toBe('No route found: on the outline of the coast the router uses, no open water joins the start and the finish. ' +
       'A channel between them is too narrow for it or dries at low tide. Use Draw my route instead.');
+  }, 60_000);
+
+  it('an end in the drying pockets of the Golfe du Morbihan moves out to water joined to the sea', () => {
+    const { landMask, from, to, run } = route({ lat: 47.6, lon: -2.8 }, { lat: 47.5, lon: -2.95 });
+    expect(seaJoinsPoints(landMask, from, to, false)).toBe(true);
+    expect(legsOnLand(landMask, run().route.waypoints)).toEqual([]);
   }, 60_000);
 
   it('records the fine index on a route it touches, and not on a route outside it', () => {
@@ -135,6 +158,21 @@ describe('computed routes on the fine routing index', () => {
     expect(gibraltar.run().route.provenance?.routing_request).not.toHaveProperty('land_index');
   }, 60_000);
 
+  it.each([
+    ['Cork Harbour to Valentia, west of 10°W', { lat: 51.80, lon: -8.30 }, { lat: 51.93, lon: -10.35 }],
+    ['Aberdeen to Bergen, north of 60°N', { lat: 57.10, lon: -2.00 }, { lat: 60.39, lon: 5.20 }],
+  ])('records no fine index on a route partly outside it: %s', (_label, start, finish) => {
+    const { landMask, run } = route(start, finish);
+    const { route: computed } = run();
+    expect(legsOnLand(landMask, computed.waypoints)).toEqual([]);
+    // Part of it lies in fine cells, part only on the 0.05° outline.
+    const fineAt = (p: P) => landMask.kind === 'land_cells' &&
+      landMask.fineAt!(Math.round((p.lat - landMask.lat0) / landMask.dlat), Math.round((p.lon - landMask.lon0) / landMask.dlon));
+    expect(computed.waypoints.some(fineAt)).toBe(true);
+    expect(computed.waypoints.every(fineAt)).toBe(false);
+    expect(computed.provenance?.routing_request).not.toHaveProperty('land_index');
+  }, 60_000);
+
   it('Hurst narrows stays closed: the West Solent to the Needles goes round the Isle of Wight', () => {
     const { landMask, run } = route({ lat: 50.72, lon: -1.47 }, { lat: 50.66, lon: -1.62 });
     const { route: computed, distance_nm } = run();
@@ -142,4 +180,52 @@ describe('computed routes on the fine routing index', () => {
     // Through Hurst narrows it is about 7 nm; round the island by Spithead, over 40.
     expect(distance_nm).toBeGreaterThan(40);
   }, 60_000);
+});
+
+// Harbour ends the 0.05° outline routes from, whose own water on the fine index is a closed
+// pocket of 1 to 231 cells (measured on the nweu tiles, 2026-11-26).
+const POCKET_ENDS: Array<[string, P, P]> = [
+  ['Cowes to Cherbourg Grande Rade', { lat: 50.766, lon: -1.298 }, { lat: 49.65, lon: -1.62 }],
+  ['Plymouth Sound to the Rade de Brest', { lat: 50.35, lon: -4.14 }, { lat: 48.36, lon: -4.50 }],
+  ['St Helier to St Peter Port', { lat: 49.17, lon: -2.11 }, { lat: 49.455, lon: -2.53 }],
+  ['Poole Harbour to Cherbourg', { lat: 50.69, lon: -1.95 }, { lat: 49.66, lon: -1.62 }],
+  ['Lorient to Belle-Île', { lat: 47.71, lon: -3.36 }, { lat: 47.35, lon: -3.15 }],
+  ['Cork Harbour to Valentia', { lat: 51.80, lon: -8.30 }, { lat: 51.93, lon: -10.35 }],
+  ['Douglas to Liverpool', { lat: 54.15, lon: -4.46 }, { lat: 53.45, lon: -3.05 }],
+  ['Den Helder to Terschelling', { lat: 52.97, lon: 4.78 }, { lat: 53.36, lon: 5.22 }],
+  ['Arcachon to Bilbao', { lat: 44.66, lon: -1.17 }, { lat: 43.35, lon: -3.03 }],
+];
+
+describe('ends in closed pockets of sea on the fine routing index', () => {
+  it.each(POCKET_ENDS)('%s: each end moves to the nearest water joined to the other end', (_label, start, finish) => {
+    const landMask = routingLandMask(coarse, fine, routeBbox(start, finish));
+    const { start: from, finish: to } = snapEnds(landMask, start, finish);
+    expect(from && to).toBeTruthy();
+    expect(seaJoinsPoints(landMask, from!, to!, false)).toBe(true);
+    // Still near the harbour asked for (the Bassin d’Arcachon’s nearest open water is out past its
+    // drying banks, 5.7 nm), where the outline snaps the same ends 3 to 14 nm.
+    expect(haversineNm(start.lat, start.lon, from!.lat, from!.lon)).toBeLessThan(6);
+    expect(haversineNm(finish.lat, finish.lon, to!.lat, to!.lon)).toBeLessThan(6);
+  }, 60_000);
+
+  it.each([POCKET_ENDS[0]!, POCKET_ENDS[2]!])('%s computes, every leg off the fine cells', (_label, start, finish) => {
+    const { landMask, run } = route(start, finish);
+    expect(legsOnLand(landMask, run().route.waypoints)).toEqual([]);
+  }, 60_000);
+
+  it('two ends in one pocket stay where they are', () => {
+    // Two sea cells of one drying pocket of the Golfe du Morbihan, 181 cells.
+    const a = { lat: 47.55520833333333, lon: -2.7531250000000003 };
+    const b = { lat: a.lat + 3 / 480, lon: a.lon };
+    const landMask = routingLandMask(coarse, fine, routeBbox(a, b));
+    expect(isLand(landMask, b.lat, b.lon)).toBe(false);
+    expect(snapEnds(landMask, a, b)).toEqual({ start: a, finish: b });
+  });
+
+  it('on the 0.05° outline both ends snap exactly as before', () => {
+    for (const [, start, finish] of POCKET_ENDS) {
+      const landMask = windowLandMask(coarse.bytes, coarse.metadata, routeBbox(start, finish));
+      expect(snapEnds(landMask, start, finish)).toEqual({ start: snapToSea(landMask, start), finish: snapToSea(landMask, finish) });
+    }
+  });
 });

@@ -56,7 +56,7 @@ export { polarFromRelease } from './routing/deepPolars.js';
 export type { DeepPolarsEntry } from './routing/deepPolars.js';
 export { isLand, segmentCrossesLand } from './routing/landmask.js';
 export type { LandMask, LandCellMask, RoutingLandMask } from './routing/landmask.js';
-export { windowLandMask, snapToSea } from './routing/landmaskPack.js';
+export { windowLandMask, snapToSea, snapEndsToSea, SNAP_POCKET_CELLS } from './routing/landmaskPack.js';
 export type { PackedLandMaskMetadata, GeoBbox } from './routing/landmaskPack.js';
 export { decodeLandIndexTile, parseLandIndexManifest } from './routing/landIndex.js';
 export type { LandIndexManifest, LandIndexTile } from './routing/landIndex.js';

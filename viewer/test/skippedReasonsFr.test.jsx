@@ -33,6 +33,8 @@ const REASONS = [
   ['No sea node near start/finish', 'Aucun point en mer près du départ ou de l’arrivée'],
   // Every departure of a comparison on a closed outline reports this, in the unassessed list.
   [new ClosedWaterError().message, 'Aucune route trouvée : sur le tracé approximatif de la côte, aucune eau libre ne relie le départ et l’arrivée. Un détroit ou un chenal entre les deux est trop étroit pour y figurer. Utilisez plutôt « Tracer ma route ».'],
+  // On the fine routing index (owner-approved wording, 2026-11-26).
+  [new ClosedWaterError(true).message, 'Aucune route trouvée : sur le tracé de la côte qu’utilise le calcul, aucune eau libre ne relie le départ et l’arrivée. Un chenal entre les deux y est trop étroit ou découvre à basse mer. Utilisez plutôt « Tracer ma route ».'],
   ['Route is outside the coastline mask', 'La route se trouve hors du masque côtier'],
   ['Forecast tiles unavailable for this area', 'Tuiles de prévision indisponibles pour cette zone'],
   ['Unknown error', 'Erreur inconnue'],

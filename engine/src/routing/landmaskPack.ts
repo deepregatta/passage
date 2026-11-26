@@ -108,3 +108,97 @@ export function snapToSea(
   }
   return null;
 }
+
+/**
+ * On the fine routing index, the most sea cells (joined edge to edge) a closed pocket of water
+ * may hold for snapEndsToSea to move an end out of it: about 70 km² at 50°N. Measured on the
+ * nweu tiles (2026-11-26): the harbour pockets the 0.05° outline routes from hold 1 to 231
+ * cells (Cherbourg's Grande Rade one, Cork Harbour 231); the IJsselmeer, closed by its dams,
+ * holds about 31,000 and stays closed water.
+ */
+export const SNAP_POCKET_CELLS = 2000;
+
+/**
+ * Both ends of a passage, each on the sea cell the router starts from: snapToSea's nearest sea
+ * cell, and on the fine routing index (a LandCellMask) never in a closed pocket of sea that
+ * does not hold the other end. There a harbour, a dock or a drying creek is often a pocket of
+ * a few cells that no route can leave; such an end moves to the nearest sea cell, within the
+ * snap's reach, whose water is larger than SNAP_POCKET_CELLS, runs to the edge of the window,
+ * or holds the other end. With none in reach it stays, and the router says the water is closed.
+ * On the 0.05° outline this is snapToSea for each end, unchanged.
+ */
+export function snapEndsToSea(
+  mask: RoutingLandMask,
+  start: { lat: number; lon: number },
+  finish: { lat: number; lon: number },
+): { start: { lat: number; lon: number } | null; finish: { lat: number; lon: number } | null } {
+  const a = snapToSea(mask, start);
+  const b = snapToSea(mask, finish);
+  if (mask.kind !== 'land_cells' || !a || !b) return { start: a, finish: b };
+  const from = outOfPocket(mask, start, a, b);
+  return { start: from, finish: outOfPocket(mask, finish, b, from) };
+}
+
+/** `snapped`, or the nearest sea cell to `point` outside a closed pocket that lacks `other` (see snapEndsToSea). */
+function outOfPocket(
+  mask: RoutingLandMask,
+  point: { lat: number; lon: number },
+  snapped: { lat: number; lon: number },
+  other: { lat: number; lon: number },
+): { lat: number; lon: number } {
+  const landAt = landAtOf(mask);
+  const { nlat, nlon } = mask;
+  const cellOf = (p: { lat: number; lon: number }) =>
+    [Math.round((p.lat - mask.lat0) / mask.dlat), Math.round((p.lon - mask.lon0) / mask.dlon)] as const;
+  const [oi, oj] = cellOf(other);
+  const goal = oi * nlon + oj;
+  /** The cells of the closed pocket holding sea cell (i, j), or null when its water is open. */
+  const pocket = (i: number, j: number): Set<number> | null => {
+    const start = i * nlon + j;
+    const seen = new Set<number>([start]);
+    const stack = [start];
+    while (stack.length > 0) {
+      const cell = stack.pop()!;
+      if (cell === goal) return null;
+      const ci = Math.floor(cell / nlon);
+      const cj = cell % nlon;
+      if (ci === 0 || ci === nlat - 1 || cj === 0 || cj === nlon - 1) return null;
+      for (const [ni, nj] of [[ci - 1, cj], [ci + 1, cj], [ci, cj - 1], [ci, cj + 1]] as const) {
+        const next = ni * nlon + nj;
+        if (seen.has(next) || landAt(ni, nj)) continue;
+        if (seen.size >= SNAP_POCKET_CELLS) return null;
+        seen.add(next);
+        stack.push(next);
+      }
+    }
+    return seen;
+  };
+  const [si, sj] = cellOf(snapped);
+  if (si < 0 || si >= nlat || sj < 0 || sj >= nlon) return snapped;
+  const first = pocket(si, sj);
+  if (!first) return snapped;
+  const closed = first;
+  const [ci, cj] = cellOf(point);
+  const maxCells = Math.max(12, Math.round(SNAP_REACH_DEG / Math.min(mask.dlat, mask.dlon)));
+  for (let r = 0; r <= maxCells; r++) {
+    // The ring's sea cells outside known pockets, nearest first.
+    const ring: Array<{ i: number; j: number; d2: number }> = [];
+    for (let di = -r; di <= r; di++) {
+      const edgeRow = di === -r || di === r;
+      for (let dj = -r; dj <= r; dj += edgeRow || r === 0 ? 1 : 2 * r) {
+        const i = ci + di;
+        const j = cj + dj;
+        if (i < 0 || i >= nlat || j < 0 || j >= nlon || closed.has(i * nlon + j) || landAt(i, j)) continue;
+        ring.push({ i, j, d2: di * di + dj * dj });
+      }
+    }
+    ring.sort((x, y) => x.d2 - y.d2);
+    for (const { i, j } of ring) {
+      if (closed.has(i * nlon + j)) continue;
+      const cells = pocket(i, j);
+      if (!cells) return { lat: mask.lat0 + i * mask.dlat, lon: mask.lon0 + j * mask.dlon };
+      for (const cell of cells) closed.add(cell);
+    }
+  }
+  return snapped;
+}

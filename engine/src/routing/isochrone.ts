@@ -146,14 +146,20 @@ interface GraphLayer {
 }
 
 /**
- * End patches, on the fine routing index only: node spacing in fine cells (1: 1/480°, about
- * 230 m by 150 m at 50°N) and how far a patch reaches from its end, in fine cells (72: 0.15°).
- * Nodes sit on fine cell centres, never on cell edges. Measured on the nweu tiles: a graph
- * of 1/240° threads the 0.7 km lane of the Goulet de Brest off the wind, and only with its
- * nodes on centres; beating through it in a westerly needs a node in every cell.
+ * End patches, on the fine routing index only, in two tiers round each end: node spacing in
+ * fine cells and how far a tier reaches from its end, in fine cells. Nodes sit on fine cell
+ * centres, never on cell edges. Measured on the nweu tiles (2026-11-26):
+ * - inner, a node in every cell (1/480°, about 230 m by 150 m at 50°N) out to 0.15°: a graph
+ *   of 1/240° threads the 0.7 km lane of the Goulet de Brest off the wind, and only with its
+ *   nodes on centres; beating through it in a westerly needs a node in every cell;
+ * - outer, every fourth cell (1/120°) out to 0.5°: the main grid of a long passage (span/150,
+ *   0.03° to 0.1°) cannot carry a route from the inner tier's edge through the narrow water
+ *   beyond it (Spithead and the Nab from Cowes, the Iroise from the Goulet).
  */
-export const END_PATCH_STRIDE_CELLS = 1;
-export const END_PATCH_HALF_CELLS = 72;
+export const END_PATCH_TIERS: ReadonlyArray<{ strideCells: number; halfCells: number }> = [
+  { strideCells: 4, halfCells: 240 },
+  { strideCells: 1, halfCells: 72 },
+];
 
 /** Whether one of `points` lies in a fine routing-index cell of the mask. */
 function inFineCell(mask: RoutingLandMask, points: Array<{ lat: number; lon: number }>): boolean {
@@ -165,23 +171,47 @@ function inFineCell(mask: RoutingLandMask, points: Array<{ lat: number; lon: num
   });
 }
 
+/** Whether every point of `path`, and every point of each leg between them, lies in a fine routing-index cell. */
+function allInFineCells(mask: RoutingLandMask, path: Array<{ lat: number; lon: number }>): boolean {
+  if (mask.kind !== 'land_cells' || !mask.fine_index_id || !mask.fineAt) return false;
+  const fineAt = mask.fineAt;
+  const at = (lat: number, lon: number) => {
+    const i = Math.round((lat - mask.lat0) / mask.dlat);
+    const j = Math.round((lon - mask.lon0) / mask.dlon);
+    return i >= 0 && i < mask.nlat && j >= 0 && j < mask.nlon && fineAt(i, j);
+  };
+  if (!path.every((p) => at(p.lat, p.lon))) return false;
+  // Each leg sampled at half a cell: the fine tiles are whole 10° squares, so a leg leaving them does so for many cells.
+  const step = Math.min(mask.dlat, mask.dlon) / 2;
+  for (let k = 1; k < path.length; k++) {
+    const a = path[k - 1]!;
+    const b = path[k]!;
+    const n = Math.ceil(Math.max(Math.abs(b.lat - a.lat), Math.abs(b.lon - a.lon)) / step);
+    for (let s = 1; s < n; s++) {
+      if (!at(a.lat + ((b.lat - a.lat) * s) / n, a.lon + ((b.lon - a.lon) * s) / n)) return false;
+    }
+  }
+  return true;
+}
+
 /** Whether an end lies in a fine routing-index cell: the only case end patches are made for. */
 const endInFineCell = inFineCell;
 
 /**
- * The fine grids the router adds around its ends: one around each end that lies in a fine
- * routing-index cell (a LandCellMask whose fineAt says so), two that overlap or touch merged
- * into one, each clipped to the graph extent. None on any other mask.
+ * The fine grids of one tier (END_PATCH_TIERS) the router adds around its ends: one around each
+ * end that lies in a fine routing-index cell (a LandCellMask whose fineAt says so), two that
+ * overlap or touch merged into one, each clipped to the graph extent. None on any other mask.
  */
 function endPatchBoxes(
   mask: RoutingLandMask,
   ends: Array<{ lat: number; lon: number }>,
   extent: { lat0: number; lat1: number; lon0: number; lon1: number },
+  tier: { strideCells: number; halfCells: number },
 ): Array<{ lat0: number; lon0: number; res: number; nlat: number; nlon: number }> {
   if (mask.kind !== 'land_cells' || !mask.fine_index_id || !mask.fineAt || mask.dlat !== mask.dlon) return [];
   const fineAt = mask.fineAt;
-  const S = END_PATCH_STRIDE_CELLS;
-  const H = END_PATCH_HALF_CELLS;
+  const S = tier.strideCells;
+  const H = tier.halfCells;
   // Boxes of mask cells [i0, i1] x [j0, j1], each holding its end's cell on a node row and column.
   const boxes: Array<{ i0: number; i1: number; j0: number; j1: number }> = [];
   for (const p of ends) {
@@ -308,8 +338,10 @@ function routeOnGraph(request: RoutingRequest, withEndPatches: boolean): Routing
   const rounded = (value: number) => Math.round(value * 10000) / 10000;
   const bounds = request.searchBounds;
   // The graph's layers: the main grid (layer 0, node i * nlon + j), then on the fine routing index
-  // a finer grid around an end that lies in a fine cell (endPatchBoxes), joined to the main grid
-  // by one link from each main node inside it to its nearest patch node.
+  // the end patches round an end that lies in a fine cell (endPatchBoxes), tier by tier from the
+  // coarsest (END_PATCH_TIERS). Each patch is joined to the level above it (the coarser tier's
+  // patches, or the main grid) by one link from each node of that level inside it to its nearest
+  // patch node: a node has at most one link up and one down.
   const layer = (la0: number, lo0: number, step: number, rows: number, cols: number, offset: number): GraphLayer => {
     const lats = Array.from({ length: rows }, (_, i) => rounded(la0 + i * step));
     const lons = Array.from({ length: cols }, (_, j) => rounded(lo0 + j * step));
@@ -322,9 +354,17 @@ function routeOnGraph(request: RoutingRequest, withEndPatches: boolean): Routing
   };
   const layers = [layer(lat0, lon0, res, nlat, nlon, 0)];
   const main = layers[0]!;
-  for (const box of landMask && withEndPatches ? endPatchBoxes(landMask, [start, finish], { lat0, lat1, lon0, lon1 }) : []) {
-    const last = layers.at(-1)!;
-    layers.push(layer(box.lat0, box.lon0, box.res, box.nlat, box.nlon, last.offset + last.nlat * last.nlon));
+  // levels[0] is the main grid; levels[t + 1] the patches of tier t.
+  const levels: GraphLayer[][] = [[main]];
+  for (const tier of landMask && withEndPatches ? END_PATCH_TIERS : []) {
+    const level: GraphLayer[] = [];
+    for (const box of endPatchBoxes(landMask!, [start, finish], { lat0, lat1, lon0, lon1 }, tier)) {
+      const last = layers.at(-1)!;
+      const P = layer(box.lat0, box.lon0, box.res, box.nlat, box.nlon, last.offset + last.nlat * last.nlon);
+      layers.push(P);
+      level.push(P);
+    }
+    if (level.length > 0) levels.push(level);
   }
   const nodeCount = layers.at(-1)!.offset + layers.at(-1)!.nlat * layers.at(-1)!.nlon;
   const layerOfNode = new Uint8Array(nodeCount);
@@ -338,39 +378,45 @@ function routeOnGraph(request: RoutingRequest, withEndPatches: boolean): Routing
     const local = node - L.offset;
     return L.rowIn[Math.floor(local / L.nlon)]! && L.colIn[local % L.nlon]!;
   };
-  // link[node]: the node of another layer it is joined to, or -1; null with no patches.
-  const link = layers.length > 1 ? new Int32Array(nodeCount).fill(-1) : null;
-  for (const P of layers.slice(1)) {
-    const pLat1 = P.lat0 + (P.nlat - 1) * P.res;
-    const pLon1 = P.lon0 + (P.nlon - 1) * P.res;
-    for (let i = 0; i < nlat; i++) {
-      const lat = main.lats[i]!;
-      if (lat < P.lat0 || lat > pLat1) continue;
-      for (let j = 0; j < nlon; j++) {
-        const lon = main.lons[j]!;
-        if (lon < P.lon0 || lon > pLon1) continue;
-        const pi = Math.max(0, Math.min(P.nlat - 1, Math.round((lat - P.lat0) / P.res)));
-        const pj = Math.max(0, Math.min(P.nlon - 1, Math.round((lon - P.lon0) / P.res)));
-        const a = i * nlon + j;
-        const b = P.offset + pi * P.nlon + pj;
-        if (link![a] !== -1 || link![b] !== -1) continue;
-        link![a] = b;
-        link![b] = a;
+  // up[node] / down[node]: the node of the coarser / finer level it is joined to, or -1; null with no patches.
+  const up = layers.length > 1 ? new Int32Array(nodeCount).fill(-1) : null;
+  const down = layers.length > 1 ? new Int32Array(nodeCount).fill(-1) : null;
+  for (let t = 1; t < levels.length; t++) {
+    for (const P of levels[t]!) {
+      const pLat1 = P.lat0 + (P.nlat - 1) * P.res;
+      const pLon1 = P.lon0 + (P.nlon - 1) * P.res;
+      for (const Q of levels[t - 1]!) {
+        for (let i = 0; i < Q.nlat; i++) {
+          const lat = Q.lats[i]!;
+          if (lat < P.lat0 || lat > pLat1) continue;
+          for (let j = 0; j < Q.nlon; j++) {
+            const lon = Q.lons[j]!;
+            if (lon < P.lon0 || lon > pLon1) continue;
+            const pi = Math.max(0, Math.min(P.nlat - 1, Math.round((lat - P.lat0) / P.res)));
+            const pj = Math.max(0, Math.min(P.nlon - 1, Math.round((lon - P.lon0) / P.res)));
+            const a = Q.offset + i * Q.nlon + j;
+            const b = P.offset + pi * P.nlon + pj;
+            if (down![a] !== -1 || up![b] !== -1) continue;
+            down![a] = b;
+            up![b] = a;
+          }
+        }
       }
     }
   }
-  /** The k-th neighbour of `node` at (i, j) of layer L: the 16 grid directions, then its link; -1 for none. */
-  const neighbourCount = NEIGHBORS.length + (link ? 1 : 0);
+  /** The k-th neighbour of `node` at (i, j) of layer L: the 16 grid directions, then its links up and down; -1 for none. */
+  const neighbourCount = NEIGHBORS.length + (up ? 2 : 0);
   const neighbour = (L: GraphLayer, i: number, j: number, node: number, k: number): number => {
-    if (k === NEIGHBORS.length) return link![node]!;
+    if (k === NEIGHBORS.length) return up![node]!;
+    if (k === NEIGHBORS.length + 1) return down![node]!;
     const [di, dj] = NEIGHBORS[k]!;
     const ni = i + di;
     const nj = j + dj;
     if (ni < 0 || ni >= L.nlat || nj < 0 || nj >= L.nlon) return -1;
     return L.offset + ni * L.nlon + nj;
   };
-  /** The layer an end connects to: the patch holding it, else the main grid. */
-  const endLayer = (p: { lat: number; lon: number }) => layers.slice(1).find((P) =>
+  /** The layer an end connects to: the finest patch holding it, else the main grid. */
+  const endLayer = (p: { lat: number; lon: number }) => layers.slice(1).reverse().find((P) =>
     p.lat >= P.lat0 && p.lat <= P.lat0 + (P.nlat - 1) * P.res && p.lon >= P.lon0 && p.lon <= P.lon0 + (P.nlon - 1) * P.res) ?? main;
 
   const wind = new GridSampler(windGrid);
@@ -766,10 +812,11 @@ function routeOnGraph(request: RoutingRequest, withEndPatches: boolean): Routing
         wind_run: windGrid.run_id,
         current_run: currentGrid?.run_id ?? null,
         resolution_deg: Math.round(res * 1000) / 1000,
-        // Only when a point of the route (an end or a graph node) lies in a fine routing-index cell:
-        // that index; and with end patches, their node spacing.
-        ...(landMask?.kind === 'land_cells' && inFineCell(landMask, path) ? { land_index: landMask.fine_index_id } : {}),
-        ...(layers.length > 1 ? { end_resolution_deg: Math.round(layers[1]!.res * 1e6) / 1e6 } : {}),
+        // Only when the whole route (every point and every leg) lies in fine routing-index cells:
+        // that index; and with end patches, their node spacing. A route partly outside the index
+        // avoided only the 0.05° outline there, and says so.
+        ...(landMask?.kind === 'land_cells' && allInFineCells(landMask, path) ? { land_index: landMask.fine_index_id } : {}),
+        ...(layers.length > 1 ? { end_resolution_deg: Math.round(Math.min(...layers.slice(1).map((P) => P.res)) * 1e6) / 1e6 } : {}),
         // Only when searchBounds held the search back: the extent of the graph nodes it could use.
         ...(clipped ? { search_bounds: {
           minLat: rounded(lat0 + main.rowIn.indexOf(true) * res), maxLat: rounded(lat0 + main.rowIn.lastIndexOf(true) * res),

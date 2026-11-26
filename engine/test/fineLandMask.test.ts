@@ -142,6 +142,26 @@ describe('routingLandMask: the fine routing index where it has tiles, the 0.05°
     expect(isLand(mask, 50.83, -1.20)).toBe(true); // Hampshire shore
   });
 
+  it('reads each cell from its own tile across the 0° and 50°N seams, where four tiles meet', () => {
+    // From the Calvados coast to the Sussex coast, over the meridian.
+    const bbox: GeoBbox = { minLat: 49.3, maxLat: 50.9, minLon: -0.4, maxLon: 0.4 };
+    const mask = routingLandMask(coarse, fine, bbox) as LandCellMask;
+    expect(mask.kind).toBe('land_cells');
+    const landByTile: Record<string, number> = {};
+    for (let i = 0; i < mask.nlat; i++) {
+      for (let j = 0; j < mask.nlon; j++) {
+        const { k, c } = fineCell(mask, i, j);
+        const land = mask.landAt(i, j);
+        if (land !== tileBlocked(k, c)) throw new Error(`cell ${i},${j} differs from its tile`);
+        if (!mask.fineAt!(i, j)) throw new Error(`cell ${i},${j} is not read as a fine cell`);
+        const id = `${k >= 50 * 480 ? 'N50' : 'N40'}${c >= 0 ? 'E000' : 'W010'}`;
+        if (land) landByTile[id] = (landByTile[id] ?? 0) + 1;
+      }
+    }
+    // Land from all four tiles: each seam is read on both sides.
+    expect(Object.keys(landByTile).sort()).toEqual(['N40E000', 'N40W010', 'N50E000', 'N50W010']);
+  });
+
   it.each([
     ['across 40°N on the Portuguese coast', { minLat: 39.6, maxLat: 40.4, minLon: -9.3, maxLon: -8.6 }],
     ['across 10°W on the coast of Kerry', { minLat: 51.8, maxLat: 52.3, minLon: -10.6, maxLon: -9.6 }],

@@ -112,6 +112,8 @@ describe('About: terms for each source', () => {
     for (const hidden of ['gshhg', 'openstreetmap', 'protomaps-basemap', 'open-waters-seamap', 'shom-balisage', 'emodnet-bathymetry']) {
       expect(card(hidden)).toBeNull();
     }
+    // With the fine coastline switched off, its credits group is not shown either.
+    expect(screen.queryByText(/^Coastline for computed routes/)).toBeNull();
   });
 
   it('shows the recorded licence, attribution, share-alike, redistribution answer and verified date of UKV', () => {
