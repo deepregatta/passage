@@ -115,6 +115,11 @@ export function routingLandMask(coarse: CoarseLandOutline, fine: FineLandIndex |
     colInTile[j] = c - tx * tileCells;
     outlineCol[j] = j0 + Math.floor(j / lonRatio);
   }
+  // Whether any cell of an 8 x 8 block is land: worked out the first time the land check asks
+  // (0 not yet, 1 sea only, 2 some land), so a window over a long passage is never scanned whole.
+  const BLOCK = 8;
+  const bcols = Math.ceil(nlon / BLOCK);
+  const blockState = new Uint8Array(Math.ceil(nlat / BLOCK) * bcols);
   const mask: LandCellMask = {
     kind: 'land_cells',
     lat0: (k0 + 0.5) / per,
@@ -124,6 +129,23 @@ export function routingLandMask(coarse: CoarseLandOutline, fine: FineLandIndex |
     nlat,
     nlon,
     fine_index_id: manifest.index_id,
+    fineAt(i: number, j: number): boolean {
+      return grid[rowTile[i]! + colTile[j]!] !== null;
+    },
+    blocks: {
+      size: BLOCK,
+      anyLandAt(bi: number, bj: number): boolean {
+        const k = bi * bcols + bj;
+        if (blockState[k] === 0) {
+          let land = false;
+          for (let i = bi * BLOCK; i < Math.min(nlat, (bi + 1) * BLOCK) && !land; i++) {
+            for (let j = bj * BLOCK; j < Math.min(nlon, (bj + 1) * BLOCK) && !land; j++) land = mask.landAt(i, j);
+          }
+          blockState[k] = land ? 2 : 1;
+        }
+        return blockState[k] === 2;
+      },
+    },
     landAt(i: number, j: number): boolean {
       const tile = grid[rowTile[i]! + colTile[j]!];
       if (tile) {

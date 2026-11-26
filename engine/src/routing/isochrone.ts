@@ -127,6 +127,84 @@ export class ClosedWaterError extends Error {
   }
 }
 
+/** One regular grid of graph nodes: node offset + i * nlon + j at (lats[i], lons[j]). */
+interface GraphLayer {
+  lat0: number;
+  lon0: number;
+  res: number;
+  nlat: number;
+  nlon: number;
+  offset: number;
+  lats: number[];
+  lons: number[];
+  rowIn: boolean[];
+  colIn: boolean[];
+}
+
+/**
+ * End patches, on the fine routing index only: node spacing in fine cells (1: 1/480°, about
+ * 230 m by 150 m at 50°N) and how far a patch reaches from its end, in fine cells (72: 0.15°).
+ * Nodes sit on fine cell centres, never on cell edges. Measured on the nweu tiles: a graph
+ * of 1/240° threads the 0.7 km lane of the Goulet de Brest off the wind, and only with its
+ * nodes on centres; beating through it in a westerly needs a node in every cell.
+ */
+export const END_PATCH_STRIDE_CELLS = 1;
+export const END_PATCH_HALF_CELLS = 72;
+
+/** Whether an end lies in a fine routing-index cell: the only case end patches are made for. */
+function endInFineCell(mask: RoutingLandMask, ends: Array<{ lat: number; lon: number }>): boolean {
+  if (mask.kind !== 'land_cells' || !mask.fine_index_id || !mask.fineAt) return false;
+  return ends.some((p) => {
+    const i = Math.round((p.lat - mask.lat0) / mask.dlat);
+    const j = Math.round((p.lon - mask.lon0) / mask.dlon);
+    return i >= 0 && i < mask.nlat && j >= 0 && j < mask.nlon && mask.fineAt!(i, j);
+  });
+}
+
+/**
+ * The fine grids the router adds around its ends: one around each end that lies in a fine
+ * routing-index cell (a LandCellMask whose fineAt says so), two that overlap or touch merged
+ * into one, each clipped to the graph extent. None on any other mask.
+ */
+function endPatchBoxes(
+  mask: RoutingLandMask,
+  ends: Array<{ lat: number; lon: number }>,
+  extent: { lat0: number; lat1: number; lon0: number; lon1: number },
+): Array<{ lat0: number; lon0: number; res: number; nlat: number; nlon: number }> {
+  if (mask.kind !== 'land_cells' || !mask.fine_index_id || !mask.fineAt || mask.dlat !== mask.dlon) return [];
+  const fineAt = mask.fineAt;
+  const S = END_PATCH_STRIDE_CELLS;
+  const H = END_PATCH_HALF_CELLS;
+  // Boxes of mask cells [i0, i1] x [j0, j1], each holding its end's cell on a node row and column.
+  const boxes: Array<{ i0: number; i1: number; j0: number; j1: number }> = [];
+  for (const p of ends) {
+    const i = Math.round((p.lat - mask.lat0) / mask.dlat);
+    const j = Math.round((p.lon - mask.lon0) / mask.dlon);
+    if (!(i >= 0 && i < mask.nlat && j >= 0 && j < mask.nlon) || !fineAt(i, j)) continue;
+    boxes.push({ i0: i - H, i1: i + H, j0: j - H, j1: j + H });
+  }
+  if (boxes.length === 2) {
+    const [a, b] = boxes as [typeof boxes[0], typeof boxes[0]];
+    if (a.i0 <= b.i1 + S && b.i0 <= a.i1 + S && a.j0 <= b.j1 + S && b.j0 <= a.j1 + S) {
+      boxes.splice(0, 2, { i0: Math.min(a.i0, b.i0), i1: Math.max(a.i1, b.i1), j0: Math.min(a.j0, b.j0), j1: Math.max(a.j1, b.j1) });
+    }
+  }
+  const out = [];
+  for (const box of boxes) {
+    // Clip to the mask and the graph extent, keeping the node lattice of the box.
+    const lo = (first: number, min: number) => first + Math.max(0, Math.ceil((min - first) / S)) * S;
+    const i0 = lo(box.i0, Math.max(0, Math.ceil((extent.lat0 - mask.lat0) / mask.dlat - 1e-9)));
+    const j0 = lo(box.j0, Math.max(0, Math.ceil((extent.lon0 - mask.lon0) / mask.dlon - 1e-9)));
+    const i1 = Math.min(box.i1, mask.nlat - 1, Math.floor((extent.lat1 - mask.lat0) / mask.dlat + 1e-9));
+    const j1 = Math.min(box.j1, mask.nlon - 1, Math.floor((extent.lon1 - mask.lon0) / mask.dlon + 1e-9));
+    const nlat = Math.floor((i1 - i0) / S) + 1;
+    const nlon = Math.floor((j1 - j0) / S) + 1;
+    if (nlat < 2 || nlon < 2) continue;
+    out.push({ lat0: mask.lat0 + i0 * mask.dlat, lon0: mask.lon0 + j0 * mask.dlon, res: S * mask.dlat, nlat, nlon });
+  }
+  return out;
+}
+
 /** 16-direction neighborhood: angular resolution ~22.5° */
 const NEIGHBORS: Array<[number, number]> = [
   [1, 0], [-1, 0], [0, 1], [0, -1],
@@ -144,7 +222,25 @@ const LONGEST_EDGE_CELLS = Math.max(...NEIGHBORS.map(([di, dj]) => Math.hypot(di
  */
 const ALTERNATIVE_END_WINDOW_MS = 6 * 3600_000;
 
+/**
+ * Route `request`. On the fine routing index, when the main grid finds no route (no node near
+ * an end joins it, or the search fails) and an end lies in a fine cell, the search runs again
+ * with fine end patches (END_PATCH_*): a harbour, a river mouth or a narrows that the main grid
+ * is too coarse to thread. A route the main grid finds is never searched again, and closed
+ * water, a search held back by searchBounds and a current gap are final.
+ */
 export function computeRoute(request: RoutingRequest): RoutingResult {
+  try {
+    return routeOnGraph(request, false);
+  } catch (error) {
+    const final = error instanceof ClosedWaterError || error instanceof SearchBoundsError || error instanceof CurrentGapError;
+    if (final || !(error instanceof Error) || !request.landMask || !endInFineCell(request.landMask, [request.start, request.finish])) throw error;
+    if (!/^No route found within|^No sea node near/.test(error.message)) throw error;
+    return routeOnGraph(request, true);
+  }
+}
+
+function routeOnGraph(request: RoutingRequest, withEndPatches: boolean): RoutingResult {
   const { start, finish, polar, windGrid, currentGrid, landMask } = request;
   const departureMs = parseUtc(request.departureUtc);
   const scaling = request.polarScaling ?? 1;
@@ -201,15 +297,72 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
   // Search on the coordinates we can actually emit: rounding a grid node
   // only after routing can move an otherwise valid coastal edge onto land.
   const rounded = (value: number) => Math.round(value * 10000) / 10000;
-  const latOf = (i: number) => rounded(lat0 + i * res);
-  const lonOf = (j: number) => rounded(lon0 + j * res);
-  const id = (i: number, j: number) => i * nlon + j;
-
-  // The rows and columns of the graph inside searchBounds (all of them without it).
   const bounds = request.searchBounds;
-  const rowIn = Array.from({ length: nlat }, (_, i) => !bounds || (latOf(i) >= bounds.minLat && latOf(i) <= bounds.maxLat));
-  const colIn = Array.from({ length: nlon }, (_, j) => !bounds || (lonOf(j) >= bounds.minLon && lonOf(j) <= bounds.maxLon));
-  const searchable = (i: number, j: number) => rowIn[i]! && colIn[j]!;
+  // The graph's layers: the main grid (layer 0, node i * nlon + j), then on the fine routing index
+  // a finer grid around an end that lies in a fine cell (endPatchBoxes), joined to the main grid
+  // by one link from each main node inside it to its nearest patch node.
+  const layer = (la0: number, lo0: number, step: number, rows: number, cols: number, offset: number): GraphLayer => {
+    const lats = Array.from({ length: rows }, (_, i) => rounded(la0 + i * step));
+    const lons = Array.from({ length: cols }, (_, j) => rounded(lo0 + j * step));
+    return {
+      lat0: la0, lon0: lo0, res: step, nlat: rows, nlon: cols, offset, lats, lons,
+      // The rows and columns inside searchBounds (all of them without it).
+      rowIn: lats.map((lat) => !bounds || (lat >= bounds.minLat && lat <= bounds.maxLat)),
+      colIn: lons.map((lon) => !bounds || (lon >= bounds.minLon && lon <= bounds.maxLon)),
+    };
+  };
+  const layers = [layer(lat0, lon0, res, nlat, nlon, 0)];
+  const main = layers[0]!;
+  for (const box of landMask && withEndPatches ? endPatchBoxes(landMask, [start, finish], { lat0, lat1, lon0, lon1 }) : []) {
+    const last = layers.at(-1)!;
+    layers.push(layer(box.lat0, box.lon0, box.res, box.nlat, box.nlon, last.offset + last.nlat * last.nlon));
+  }
+  const nodeCount = layers.at(-1)!.offset + layers.at(-1)!.nlat * layers.at(-1)!.nlon;
+  const layerOfNode = new Uint8Array(nodeCount);
+  for (let k = 1; k < layers.length; k++) layerOfNode.fill(k, layers[k]!.offset);
+  const layerOf = (node: number) => layers[layerOfNode[node]!]!;
+  const latAt = (node: number) => { const L = layerOf(node); return L.lats[Math.floor((node - L.offset) / L.nlon)]!; };
+  const lonAt = (node: number) => { const L = layerOf(node); return L.lons[(node - L.offset) % L.nlon]!; };
+  const pointAt = (node: number) => ({ lat: latAt(node), lon: lonAt(node) });
+  const searchable = (node: number) => {
+    const L = layerOf(node);
+    const local = node - L.offset;
+    return L.rowIn[Math.floor(local / L.nlon)]! && L.colIn[local % L.nlon]!;
+  };
+  // link[node]: the node of another layer it is joined to, or -1; null with no patches.
+  const link = layers.length > 1 ? new Int32Array(nodeCount).fill(-1) : null;
+  for (const P of layers.slice(1)) {
+    const pLat1 = P.lat0 + (P.nlat - 1) * P.res;
+    const pLon1 = P.lon0 + (P.nlon - 1) * P.res;
+    for (let i = 0; i < nlat; i++) {
+      const lat = main.lats[i]!;
+      if (lat < P.lat0 || lat > pLat1) continue;
+      for (let j = 0; j < nlon; j++) {
+        const lon = main.lons[j]!;
+        if (lon < P.lon0 || lon > pLon1) continue;
+        const pi = Math.max(0, Math.min(P.nlat - 1, Math.round((lat - P.lat0) / P.res)));
+        const pj = Math.max(0, Math.min(P.nlon - 1, Math.round((lon - P.lon0) / P.res)));
+        const a = i * nlon + j;
+        const b = P.offset + pi * P.nlon + pj;
+        if (link![a] !== -1 || link![b] !== -1) continue;
+        link![a] = b;
+        link![b] = a;
+      }
+    }
+  }
+  /** The k-th neighbour of `node` at (i, j) of layer L: the 16 grid directions, then its link; -1 for none. */
+  const neighbourCount = NEIGHBORS.length + (link ? 1 : 0);
+  const neighbour = (L: GraphLayer, i: number, j: number, node: number, k: number): number => {
+    if (k === NEIGHBORS.length) return link![node]!;
+    const [di, dj] = NEIGHBORS[k]!;
+    const ni = i + di;
+    const nj = j + dj;
+    if (ni < 0 || ni >= L.nlat || nj < 0 || nj >= L.nlon) return -1;
+    return L.offset + ni * L.nlon + nj;
+  };
+  /** The layer an end connects to: the patch holding it, else the main grid. */
+  const endLayer = (p: { lat: number; lon: number }) => layers.slice(1).find((P) =>
+    p.lat >= P.lat0 && p.lat <= P.lat0 + (P.nlat - 1) * P.res && p.lon >= P.lon0 && p.lon <= P.lon0 + (P.nlon - 1) * P.res) ?? main;
 
   const wind = new GridSampler(windGrid);
   const current = currentGrid ? new GridSampler(currentGrid) : null;
@@ -232,20 +385,22 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
     return arrivalMs <= deadlineMs ? { arrivalMs, waterNm: stw * hours } : null;
   };
 
-  const nearestNode = (p: { lat: number; lon: number }): [number, number] => [
-    Math.max(0, Math.min(nlat - 1, Math.round((p.lat - lat0) / res))),
-    Math.max(0, Math.min(nlon - 1, Math.round((p.lon - lon0) / res))),
+  const nearestNode = (L: GraphLayer, p: { lat: number; lon: number }): [number, number] => [
+    Math.max(0, Math.min(L.nlat - 1, Math.round((p.lat - L.lat0) / L.res))),
+    Math.max(0, Math.min(L.nlon - 1, Math.round((p.lon - L.lon0) / L.res))),
   ];
 
-  const snap = (p: { lat: number; lon: number }, fromStart = false): [number, number] => {
-    const [bi, bj] = nearestNode(p);
+  /** The node an end joins: in its layer, the nearest node or one in the rings round it. */
+  const snap = (p: { lat: number; lon: number }, fromStart = false): number => {
+    const L = endLayer(p);
+    const [bi, bj] = nearestNode(L, p);
     let hasSeaConnection = false;
     const connects = (i: number, j: number) => {
-      const node = { lat: latOf(i), lon: lonOf(j) };
+      const node = { lat: L.lats[i]!, lon: L.lons[j]! };
       if (landMask && segmentCrossesLand(landMask, p, node)) return false;
       hasSeaConnection = true;
       if (fromStart && travel(p, node, departureMs) === null) return false;
-      if (searchable(i, j)) return true;
+      if (L.rowIn[i] && L.colIn[j]) return true;
       clipped = true;
       return false;
     };
@@ -258,15 +413,15 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
             if (Math.max(Math.abs(di), Math.abs(dj)) !== r) continue;
             const i = bi + di;
             const j = bj + dj;
-            if (i < 0 || i >= nlat || j < 0 || j >= nlon) continue;
-            if (connects(i, j)) return [i, j];
+            if (i < 0 || i >= L.nlat || j < 0 || j >= L.nlon) continue;
+            if (connects(i, j)) return L.offset + i * L.nlon + j;
           }
         }
       }
       if (hasSeaConnection) throw noRoute();
       throw new Error('No sea node near start/finish');
     }
-    return [bi, bj];
+    return L.offset + bi * L.nlon + bj;
   };
 
   const startPoint = { lat: rounded(start.lat), lon: rounded(start.lon) };
@@ -277,17 +432,15 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
   if (landMask && (isLand(landMask, startPoint.lat, startPoint.lon) || isLand(landMask, finishPoint.lat, finishPoint.lon))) {
     throw new Error('Start or finish is on land');
   }
-  const [si, sj] = snap(startPoint, true);
-  const [fi, fj] = snap(finishPoint);
-  const startId = id(si, sj);
-  const finishId = id(fi, fj);
-  const connection = travel(startPoint, { lat: latOf(si), lon: lonOf(sj) }, departureMs);
+  const startId = snap(startPoint, true);
+  const finishId = snap(finishPoint);
+  const connection = travel(startPoint, pointAt(startId), departureMs);
   if (!connection) throw noRoute();
 
   // earliest arrival labels + binary heap
-  const arrival = new Float64Array(nlat * nlon).fill(Infinity);
-  const parent = new Int32Array(nlat * nlon).fill(-1);
-  const waterDistance = new Float64Array(nlat * nlon);
+  const arrival = new Float64Array(nodeCount).fill(Infinity);
+  const parent = new Int32Array(nodeCount).fill(-1);
+  const waterDistance = new Float64Array(nodeCount);
   arrival[startId] = connection.arrivalMs;
   waterDistance[startId] = connection.waterNm;
 
@@ -322,7 +475,7 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
     return top;
   };
 
-  const settled = new Uint8Array(nlat * nlon);
+  const settled = new Uint8Array(nodeCount);
   let settledCount = 0;
   let terminal: ReturnType<typeof travel> = null;
   // The finish-node state below is the loop's own (no closure writes it): the hot loop keeps it local.
@@ -341,10 +494,11 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
    * no longer than the longest graph edge, each read at its own start and time like an edge.
    * Null when a step cannot be sailed or arrives past the deadline.
    */
-  const legToFinish = (i: number, j: number, t: number) => {
-    const from = { lat: latOf(i), lon: lonOf(j) };
+  const legToFinish = (node: number, t: number) => {
+    const from = pointAt(node);
+    const step = layerOf(node).res;
     const steps = Math.max(1, Math.ceil(
-      Math.hypot((finishPoint.lat - from.lat) / res, (finishPoint.lon - from.lon) / res) / LONGEST_EDGE_CELLS));
+      Math.hypot((finishPoint.lat - from.lat) / step, (finishPoint.lon - from.lon) / step) / LONGEST_EDGE_CELLS));
     let at = from;
     let arrivalMs = t;
     let waterNm = 0;
@@ -364,15 +518,13 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
 
   /** The leg joining another finish node, settled at `t`, to the finish; null when it cannot. */
   const endLeg = (node: number, t: number) => {
-    const i = Math.floor(node / nlon);
-    const j = node % nlon;
     // Like snap(), a node outside searchBounds never joins an end: the box held the route back,
     // unless the node has no wind then (its leg could not have been sailed: as the clip branch).
-    if (!searchable(i, j)) {
-      if (wind.sample(latOf(i), lonOf(j), t) !== null) clipped = true;
+    if (!searchable(node)) {
+      if (wind.sample(latAt(node), lonAt(node), t) !== null) clipped = true;
       return null;
     }
-    return legToFinish(i, j, t);
+    return legToFinish(node, t);
   };
 
   /**
@@ -385,15 +537,16 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
    * tie, the one settled first).
    */
   const openAlternativeEnds = () => {
-    const [bi, bj] = nearestNode(finishPoint);
-    const pending = new Uint8Array(nlat * nlon);
+    const F = endLayer(finishPoint);
+    const [bi, bj] = nearestNode(F, finishPoint);
+    const pending = new Uint8Array(nodeCount);
     let count = 0;
     const settledEnds: number[] = [];
-    for (let i = Math.max(0, bi - ENDPOINT_RINGS); i <= Math.min(nlat - 1, bi + ENDPOINT_RINGS); i++) {
-      for (let j = Math.max(0, bj - ENDPOINT_RINGS); j <= Math.min(nlon - 1, bj + ENDPOINT_RINGS); j++) {
-        const node = id(i, j);
+    for (let i = Math.max(0, bi - ENDPOINT_RINGS); i <= Math.min(F.nlat - 1, bi + ENDPOINT_RINGS); i++) {
+      for (let j = Math.max(0, bj - ENDPOINT_RINGS); j <= Math.min(F.nlon - 1, bj + ENDPOINT_RINGS); j++) {
+        const node = F.offset + i * F.nlon + j;
         if (node === finishId) continue;
-        if (landMask && segmentCrossesLand(landMask, finishPoint, { lat: latOf(i), lon: lonOf(j) })) continue;
+        if (landMask && segmentCrossesLand(landMask, finishPoint, { lat: F.lats[i]!, lon: F.lons[j]! })) continue;
         if (settled[node]) {
           settledEnds.push(node);
         } else {
@@ -411,16 +564,16 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
     }
     return { pending, count, best };
   };
-  // The neighbour (ni, nj) of (i, j) that expanding (i, j) would travel to: in the graph, unsettled, sea,
+  // The neighbour `to` (-1: none) that expanding `node` would travel to: in the graph, unsettled, sea,
   // and not across land. Expanding a node reads the weather (and current) there only for such a neighbour.
-  const expandsTo = (i: number, j: number, ni: number, nj: number) => {
-    if (ni < 0 || ni >= nlat || nj < 0 || nj >= nlon) return false;
-    if (settled[id(ni, nj)]) return false;
-    const toLat = latOf(ni);
-    const toLon = lonOf(nj);
+  const expandsTo = (node: number, to: number) => {
+    if (to < 0) return false;
+    if (settled[to]) return false;
+    const toLat = latAt(to);
+    const toLon = lonAt(to);
     if (landMask && isLand(landMask, toLat, toLon)) return false;
     // Even adjacent sea nodes can straddle land in a finer-resolution mask.
-    return !(landMask && segmentCrossesLand(landMask, { lat: latOf(i), lon: lonOf(j) }, { lat: toLat, lon: toLon }));
+    return !(landMask && segmentCrossesLand(landMask, pointAt(node), { lat: toLat, lon: toLon }));
   };
 
   while (heap.length) {
@@ -428,13 +581,17 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
     if (settled[node]) continue;
     if (t > deadlineMs) break;
     if (t >= stopAtMs) break;
-    const i = Math.floor(node / nlon);
-    const j = node % nlon;
+    const L = layerOf(node);
+    const i = Math.floor((node - L.offset) / L.nlon);
+    const j = (node - L.offset) % L.nlon;
     // Outside searchBounds, a node the search would expand is never expanded: from here the bounds
     // confine the route. One whose expansion reads nothing (a dead end, or no wind there, so travel()
     // stops before the current) is settled and expanded as before: it moves nothing.
-    if (!searchable(i, j) && wind.sample(latOf(i), lonOf(j), t) !== null &&
-      NEIGHBORS.some(([di, dj]) => expandsTo(i, j, i + di, j + dj))) {
+    let expands = false;
+    if (!searchable(node) && wind.sample(L.lats[i]!, L.lons[j]!, t) !== null) {
+      for (let k = 0; k < neighbourCount && !expands; k++) expands = expandsTo(node, neighbour(L, i, j, node, k));
+    }
+    if (expands) {
       settled[node] = 1;
       clipped = true;
       if (pendingEnds?.[node]) {
@@ -446,7 +603,7 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
     settled[node] = 1;
     settledCount += 1;
     if (node === finishId) {
-      terminal = travel({ lat: latOf(fi), lon: lonOf(fj) }, finishPoint, t);
+      terminal = travel(pointAt(finishId), finishPoint, t);
       if (terminal) break;
       const opened = openAlternativeEnds();
       pendingEnds = opened.pending;
@@ -470,16 +627,14 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
       if (--pendingCount === 0) break;
     }
 
-    const fromLat = latOf(i);
-    const fromLon = lonOf(j);
+    const fromLat = L.lats[i]!;
+    const fromLon = L.lons[j]!;
 
-    for (const [di, dj] of NEIGHBORS) {
-      const ni = i + di;
-      const nj = j + dj;
-      if (!expandsTo(i, j, ni, nj)) continue;
-      const nid = id(ni, nj);
-      const toLat = latOf(ni);
-      const toLon = lonOf(nj);
+    for (let k = 0; k < neighbourCount; k++) {
+      const nid = neighbour(L, i, j, node, k);
+      if (!expandsTo(node, nid)) continue;
+      const toLat = latAt(nid);
+      const toLon = lonAt(nid);
 
       const edge = travel({ lat: fromLat, lon: fromLon }, { lat: toLat, lon: toLon }, t);
       if (!edge) continue;
@@ -516,7 +671,7 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
   // backtrack over grid nodes
   const gridPath: Array<{ lat: number; lon: number; timeMs: number; waterNm: number }> = [];
   for (let n = endId; n !== -1; n = parent[n]!) {
-    gridPath.unshift({ lat: latOf(Math.floor(n / nlon)), lon: lonOf(n % nlon), timeMs: arrival[n]!, waterNm: waterDistance[n]! });
+    gridPath.unshift({ lat: latAt(n), lon: lonAt(n), timeMs: arrival[n]!, waterNm: waterDistance[n]! });
   }
 
   // Keep the checked endpoint-to-grid connections. Replacing the first/last
@@ -602,10 +757,15 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
         wind_run: windGrid.run_id,
         current_run: currentGrid?.run_id ?? null,
         resolution_deg: Math.round(res * 1000) / 1000,
+        // Only on the fine routing index with an end patch: that index and the patches' node spacing.
+        ...(layers.length > 1 && landMask?.kind === 'land_cells' ? {
+          land_index: landMask.fine_index_id,
+          end_resolution_deg: Math.round(layers[1]!.res * 1e6) / 1e6,
+        } : {}),
         // Only when searchBounds held the search back: the extent of the graph nodes it could use.
         ...(clipped ? { search_bounds: {
-          minLat: latOf(rowIn.indexOf(true)), maxLat: latOf(rowIn.lastIndexOf(true)),
-          minLon: lonOf(colIn.indexOf(true)), maxLon: lonOf(colIn.lastIndexOf(true)),
+          minLat: rounded(lat0 + main.rowIn.indexOf(true) * res), maxLat: rounded(lat0 + main.rowIn.lastIndexOf(true) * res),
+          minLon: rounded(lon0 + main.colIn.indexOf(true) * res), maxLon: rounded(lon0 + main.colIn.lastIndexOf(true) * res),
         } } : {}),
       },
       polar_ref: polar.polar_id,

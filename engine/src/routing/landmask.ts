@@ -31,6 +31,13 @@ export interface LandCellMask {
   landAt(i: number, j: number): boolean;
   /** The fine routing index the cells come from, where they do (null: none). */
   fine_index_id: string | null;
+  /** Whether cell (i, j) comes from the fine routing index (absent: none does). */
+  fineAt?(i: number, j: number): boolean;
+  /**
+   * A summary for the land check's quick rejection: whether any cell of block (bi, bj), the cells
+   * [bi·size, (bi+1)·size) x [bj·size, (bj+1)·size) inside the grid, is land.
+   */
+  blocks?: { size: number; anyLandAt(bi: number, bj: number): boolean };
 }
 
 /** Any land mask the router and its helpers read. */
@@ -118,6 +125,10 @@ export function segmentCrossesLand(
   const length = Math.hypot(du, dv);
   if (!(length > 0)) return false; // a zero-length leg is its point, checked above
   const e = TOUCH_CELLS;
+  // Quick rejection: a leg touching no block that holds land touches no land cell.
+  const blocks = mask.kind === 'land_cells' ? mask.blocks : undefined;
+  if (blocks && !touchesAnyCell(ua / blocks.size, va / blocks.size, ub / blocks.size, vb / blocks.size,
+    Math.ceil(nlat / blocks.size), Math.ceil(nlon / blocks.size), blocks.anyLandAt, e)) return false;
   const exempt = length > 2 * END_CELLS ? END_CELLS / length : 0;
   const endA = exempt && !onPinchCorner(mask, landAt, ua, va) ? exempt : 0;
   const endB = exempt && !onPinchCorner(mask, landAt, ub, vb) ? exempt : 0;
@@ -153,6 +164,38 @@ export function segmentCrossesLand(
       if (c1 <= endA || c0 >= 1 - endB) continue;
       return true;
     }
+  }
+  return false;
+}
+
+/**
+ * Whether the straight line (ua, va)→(ub, vb), in cell coordinates (cell (i, j) spans
+ * [i, i + 1) x [j, j + 1)), widened by `e`, touches a cell of the rows x cols grid for which
+ * `set` holds: the same row-by-row supercover as segmentCrossesLand, with no end exception.
+ */
+function touchesAnyCell(
+  ua: number, va: number, ub: number, vb: number, rows: number, cols: number,
+  set: (i: number, j: number) => boolean, e: number,
+): boolean {
+  const du = ub - ua;
+  const dv = vb - va;
+  const iLo = Math.max(0, Math.floor(Math.min(ua, ub) - e));
+  const iHi = Math.min(rows - 1, Math.floor(Math.max(ua, ub) + e));
+  for (let i = iLo; i <= iHi; i++) {
+    let r0 = 0;
+    let r1 = 1;
+    if (du !== 0) {
+      const p = (i - e - ua) / du;
+      const q = (i + 1 + e - ua) / du;
+      r0 = Math.max(0, Math.min(p, q));
+      r1 = Math.min(1, Math.max(p, q));
+      if (r0 > r1) continue;
+    }
+    const v0 = va + dv * r0;
+    const v1 = va + dv * r1;
+    const jLo = Math.max(0, Math.floor(Math.min(v0, v1) - e));
+    const jHi = Math.min(cols - 1, Math.floor(Math.max(v0, v1) + e));
+    for (let j = jLo; j <= jHi; j++) if (set(i, j)) return true;
   }
   return false;
 }

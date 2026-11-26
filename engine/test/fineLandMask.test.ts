@@ -40,6 +40,22 @@ function asCells(mask: LandMask): LandCellMask {
   return { kind: 'land_cells', lat0, lon0, dlat, dlon, nlat, nlon, landAt: (i, j) => land[i * nlon + j] === 1, fine_index_id: null };
 }
 
+/** The mask with a land summary over size x size blocks, worked out from its own cells. */
+function withBlocks(mask: LandCellMask, size: number): LandCellMask {
+  return {
+    ...mask,
+    blocks: {
+      size,
+      anyLandAt: (bi, bj) => {
+        for (let i = bi * size; i < Math.min(mask.nlat, (bi + 1) * size); i++) {
+          for (let j = bj * size; j < Math.min(mask.nlon, (bj + 1) * size); j++) if (mask.landAt(i, j)) return true;
+        }
+        return false;
+      },
+    },
+  };
+}
+
 /** The fine cell (row, col on the global 1/480° lattice) a composite cell is. */
 const fineCell = (mask: LandCellMask, i: number, j: number) => ({
   k: Math.round((mask.lat0 + i * mask.dlat) * 480 - 0.5),
@@ -72,6 +88,7 @@ describe('land functions read an accessor mask exactly as an array mask', () => 
       const land = Array.from({ length: nlat * nlon }, () => (rand() < density ? 1 : 0));
       const array: LandMask = { schema_version: 1, kind: 'land_mask', lat0, lon0, dlat: d, dlon: d, nlat, nlon, land };
       const cells = asCells(array);
+      const blocked = withBlocks(cells, 2 + (m % 4));
       const point = (): P => ({ lat: lat0 + (rand() * (nlat + 2) - 1.5) * d, lon: lon0 + (rand() * (nlon + 2) - 1.5) * d });
       for (let k = 0; k < 120; k++) {
         const a = point();
@@ -79,6 +96,7 @@ describe('land functions read an accessor mask exactly as an array mask', () => 
         const context = JSON.stringify({ m, k, a, b });
         expect(isLand(cells, a.lat, a.lon), context).toBe(isLand(array, a.lat, a.lon));
         expect(segmentCrossesLand(cells, a, b), context).toBe(segmentCrossesLand(array, a, b));
+        expect(segmentCrossesLand(blocked, a, b), context).toBe(segmentCrossesLand(array, a, b));
         const outside = rand() < 0.5;
         expect(seaJoinsPoints(cells, a, b, outside), context).toBe(seaJoinsPoints(array, a, b, outside));
         expect(snapToSea(cells, a), context).toEqual(snapToSea(array, a));
@@ -148,6 +166,30 @@ describe('routingLandMask: the fine routing index where it has tiles, the 0.05°
     expect(fromOutline).toBeGreaterThan(0);
     expect(outlineLand).toBeGreaterThan(0);
   });
+
+  it('the land check reads the same with and without its block summary, on real windows', () => {
+    const rand = mulberry32(48);
+    for (const bbox of [
+      { minLat: 48.1, maxLat: 48.6, minLon: -5.4, maxLon: -4.2 },
+      { minLat: 50.5, maxLat: 51, minLon: -1.7, maxLon: -0.9 },
+      { minLat: 39.6, maxLat: 40.4, minLon: -9.3, maxLon: -8.6 },
+    ]) {
+      const mask = routingLandMask(coarse, fine, bbox) as LandCellMask;
+      expect(mask.blocks?.size).toBe(8);
+      const { blocks: _summary, ...plain } = mask;
+      let flagged = 0;
+      for (let k = 0; k < 4000; k++) {
+        const a = { lat: bbox.minLat + rand() * (bbox.maxLat - bbox.minLat), lon: bbox.minLon + rand() * (bbox.maxLon - bbox.minLon) };
+        const reach = [0.004, 0.02, 0.05, 0.3][k % 4]!;
+        const b = { lat: a.lat + (rand() - 0.5) * reach, lon: a.lon + (rand() - 0.5) * reach };
+        const crosses = segmentCrossesLand(mask, a, b);
+        if (crosses !== segmentCrossesLand(plain, a, b)) throw new Error(JSON.stringify({ bbox, a, b }));
+        if (crosses) flagged += 1;
+      }
+      expect(flagged).toBeGreaterThan(100);
+      expect(flagged).toBeLessThan(3900);
+    }
+  }, 60_000);
 
   it('refuses a window whose fine tiles are not all supplied, or come from another index', () => {
     const bbox: GeoBbox = { minLat: 49.5, maxLat: 50.5, minLon: -1.5, maxLon: -0.5 };

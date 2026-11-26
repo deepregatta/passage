@@ -283,6 +283,29 @@ longer floods the whole window: a bounded fill from each end proves a closed
 pocket, then a fill over blocks of cells proves a thick barrier, and anything else
 counts as joined, so the closed-water message is never shown without proof.
 
+On such a window the router (`computeRoute`, still engine only) first searches its usual
+grid; only when that finds no route (no node near an end joins it, or the search
+fails) and an end lies in a fine cell does it search again with fine end patches:
+1/480° nodes on fine cell centres within 0.15° of each end (two that touch merged),
+each main-grid node inside a patch linked to its nearest patch node. A route the
+usual grid finds is never searched again; closed water, a search held back by
+`searchBounds` and a current gap are final; on the 0.05° outline nothing changes.
+Measured on the nweu tiles: a 1/240° graph threads the 0.7 km lane of the Goulet
+de Brest only off the wind and only with nodes on cell centres; beating out in a
+westerly needs a node in every cell. A route that used the patches records
+`land_index` and `end_resolution_deg` in `routing_request`. The land check walks
+8 × 8-cell blocks first (`LandCellMask.blocks`, each worked out on first use) and
+walks the cells only through a block holding land, so its answers are unchanged
+(checked on random masks and real windows). `engine/test/routingFineLand.test.ts`
+computes Cowes → Spithead and Cowes → Cherbourg from a start snapped under 0.6 nm
+from the Medina mouth, Brest roads ↔ Ouessant through the Goulet in a 250° wind,
+the West Solent → the Needles round the Isle of Wight (over 40 nm: Hurst narrows
+stays closed) and gets closed water from the Golfe du Morbihan; every emitted leg is
+checked by the exact walk on the fine window. `npm run bench:routing -w engine --
+--fine` measures the bench passages on the fine index: on 2026-11-26 a 21-departure
+scan routed 8–12 % slower than on the outline (77 nm 1.19 s against 1.09 s, Biscay
+2.83 s against 2.61 s); a departure that needs the patches took about 0.1 s more.
+
 The mask itself (`viewer/public/data/land/global-005.*`) is built by
 `analysis/scripts/build_global_land_mask.py` with
 `analysis/src/deepweather_analysis/coastline.py`. Its metadata records the rule:

@@ -10,6 +10,7 @@
  *   npm run bench:routing -w engine                      all passages, 5 runs
  *   npm run bench:routing -w engine -- --runs 3 --only channel-63nm
  *   npm run bench:routing -w engine -- --json ../output/perf/node.json
+ *   npm run bench:routing -w engine -- --fine           on the fine routing index (nweu) as well
  *
  * Milliseconds, wall clock, one process. A measurement tool, not a test: it asserts nothing.
  *
@@ -26,6 +27,9 @@ import { performance } from 'node:perf_hooks';
 import { computeRoute, type RoutingResult } from '../src/routing/isochrone.js';
 import { polarFromRelease } from '../src/routing/deepPolars.js';
 import { snapToSea, windowLandMask, type PackedLandMaskMetadata } from '../src/routing/landmaskPack.js';
+import { routingLandMask } from '../src/routing/fineLandMask.js';
+import { decodeLandIndexTile, parseLandIndexManifest } from '../src/routing/landIndex.js';
+import type { RoutingLandMask } from '../src/routing/landmask.js';
 import { routeBbox, passageMaxHours } from '../src/fetch/liveGrids.js';
 import { selectRoutingCurrent } from '../src/currentInput.js';
 import { candidateDepartures, scanDepartures } from '../src/window.js';
@@ -48,6 +52,7 @@ const RUNS = Number(flag('runs') ?? 5);
 const VARIANT_RUNS = Math.min(RUNS, 3);
 const ONLY = flag('only');
 const JSON_OUT = flag('json');
+const FINE = argv.includes('--fine');
 
 const FORECAST_HOURS = 240; // viewer/src/lib/routingInputs.js
 const NOW_MS = parseUtc(NOW_ISO);
@@ -55,6 +60,15 @@ const polar = polarFromRelease(INVENTED_POLAR_ENTRY);
 const profile: LimitsProfile = JSON.parse(readFileSync(join(REPO, 'config/profiles/default-limits.json'), 'utf8'));
 const maskMeta: PackedLandMaskMetadata = JSON.parse(readFileSync(join(REPO, 'viewer/public/data/land/global-005.json'), 'utf8'));
 const maskBytes = new Uint8Array(gunzipSync(readFileSync(join(REPO, 'viewer/public/data/land/global-005.bin.gz'))));
+// --fine: the pinned routing index the planner would read (viewer/public/data/land/nweu-*).
+const fineIndex = (() => {
+  if (!FINE) return null;
+  const dir = join(REPO, 'viewer/public/data/land/nweu-20260825T07Z');
+  const manifest = parseLandIndexManifest(JSON.parse(readFileSync(join(dir, 'manifest.json'), 'utf8')));
+  const tiles = Object.fromEntries(manifest.coverage.tiles.map((id) =>
+    [id, decodeLandIndexTile(new Uint8Array(gunzipSync(readFileSync(join(dir, `${id}.bin.gz`)))))]));
+  return { manifest, tiles };
+})();
 
 const median = (xs: number[]) => { const s = [...xs].sort((a, b) => a - b); const m = s.length >> 1; return s.length % 2 ? s[m]! : (s[m - 1]! + s[m]!) / 2; };
 const worst = (xs: number[]) => Math.max(...xs);
@@ -93,7 +107,7 @@ function freezeInput<T>(value: T): T {
 }
 
 interface Inputs {
-  windGrid: RegionGrid; currentGrid: RegionGrid | null; landMask: ReturnType<typeof windowLandMask>; maxHours: number;
+  windGrid: RegionGrid; currentGrid: RegionGrid | null; landMask: RoutingLandMask; maxHours: number;
   start: { lat: number; lon: number; name: string }; finish: { lat: number; lon: number; name: string };
 }
 
@@ -104,7 +118,7 @@ async function loadInputs(store: TileForecastStore, p: Passage, scanning: boolea
   const departureMs = Date.parse(DEPARTURE_ISO);
   const remaining = Math.floor((NOW_MS + FORECAST_HOURS * 3600_000 - departureMs) / 3600_000);
   const hours = Math.min((scanning ? 120 : 0) + maxHours + 6, remaining);
-  const landMask = windowLandMask(maskBytes, maskMeta, bbox);
+  const landMask = fineIndex ? routingLandMask({ bytes: maskBytes, metadata: maskMeta }, fineIndex, bbox) : windowLandMask(maskBytes, maskMeta, bbox);
   const start = snapToSea(landMask, p.start);
   const finish = snapToSea(landMask, p.finish);
   if (!start || !finish) throw new Error(`${p.id}: endpoint on land`);
