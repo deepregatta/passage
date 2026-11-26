@@ -125,3 +125,66 @@ export function segmentCrossesLand(
   }
   return false;
 }
+
+/**
+ * Whether sea cells of the mask can join the point `a` to the point `b`, edge to edge.
+ * The router's land check (segmentCrossesLand) rejects any leg that touches a land cell,
+ * corners included, so a leg stays inside sea cells that share edges, and a route can
+ * exist only if both ends lie in one 4-connected sea component. This is that test, a
+ * flood fill from `a`'s cell: run it only once a route has already failed.
+ *
+ * `outsideIsSea`: whether the router can use water beyond the window (its graph reaches
+ * past the mask, where isLand counts every cell as sea). True adds a ring of sea cells
+ * around the window, joined to each other, so that going round the window counts as a
+ * way through. False keeps the fill inside the window.
+ *
+ * Returns false only when the two are provably apart: anything it cannot judge (a
+ * non-finite point, an end on land, an end outside the window with nothing outside to
+ * stand on) returns true, so a caller never says "closed" without being sure.
+ */
+export function seaJoinsPoints(
+  mask: LandMask,
+  a: { lat: number; lon: number },
+  b: { lat: number; lon: number },
+  outsideIsSea: boolean,
+): boolean {
+  const { nlat, nlon, land } = mask;
+  // Row/column 0 and the last one of the padded grid are the ring of cells outside the window.
+  const rows = nlat + 2;
+  const cols = nlon + 2;
+  const cellOf = (p: { lat: number; lon: number }): number => {
+    const i = Math.round((p.lat - mask.lat0) / mask.dlat);
+    const j = Math.round((p.lon - mask.lon0) / mask.dlon);
+    if (!Number.isFinite(i) || !Number.isFinite(j)) return -1;
+    return (Math.max(-1, Math.min(nlat, i)) + 1) * cols + Math.max(-1, Math.min(nlon, j)) + 1;
+  };
+  const seaAt = (cell: number): boolean => {
+    const i = Math.floor(cell / cols);
+    const j = cell % cols;
+    if (i === 0 || i === rows - 1 || j === 0 || j === cols - 1) return outsideIsSea;
+    return land[(i - 1) * nlon + (j - 1)] !== 1;
+  };
+  const from = cellOf(a);
+  const to = cellOf(b);
+  if (from < 0 || to < 0 || !seaAt(from) || !seaAt(to)) return true;
+  if (from === to) return true;
+  const seen = new Uint8Array(rows * cols);
+  const stack = [from];
+  seen[from] = 1;
+  while (stack.length) {
+    const cell = stack.pop()!;
+    if (cell === to) return true;
+    const i = Math.floor(cell / cols);
+    const j = cell % cols;
+    const next = [
+      i > 0 ? cell - cols : -1, i < rows - 1 ? cell + cols : -1,
+      j > 0 ? cell - 1 : -1, j < cols - 1 ? cell + 1 : -1,
+    ];
+    for (const n of next) {
+      if (n < 0 || seen[n] || !seaAt(n)) continue;
+      seen[n] = 1;
+      stack.push(n);
+    }
+  }
+  return false;
+}

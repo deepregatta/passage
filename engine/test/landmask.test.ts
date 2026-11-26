@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { haversineNm, interpolatePosition } from '../src/geo.js';
-import { isLand, segmentCrossesLand, type LandMask } from '../src/routing/landmask.js';
+import { isLand, seaJoinsPoints, segmentCrossesLand, type LandMask } from '../src/routing/landmask.js';
 
 type P = { lat: number; lon: number };
 
@@ -351,4 +351,37 @@ describe('segmentCrossesLand: exact walk over the mask cells', () => {
       }
     }
   }, 60_000);
+});
+
+describe('seaJoinsPoints', () => {
+  const at = (i: number, j: number) => ({ lat: 49.0 + 0.1 * i, lon: -6.0 + 0.1 * j });
+  const rowMask = (rows: Record<number, (j: number) => boolean>) =>
+    maskOf(49.0, -6.0, 0.1, 23, 61, Object.entries(rows).flatMap(([row, isLandAt]) =>
+      Array.from({ length: 61 }, (_, j) => j).filter(isLandAt).map((j): [number, number] => [Number(row), j])));
+  const wall = rowMask({ 10: () => true });
+
+  it('joins points on one side of a wall and separates points across it', () => {
+    expect(seaJoinsPoints(wall, at(5, 5), at(8, 40), false)).toBe(true);
+    expect(seaJoinsPoints(wall, at(5, 5), at(15, 5), false)).toBe(false);
+  });
+
+  it('lets water go round the window only when the outside counts as sea', () => {
+    expect(seaJoinsPoints(wall, at(5, 5), at(15, 5), true)).toBe(true);
+  });
+
+  it('says joined for an end outside the window, which the window alone cannot judge', () => {
+    expect(seaJoinsPoints(wall, at(5, 5), at(15, -8), false)).toBe(true);
+    expect(seaJoinsPoints(wall, at(5, 5), at(15, -8), true)).toBe(true);
+  });
+
+  it('does not join sea cells that touch only at a corner, and joins them across a shared edge', () => {
+    const pinch = rowMask({ 10: (j) => j !== 30, 11: (j) => j !== 31 });
+    expect(seaJoinsPoints(pinch, at(5, 30), at(15, 30), false)).toBe(false);
+    expect(seaJoinsPoints(rowMask({ 10: (j) => j !== 30 }), at(5, 30), at(15, 30), false)).toBe(true);
+  });
+
+  it('says joined for anything it cannot judge', () => {
+    expect(seaJoinsPoints(wall, at(10, 5), at(15, 5), false)).toBe(true); // an end on land
+    expect(seaJoinsPoints(wall, { lat: NaN, lon: 0 }, at(15, 5), false)).toBe(true);
+  });
 });

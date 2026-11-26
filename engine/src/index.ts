@@ -48,7 +48,7 @@ export type { RoutingCurrentSelection, RoutingOutcome } from './currentInput.js'
 export type { RouteBbox } from './fetch/liveGrids.js';
 export { GridSampler, alongCourseKt, currentSetDeg, currentSpeedKt, gridTimeStepHours } from './grids.js';
 export type { RegionGrid, GridSample } from './grids.js';
-export { computeRoute, CurrentGapError, SearchBoundsError } from './routing/isochrone.js';
+export { ClosedWaterError, computeRoute, CurrentGapError, SearchBoundsError } from './routing/isochrone.js';
 export type { RoutingRequest, RoutingResult, SearchBounds } from './routing/isochrone.js';
 export { boatSpeedKt } from './routing/polar.js';
 export type { Polar } from './routing/polar.js';

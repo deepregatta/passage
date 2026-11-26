@@ -26,6 +26,7 @@
   "Route is outside the coastline mask": "La route se trouve hors du masque côtier",
   "Start or finish is on land": "Le départ ou l’arrivée se trouve à terre",
   "No sea node near start/finish": "Aucun point en mer près du départ ou de l’arrivée",
+  "No route found: on the coarse outline of the coast, no open water joins the start and the finish. A strait or channel between them is too narrow to be in it. Use Draw my route instead.": "Aucune route trouvée : sur le tracé approximatif de la côte, aucune eau libre ne relie le départ et l’arrivée. Un détroit ou un chenal entre les deux est trop étroit pour y figurer. Utilisez plutôt « Tracer ma route ».",
   "This browser cannot store checks (no IndexedDB)": "Ce navigateur ne peut pas enregistrer de vérifications (IndexedDB indisponible)",
   "arrives": "arrivée",
   "avg": "moy.",

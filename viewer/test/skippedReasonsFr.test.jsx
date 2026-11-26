@@ -2,7 +2,7 @@
 // reason the planner can produce, and the time-zone fallback must read French wherever a zone is shown.
 import { cleanup, render } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
-import { CurrentGapError, OUTSIDE_SCAN_CURRENT, OUTSIDE_SELECTED_CURRENT, SearchBoundsError } from '@deepweather/engine';
+import { ClosedWaterError, CurrentGapError, OUTSIDE_SCAN_CURRENT, OUTSIDE_SELECTED_CURRENT, SearchBoundsError } from '@deepweather/engine';
 import DepartureComparison from '../src/pages/planner/DepartureComparison.jsx';
 import { routedOutcome } from '../src/lib/routingInputs.js';
 import { localTimeZoneName } from '../src/lib/format.js';
@@ -31,6 +31,8 @@ const REASONS = [
   [new SearchBoundsError('no-route').message, 'Aucune route trouvée dans la zone de recherche autorisée'],
   ['Start or finish is on land', 'Le départ ou l’arrivée se trouve à terre'],
   ['No sea node near start/finish', 'Aucun point en mer près du départ ou de l’arrivée'],
+  // Every departure of a comparison on a closed outline reports this, in the unassessed list.
+  [new ClosedWaterError().message, 'Aucune route trouvée : sur le tracé approximatif de la côte, aucune eau libre ne relie le départ et l’arrivée. Un détroit ou un chenal entre les deux est trop étroit pour y figurer. Utilisez plutôt « Tracer ma route ».'],
   ['Route is outside the coastline mask', 'La route se trouve hors du masque côtier'],
   ['Forecast tiles unavailable for this area', 'Tuiles de prévision indisponibles pour cette zone'],
   ['Unknown error', 'Erreur inconnue'],

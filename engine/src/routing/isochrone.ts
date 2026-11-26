@@ -17,7 +17,7 @@ import { bearingDegTrue, haversineNm, wrap180 } from '../geo.js';
 import { parseUtc, toIso } from '../eta.js';
 import { GridSampler, type RegionGrid } from '../grids.js';
 import { boatSpeedKt, type Polar } from './polar.js';
-import { isLand, segmentCrossesLand, type LandMask } from './landmask.js';
+import { isLand, seaJoinsPoints, segmentCrossesLand, type LandMask } from './landmask.js';
 import type { Route, Waypoint } from '../types.js';
 
 export interface RoutingRequest {
@@ -108,6 +108,24 @@ export class SearchBoundsError extends Error {
   }
 }
 
+/**
+ * No route was found, and on the land mask no sea joins the start and the finish edge to
+ * edge (the router's land check refuses any leg touching a land cell, so no route can exist
+ * on that mask). The mask is the coarse coastline outline: a strait or channel too narrow to
+ * be in it closes the water here although boats can sail it. Found only after a search has
+ * failed, by a flood fill over the mask (seaJoinsPoints); never thrown when
+ * searchBounds held the search back (SearchBoundsError keeps that case: its callers retry
+ * without the box, and that run reports this error).
+ */
+export class ClosedWaterError extends Error {
+  readonly code = 'closed-water';
+  constructor() {
+    super('No route found: on the coarse outline of the coast, no open water joins the start and the finish. ' +
+      'A strait or channel between them is too narrow to be in it. Use Draw my route instead.');
+    this.name = 'ClosedWaterError';
+  }
+}
+
 /** 16-direction neighborhood: angular resolution ~22.5° */
 const NEIGHBORS: Array<[number, number]> = [
   [1, 0], [-1, 0], [0, 1], [0, -1],
@@ -135,9 +153,20 @@ export function computeRoute(request: RoutingRequest): RoutingResult {
   const deadlineMs = departureMs + maxMs;
   // Set once searchBounds holds the search back: a node outside it would otherwise be expanded or join an end.
   let clipped = false;
-  const noRoute = () => clipped ? new SearchBoundsError('no-route') : new Error(
-    `No route found within ${request.maxHours ?? 48} h (wind coverage, land, or no-go conditions)`,
-  );
+  // Only on a failure: a flood fill over the land mask says whether any sea joins the two ends.
+  const noRoute = () => {
+    if (clipped) return new SearchBoundsError('no-route');
+    if (landMask && !seaJoinsPoints(landMask, startPoint, finishPoint, graphReachesBeyondMask())) return new ClosedWaterError();
+    return new Error(`No route found within ${request.maxHours ?? 48} h (wind coverage, land, or no-go conditions)`);
+  };
+  // The graph can reach past the mask (an end near or outside its edge grows the graph to include it),
+  // where every cell counts as sea: then water round the window is water the router could use.
+  const graphReachesBeyondMask = () => {
+    if (!landMask) return false;
+    const eps = 1e-9;
+    return lat0 < landMask.lat0 - eps || lat1 > landMask.lat0 + (landMask.nlat - 1) * landMask.dlat + eps ||
+      lon0 < landMask.lon0 - eps || lon1 > landMask.lon0 + (landMask.nlon - 1) * landMask.dlon + eps;
+  };
 
   if (landMask && (isLand(landMask, start.lat, start.lon) || isLand(landMask, finish.lat, finish.lon))) {
     throw new Error('Start or finish is on land');

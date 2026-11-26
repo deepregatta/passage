@@ -216,6 +216,8 @@ const FR = {
   "Route is outside the coastline mask": "La route se trouve hors du masque côtier",
   "Start or finish is on land": "Le départ ou l’arrivée se trouve à terre",
   "No sea node near start/finish": "Aucun point en mer près du départ ou de l’arrivée",
+  // ClosedWaterError (engine isochrone.ts): the coarse coastline outline leaves no open water between start and finish.
+  "No route found: on the coarse outline of the coast, no open water joins the start and the finish. A strait or channel between them is too narrow to be in it. Use Draw my route instead.": "Aucune route trouvée : sur le tracé approximatif de la côte, aucune eau libre ne relie le départ et l’arrivée. Un détroit ou un chenal entre les deux est trop étroit pour y figurer. Utilisez plutôt « Tracer ma route ».",
   // SearchBoundsError (engine isochrone.ts): a comparison departure keeps 'no-route' as its skip reason.
   "No route found inside the area the route may search": "Aucune route trouvée dans la zone de recherche autorisée",
   "The start or finish is outside the area the route may search": "Le départ ou l’arrivée est hors de la zone de recherche autorisée",

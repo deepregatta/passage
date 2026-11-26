@@ -245,6 +245,17 @@ that the walk matches a brute-force cell clipper and flags every leg the former
 sampler flagged; `routing.test.ts` runs `computeRoute` at a wall whose only gap is
 a pinch corner, with graph nodes on cell corners, and gets no route.
 
+When a search fails and no sea joins the start and the finish edge to edge on that
+mask (`seaJoinsPoints` in `landmask.ts`, a flood fill run only after the failure),
+`computeRoute` throws `ClosedWaterError` and the planner says that a strait or channel
+too narrow for the coarse outline may be the cause and points to Draw my route. Any
+other failure keeps its usual message, and so does a search that `searchBounds` held
+back (its callers retry without the box). The fill stays inside the mask window unless
+the router's graph reaches beyond it (an end near or outside its edge), where going
+round the window counts as open water. `routing.test.ts` covers the walls, the corner
+pinch, the window edge and a random-mask soundness check, `landmask.test.ts` the helper,
+and `viewer/test/plannerComputed.test.jsx` the English and French planner text.
+
 The mask itself (`viewer/public/data/land/global-005.*`) is built by
 `analysis/scripts/build_global_land_mask.py` with
 `analysis/src/deepweather_analysis/coastline.py`. Its metadata records the rule:

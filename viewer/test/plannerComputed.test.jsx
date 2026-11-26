@@ -195,6 +195,42 @@ it('disables Check and Scan when real routing cannot arrive within the horizon',
   noSummary();
 });
 
+// A land wall on the coarse coastline mask between start and finish: the router reports closed water, in both languages.
+describe.each([
+  ['en', 'No route found: on the coarse outline of the coast, no open water joins the start and the finish. A strait or channel between them is too narrow to be in it. Use Draw my route instead.'],
+  ['fr', 'Aucune route trouvée : sur le tracé approximatif de la côte, aucune eau libre ne relie le départ et l’arrivée. Un détroit ou un chenal entre les deux est trop étroit pour y figurer. Utilisez plutôt « Tracer ma route ».'],
+])('closed water on the coastline outline in %s', (language, text) => {
+  const wallInputs = () => {
+    const nlat = 11;
+    const nlon = 16;
+    const land = Array(nlat * nlon).fill(0);
+    for (let i = 0; i < nlat; i++) land[i * nlon + 7] = 1; // lon -3.3, between start (-3.5) and finish (-3.2)
+    return { ...routingInputs(0, 48), landMask: { schema_version: 1, kind: 'land_mask', lat0: 49, lon0: -4, dlat: 0.1, dlon: 0.1, nlat, nlon, land } };
+  };
+
+  it('shows where the generic failure shows, with no computed route', async () => {
+    const engine = await vi.importActual('@deepweather/engine');
+    vi.setSystemTime(new Date('2026-07-19T12:00:00Z'));
+    usePlanner.setState({ departureLocal: toLocalDateTimeValue(DEPARTURE) });
+    loadRoutingInputs.mockResolvedValue(wallInputs());
+    computeRoute.mockImplementation(engine.computeRoute);
+    const Root = ({ shown }) => <div id="root"><Planner /><LocalizedDocument language={shown} /></div>;
+    const view = render(<Root shown="en" />);
+    fireEvent.click(computeButton());
+    await screen.findByText(/^No route found: on the coarse outline/);
+    expect(screen.getByRole('alert').textContent).toBe(
+      'No route found: on the coarse outline of the coast, no open water joins the start and the finish. A strait or channel between them is too narrow to be in it. Use Draw my route instead.');
+    expect(screen.queryByText(/No route found within/)).not.toBeInTheDocument();
+    noSummary();
+    useApp.setState({ language });
+    view.rerender(<Root shown={language} />);
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toBe(text));
+    if (language === 'fr') expect(document.body.textContent).not.toMatch(/No route found|coarse outline/);
+    expect(summary()).not.toBeInTheDocument();
+    expect(screen.queryByTestId('route-line')).not.toBeInTheDocument();
+  });
+});
+
 it('removes an earlier arrival after departure change and failed recomputation, then recovers', async () => {
   render(<Planner />);
   await compute();

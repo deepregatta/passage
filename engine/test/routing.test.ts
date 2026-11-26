@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { computeRoute } from '../src/routing/isochrone.js';
+import { ClosedWaterError, computeRoute, SearchBoundsError, type RoutingRequest } from '../src/routing/isochrone.js';
 import { boatSpeedKt, type Polar } from '../src/routing/polar.js';
-import { isLand, segmentCrossesLand, type LandMask } from '../src/routing/landmask.js';
+import { isLand, seaJoinsPoints, segmentCrossesLand, type LandMask } from '../src/routing/landmask.js';
 import type { RegionGrid } from '../src/grids.js';
 
 const POLAR: Polar = {
@@ -419,5 +419,155 @@ describe('isochrone router', () => {
         windGrid: windGrid(180, 12),
       }),
     ).toThrow(/stalled|coverage/);
+  });
+});
+
+const CLOSED_WATER_MESSAGE =
+  'No route found: on the coarse outline of the coast, no open water joins the start and the finish. ' +
+  'A strait or channel between them is too narrow to be in it. Use Draw my route instead.';
+
+/** The same uniform wind over a wider box (lat 48.5..52, lon -7..-2.5), for ends near or outside the mask window. */
+const wideWindGrid = (): RegionGrid => {
+  const base = windGrid(270, 12);
+  const nlat = 8;
+  const nlon = 10;
+  const size = base.time_axis.length * nlat * nlon;
+  return { ...base, lat0: 48.5, lon0: -7.0, dlat: 0.5, dlon: 0.5, nlat, nlon,
+    u_kt: Array(size).fill(base.u_kt[0]!), v_kt: Array(size).fill(base.v_kt[0]!) };
+};
+
+// Closed water (coarse outline): mask window lat 49.0..51.2, lon -6.0..0.0 in 0.1 degree cells; row i is lat 49.0 + 0.1 i, column j is lon -6.0 + 0.1 j.
+const NLAT = 23;
+const NLON = 61;
+const maskWith = (rows: Record<number, (j: number) => boolean>): LandMask => {
+  const land = Array<number>(NLAT * NLON).fill(0);
+  for (const [row, isLandAt] of Object.entries(rows)) {
+    for (let j = 0; j < NLON; j++) if (isLandAt(j)) land[Number(row) * NLON + j] = 1;
+  }
+  return { schema_version: 1, kind: 'land_mask', lat0: 49.0, lon0: -6.0, dlat: 0.1, dlon: 0.1, nlat: NLAT, nlon: NLON, land };
+};
+const all = () => true;
+
+const south = { lat: 49.5, lon: -4.5 };
+const north = { lat: 50.5, lon: -4.5 };
+const request = (landMask: LandMask, extra: Partial<RoutingRequest> = {}): RoutingRequest => ({
+  start: south, finish: north, departureUtc: '2026-07-20T00:00:00Z', polar: POLAR,
+  windGrid: windGrid(270, 12), landMask, resolutionDeg: 0.1, ...extra,
+});
+const failure = (r: RoutingRequest): Error & { code?: string } => {
+  try { computeRoute(r); } catch (error) { return error as Error; }
+  throw new Error('expected computeRoute to throw');
+};
+
+describe('closed water on the coarse coastline outline', () => {
+  it('says so when a land wall across the whole window separates start from finish', () => {
+    const error = failure(request(maskWith({ 10: all })));
+    expect(error.message).toBe(CLOSED_WATER_MESSAGE);
+    expect(error.code).toBe('closed-water');
+    expect(error).toBeInstanceOf(ClosedWaterError);
+    expect(error.name).toBe('ClosedWaterError');
+  });
+
+  it('keeps SearchBoundsError when searchBounds held the search back: its callers retry without the box', () => {
+    // The finish node (50.5) lies above the box (to 50.49), so the box clips the search.
+    const box = { minLat: 49.0, maxLat: 50.49, minLon: -6.0, maxLon: -3.0 };
+    const error = failure(request(maskWith({ 10: all }), { finish: { lat: 50.49, lon: -4.5 }, searchBounds: box }));
+    expect(error).toBeInstanceOf(SearchBoundsError);
+    expect(error.code).toBe('search-bounds');
+    // The same passage without the box reports the closed water.
+    expect(failure(request(maskWith({ 10: all }), { finish: { lat: 50.49, lon: -4.5 } }))).toBeInstanceOf(ClosedWaterError);
+  });
+
+  it('says so when the only gap in a two-row wall is a corner pinch (diagonal sea cells share a corner only)', () => {
+    // Sea at (row 10, column 30) and (row 11, column 31): the other two cells of that 2 x 2 block are land.
+    const mask = maskWith({ 10: (j) => j !== 30, 11: (j) => j !== 31 });
+    const error = failure(request(mask, { start: { lat: 49.5, lon: -3.0 }, finish: { lat: 50.5, lon: -3.0 } }));
+    expect(error.message).toBe(CLOSED_WATER_MESSAGE);
+  });
+
+  it('does not call a wall closed when it has a one-cell gap joined edge to edge', () => {
+    const mask = maskWith({ 10: (j) => j !== 30 });
+    const open = { start: { lat: 49.5, lon: -3.0 }, finish: { lat: 50.5, lon: -3.0 } };
+    // The gap really is passable: a route exists, every leg clear of land.
+    const { route } = computeRoute(request(mask, open));
+    for (let i = 1; i < route.waypoints.length; i++) {
+      expect(segmentCrossesLand(mask, route.waypoints[i - 1]!, route.waypoints[i]!)).toBe(false);
+    }
+    // And when the same passage fails for another reason, the generic message stays.
+    const tooShort = failure(request(mask, { ...open, maxHours: 0.1 }));
+    expect(tooShort.message).toBe('No route found within 0.1 h (wind coverage, land, or no-go conditions)');
+    expect(tooShort.code).toBeUndefined();
+  });
+
+  it('keeps the generic message when water joins the ends but the horizon is too short', () => {
+    const error = failure(request(maskWith({}), { maxHours: 0.1 }));
+    expect(error.message).toBe('No route found within 0.1 h (wind coverage, land, or no-go conditions)');
+  });
+
+  it('keeps the generic message when water joins the ends but the wind has no coverage at the departure', () => {
+    const error = failure(request(maskWith({ 10: (j) => j !== 30 }), { departureUtc: '2026-07-25T00:00:00Z' }));
+    expect(error.message).toBe('No route found within 48 h (wind coverage, land, or no-go conditions)');
+  });
+
+  describe('the window edge', () => {
+    // A wall across the whole window, the start 0.03 degrees inside the west edge: the graph then
+    // reaches 0.1 degrees beyond the window, where the mask counts every cell as sea.
+    const edgeMask = () => maskWith({ 10: all });
+    const edge = {
+      start: { lat: 49.5, lon: -5.97 }, finish: { lat: 50.5, lon: -5.97 },
+      windGrid: wideWindGrid(),
+    };
+
+    it('finds the way round the window edge when the graph reaches beyond it, so the outside is not called closed', () => {
+      const { route } = computeRoute(request(edgeMask(), edge));
+      expect(route.waypoints.some((wp) => wp.lon < -6.0)).toBe(true);
+    });
+
+    it('does not claim a closed outline there when the route fails for another reason', () => {
+      const error = failure(request(edgeMask(), { ...edge, maxHours: 0.1 }));
+      expect(error.message).toBe('No route found within 0.1 h (wind coverage, land, or no-go conditions)');
+    });
+
+    it('does not claim a closed outline for an end outside the window either', () => {
+      const error = failure(request(edgeMask(), { ...edge, start: { lat: 49.5, lon: -6.3 }, finish: { lat: 50.5, lon: -6.3 }, maxHours: 0.1 }));
+      expect(error.message).toBe('No route found within 0.1 h (wind coverage, land, or no-go conditions)');
+    });
+  });
+
+  it('never calls closed a passage the router can sail (random masks, ends inside the window), and names every closed one', () => {
+    const small = (seed: number): LandMask => {
+      let state = seed;
+      const next = () => (state = (state * 1664525 + 1013904223) >>> 0) / 2 ** 32;
+      const land = Array.from({ length: 21 * 21 }, () => (next() < 0.4 ? 1 : 0));
+      return { schema_version: 1, kind: 'land_mask', lat0: 49.0, lon0: -6.0, dlat: 0.1, dlon: 0.1, nlat: 21, nlon: 21, land };
+    };
+    let sailed = 0;
+    let closed = 0;
+    for (let seed = 1; seed <= 60; seed++) {
+      const mask = small(seed);
+      const sea = [] as Array<[number, number]>;
+      for (let i = 3; i <= 17; i++) for (let j = 3; j <= 17; j++) if (mask.land[i * 21 + j] === 0) sea.push([i, j]);
+      if (sea.length < 2) continue;
+      const [a, b] = [sea[seed % sea.length]!, sea[(seed * 7 + 3) % sea.length]!];
+      const start = { lat: 49.0 + 0.1 * a[0], lon: -6.0 + 0.1 * a[1] };
+      const finish = { lat: 49.0 + 0.1 * b[0], lon: -6.0 + 0.1 * b[1] };
+      if (a[0] === b[0] && a[1] === b[1]) continue;
+      const joined = seaJoinsPoints(mask, start, finish, false);
+      let failed: Error | null = null;
+      try {
+        computeRoute({ start, finish, departureUtc: '2026-07-20T00:00:00Z', polar: POLAR, windGrid: wideWindGrid(), landMask: mask, resolutionDeg: 0.1 });
+      } catch (error) {
+        failed = error as Error;
+      }
+      if (!failed) {
+        sailed++;
+        expect(joined, `seed ${seed}: a route exists`).toBe(true);
+      } else if (!joined) {
+        closed++;
+        expect(failed.message, `seed ${seed}`).toBe(CLOSED_WATER_MESSAGE);
+      }
+    }
+    expect(sailed).toBeGreaterThan(5);
+    expect(closed).toBeGreaterThan(5);
   });
 });
