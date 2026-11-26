@@ -207,7 +207,8 @@ these sentences. Not looked at live: the empty model comparison line and the
 three error texts, which the example check does not show.
 
 Computed routes are not for navigation: the router avoids only the land mask
-(GLOBE sampled at the centres of a 0.05° grid and grown by one cell, with no
+(GLOBE sampled at the centres of a 0.05° grid, grown by one cell wherever that
+leaves channels open and checked against GLOBE's 30″ water, described below, with no
 depth, chart or restricted-area data). The planner says so first under every
 computed route (`viewer/test/routeSourceNotes.test.jsx`,
 `plannerComputed.test.jsx`: shown after Compute, absent for a drawn or
@@ -243,6 +244,128 @@ in two) and non-finite input, in both directions, and on fixed-seed random masks
 that the walk matches a brute-force cell clipper and flags every leg the former
 sampler flagged; `routing.test.ts` runs `computeRoute` at a wall whose only gap is
 a pinch corner, with graph nodes on cell corners, and gets no route.
+
+The mask itself (`viewer/public/data/land/global-005.*`) is built by
+`analysis/scripts/build_global_land_mask.py` with
+`analysis/src/deepweather_analysis/coastline.py`. Its metadata records the rule:
+`growth_rule: "topology-preserving-1-cell+globe-30s-native-consistency"`,
+`native_erosion_px: 1`, `native_reach_px: 0`.
+
+The builder reads GLOBE land (global-land-mask 1.0.0, 30″ pixels, 6 × 6 per cell)
+from the package's data file. It checks the file's name, shape and axes and stops
+with an error if they differ. Two steps follow.
+
+1. Centre sampling and growth. GLOBE is sampled at the cell centres, then grown by
+   one cell. A cell is added only when that neither splits the edge-connected sea
+   nor joins two separate land masses, and cells holding GLOBE land pixels are tried
+   first. Dead-end inlets fill as before, and a channel narrower than the buffer
+   keeps a one-cell lane.
+2. Native consistency. "Native water" means GLOBE water after one 3 × 3 erosion, so
+   only a passage at least 3 pixels wide counts. A pixel is about 0.93 km north–south
+   and 0.93 km × cos(latitude) east–west. Every sea cell must hold native water
+   inside itself. Every two edge-adjacent sea cells must have their largest
+   native-water components joined inside the two cells. Cells that fail are filled
+   (of a failing pair, the one holding more GLOBE land) and the growth is redone
+   until none fail.
+
+What this guarantees: for any path of edge-adjacent sea cells, the router's notion
+of sea, there is a 4-connected GLOBE water path at least 3 pixels wide lying inside
+those same cells. Each cell's component is connected inside its own pixels, so the
+pairwise joins chain along the path. No sea cell joins two bodies of water that
+GLOBE separates, at any column, the ±180° seam included.
+
+What it does not guarantee: that a straight leg through those cells stays off GLOBE
+land. 3,974 sea cells hold GLOBE land pixels, 61 of them at least half land (at most
+25 of 36). On the reference and strait passages, measured every 25 m against GLOBE's
+`is_land`, the worst crossings are:
+- the Singapore Strait: 2.78 km at 1.16°N 103.725°E, inside cell (1.15, 103.75), which
+  holds 6 land pixels;
+- Helsingør in Øresund: 0.98 km at 56.025°N 12.633°E;
+- Chausey: 0.23 km, also on the former mask.
+
+Reopened lanes are one cell wide and have no buffer. A further rule, no sea cell at
+least half land, was measured and not applied: it leaves these crossings unchanged
+and opens 548 fewer cells.
+
+Open now, closed by the former plain growth: Great Belt, Øresund, Bab-el-Mandeb,
+Gibraltar, Bonifacio, the Pentland Firth, the eastern entrances of Long Island Sound
+and the Singapore Strait. The Mediterranean, the Baltic and the Red Sea reach the
+ocean again.
+
+Still closed or filled: the Bosporus, the Dardanelles, Messina, the Little Belt, the
+Menai Strait, the Solent, the Golden Gate and San Francisco Bay, the Rade de Brest,
+the Golfe du Morbihan, Puget Sound, Port Curtis (Gladstone harbour) and the canals
+(Suez, Kiel, Corinth, Panama, Cape Cod).
+
+Closed by the consistency rule, because GLOBE shows no passage 3 pixels wide:
+- Fehmarn Sound;
+- the Kerch Strait, so the Sea of Azov (1,387 cells) is cut off;
+- the Curonian Lagoon, which GLOBE also closes;
+- the Outer Banks inlets (Oregon Inlet), so Pamlico Sound (107 cells) is cut off;
+- the Kinburn Spit and the Giens tombolo, which routes no longer cross;
+- a 153-cell part of the Strait of Georgia near 49.3°N 123.85°W (the former mask cut
+  off 93 cells there).
+
+Start and finish snaps that changed, as the planner's `snapToSea` moves them (former
+→ now, nm):
+
+| Point | Former | Now |
+|---|---|---|
+| Brest roads (48.33, −4.55) | 6.25 | 8.77 |
+| Brest roads (48.37, −4.50) | 9.37 | 11.84 |
+| Camaret (48.28, −4.60) | 2.69 | 5.20 |
+| Gladstone (−23.83, 151.27) | 4.55 | 7.36 |
+| Groix (47.63, −3.46) | 1.85 | 2.42 |
+| Lorient (47.68, −3.40) | 4.80 | 5.21 |
+| Brisbane (−27.38, 153.17) | 7.97 | 2.00 |
+
+The independent review of the rebuild measured, on its own points, Braye harbour
+(Alderney) 0 → 4.50 nm and the Gladstone entrance 1.65 → 5.32 nm. Routes between
+Lorient and Port Tudy (Groix) roughly double, 4.0–6.4 → 8.9–12.2 nm, because the cells
+that hold Groix's land pixels are now land; the former routes crossed 0.45–0.63 km of it.
+
+Against the former mask the rebuild opens 8,370 cells and closes 7,371. No sea cell
+lies on centre-sampled GLOBE land.
+
+| Count | Former | Now |
+|---|---|---|
+| Sea cells holding GLOBE land pixels | 9,148 | 3,974 |
+| Sea components | 788 | 106 |
+| Pinch corners | 260 | 267 |
+
+Three sea components of the centre-sampled outline are split; the largest piece cut
+off is the Sea of Azov. 293 land masses of the outline each join two or more
+centre-sampled land masses (1,417 in all; the former plain growth: 318 joining
+2,449). Each join closes a lane GLOBE shows less than 3 pixels wide.
+
+The packed file is 98,093 bytes. The build takes about 10 s and 2.3 GB, and the
+`.bin.gz` is byte-identical between runs (gzip mtime 0); `generated_at` in the JSON
+records the build time.
+
+`analysis/tests/test_coastline.py` checks the rule on small synthetic worlds:
+- one-, two- and three-cell channels, a dead-end inlet;
+- a native land bridge across a lane;
+- native gaps of 1 and 2 pixels (closed) and 3 and 4 pixels (open);
+- a diagonal spit through two side-by-side cells, a cell with a single sea side,
+  a corner of the other sea's water inside a cell, a spit on the longitude seam;
+- random worlds (no sea on sampled land, no sea split, no land masses joined when
+  GLOBE has no sub-cell land), with a global check of the guarantee written apart
+  from the builder;
+- the seam, determinism.
+
+`analysis/tests/test_published_coastline.py` checks the committed files:
+- no sea cell on centre-sampled land, through GLOBE's own `is_land`;
+- the guarantee itself over every sea cell within a cell of GLOBE land, with its own
+  labelling code;
+- the eight straits above open;
+- no lane across the South Fork of Long Island, the Curonian Spit (the lagoon is not
+  joined to the Baltic), the Giens tombolo, the Kinburn Spit or the Outer Banks at
+  Oregon Inlet.
+
+It takes about 8 s and 2.2 GB (GLOBE's array held twice).
+`viewer/test/coastlineStraits.test.js` computes Great Belt, Øresund, Gibraltar and
+Bab-el-Mandeb routes on the committed mask through the planner's loader, with no leg
+touching a land cell.
 
 ## Frozen Check and Scan inputs
 

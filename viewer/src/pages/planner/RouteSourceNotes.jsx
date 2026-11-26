@@ -12,8 +12,9 @@ const CAVEATS = {
 
 /**
  * Shown first under every computed route: the router avoids only the coarse land
- * outline (a 0.05° grid sampled at cell centres and grown by one cell, with no
- * depth, chart or restricted-area data), so the route is not a navigable track.
+ * outline (a 0.05° grid sampled at cell centres and grown by one cell wherever that
+ * leaves channels open, with no depth, chart or restricted-area data), so the route
+ * is not a navigable track.
  */
 const NOT_FOR_NAVIGATION = 'Not for navigation. This route avoids only a coarse outline of the coast: rocks, shoals and small islands are not in it. Check it on a chart before you sail it.';
 

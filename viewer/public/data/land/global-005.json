@@ -9,7 +9,11 @@
   "nlon": 7200,
   "bit_order": "lsb",
   "dilated_cells": 1,
+  "growth_rule": "topology-preserving-1-cell+globe-30s-native-consistency",
+  "native_erosion_px": 1,
+  "native_reach_px": 0,
   "encoding": "gzip",
-  "generated_at": "2026-07-12T21:41:41.978320+00:00",
-  "source": "global-land-mask GLOBE"
+  "generated_at": "2026-11-26T09:53:24.567510+00:00",
+  "source": "global-land-mask GLOBE",
+  "source_version": "1.0.0"
 }
