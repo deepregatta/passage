@@ -80,6 +80,9 @@ export const SAVE_FAILED = Object.freeze({
 });
 
 const POLARS_UNAVAILABLE = /^Boat polars are unavailable/;
+// The engine's ClosedWaterError (only its message survives a worker): the same search again cannot
+// succeed, so the alert offers Draw my route in place of Retry.
+const CLOSED_WATER = /^No route found: on the coarse outline of the coast, /;
 const RAW_FORECAST_FAILURE = /^forecast (?:tile )?(?:fetch (?:failed|timed out)|invalid)/i;
 const RAW_NETWORK_FAILURE = /^(?:TypeError: )?(?:Failed to fetch|NetworkError|Network request failed|Load failed)/i;
 
@@ -99,6 +102,7 @@ export function friendlyError(raw, saveFailure = null) {
     return { message: SAVE_FAILED[saveFailure] ?? SAVE_FAILED.failed, detail: String(raw ?? '').trim() || null, polars: false };
   }
   if (POLARS_UNAVAILABLE.test(text)) return { message: text, detail: null, polars: true };
+  if (CLOSED_WATER.test(text)) return { message: text, detail: null, polars: false, drawOnly: true };
   if (RAW_FORECAST_FAILURE.test(text) || RAW_NETWORK_FAILURE.test(text)) {
     return { message: FORECAST_LOAD_FAILED, detail: text, polars: false };
   }

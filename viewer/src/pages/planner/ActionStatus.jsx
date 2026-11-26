@@ -7,7 +7,8 @@ import { ACTION, progressLabel } from './plannerFeedback.js';
  *
  * - progress and "Route updated" style results are announced politely
  * - a failure is an alert with Retry, a way out for unavailable boat polars and
- *   the raw message kept under "Technical detail"
+ *   the raw message kept under "Technical detail"; when the coastline outline has
+ *   no water between the ends, the way out to Draw my route replaces Retry
  *
  * `source` separates two controls that start the same action (the Check button
  * and a time picked from the departure comparison).
@@ -32,11 +33,14 @@ export default function ActionStatus({
             </details>
           )}
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={onRetry} className="min-h-11 px-3 border border-ink/50 rounded-sm hover:bg-white/50">
-              {/* A failed refinement has released its comparison's inputs: the way on is a new comparison. */}
-              {kind === ACTION.gpx ? 'Choose another file' : kind === ACTION.refine ? 'Compare again' : 'Retry'}
-            </button>
-            {failed.polars && (
+            {/* No water joins the ends on the coastline outline: running the same search again cannot help. */}
+            {!failed.drawOnly && (
+              <button type="button" onClick={onRetry} className="min-h-11 px-3 border border-ink/50 rounded-sm hover:bg-white/50">
+                {/* A failed refinement has released its comparison's inputs: the way on is a new comparison. */}
+                {kind === ACTION.gpx ? 'Choose another file' : kind === ACTION.refine ? 'Compare again' : 'Retry'}
+              </button>
+            )}
+            {(failed.polars || failed.drawOnly) && (
               <button type="button" onClick={onSwitchToDraw} className="min-h-11 px-3 border border-ink/50 rounded-sm hover:bg-white/50">
                 Switch to Draw my route
               </button>
