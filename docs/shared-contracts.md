@@ -8,18 +8,19 @@ needs a sibling checkout.
 |---|---|---|---|
 | Four `forecast-*.schema.json` schemas: tile, manifest, latest, latest-regional | `passage/contracts/` | forecast-tiles | Passage; Tactician models the fields it uses |
 | PFT1 weather/ensemble codec golden objects and expectations | `forecast-tiles/tests/fixtures/golden-*` | forecast-tiles | Passage; Tactician retains the weather golden |
-| Three `land-index-*.schema.json` schemas and the Raz de Sein golden bundle | `forecast-tiles/contracts/` and `tests/fixtures/land-index-raz/` | forecast-tiles | Tactician `core/land` |
+| Three `land-index-*.schema.json` schemas and the Raz de Sein golden bundle | `forecast-tiles/contracts/` and `tests/fixtures/land-index-raz/` | forecast-tiles | Tactician `core/land`; Passage (vendored as `contracts/land-index-*.schema.json` and `engine/test/fixtures/land-index-raz/`, 2026-11-26) |
+| The published `nweu-20260825T07Z` routing index (manifest and four 10° tiles, 153,945 bytes gzipped) | the immutable objects `land-index/nweu-20260825T07Z/` on `forecast.deepregatta.com` | forecast-tiles | Passage, as a pinned copy in `viewer/public/data/land/nweu-20260825T07Z/` (2026-11-26); Tactician keeps its own acceptance copy |
 | `data-sources.schema.json` and forecast-tiles' register `data-sources.json` (`data-sources/schema-1`, 2026-11-11): licence, attribution, redistribution status and verified date per upstream source | `forecast-tiles/contracts/` | forecast-tiles | Passage (About page); vendored as `contracts/data-sources.schema.json` and `contracts/forecast-tiles-data-sources.json` |
 
 The lock records each canonical repository/path, `PFT1/schema-1` or
-`data-sources/schema-1` version (this lock holds no `TLI1` or `TCP1` rows), canonical Git blob revision (`git-blob:`), and SHA-256.
+`TLI1/schema-1` or `data-sources/schema-1` version (this lock holds no `TCP1` rows), canonical Git blob revision (`git-blob:`), and SHA-256.
 Blob revisions identify the already shared artifact bytes, without embedding
 private implementation commits or review evidence. Both revision and digest
 must agree for exact copies. Scoped Git attributes retain LF for pinned JSON
 and binary bytes for tiles, including `autocrlf=true` checkouts. The scripts also reject missing/duplicate inventory
 entries and any contract family whose consumer list the checker does not name
-(`PFT1`: Passage and Tactician; `TLI1`, `TCP1`: Tactician; `data-sources`:
-Passage). The format version is for the pin record, not a new wire schema.
+(`PFT1`, `TLI1`: Passage and Tactician; `TCP1`: Tactician; `data-sources`:
+Passage). forecast-tiles' own lock still names Tactician alone for `TLI1`. The format version is for the pin record, not a new wire schema.
 
 These are pins to a declared canonical revision, not a claim to track the latest
 upstream revision. An intentional canonical change requires explicit review:
@@ -40,6 +41,19 @@ repository.
 `contracts/shared-contracts.lock.json` pins all four canonical schemas and the
 four producer golden files consumed by `engine/test/tileCodec.test.ts`, and the
 vendored data-source schema and forecast-tiles register (added 2026-11-11).
+Since 2026-11-26 it also pins the three TLI1 schemas, the Raz de Sein golden
+(tile, `expected.json`, manifest) and the published `nweu-20260825T07Z` index.
+The nweu tiles are not Git files in forecast-tiles: their `canonical_path` is
+`published:` plus the bucket path, and the blob revision and SHA-256 identify the
+published bytes (equal, on 2026-11-26, to the bucket's objects and to Tactician's
+`core/harness/fixtures/land-index-nweu/`). Published index versions are
+immutable and the bucket keeps only the current and previous one per domain, so
+Passage serves its pinned copy from its own build instead of the bucket.
+`engine/test/landIndexCodec.test.ts` decodes the Raz golden (header, blocked
+count, checksum, probes, the Raz passage row), checks every nweu tile against
+its manifest's size and FNV-1a 64 checksum (taken over the gzipped object) and
+validates headers and the manifest against the pinned schemas. The router does
+not read the index yet.
 All are exact copies; no intentional artifact divergence exists.
 
 Passage's own register, `config/data-sources.json`, is not vendored: it uses the

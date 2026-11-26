@@ -11,3 +11,8 @@ engine/test/fixtures/tiles/golden-N40W010-weather.bin.gz -text
 engine/test/fixtures/tiles/golden-N40W010-weather.expected.json text eol=lf
 contracts/data-sources.schema.json text eol=lf
 contracts/forecast-tiles-data-sources.json text eol=lf
+contracts/land-index-*.schema.json text eol=lf
+engine/test/fixtures/land-index-raz/*.json text eol=lf
+engine/test/fixtures/land-index-raz/*.bin.gz -text
+viewer/public/data/land/nweu-20260825T07Z/manifest.json text eol=lf
+viewer/public/data/land/nweu-20260825T07Z/*.bin.gz -text

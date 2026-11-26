@@ -150,6 +150,171 @@
       "sha256": "b6676ca5a8e1df26cdf2929924faa343455fe1a70fc5614d377f6e67a36a309b",
       "representation": "exact",
       "intentional_divergence": null
+    },
+    {
+      "path": "contracts/land-index-latest.schema.json",
+      "canonical_repository": "forecast-tiles",
+      "canonical_path": "contracts/land-index-latest.schema.json",
+      "canonical_revision": "git-blob:7ad431f18517bd0146bc6331dd50af4052af05ab",
+      "contract": "TLI1/schema-1",
+      "producer": "forecast-tiles",
+      "consumers": [
+        "passage",
+        "tactician"
+      ],
+      "sha256": "11beac3742f26356cbe854b6938f4fb2fc9c8375a58e0c682ffbb560482c2abe",
+      "representation": "exact",
+      "intentional_divergence": null
+    },
+    {
+      "path": "contracts/land-index-manifest.schema.json",
+      "canonical_repository": "forecast-tiles",
+      "canonical_path": "contracts/land-index-manifest.schema.json",
+      "canonical_revision": "git-blob:36991de89b7f5d61147bbbde9172b0a908718cea",
+      "contract": "TLI1/schema-1",
+      "producer": "forecast-tiles",
+      "consumers": [
+        "passage",
+        "tactician"
+      ],
+      "sha256": "76e939caa9108f5f4de8580807b038eb193e8eb51fd9bd85cd1589878ad4c760",
+      "representation": "exact",
+      "intentional_divergence": null
+    },
+    {
+      "path": "contracts/land-index-tile.schema.json",
+      "canonical_repository": "forecast-tiles",
+      "canonical_path": "contracts/land-index-tile.schema.json",
+      "canonical_revision": "git-blob:a6311cb59af569eb21eb87b2fb69a10cefc72332",
+      "contract": "TLI1/schema-1",
+      "producer": "forecast-tiles",
+      "consumers": [
+        "passage",
+        "tactician"
+      ],
+      "sha256": "7d22da854da6e0f7d33156ef8ff25c1f969d0a08021e227daa35a1f3db23c790",
+      "representation": "exact",
+      "intentional_divergence": null
+    },
+    {
+      "path": "engine/test/fixtures/land-index-raz/N48W005.bin.gz",
+      "canonical_repository": "forecast-tiles",
+      "canonical_path": "tests/fixtures/land-index-raz/N48W005.bin.gz",
+      "canonical_revision": "git-blob:558859e64e6a6e09bea1ab7e161f878bd6d34236",
+      "contract": "TLI1/schema-1",
+      "producer": "forecast-tiles",
+      "consumers": [
+        "passage",
+        "tactician"
+      ],
+      "sha256": "046a01ca84a5c784846eb1927d37325efb7f4984bbe652a983fe39d5ab974682",
+      "representation": "exact",
+      "intentional_divergence": null
+    },
+    {
+      "path": "engine/test/fixtures/land-index-raz/expected.json",
+      "canonical_repository": "forecast-tiles",
+      "canonical_path": "tests/fixtures/land-index-raz/expected.json",
+      "canonical_revision": "git-blob:dfaeaaadb8f7c44b9dbd209967c7443dbec397d0",
+      "contract": "TLI1/schema-1",
+      "producer": "forecast-tiles",
+      "consumers": [
+        "passage",
+        "tactician"
+      ],
+      "sha256": "8ed51925b47c8413cf3a92ffdd8bb9526bdb5cb37c04c3bf501e5b384077e35e",
+      "representation": "exact",
+      "intentional_divergence": null
+    },
+    {
+      "path": "engine/test/fixtures/land-index-raz/manifest.json",
+      "canonical_repository": "forecast-tiles",
+      "canonical_path": "tests/fixtures/land-index-raz/manifest.json",
+      "canonical_revision": "git-blob:b0b6564734e7607b876309182df8745b008e5a4d",
+      "contract": "TLI1/schema-1",
+      "producer": "forecast-tiles",
+      "consumers": [
+        "passage",
+        "tactician"
+      ],
+      "sha256": "afc2cffa4c2cc5dac744e63ec5190acf52ab84f4ba51477bd189c134e72e4ad8",
+      "representation": "exact",
+      "intentional_divergence": null
+    },
+    {
+      "path": "viewer/public/data/land/nweu-20260825T07Z/manifest.json",
+      "canonical_repository": "forecast-tiles",
+      "canonical_path": "published:land-index/nweu-20260825T07Z/manifest.json",
+      "canonical_revision": "git-blob:f48ac084c57a2f122d44fee21590424edf54d478",
+      "contract": "TLI1/schema-1",
+      "producer": "forecast-tiles",
+      "consumers": [
+        "passage",
+        "tactician"
+      ],
+      "sha256": "d1749719a1701b93362befcbe3110e645df0a3452566304126b6a1de8b7c0459",
+      "representation": "exact",
+      "intentional_divergence": null
+    },
+    {
+      "path": "viewer/public/data/land/nweu-20260825T07Z/N40E000.bin.gz",
+      "canonical_repository": "forecast-tiles",
+      "canonical_path": "published:land-index/nweu-20260825T07Z/N40E000.bin.gz",
+      "canonical_revision": "git-blob:01cc05599aa54126177556760c20d814add97def",
+      "contract": "TLI1/schema-1",
+      "producer": "forecast-tiles",
+      "consumers": [
+        "passage",
+        "tactician"
+      ],
+      "sha256": "35f85a472fc947be57eafbb5fccd7287384efadf28412cf98521a09b510c8bba",
+      "representation": "exact",
+      "intentional_divergence": null
+    },
+    {
+      "path": "viewer/public/data/land/nweu-20260825T07Z/N40W010.bin.gz",
+      "canonical_repository": "forecast-tiles",
+      "canonical_path": "published:land-index/nweu-20260825T07Z/N40W010.bin.gz",
+      "canonical_revision": "git-blob:2b0aa1c447e4b74dee42e399545968f7351f82f5",
+      "contract": "TLI1/schema-1",
+      "producer": "forecast-tiles",
+      "consumers": [
+        "passage",
+        "tactician"
+      ],
+      "sha256": "67e91fbc6e813e46dd6a6c5a0ec3b944d464922d6e36702e61e11a59a88d53a8",
+      "representation": "exact",
+      "intentional_divergence": null
+    },
+    {
+      "path": "viewer/public/data/land/nweu-20260825T07Z/N50E000.bin.gz",
+      "canonical_repository": "forecast-tiles",
+      "canonical_path": "published:land-index/nweu-20260825T07Z/N50E000.bin.gz",
+      "canonical_revision": "git-blob:35402f6485710d2ee99ffcec83fc4da83fce0198",
+      "contract": "TLI1/schema-1",
+      "producer": "forecast-tiles",
+      "consumers": [
+        "passage",
+        "tactician"
+      ],
+      "sha256": "4cd2cde598340e1fcceb246c98ac7108123367f3d4bdc6bb9d526309c6f47989",
+      "representation": "exact",
+      "intentional_divergence": null
+    },
+    {
+      "path": "viewer/public/data/land/nweu-20260825T07Z/N50W010.bin.gz",
+      "canonical_repository": "forecast-tiles",
+      "canonical_path": "published:land-index/nweu-20260825T07Z/N50W010.bin.gz",
+      "canonical_revision": "git-blob:cc4925897a99d000f889939ab83c965fc3b81ebf",
+      "contract": "TLI1/schema-1",
+      "producer": "forecast-tiles",
+      "consumers": [
+        "passage",
+        "tactician"
+      ],
+      "sha256": "7b9399f203bb6fba8587b43a0452c9a95a087b627eb98d38df58a8f9b13952aa",
+      "representation": "exact",
+      "intentional_divergence": null
     }
   ],
   "releases": [

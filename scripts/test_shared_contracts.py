@@ -125,6 +125,9 @@ class ContractDriftTests(unittest.TestCase):
             # The PFT1 family keeps its list: no widening, no narrowing.
             ("contracts/forecast-latest.schema.json", ["passage"]),
             ("contracts/forecast-latest.schema.json", ["tactician"]),
+            # TLI1 names both readers of the routing index.
+            ("contracts/land-index-tile.schema.json", ["tactician"]),
+            ("nweu-20260825T07Z/N50W010.bin.gz", ["passage"]),
         ]
         for suffix, consumers in cases:
             with self.subTest(path=suffix, consumers=consumers):

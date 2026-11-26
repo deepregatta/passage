@@ -18,7 +18,9 @@ LOCK = "contracts/shared-contracts.lock.json"
 # new contract cannot silently default to a consumer list.
 CONSUMERS = {
     "PFT1": ["passage", "tactician"],
-    "TLI1": ["tactician"],
+    # Passage reads the routing index too (fine coastline for its router, added
+    # 2026-11-26); forecast-tiles' own lock still names Tactician alone.
+    "TLI1": ["passage", "tactician"],
     "TCP1": ["tactician"],
     "data-sources": ["passage"],
 }
@@ -83,6 +85,75 @@ EXPECTED = {
         "forecast-tiles",
         "contracts/data-sources.json",
         "data-sources/schema-1",
+        "exact",
+    ),
+    # TLI1: the three schemas and the Raz de Sein golden are forecast-tiles Git
+    # files; the nweu index is the immutable published object (bucket path after
+    # "published:"), which Passage serves from its own build.
+    "contracts/land-index-latest.schema.json": (
+        "forecast-tiles",
+        "contracts/land-index-latest.schema.json",
+        "TLI1/schema-1",
+        "exact",
+    ),
+    "contracts/land-index-manifest.schema.json": (
+        "forecast-tiles",
+        "contracts/land-index-manifest.schema.json",
+        "TLI1/schema-1",
+        "exact",
+    ),
+    "contracts/land-index-tile.schema.json": (
+        "forecast-tiles",
+        "contracts/land-index-tile.schema.json",
+        "TLI1/schema-1",
+        "exact",
+    ),
+    "engine/test/fixtures/land-index-raz/N48W005.bin.gz": (
+        "forecast-tiles",
+        "tests/fixtures/land-index-raz/N48W005.bin.gz",
+        "TLI1/schema-1",
+        "exact",
+    ),
+    "engine/test/fixtures/land-index-raz/expected.json": (
+        "forecast-tiles",
+        "tests/fixtures/land-index-raz/expected.json",
+        "TLI1/schema-1",
+        "exact",
+    ),
+    "engine/test/fixtures/land-index-raz/manifest.json": (
+        "forecast-tiles",
+        "tests/fixtures/land-index-raz/manifest.json",
+        "TLI1/schema-1",
+        "exact",
+    ),
+    "viewer/public/data/land/nweu-20260825T07Z/manifest.json": (
+        "forecast-tiles",
+        "published:land-index/nweu-20260825T07Z/manifest.json",
+        "TLI1/schema-1",
+        "exact",
+    ),
+    "viewer/public/data/land/nweu-20260825T07Z/N40E000.bin.gz": (
+        "forecast-tiles",
+        "published:land-index/nweu-20260825T07Z/N40E000.bin.gz",
+        "TLI1/schema-1",
+        "exact",
+    ),
+    "viewer/public/data/land/nweu-20260825T07Z/N40W010.bin.gz": (
+        "forecast-tiles",
+        "published:land-index/nweu-20260825T07Z/N40W010.bin.gz",
+        "TLI1/schema-1",
+        "exact",
+    ),
+    "viewer/public/data/land/nweu-20260825T07Z/N50E000.bin.gz": (
+        "forecast-tiles",
+        "published:land-index/nweu-20260825T07Z/N50E000.bin.gz",
+        "TLI1/schema-1",
+        "exact",
+    ),
+    "viewer/public/data/land/nweu-20260825T07Z/N50W010.bin.gz": (
+        "forecast-tiles",
+        "published:land-index/nweu-20260825T07Z/N50W010.bin.gz",
+        "TLI1/schema-1",
         "exact",
     ),
 }
