@@ -120,5 +120,6 @@
   "Downloads up to 2.5 MB of forecast tiles": "Téléchargement : jusqu’à 2,5 Mo de tuiles de prévision",
   "Downloads up to 800 kB of forecast tiles": "Téléchargement : jusqu’à 800 ko de tuiles de prévision",
   "Downloads at least 12 MB of forecast tiles": "Téléchargement : au moins 12 Mo de tuiles de prévision",
-  "Forecast tiles already on this device": "Tuiles de prévision déjà présentes sur cet appareil"
+  "Forecast tiles already on this device": "Tuiles de prévision déjà présentes sur cet appareil",
+  "No route found: on the outline of the coast the router uses, no open water joins the start and the finish. A channel between them is too narrow for it or dries at low tide. Use Draw my route instead.": "Aucune route trouvée : sur le tracé de la côte qu’utilise le calcul, aucune eau libre ne relie le départ et l’arrivée. Un chenal entre les deux y est trop étroit ou découvre à basse mer. Utilisez plutôt « Tracer ma route »."
 }

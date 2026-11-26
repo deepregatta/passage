@@ -1,21 +1,9 @@
 import {
   decodeLandIndexTile, fnv1a64Hex, parseLandIndexManifest, routingLandMask, windowLandMask,
 } from '@deepweather/engine';
+import { FINE_LAND_ENABLED, FINE_LAND_INDEX } from './fineLandSwitch.js';
 
-/**
- * The fine routing index (TLI1, 1/480°: land, drying areas and a 200 m buffer) for the
- * English Channel, Brittany, Biscay and the southern North Sea: forecast-tiles'
- * published nweu-20260825T07Z, served from this site as a pinned copy
- * (contracts/shared-contracts.lock.json, docs/shared-contracts.md).
- */
-export const FINE_LAND_INDEX = '/data/land/nweu-20260825T07Z';
-/**
- * Whether computed routes read the fine index where it has tiles. Off: every route
- * reads the 0.05° outline alone, as before. Turning it on changes computed routes on
- * the public site, and the credits and wording that go with it, so it needs the
- * owner's approval.
- */
-export const FINE_LAND_ENABLED = false;
+export { FINE_LAND_ENABLED, FINE_LAND_INDEX };
 
 let packedMaskPromise;
 let fineManifestPromise;

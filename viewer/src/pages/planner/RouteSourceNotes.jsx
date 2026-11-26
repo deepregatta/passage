@@ -17,6 +17,12 @@ const CAVEATS = {
  * is not a navigable track.
  */
 const NOT_FOR_NAVIGATION = 'Not for navigation. This route avoids only a coarse outline of the coast: rocks, shoals and small islands are not in it. Check it on a chart before you sail it.';
+/**
+ * The same caution for a route computed on the fine routing index (its provenance records
+ * `land_index`): land and drying areas on a 1/480° grid with a 200 m buffer, no single
+ * rocks (owner-approved wording, 2026-11-26).
+ */
+const FINE_NOT_FOR_NAVIGATION = 'Not for navigation. This route avoids land and areas that dry at low tide as a 230 m grid shows them, with a margin of about 200 m; the grid can be wrong, and single rocks and shallows that do not dry are not in it. Check it on a chart before you sail it.';
 
 /** A route the engine confined to the prepared current grid's box says so (it records the area it searched). */
 const CONFINED_NOTE = 'Routed inside the area the regional current model covers; the route could not go outside it.';
@@ -46,9 +52,10 @@ export default function RouteSourceNotes({ computed, nowMs }) {
   const currents = computed?.currents;
   const notes = computed?.notes ?? [];
   const confined = Boolean(computed?.route?.provenance?.routing_request?.search_bounds);
+  const fine = Boolean(computed?.route?.provenance?.routing_request?.land_index);
   return (
     <>
-      <p className="text-[13px] border-l-2 border-ink/50 pl-2" data-testid="route-not-for-navigation">{NOT_FOR_NAVIGATION}</p>
+      <p className="text-[13px] border-l-2 border-ink/50 pl-2" data-testid="route-not-for-navigation">{fine ? FINE_NOT_FOR_NAVIGATION : NOT_FOR_NAVIGATION}</p>
       {currents && (
         <p className="text-[12px] text-ink-soft" data-testid="route-currents">
           <span>Currents</span> · <span>{currentModelFamily(currents.model)?.name ?? 'Model not recorded'}</span>

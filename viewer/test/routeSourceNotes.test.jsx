@@ -177,3 +177,21 @@ describe.each(['en', 'fr'])('the age of the prepared current grid in %s', (langu
     expect(view.queryByTestId('route-currents-age')).toBeNull();
   });
 });
+
+// On the fine routing index (owner-approved wording, 2026-11-26): what the route avoids, and that the grid can be wrong.
+const FINE_NOT_FOR_NAVIGATION = {
+  en: 'Not for navigation. This route avoids land and areas that dry at low tide as a 230 m grid shows them, with a margin of about 200 m; the grid can be wrong, and single rocks and shallows that do not dry are not in it. Check it on a chart before you sail it.',
+  fr: 'Pas pour la navigation. Cette route évite la terre et les zones qui découvrent à basse mer telles qu’une grille de 230 m les représente, avec une marge d’environ 200 m\u00A0; la grille peut être fausse, et les roches isolées et les petits fonds qui ne découvrent pas n’y figurent pas. Vérifiez-la sur une carte avant de la suivre.',
+};
+
+describe.each(['en', 'fr'])('the navigation caution under a route computed on the fine routing index in %s', (language) => {
+  it('says what the fine grid avoids, and only for a route that recorded it', async () => {
+    const fine = { notes: [], route: { provenance: { routing_request: { land_index: 'nweu-20260825T07Z' } } } };
+    const view = render(<div id="root"><RouteSourceNotes computed={fine} /><LocalizedDocument language={language} /></div>);
+    await waitFor(() => expect(view.getByTestId('route-not-for-navigation').textContent).toBe(FINE_NOT_FOR_NAVIGATION[language]));
+    view.unmount();
+    const outline = { notes: [], route: { provenance: { routing_request: {} } } };
+    const other = render(<div id="root"><RouteSourceNotes computed={outline} /><LocalizedDocument language={language} /></div>);
+    await waitFor(() => expect(other.getByTestId('route-not-for-navigation').textContent).toBe(NOT_FOR_NAVIGATION[language]));
+  });
+});

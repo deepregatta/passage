@@ -114,6 +114,8 @@ const FR = {
   "What the files behind Passage record about each source. A licence shown here is a record, not a check of the provider’s current terms. Where redistribution is not yet confirmed, do not assume the data may be reused or passed on.": "Ce que consignent les fichiers de Passage sur chaque source. Une licence affichée ici est une mention consignée, pas une vérification des conditions actuelles du fournisseur. Lorsque la redistribution n’est pas encore confirmée, ne supposez pas que les données peuvent être réutilisées ou transmises.",
   "Forecast model data": "Données des modèles de prévision",
   "Other feeds and map layers": "Autres flux et fonds de carte",
+  "Coastline for computed routes": "Trait de côte des routes calculées",
+  'Computed routes in the Channel, Brittany, Biscay and the southern North Sea avoid land as a routing index built from these two sources shows it. EMODnet’s bathymetry is not for navigation, and neither is this index.': 'Dans la Manche, en Bretagne, dans le golfe de Gascogne et dans le sud de la mer du Nord, les routes calculées évitent la terre telle que la représente un index de routage construit à partir de ces deux sources. La bathymétrie d’EMODnet n’est pas destinée à la navigation, pas plus que cet index.',
   "Share-alike": "Partage dans les mêmes conditions",
   "Verified on": "Vérifié le",
   "Not yet confirmed": "Pas encore confirmé",
@@ -152,6 +154,7 @@ const FR = {
   'The grid of this currents model is coarser than Passage aims for.': 'La grille de ce modèle de courants est plus grossière que celle visée par Passage.',
   // Owner-approved 2026-11-25: the router's coarse land outline is not a chart (planner, under every computed route; check page, under the chart of a computed route).
   'Not for navigation. This route avoids only a coarse outline of the coast: rocks, shoals and small islands are not in it. Check it on a chart before you sail it.': 'Pas pour la navigation. Cette route n’évite qu’un tracé approximatif de la côte\u00A0: les rochers, les hauts-fonds et les petites îles n’y figurent pas. Vérifiez-la sur une carte avant de la suivre.',
+  'Not for navigation. This route avoids land and areas that dry at low tide as a 230 m grid shows them, with a margin of about 200 m; the grid can be wrong, and single rocks and shallows that do not dry are not in it. Check it on a chart before you sail it.': 'Pas pour la navigation. Cette route évite la terre et les zones qui découvrent à basse mer telles qu’une grille de 230 m les représente, avec une marge d’environ 200 m\u00A0; la grille peut être fausse, et les roches isolées et les petits fonds qui ne découvrent pas n’y figurent pas. Vérifiez-la sur une carte avant de la suivre.',
   'Computed route · not for navigation': 'Route calculée · pas pour la navigation',
   'Routed inside the area the regional current model covers; the route could not go outside it.': 'Route calculée à l’intérieur de la zone couverte par le modèle régional de courants ; elle ne pouvait pas en sortir.',
   'The current grid does not cover every point and time the router reads': 'La grille de courants ne couvre pas tous les points et instants lus par le routeur',
@@ -217,6 +220,7 @@ const FR = {
   "Start or finish is on land": "Le départ ou l’arrivée se trouve à terre",
   "No sea node near start/finish": "Aucun point en mer près du départ ou de l’arrivée",
   // ClosedWaterError (engine isochrone.ts): the coarse coastline outline leaves no open water between start and finish.
+  "No route found: on the outline of the coast the router uses, no open water joins the start and the finish. A channel between them is too narrow for it or dries at low tide. Use Draw my route instead.": "Aucune route trouvée : sur le tracé de la côte qu’utilise le calcul, aucune eau libre ne relie le départ et l’arrivée. Un chenal entre les deux y est trop étroit ou découvre à basse mer. Utilisez plutôt « Tracer ma route ».",
   "No route found: on the coarse outline of the coast, no open water joins the start and the finish. A strait or channel between them is too narrow to be in it. Use Draw my route instead.": "Aucune route trouvée : sur le tracé approximatif de la côte, aucune eau libre ne relie le départ et l’arrivée. Un détroit ou un chenal entre les deux est trop étroit pour y figurer. Utilisez plutôt « Tracer ma route ».",
   // SearchBoundsError (engine isochrone.ts): a comparison departure keeps 'no-route' as its skip reason.
   "No route found inside the area the route may search": "Aucune route trouvée dans la zone de recherche autorisée",

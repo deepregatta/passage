@@ -315,6 +315,17 @@ file, another version) routes on the outline and tries again for the next route.
 `viewer/test/landMaskFine.test.js` covers the switch being off, the fetches, each
 failure, and Cowes → Cherbourg through the loader and the router: the fine index
 snaps the Medina-mouth start under 0.6 nm, the outline over 5 nm out.
+The wording that goes with it is in place and waits on the same switch (owner-
+approved, 2026-11-26): a route whose ends or graph nodes lie in a fine cell
+records `land_index`, and its not-for-navigation note says it avoids land and
+drying areas as a 230 m grid shows them, with a margin of about 200 m, that the
+grid can be wrong and that single rocks are not in it (`routeSourceNotes.test.jsx`);
+closed water on the fine index has its own message, which the planner, by the
+error's code or either message, answers with Draw my route
+(`plannerFeedback.test.jsx`, `i18nLeaks.test.jsx`, `routingFineLand.test.ts`);
+and the About page credits GSHHG and EMODnet in a "Coastline for computed routes"
+group with their register lines and a note, only while the switch is on
+(`aboutLandSources.test.jsx`; `aboutPage.test.jsx` keeps them hidden while off).
 
 The mask itself (`viewer/public/data/land/global-005.*`) is built by
 `analysis/scripts/build_global_land_mask.py` with

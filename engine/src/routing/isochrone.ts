@@ -120,9 +120,13 @@ export class SearchBoundsError extends Error {
  */
 export class ClosedWaterError extends Error {
   readonly code = 'closed-water';
-  constructor() {
-    super('No route found: on the coarse outline of the coast, no open water joins the start and the finish. ' +
-      'A strait or channel between them is too narrow to be in it. Use Draw my route instead.');
+  /** @param fine whether the mask was the fine routing-index window (its own wording, owner-approved 2026-11-26) */
+  constructor(fine = false) {
+    super(fine
+      ? 'No route found: on the outline of the coast the router uses, no open water joins the start and the finish. ' +
+        'A channel between them is too narrow for it or dries at low tide. Use Draw my route instead.'
+      : 'No route found: on the coarse outline of the coast, no open water joins the start and the finish. ' +
+        'A strait or channel between them is too narrow to be in it. Use Draw my route instead.');
     this.name = 'ClosedWaterError';
   }
 }
@@ -151,15 +155,18 @@ interface GraphLayer {
 export const END_PATCH_STRIDE_CELLS = 1;
 export const END_PATCH_HALF_CELLS = 72;
 
-/** Whether an end lies in a fine routing-index cell: the only case end patches are made for. */
-function endInFineCell(mask: RoutingLandMask, ends: Array<{ lat: number; lon: number }>): boolean {
+/** Whether one of `points` lies in a fine routing-index cell of the mask. */
+function inFineCell(mask: RoutingLandMask, points: Array<{ lat: number; lon: number }>): boolean {
   if (mask.kind !== 'land_cells' || !mask.fine_index_id || !mask.fineAt) return false;
-  return ends.some((p) => {
+  return points.some((p) => {
     const i = Math.round((p.lat - mask.lat0) / mask.dlat);
     const j = Math.round((p.lon - mask.lon0) / mask.dlon);
     return i >= 0 && i < mask.nlat && j >= 0 && j < mask.nlon && mask.fineAt!(i, j);
   });
 }
+
+/** Whether an end lies in a fine routing-index cell: the only case end patches are made for. */
+const endInFineCell = inFineCell;
 
 /**
  * The fine grids the router adds around its ends: one around each end that lies in a fine
@@ -253,7 +260,9 @@ function routeOnGraph(request: RoutingRequest, withEndPatches: boolean): Routing
   // Only on a failure: a flood fill over the land mask says whether any sea joins the two ends.
   const noRoute = () => {
     if (clipped) return new SearchBoundsError('no-route');
-    if (landMask && !seaJoinsPoints(landMask, startPoint, finishPoint, graphReachesBeyondMask())) return new ClosedWaterError();
+    if (landMask && !seaJoinsPoints(landMask, startPoint, finishPoint, graphReachesBeyondMask())) {
+      return new ClosedWaterError(landMask.kind === 'land_cells' && landMask.fine_index_id !== null);
+    }
     return new Error(`No route found within ${request.maxHours ?? 48} h (wind coverage, land, or no-go conditions)`);
   };
   // The graph can reach past the mask (an end near or outside its edge grows the graph to include it),
@@ -757,11 +766,10 @@ function routeOnGraph(request: RoutingRequest, withEndPatches: boolean): Routing
         wind_run: windGrid.run_id,
         current_run: currentGrid?.run_id ?? null,
         resolution_deg: Math.round(res * 1000) / 1000,
-        // Only on the fine routing index with an end patch: that index and the patches' node spacing.
-        ...(layers.length > 1 && landMask?.kind === 'land_cells' ? {
-          land_index: landMask.fine_index_id,
-          end_resolution_deg: Math.round(layers[1]!.res * 1e6) / 1e6,
-        } : {}),
+        // Only when a point of the route (an end or a graph node) lies in a fine routing-index cell:
+        // that index; and with end patches, their node spacing.
+        ...(landMask?.kind === 'land_cells' && inFineCell(landMask, path) ? { land_index: landMask.fine_index_id } : {}),
+        ...(layers.length > 1 ? { end_resolution_deg: Math.round(layers[1]!.res * 1e6) / 1e6 } : {}),
         // Only when searchBounds held the search back: the extent of the graph nodes it could use.
         ...(clipped ? { search_bounds: {
           minLat: rounded(lat0 + main.rowIn.indexOf(true) * res), maxLat: rounded(lat0 + main.rowIn.lastIndexOf(true) * res),

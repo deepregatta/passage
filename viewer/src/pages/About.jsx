@@ -6,7 +6,11 @@ import { GLOSSARY } from '../lib/glossary.jsx';
 import { loadJson } from '../lib/verification.js';
 import { PlanBackLink } from '../components/BackLink.jsx';
 import { SourceGroup } from '../components/SourceTerms.jsx';
-import { FORECAST_SOURCES, OTHER_SOURCES } from '../lib/dataSources.js';
+import { FORECAST_SOURCES, LAND_SOURCES, OTHER_SOURCES } from '../lib/dataSources.js';
+import { FINE_LAND_ENABLED } from '../lib/fineLandSwitch.js';
+
+/** Under the fine coastline's credits (owner-approved wording, 2026-11-26). */
+const LAND_SOURCES_NOTE = 'Computed routes in the Channel, Brittany, Biscay and the southern North Sea avoid land as a routing index built from these two sources shows it. EMODnet’s bathymetry is not for navigation, and neither is this index.';
 import { ERA5_CREDIT } from '../lib/credits.js';
 import { OWNED } from '../lib/passages.js';
 
@@ -130,6 +134,9 @@ export default function About() {
           </p>
           <SourceGroup title="Forecast model data" sources={FORECAST_SOURCES} />
           <SourceGroup title="Other feeds and map layers" sources={OTHER_SOURCES} />
+          {FINE_LAND_ENABLED && (
+            <SourceGroup title="Coastline for computed routes" sources={LAND_SOURCES} note={LAND_SOURCES_NOTE} />
+          )}
         </section>
       </Panel>
 

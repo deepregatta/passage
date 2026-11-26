@@ -14,6 +14,8 @@ export const NOT_PASSAGE_USERS = ['land', 'charts'];
 const usedByPassage = (source) => source.used_by.some((user) => !NOT_PASSAGE_USERS.includes(user));
 
 export const FORECAST_SOURCES = tilesRegister.sources.filter(usedByPassage);
+/** The routing index's sources (GSHHG, EMODnet), credited while computed routes read the fine index. */
+export const LAND_SOURCES = tilesRegister.sources.filter((source) => source.used_by.includes('land'));
 export const OTHER_SOURCES = ownRegister.sources;
 
 /** A source is confirmed once its redistribution answer is yes or no; the

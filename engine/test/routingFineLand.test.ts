@@ -117,10 +117,22 @@ describe('computed routes on the fine routing index', () => {
     expect(throughGoulet).toBe(true);
   }, 60_000);
 
-  it('the Golfe du Morbihan stays closed water', () => {
+  it('the Golfe du Morbihan stays closed water, said in the fine index’s own words', () => {
     const { landMask, from, run } = route({ lat: 47.6, lon: -2.8 }, { lat: 47.5, lon: -2.95 });
     expect(isLand(landMask, from.lat, from.lon)).toBe(false);
     expect(run).toThrow(ClosedWaterError);
+    // Owner-approved wording, 2026-11-26.
+    const message = (() => { try { run(); return null; } catch (error) { return (error as Error).message; } })();
+    expect(message).toBe('No route found: on the outline of the coast the router uses, no open water joins the start and the finish. ' +
+      'A channel between them is too narrow for it or dries at low tide. Use Draw my route instead.');
+  }, 60_000);
+
+  it('records the fine index on a route it touches, and not on a route outside it', () => {
+    const { run } = route({ lat: 50.766, lon: -1.298 }, { lat: 50.76, lon: -1.10 });
+    expect(run().route.provenance?.routing_request).toMatchObject({ land_index: 'nweu-20260825T07Z' });
+    const gibraltar = route({ lat: 36.0, lon: -6.5 }, { lat: 36.6, lon: -4.4 });
+    expect(gibraltar.landMask.kind).toBe('land_mask');
+    expect(gibraltar.run().route.provenance?.routing_request).not.toHaveProperty('land_index');
   }, 60_000);
 
   it('Hurst narrows stays closed: the West Solent to the Needles goes round the Isle of Wight', () => {

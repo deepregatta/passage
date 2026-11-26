@@ -29,12 +29,13 @@ function Row({ label, pending, children }) {
 /** One closed-by-default group of source cards. The native details/summary keeps
  * keyboard and screen-reader behaviour; the summary is a 44 px touch target and
  * says how many sources the group holds and how many are not yet confirmed. */
-export function SourceGroup({ title, sources }) {
+export function SourceGroup({ title, sources, note = null }) {
   return (
     <details className="group border-b hairline">
       <summary className="min-h-11 py-2.5 cursor-pointer font-sans text-[13px] font-medium">
         {groupSummary(title, sources)}
       </summary>
+      {note && <p className="font-sans text-[13px] text-ink-soft" data-testid="source-group-note">{note}</p>}
       <SourceTerms sources={sources} />
     </details>
   );

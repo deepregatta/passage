@@ -80,9 +80,11 @@ export const SAVE_FAILED = Object.freeze({
 });
 
 const POLARS_UNAVAILABLE = /^Boat polars are unavailable/;
-// The engine's ClosedWaterError (only its message survives a worker): the same search again cannot
-// succeed, so the alert offers Draw my route in place of Retry.
-const CLOSED_WATER = /^No route found: on the coarse outline of the coast, /;
+// The engine's ClosedWaterError, on the 0.05° outline or on the fine routing index: the same search
+// again cannot succeed, so the alert offers Draw my route in place of Retry. Known by its code where
+// the failure kept it, else by the start of either message.
+const CLOSED_WATER = /^No route found: on the (?:coarse outline of the coast|outline of the coast the router uses), /;
+const CLOSED_WATER_CODE = 'closed-water';
 const RAW_FORECAST_FAILURE = /^forecast (?:tile )?(?:fetch (?:failed|timed out)|invalid)/i;
 const RAW_NETWORK_FAILURE = /^(?:TypeError: )?(?:Failed to fetch|NetworkError|Network request failed|Load failed)/i;
 
@@ -94,15 +96,16 @@ const RAW_NETWORK_FAILURE = /^(?:TypeError: )?(?:Failed to fetch|NetworkError|Ne
  * always gets its plain sentence; the browser's own text stays the detail.
  * @param {unknown} raw
  * @param {string | null} [saveFailure]
+ * @param {string | null} [code] the error's own code, where it had one
  * @returns {{message: string, detail: string | null, polars: boolean}}
  */
-export function friendlyError(raw, saveFailure = null) {
+export function friendlyError(raw, saveFailure = null, code = null) {
   const text = String(raw ?? '').trim() || 'Something went wrong. Please try again.';
   if (saveFailure) {
     return { message: SAVE_FAILED[saveFailure] ?? SAVE_FAILED.failed, detail: String(raw ?? '').trim() || null, polars: false };
   }
   if (POLARS_UNAVAILABLE.test(text)) return { message: text, detail: null, polars: true };
-  if (CLOSED_WATER.test(text)) return { message: text, detail: null, polars: false, drawOnly: true };
+  if (code === CLOSED_WATER_CODE || CLOSED_WATER.test(text)) return { message: text, detail: null, polars: false, drawOnly: true };
   if (RAW_FORECAST_FAILURE.test(text) || RAW_NETWORK_FAILURE.test(text)) {
     return { message: FORECAST_LOAD_FAILED, detail: text, polars: false };
   }

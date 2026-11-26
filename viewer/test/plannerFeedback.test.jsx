@@ -156,6 +156,26 @@ it('offers Draw my route, not Retry, when the coastline outline leaves no open w
   expect(screen.queryByRole('alert')).not.toBeInTheDocument();
 });
 
+it('offers Draw my route, not Retry, when the fine coastline leaves no open water between the ends', async () => {
+  loadRoutingInputs.mockRejectedValueOnce(new Error('No route found: on the outline of the coast the router uses, no open water joins the start and the finish. ' +
+    'A channel between them is too narrow for it or dries at low tide. Use Draw my route instead.'));
+  render(<Planner />);
+  fireEvent.click(computeButton());
+  expect(await screen.findByRole('alert')).toHaveTextContent('dries at low tide');
+  expect(within(near(computeButton())).queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Switch to Draw my route' }));
+  expect(usePlanner.getState().mode).toBe('draw');
+});
+
+it('offers Draw my route for a closed-water error by its code, whatever its words', async () => {
+  loadRoutingInputs.mockRejectedValueOnce(Object.assign(new Error('Some other wording of closed water.'), { code: 'closed-water' }));
+  render(<Planner />);
+  fireEvent.click(computeButton());
+  expect(await screen.findByRole('alert')).toHaveTextContent('Some other wording of closed water.');
+  expect(within(near(computeButton())).queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Switch to Draw my route' })).toBeInTheDocument();
+});
+
 it('reports a Check failure under the Check button and a Scan failure under the scan button', async () => {
   await act(async () => { usePlanner.setState({ mode: 'draw', waypoints: [{ lat: 50.5, lng: -1.5 }, { lat: 50.6, lng: -1.4 }] }); });
   analyzeInBrowser.mockRejectedValueOnce(new Error('Snapshot write failed: HTTP 500'));
