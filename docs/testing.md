@@ -306,6 +306,16 @@ checked by the exact walk on the fine window. `npm run bench:routing -w engine -
 scan routed 8–12 % slower than on the outline (77 nm 1.19 s against 1.09 s, Biscay
 2.83 s against 2.61 s); a departure that needs the patches took about 0.1 s more.
 
+The planner's loader (`viewer/src/lib/landMask.js`) reads the fine index only
+when `FINE_LAND_ENABLED` is on, and it is off: every computed route on the public
+site still reads the 0.05° outline alone. When on, it fetches the pinned manifest
+once and only the 10° tiles a window meets, checks each against the manifest's size
+and FNV-1a 64 checksum before decoding, and on any failure (a missing or changed
+file, another version) routes on the outline and tries again for the next route.
+`viewer/test/landMaskFine.test.js` covers the switch being off, the fetches, each
+failure, and Cowes → Cherbourg through the loader and the router: the fine index
+snaps the Medina-mouth start under 0.6 nm, the outline over 5 nm out.
+
 The mask itself (`viewer/public/data/land/global-005.*`) is built by
 `analysis/scripts/build_global_land_mask.py` with
 `analysis/src/deepweather_analysis/coastline.py`. Its metadata records the rule:
