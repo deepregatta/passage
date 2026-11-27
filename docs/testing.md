@@ -246,11 +246,13 @@ sampler flagged; `routing.test.ts` runs `computeRoute` at a wall whose only gap 
 a pinch corner, with graph nodes on cell corners, and gets no route.
 
 When a search fails and no sea joins the start and the finish edge to edge on that
-mask (`seaJoinsPoints` in `landmask.ts`, a flood fill run only after the failure),
-`computeRoute` throws `ClosedWaterError` and the planner says that a strait or channel
-too narrow for the coarse outline may be the cause and points to Draw my route. Any
-other failure keeps its usual message, and so does a search that `searchBounds` held
-back (its callers retry without the box). The fill stays inside the mask window.
+mask, not even with all water beyond the window counted as sea (`seaWayInWindow` in
+`landmask.ts`, two flood fills run only after the failure: one end's water is then
+enclosed in the window), `computeRoute` throws `ClosedWaterError` and the planner says
+that a strait or channel too narrow for the coarse outline may be the cause and points
+to Draw my route. Any other failure keeps its usual message: a window that does not
+join the ends while both ends' water runs off its edge, and a search that
+`searchBounds` held back (its callers retry without the box).
 
 The router never uses a graph node outside the mask's cells (2026-11-26). Its
 graph is rounded to whole rows and columns and grown 0.1° round the ends, so its
@@ -260,8 +262,8 @@ France through such nodes, on the outline and on the fine index alike (independe
 review of 6c5cfda). Those nodes are now never expanded or joined to an end, and an
 end outside the window is refused ("Start or finish lies outside the land mask";
 the planner never sends one: its window is the route box, at least 0.5° round both
-ends, and it snaps the ends inside it). The windows are crops of a whole-globe
-outline (lat −90..90, lon −180..180), so no real open sea beyond one is lost.
+ends, and it snaps the ends inside it). A way round outside the window is searched
+on a larger window (below).
 Compared on 700 random outline passages (uniform winds, 8 directions, four
 regions, before and after): 693 identical; four failures now say closed water
 instead of the generic message (their only water past the window); one route that
@@ -271,9 +273,60 @@ Black Sea route takes the same 27.2 h and 130.2 nm with its tacks in another
 order (a tie broken differently once the outside nodes leave the queue).
 `routingFineLand.test.ts` routes the review's four cases on both masks with every
 waypoint inside the window. `routing.test.ts` covers the walls, the corner
-pinch, the window edge (a wall across the window is closed water even with the
-start 0.03° from its edge) and a random-mask soundness check, `landmask.test.ts` the helper,
+pinch, the window edge (a wall across the window keeps the generic message even with
+the start 0.03° from its edge; across an enclosed basin it is closed water) and a
+random-mask soundness check, `landmask.test.ts` the helper,
 and `viewer/test/plannerComputed.test.jsx` the English and French planner text.
+The planner routes on a larger window when the route box leaves out the way round
+(2026-11-27, third independent review of bc697db: of 393 random coastal passages on
+the outline, 33 got the closed-water message, and in 29 the ends were joined by water
+just outside the window: Falmouth → Padstow and the Bristol Channel → Plymouth round
+Land's End, Vigo → La Coruña round Cape Finisterre, the south of Taiwan, Cape Leeuwin).
+`routingWindow` (`engine/src/routing/routingWindow.ts`), called by `loadRoutingInputs`
+after the ends are snapped on the route box: when the box's window neither joins the
+ends nor proves them apart (`seaWayInWindow` 'beyond'), it tries windows 1°, 2°, 4°,
+8° and 16° larger on every side (`ROUTE_WINDOW_GROWTH_DEG`). The first that joins them
+is cut down to the route box and the shortest way by sea between the ends (`seaWay`,
+a shortest path over the window's sea cells) with 0.5° round it, when that shortens
+the window's longer side (the graph's node spacing is that side / 150); the forecast
+is read over it, and the horizon is that way's length at 4 kt when longer than the
+straight line's (48–240 h). A larger window that proves the ends apart (one end's
+water enclosed in it) keeps the route box for the search, with that window's mask, so
+the router says closed water without reading any forecast for it. When even the
+16° window does neither, the route box stays and the router gives its generic
+failure. The ends stay where they were snapped on the route box; a passage the route
+box joins is routed exactly as before. The outline's cell centred at 180°E (its
+column at −180°) is now part of a window that reaches 180°, so an end east of
+179.975°E routes again instead of "Start or finish lies outside the land mask".
+`engine/test/routingWindow.test.ts` routes the review's cases on the real outline
+(Hokkaido → Sakhalin in an easterly is no longer called closed water, but the graph
+of that 9.7° window, 0.065° between nodes, does not thread its straits: a limit of the
+router's graph, not of the window), checks the sounds behind the Outer Banks stay
+closed water and Belize → the Gulf of Fonseca (round Cape Horn on an outline without
+the Panama Canal) gets the generic failure, and the cell at 180°E;
+`viewer/test/routingInputs.test.js` the loader. Old (bc697db) against new on the
+planner's steps, uniform 14 kt winds in 8 directions: 1,254 random coastal passages
+worldwide, 98 more between 165°E and 180°, the 45 harbour pairs of the reviews in
+three winds and 21 harbour-to-harbour passages in two, on the outline and on the
+fine index. No route the old code found changed or now fails: between 165°E and
+180° four routes whose window now holds the column at 180° differ only in the
+search's `steps_used`. Newly routed: 57 random, 3 near 180° (one from an end at 180°E) and 11 harbour cases on
+each mask, every leg clear of the window's land by the router's own check. Changed
+failures: 14 random and 1 near 180° went from closed water to the generic failure
+(the way round lies beyond the largest window or past 180°: Panama, the Malacca
+Strait, the Canadian Arctic; or it was found but the search failed: Hokkaido →
+Sakhalin, the Gulf of California round Baja, the Golfe du Lion → La Rochelle by
+Gibraltar); near 180° one more fails with the generic message instead of "outside
+the land mask". An Aegean → Black Sea passage keeps closed water (the outline closes
+the Bosporus; the 16° window proves it). Cost, in the 69 random passages that
+grew: choosing the window took 3 ms (median, 37 ms at most), the whole route 52 ms
+against 11 ms for the old failure; 51 read no more forecast tiles, 18 read one to
+four more 10° tiles of wind and of currents
+(about 1.9 MB a tile pair at N40W010's sizes). On the fine index (switched off) the
+choice took 0.3 s, and 1.5 s for Poole → Windermere; measure it before turning the
+fine index on. Not measured on a phone; the download quote shown before Compute still
+counts the route box alone.
+
 Seen on the public site on 2026-11-26 with the rebuilt outline: a route computed
 through the Strait of Gibraltar (104 nm, 12.3 h, with the not-for-navigation note),
 and Sea of Marmara → Black Sea gave the closed-water message in English and French.
@@ -352,8 +405,8 @@ route on the fine tiles (most ends within 3 km of the point asked for; Liverpool
 drying banks and the Golfe du Morbihan 10.6 km, out of the gulf, where the outline
 snaps 3 to 25 km); Plymouth Sound to the Rade de Brest now routes in every wind
 from 150° to 210° as well; Vigo to
-La Coruña is closed water on the outline and on the fine tiles alike (its window
-does not reach round Cape Finisterre). `npm run bench:routing -w engine --
+La Coruña, closed water then on both masks because its window did not reach round
+Cape Finisterre, now routes on a larger window (below). `npm run bench:routing -w engine --
 --fine` measures the bench passages on the fine index: on 2026-11-26 a 21-departure
 scan routed 8–12 % slower than on the outline (77 nm 1.19 s against 1.09 s, Biscay
 2.83 s against 2.61 s); a departure that needs the patches took about 0.1 s more.

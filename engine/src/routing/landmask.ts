@@ -228,8 +228,9 @@ const SEA_FILL_END_BUDGET = 1_000_000;
  *
  * `outsideIsSea`: whether water beyond the window counts. True adds a ring of sea cells
  * around the window, joined to each other, so that going round the window counts as a
- * way through. False keeps the fill inside the window; the router always passes false,
- * since it never uses a graph node outside the mask's cells.
+ * way through. False keeps the fill inside the window. The router never uses a graph node
+ * outside the mask's cells; seaWayInWindow asks both ways, to tell water enclosed in the window
+ * (closed water) from water that runs off its edge (a way round may lie outside).
  *
  * A window of more than SEA_FILL_MAX_CELLS cells is judged in two ways, each of which can
  * only prove the ends apart: a fill from each end that may visit SEA_FILL_END_BUDGET cells
@@ -279,6 +280,162 @@ export function seaJoinsPoints(
   let answer = answers.get(key);
   if (answer === undefined) answers.set(key, (answer = seaJoinsCells(from, to, rows, cols, seaAt)));
   return answer;
+}
+
+/**
+ * What the window says about a sea way between `a` and `b`, edge to edge as seaJoinsPoints judges it:
+ *
+ * - 'joined': the window's sea cells join them;
+ * - 'closed': they stay apart even with all water beyond the window counted as sea, so one end's
+ *   water is enclosed inside the window and no larger window can join them;
+ * - 'beyond': the window does not join them, but both ends' water reaches its edge, so a way
+ *   round, if there is one, lies outside it.
+ *
+ * A window edge at a pole or at 180° counts as open water beyond, so 'closed' is never said there
+ * without proof. Anything seaJoinsPoints cannot judge is 'joined'.
+ */
+export function seaWayInWindow(mask: RoutingLandMask, a: { lat: number; lon: number }, b: { lat: number; lon: number }): 'joined' | 'closed' | 'beyond' {
+  if (seaJoinsPoints(mask, a, b, false)) return 'joined';
+  return seaJoinsPoints(mask, a, b, true) ? 'beyond' : 'closed';
+}
+
+/** The shortest way by sea between two points of a window (seaWay): its length and the box its cells span. */
+export interface SeaWay {
+  nm: number;
+  minLat: number;
+  maxLat: number;
+  minLon: number;
+  maxLon: number;
+}
+
+/**
+ * The shortest way by sea from `a` to `b` over the window's cells: steps between the centres of
+ * neighbouring sea cells, a diagonal step only where both cells beside it are sea too (the router's
+ * legs never touch a land cell, corners included), with its length in nautical miles and the box
+ * its cells span. Null when the window does not join them, or an end is outside it or on land.
+ * A window of more than SEA_FILL_MAX_CELLS cells is walked in square blocks of cells, a block
+ * counting as sea when any cell in it is, so there the length can come out short. An estimate,
+ * for where a search needs room and how long its horizon must be; never a route.
+ */
+export function seaWay(mask: RoutingLandMask, a: { lat: number; lon: number }, b: { lat: number; lon: number }): SeaWay | null {
+  const landAt = landAtOf(mask);
+  const size = Math.max(1, Math.ceil(Math.sqrt((mask.nlat * mask.nlon) / SEA_FILL_MAX_CELLS)));
+  const rows = Math.ceil(mask.nlat / size);
+  const cols = Math.ceil(mask.nlon / size);
+  const sea = new Uint8Array(rows * cols);
+  if (size === 1) {
+    for (let i = 0; i < rows; i++) for (let j = 0; j < cols; j++) sea[i * cols + j] = landAt(i, j) ? 0 : 1;
+  } else {
+    for (let i = 0; i < mask.nlat; i++) {
+      for (let j = 0; j < mask.nlon; j++) {
+        const block = Math.floor(i / size) * cols + Math.floor(j / size);
+        if (!sea[block] && !landAt(i, j)) sea[block] = 1;
+      }
+    }
+  }
+  const blockOf = (p: { lat: number; lon: number }) => {
+    const i = Math.round((p.lat - mask.lat0) / mask.dlat);
+    const j = Math.round((p.lon - mask.lon0) / mask.dlon);
+    if (!(i >= 0 && i < mask.nlat && j >= 0 && j < mask.nlon)) return -1;
+    const block = Math.floor(i / size) * cols + Math.floor(j / size);
+    return sea[block] ? block : -1;
+  };
+  const from = blockOf(a);
+  const to = blockOf(b);
+  if (from < 0 || to < 0) return null;
+  // One step north or south, and one east or west in each row (shorter towards the poles), in nm.
+  const north = mask.dlat * size * 60;
+  const east = new Float64Array(rows);
+  const diagonal = new Float64Array(rows);
+  for (let i = 0; i < rows; i++) {
+    const lat = mask.lat0 + (i * size + (size - 1) / 2) * mask.dlat;
+    east[i] = mask.dlon * size * 60 * Math.max(0, Math.cos((lat * Math.PI) / 180));
+    diagonal[i] = Math.hypot(north, east[i]!);
+  }
+  const dist = new Float64Array(rows * cols).fill(Infinity);
+  const previous = new Int32Array(rows * cols).fill(-1);
+  const done = new Uint8Array(rows * cols);
+  // A binary heap of [distance, cell], stale entries skipped when popped.
+  const heapKey: number[] = [];
+  const heapCell: number[] = [];
+  const push = (key: number, cell: number) => {
+    let k = heapKey.length;
+    heapKey.push(key);
+    heapCell.push(cell);
+    while (k > 0) {
+      const parent = (k - 1) >> 1;
+      if (heapKey[parent]! <= key) break;
+      heapKey[k] = heapKey[parent]!;
+      heapCell[k] = heapCell[parent]!;
+      k = parent;
+    }
+    heapKey[k] = key;
+    heapCell[k] = cell;
+  };
+  const pop = (): number => {
+    const top = heapCell[0]!;
+    const lastKey = heapKey.pop()!;
+    const lastCell = heapCell.pop()!;
+    const n = heapKey.length;
+    if (n > 0) {
+      let k = 0;
+      for (;;) {
+        let child = 2 * k + 1;
+        if (child >= n) break;
+        if (child + 1 < n && heapKey[child + 1]! < heapKey[child]!) child++;
+        if (heapKey[child]! >= lastKey) break;
+        heapKey[k] = heapKey[child]!;
+        heapCell[k] = heapCell[child]!;
+        k = child;
+      }
+      heapKey[k] = lastKey;
+      heapCell[k] = lastCell;
+    }
+    return top;
+  };
+  dist[from] = 0;
+  push(0, from);
+  while (heapKey.length > 0) {
+    const cell = pop();
+    if (done[cell]) continue;
+    done[cell] = 1;
+    if (cell === to) break;
+    const i = Math.floor(cell / cols);
+    const j = cell % cols;
+    const here = dist[cell]!;
+    for (let di = -1; di <= 1; di++) {
+      for (let dj = -1; dj <= 1; dj++) {
+        if (di === 0 && dj === 0) continue;
+        const ni = i + di;
+        const nj = j + dj;
+        if (ni < 0 || ni >= rows || nj < 0 || nj >= cols) continue;
+        const next = ni * cols + nj;
+        if (!sea[next] || done[next]) continue;
+        if (di !== 0 && dj !== 0 && (!sea[i * cols + nj] || !sea[ni * cols + j])) continue;
+        const step = di === 0 ? east[i]! : dj === 0 ? north : (diagonal[i]! + diagonal[ni]!) / 2;
+        const d = here + step;
+        if (d < dist[next]!) {
+          dist[next] = d;
+          previous[next] = cell;
+          push(d, next);
+        }
+      }
+    }
+  }
+  if (!done[to]) return null;
+  let i0 = Infinity, i1 = -Infinity, j0 = Infinity, j1 = -Infinity;
+  for (let cell = to; cell >= 0; cell = previous[cell]!) {
+    const i = Math.floor(cell / cols);
+    const j = cell % cols;
+    i0 = Math.min(i0, i); i1 = Math.max(i1, i); j0 = Math.min(j0, j); j1 = Math.max(j1, j);
+  }
+  return {
+    nm: dist[to]!,
+    minLat: mask.lat0 + i0 * size * mask.dlat,
+    maxLat: mask.lat0 + Math.min(mask.nlat - 1, i1 * size + size - 1) * mask.dlat,
+    minLon: mask.lon0 + j0 * size * mask.dlon,
+    maxLon: mask.lon0 + Math.min(mask.nlon - 1, j1 * size + size - 1) * mask.dlon,
+  };
 }
 
 /** seaJoinsPoints' answers by mask, then by end cells and outsideIsSea. */

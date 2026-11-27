@@ -13,7 +13,7 @@
 
 import { landIndexTileCorner, TLI1_CELLS_PER_DEG, type LandIndexManifest, type LandIndexTile } from './landIndex.js';
 import type { LandCellMask, RoutingLandMask } from './landmask.js';
-import { windowCells, windowLandMask, type GeoBbox, type PackedLandMaskMetadata } from './landmaskPack.js';
+import { outlineColumn, windowCells, windowLandMask, type GeoBbox, type PackedLandMaskMetadata } from './landmaskPack.js';
 
 /** The packed global 0.05° outline, as published in viewer/public/data/land/global-005.*. */
 export interface CoarseLandOutline {
@@ -113,7 +113,7 @@ export function routingLandMask(coarse: CoarseLandOutline, fine: FineLandIndex |
     const tx = Math.floor(c / tileCells);
     colTile[j] = tx - tx0;
     colInTile[j] = c - tx * tileCells;
-    outlineCol[j] = j0 + Math.floor(j / lonRatio);
+    outlineCol[j] = outlineColumn(metadata, j0 + Math.floor(j / lonRatio));
   }
   // Whether any cell of an 8 x 8 block is land: worked out the first time the land check asks
   // (0 not yet, 1 sea only, 2 some land), so a window over a long passage is never scanned whole.

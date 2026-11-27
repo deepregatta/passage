@@ -29,9 +29,22 @@ export function windowCells(metadata: PackedLandMaskMetadata, bbox: GeoBbox): { 
   const i0 = Math.max(0, Math.floor((bbox.minLat - metadata.lat0) / metadata.dlat));
   const i1 = Math.min(metadata.nlat - 1, Math.ceil((bbox.maxLat - metadata.lat0) / metadata.dlat));
   const j0 = Math.max(0, Math.floor((bbox.minLon - metadata.lon0) / metadata.dlon));
-  const j1 = Math.min(metadata.nlon - 1, Math.ceil((bbox.maxLon - metadata.lon0) / metadata.dlon));
+  // A whole-globe outline's last column is centred one cell short of 180°: the cell centred at 180°
+  // is its first column again, read as one more column so that a window reaching 180° holds it.
+  const lastColumn = wrapsRound(metadata) ? metadata.nlon : metadata.nlon - 1;
+  const j1 = Math.min(lastColumn, Math.ceil((bbox.maxLon - metadata.lon0) / metadata.dlon));
   if (i1 < i0 || j1 < j0) throw new Error('Route is outside the coastline mask');
   return { i0, i1, j0, j1 };
+}
+
+/** Whether the outline's columns go once round the globe from 180°W, so its column `nlon` is column 0. */
+function wrapsRound(metadata: PackedLandMaskMetadata): boolean {
+  return Math.abs(metadata.nlon * metadata.dlon - 360) < 1e-6 && Math.abs(metadata.lon0 + 180) < 1e-6;
+}
+
+/** The outline's source column for window column `j` of windowCells (column `nlon` is column 0). */
+export function outlineColumn(metadata: PackedLandMaskMetadata, j: number): number {
+  return j % metadata.nlon;
 }
 
 /** Materialise only the packed global-mask cells required by a route. */
@@ -47,7 +60,7 @@ export function windowLandMask(
   const land = new Array<number>(nlat * nlon);
   for (let i = 0; i < nlat; i++) {
     for (let j = 0; j < nlon; j++) {
-      const sourceBit = (i0 + i) * metadata.nlon + j0 + j;
+      const sourceBit = (i0 + i) * metadata.nlon + outlineColumn(metadata, j0 + j);
       land[i * nlon + j] = (packed[sourceBit >> 3]! >> (sourceBit & 7)) & 1;
     }
   }

@@ -447,6 +447,15 @@ const maskWith = (rows: Record<number, (j: number) => boolean>): LandMask => {
   return { schema_version: 1, kind: 'land_mask', lat0: 49.0, lon0: -6.0, dlat: 0.1, dlon: 0.1, nlat: NLAT, nlon: NLON, land };
 };
 const all = () => true;
+/** maskWith inside a frame of land: the window's water is a basin, so a wall across it proves closed water. */
+const basinWith = (rows: Record<number, (j: number) => boolean>): LandMask => {
+  const mask = maskWith({ ...rows, 0: all, [NLAT - 1]: all });
+  for (let i = 0; i < NLAT; i++) {
+    mask.land[i * NLON] = 1;
+    mask.land[i * NLON + NLON - 1] = 1;
+  }
+  return mask;
+};
 
 const south = { lat: 49.5, lon: -4.5 };
 const north = { lat: 50.5, lon: -4.5 };
@@ -460,8 +469,8 @@ const failure = (r: RoutingRequest): Error & { code?: string } => {
 };
 
 describe('closed water on the coarse coastline outline', () => {
-  it('says so when a land wall across the whole window separates start from finish', () => {
-    const error = failure(request(maskWith({ 10: all })));
+  it('says so when a land wall across an enclosed basin separates start from finish', () => {
+    const error = failure(request(basinWith({ 10: all })));
     expect(error.message).toBe(CLOSED_WATER_MESSAGE);
     expect(error.code).toBe('closed-water');
     expect(error).toBeInstanceOf(ClosedWaterError);
@@ -471,16 +480,16 @@ describe('closed water on the coarse coastline outline', () => {
   it('keeps SearchBoundsError when searchBounds held the search back: its callers retry without the box', () => {
     // The finish node (50.5) lies above the box (to 50.49), so the box clips the search.
     const box = { minLat: 49.0, maxLat: 50.49, minLon: -6.0, maxLon: -3.0 };
-    const error = failure(request(maskWith({ 10: all }), { finish: { lat: 50.49, lon: -4.5 }, searchBounds: box }));
+    const error = failure(request(basinWith({ 10: all }), { finish: { lat: 50.49, lon: -4.5 }, searchBounds: box }));
     expect(error).toBeInstanceOf(SearchBoundsError);
     expect(error.code).toBe('search-bounds');
     // The same passage without the box reports the closed water.
-    expect(failure(request(maskWith({ 10: all }), { finish: { lat: 50.49, lon: -4.5 } }))).toBeInstanceOf(ClosedWaterError);
+    expect(failure(request(basinWith({ 10: all }), { finish: { lat: 50.49, lon: -4.5 } }))).toBeInstanceOf(ClosedWaterError);
   });
 
   it('says so when the only gap in a two-row wall is a corner pinch (diagonal sea cells share a corner only)', () => {
     // Sea at (row 10, column 30) and (row 11, column 31): the other two cells of that 2 x 2 block are land.
-    const mask = maskWith({ 10: (j) => j !== 30, 11: (j) => j !== 31 });
+    const mask = basinWith({ 10: (j) => j !== 30, 11: (j) => j !== 31 });
     const error = failure(request(mask, { start: { lat: 49.5, lon: -3.0 }, finish: { lat: 50.5, lon: -3.0 } }));
     expect(error.message).toBe(CLOSED_WATER_MESSAGE);
   });
@@ -519,10 +528,15 @@ describe('closed water on the coarse coastline outline', () => {
       windGrid: wideWindGrid(),
     };
 
-    it('does not sail round the wall beyond the window: the water inside it is closed', () => {
+    it('does not sail round the wall beyond the window, nor call the water closed: a way round may lie outside', () => {
       const error = failure(request(edgeMask(), edge));
+      expect(error).not.toBeInstanceOf(ClosedWaterError);
+      expect(error.message).toBe('No route found within 48 h (wind coverage, land, or no-go conditions)');
+    });
+
+    it('says closed water when the wall meets land at both edges of the window: one end’s water is a basin', () => {
+      const error = failure(request(basinWith({ 10: all }), { ...edge, start: { lat: 49.5, lon: -5.85 }, finish: { lat: 50.5, lon: -5.85 } }));
       expect(error).toBeInstanceOf(ClosedWaterError);
-      expect(error.message).toBe(CLOSED_WATER_MESSAGE);
     });
 
     it('with a gap in the wall, the route stays inside the window', () => {
@@ -537,6 +551,8 @@ describe('closed water on the coarse coastline outline', () => {
   });
 
   it('never calls closed a passage the router can sail (random masks, ends inside the window), and names every closed one', () => {
+    // Closed means apart even with all water beyond the window counted as sea; apart only inside the
+    // window keeps the generic message (the planner searches a larger window first).
     const small = (seed: number): LandMask => {
       let state = seed;
       const next = () => (state = (state * 1664525 + 1013904223) >>> 0) / 2 ** 32;
@@ -545,6 +561,7 @@ describe('closed water on the coarse coastline outline', () => {
     };
     let sailed = 0;
     let closed = 0;
+    let beyond = 0;
     for (let seed = 1; seed <= 60; seed++) {
       const mask = small(seed);
       const sea = [] as Array<[number, number]>;
@@ -564,12 +581,16 @@ describe('closed water on the coarse coastline outline', () => {
       if (!failed) {
         sailed++;
         expect(joined, `seed ${seed}: a route exists`).toBe(true);
-      } else if (!joined) {
+      } else if (!joined && !seaJoinsPoints(mask, start, finish, true)) {
         closed++;
         expect(failed.message, `seed ${seed}`).toBe(CLOSED_WATER_MESSAGE);
+      } else if (!joined) {
+        beyond++;
+        expect(failed, `seed ${seed}`).not.toBeInstanceOf(ClosedWaterError);
       }
     }
     expect(sailed).toBeGreaterThan(5);
     expect(closed).toBeGreaterThan(5);
+    expect(beyond).toBeGreaterThan(0);
   });
 });

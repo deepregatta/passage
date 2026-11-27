@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   snapToSea: vi.fn(),
   landMaskForBbox: vi.fn(),
   polarFromRelease: vi.fn(),
+  routingWindow: vi.fn(),
 }));
 
 vi.mock('@deepweather/engine', async (importOriginal) => ({
@@ -16,6 +17,7 @@ vi.mock('@deepweather/engine', async (importOriginal) => ({
   // both ends through the one snap mock, start first, as the engine's snapEndsToSea does on the outline
   snapEndsToSea: (mask, start, finish) => ({ start: mocks.snapToSea(mask, start), finish: mocks.snapToSea(mask, finish) }),
   polarFromRelease: mocks.polarFromRelease,
+  routingWindow: mocks.routingWindow,
   forecastRunGone: (error) => (error?.name === 'ForecastRunGoneError' ? error : null),
   contentHash: (value) => `digest-${value.run_id}`,
   cachedContentHash: (value) => `digest-${value.run_id}`,
@@ -46,6 +48,8 @@ describe('live routing inputs', () => {
     mocks.snapToSea
       .mockReturnValueOnce({ lat: 0.1, lon: 0.1 })
       .mockReturnValueOnce({ lat: 0.9, lon: 0.9 });
+    // The route box itself unless a test says otherwise.
+    mocks.routingWindow.mockImplementation(async ({ bbox, landMask: mask, maxHours }) => ({ bbox, landMask: mask, maxHours, grownDeg: 0 }));
     mocks.getWindGrid.mockResolvedValue(windGrid);
     mocks.getCurrentGrid.mockResolvedValue({ kind: 'surface_current' });
   });
@@ -89,6 +93,34 @@ describe('live routing inputs', () => {
     await expect(loadRoutingInputs({
       start: { lat: 0, lon: 0 }, finish: { lat: 1, lon: 1 }, polarId: 'test', departureIso, now, store,
     })).rejects.toThrow(/Boat polars are unavailable/);
+  });
+
+  it('reads the forecast over the window the route is searched on, with its horizon', async () => {
+    const grown = { minLat: -2, maxLat: 3, minLon: -2, maxLon: 3 };
+    const grownMask = { kind: 'land_mask', grown: true };
+    mocks.routingWindow.mockImplementation(async ({ maskFor }) => ({ bbox: grown, landMask: await maskFor(grown), maxHours: 70, grownDeg: 2 }));
+    mocks.landMaskForBbox.mockImplementation(async (box) => (box === grown ? grownMask : landMask));
+    const result = await loadRoutingInputs({
+      start: { lat: 0, lon: 0 }, finish: { lat: 1, lon: 1 }, polarId: 'test', departureIso, now, store,
+    });
+    // Asked with the ends snapped on the route box's mask and its straight-line horizon.
+    expect(mocks.routingWindow).toHaveBeenCalledWith(expect.objectContaining({
+      bbox: { minLat: 0, maxLat: 1, minLon: 0, maxLon: 1 }, landMask,
+      start: { lat: 0.1, lon: 0.1 }, finish: { lat: 0.9, lon: 0.9 }, maxHours: 48,
+    }));
+    expect(mocks.landMaskForBbox.mock.calls.map(([box]) => box)).toEqual([{ minLat: 0, maxLat: 1, minLon: 0, maxLon: 1 }, grown]);
+    expect(result).toMatchObject({ landMask: grownMask, maxHours: 70, start: { lat: 0.1, lon: 0.1 }, finish: { lat: 0.9, lon: 0.9 } });
+    expect(mocks.getWindGrid).toHaveBeenCalledWith(grown, departureIso, 76);
+    expect(mocks.getCurrentGrid).toHaveBeenCalledWith(grown, departureIso, 76);
+  });
+
+  it('reports a larger window’s coastline it cannot load as it reports the route box’s', async () => {
+    mocks.routingWindow.mockImplementation(async ({ maskFor }) => maskFor({ minLat: -2, maxLat: 3, minLon: -2, maxLon: 3 }));
+    mocks.landMaskForBbox.mockResolvedValueOnce(landMask).mockRejectedValueOnce(new Error('network down'));
+    await expect(loadRoutingInputs({
+      start: { lat: 0, lon: 0 }, finish: { lat: 1, lon: 1 }, polarId: 'test', departureIso, now, store,
+    })).rejects.toThrow("Couldn't load the coastline data needed to compute a route");
+    expect(mocks.getWindGrid).not.toHaveBeenCalled();
   });
 
   it('clamps a scan grid to the deterministic tile horizon', async () => {

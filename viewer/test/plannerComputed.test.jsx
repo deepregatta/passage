@@ -205,6 +205,10 @@ describe.each([
     const nlon = 16;
     const land = Array(nlat * nlon).fill(0);
     for (let i = 0; i < nlat; i++) land[i * nlon + 7] = 1; // lon -3.3, between start (-3.5) and finish (-3.2)
+    // A frame of land: the window's water is a basin, so the wall proves the ends apart (closed water,
+    // not a way round outside the window).
+    for (let j = 0; j < nlon; j++) land[j] = land[(nlat - 1) * nlon + j] = 1;
+    for (let i = 0; i < nlat; i++) land[i * nlon] = land[i * nlon + nlon - 1] = 1;
     return { ...routingInputs(0, 48), landMask: { schema_version: 1, kind: 'land_mask', lat0: 49, lon0: -4, dlat: 0.1, dlon: 0.1, nlat, nlon, land } };
   };
 

@@ -1,4 +1,4 @@
-import { forecastRunGone, passageMaxHours, polarFromRelease, routeBbox, snapEndsToSea } from '@deepweather/engine';
+import { forecastRunGone, passageMaxHours, polarFromRelease, routeBbox, routingWindow, snapEndsToSea } from '@deepweather/engine';
 import { landMaskForBbox } from './landMask.js';
 import { forecastStore, friendlyForecastError } from './forecastStore.js';
 import { preparedRun } from './preparedRun.js';
@@ -121,31 +121,40 @@ export async function loadRoutingInputs({
 }) {
   const polar = await loadPolar(polarId);
 
-  const bbox = routeBbox(start, finish);
-  const maxHours = passageMaxHours(start, finish);
+  const routeBox = routeBbox(start, finish);
+  const straightHours = passageMaxHours(start, finish);
   const departureMs = Date.parse(departureIso);
   const remaining = Math.floor((now() + FORECAST_HOURS * 3600_000 - departureMs) / 3600_000);
-  const hours = Math.min((scanning ? 120 : 0) + maxHours + 6, remaining);
-  if (!Number.isFinite(departureMs) || hours < ROUTING_MIN_HOURS) {
+  const hoursFor = (passageHours) => Math.min((scanning ? 120 : 0) + passageHours + 6, remaining);
+  if (!Number.isFinite(departureMs) || hoursFor(straightHours) < ROUTING_MIN_HOURS) {
     throw new Error('This departure is beyond the forecast horizon');
   }
 
   onProgress('loading coastline');
-  let landMask;
-  try {
-    landMask = await landMaskForBbox(bbox);
-  } catch (error) {
-    throw new Error(
-      error instanceof Error && /coastline|decompress/i.test(error.message)
-        ? error.message
-        : "Couldn't load the coastline data needed to compute a route",
-      { cause: error },
-    );
-  }
-  const { start: snappedStart, finish: snappedFinish } = snapEndsToSea(landMask, start, finish);
+  const coastline = async (box) => {
+    try {
+      return await landMaskForBbox(box);
+    } catch (error) {
+      throw new Error(
+        error instanceof Error && /coastline|decompress/i.test(error.message)
+          ? error.message
+          : "Couldn't load the coastline data needed to compute a route",
+        { cause: error },
+      );
+    }
+  };
+  const routeBoxMask = await coastline(routeBox);
+  const { start: snappedStart, finish: snappedFinish } = snapEndsToSea(routeBoxMask, start, finish);
   if (!snappedStart || !snappedFinish) {
     throw new Error('Click a point in open water near both ends of the passage');
   }
+  // The route box, or a larger window when the ends' water runs off its edge (round a headland
+  // the box leaves out); the forecast is read over the window the route is searched on.
+  const { bbox, landMask, maxHours } = await routingWindow({
+    bbox: routeBox, landMask: routeBoxMask, start: snappedStart, finish: snappedFinish,
+    maxHours: straightHours, maskFor: coastline,
+  });
+  const hours = hoursFor(maxHours);
 
   onProgress('loading forecast tiles');
   let windGrid;

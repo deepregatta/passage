@@ -17,7 +17,7 @@ import { bearingDegTrue, haversineNm, wrap180 } from '../geo.js';
 import { parseUtc, toIso } from '../eta.js';
 import { GridSampler, type RegionGrid } from '../grids.js';
 import { boatSpeedKt, type Polar } from './polar.js';
-import { insideMask, isLand, seaJoinsPoints, segmentCrossesLand, type RoutingLandMask } from './landmask.js';
+import { insideMask, isLand, seaWayInWindow, segmentCrossesLand, type RoutingLandMask } from './landmask.js';
 import type { Route, Waypoint } from '../types.js';
 
 export interface RoutingRequest {
@@ -112,9 +112,10 @@ export class SearchBoundsError extends Error {
 /**
  * No route was found, and on the land mask no sea joins the start and the finish edge to
  * edge (the router's land check refuses any leg touching a land cell, so no route can exist
- * on that mask). The mask is the coarse coastline outline: a strait or channel too narrow to
- * be in it closes the water here although boats can sail it. Found only after a search has
- * failed, by a flood fill over the mask (seaJoinsPoints); never thrown when
+ * on that mask), not even round the outside of the window: one end's water is enclosed in it
+ * (seaWayInWindow 'closed'). The mask is the coarse coastline outline: a strait or channel too
+ * narrow to be in it closes the water here although boats can sail it. Found only after a search
+ * has failed, by a flood fill over the mask (seaJoinsPoints); never thrown when
  * searchBounds held the search back (SearchBoundsError keeps that case: its callers retry
  * without the box, and that run reports this error).
  */
@@ -290,7 +291,9 @@ function routeOnGraph(request: RoutingRequest, withEndPatches: boolean): Routing
   // Only on a failure: a flood fill over the land mask says whether any sea joins the two ends.
   const noRoute = () => {
     if (clipped) return new SearchBoundsError('no-route');
-    if (landMask && !seaJoinsPoints(landMask, startPoint, finishPoint, false)) {
+    // Closed only when one end's water is enclosed in the window: when both ends' water runs off its
+    // edge, a way round may lie outside it (the planner then searches a larger window: routingWindow).
+    if (landMask && seaWayInWindow(landMask, startPoint, finishPoint) === 'closed') {
       return new ClosedWaterError(landMask.kind === 'land_cells' && landMask.fine_index_id !== null);
     }
     return new Error(`No route found within ${request.maxHours ?? 48} h (wind coverage, land, or no-go conditions)`);
@@ -298,9 +301,8 @@ function routeOnGraph(request: RoutingRequest, withEndPatches: boolean): Routing
   // The graph can reach past the land mask's window: its rows and columns are rounded, and it is
   // grown round the ends. The mask knows nothing there (isLand calls it sea only because the window
   // ends), so with a mask no node outside its cells is ever used, and neither end may lie outside
-  // them: every node and leg is judged on cells the mask holds. The router's windows are crops of a
-  // whole-globe outline (lat -90..90, lon -180..180), so no real open sea lies beyond a window that
-  // a route could need: the caller's window holds the passage.
+  // them: every node and leg is judged on cells the mask holds. A way round outside the window is
+  // the caller's to search, on a larger window (routingWindow); here it is never closed water.
   const offMask = (lat: number, lon: number) => !!landMask && !insideMask(landMask, lat, lon);
 
   if (landMask && (offMask(start.lat, start.lon) || offMask(finish.lat, finish.lon))) {
