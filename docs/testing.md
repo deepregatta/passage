@@ -289,8 +289,8 @@ ends nor proves them apart (`seaWayInWindow` 'beyond'), it tries windows 1°, 2�
 is cut down to the route box and the shortest way by sea between the ends (`seaWay`,
 a shortest path over the window's sea cells) with 0.5° round it, when that shortens
 the window's longer side (the graph's node spacing is that side / 150); the forecast
-is read over it, and the horizon is that way's length at 4 kt when longer than the
-straight line's (48–240 h). A larger window that proves the ends apart (one end's
+is read over it, and the horizon is that way's length at 2 kt when longer than the
+straight line's (48–240 h; `WAY_ROUND_SPEED_KT`, 2026-11-27). A larger window that proves the ends apart (one end's
 water enclosed in it) keeps the route box for the search, with that window's mask, so
 the router says closed water without reading any forecast for it. When even the
 16° window does neither, the route box stays and the router gives its generic
@@ -324,8 +324,41 @@ against 11 ms for the old failure; 51 read no more forecast tiles, 18 read one t
 four more 10° tiles of wind and of currents
 (about 1.9 MB a tile pair at N40W010's sizes). On the fine index (switched off) the
 choice took 0.3 s, and 1.5 s for Poole → Windermere; measure it before turning the
-fine index on. Not measured on a phone; the download quote shown before Compute still
-counts the route box alone.
+fine index on. Not measured on a phone.
+
+The horizon on a larger window (2026-11-27, fourth independent review of 43dbd49): at the
+straight line's 4 kt a beat round a headland ran out of time (Cowes → Padstow in a 250°
+wind failed at 64 h and needs 73 h; Fremantle → Albany in a southerly 81 h against 83 h;
+Swansea → Holyhead in a northerly 48 h against 48.1 h). Over 576 grown passages and winds
+on the outline (uniform 14 kt, 8 directions), the routes found with 240 h made 3.0 kt along
+the sea way at the slowest (median 5.1 kt); at 4 kt 34 of those 517 failed, at 3 kt or
+less none. The horizon is now the sea way at 2 kt, which leaves room for lighter or shifting
+real wind while keeping the forecast read, a scan's assessment window and the hours in "No
+route found within N h" in proportion to the passage. It never takes a route past the
+forecast: the router reads no wind past the wind grid's last hour (`GridSampler.sample` is
+null there) and the planner reads the wind to at most the departure plus the horizon plus
+6 h, and never past the end of the forecast (`loadRoutingInputs`). Search time is unchanged
+(failing searches 26 ms at 240 h against 26 ms, routes 43 ms against 42 ms, mean, desktop);
+the tile files hold every hour, so the longer read downloads nothing more.
+`routingWindow.test.ts` routes the three reviewed beats and checks that 50 h of wind with a
+240 h horizon gives no route. Old (43dbd49) against new on the planner's steps, the same
+sets as above (1,254 random, 98 near 180°, the harbour passages): every route that worked
+is byte-identical, every harbour case too; three grown passages now route (the Canadian
+Arctic in a 315° wind, 139.7 h; Madagascar's west coast in a southerly, 130.9 h; Labrador in
+a 315° wind, 124 h); three grown failures now say a longer horizon (162 h or 240 h for 81 h
+to 182 h).
+
+The download quote under Compute and Scan counts the window the route is searched on
+(2026-11-27): `downloadQuote.js` asks `routingArea` (`routingInputs.js`, the same steps as
+Compute) for the box, so a passage routed on a larger window is quoted over it, for routing
+and, for a computed comparison, for its audits too. Before, the review found 5 of 28 grown
+passages spanning more 10° tiles than quoted (up to 1 against 4, south of New Guinea).
+`downloadQuoteWindow.test.js` quotes that passage on the real outline and compares with the
+tiles `loadRoutingInputs` then fetches. Before the quote shows, it reads the coastline
+outline (about 100 kB, fetched once and then held for Compute) and runs the window search
+(3 ms median, 37 ms at most on the outline); the last four answers are kept, since the page
+re-quotes every minute. With the fine index on it would also load the fine tiles and search
+the finer windows (0.3 s to 3 s on a desktop): measure that on a phone before the switch.
 
 Seen on the public site on 2026-11-26 with the rebuilt outline: a route computed
 through the Strait of Gibraltar (104 nm, 12.3 h, with the not-for-navigation note),

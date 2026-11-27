@@ -39,9 +39,9 @@ export function passageMaxHours(
   return passageHoursForNm(haversineNm(start.lat, start.lon, finish.lat, finish.lon));
 }
 
-/** The search horizon for a passage of `nm` nautical miles: at 4 kt, 48 h to 240 h. */
-export function passageHoursForNm(nm: number): number {
-  return Math.max(48, Math.min(240, Math.ceil(nm / 4)));
+/** The search horizon for a passage of `nm` nautical miles: at `speedKt` (4 kt), 48 h to 240 h. */
+export function passageHoursForNm(nm: number, speedKt = 4): number {
+  return Math.max(48, Math.min(240, Math.ceil(nm / speedKt)));
 }
 
 /** Shared disclosure; callers retain their own coarsening trigger and resolution precision. */

@@ -107,6 +107,46 @@ async function loadPolar(polarId) {
   }
 }
 
+/**
+ * Where a computed route between `start` and `finish` is searched: the ends snapped on the
+ * route box's coastline window, then the route box or a larger window when the ends' water
+ * runs off its edge (routingWindow), with its land mask and horizon. Compute and Scan read the
+ * forecast over `bbox`; the download quote counts the same box. `start` or `finish` is null when
+ * no water lies near that end (then `bbox` is the route box).
+ * @param {{ lat: number, lon: number }} start
+ * @param {{ lat: number, lon: number }} finish
+ * @param {object} [routeBox] routeBbox(start, finish), when the caller already has it
+ */
+export async function routingArea(start, finish, routeBox = routeBbox(start, finish)) {
+  const straightHours = passageMaxHours(start, finish);
+  const routeBoxMask = await coastline(routeBox);
+  const { start: snappedStart, finish: snappedFinish } = snapEndsToSea(routeBoxMask, start, finish);
+  if (!snappedStart || !snappedFinish) {
+    return { bbox: routeBox, landMask: routeBoxMask, maxHours: straightHours, start: snappedStart, finish: snappedFinish };
+  }
+  // The route box, or a larger window when the ends' water runs off its edge (round a headland
+  // the box leaves out); the forecast is read over the window the route is searched on.
+  const { bbox, landMask, maxHours } = await routingWindow({
+    bbox: routeBox, landMask: routeBoxMask, start: snappedStart, finish: snappedFinish,
+    maxHours: straightHours, maskFor: coastline,
+  });
+  return { bbox, landMask, maxHours, start: snappedStart, finish: snappedFinish };
+}
+
+/** The coastline window for `box`, with the planner's message when it cannot be loaded. */
+async function coastline(box) {
+  try {
+    return await landMaskForBbox(box);
+  } catch (error) {
+    throw new Error(
+      error instanceof Error && /coastline|decompress/i.test(error.message)
+        ? error.message
+        : "Couldn't load the coastline data needed to compute a route",
+      { cause: error },
+    );
+  }
+}
+
 export async function loadRoutingInputs({
   start,
   finish,
@@ -131,29 +171,11 @@ export async function loadRoutingInputs({
   }
 
   onProgress('loading coastline');
-  const coastline = async (box) => {
-    try {
-      return await landMaskForBbox(box);
-    } catch (error) {
-      throw new Error(
-        error instanceof Error && /coastline|decompress/i.test(error.message)
-          ? error.message
-          : "Couldn't load the coastline data needed to compute a route",
-        { cause: error },
-      );
-    }
-  };
-  const routeBoxMask = await coastline(routeBox);
-  const { start: snappedStart, finish: snappedFinish } = snapEndsToSea(routeBoxMask, start, finish);
-  if (!snappedStart || !snappedFinish) {
+  const area = await routingArea(start, finish, routeBox);
+  if (!area.start || !area.finish) {
     throw new Error('Click a point in open water near both ends of the passage');
   }
-  // The route box, or a larger window when the ends' water runs off its edge (round a headland
-  // the box leaves out); the forecast is read over the window the route is searched on.
-  const { bbox, landMask, maxHours } = await routingWindow({
-    bbox: routeBox, landMask: routeBoxMask, start: snappedStart, finish: snappedFinish,
-    maxHours: straightHours, maskFor: coastline,
-  });
+  const { bbox, landMask, maxHours, start: snappedStart, finish: snappedFinish } = area;
   const hours = hoursFor(maxHours);
 
   onProgress('loading forecast tiles');

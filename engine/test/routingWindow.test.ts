@@ -9,8 +9,10 @@ import { describe, expect, it } from 'vitest';
 import { passageMaxHours, routeBbox, type RouteBbox } from '../src/fetch/liveGrids.js';
 import type { RegionGrid } from '../src/grids.js';
 import { ClosedWaterError, computeRoute } from '../src/routing/isochrone.js';
-import { insideMask, isLand, seaWayInWindow, segmentCrossesLand, type RoutingLandMask } from '../src/routing/landmask.js';
+import { insideMask, isLand, seaWay, seaWayInWindow, segmentCrossesLand, type RoutingLandMask } from '../src/routing/landmask.js';
 import { snapEndsToSea, windowLandMask, type PackedLandMaskMetadata } from '../src/routing/landmaskPack.js';
+import { decodeLandIndexTile, parseLandIndexManifest } from '../src/routing/landIndex.js';
+import { routingLandMask } from '../src/routing/fineLandMask.js';
 import { ROUTE_WINDOW_GROWTH_DEG, grownRouteBbox, routingWindow } from '../src/routing/routingWindow.js';
 import { polarFromRelease } from '../src/routing/deepPolars.js';
 import { INVENTED_POLAR_ENTRY } from '../scripts/perf/scenarios.js';
@@ -23,6 +25,14 @@ const coarse = {
   metadata: JSON.parse(readFileSync(join(LAND, 'global-005.json'), 'utf8')) as PackedLandMaskMetadata,
 };
 const outline = (bbox: RouteBbox) => windowLandMask(coarse.bytes, coarse.metadata, bbox);
+const NWEU = join(LAND, 'nweu-20260825T07Z');
+const fineManifest = parseLandIndexManifest(JSON.parse(readFileSync(join(NWEU, 'manifest.json'), 'utf8')));
+const fine = {
+  manifest: fineManifest,
+  tiles: Object.fromEntries(fineManifest.coverage.tiles.map((id) =>
+    [id, decodeLandIndexTile(new Uint8Array(gunzipSync(readFileSync(join(NWEU, `${id}.bin.gz`)))))])),
+};
+const fineWindow = (bbox: RouteBbox) => routingLandMask(coarse, fine, bbox);
 
 // The bench's invented cruiser, computed from a formula: no polar data enters this repository.
 const POLAR = polarFromRelease(INVENTED_POLAR_ENTRY);
@@ -48,13 +58,13 @@ function uniformWind(bbox: RouteBbox, fromDeg: number, hours: number): RegionGri
 }
 
 /** The planner's steps: the route box, snap both ends on it, then the window to route on. */
-async function plan(start: P, finish: P) {
+async function plan(start: P, finish: P, maskFor: (bbox: RouteBbox) => RoutingLandMask = outline) {
   const bbox = routeBbox(start, finish);
-  const landMask = outline(bbox);
+  const landMask = maskFor(bbox);
   const { start: from, finish: to } = snapEndsToSea(landMask, start, finish);
   if (!from || !to) throw new Error('an end has no water near it');
   const maxHours = passageMaxHours(start, finish);
-  const window = await routingWindow({ bbox, landMask, start: from, finish: to, maxHours, maskFor: outline });
+  const window = await routingWindow({ bbox, landMask, start: from, finish: to, maxHours, maskFor });
   return { routeBox: bbox, routeBoxMask: landMask, from, to, straightHours: maxHours, ...window };
 }
 
@@ -116,6 +126,47 @@ describe('a passage whose way round lies outside the route box', () => {
   }, 120_000);
 });
 
+describe('the horizon on a larger window', () => {
+  // A way round a headland often holds a beat: at the straight line's 4 kt the horizon ran out first.
+  it.each([
+    ['Cowes to Padstow, round Land’s End, in a 250° wind', { lat: 50.766, lon: -1.298 }, { lat: 50.56, lon: -4.95 }, 250],
+    ['Fremantle to Albany, round Cape Leeuwin, in a southerly', { lat: -32.06, lon: 115.73 }, { lat: -35.05, lon: 117.90 }, 180],
+    ['Swansea to Holyhead, in a northerly', { lat: 51.60, lon: -3.92 }, { lat: 53.32, lon: -4.62 }, 0],
+  ])('%s routes within it', async (_label, start, finish, fromDeg) => {
+    const { bbox, landMask, from, to, maxHours, grownDeg } = await plan(start, finish);
+    expect(grownDeg).toBeGreaterThan(0);
+    const { route, duration_h } = routeOn(bbox, landMask, from, to, maxHours, fromDeg);
+    expect(duration_h).toBeLessThanOrEqual(maxHours);
+    expect(legsOnLand(landMask, route.waypoints)).toEqual([]);
+  }, 120_000);
+
+  it('is the sea way at 2 kt, within 48 h to 240 h', async () => {
+    const { landMask, from, to, maxHours } = await plan({ lat: 50.766, lon: -1.298 }, { lat: 50.56, lon: -4.95 });
+    const way = seaWay(landMask, from, to)!;
+    expect(maxHours).toBe(Math.max(48, Math.min(240, Math.ceil(way.nm / 2))));
+  });
+
+  it('never runs a route past the forecast it is computed on: the wind grid’s last hour ends the search', async () => {
+    const { bbox, landMask, from, to } = await plan({ lat: 50.766, lon: -1.298 }, { lat: 50.56, lon: -4.95 });
+    // 73 h are needed in this wind; with 50 h of wind and a 240 h horizon there is no route.
+    const error = failure(() => computeRoute({
+      start: from, finish: to, departureUtc: DEPARTURE, polar: POLAR,
+      windGrid: uniformWind(bbox, 250, 50), landMask, maxHours: 240,
+    }));
+    expect(error.message).toBe('No route found within 240 h (wind coverage, land, or no-go conditions)');
+  }, 120_000);
+});
+
+describe('the window on the fine routing index', () => {
+  it('Vigo to La Coruña, round Cape Finisterre, computes on the fine window the planner chooses', async () => {
+    const { bbox, landMask, from, to, maxHours, grownDeg } = await plan({ lat: 42.24, lon: -8.73 }, { lat: 43.37, lon: -8.39 }, fineWindow);
+    expect(landMask.kind).toBe('land_cells');
+    expect(grownDeg).toBeGreaterThan(0);
+    const { route } = routeOn(bbox, landMask, from, to, maxHours, 250);
+    expect(legsOnLand(landMask, route.waypoints)).toEqual([]);
+  }, 120_000);
+});
+
 describe('the window the planner chooses', () => {
   it('keeps the route box, its mask and its horizon when the box joins the ends', async () => {
     const start = { lat: 50.766, lon: -1.298 }, finish = { lat: 49.66, lon: -1.62 };
@@ -134,6 +185,16 @@ describe('the window the planner chooses', () => {
     expect(bbox).toBe(routeBox);
     expect(seaWayInWindow(landMask, from, to)).toBe('closed');
     expect(failure(() => routeOn(bbox, landMask, from, to, maxHours, 250))).toBeInstanceOf(ClosedWaterError);
+  }, 120_000);
+
+  it('says closed water when only the 16° window proves it: the Aegean to the Black Sea, the Bosporus closed on the outline', async () => {
+    const { routeBox, routeBoxMask, bbox, landMask, from, to, maxHours, grownDeg } = await plan({ lat: 37.6046, lon: 26.6509 }, { lat: 42.564, lon: 27.8637 });
+    expect(seaWayInWindow(routeBoxMask, from, to)).toBe('beyond');
+    expect(seaWayInWindow(outline(grownRouteBbox(routeBox, 8)), from, to)).toBe('beyond');
+    expect(grownDeg).toBe(16);
+    expect(bbox).toBe(routeBox);
+    expect(seaWayInWindow(landMask, from, to)).toBe('closed');
+    expect(failure(() => routeOn(bbox, landMask, from, to, maxHours, 180))).toBeInstanceOf(ClosedWaterError);
   }, 120_000);
 
   it('gives the generic failure, never closed water, when the way round lies beyond the largest window', async () => {

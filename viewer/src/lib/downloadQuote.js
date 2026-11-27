@@ -17,9 +17,43 @@ import {
   auditSamplePlan, auditTileRequests, candidateDepartures, currentGridBbox, quoteTileDownload, routeBbox, routingTileRequests,
 } from '@deepweather/engine';
 import { fmtGribBytes } from './gribExport.js';
+import { routingArea } from './routingInputs.js';
 import { scanDateWindow } from './scanWindow.js';
 
 const NONE = Object.freeze({ compute: null, scan: null, check: null, refine: null });
+
+/**
+ * The box a computed route between two endpoints reads its forecast over: the route box, or the
+ * larger window the planner routes on when the ends' water runs off the box's edge (routingArea,
+ * the same steps as Compute's). It reads the coastline outline (about 100 kB, fetched once and then
+ * held for Compute too) and runs the window search, a few milliseconds on the outline, at most a
+ * few tens. The last few answers are kept, since the page re-quotes every minute and on focus.
+ * When the area cannot be worked out (no coastline, no water near an end) it is the route box:
+ * Compute then stops before reading any forecast. With the fine routing index switched on, this
+ * would also load its tiles and search its finer windows before the quote shows.
+ */
+const routingBoxes = new Map();
+const ROUTING_BOXES_KEPT = 4;
+function routingBox(start, finish) {
+  const key = JSON.stringify([start.lat, start.lon, finish.lat, finish.lon]);
+  let box = routingBoxes.get(key);
+  if (!box) {
+    const routeBox = routeBbox(start, finish);
+    // A coastline that cannot be loaded now is asked for again on the next quote.
+    box = routingArea(start, finish, routeBox).then((area) => area.bbox, () => {
+      routingBoxes.delete(key);
+      return routeBox;
+    });
+    routingBoxes.set(key, box);
+    if (routingBoxes.size > ROUTING_BOXES_KEPT) routingBoxes.delete(routingBoxes.keys().next().value);
+  }
+  return box;
+}
+
+/** Forget the routing boxes the quote keeps (tests). */
+export function clearRoutingBoxesForTests() {
+  routingBoxes.clear();
+}
 
 /** The departures of a comparison and the scan the Planner runs for them. */
 const SCAN_SPAN_H = 120;
@@ -38,14 +72,15 @@ async function quoted(read) {
  * The quotes of the actions asked for in `want`, from the manifests of a
  * loaded store. Each is a TileQuote, or null.
  *
- * - compute: the wind and current grids over the box of the two endpoints.
+ * - compute: the wind and current grids over the box the route is searched on: the box of
+ *   the two endpoints, or the larger window round a headland it leaves out (routingBox).
  * - check: the audit's point layers at the route's leg points, the ECMWF
  *   layers its window picks, every enabled regional model overlapping them, and the
  *   current tiles unless a prepared grid covers the route. That last cannot be
  *   known before the press, so the current tiles are counted: an upper bound.
  * - scan: for a drawn route, the audit of each candidate departure over the same
  *   route. For a computed route, Compute's grids plus the audit over the whole
- *   route box (each candidate is routed afresh, so its leg points are not known
+ *   box the route is searched on (each candidate is routed afresh, so its leg points are not known
  *   yet), both ECMWF layers, and no current tiles of its own (a scan is handed
  *   the routing grid). A comparison on the regional (prepared) current grid
  *   leaves both figures as they are: a computed one still reads the tile
@@ -53,7 +88,7 @@ async function quoted(read) {
  *   drawn one that reads none keeps them counted, as an upper bound ("up to").
  * - refine: what a refinement of the comparison on show reads for the departures
  *   it adds. Drawn: their audits, in that comparison's assessment window
- *   (`refine.dateWindow`). Computed: only the audit layers over the route box; it
+ *   (`refine.dateWindow`). Computed: only the audit layers over the routing box; it
  *   routes on the grids the comparison holds and audits on its current grid, so no
  *   routing or current tile. Most of it is usually already on the device.
  *
@@ -78,7 +113,7 @@ export async function quotePlannerActions({
   const regionalLayers = typeof store.regionalLayerIds === 'function' ? store.regionalLayerIds() : [];
   const isCached = typeof store.hasTile === 'function' ? (tile) => store.hasTile(tile.layer, tile.tileId) : null;
   const quote = (requests) => quoteTileDownload(requests, manifests, { isCached, ...(listed ? { listed } : {}) });
-  const endpointBox = () => routeBbox(
+  const endpointBox = () => routingBox(
     { lat: endpoints[0].lat, lon: endpoints[0].lng }, { lat: endpoints[1].lat, lon: endpoints[1].lng },
   );
   const routedScan = mode === 'compute' && endpoints.length === 2 && Boolean(polarId);
@@ -87,15 +122,15 @@ export async function quotePlannerActions({
   });
 
   const compute = want.compute && mode === 'compute' && endpoints.length === 2
-    ? quoted(() => quote(routingTileRequests(endpointBox())))
+    ? quoted(async () => quote(routingTileRequests(await endpointBox())))
     : null;
   const check = want.check && route && departureUtc
     ? quoted(() => quote(audit(auditSamplePlan(route, departureUtc))))
     : null;
   let scan = null;
   if (want.scan && routedScan) {
-    scan = quoted(() => {
-      const box = endpointBox();
+    scan = quoted(async () => {
+      const box = await endpointBox();
       return quote([...routingTileRequests(box), ...auditTileRequests(manifests, { where: { area: box }, regionalLayers })]);
     });
   } else if (want.scan && route && departureUtc) {
@@ -114,12 +149,12 @@ export async function quotePlannerActions({
   }
   let refineQuote = null;
   if (want.refine && refine?.departures.length) {
-    refineQuote = quoted(() => {
+    refineQuote = quoted(async () => {
       if (refine.rerouted) {
         // Routed on the routing grids the comparison already holds: only the audits read tiles,
-        // over the route box (the new routes are not known yet), with the held current grid.
+        // over the routing box (the new routes are not known yet), with the held current grid.
         if (endpoints.length !== 2) return null;
-        return quote(auditTileRequests(manifests, { where: { area: endpointBox() }, regionalLayers }));
+        return quote(auditTileRequests(manifests, { where: { area: await endpointBox() }, regionalLayers }));
       }
       if (!route || !refine.dateWindow) return null;
       return quote(refine.departures.flatMap((departure) => {

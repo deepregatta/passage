@@ -17,6 +17,17 @@ import { seaWay, seaWayInWindow, type RoutingLandMask } from './landmask.js';
 export const ROUTE_WINDOW_GROWTH_DEG: readonly number[] = Object.freeze([1, 2, 4, 8, 16]);
 
 /**
+ * The speed along the way by sea that a larger window's horizon allows for, in knots: half the
+ * straight line's 4 kt (passageMaxHours). A way round a headland usually holds a beat; in a
+ * uniform 14 kt wind the routes found on larger windows made 3.0 kt along it at the slowest and
+ * 5.1 kt in the median (2026-11-27, 517 passages and winds), so 2 kt leaves room for lighter or
+ * shifting real wind. The horizon
+ * never takes a route past the forecast: the router reads no wind past the wind grid's last
+ * hour, and the planner reads the wind to at most the end of the forecast.
+ */
+export const WAY_ROUND_SPEED_KT = 2;
+
+/**
  * The room kept round the way by sea in the window routed on, in degrees: the route box's own
  * least pad. A window only as large as the way round needs keeps the router's graph fine (its
  * node spacing is the window's span / 150) and the forecast read small.
@@ -61,7 +72,7 @@ export interface RoutingWindow {
  * - else the first larger window (ROUTE_WINDOW_GROWTH_DEG) that joins them, cut down to the route
  *   box and the shortest way by sea between the ends (seaWay) with ROUTE_WINDOW_MARGIN_DEG round
  *   it when that shortens the window's longer side (the graph's node spacing is that side / 150),
- *   and the horizon of that way when it is longer than `maxHours`;
+ *   and the horizon of that way at WAY_ROUND_SPEED_KT when it is longer than `maxHours`;
  * - when a larger window proves them apart (one end's water is enclosed in it), the route box
  *   for the search with that window's land mask, so that the router says closed water without
  *   any forecast read for the larger box;
@@ -84,7 +95,7 @@ export async function routingWindow(options: RoutingWindowOptions): Promise<Rout
     const found = { bbox: grown, landMask: mask, maxHours, grownDeg: padDeg };
     const path = seaWay(mask, start, finish);
     if (!path) return found;
-    found.maxHours = Math.max(maxHours, passageHoursForNm(path.nm));
+    found.maxHours = Math.max(maxHours, passageHoursForNm(path.nm, WAY_ROUND_SPEED_KT));
     const room = grownRouteBbox(path, ROUTE_WINDOW_MARGIN_DEG);
     const window = {
       minLat: Math.max(grown.minLat, Math.min(bbox.minLat, room.minLat)),

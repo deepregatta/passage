@@ -39,7 +39,7 @@ export { CURRENT_PRODUCTS, currentProduct, currentRecordProduct, currentRecordFr
 export type { CurrentProductId } from './currentProducts.js';
 export type { CurrentSummary } from './currentSummary.js';
 export { routeBbox, passageMaxHours } from './fetch/liveGrids.js';
-export { ROUTE_WINDOW_GROWTH_DEG, ROUTE_WINDOW_MARGIN_DEG, grownRouteBbox, routingWindow } from './routing/routingWindow.js';
+export { ROUTE_WINDOW_GROWTH_DEG, ROUTE_WINDOW_MARGIN_DEG, WAY_ROUND_SPEED_KT, grownRouteBbox, routingWindow } from './routing/routingWindow.js';
 export type { RoutingWindow, RoutingWindowOptions } from './routing/routingWindow.js';
 export {
   currentGridBbox, gridSearchBounds, selectRoutingCurrent, selectComparisonCurrent, routeOnSelectedCurrent, OUTSIDE_SELECTED_CURRENT,
