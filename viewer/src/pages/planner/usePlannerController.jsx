@@ -266,7 +266,8 @@ export default function usePlannerController() {
       if (routingInputKey(usePlanner.getState()) !== inputKey) return;
       setBusy('computing route');
       const { results, notes, currents } = routeOnOneCurrent(inputs, [departureUtc], polarPercent);
-      setComputed({ ...routedOutcome(results, departureUtc), notes, currents, inputKey });
+      // `moved`: how far each end moved to the water the route starts and ends in, shown with the route, never part of it.
+      setComputed({ ...routedOutcome(results, departureUtc), notes, currents, moved: inputs.moved ?? null, inputKey });
       setNoticeState({
         kind: ACTION.compute, text: hadRoute ? 'Route updated' : 'Route computed',
         signature: draftSignature(usePlanner.getState()),
@@ -346,11 +347,11 @@ export default function usePlannerController() {
       if (!current()) return;
       // The input key is the page's (its local time), so it is added here, after the comparison.
       const routes = Object.fromEntries(Object.entries(out.routes).map(([candidateUtc, result]) => [candidateUtc, {
-        ...result, notes: out.notes, currents: out.currents,
+        ...result, notes: out.notes, currents: out.currents, moved: out.moved ?? null,
         inputKey: routingInputKey({ endpoints, polarId, departureLocal: toLocalDateTimeValue(candidateUtc), polarPercent }),
       }]));
       setScan({
-        ...out.scan, routes, rerouted: out.rerouted, requested: out.requested,
+        ...out.scan, routes, rerouted: out.rerouted, requested: out.requested, moved: out.moved ?? null,
         notes: out.rerouted ? Object.values(routes)[0]?.notes ?? [] : [],
         basis: run.basis, anchorMs: run.anchorMs,
         // What a refinement must still match: the runs and limits this comparison read,
@@ -461,7 +462,7 @@ export default function usePlannerController() {
       const latest = usePlanner.getState().scan;
       if (latest !== held) return; // the comparison was replaced or dropped meanwhile
       const added = Object.fromEntries(Object.entries(out.routes).map(([candidateUtc, result]) => [candidateUtc, {
-        ...result, notes: out.notes, currents: out.currents,
+        ...result, notes: out.notes, currents: out.currents, moved: out.moved ?? null,
         inputKey: routingInputKey({ endpoints, polarId, departureLocal: toLocalDateTimeValue(candidateUtc), polarPercent }),
       }]));
       setScan({

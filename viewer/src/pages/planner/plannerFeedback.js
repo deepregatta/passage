@@ -1,3 +1,5 @@
+import { END_MOVE_SHOWN_M } from '@deepweather/engine';
+
 /** Plain-language status and error wording for the planner's actions. The libs
  * that report progress and failures are shared with other pages, so their raw
  * strings are translated here, at the point they are shown. */
@@ -84,7 +86,15 @@ const POLARS_UNAVAILABLE = /^Boat polars are unavailable/;
 // again cannot succeed, so the alert offers Draw my route in place of Retry. Known by its code where
 // the failure kept it, else by the start of either message.
 const CLOSED_WATER = /^No route found: on the (?:coarse outline of the coast|outline of the coast the router uses), /;
-const CLOSED_WATER_CODE = 'closed-water';
+// The other failures the same search again cannot help, Draw my route the way on: an end beyond the
+// 5 nm cap on the detailed coastline (EndTooFarFromWaterError) and a way by sea that leaves the area
+// the router can search (WayBeyondSearchError). By code, or by message where it crossed from the Worker.
+const DRAW_ONLY_CODES = new Set(['closed-water', 'end-too-far', 'way-beyond-search']);
+const DRAW_ONLY = [
+  CLOSED_WATER,
+  /^No open water within 5 nm of the (?:start|finish) on the detailed coastline\. /,
+  /^No route found: the way by sea between the start and the finish leaves the area the router can search\. /,
+];
 const RAW_FORECAST_FAILURE = /^forecast (?:tile )?(?:fetch (?:failed|timed out)|invalid)/i;
 const RAW_NETWORK_FAILURE = /^(?:TypeError: )?(?:Failed to fetch|NetworkError|Network request failed|Load failed)/i;
 
@@ -105,12 +115,30 @@ export function friendlyError(raw, saveFailure = null, code = null) {
     return { message: SAVE_FAILED[saveFailure] ?? SAVE_FAILED.failed, detail: String(raw ?? '').trim() || null, polars: false };
   }
   if (POLARS_UNAVAILABLE.test(text)) return { message: text, detail: null, polars: true };
-  if (code === CLOSED_WATER_CODE || CLOSED_WATER.test(text)) return { message: text, detail: null, polars: false, drawOnly: true };
+  if (DRAW_ONLY_CODES.has(code) || DRAW_ONLY.some((pattern) => pattern.test(text))) return { message: text, detail: null, polars: false, drawOnly: true };
   if (RAW_FORECAST_FAILURE.test(text) || RAW_NETWORK_FAILURE.test(text)) {
     return { message: FORECAST_LOAD_FAILED, detail: text, polars: false };
   }
   return { message: text, detail: null, polars: false };
 }
+
+/**
+ * What the page says about each end of a computed route that moved more than END_MOVE_SHOWN_M
+ * from the point marked to where the route starts or ends (owner-approved wording, 2026-11-28),
+ * in nautical miles to one decimal. Nothing for a route computed before moves were recorded.
+ * @param {{ start_m?: number | null, finish_m?: number | null } | null | undefined} moved
+ * @returns {string[]}
+ */
+export function movedEndSentences(moved) {
+  const nm = (m) => (m / 1852).toFixed(1);
+  const sentences = [];
+  if (movedEndShown(moved?.start_m)) sentences.push(`Start moved ${nm(moved.start_m)} nm to the nearest water the route can leave from.`);
+  if (movedEndShown(moved?.finish_m)) sentences.push(`Finish moved ${nm(moved.finish_m)} nm to the nearest water the route can reach.`);
+  return sentences;
+}
+
+/** Whether a move of `m` metres is shown: a dashed line on the map and a sentence under the route. */
+export const movedEndShown = (m) => typeof m === 'number' && m > END_MOVE_SHOWN_M;
 
 /**
  * Why a planner action cannot run yet, or null when it can. Order matters: the

@@ -219,13 +219,13 @@ describe('ends in closed pockets of sea on the fine routing index', () => {
     const b = { lat: a.lat + 3 / 480, lon: a.lon };
     const landMask = routingLandMask(coarse, fine, routeBbox(a, b));
     expect(isLand(landMask, b.lat, b.lon)).toBe(false);
-    expect(snapEnds(landMask, a, b)).toEqual({ start: a, finish: b });
+    expect(snapEnds(landMask, a, b)).toMatchObject({ start: a, finish: b });
   });
 
   it('on the 0.05° outline both ends snap exactly as before', () => {
     for (const [, start, finish] of POCKET_ENDS) {
       const landMask = windowLandMask(coarse.bytes, coarse.metadata, routeBbox(start, finish));
-      expect(snapEnds(landMask, start, finish)).toEqual({ start: snapToSea(landMask, start), finish: snapToSea(landMask, finish) });
+      expect(snapEnds(landMask, start, finish)).toMatchObject({ start: snapToSea(landMask, start), finish: snapToSea(landMask, finish) });
     }
   });
 });

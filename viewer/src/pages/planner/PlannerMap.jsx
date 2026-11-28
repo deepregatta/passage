@@ -6,6 +6,7 @@ import 'leaflet/dist/leaflet.css';
 import { BASEMAP } from '../../lib/basemap.js';
 import MapTouchScroll from '../../components/MapTouchScroll.jsx';
 import { labelMarker, markerIcon, markerSpecs, separateMarkerTargets } from './plannerMarkers.js';
+import { movedEndShown } from './plannerFeedback.js';
 
 /** The map frame stretches to the Passage panel beside it; tell Leaflet whenever
  * that height changes so tiles fill the new area. */
@@ -50,6 +51,22 @@ function FitRoute({ positions, fitKey, chartArea }) {
     }
   }, [map, fitKey, positions, chartArea]);
   return null;
+}
+
+/**
+ * A dashed line from each marker to where the computed route really starts or ends, for an end
+ * that moved over 200 m to reach water the route can use; its words are the sentence under the
+ * route (movedEndSentences). Nothing for a route computed before moves were recorded.
+ */
+function movedEndLines(computed, endpoints) {
+  const waypoints = computed.route.waypoints;
+  // The start's line (key 0), then the finish's (key 1).
+  const ends = [
+    { key: 0, moved: computed.moved?.start_m, marker: endpoints[0], end: waypoints[0] },
+    { key: 1, moved: computed.moved?.finish_m, marker: endpoints[1], end: waypoints.at(-1) },
+  ];
+  return ends.filter(({ moved, marker, end }) => movedEndShown(moved) && marker && end)
+    .map(({ key, marker, end }) => ({ key, positions: [[marker.lat, marker.lng], [end.lat, end.lon]] }));
 }
 
 export default function PlannerMap({ mode, waypoints, computed, endpoints, fitNonce, chartArea, addWaypoint, moveWaypoint, children }) {
@@ -118,6 +135,10 @@ export default function PlannerMap({ mode, waypoints, computed, endpoints, fitNo
             pathOptions={{ color: palette.verdict.within, weight: 3 }}
           />
         )}
+        {mode === 'compute' && computed && movedEndLines(computed, endpoints).map(({ key, positions }) => (
+          <Polyline key={key} positions={positions} interactive={false}
+            pathOptions={{ color: palette.ink.DEFAULT, weight: 1.5, dashArray: '6 4' }} />
+        ))}
       </MapContainer>
       {children}
     </div>

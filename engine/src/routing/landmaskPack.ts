@@ -1,3 +1,4 @@
+import { haversineNm } from '../geo.js';
 import { isLand, landAtOf, type LandMask, type RoutingLandMask } from './landmask.js';
 
 export interface PackedLandMaskMetadata {
@@ -146,8 +147,79 @@ export const SNAP_POCKET_CELLS = 2000;
  * cell; with none of those it stays where snapToSea put it, and the router says the water is
  * closed. An end the sailor put on open sea stays where it is.
  * On the 0.05° outline this is snapToSea for each end, unchanged.
+ *
+ * Also how far each end moved (`moved_m`, metres along the great circle; null for an end with
+ * no water in reach), for the planner to show a move over END_MOVE_SHOWN_M, and on the fine
+ * routing index which end, if any, would move more than FINE_END_MOVE_CAP_NM (`beyond_cap`,
+ * the start first): no route is computed for it (EndTooFarFromWaterError). The cap never
+ * applies on the outline, whose ends move up to SNAP_REACH_DEG.
  */
 export function snapEndsToSea(
+  mask: RoutingLandMask,
+  start: { lat: number; lon: number },
+  finish: { lat: number; lon: number },
+): SnappedEnds {
+  const { start: a, finish: b } = snappedEnds(mask, start, finish);
+  const moved = (asked: { lat: number; lon: number }, at: { lat: number; lon: number } | null) =>
+    at ? haversineNm(asked.lat, asked.lon, at.lat, at.lon) * 1852 : null;
+  const moved_m = { start: moved(start, a), finish: moved(finish, b) };
+  const capM = FINE_END_MOVE_CAP_NM * 1852;
+  const capped = (asked: { lat: number; lon: number }, at: { lat: number; lon: number } | null, m: number | null) =>
+    m !== null && m > capM && (inFineCell(mask, asked) || inFineCell(mask, at!));
+  const beyond_cap = capped(start, a, moved_m.start) ? 'start' : capped(finish, b, moved_m.finish) ? 'finish' : null;
+  return { start: a, finish: b, moved_m, beyond_cap };
+}
+
+/** snapEndsToSea's answer: where each end starts from, how far it moved, and an end beyond the fine cap. */
+export interface SnappedEnds {
+  start: { lat: number; lon: number } | null;
+  finish: { lat: number; lon: number } | null;
+  moved_m: { start: number | null; finish: number | null };
+  beyond_cap: 'start' | 'finish' | null;
+}
+
+/**
+ * The least move of an end, in metres, that the planner shows (a dashed line from the marker
+ * and a sentence under the route); owner-approved 2026-11-28.
+ */
+export const END_MOVE_SHOWN_M = 200;
+
+/**
+ * On the fine routing index (the detailed coastline), the farthest an end may move to reach
+ * open water, in nautical miles; owner-approved 2026-11-28. A harbour deep in a drying estuary
+ * (Vannes, Poole Harbour west) would otherwise start the route many miles from where the sailor
+ * marked it, sometimes across land.
+ */
+export const FINE_END_MOVE_CAP_NM = 5;
+
+/**
+ * No route is computed: on the detailed coastline, `end` would move more than
+ * FINE_END_MOVE_CAP_NM to reach open water (owner-approved wording, 2026-11-28). Marking that
+ * end at sea or drawing the route are the ways on; the same search again cannot help.
+ */
+export class EndTooFarFromWaterError extends Error {
+  readonly code = 'end-too-far';
+  constructor(readonly end: 'start' | 'finish') {
+    super(END_TOO_FAR_MESSAGE[end]);
+    this.name = 'EndTooFarFromWaterError';
+  }
+}
+
+// Written out whole (the viewer's French catalogue keys them), with FINE_END_MOVE_CAP_NM's 5 nm.
+const END_TOO_FAR_MESSAGE = {
+  start: 'No open water within 5 nm of the start on the detailed coastline. Mark a start at sea, or use Draw my route.',
+  finish: 'No open water within 5 nm of the finish on the detailed coastline. Mark a finish at sea, or use Draw my route.',
+} as const;
+
+/** Whether `p` lies in a cell of `mask` that comes from the fine routing index. */
+function inFineCell(mask: RoutingLandMask, p: { lat: number; lon: number }): boolean {
+  if (mask.kind !== 'land_cells' || !mask.fine_index_id || !mask.fineAt) return false;
+  const i = Math.round((p.lat - mask.lat0) / mask.dlat);
+  const j = Math.round((p.lon - mask.lon0) / mask.dlon);
+  return i >= 0 && i < mask.nlat && j >= 0 && j < mask.nlon && mask.fineAt(i, j);
+}
+
+function snappedEnds(
   mask: RoutingLandMask,
   start: { lat: number; lon: number },
   finish: { lat: number; lon: number },

@@ -15,7 +15,10 @@ vi.mock('@deepweather/engine', async (importOriginal) => ({
   routeBbox: () => ({ minLat: 0, maxLat: 1, minLon: 0, maxLon: 1 }),
   passageMaxHours: () => 48,
   // both ends through the one snap mock, start first, as the engine's snapEndsToSea does on the outline
-  snapEndsToSea: (mask, start, finish) => ({ start: mocks.snapToSea(mask, start), finish: mocks.snapToSea(mask, finish) }),
+  // (its moves are not what these tests are about: movedEndsInputs.test.js)
+  snapEndsToSea: (mask, start, finish) => ({
+    start: mocks.snapToSea(mask, start), finish: mocks.snapToSea(mask, finish), moved_m: { start: 0, finish: 0 }, beyond_cap: null,
+  }),
   polarFromRelease: mocks.polarFromRelease,
   routingWindow: mocks.routingWindow,
   forecastRunGone: (error) => (error?.name === 'ForecastRunGoneError' ? error : null),

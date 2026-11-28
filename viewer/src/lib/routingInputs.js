@@ -1,4 +1,6 @@
-import { forecastRunGone, passageMaxHours, polarFromRelease, routeBbox, routingWindow, snapEndsToSea } from '@deepweather/engine';
+import {
+  EndTooFarFromWaterError, forecastRunGone, passageMaxHours, polarFromRelease, routeBbox, routingWindow, snapEndsToSea,
+} from '@deepweather/engine';
 import { landMaskForBbox } from './landMask.js';
 import { forecastStore, friendlyForecastError } from './forecastStore.js';
 import { preparedRun } from './preparedRun.js';
@@ -113,6 +115,12 @@ async function loadPolar(polarId) {
  * runs off its edge (routingWindow), with its land mask and horizon. Compute and Scan read the
  * forecast over `bbox`; the download quote counts the same box. `start` or `finish` is null when
  * no water lies near that end (then `bbox` is the route box).
+ *
+ * Also `moved`, how far each end moved from the point marked to where the route starts or ends
+ * (metres; the planner shows a move over END_MOVE_SHOWN_M), and `wayBeyond` when the ends'
+ * water runs off the edge of every window tried (a route that fails then says the way leaves
+ * the area searched: routeOnOneCurrent). On the detailed coastline an end that would move more
+ * than 5 nm throws EndTooFarFromWaterError: no route is computed for it.
  * @param {{ lat: number, lon: number }} start
  * @param {{ lat: number, lon: number }} finish
  * @param {object} [routeBox] routeBbox(start, finish), when the caller already has it
@@ -120,17 +128,20 @@ async function loadPolar(polarId) {
 export async function routingArea(start, finish, routeBox = routeBbox(start, finish)) {
   const straightHours = passageMaxHours(start, finish);
   const routeBoxMask = await coastline(routeBox);
-  const { start: snappedStart, finish: snappedFinish } = snapEndsToSea(routeBoxMask, start, finish);
+  const snapped = snapEndsToSea(routeBoxMask, start, finish);
+  const { start: snappedStart, finish: snappedFinish } = snapped;
+  const moved = { start_m: snapped.moved_m.start, finish_m: snapped.moved_m.finish };
   if (!snappedStart || !snappedFinish) {
-    return { bbox: routeBox, landMask: routeBoxMask, maxHours: straightHours, start: snappedStart, finish: snappedFinish };
+    return { bbox: routeBox, landMask: routeBoxMask, maxHours: straightHours, start: snappedStart, finish: snappedFinish, moved, wayBeyond: false };
   }
+  if (snapped.beyond_cap) throw new EndTooFarFromWaterError(snapped.beyond_cap);
   // The route box, or a larger window when the ends' water runs off its edge (round a headland
   // the box leaves out); the forecast is read over the window the route is searched on.
-  const { bbox, landMask, maxHours } = await routingWindow({
+  const { bbox, landMask, maxHours, wayBeyond } = await routingWindow({
     bbox: routeBox, landMask: routeBoxMask, start: snappedStart, finish: snappedFinish,
     maxHours: straightHours, maskFor: coastline,
   });
-  return { bbox, landMask, maxHours, start: snappedStart, finish: snappedFinish };
+  return { bbox, landMask, maxHours, start: snappedStart, finish: snappedFinish, moved, wayBeyond };
 }
 
 /** The coastline window for `box`, with the planner's message when it cannot be loaded. */
@@ -175,7 +186,7 @@ export async function loadRoutingInputs({
   if (!area.start || !area.finish) {
     throw new Error('Click a point in open water near both ends of the passage');
   }
-  const { bbox, landMask, maxHours, start: snappedStart, finish: snappedFinish } = area;
+  const { bbox, landMask, maxHours, start: snappedStart, finish: snappedFinish, moved, wayBeyond } = area;
   const hours = hoursFor(maxHours);
 
   onProgress('loading forecast tiles');
@@ -211,6 +222,9 @@ export async function loadRoutingInputs({
     ...(preparedCurrent ? { preparedCurrent } : {}),
     start: { ...start, ...snappedStart },
     finish: { ...finish, ...snappedFinish },
+    // shown with the route, never part of it: the route and its identities stay as they were
+    moved,
+    wayBeyond,
     notes,
   };
 }

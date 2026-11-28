@@ -222,6 +222,11 @@ const FR = {
   // ClosedWaterError (engine isochrone.ts): the coarse coastline outline leaves no open water between start and finish.
   "No route found: on the outline of the coast the router uses, no open water joins the start and the finish. A channel between them is too narrow for it or dries at low tide. Use Draw my route instead.": "Aucune route trouvée : sur le tracé de la côte qu’utilise le calcul, aucune eau libre ne relie le départ et l’arrivée. Un chenal entre les deux y est trop étroit ou découvre à basse mer. Utilisez plutôt « Tracer ma route ».",
   "No route found: on the coarse outline of the coast, no open water joins the start and the finish. A strait or channel between them is too narrow to be in it. Use Draw my route instead.": "Aucune route trouvée : sur le tracé approximatif de la côte, aucune eau libre ne relie le départ et l’arrivée. Un détroit ou un chenal entre les deux est trop étroit pour y figurer. Utilisez plutôt « Tracer ma route ».",
+  // EndTooFarFromWaterError (engine landmaskPack.ts): on the detailed coastline an end would move more than 5 nm (owner-approved, 2026-11-28).
+  "No open water within 5 nm of the start on the detailed coastline. Mark a start at sea, or use Draw my route.": "Aucune eau libre à moins de 5 M du départ sur le trait de côte détaillé. Placez le départ en mer, ou utilisez « Tracer ma route ».",
+  "No open water within 5 nm of the finish on the detailed coastline. Mark a finish at sea, or use Draw my route.": "Aucune eau libre à moins de 5 M de l’arrivée sur le trait de côte détaillé. Placez l’arrivée en mer, ou utilisez « Tracer ma route ».",
+  // WayBeyondSearchError (engine routingWindow.ts): the way by sea leaves the area searched; also a comparison departure's skip reason (owner-approved, 2026-11-28).
+  "No route found: the way by sea between the start and the finish leaves the area the router can search. Use Draw my route instead.": "Aucune route trouvée : le chemin par mer entre le départ et l’arrivée sort de la zone où le calcul peut chercher. Utilisez plutôt « Tracer ma route ».",
   // SearchBoundsError (engine isochrone.ts): a comparison departure keeps 'no-route' as its skip reason.
   "No route found inside the area the route may search": "Aucune route trouvée dans la zone de recherche autorisée",
   "The start or finish is outside the area the route may search": "Le départ ou l’arrivée est hors de la zone de recherche autorisée",
@@ -1285,6 +1290,9 @@ const FR_PATTERNS = [
   [/^(OBSERVATION SOURCE)( ·.*)$/, (_match, label, suffix) => `${FR[label]}${suffix}`],
   [/^(reading deterministic forecast tiles|checking ensemble tiles|reading wave tiles|reading hazard and model-comparison tiles)(…)?$/, (_match, label, ellipsis = '') => `${FR[label]}${ellipsis}`],
   [/^reading (\d+)-member ensemble tiles(…)?$/, (_match, members, ellipsis = '') => `lecture des tuiles d’ensemble à ${members} membres${ellipsis}`],
+  // A computed route's moved end (plannerFeedback.js movedEndSentences, owner-approved 2026-11-28); the decimal comma comes from localizeNumbers.
+  [/^Start moved ([\d.]+) nm to the nearest water the route can leave from\.$/, 'Départ déplacé de $1 M vers l’eau la plus proche d’où la route peut partir.'],
+  [/^Finish moved ([\d.]+) nm to the nearest water the route can reach\.$/, 'Arrivée déplacée de $1 M vers l’eau la plus proche que la route peut atteindre.'],
   [/^No route found within (\d+) h \(wind coverage, land, or no-go conditions\)$/, 'Aucune route trouvée en $1 h (couverture du vent, terre ou conditions impraticables)'],
   [/^Forecast grid coarsened to ([\d.]+)° to keep this crossing within the browser point budget\.$/, 'Grille de prévision ramenée à $1° pour respecter le nombre de points gérable par le navigateur pour cette traversée.'],
   [/^Route save failed: HTTP (\d+)$/, 'Échec de l’enregistrement de la route : HTTP $1'],

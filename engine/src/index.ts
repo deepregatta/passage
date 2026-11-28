@@ -39,7 +39,7 @@ export { CURRENT_PRODUCTS, currentProduct, currentRecordProduct, currentRecordFr
 export type { CurrentProductId } from './currentProducts.js';
 export type { CurrentSummary } from './currentSummary.js';
 export { routeBbox, passageMaxHours } from './fetch/liveGrids.js';
-export { ROUTE_WINDOW_GROWTH_DEG, ROUTE_WINDOW_MARGIN_DEG, WAY_ROUND_SPEED_KT, grownRouteBbox, routingWindow } from './routing/routingWindow.js';
+export { ROUTE_WINDOW_GROWTH_DEG, ROUTE_WINDOW_MARGIN_DEG, WAY_ROUND_SPEED_KT, WayBeyondSearchError, grownRouteBbox, routingWindow } from './routing/routingWindow.js';
 export type { RoutingWindow, RoutingWindowOptions } from './routing/routingWindow.js';
 export {
   currentGridBbox, gridSearchBounds, selectRoutingCurrent, selectComparisonCurrent, routeOnSelectedCurrent, OUTSIDE_SELECTED_CURRENT,
@@ -58,8 +58,10 @@ export { polarFromRelease } from './routing/deepPolars.js';
 export type { DeepPolarsEntry } from './routing/deepPolars.js';
 export { isLand, segmentCrossesLand } from './routing/landmask.js';
 export type { LandMask, LandCellMask, RoutingLandMask } from './routing/landmask.js';
-export { windowLandMask, snapToSea, snapEndsToSea, SNAP_POCKET_CELLS } from './routing/landmaskPack.js';
-export type { PackedLandMaskMetadata, GeoBbox } from './routing/landmaskPack.js';
+export {
+  windowLandMask, snapToSea, snapEndsToSea, SNAP_POCKET_CELLS, END_MOVE_SHOWN_M, FINE_END_MOVE_CAP_NM, EndTooFarFromWaterError,
+} from './routing/landmaskPack.js';
+export type { PackedLandMaskMetadata, GeoBbox, SnappedEnds } from './routing/landmaskPack.js';
 export { decodeLandIndexTile, parseLandIndexManifest } from './routing/landIndex.js';
 export type { LandIndexManifest, LandIndexTile } from './routing/landIndex.js';
 export { routingLandMask } from './routing/fineLandMask.js';

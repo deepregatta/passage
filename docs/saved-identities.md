@@ -927,3 +927,14 @@ six older unreferenced cycles never establishes permission to prune. P01's
 unknown ownership and stop optional production at admitted capacity instead.
 No snapshot or saved reference is migrated; this cannot recover an artifact
 already deleted before the policy changed.
+- Moved ends (2026-11-28, owner-approved rule and wording): how far each end of a
+  computed route moved from the point marked to the water the route starts or ends in is
+  display data, never route content. It is kept beside the route in the planner draft
+  (`computed.moved`, and on each comparison route and the comparison itself), not in the
+  route object, so `route_revision`, `inputs.route_hash`, the frozen decision inputs,
+  `decision_hash` and `snapshot_id` are unchanged, and a check saves exactly what it saved
+  before. A draft computed before the change has no `moved` and shows nothing. The saved
+  check page, print and GPX export show the route as computed, from its first waypoint, with
+  no marker elsewhere and so no dashed line or sentence. The fine coastline's 5 nm cap
+  (behind `FINE_LAND_ENABLED`) and the way-round message only replace a failure: no route is
+  saved for either.

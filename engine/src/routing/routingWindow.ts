@@ -63,6 +63,25 @@ export interface RoutingWindow {
   maxHours: number;
   /** how far past the route box the land mask reaches, in degrees (0: the route box's own) */
   grownDeg: number;
+  /**
+   * The ends' water runs off the edge of every window tried, the largest included: the way by
+   * sea between them, if any, leaves the area searched (past ROUTE_WINDOW_GROWTH_DEG, or past
+   * 180°). When the router then finds no route, the planner says so (WayBeyondSearchError).
+   */
+  wayBeyond: boolean;
+}
+
+/**
+ * No route was found, and the way by sea between the ends leaves the area the router can
+ * search (RoutingWindow.wayBeyond): it replaces the router's generic failure for such a
+ * passage (owner-approved wording, 2026-11-28). The same search again cannot help.
+ */
+export class WayBeyondSearchError extends Error {
+  readonly code = 'way-beyond-search';
+  constructor() {
+    super('No route found: the way by sea between the start and the finish leaves the area the router can search. Use Draw my route instead.');
+    this.name = 'WayBeyondSearchError';
+  }
 }
 
 /**
@@ -76,12 +95,13 @@ export interface RoutingWindow {
  * - when a larger window proves them apart (one end's water is enclosed in it), the route box
  *   for the search with that window's land mask, so that the router says closed water without
  *   any forecast read for the larger box;
- * - when even the largest window neither joins nor proves them apart, the route box unchanged:
- *   the router then fails with its generic message, never closed water.
+ * - when even the largest window neither joins nor proves them apart, the route box unchanged,
+ *   with `wayBeyond`: the router then fails with its generic message, never closed water, and
+ *   the planner says the way leaves the area searched.
  */
 export async function routingWindow(options: RoutingWindowOptions): Promise<RoutingWindow> {
   const { bbox, landMask, start, finish, maxHours, maskFor } = options;
-  const routeBox: RoutingWindow = { bbox, landMask, maxHours, grownDeg: 0 };
+  const routeBox: RoutingWindow = { bbox, landMask, maxHours, grownDeg: 0, wayBeyond: false };
   if (seaWayInWindow(landMask, start, finish) !== 'beyond') return routeBox;
   let previous = bbox;
   for (const padDeg of ROUTE_WINDOW_GROWTH_DEG) {
@@ -92,7 +112,7 @@ export async function routingWindow(options: RoutingWindowOptions): Promise<Rout
     const way = seaWayInWindow(mask, start, finish);
     if (way === 'beyond') continue;
     if (way === 'closed') return { ...routeBox, landMask: mask, grownDeg: padDeg };
-    const found = { bbox: grown, landMask: mask, maxHours, grownDeg: padDeg };
+    const found = { bbox: grown, landMask: mask, maxHours, grownDeg: padDeg, wayBeyond: false };
     const path = seaWay(mask, start, finish);
     if (!path) return found;
     found.maxHours = Math.max(maxHours, passageHoursForNm(path.nm, WAY_ROUND_SPEED_KT));
@@ -110,7 +130,7 @@ export async function routingWindow(options: RoutingWindowOptions): Promise<Rout
     if (seaWayInWindow(windowMask, start, finish) !== 'joined') return found;
     return { ...found, bbox: window, landMask: windowMask };
   }
-  return routeBox;
+  return { ...routeBox, wayBeyond: true };
 }
 
 const span = (box: RouteBbox) => Math.max(box.maxLat - box.minLat, box.maxLon - box.minLon);

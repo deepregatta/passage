@@ -360,6 +360,24 @@ outline (about 100 kB, fetched once and then held for Compute) and runs the wind
 re-quotes every minute. With the fine index on it would also load the fine tiles and search
 the finer windows (0.3 s to 3 s on a desktop): measure that on a phone before the switch.
 
+Moved ends, the fine cap and the way round beyond the search area (2026-11-28,
+owner-approved rule and wording). `snapEndsToSea` returns how far each end moved from the
+point marked to where the route starts or ends (`moved_m`, great-circle metres) and, on the
+fine routing index only, which end would move more than `FINE_END_MOVE_CAP_NM` (5 nm,
+`beyond_cap`); `routingWindow` flags `wayBeyond` when the ends' water runs off the edge of
+every window tried. `engine/test/movedEnds.test.ts` measures the moves on the real outline
+(Cowes about 25 km), refuses Vannes as a start and Poole Harbour west as a finish on the fine
+tiles and never on the outline, and flags Belize → the Gulf of Fonseca alone.
+`viewer/test/movedEndsInputs.test.js` runs `loadRoutingInputs` on the real outline, with the
+fine switch mocked on for the cap and off to show it never refuses, and checks that
+`routeOnOneCurrent` replaces only the router's generic failure, for Compute and every compared
+departure, with the way-round message. `viewer/test/plannerMovedEnds.test.jsx` shows the
+sentences in English and French (announced from an always-mounted, screen-reader-only live
+region, shown under the route hidden from assistive technology), the dashed lines from the markers, nothing at 200 m or less
+or for a route computed before the change, the two refusals with Draw my route in place of
+Retry, the way-round message as a comparison skip reason in both languages, and the
+comparison's own line. The moved distance is display only: it never enters the route.
+
 Seen on the public site on 2026-11-26 with the rebuilt outline: a route computed
 through the Strait of Gibraltar (104 nm, 12.3 h, with the not-for-navigation note),
 and Sea of Marmara → Black Sea gave the closed-water message in English and French.

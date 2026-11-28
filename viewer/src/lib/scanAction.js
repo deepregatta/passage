@@ -4,7 +4,7 @@
 // Everything in it reads the store it is given, so the forecast runs it sees
 // are the runs the caller pinned.
 import {
-  candidateDepartures, computeRoute, refineScan, refinementDepartures, routeOnSelectedCurrent, scanDepartures, selectComparisonCurrent,
+  WayBeyondSearchError, candidateDepartures, computeRoute, refineScan, refinementDepartures, routeOnSelectedCurrent, scanDepartures, selectComparisonCurrent,
   selectRoutingCurrent,
 } from '@deepweather/engine';
 import { freezeActionInputs } from './actionInputs.js';
@@ -19,21 +19,32 @@ export const SCAN_STEP_H = 6;
 /** The candidate departures of a comparison anchored at `departureUtc`. */
 export const scanDeparturesFor = (departureUtc) => candidateDepartures(Date.parse(departureUtc), SCAN_SPAN_H, SCAN_STEP_H);
 
+/** The router's generic failure (engine isochrone.ts). */
+const GENERIC_NO_ROUTE = /^No route found within \d+ h /;
+
 // `searchBounds`: the prepared grid's box when the engine tries that grid (the router then searches only inside it).
-const routeForDeparture = (inputs, departureUtc, polarPercent, currentGrid, strictCurrent, searchBounds) =>
-  computeRoute({
-    start: inputs.start,
-    finish: inputs.finish,
-    departureUtc,
-    polar: inputs.polar,
-    polarScaling: polarPercent / 100,
-    windGrid: inputs.windGrid,
-    currentGrid: currentGrid ?? undefined,
-    ...(strictCurrent ? { strictCurrent: true } : {}),
-    ...(searchBounds ? { searchBounds } : {}),
-    landMask: inputs.landMask,
-    maxHours: inputs.maxHours,
-  });
+// When the ends' water runs off the edge of every window tried (`inputs.wayBeyond`), the
+// router's generic failure says instead that the way by sea leaves the area searched; every
+// other failure, and every route, is as the router gives it.
+const routeForDeparture = (inputs, departureUtc, polarPercent, currentGrid, strictCurrent, searchBounds) => {
+  try {
+    return computeRoute({
+      start: inputs.start,
+      finish: inputs.finish,
+      departureUtc,
+      polar: inputs.polar,
+      polarScaling: polarPercent / 100,
+      windGrid: inputs.windGrid,
+      currentGrid: currentGrid ?? undefined,
+      ...(strictCurrent ? { strictCurrent: true } : {}),
+      ...(searchBounds ? { searchBounds } : {}),
+      landMask: inputs.landMask,
+      maxHours: inputs.maxHours,
+    });
+  } catch (error) {
+    throw inputs.wayBeyond && GENERIC_NO_ROUTE.test(error?.message ?? '') ? new WayBeyondSearchError() : error;
+  }
+};
 
 /** One current source for every departure of a Compute or a computed scan,
  * by the engine's rule: the prepared grid only when both ends are inside it and
@@ -145,6 +156,8 @@ export async function runScanAction(request, { store, onProgress = () => {}, now
   }, { refinable: true });
   const out = {
     scan, routes, notes: selection?.notes ?? [], currents: selection?.currents ?? null,
+    // how far each end moved to the water the routes start from (the same for every departure)
+    moved: routingInputs?.moved ?? null,
     rerouted: Boolean(routeFor), requested: departures.length, forecastRuns: action.tileRuns, dateWindow,
   };
   keepContext?.({
@@ -208,5 +221,8 @@ export async function runRefineAction(context, { onProgress = () => {} } = {}) {
       onProgress(`scanning departures ${audited}/${departures.length}`);
     },
   );
-  return { scan, routes, notes: context.notes, currents: context.currents, added, around, requested: added.length };
+  return {
+    scan, routes, notes: context.notes, currents: context.currents, moved: routing?.inputs.moved ?? null,
+    added, around, requested: added.length,
+  };
 }

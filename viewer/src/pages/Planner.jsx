@@ -10,7 +10,9 @@ import RefineControl from './planner/RefineControl.jsx';
 import PlannerMap from './planner/PlannerMap.jsx';
 import usePlannerController, { validSpeed } from './planner/usePlannerController.jsx';
 import { POLAR_PERCENT_MAX, POLAR_PERCENT_MIN, polarPercentNote } from './planner/plannerInputs.js';
-import { ACTION, BUSY_BUTTON_LABEL, SOURCE, STOP_REFINE_LABEL, STOP_SCAN_LABEL, barStatus, mapHint, revealElement } from './planner/plannerFeedback.js';
+import {
+  ACTION, BUSY_BUTTON_LABEL, SOURCE, STOP_REFINE_LABEL, STOP_SCAN_LABEL, barStatus, mapHint, movedEndSentences, revealElement,
+} from './planner/plannerFeedback.js';
 import { gribRouteArea, gribRoutePoints } from '../lib/gribExport.js';
 import { useApp } from '../stores/appStore.js';
 import { useGrib } from '../stores/gribStore.js';
@@ -33,6 +35,8 @@ export default function Planner() {
     route, distance, speedsValid, passageHours, addWaypoint, moveWaypoint,
     runRouting, onGpx, runScan, stopScan, run, downloadLines, runRefine, refineReason, refineCount, refineBothRankings,
   } = usePlannerController();
+  // How far each end of the computed route moved to the water it starts or ends in, when over 200 m.
+  const movedSentences = computed ? movedEndSentences(computed.moved) : [];
   // Every status below takes the same inputs; each one picks out its own action.
   const status = { activeAction, busy, failure, notice, onRetry: () => retryAction(failure?.kind), onSwitchToDraw: () => setMode('draw') };
   const running = (kind) => activeAction?.kind === kind && !activeAction.source;
@@ -211,6 +215,11 @@ export default function Planner() {
                 </button>
                 {downloadLines.compute && <p id="download-compute" className="text-[12px] text-ink-soft">{downloadLines.compute}</p>}
                 <ActionStatus kind={ACTION.compute} {...status} />
+                {/* Always mounted, so a computed route's moved ends are announced like the route itself; screen-reader
+                    only and never the step's last child, so it takes no room (the sentences are shown under the route). */}
+                <div aria-live="polite" data-testid="route-moved-ends" className="sr-only">
+                  {movedSentences.map((text) => <p key={text}>{text}</p>)}
+                </div>
                 <div aria-live="polite" className="space-y-1 empty:hidden">
                   {busy === null && computeBlocked && <p className="text-[13px] text-ink-soft">{computeBlocked}</p>}
                   {staleRoute && <p className="text-[13px] border-l-2 border-ink/50 pl-2">{staleRoute}</p>}
@@ -228,6 +237,13 @@ export default function Planner() {
                       <span className="block text-[12px] text-ink-soft mt-0.5">{polarPercentNote(computed.route)}</span>
                     )}
                   </p>
+                )}
+                {/* Each end that moved over 200 m to the water the route starts or ends in: the map's dashed line in words,
+                    under the route; assistive technology reads it from the announcer above. */}
+                {movedSentences.length > 0 && (
+                  <div aria-hidden="true" data-testid="route-moved-ends-shown" className="space-y-1">
+                    {movedSentences.map((text) => <p key={text} className="text-[13px]">{text}</p>)}
+                  </div>
                 )}
                 {computed && <RouteSourceNotes computed={computed} />}
               </>

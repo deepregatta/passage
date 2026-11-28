@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { rankCandidates } from '@deepweather/engine';
 import { RANK_CAUTIOUS, RANK_TYPICAL, usePlanner } from '../../stores/plannerStore.js';
 import { fmtLocalTime, localDateTimeToIso, localTimeZoneName, VERDICT } from '../../lib/format.js';
+import { movedEndSentences } from './plannerFeedback.js';
 
 /** compact verdict labels for the scan rows; the full wording lives in the briefing */
 const SCAN_VERDICT = {
@@ -125,6 +126,17 @@ function CurrentReach({ scan }) {
   );
 }
 
+/** How far the comparison's ends moved to the water its routes start and end in (the same for every departure). */
+function MovedEnds({ scan }) {
+  const sentences = movedEndSentences(scan.moved);
+  if (sentences.length === 0) return null;
+  return (
+    <div className="font-sans text-[12px] text-ink-soft mt-1 max-w-[80ch]" data-testid="comparison-moved-ends">
+      {sentences.map((text) => <p key={text}>{text}</p>)}
+    </div>
+  );
+}
+
 function SkippedDepartures({ scan }) {
   const skipped = scan.skipped ?? [];
   const missing = scan.requested != null ? scan.requested - scan.candidates.length : skipped.length;
@@ -170,6 +182,7 @@ export default function DepartureComparison({ scan, departureLocal, busy, disabl
       <section className="mt-6 border-t border-ink/40 pt-3" aria-label="Departure comparison">
         <h2 ref={headingRef} tabIndex={-1} className="scroll-mt-16 font-instrument font-semibold uppercase tracking-wider">Departure comparison</h2>
         <CurrentReach scan={scan} />
+        <MovedEnds scan={scan} />
         <p className="font-sans text-sm text-ink-soft mt-2 max-w-[70ch]">
           None of the candidate departures could be assessed.
         </p>
@@ -254,6 +267,7 @@ export default function DepartureComparison({ scan, departureLocal, busy, disabl
         </span>
       </div>
       <CurrentReach scan={scan} />
+      <MovedEnds scan={scan} />
 
       <RankToggle mode={mode} cautiousAvailable={cautiousAvailable} onChange={(next) => patch({ rankMode: next })} />
 
